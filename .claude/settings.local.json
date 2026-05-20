@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash /c/Users/karee/.claude/scaffolding/setup-new-project.sh \"AI Receptionist Platform\")"
+    ]
+  }
+}

@@ -1,0 +1,101 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperadmin() {
+      return signedIn() && request.auth.token.superadmin == true;
+    }
+
+    function membershipDoc() {
+      return get(/databases/$(database)/documents/businessUsers/$(request.auth.uid));
+    }
+
+    function isBusinessMember(businessId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/businessUsers/$(request.auth.uid))
+        && membershipDoc().data.businessId == businessId;
+    }
+
+    function isBusinessOwnerOrStaff(businessId) {
+      return isBusinessMember(businessId)
+        && membershipDoc().data.role in ['owner', 'staff'];
+    }
+
+    match /businesses/{businessId} {
+      allow read: if isSuperadmin() || isBusinessMember(businessId);
+      allow create, update, delete: if isSuperadmin();
+
+      match /calls/{callId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow delete: if false;
+      }
+
+      match /leads/{leadId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow delete: if false;
+      }
+
+      match /appointments/{appointmentId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow delete: if false;
+      }
+
+      match /agentActions/{actionId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow update, delete: if false;
+      }
+
+      match /faqSuggestions/{suggestionId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow delete: if false;
+      }
+    }
+
+    match /businessUsers/{uid} {
+      allow read: if isSuperadmin() || (signedIn() && request.auth.uid == uid);
+      allow create, update, delete: if isSuperadmin();
+    }
+
+    match /businessPhoneNumbers/{phoneNumberId} {
+      allow read, write: if isSuperadmin();
+    }
+
+    match /businessOnboarding/{businessId} {
+      allow read: if isSuperadmin() || isBusinessMember(businessId);
+      allow write: if isSuperadmin();
+    }
+
+    match /businessIntegrationStatus/{businessId} {
+      allow read: if isSuperadmin() || isBusinessMember(businessId);
+      allow write: if isSuperadmin();
+    }
+
+    match /businessIntegrationConnections/{connectionId} {
+      allow read: if isSuperadmin()
+        || (
+          signedIn()
+          && resource.data.businessId is string
+          && isBusinessMember(resource.data.businessId)
+        );
+      allow create, update, delete: if isSuperadmin();
+    }
+
+    match /adminAuditEvents/{auditEventId} {
+      allow read, create: if isSuperadmin();
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{try{const j=JSON.parse(d);const f=(j.tool_input&&j.tool_input.file_path)||'';if(/\\.(ts|tsx)$/.test(f)){const {execSync}=require('child_process');try{execSync('npx tsc --noEmit',{stdio:'inherit',cwd:process.cwd()})}catch(e){process.exit(1)}}else{process.exit(0)}}catch(e){process.exit(0)}})\"",
+            "timeout": 60,
+            "statusMessage": "Type-checking..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"process.stdout.write(JSON.stringify({systemMessage:'Session ending — include checklist update; save lessons to memory? Say: remember [fact]. Write a retro? Say: write a retro. Ask before any git push.'}))\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
