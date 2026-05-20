@@ -1,10 +1,14 @@
 # AI Receptionist Platform — CLAUDE.md
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 4 UI scaffolding in progress
+**Status**: Phase 0 Firebase project setup (add airoof web app to existing Firebase project)
 **Estimated Completion**: 28%
-**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Twilio, Vercel
-**Repository**: (Configure with GitHub after creation)
+**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Twilio, Resend, Vercel
+**Repository**: https://github.com/K-WAM/AIRoof
+**Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
+**Vercel URL**: (deployment pending — not yet live)
+**Firebase Project**: business-expense-trackin-ef659 (web app: "airoof")
+**Firebase Auth Domain**: business-expense-trackin-ef659.firebaseapp.com
 **Superadmin**: connect@luxordev.com
 
 ## Overview
@@ -138,29 +142,32 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 
 ## Next Steps
 
-1. Scaffold `/company/agent` for company-editable approved services, FAQs, emergency rules, booking rules, escalation phone, and notification email.
-2. Turn static company/admin shells into data-backed screens after Firebase credentials are available.
-3. Seed demo-roofing business: `npx ts-node scripts/seed-demo-business.ts`
-4. Test endpoints: /api/agent/respond, /api/agent/classify, /api/tools/execute
-5. Deploy/test Firestore security rules.
-6. Wire Twilio real audio, calendar, notifications, and DeepSeek back-office tasks.
+1. **CURRENT**: Add airoof web app to existing Firebase project (Console → ⚙️ → Add app → Web). Copy config to `.env`. Download service account key.
+2. Enable Firebase Auth providers (Google), add Vercel domain to authorized domains.
+3. Connect Vercel project to GitHub repo and configure env vars.
+4. Seed demo-roofing business: `npx ts-node scripts/seed-demo-business.ts`
+5. Test endpoints: /api/agent/respond, /api/agent/classify, /api/tools/execute
+6. Deploy/test Firestore security rules.
+7. Wire Firebase Auth guards into admin and company routes.
+8. Wire Twilio real audio, calendar, Resend email/SMS, and DeepSeek back-office tasks.
 
 ## Implementation Phases
 
-- Phase 0: Core infrastructure ✓
-- Phase 1: Core API routes mostly complete; cron routes pending
-- Phase 2: Demo data & testing
-- Phase 3: Firestore security rules drafted; deployment/testing pending
-- Phase 4: Admin/company dashboard scaffolding in progress
-- Phase 5: Public pages (landing, ToS, demo widget)
-- Phase 6: Twilio real audio
-- Phase 7: Google Calendar integration
-- Phase 8: Email/SMS notifications
-- Phase 9: DeepSeek back-office
-- Phase 10: Monitoring & logging
-- Phase 11: Multi-tenant isolation audit
-- Phase 12: Lawns/landscaping vertical
-- Phase 13: Additional verticals (dental, HVAC, property management)
+- Phase 0: Firebase project setup (add web app to existing project) ← CURRENT
+- Phase 1: Core infrastructure ✓
+- Phase 2: Core API routes ✓
+- Phase 3: Demo data, testing & admin docs (seed script written, testing pending)
+- Phase 4: Firestore security rules (drafted, deployment/testing pending)
+- Phase 5: Admin/company dashboard scaffolding (auth guards pending)
+- Phase 6: Public pages (landing, ToS, demo widget)
+- Phase 7: Twilio real audio
+- Phase 8: Google Calendar integration
+- Phase 9: Email/SMS notifications (Resend + Twilio)
+- Phase 10: DeepSeek back-office
+- Phase 11: Monitoring & logging
+- Phase 12: Multi-tenant isolation audit
+- Phase 13: Lawns/landscaping vertical
+- Phase 14: Additional verticals (dental, HVAC, property management)
 
 ## Known Limitations
 
