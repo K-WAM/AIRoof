@@ -1,199 +1,134 @@
-# TODO: AI Receptionist Platform
+# TODO: AI Receptionist Platform — Production Roadmap
 
 > **Stack**: Next.js 15 + TypeScript + Firebase (Auth + Firestore) + OpenAI + DeepSeek + Twilio + Resend
-> **Hosting**: Vercel
-> **Firebase**: Add airoof web app to an existing Firebase project (no new project needed)
-> **Superadmin**: connect@luxordev.com
+> **Hosting**: Vercel | **Firebase Project**: `business-expense-trackin-ef659`
+> **Repo**: `https://github.com/K-WAM/AIRoof` | **Vercel Project ID**: `prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2`
+> **Completion**: ~60%
 
 ---
 
-## Phase 0: Firebase Project Setup (CURRENT)
-- [ ] Open Firebase Console → open existing project → ⚙️ Project settings → "Add app" → Web (`</>`)
-- [ ] Nickname the app "airoof" and register it
-- [ ] Copy the Firebase config object into `.env` (see `.env.example` for field names)
-- [ ] Download service account key: ⚙️ → Service accounts → "Generate new private key" → paste JSON string into `FIREBASE_SERVICE_ACCOUNT_JSON` in `.env`
-- [ ] Enable Auth providers: Authentication → Sign-in method → Enable Google (or desired providers)
-- [ ] Add Vercel domain (e.g., `ai-roof.vercel.app`) to Authentication → Settings → Authorized domains
-- [ ] Add `.env` to `.gitignore` (already done — API keys and service account JSON must never be committed)
-- [ ] Initial push to GitHub (github.com/K-WAM/AIRoof) — already done ✓
-- [ ] Connect Vercel project to GitHub repo
-- [ ] Configure Vercel env vars from `.env`
+## WHAT'S DONE ✅
 
-## Phase 1: Core Infrastructure ✓
-- [x] Type definitions (BusinessConfig, CallSession, Lead, Appointment, AgentAction, etc.)
-- [x] Firebase client SDK module (browser-safe)
-- [x] Firebase admin SDK module (server-side token verification)
-- [x] Scope classifier (OFF_TOPIC_PATTERNS, ALLOWED_SERVICE_PATTERNS)
-- [x] Prompt builder (BuildAgentPrompt from BusinessConfig)
-- [x] OpenAI client (generateAgentResponse with fallback)
-- [x] DeepSeek client stubs (summarizeTranscript, classifyCallOutcome, generateFaqSuggestions)
-- [x] Agent tools interface (checkAvailability, bookAppointment, createLead, escalateCall, logAgentAction)
+### Infrastructure
+- Firebase Admin + Client SDKs wired (singleton pattern)
+- Firestore rules deployed, phone number index deployed
+- Firebase Auth enabled (Google provider)
+- Vercel env vars configured (OpenAI, DeepSeek, Twilio, Firebase, Resend)
+- Health endpoint green: `{ firestore: "connected", openai: "configured", deepseek: "configured" }`
+- Seed script run — demo-roofing live in Firestore (Apex Roofing South Florida / Roofus)
 
-## Phase 2: Core API Routes ✓
-- [x] POST /api/agent/respond — main entry point (classify → prompt → OpenAI → log)
-- [x] POST /api/agent/classify — test scope classifier
-- [x] GET /api/health — health check
-- [x] GET /api/businesses/:businessId/agent-config — retrieve business config
-- [x] POST /api/webhooks/twilio/incoming — receive call webhook
-- [x] POST /api/webhooks/twilio/transcribe — process transcribed speech
-- [x] GET/PUT /api/calls/:callId — get/update call record
-- [x] POST /api/tools/execute — execute agent tools
-- [x] POST /api/cron/daily-call-summary — daily summaries via DeepSeek
-- [x] POST /api/cron/faq-suggestions — analyze calls for FAQ generation
-- [x] DELETE /api/calls/:callId — end call (cleanup)
+### AI Receptionist Core
+- Scope classifier — 16 OFF_TOPIC_PATTERNS, deterministic, before any OpenAI call
+- Prompt builder — injects company name, services, FAQs, hours, area, rules into every call
+- OpenAI client (gpt-4o-mini) — live call responses
+- DeepSeek client — wired for summarizeTranscript, classifyCallOutcome, generateFaqSuggestions
+- agentTools.ts — checkAvailability, bookAppointment, createLead, escalateCall, logAgentAction
 
-## Phase 3: Demo Data, Testing & Admin Docs ✓ (seed + test remaining)
-- [x] Create demo-roofing business seed script
-- [x] Create TESTING.md with comprehensive test cases
-- [x] Create docs/ADMIN-ONBOARDING.md (full business onboarding workflow)
-- [x] Create docs/ADMIN-QUICK-START.md (fast reference checklist)
-- [ ] Run seed-demo-business.ts to populate Firestore with demo-roofing
-- [ ] Manually test /api/agent/respond (on-topic, off-topic, emergency, FAQ)
-- [ ] Verify off-topic requests do NOT trigger OpenAI calls
-- [ ] Test /api/agent/classify with all OFF_TOPIC_PATTERNS
-- [ ] Test tool execution with /api/tools/execute (all 4 tools)
-- [ ] Verify Firestore documents created (calls, leads, appointments, agentActions)
-- [ ] Verify multi-tenant isolation (businessId scoping)
+### Twilio Webhooks
+- `POST /api/webhooks/twilio/incoming` — real Firestore phone lookup, Twilio sig verification, greeting from BusinessConfig
+- `POST /api/webhooks/twilio/transcribe` — reads businessId/callId from URL (no collection scan), classifies, calls OpenAI, logs transcript
+- **Gap**: Twilio Voice webhook URL not yet set in Twilio console (manual step, 2 min)
 
-## Phase 4: Firestore Security Rules
-- [x] Write security rules preventing cross-business data access
-- [ ] Deploy rules: `firebase deploy --only firestore:rules`
-- [ ] Test rules: authorized reads on own business, rejected reads on other business
+### Notifications
+- Resend wired in escalateCall() — urgent escalation email to notificationEmail
+- Resend wired in bookAppointment() — booking confirmation to notificationEmail
 
-## Phase 5: Admin Dashboard (Basic)
-- [x] Create app/admin/layout.tsx (dashboard shell; auth guard pending)
-- [x] Create app/admin/onboarding/page.tsx (superadmin onboarding wizard shell)
-- [x] Expand superadmin onboarding with template, plan, FAQ/rules, routing, and launch readiness sections
-- [x] Add superadmin business creation API for onboarding form submission
-- [x] Add superadmin businesses list API for loading tenant records
-- [x] Add superadmin business config update API
-- [x] Wire superadmin onboarding form to business creation API
-- [x] Wire superadmin business config form to config update API
-- [x] Add named receptionist fields and easygoing one-question-at-a-time prompt behavior
-- [x] Add receptionist name/greeting controls to superadmin onboarding and config forms
-- [x] Create app/company/layout.tsx (company user shell; auth guard pending)
-- [x] Create app/company/dashboard/page.tsx (calls, leads, escalations, appointments overview)
-- [x] Create app/company/leads/page.tsx (lead follow-up queue)
-- [x] Create app/company/calls/page.tsx (call history, transcript, summary, agent actions)
-- [x] Create app/company/appointments/page.tsx (inspection schedule)
-- [x] Create app/company/agent/page.tsx (company-editable agent settings)
-- [x] Add FAQ suggestions review section to company agent settings
-- [x] Add API route to approve/reject FAQ suggestions and promote approved FAQs
-- [x] Add typed per-business integration connection records for calendar, email, SMS, voice, CRM, and notification providers
-- [x] Create app/admin/businesses/page.tsx (list all businesses)
-- [x] Create app/admin/businesses/[businessId]/config/page.tsx (edit BusinessConfig)
-- [x] Add guided superadmin setup controls: industry template selector, plan selector, live model selector, back-office model selector, voice selector, calendar provider selector, phone routing status, launch readiness checklist
-- [x] Add vertical templates for roofing first, with placeholders for HVAC, landscaping, dental, and property management
-- [x] Add Standard/Subscriber model and voice presets so paid users can get upgraded AI behavior without code changes
-- [ ] Create pages/admin/businesses/[businessId]/calls/page.tsx (view call history)
-- [ ] Create pages/admin/businesses/[businessId]/leads/page.tsx (view leads)
-- [ ] Create pages/admin/businesses/[businessId]/appointments/page.tsx (view appointments)
-- [ ] Add Firebase Auth check to admin routes
-- [ ] Add Firebase Auth check to company routes
+### Auth
+- Google login page at /login
+- AuthContext — Firebase ID token, businessId, role from businessUsers collection
+- Company layout guard — redirects to /login if not signed in
+- Admin layout guard — redirects non-superadmins away from /admin
+- authMiddleware.ts — requireAuth, requireSuperadmin, requireBusinessMember for API routes
 
-## Phase 6: Public Pages
-- [ ] Create pages/index.tsx (landing page)
-- [ ] Create pages/tos.tsx (Terms of Service)
-- [ ] Create pages/privacy.tsx (Privacy Policy)
-- [ ] Create pages/demo.tsx (demo agent widget)
+### Company Dashboard (all 5 pages wired to live Firestore)
+- /company/dashboard — call count, lead count, appointment count, recent leads, agent config
+- /company/leads — live leads, click-to-select detail, Mark Contacted button
+- /company/calls — call history, click to read full transcript
+- /company/appointments — upcoming/past split, Confirm and Cancel buttons
+- /company/agent — full BusinessConfig display (services, FAQs, rules, routing)
 
-## Phase 7: Twilio Integration (Real Audio)
-- [ ] Wire Twilio SDK for real-time audio transcription
-- [ ] Replace Gather/Say stubs with WebSocket for streaming audio
-- [ ] Implement call recording storage to Cloud Storage
-- [ ] Create webhook signature verification for security
-- [ ] Add missed-call text-back workflow
-- [ ] Add human handoff / transfer rules for urgent or low-confidence calls
-- [ ] Add call recording consent settings per business
-- [ ] Document Twilio setup: phone number, webhook URLs, auth token
+### Multi-tenant
+- All data scoped by businessId
+- businessPhoneNumbers collection maps Twilio numbers to businesses
+- Firestore rules prevent cross-business reads
 
-## Phase 8: Google Calendar Integration
-- [ ] Replace mock slots in checkAvailability with real Google Calendar API
-- [ ] Wire bookAppointment to create calendar events
-- [ ] Handle calendar auth (service account or OAuth2)
-- [ ] Add Microsoft Outlook Calendar connector option
-- [ ] Add per-business calendar connection status and reconnect flow
-- [ ] Add booking confirmation and reschedule/cancel handling
-- [ ] Document calendar setup: credentials, sync behavior
+---
 
-## Phase 9: Email/SMS Notifications (Resend + Twilio)
-- [ ] Wire escalateCall to send SMS/email notifications
-- [ ] Set up Resend for email (sign up at resend.com, get API key)
-- [ ] Implement Resend React Email templates for booking confirmations, daily summaries, escalation alerts
-- [ ] Integrate Twilio SMS for escalation phone
-- [ ] Add customer SMS confirmations after booking
-- [ ] Add owner/staff email summaries after qualified calls
-- [ ] Add follow-up sequences for uncontacted leads
-- [ ] Add unsubscribe/do-not-call compliance
+## WHAT'S MISSING — PRIORITY ORDER ❌
 
-## Phase 10: Back-Office Processing (DeepSeek)
-- [ ] Wire DeepSeek API for summarizeTranscript
-- [ ] Wire DeepSeek API for classifyCallOutcome
-- [ ] Wire DeepSeek API for generateFaqSuggestions
-- [ ] Create cron jobs for daily processing
-- [ ] Store summaries and suggestions in Firestore
+### P0 — Makes calls actually work end-to-end (do these first)
 
-## Phase 11: Monitoring & Logging
-- [ ] Set up Vercel Analytics
-- [ ] Add Sentry for error tracking
-- [ ] Create logging middleware for call metrics
-- [ ] Dashboard: view call success rate, escalation rate, lead conversion
-- [ ] Dashboard: missed calls recovered, bookings created, response time, FAQ suggestion rate
-- [ ] Add searchable contact records created from calls
-- [ ] Add custom intake questions per vertical/business
-- [ ] Add low-confidence/flagged-call review queue
-- [ ] Alerts: escalation rate > 20%, API errors > 5%
+- [ ] **Twilio Voice webhook URL** — set in Twilio console → phone number → Voice webhook → `https://<vercel-domain>/api/webhooks/twilio/incoming` POST
+- [ ] **RESEND_FROM env var** — add to Vercel: `Roofus <notify@yourdomain.com>` (needs a verified Resend sending domain)
+- [ ] **Conversation memory** — Twilio transcribe webhook currently stateless; each turn Roofus sees only the current speech, not prior turns. Must load call's messages[] from Firestore and pass conversation history to OpenAI. Without this, Roofus can't collect name + address + service across multiple turns.
+- [ ] **Tool use during calls** — Roofus never calls bookAppointment() or createLead() mid-call. Need to parse OpenAI's intent from the response and invoke tools when enough info is collected (name, phone, service, address).
 
-## Phase 12: Multi-Tenant Isolation Audit
-- [ ] Code review: all queries scoped by businessId
-- [ ] Code review: no hardcoded secrets or IDs
-- [ ] Code review: all public endpoints validate caller's business membership
-- [ ] Manual test: verify cross-business access is blocked
+### P1 — Makes the product sellable
 
-## Phase 13: Lawns/Landscaping Vertical
-- [x] Add generic AI model/voice/tier fields to BusinessConfig so future verticals can share the same platform shape
-- [ ] Create landscaping-specific BusinessConfig template
-- [ ] Update scope classifier if needed for new services
-- [ ] Create demo-landscaping business
-- [ ] Document vertical-specific rules (seasonal, emergency types)
+- [ ] **Admin business list** — /admin/businesses shows static mock; wire to GET /api/admin/businesses
+- [ ] **Admin onboarding UI** — test the wizard end-to-end; confirm it writes a valid BusinessConfig + businessPhoneNumbers doc
+- [ ] **Voice picker** — agentVoice field in Firestore controls Twilio voice. Expose a selector in /company/agent or admin config. Twilio options: `alice`, `man`, `woman`. Polly options: `Polly.Joanna`, `Polly.Matthew`, etc.
+- [ ] **Client onboarding guide** — internal doc: how to manually onboard a paying client (seed their config, map their Twilio number, create their businessUsers login)
 
-## Phase 14: Additional Verticals
-- [ ] Dental industry config (appointment scheduling nuances, emergency procedures)
-- [ ] HVAC industry config (emergency rules for heating/cooling failures)
-- [ ] Property management config (tenant vs owner call handling)
-- [ ] Document onboarding process for new verticals
+### P2 — Makes it feel complete
 
-## Optional: Commercial & Enterprise Features
-- [ ] Multi-user management per business (roles: owner, staff, viewer)
-- [ ] Call transfer to human agents (Twilio agent routing)
-- [ ] SMS follow-up sequences (post-appointment reminders)
-- [ ] Custom IVR menus per business
-- [ ] Callback queuing (no hold music, call them back)
-- [ ] Analytics dashboard (call volume, peak hours, best FAQs)
-- [ ] A/B testing agent responses
-- [ ] CRM integrations: Jobber, ServiceTitan, GoHighLevel, HubSpot, Salesforce
-- [ ] Slack/Teams notifications for urgent calls and transfer summaries
-- [ ] Website chatbot using the same BusinessConfig constraints
-- [ ] Multi-language voice support
-- [ ] Integration with QuickBooks for invoice lookup
-- [ ] Integration with Calendly for self-service scheduling
+- [ ] **After-hours logic** — currently Roofus uses the same greeting 24/7. Should check current time against businessHours and use afterHoursGreeting + different behavior after hours
+- [ ] **Call outcome tagging** — after a call ends, run DeepSeek classifyCallOutcome() and write outcome field to the call doc; show in calls page
+- [ ] **FAQ suggestions cron** — POST /api/cron/faq-suggestions already exists as a stub; wire DeepSeek generateFaqSuggestions() and surface pending suggestions in /company/agent
+- [ ] **FAQ approve/reject in UI** — approve/reject buttons on /company/agent are not wired to the API endpoint
 
-## Deployment Checklist
-- [x] GitHub repo created (github.com/K-WAM/AIRoof)
-- [x] Initial git push to GitHub
-- [ ] Add airoof web app to existing Firebase project and configure `.env`
-- [ ] Set up Vercel project (import from GitHub)
-- [ ] Configure Vercel env vars: OPENAI_API_KEY, FIREBASE_SERVICE_ACCOUNT_JSON, etc.
-- [ ] Deploy Firebase Firestore rules
-- [ ] Deploy Cloud Functions for cron jobs
-- [ ] Custom domain (if applicable)
-- [ ] Enable HTTPS and CORS
-- [ ] Set up monitoring and alerting
-- [ ] Create runbook for on-call support
+### P3 — Post-first-customer
 
-## Post-Launch
-- [ ] Gather user feedback from first roofing customer
-- [ ] Measure cost per call (OpenAI + infrastructure)
-- [ ] Iterate on scope classifier based on real off-topic patterns
-- [ ] Refine prompt builder from call logs
-- [ ] Plan paid tier features (white-label, custom branding, advanced analytics)
+- [ ] **Google Calendar integration** — replace mock checkAvailability() slots with real Google Calendar free/busy query; requires OAuth per business
+- [ ] **SMS escalation** — requires Twilio A2P 10DLC registration (~2-4 weeks approval); email covers MVP
+- [ ] **Stripe billing** — subscription management, plan tier enforcement
+- [ ] **Additional verticals** — HVAC, dental, property management (templates already stubbed)
+- [ ] **WebSocket streaming** — sub-1s response latency using Twilio Media Streams + OpenAI Realtime API; current TwiML Gather/Say latency is 3-4s which is acceptable for MVP
+
+---
+
+## ARCHITECTURE REMINDER
+
+```
+Inbound call → Twilio → /api/webhooks/twilio/incoming
+  → looks up businessId from businessPhoneNumbers (Firestore)
+  → creates call record
+  → returns TwiML <Gather> with Roofus greeting
+
+Caller speaks → Twilio transcribes → /api/webhooks/twilio/transcribe
+  → reads businessId + callId from URL params (no collection scan)
+  → loads BusinessConfig from Firestore
+  → scope classifier (deterministic, no AI cost)
+  → if allowed: buildAgentPrompt() → OpenAI gpt-4o-mini → response text
+  → logs turn to call.messages[]
+  → returns TwiML <Say> + <Gather> for next turn
+
+Post-call (not yet built):
+  → DeepSeek summarizeTranscript()
+  → DeepSeek classifyCallOutcome()
+  → Resend escalation email (already built for mid-call escalation)
+```
+
+## KEY FILES
+
+| File | Purpose |
+|------|---------|
+| src/lib/ai/agentPromptBuilder.ts | Builds system prompt from BusinessConfig |
+| src/lib/ai/scopeClassifier.ts | Deterministic off-topic defense |
+| src/lib/ai/openaiClient.ts | OpenAI wrapper |
+| src/lib/ai/deepseekClient.ts | DeepSeek back-office (summarize, classify, FAQ) |
+| src/lib/tools/agentTools.ts | bookAppointment, createLead, escalateCall (Resend wired) |
+| src/app/api/webhooks/twilio/incoming/route.ts | Twilio inbound call handler |
+| src/app/api/webhooks/twilio/transcribe/route.ts | Speech → AI → TwiML response |
+| src/app/api/agent/respond/route.ts | Non-Twilio agent endpoint (testing) |
+| src/lib/verticals/templates.ts | Per-industry config templates |
+| scripts/seed-demo-business.mjs | Seed demo-roofing (run with node, not ts-node) |
+| firestore.rules | Tenant isolation rules (deployed) |
+
+## DEMO BUSINESS
+
+- **businessId**: demo-roofing
+- **Name**: Apex Roofing South Florida
+- **Agent**: Roofus
+- **Phone**: +16892042643
+- **Login**: sign in with Google → must have businessUsers doc with businessId: "demo-roofing"

@@ -19,18 +19,15 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **55% complete**.
+Current estimate: **60% complete**.
 
 Basis:
-- Core backend/API scaffolding exists and is deployed on Vercel.
-- Firestore rules and indexes deployed. Seed data live (demo-roofing).
-- Health endpoint returns green (firestore + openai + deepseek all configured).
-- Roofus (AI receptionist) responds correctly to real calls — tested end-to-end.
-- DeepSeek wired for back-office processing (summaries, classification, FAQ suggestions).
-- Auth guards on /company and /admin layouts; Google login page live.
-- Twilio webhooks fixed: real phone lookup, Twilio signature verification, no collection scan.
-- Resend emails wired: escalation + booking confirmation notifications.
-- Remaining: company UI pages wired to live Firestore (Phase 1F), Twilio webhook URL configured in Twilio console.
+- Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Twilio, Resend all configured.
+- Roofus answers calls end-to-end: scope classifier → OpenAI → TwiML voice response.
+- All 5 company dashboard pages wired to live Firestore data.
+- Auth guards on /company and /admin; Google login page live.
+- Resend escalation + booking confirmation emails wired.
+- Critical gaps remaining: conversation memory (Roofus forgets prior turns mid-call), tool use during calls (can't book or capture lead mid-call), Twilio webhook URL not yet set in Twilio console.
 
 ## Architecture
 
@@ -155,12 +152,20 @@ Before asking the user to verify anything, use CLI/curl first:
 - **Is a file/path correct?** Use Glob, Grep, or Read — not user confirmation
 - Only fall back to asking the user when the CLI genuinely cannot answer (web UI OAuth flows, Twilio console webhook URLs, Vercel env var entry).
 
+## Critical Architecture Gap — Conversation Memory
+
+Roofus currently handles one turn at a time with no memory of prior turns. Each Twilio webhook call only sees the current speech input. This means Roofus cannot collect name + address + service across a natural multi-turn conversation.
+
+**Fix**: In `transcribe/route.ts`, before calling OpenAI, load `call.messages[]` from Firestore and pass the full conversation history as OpenAI messages array (alternating user/assistant roles). This gives Roofus context for the entire call.
+
+**Second gap**: Roofus never calls bookAppointment() or createLead() during a call. After conversation memory is fixed, add intent detection — if Roofus has collected name + phone + service + address, call the appropriate tool and confirm back to the caller.
+
 ## Next Steps
 
-1. **CURRENT**: Wire Phase 1F — company UI pages to live Firestore (dashboard, leads, calls, appointments, agent config)
-2. Configure Twilio Voice webhook URL in Twilio console → `https://<vercel-domain>/api/webhooks/twilio/incoming`
-3. Add RESEND_FROM env var to Vercel (format: `Roofus <notify@yourdomain.com>`)
-4. Test end-to-end: real call → Roofus responds → Firestore logged → email sent
+1. **CURRENT**: Add conversation memory to Twilio transcribe webhook — load prior turns from Firestore, pass to OpenAI as message history
+2. Add tool invocation during calls — detect when enough info is collected, call bookAppointment() or createLead(), confirm to caller
+3. Configure Twilio Voice webhook URL in Twilio console → `https://<vercel-domain>/api/webhooks/twilio/incoming` POST
+4. Add RESEND_FROM env var to Vercel: `Roofus <notify@yourdomain.com>`
 
 ## Implementation Phases
 
@@ -168,21 +173,23 @@ Before asking the user to verify anything, use CLI/curl first:
 - Phase 1A: DeepSeek back-office wired ✓
 - Phase 1B: Auth guards + login page ✓
 - Phase 1C: Twilio webhooks fixed (phone lookup, sig verification, no collection scan) ✓
-- Phase 1D: Phone number activation (businessPhoneNumbers collection, active: true) ✓
-- Phase 1E: Resend email notifications (escalation + booking confirmation) ✓
-- Phase 1F: Company UI pages → live Firestore ← CURRENT
-- Phase 2: Twilio Voice webhook configured in Twilio console
-- Phase 3: Google Calendar integration (post-MVP)
-- Phase 4: SMS escalation via Twilio (post A2P 10DLC approval)
-- Phase 5: DeepSeek cron jobs (call summaries, FAQ generation)
-- Phase 6: Additional verticals (HVAC, dental, property management)
+- Phase 1D: Phone number activation (businessPhoneNumbers collection) ✓
+- Phase 1E: Resend email notifications (escalation + booking) ✓
+- Phase 1F: Company UI pages wired to live Firestore ✓
+- Phase 2: Conversation memory + tool use during calls ← CURRENT
+- Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron
+- Phase 4: Admin UI polish (business list, onboarding wizard test)
+- Phase 5: Google Calendar (post-MVP, requires per-business OAuth)
+- Phase 6: Stripe billing, SMS escalation, additional verticals
 
 ## Known Limitations
 
-- Company dashboard pages (dashboard, leads, calls, appointments, agent) show static shells — Phase 1F pending
+- **No conversation memory**: Roofus sees only the current turn, not prior turns in the call
+- **No tool use during calls**: Roofus never calls bookAppointment() or createLead() mid-call
+- **Twilio Voice webhook URL**: must be configured in Twilio console manually (2 min)
 - Google Calendar uses mock availability slots — real OAuth is post-MVP
 - SMS escalation requires A2P 10DLC registration (2–4 weeks) — email covers MVP
-- Twilio Voice webhook URL must be configured in Twilio console manually
+- Multi-turn lead collection only works after Phase 2 is built
 
 ## Contact
 
