@@ -1,137 +1,161 @@
-const days = [
-  { day: "Today", count: "4 inspections", selected: true },
-  { day: "Tomorrow", count: "3 inspections", selected: false },
-  { day: "Friday", count: "5 inspections", selected: false },
-  { day: "Next week", count: "12 inspections", selected: false },
-];
+"use client";
 
-const appointments = [
-  {
-    time: "9:00 AM",
-    duration: "60 min",
-    customer: "Maria Chen",
-    service: "Emergency leak inspection",
-    address: "1428 W 12th Ave, Vancouver",
-    status: "Urgent",
-    checks: ["Address confirmed", "Caller reachable", "Escalation ready"],
-  },
-  {
-    time: "11:30 AM",
-    duration: "45 min",
-    customer: "David Brooks",
-    service: "Roof inspection",
-    address: "88 Parker St, Burnaby",
-    status: "Confirmed",
-    checks: ["Address confirmed", "Photos requested"],
-  },
-  {
-    time: "2:00 PM",
-    duration: "60 min",
-    customer: "Samir Patel",
-    service: "Shingle replacement estimate",
-    address: "219 Foster Ave, Coquitlam",
-    status: "Needs callback",
-    checks: ["Phone captured", "Warranty question"],
-  },
-  {
-    time: "4:00 PM",
-    duration: "30 min",
-    customer: "Leah Morgan",
-    service: "Metal roofing quote",
-    address: "54 Royal Ave, New Westminster",
-    status: "Confirmed",
-    checks: ["Address confirmed", "Decision maker available"],
-  },
-];
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Appointment {
+  appointmentId: string;
+  callerName?: string;
+  callerPhone?: string;
+  serviceType?: string;
+  address?: string;
+  startTime: number;
+  endTime: number;
+  status: string;
+  createdAt: number;
+}
+
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
+}
 
 export default function CompanyAppointmentsPage() {
+  const { user } = useAuth();
+  const businessId = user?.businessId ?? "demo-roofing";
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!db || !businessId) return;
+    getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "asc")))
+      .then((snap) => {
+        setAppointments(snap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [businessId]);
+
+  async function updateStatus(appt: Appointment, status: string) {
+    if (!db) return;
+    setUpdating(appt.appointmentId);
+    try {
+      await updateDoc(doc(db, `businesses/${businessId}/appointments`, appt.appointmentId), {
+        status,
+        updatedAt: Date.now(),
+      });
+      setAppointments((prev) =>
+        prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status } : a))
+      );
+    } finally {
+      setUpdating(null);
+    }
+  }
+
+  const upcoming = appointments.filter((a) => a.startTime > Date.now() && a.status !== "cancelled");
+  const past = appointments.filter((a) => a.startTime <= Date.now());
+
+  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading appointments…</div>;
+
   return (
     <>
       <header className="page-header">
         <div>
           <h1 className="page-title">Appointments</h1>
           <p className="page-subtitle">
-            Track inspection bookings created from AI-qualified calls and spot
-            urgent roofing visits that need dispatcher attention.
+            Track inspection bookings created from AI-qualified calls.
           </p>
         </div>
-        <span className="status-pill">Mock calendar</span>
+        <span className="status-pill">{upcoming.length} upcoming</span>
       </header>
 
-      <div className="toolbar">
-        <div className="segmented-control" aria-label="Appointment filter">
-          <button className="segment" type="button" aria-pressed="true">
-            Scheduled
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Urgent
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Needs callback
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Completed
-          </button>
+      <section className="panel" aria-labelledby="upcoming-title">
+        <div className="panel-header">
+          <h2 className="panel-title" id="upcoming-title">Upcoming Inspections</h2>
         </div>
-        <button className="button primary" type="button">
-          New appointment
-        </button>
-      </div>
-
-      <div className="schedule-grid">
-        <aside className="panel" aria-labelledby="days-title">
-          <div className="panel-header">
-            <h2 className="panel-title" id="days-title">
-              Schedule
-            </h2>
-          </div>
-          <div className="panel-body">
-            <div className="day-list">
-              {days.map((day) => (
-                <article className="day-row" key={day.day} aria-selected={day.selected}>
-                  <p className="day-name">{day.day}</p>
-                  <span className="day-count">{day.count}</span>
+        <div className="panel-body">
+          {upcoming.length === 0 ? (
+            <p style={{ color: "#888", fontSize: 14 }}>No upcoming appointments. They appear here when Roofus books one.</p>
+          ) : (
+            <div className="appointment-list">
+              {upcoming.map((appt) => (
+                <article className="appointment-card" key={appt.appointmentId}>
+                  <div className="appointment-time">
+                    <span className="time-main">{formatTime(appt.startTime)}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p className="appointment-title">{appt.callerName ?? "Unknown"}</p>
+                    <p className="appointment-meta">{appt.callerPhone ?? "—"}</p>
+                    <p className="appointment-meta">{appt.serviceType ?? "Service not specified"}</p>
+                    <p className="appointment-meta">{appt.address ?? "No address"}</p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+                    <span className={appt.status === "requested" ? "tag" : "tag success"}>
+                      {appt.status}
+                    </span>
+                    {appt.status !== "confirmed" && appt.status !== "cancelled" && (
+                      <button
+                        className="button primary"
+                        type="button"
+                        disabled={updating === appt.appointmentId}
+                        onClick={() => updateStatus(appt, "confirmed")}
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                      >
+                        Confirm
+                      </button>
+                    )}
+                    {appt.status !== "cancelled" && (
+                      <button
+                        className="button"
+                        type="button"
+                        disabled={updating === appt.appointmentId}
+                        onClick={() => updateStatus(appt, "cancelled")}
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </article>
               ))}
             </div>
-          </div>
-        </aside>
+          )}
+        </div>
+      </section>
 
-        <section className="panel" aria-labelledby="appointments-title">
+      {past.length > 0 && (
+        <section className="panel" aria-labelledby="past-title" style={{ marginTop: 20 }}>
           <div className="panel-header">
-            <h2 className="panel-title" id="appointments-title">
-              Today&apos;s Inspections
-            </h2>
+            <h2 className="panel-title" id="past-title">Past</h2>
           </div>
           <div className="panel-body">
             <div className="appointment-list">
-              {appointments.map((appointment) => (
-                <article className="appointment-card" key={`${appointment.time}-${appointment.customer}`}>
+              {past.map((appt) => (
+                <article className="appointment-card" key={appt.appointmentId}>
                   <div className="appointment-time">
-                    <span className="time-main">{appointment.time}</span>
-                    <span className="time-sub">{appointment.duration}</span>
+                    <span className="time-main">{formatTime(appt.startTime)}</span>
                   </div>
-                  <div>
-                    <p className="appointment-title">{appointment.customer}</p>
-                    <p className="appointment-meta">{appointment.service}</p>
-                    <p className="appointment-meta">{appointment.address}</p>
-                    <div className="appointment-checks">
-                      {appointment.checks.map((check) => (
-                        <span className="tag" key={check}>
-                          {check}
-                        </span>
-                      ))}
-                    </div>
+                  <div style={{ flex: 1 }}>
+                    <p className="appointment-title">{appt.callerName ?? "Unknown"}</p>
+                    <p className="appointment-meta">{appt.serviceType ?? "—"}</p>
+                    <p className="appointment-meta">{appt.address ?? "—"}</p>
                   </div>
-                  <span className={appointment.status === "Urgent" ? "tag urgent" : "tag success"}>
-                    {appointment.status}
-                  </span>
+                  <span className="tag">{appt.status}</span>
                 </article>
               ))}
             </div>
           </div>
         </section>
-      </div>
+      )}
     </>
   );
 }

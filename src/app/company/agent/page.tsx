@@ -1,56 +1,48 @@
-const services = [
-  "Roof inspections and assessments",
-  "Shingle replacement and repairs",
-  "Metal roofing installation",
-  "Emergency water leak repairs",
-];
+"use client";
 
-const emergencyRules = [
-  "Active water entry, leak, or flooding escalates immediately",
-  "Electrical hazards, fire damage, or safety risk escalates immediately",
-  "Urgent caller intent receives same-day follow-up priority",
-];
-
-const bookingRules = [
-  "Only book appointments during business hours",
-  "Minimum 24-hour notice for non-emergency appointments",
-  "Collect name, phone, service type, and address before confirming",
-];
-
-const faqs = [
-  {
-    question: "Do you offer emergency services?",
-    answer:
-      "Yes, we can typically respond to emergency calls same-day. Please call us immediately if you have water damage or a leak.",
-  },
-  {
-    question: "What areas do you service?",
-    answer:
-      "We service Vancouver, Burnaby, New Westminster, and Coquitlam. Call us to confirm your address.",
-  },
-  {
-    question: "How much does an inspection cost?",
-    answer:
-      "Inspections are $150 and include a written report. That fee is credited toward any repair quote we provide.",
-  },
-];
-
-const faqSuggestions = [
-  {
-    question: "Can you inspect storm damage today?",
-    answer:
-      "Same-day storm damage inspections may be available depending on schedule and urgency. Please provide your address and describe the damage so the team can prioritize follow-up.",
-    sourceCallCount: 7,
-  },
-  {
-    question: "What should I do while water is leaking?",
-    answer:
-      "If safe, contain the water and avoid electrical fixtures near the leak. If there is immediate danger, contact emergency services first. The roofing team can follow up as soon as possible.",
-    sourceCallCount: 5,
-  },
-];
+import { useEffect, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import type { BusinessConfig } from "@/types";
 
 export default function CompanyAgentPage() {
+  const { user } = useAuth();
+  const businessId = user?.businessId ?? "demo-roofing";
+
+  const [config, setConfig] = useState<BusinessConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !businessId) return;
+    getDoc(doc(db, "businesses", businessId))
+      .then((snap) => {
+        if (snap.exists()) setConfig(snap.data() as BusinessConfig);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [businessId]);
+
+  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading agent settings…</div>;
+
+  if (!config) return <div style={{ padding: 32, color: "#888" }}>Agent config not found.</div>;
+
+  const routingRows = [
+    ["Agent name", config.agentName ?? "Roofus"],
+    ["Role", config.agentIdentity ?? "Receptionist"],
+    ["Plan tier", config.planTier ?? "standard"],
+    ["Live call model", config.liveModel ?? "gpt-4o-mini"],
+    ["Back-office model", config.backOfficeModel ?? "deepseek-chat"],
+    ["Voice", config.agentVoice ?? "alloy"],
+    ["Tone", config.agentTone ?? "—"],
+    ["Temperature", String(config.temperature ?? 0.5)],
+    ["Max tokens", String(config.maxTokens ?? 150)],
+    ["Escalation phone", config.escalationPhone ?? "—"],
+    ["Notification email", config.notificationEmail ?? "—"],
+    ["Calendar provider", config.calendarProvider ?? "mock"],
+    ["Greeting", config.greeting ?? "—"],
+  ];
+
   return (
     <>
       <header className="page-header">
@@ -58,28 +50,24 @@ export default function CompanyAgentPage() {
           <h1 className="page-title">Agent Settings</h1>
           <p className="page-subtitle">
             Review the approved services, FAQs, rules, and escalation contacts
-            the receptionist uses when answering calls for this company.
+            Roofus uses when answering calls for this company.
           </p>
         </div>
-        <span className="status-pill">Changes need review</span>
+        <span className="status-pill">{config.active ? "Active" : "Inactive"}</span>
       </header>
 
       <div className="settings-grid">
         <section className="panel" aria-labelledby="rules-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="rules-title">
-              Agent Rules
-            </h2>
+            <h2 className="panel-title" id="rules-title">Agent Rules</h2>
           </div>
           <div className="panel-body">
             <div className="rule-section">
               <div className="rule-group">
                 <h3 className="rule-heading">Approved services</h3>
                 <div className="chip-list">
-                  {services.map((service) => (
-                    <span className="chip" key={service}>
-                      {service}
-                    </span>
+                  {config.approvedServices.map((s) => (
+                    <span className="chip" key={s}>{s}</span>
                   ))}
                 </div>
               </div>
@@ -87,7 +75,7 @@ export default function CompanyAgentPage() {
               <div className="rule-group">
                 <h3 className="rule-heading">Emergency rules</h3>
                 <div className="queue-list">
-                  {emergencyRules.map((rule) => (
+                  {config.emergencyRules.map((rule) => (
                     <div className="queue-item" key={rule}>
                       <p className="queue-title">{rule}</p>
                     </div>
@@ -98,76 +86,40 @@ export default function CompanyAgentPage() {
               <div className="rule-group">
                 <h3 className="rule-heading">Booking rules</h3>
                 <div className="queue-list">
-                  {bookingRules.map((rule) => (
+                  {config.bookingRules.map((rule) => (
                     <div className="queue-item" key={rule}>
                       <p className="queue-title">{rule}</p>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {config.disallowedTopics && config.disallowedTopics.length > 0 && (
+                <div className="rule-group">
+                  <h3 className="rule-heading">Disallowed topics</h3>
+                  <div className="chip-list">
+                    {config.disallowedTopics.map((t) => (
+                      <span className="chip" key={t}>{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
 
         <aside className="panel" aria-labelledby="contact-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="contact-title">
-              Routing
-            </h2>
+            <h2 className="panel-title" id="contact-title">Routing & Config</h2>
           </div>
           <div className="panel-body">
             <div className="contact-card">
-              <div className="readonly-field">
-                <span>Receptionist name</span>
-                <strong>Mia</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Role</span>
-                <strong>Receptionist</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Plan tier</span>
-                <strong>Standard</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Live call model</span>
-                <strong>gpt-4o-mini</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Back-office model</span>
-                <strong>deepseek-chat</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Voice</span>
-                <strong>Alice</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Escalation phone</span>
-                <strong>+1 (604) 555-0000</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Notification email</span>
-                <strong>dispatch@apexroofing.local</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Agent tone</span>
-                <strong>Calm, concise, service-focused</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Response tuning</span>
-                <strong>Temperature 0.5 · 150 tokens</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Greeting</span>
-                <strong>Thanks for calling Apex Roofing, this is Mia.</strong>
-              </div>
-              <div className="readonly-field">
-                <span>Calendar provider</span>
-                <strong>Mock scheduling</strong>
-              </div>
-              <button className="button primary" type="button">
-                Request changes
-              </button>
+              {routingRows.map(([label, value]) => (
+                <div className="readonly-field" key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
             </div>
           </div>
         </aside>
@@ -175,51 +127,21 @@ export default function CompanyAgentPage() {
 
       <section className="panel" aria-labelledby="faq-title" style={{ marginTop: 20 }}>
         <div className="panel-header">
-          <h2 className="panel-title" id="faq-title">
-            Approved FAQs
-          </h2>
+          <h2 className="panel-title" id="faq-title">Approved FAQs</h2>
         </div>
         <div className="panel-body">
-          <div className="faq-list">
-            {faqs.map((faq) => (
-              <article className="faq-item" key={faq.question}>
-                <p className="faq-question">{faq.question}</p>
-                <p className="faq-answer">{faq.answer}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="panel" aria-labelledby="faq-suggestions-title" style={{ marginTop: 20 }}>
-        <div className="panel-header">
-          <h2 className="panel-title" id="faq-suggestions-title">
-            Suggested FAQs
-          </h2>
-        </div>
-        <div className="panel-body">
-          <div className="faq-list">
-            {faqSuggestions.map((faq) => (
-              <article className="suggestion-item" key={faq.question}>
-                <div className="lead-title-row">
+          {config.approvedFaqs.length === 0 ? (
+            <p style={{ color: "#888", fontSize: 14 }}>No approved FAQs configured.</p>
+          ) : (
+            <div className="faq-list">
+              {config.approvedFaqs.map((faq) => (
+                <article className="faq-item" key={faq.question}>
                   <p className="faq-question">{faq.question}</p>
-                  <span className="tag">{faq.sourceCallCount} calls</span>
-                </div>
-                <p className="faq-answer">{faq.answer}</p>
-                <div className="suggestion-actions">
-                  <button className="button primary" type="button">
-                    Approve
-                  </button>
-                  <button className="button" type="button">
-                    Edit
-                  </button>
-                  <button className="button" type="button">
-                    Reject
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <p className="faq-answer">{faq.answer}</p>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </>

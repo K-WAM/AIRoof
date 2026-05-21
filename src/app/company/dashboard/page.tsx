@@ -1,44 +1,104 @@
-const metrics = [
-  { label: "Calls today", value: "18" },
-  { label: "New leads", value: "6" },
-  { label: "Escalations", value: "2" },
-  { label: "Upcoming inspections", value: "4" },
-];
+"use client";
 
-const leadQueue = [
-  {
-    name: "Maria Chen",
-    detail: "Active leak over kitchen, Vancouver",
-    meta: "Captured 8 minutes ago from after-hours call",
-    tag: "Urgent",
-    urgent: true,
-  },
-  {
-    name: "David Brooks",
-    detail: "Roof inspection request, Burnaby",
-    meta: "AI collected address and preferred morning appointment",
-    tag: "New lead",
-    urgent: false,
-  },
-  {
-    name: "Samir Patel",
-    detail: "Shingle replacement estimate, Coquitlam",
-    meta: "Caller asked about warranty and wants callback today",
-    tag: "Follow up",
-    urgent: false,
-  },
-];
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-const agentSettings = [
-  ["Agent status", "Active"],
-  ["Phone routing", "Twilio number mapped"],
-  ["Calendar", "Mock scheduling"],
-  ["Escalation", "+1 (604) 555-0000"],
-  ["Approved services", "4 services configured"],
-  ["FAQs", "4 approved answers"],
-];
+interface LeadSnapshot {
+  leadId: string;
+  callerName?: string;
+  callerPhone?: string;
+  serviceRequested?: string;
+  address?: string;
+  urgency: string;
+  status: string;
+  createdAt: number;
+}
+
+interface AgentSnapshot {
+  agentName?: string;
+  escalationPhone?: string;
+  approvedServices?: string[];
+  approvedFaqs?: Array<{ question: string; answer: string }>;
+  greeting?: string;
+  active?: boolean;
+}
 
 export default function CompanyDashboardPage() {
+  const { user } = useAuth();
+  const businessId = user?.businessId ?? "demo-roofing";
+
+  const [callCount, setCallCount] = useState<number | null>(null);
+  const [leads, setLeads] = useState<LeadSnapshot[]>([]);
+  const [apptCount, setApptCount] = useState<number | null>(null);
+  const [agent, setAgent] = useState<AgentSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!db || !businessId) return;
+
+    async function load() {
+      try {
+        const base = `businesses/${businessId}`;
+
+        const [callsSnap, leadsSnap, apptsSnap, bizDoc] = await Promise.all([
+          getDocs(collection(db!, base + "/calls")),
+          getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(5))),
+          getDocs(collection(db!, base + "/appointments")),
+          getDoc(doc(db!, "businesses", businessId)),
+        ]);
+        if (bizDoc.exists()) {
+          const d = bizDoc.data()!;
+          setAgent({
+            agentName: d["agentName"],
+            escalationPhone: d["escalationPhone"],
+            approvedServices: d["approvedServices"],
+            approvedFaqs: d["approvedFaqs"],
+            greeting: d["greeting"],
+            active: d["active"],
+          });
+        }
+
+        setCallCount(callsSnap.size);
+        setLeads(leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as LeadSnapshot)));
+        setApptCount(apptsSnap.size);
+      } catch (err) {
+        console.error("Dashboard load failed:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
+  }, [businessId]);
+
+  const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent");
+
+  const metrics = [
+    { label: "Total calls", value: callCount ?? "—" },
+    { label: "Recent leads", value: leads.length },
+    { label: "Urgent leads", value: urgentLeads.length },
+    { label: "Appointments", value: apptCount ?? "—" },
+  ];
+
+  const agentSettings = agent
+    ? [
+        ["Agent name", agent.agentName ?? "Roofus"],
+        ["Status", agent.active ? "Active" : "Inactive"],
+        ["Escalation", agent.escalationPhone ?? "—"],
+        ["Approved services", `${agent.approvedServices?.length ?? 0} configured`],
+        ["Approved FAQs", `${agent.approvedFaqs?.length ?? 0} answers`],
+        ["Calendar", "Mock scheduling"],
+      ]
+    : [];
+
+  if (loading) {
+    return (
+      <div style={{ padding: 32, color: "#666" }}>Loading dashboard…</div>
+    );
+  }
+
   return (
     <>
       <header className="page-header">
@@ -49,10 +109,10 @@ export default function CompanyDashboardPage() {
             and the agent settings that affect this company.
           </p>
         </div>
-        <span className="status-pill">Agent active</span>
+        <span className="status-pill">{agent?.active ? "Agent active" : "Agent inactive"}</span>
       </header>
 
-      <section className="metric-grid" aria-label="Today summary">
+      <section className="metric-grid" aria-label="Summary">
         {metrics.map((metric) => (
           <article className="metric" key={metric.label}>
             <p className="metric-label">{metric.label}</p>
@@ -64,41 +124,47 @@ export default function CompanyDashboardPage() {
       <div className="ops-grid">
         <section className="panel" aria-labelledby="queue-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="queue-title">
-              Lead Queue
-            </h2>
+            <h2 className="panel-title" id="queue-title">Recent Leads</h2>
           </div>
           <div className="panel-body">
-            <div className="queue-list">
-              {leadQueue.map((lead) => (
-                <article className="queue-item" key={lead.name}>
-                  <div className="queue-topline">
-                    <p className="queue-title">{lead.name}</p>
-                    <span className={lead.urgent ? "tag urgent" : "tag"}>{lead.tag}</span>
-                  </div>
-                  <p className="queue-meta">{lead.detail}</p>
-                  <p className="queue-meta">{lead.meta}</p>
-                </article>
-              ))}
-            </div>
+            {leads.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 14 }}>No leads yet. Leads appear here after calls come in.</p>
+            ) : (
+              <div className="queue-list">
+                {leads.map((lead) => (
+                  <article className="queue-item" key={lead.leadId}>
+                    <div className="queue-topline">
+                      <p className="queue-title">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
+                      <span className={lead.urgency === "urgent" ? "tag urgent" : "tag"}>
+                        {lead.urgency}
+                      </span>
+                    </div>
+                    <p className="queue-meta">{lead.serviceRequested ?? "Service not specified"}</p>
+                    <p className="queue-meta">{lead.address ?? "No address"} · {lead.status}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
         <aside className="panel" aria-labelledby="agent-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="agent-title">
-              Agent Setup
-            </h2>
+            <h2 className="panel-title" id="agent-title">Agent Setup</h2>
           </div>
           <div className="panel-body">
-            <div className="settings-list">
-              {agentSettings.map(([label, value]) => (
-                <div className="settings-row" key={label}>
-                  <p>{label}</p>
-                  <span>{value}</span>
-                </div>
-              ))}
-            </div>
+            {agentSettings.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 14 }}>Agent config not loaded.</p>
+            ) : (
+              <div className="settings-list">
+                {agentSettings.map(([label, value]) => (
+                  <div className="settings-row" key={label}>
+                    <p>{label}</p>
+                    <span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </aside>
       </div>

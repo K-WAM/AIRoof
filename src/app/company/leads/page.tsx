@@ -1,68 +1,83 @@
-const leads = [
-  {
-    name: "Maria Chen",
-    phone: "+1 (604) 555-0198",
-    address: "1428 W 12th Ave, Vancouver",
-    service: "Emergency leak repair",
-    urgency: "Urgent",
-    status: "New",
-    source: "After-hours call",
-    captured: "8 minutes ago",
-    selected: true,
-  },
-  {
-    name: "David Brooks",
-    phone: "+1 (604) 555-0134",
-    address: "88 Parker St, Burnaby",
-    service: "Roof inspection",
-    urgency: "Normal",
-    status: "Contact today",
-    source: "Inbound call",
-    captured: "31 minutes ago",
-    selected: false,
-  },
-  {
-    name: "Samir Patel",
-    phone: "+1 (604) 555-0107",
-    address: "219 Foster Ave, Coquitlam",
-    service: "Shingle replacement estimate",
-    urgency: "Normal",
-    status: "Waiting callback",
-    source: "Missed-call capture",
-    captured: "1 hour ago",
-    selected: false,
-  },
-  {
-    name: "Leah Morgan",
-    phone: "+1 (604) 555-0181",
-    address: "54 Royal Ave, New Westminster",
-    service: "Metal roofing quote",
-    urgency: "Low",
-    status: "Booked",
-    source: "AI receptionist",
-    captured: "Yesterday",
-    selected: false,
-  },
-];
+"use client";
 
-const selectedLead = leads[0];
+import { useEffect, useState } from "react";
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-const timeline = [
-  {
-    copy: "AI classified the call as emergency due to active water entry.",
-    time: "8 minutes ago",
-  },
-  {
-    copy: "Caller provided address, phone number, leak location, and availability.",
-    time: "7 minutes ago",
-  },
-  {
-    copy: "Escalation prepared for dispatcher follow-up.",
-    time: "6 minutes ago",
-  },
-];
+interface Lead {
+  leadId: string;
+  callerName?: string;
+  callerPhone?: string;
+  serviceRequested?: string;
+  address?: string;
+  urgency: string;
+  notes?: string;
+  status: string;
+  sourceCallId?: string;
+  createdAt: number;
+}
+
+function timeAgo(ms: number): string {
+  const diff = Date.now() - ms;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default function CompanyLeadsPage() {
+  const { user } = useAuth();
+  const businessId = user?.businessId ?? "demo-roofing";
+
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [selected, setSelected] = useState<Lead | null>(null);
+  const [filter, setFilter] = useState<"all" | "urgent" | "new" | "contacted">("all");
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
+  useEffect(() => {
+    if (!db || !businessId) return;
+    getDocs(query(collection(db, `businesses/${businessId}/leads`), orderBy("createdAt", "desc")))
+      .then((snap) => {
+        const data = snap.docs.map((d) => ({ leadId: d.id, ...d.data() } as Lead));
+        setLeads(data);
+        if (data.length > 0) setSelected(data[0]);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [businessId]);
+
+  async function markContacted(lead: Lead) {
+    if (!db) return;
+    setUpdating(true);
+    try {
+      await updateDoc(doc(db, `businesses/${businessId}/leads`, lead.leadId), {
+        status: "contacted",
+        updatedAt: Date.now(),
+      });
+      setLeads((prev) =>
+        prev.map((l) => (l.leadId === lead.leadId ? { ...l, status: "contacted" } : l))
+      );
+      if (selected?.leadId === lead.leadId) setSelected({ ...lead, status: "contacted" });
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  const filtered = leads.filter((l) => {
+    if (filter === "urgent") return l.urgency === "urgent";
+    if (filter === "new") return l.status === "new";
+    if (filter === "contacted") return l.status === "contacted";
+    return true;
+  });
+
+  const needsReview = leads.filter((l) => l.status === "new").length;
+
+  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading leads…</div>;
+
   return (
     <>
       <header className="page-header">
@@ -73,141 +88,128 @@ export default function CompanyLeadsPage() {
             qualified homeowners into callbacks or inspections.
           </p>
         </div>
-        <span className="status-pill">6 need review</span>
+        <span className="status-pill">{needsReview} need review</span>
       </header>
 
       <div className="toolbar">
         <div className="segmented-control" aria-label="Lead status filter">
-          <button className="segment" type="button" aria-pressed="true">
-            Needs review
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Urgent
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Booked
-          </button>
-          <button className="segment" type="button" aria-pressed="false">
-            Closed
-          </button>
+          {(["all", "urgent", "new", "contacted"] as const).map((f) => (
+            <button
+              key={f}
+              className="segment"
+              type="button"
+              aria-pressed={filter === f}
+              onClick={() => setFilter(f)}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
         </div>
-        <input
-          className="search-input"
-          type="search"
-          placeholder="Search name, phone, address"
-          aria-label="Search leads"
-        />
       </div>
 
       <div className="lead-workspace">
         <section className="panel" aria-labelledby="lead-queue-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="lead-queue-title">
-              Follow-up Queue
-            </h2>
+            <h2 className="panel-title" id="lead-queue-title">Follow-up Queue</h2>
           </div>
           <div className="panel-body">
-            <div className="queue-list">
-              {leads.map((lead) => (
-                <article
-                  className="lead-card"
-                  key={lead.phone}
-                  aria-selected={lead.selected}
-                >
-                  <div className="lead-title-row">
-                    <div>
-                      <p className="lead-name">{lead.name}</p>
-                      <p className="lead-phone">{lead.phone}</p>
+            {filtered.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 14 }}>No leads in this category yet.</p>
+            ) : (
+              <div className="queue-list">
+                {filtered.map((lead) => (
+                  <article
+                    className="lead-card"
+                    key={lead.leadId}
+                    aria-selected={selected?.leadId === lead.leadId}
+                    onClick={() => setSelected(lead)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div className="lead-title-row">
+                      <div>
+                        <p className="lead-name">{lead.callerName ?? "Unknown caller"}</p>
+                        <p className="lead-phone">{lead.callerPhone ?? "—"}</p>
+                      </div>
+                      <span className={lead.urgency === "urgent" ? "tag urgent" : "tag"}>
+                        {lead.urgency}
+                      </span>
                     </div>
-                    <span className={lead.urgency === "Urgent" ? "tag urgent" : "tag"}>
-                      {lead.urgency}
-                    </span>
-                  </div>
-                  <div className="lead-detail-grid">
-                    <div className="detail-block">
-                      <span className="detail-label">Service</span>
-                      <span className="detail-value">{lead.service}</span>
+                    <div className="lead-detail-grid">
+                      <div className="detail-block">
+                        <span className="detail-label">Service</span>
+                        <span className="detail-value">{lead.serviceRequested ?? "—"}</span>
+                      </div>
+                      <div className="detail-block">
+                        <span className="detail-label">Status</span>
+                        <span className="detail-value">{lead.status}</span>
+                      </div>
+                      <div className="detail-block">
+                        <span className="detail-label">Address</span>
+                        <span className="detail-value">{lead.address ?? "—"}</span>
+                      </div>
                     </div>
-                    <div className="detail-block">
-                      <span className="detail-label">Status</span>
-                      <span className="detail-value">{lead.status}</span>
-                    </div>
-                    <div className="detail-block">
-                      <span className="detail-label">Address</span>
-                      <span className="detail-value">{lead.address}</span>
-                    </div>
-                    <div className="detail-block">
-                      <span className="detail-label">Source</span>
-                      <span className="detail-value">{lead.source}</span>
-                    </div>
-                  </div>
-                  <p className="queue-meta">Captured {lead.captured}</p>
-                </article>
-              ))}
-            </div>
+                    <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
         <aside className="panel" aria-labelledby="selected-lead-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="selected-lead-title">
-              Lead Detail
-            </h2>
+            <h2 className="panel-title" id="selected-lead-title">Lead Detail</h2>
           </div>
           <div className="panel-body">
-            <div className="lead-title-row">
-              <div>
-                <p className="lead-name">{selectedLead.name}</p>
-                <p className="lead-phone">{selectedLead.phone}</p>
-              </div>
-              <span className="tag urgent">Urgent</span>
-            </div>
-
-            <div className="lead-detail-grid" style={{ marginTop: 16 }}>
-              <div className="detail-block">
-                <span className="detail-label">Roof issue</span>
-                <span className="detail-value">Water leaking over kitchen</span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">Preferred time</span>
-                <span className="detail-value">ASAP today</span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">Address</span>
-                <span className="detail-value">{selectedLead.address}</span>
-              </div>
-              <div className="detail-block">
-                <span className="detail-label">Next action</span>
-                <span className="detail-value">Dispatcher callback</span>
-              </div>
-            </div>
-
-            <div className="lead-actions" style={{ marginTop: 18 }}>
-              <button className="button primary" type="button">
-                Mark contacted
-              </button>
-              <button className="button" type="button">
-                Book inspection
-              </button>
-              <button className="button" type="button">
-                View call
-              </button>
-            </div>
-
-            <div style={{ marginTop: 22 }}>
-              <h3 className="panel-title">Call Timeline</h3>
-              <div className="timeline" style={{ marginTop: 14 }}>
-                {timeline.map((item) => (
-                  <div className="timeline-item" key={item.copy}>
-                    <span className="timeline-dot" aria-hidden="true" />
-                    <div>
-                      <p className="timeline-copy">{item.copy}</p>
-                      <p className="timeline-time">{item.time}</p>
-                    </div>
+            {!selected ? (
+              <p style={{ color: "#888", fontSize: 14 }}>Select a lead to view details.</p>
+            ) : (
+              <>
+                <div className="lead-title-row">
+                  <div>
+                    <p className="lead-name">{selected.callerName ?? "Unknown caller"}</p>
+                    <p className="lead-phone">{selected.callerPhone ?? "—"}</p>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <span className={selected.urgency === "urgent" ? "tag urgent" : "tag"}>
+                    {selected.urgency}
+                  </span>
+                </div>
+
+                <div className="lead-detail-grid" style={{ marginTop: 16 }}>
+                  <div className="detail-block">
+                    <span className="detail-label">Service</span>
+                    <span className="detail-value">{selected.serviceRequested ?? "—"}</span>
+                  </div>
+                  <div className="detail-block">
+                    <span className="detail-label">Status</span>
+                    <span className="detail-value">{selected.status}</span>
+                  </div>
+                  <div className="detail-block">
+                    <span className="detail-label">Address</span>
+                    <span className="detail-value">{selected.address ?? "—"}</span>
+                  </div>
+                  <div className="detail-block">
+                    <span className="detail-label">Captured</span>
+                    <span className="detail-value">{timeAgo(selected.createdAt)}</span>
+                  </div>
+                </div>
+
+                {selected.notes && (
+                  <p style={{ marginTop: 12, fontSize: 14, color: "#444" }}>{selected.notes}</p>
+                )}
+
+                <div className="lead-actions" style={{ marginTop: 18 }}>
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={selected.status === "contacted" || updating}
+                    onClick={() => markContacted(selected)}
+                  >
+                    {selected.status === "contacted" ? "Contacted" : "Mark contacted"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </aside>
       </div>
