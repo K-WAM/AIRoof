@@ -1,8 +1,8 @@
 # AI Receptionist Platform — CLAUDE.md
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 0 Firebase project setup (add airoof web app to existing Firebase project)
-**Estimated Completion**: 28%
+**Status**: Phase 1 complete — live receptionist working, UI wiring (Phase 1F) next
+**Estimated Completion**: 55%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Twilio, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -19,16 +19,18 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **28% complete**.
+Current estimate: **55% complete**.
 
 Basis:
-- Core backend/API scaffolding exists.
-- TypeScript configuration and type-checking pass.
-- Firestore security rules are drafted but not deployed or tested.
-- Superadmin onboarding shell exists.
-- Company dashboard, leads, calls, and appointments shells exist.
-- Named receptionist fields and prompt behavior exist: agentName, agentIdentity, greeting, afterHoursGreeting, easygoing one-question-at-a-time style.
-- Credentials, real data persistence, auth guards, Twilio real audio, calendar, notifications, cron jobs, and production deployment are not done.
+- Core backend/API scaffolding exists and is deployed on Vercel.
+- Firestore rules and indexes deployed. Seed data live (demo-roofing).
+- Health endpoint returns green (firestore + openai + deepseek all configured).
+- Roofus (AI receptionist) responds correctly to real calls — tested end-to-end.
+- DeepSeek wired for back-office processing (summaries, classification, FAQ suggestions).
+- Auth guards on /company and /admin layouts; Google login page live.
+- Twilio webhooks fixed: real phone lookup, Twilio signature verification, no collection scan.
+- Resend emails wired: escalation + booking confirmation notifications.
+- Remaining: company UI pages wired to live Firestore (Phase 1F), Twilio webhook URL configured in Twilio console.
 
 ## Architecture
 
@@ -58,11 +60,14 @@ businesses/{businessId}
 ## Demo Business (Seed)
 
 **ID**: demo-roofing
-**Name**: Apex Roofing
+**Name**: Apex Roofing South Florida
+**Agent**: Roofus
+**Phone**: +16892042643
 **Services**: Inspections, shingle replacement, metal roofing, emergency repairs
-**Service Area**: Vancouver, Burnaby, New Westminster, Coquitlam
+**Service Area**: Miami, Coral Gables, Doral, Hialeah, Kendall, Homestead
 
-Run seed script: `npx ts-node scripts/seed-demo-business.ts`
+Run seed script: `node scripts/seed-demo-business.mjs` (plain ESM — no ts-node needed)
+Do NOT use `npx ts-node scripts/seed-demo-business.ts` — it fails due to `moduleResolution: bundler` in tsconfig (see Lesson 65).
 
 ## Core Routes (Implemented)
 
@@ -140,43 +145,44 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - TESTING.md — Test cases & verification procedures
 - TODO.md — Implementation roadmap (13 phases)
 
+## Agent Verification Protocol
+
+Before asking the user to verify anything, use CLI/curl first:
+- **Is Firestore connected?** `curl https://<domain>/api/health`
+- **Did the deploy succeed?** `vercel ls` or check `git log --oneline -3`
+- **Is a package installed?** `npm list <package>`
+- **Did Firestore rules deploy?** `firebase deploy --only firestore:rules --project <id> --dry-run`
+- **Is a file/path correct?** Use Glob, Grep, or Read — not user confirmation
+- Only fall back to asking the user when the CLI genuinely cannot answer (web UI OAuth flows, Twilio console webhook URLs, Vercel env var entry).
+
 ## Next Steps
 
-1. **CURRENT**: Add airoof web app to existing Firebase project (Console → ⚙️ → Add app → Web). Copy config to `.env`. Download service account key.
-2. Enable Firebase Auth providers (Google), add Vercel domain to authorized domains.
-3. Connect Vercel project to GitHub repo and configure env vars.
-4. Seed demo-roofing business: `npx ts-node scripts/seed-demo-business.ts`
-5. Test endpoints: /api/agent/respond, /api/agent/classify, /api/tools/execute
-6. Deploy/test Firestore security rules.
-7. Wire Firebase Auth guards into admin and company routes.
-8. Wire Twilio real audio, calendar, Resend email/SMS, and DeepSeek back-office tasks.
+1. **CURRENT**: Wire Phase 1F — company UI pages to live Firestore (dashboard, leads, calls, appointments, agent config)
+2. Configure Twilio Voice webhook URL in Twilio console → `https://<vercel-domain>/api/webhooks/twilio/incoming`
+3. Add RESEND_FROM env var to Vercel (format: `Roofus <notify@yourdomain.com>`)
+4. Test end-to-end: real call → Roofus responds → Firestore logged → email sent
 
 ## Implementation Phases
 
-- Phase 0: Firebase project setup (add web app to existing project) ← CURRENT
-- Phase 1: Core infrastructure ✓
-- Phase 2: Core API routes ✓
-- Phase 3: Demo data, testing & admin docs (seed script written, testing pending)
-- Phase 4: Firestore security rules (drafted, deployment/testing pending)
-- Phase 5: Admin/company dashboard scaffolding (auth guards pending)
-- Phase 6: Public pages (landing, ToS, demo widget)
-- Phase 7: Twilio real audio
-- Phase 8: Google Calendar integration
-- Phase 9: Email/SMS notifications (Resend + Twilio)
-- Phase 10: DeepSeek back-office
-- Phase 11: Monitoring & logging
-- Phase 12: Multi-tenant isolation audit
-- Phase 13: Lawns/landscaping vertical
-- Phase 14: Additional verticals (dental, HVAC, property management)
+- Phase 0: Firebase project setup ✓
+- Phase 1A: DeepSeek back-office wired ✓
+- Phase 1B: Auth guards + login page ✓
+- Phase 1C: Twilio webhooks fixed (phone lookup, sig verification, no collection scan) ✓
+- Phase 1D: Phone number activation (businessPhoneNumbers collection, active: true) ✓
+- Phase 1E: Resend email notifications (escalation + booking confirmation) ✓
+- Phase 1F: Company UI pages → live Firestore ← CURRENT
+- Phase 2: Twilio Voice webhook configured in Twilio console
+- Phase 3: Google Calendar integration (post-MVP)
+- Phase 4: SMS escalation via Twilio (post A2P 10DLC approval)
+- Phase 5: DeepSeek cron jobs (call summaries, FAQ generation)
+- Phase 6: Additional verticals (HVAC, dental, property management)
 
 ## Known Limitations
 
-- Twilio webhook returns mock TwiML (real audio deferred)
-- Google Calendar uses mock slots (real API integration deferred)
-- Email/SMS notifications not yet implemented
-- DeepSeek endpoints are stubs
-- Admin/company dashboards are static shells, not data-backed yet
-- Auth guards and multi-user role enforcement not wired into UI/API yet
+- Company dashboard pages (dashboard, leads, calls, appointments, agent) show static shells — Phase 1F pending
+- Google Calendar uses mock availability slots — real OAuth is post-MVP
+- SMS escalation requires A2P 10DLC registration (2–4 weeks) — email covers MVP
+- Twilio Voice webhook URL must be configured in Twilio console manually
 
 ## Contact
 
