@@ -34,3 +34,6 @@ drizzle/snapshots/
 
 # graphify (old tool)
 graphify-out/
+
+# Firebase service account — never commit
+firebase-service-account.json

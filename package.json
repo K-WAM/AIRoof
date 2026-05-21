@@ -10,19 +10,22 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "firebase": "^10.7.0",
     "firebase-admin": "^12.0.0",
+    "next": "^15.0.0",
     "openai": "^4.26.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "resend": "^6.12.3",
+    "twilio": "^6.0.2",
     "typescript": "^5.3.0"
   },
   "devDependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
-    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0"
+    "tailwindcss": "^3.4.0"
   }
 }

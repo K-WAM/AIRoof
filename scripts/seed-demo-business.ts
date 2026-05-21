@@ -31,8 +31,8 @@ const demoBusiness: BusinessConfig = {
   businessId: "demo-roofing",
   businessName: "Apex Roofing",
   industry: "roofing",
-  phoneNumber: "+1 (604) 555-1234",
-  serviceArea: ["Vancouver", "Burnaby", "New Westminster", "Coquitlam"],
+  phoneNumber: process.env.TWILIO_PHONE_NUMBER || "+1 (000) 000-0000",
+  serviceArea: ["Miami", "Coral Gables", "Doral", "Hialeah", "Kendall", "Homestead"],
   businessHours: {
     Monday: "08:00 - 17:00",
     Tuesday: "08:00 - 17:00",
@@ -47,8 +47,8 @@ const demoBusiness: BusinessConfig = {
   emergencyRules: roofingTemplate.emergencyRules,
   bookingRules: roofingTemplate.bookingRules,
   disallowedTopics: roofingTemplate.disallowedTopics,
-  escalationPhone: "+1 (604) 555-0000",
-  notificationEmail: "dispatch@apexroofing.local",
+  escalationPhone: process.env.ESCALATION_PHONE || "+1 (305) 555-0000",
+  notificationEmail: process.env.NOTIFICATION_EMAIL || "kwamwad@gmail.com",
   calendarProvider: "mock",
   planTier: standardPreset.planTier,
   aiProvider: "openai",
@@ -56,10 +56,10 @@ const demoBusiness: BusinessConfig = {
   backOfficeModel: standardPreset.backOfficeModel,
   agentName: roofingTemplate.agentName,
   agentIdentity: roofingTemplate.agentIdentity,
-  greeting: roofingTemplate.greetingTemplate.replace("{businessName}", "Apex Roofing"),
+  greeting: roofingTemplate.greetingTemplate.replace("{businessName}", "Apex Roofing South Florida"),
   afterHoursGreeting: roofingTemplate.afterHoursGreetingTemplate.replace(
     "{businessName}",
-    "Apex Roofing"
+    "Apex Roofing South Florida"
   ),
   agentVoice: standardPreset.agentVoice,
   agentTone: roofingTemplate.agentTone || standardPreset.agentTone,

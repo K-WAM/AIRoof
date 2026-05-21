@@ -1,4 +1,13 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "businessPhoneNumbers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "normalizedPhoneNumber", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

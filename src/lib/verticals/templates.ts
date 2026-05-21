@@ -77,11 +77,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       "structural engineering conclusions",
       "financing terms unless explicitly configured",
     ],
-    agentName: "Mia",
+    agentName: "Roofus",
     agentIdentity: "receptionist",
-    greetingTemplate: "Thanks for calling {businessName}, this is Mia. How can I help?",
+    greetingTemplate: "Thanks for calling {businessName}, this is Roofus. How can I help?",
     afterHoursGreetingTemplate:
-      "Thanks for calling {businessName}, this is Mia. The office is closed, but I can still help take a message or flag an urgent roof leak.",
+      "Thanks for calling {businessName}, this is Roofus. The office is closed, but I can still help take a message or flag an urgent roof leak.",
     agentTone: "calm, friendly, concise, and efficient",
   },
   hvac: {
@@ -93,11 +93,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     emergencyRules: [],
     bookingRules: [],
     disallowedTopics: [],
-    agentName: "Mia",
+    agentName: "Roofus",
     agentIdentity: "receptionist",
-    greetingTemplate: "Thanks for calling {businessName}, this is Mia. How can I help?",
+    greetingTemplate: "Thanks for calling {businessName}, this is Roofus. How can I help?",
     afterHoursGreetingTemplate:
-      "Thanks for calling {businessName}, this is Mia. The office is closed, but I can still help take a message.",
+      "Thanks for calling {businessName}, this is Roofus. The office is closed, but I can still help take a message.",
     agentTone: "calm, practical, safety-aware",
   },
   landscaping: {
@@ -109,11 +109,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     emergencyRules: [],
     bookingRules: [],
     disallowedTopics: [],
-    agentName: "Mia",
+    agentName: "Roofus",
     agentIdentity: "receptionist",
-    greetingTemplate: "Thanks for calling {businessName}, this is Mia. How can I help?",
+    greetingTemplate: "Thanks for calling {businessName}, this is Roofus. How can I help?",
     afterHoursGreetingTemplate:
-      "Thanks for calling {businessName}, this is Mia. The office is closed, but I can still help take a message.",
+      "Thanks for calling {businessName}, this is Roofus. The office is closed, but I can still help take a message.",
     agentTone: "friendly, organized, service-focused",
   },
   dental: {
@@ -125,11 +125,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     emergencyRules: [],
     bookingRules: [],
     disallowedTopics: [],
-    agentName: "Mia",
+    agentName: "Roofus",
     agentIdentity: "receptionist",
-    greetingTemplate: "Thanks for calling {businessName}, this is Mia. How can I help?",
+    greetingTemplate: "Thanks for calling {businessName}, this is Roofus. How can I help?",
     afterHoursGreetingTemplate:
-      "Thanks for calling {businessName}, this is Mia. The office is closed, but I can still help take a message.",
+      "Thanks for calling {businessName}, this is Roofus. The office is closed, but I can still help take a message.",
     agentTone: "calm, reassuring, privacy-conscious",
   },
   "property-management": {
@@ -141,11 +141,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     emergencyRules: [],
     bookingRules: [],
     disallowedTopics: [],
-    agentName: "Mia",
+    agentName: "Roofus",
     agentIdentity: "receptionist",
-    greetingTemplate: "Thanks for calling {businessName}, this is Mia. How can I help?",
+    greetingTemplate: "Thanks for calling {businessName}, this is Roofus. How can I help?",
     afterHoursGreetingTemplate:
-      "Thanks for calling {businessName}, this is Mia. The office is closed, but I can still help take a message.",
+      "Thanks for calling {businessName}, this is Roofus. The office is closed, but I can still help take a message.",
     agentTone: "clear, structured, escalation-aware",
   },
 };
