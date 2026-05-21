@@ -5,6 +5,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { classifyMessage, getOffTopicResponse } from "@/lib/ai/scopeClassifier";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { generateAgentResponse } from "@/lib/ai/openaiClient";
+import { getTwilioSayVoice } from "@/lib/twilio/voice";
 
 export async function POST(request: NextRequest): Promise<NextResponse<string | { error: string }>> {
   try {
@@ -104,13 +105,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
       console.error("Failed to log messages:", error);
     }
 
-    const agentVoice = businessConfig.agentVoice ?? "alloy";
+    const agentVoice = getTwilioSayVoice(businessConfig.agentVoice);
     const transcribeUrl = `/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="${agentVoice}">${escapeXml(responseText)}</Say>
-  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${transcribeUrl}" method="POST">
+  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${escapeXml(transcribeUrl)}" method="POST">
     <Say voice="${agentVoice}">Is there anything else I can help you with?</Say>
   </Gather>
   <Say>Thank you for calling. Have a great day!</Say>

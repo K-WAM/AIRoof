@@ -202,8 +202,8 @@ export default function AdminBusinessConfigPage({
                   <label htmlFor="voice">Voice</label>
                   <select id="voice" name="voice" defaultValue="alice">
                     <option value="alice">Alice - clear and professional</option>
-                    <option value="verse">Verse - warm subscriber voice</option>
-                    <option value="sage">Sage - calm triage voice</option>
+                    <option value="woman">Woman - clear and direct</option>
+                    <option value="man">Man - clear and direct</option>
                   </select>
                 </div>
                 <div className="field full">

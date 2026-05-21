@@ -1,5 +1,7 @@
 # AI Receptionist Platform — CLAUDE.md
 
+**Active Handoff**: Read `HANDOFF.md` first. It contains the latest Roofus/Twilio call failure evidence, patches already made, verification commands, and the next production deployment/test step.
+
 **Project**: AI Receptionist Platform for local service businesses
 **Status**: Phase 1 complete — live receptionist working, UI wiring (Phase 1F) next
 **Estimated Completion**: 55%

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "twilio";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { getTwilioSayVoice } from "@/lib/twilio/voice";
 
 export async function POST(request: NextRequest): Promise<NextResponse<string | { error: string }>> {
   try {
@@ -77,12 +78,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
       console.error("Failed to create call record:", error);
     }
 
-    const agentVoice = businessData?.agentVoice ?? "alloy";
+    const agentVoice = getTwilioSayVoice(businessData?.agentVoice);
     const transcribeUrl = `/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${transcribeUrl}" method="POST">
+  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${escapeXml(transcribeUrl)}" method="POST">
     <Say voice="${agentVoice}">${escapeXml(greeting)}</Say>
   </Gather>
   <Say>Sorry, I didn't catch that. Please call back and try again.</Say>

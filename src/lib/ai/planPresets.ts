@@ -32,7 +32,7 @@ export const PLAN_PRESETS: Record<PlanTier, PlanPreset> = {
     description: "Paid upgrade with stronger live handling, better summaries, and richer tuning.",
     liveModel: "gpt-4.1",
     backOfficeModel: "gpt-4.1-mini",
-    agentVoice: "verse",
+    agentVoice: "alice",
     agentTone: "polished, confident, and highly attentive",
     temperature: 0.4,
     maxTokens: 220,
