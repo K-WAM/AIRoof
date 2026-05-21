@@ -31,10 +31,12 @@ The first suspected issue was an invalid Twilio voice value. That was real but n
 
 - `npx tsc --noEmit --incremental false` passed.
 - `npm run build` passed after the XML escaping fix.
+- Commit `accf0a90555771c5f1952d78aab871b92db21913` was pushed to `main`.
+- Vercel production deployment `dpl_3dgShQXHUB33cURupqTGG7SFrx8n` reached `READY` and is aliased to `ai-roof.vercel.app`.
 
 ## Important Next Action
 
-Deploy the current workspace changes to production, then make another inbound test call.
+Make another inbound test call.
 
 After the test call:
 
