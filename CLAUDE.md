@@ -3,12 +3,12 @@
 **Active Handoff**: Read `HANDOFF.md` first. It contains the latest Roofus/Twilio call failure evidence, patches already made, verification commands, and the next production deployment/test step.
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 1 complete — live receptionist working, UI wiring (Phase 1F) next
-**Estimated Completion**: 55%
+**Status**: Phase 2 in progress — all Twilio blockers fixed, login/auth complete, awaiting first successful live call
+**Estimated Completion**: 65%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Twilio, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
-**Vercel URL**: (deployment pending — not yet live)
+**Vercel URL**: https://ai-roof.vercel.app
 **Firebase Project**: business-expense-trackin-ef659 (web app: "airoof")
 **Firebase Auth Domain**: business-expense-trackin-ef659.firebaseapp.com
 **Superadmin**: connect@luxordev.com
@@ -21,15 +21,19 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **60% complete**.
+Current estimate: **65% complete**.
 
 Basis:
 - Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Twilio, Resend all configured.
-- Roofus answers calls end-to-end: scope classifier → OpenAI → TwiML voice response.
+- All known Twilio call blockers fixed (absolute URLs, phone mapping, sig validation).
+- Firestore phone mapping seeded: businessPhoneNumbers/demo-roofing-main active: true.
+- Login page: Google + email/password sign-in live.
+- Superadmin provisioned: connect@luxordev.com → /admin access.
+- Root URL redirects to /login (404 fixed).
 - All 5 company dashboard pages wired to live Firestore data.
-- Auth guards on /company and /admin; Google login page live.
+- Auth guards on /company and /admin; login page live.
 - Resend escalation + booking confirmation emails wired.
-- Critical gaps remaining: conversation memory (Roofus forgets prior turns mid-call), tool use during calls (can't book or capture lead mid-call), Twilio webhook URL not yet set in Twilio console.
+- Critical gaps remaining: conversation memory (Roofus forgets prior turns mid-call), tool use during calls (can't book or capture lead mid-call), Twilio webhook URL must be confirmed in Twilio console.
 
 ## Architecture
 
@@ -178,7 +182,9 @@ Roofus currently handles one turn at a time with no memory of prior turns. Each 
 - Phase 1D: Phone number activation (businessPhoneNumbers collection) ✓
 - Phase 1E: Resend email notifications (escalation + booking) ✓
 - Phase 1F: Company UI pages wired to live Firestore ✓
-- Phase 2: Conversation memory + tool use during calls ← CURRENT
+- Phase 1G: Auth complete — email/password + Google, superadmin provisioned, root redirect ✓
+- Phase 1H: Twilio call blockers fixed — absolute URLs, phone mapping, sig validation ✓
+- Phase 2: Conversation memory + tool use during calls ← CURRENT (pending first successful live call)
 - Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron
 - Phase 4: Admin UI polish (business list, onboarding wizard test)
 - Phase 5: Google Calendar (post-MVP, requires per-business OAuth)
