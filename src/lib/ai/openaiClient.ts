@@ -7,9 +7,15 @@ const openai = process.env.OPENAI_API_KEY
     })
   : null;
 
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface GenerateResponseOptions {
   systemPrompt: string;
   userMessage: string;
+  history?: ConversationTurn[];
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -21,26 +27,27 @@ export async function generateAgentResponse(
   const {
     systemPrompt,
     userMessage,
+    history = [],
     model = process.env.OPENAI_MODEL || "gpt-4o-mini",
     temperature = 0.7,
     maxTokens = 150,
   } = options;
 
   if (!openai) {
-    // Fallback safe mock response if key missing
-    console.warn(
-      "OpenAI API key not configured. Returning mock response."
-    );
+    console.warn("OpenAI API key not configured. Returning mock response.");
     return "I can help you schedule an appointment or leave a message for the team. How can I assist?";
   }
 
   try {
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      ...history.map((turn) => ({ role: turn.role, content: turn.content })),
+      { role: "user", content: userMessage },
+    ];
+
     const response = await openai.chat.completions.create({
       model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
+      messages,
       temperature,
       max_tokens: maxTokens,
     });

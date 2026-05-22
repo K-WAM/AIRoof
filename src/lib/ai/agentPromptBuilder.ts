@@ -1,15 +1,18 @@
 // Builds strict system prompt from BusinessConfig — controls what agent says
 import type { BusinessConfig } from "@/types";
 
-export function buildAgentPrompt(businessConfig: BusinessConfig): string {
+export interface PromptOptions {
+  /** True when there are already prior turns in the conversation. Suppresses the greeting instruction so the agent doesn't re-introduce itself. */
+  midConversation?: boolean;
+}
+
+export function buildAgentPrompt(
+  businessConfig: BusinessConfig,
+  opts: PromptOptions = {}
+): string {
+  const { midConversation = false } = opts;
   const agentName = businessConfig.agentName || "Mia";
   const agentIdentity = businessConfig.agentIdentity || "receptionist";
-  const greeting =
-    businessConfig.greeting ||
-    `Thanks for calling ${businessConfig.businessName}, this is ${agentName}. How can I help?`;
-  const afterHoursGreeting =
-    businessConfig.afterHoursGreeting ||
-    `Thanks for calling ${businessConfig.businessName}, this is ${agentName}. The office is closed, but I can still help take a message or flag an urgent issue.`;
   const agentTone =
     businessConfig.agentTone || "calm, friendly, concise, and efficient";
   const hours =
@@ -23,12 +26,18 @@ export function buildAgentPrompt(businessConfig: BusinessConfig): string {
     ? businessConfig.serviceArea.join(", ")
     : businessConfig.serviceArea;
 
+  const conversationContext = midConversation
+    ? `## Conversation Context
+You are MID-CALL with the caller. You have already greeted them. Do NOT re-introduce yourself or say "thanks for calling" again. The prior conversation is in your message history — read it and continue naturally from where it left off. Respond to what the caller just said. Do not repeat questions you have already asked. Do not restart the conversation.`
+    : `## Conversation Context
+This is the start of the call. Greet the caller naturally and ask how you can help.`;
+
   return `You are ${agentName}, the ${agentIdentity} for ${businessConfig.businessName}, a ${businessConfig.industry} business.
+
+${conversationContext}
 
 ## Your Role
 Answer inbound calls, qualify leads, schedule appointments, escalate urgent cases, and take messages.
-Use this default greeting when starting a call: "${greeting}"
-Use this after-hours greeting when appropriate: "${afterHoursGreeting}"
 If asked whether you are human, be transparent: "I'm the receptionist for ${businessConfig.businessName}. I can help with scheduling, messages, and urgent triage."
 
 ## Scope
