@@ -104,6 +104,19 @@ async function seed() {
     await db.collection("businesses").doc("demo-roofing").set(demoBusiness);
     console.log("✓ Created demo-roofing business (Apex Roofing South Florida)");
 
+    // Create phone number mapping so incoming webhook can route calls
+    await db.collection("businessPhoneNumbers").doc("demo-roofing-main").set({
+      phoneNumberId: "demo-roofing-main",
+      businessId: "demo-roofing",
+      phoneNumber: "+16892042643",
+      normalizedPhoneNumber: "+16892042643",
+      label: "Main line",
+      active: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    console.log("✓ Created businessPhoneNumbers mapping (active: true)");
+
     // Create empty subcollections with init+delete pattern
     for (const sub of ["calls", "leads", "appointments", "agentActions", "faqSuggestions"]) {
       const ref = db.collection("businesses").doc("demo-roofing").collection(sub).doc("_init");

@@ -79,7 +79,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     }
 
     const agentVoice = getTwilioSayVoice(businessData?.agentVoice);
-    const transcribeUrl = `/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
+    const host = request.headers.get("host") ?? "";
+    const transcribeUrl = `https://${host}/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

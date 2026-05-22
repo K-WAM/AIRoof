@@ -32,7 +32,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     if (authToken) {
       const sig = request.headers.get("x-twilio-signature") ?? "";
       const host = request.headers.get("host") ?? "";
-      const webhookUrl = `https://${host}${url.pathname}${url.search}`;
+      const webhookUrl = `https://${host}${url.pathname}`;
       const formData: Record<string, string> = {};
       params.forEach((value, key) => { formData[key] = value; });
 
@@ -106,7 +106,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     }
 
     const agentVoice = getTwilioSayVoice(businessConfig.agentVoice);
-    const transcribeUrl = `/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
+    const host = request.headers.get("host") ?? "";
+    const transcribeUrl = `https://${host}/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
