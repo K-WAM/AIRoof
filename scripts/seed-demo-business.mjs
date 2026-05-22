@@ -92,6 +92,8 @@ const demoBusiness = {
   agentTone: "calm, friendly, concise, and efficient",
   temperature: 0.5,
   maxTokens: 150,
+  // Vapi integration
+  vapiAssistantId: "9267a84a-0f4f-416b-a328-1dc539f5265e",
   active: true,
   createdAt: Date.now(),
   updatedAt: Date.now(),

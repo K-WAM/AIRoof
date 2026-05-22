@@ -1,0 +1,351 @@
+// Single endpoint Vapi posts to for everything: function calls, transcripts,
+// call lifecycle events. We switch on message.type.
+//
+// Configure in Vapi:
+//   - Assistant → Server URL = https://ai-roof.vercel.app/api/webhooks/vapi
+//   - Each Tool → leave Server URL blank (inherits from assistant)
+//   - Header: x-vapi-secret = <VAPI_WEBHOOK_SECRET>
+
+import { NextRequest, NextResponse } from "next/server";
+import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyVapiWebhook } from "@/lib/vapi/verify";
+import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
+import {
+  bookAppointment,
+  checkAvailability,
+  createLead,
+  escalateCall,
+  logAgentAction,
+} from "@/lib/tools/agentTools";
+import type {
+  VapiWebhookPayload,
+  VapiMessage,
+  VapiFunctionCallMessage,
+  VapiEndOfCallReportMessage,
+  VapiStatusUpdateMessage,
+  VapiCall,
+  VapiToolResult,
+} from "@/lib/vapi/types";
+
+export async function POST(request: NextRequest) {
+  if (!verifyVapiWebhook(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let payload: VapiWebhookPayload;
+  try {
+    payload = (await request.json()) as VapiWebhookPayload;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const message = payload?.message;
+  if (!message?.type) {
+    return NextResponse.json({ error: "Missing message.type" }, { status: 400 });
+  }
+
+  const businessId = await resolveBusinessId(message.call);
+  if (!businessId) {
+    console.error("Vapi webhook: could not resolve business", {
+      assistantId: message.call?.assistantId,
+      phoneNumberId: message.call?.phoneNumberId,
+      type: message.type,
+    });
+    return NextResponse.json({ error: "Business not found" }, { status: 404 });
+  }
+
+  try {
+    switch (message.type) {
+      case "function-call":
+      case "tool-calls":
+        return NextResponse.json(
+          await handleFunctionCall(message as VapiFunctionCallMessage, businessId)
+        );
+
+      case "status-update":
+        await handleStatusUpdate(message as VapiStatusUpdateMessage, businessId);
+        return NextResponse.json({ ok: true });
+
+      case "end-of-call-report":
+        await handleEndOfCallReport(message as VapiEndOfCallReportMessage, businessId);
+        return NextResponse.json({ ok: true });
+
+      default:
+        // transcript / speech-update / etc. — ack and ignore for now
+        return NextResponse.json({ ok: true });
+    }
+  } catch (err) {
+    console.error("Vapi webhook handler error:", err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+async function resolveBusinessId(call?: VapiCall): Promise<string | null> {
+  if (!call) return null;
+  if (call.assistantId) {
+    const byAssistant = await findBusinessByVapiAssistantId(call.assistantId);
+    if (byAssistant) return byAssistant;
+  }
+  if (call.phoneNumberId) {
+    const byPhone = await findBusinessByVapiPhoneNumberId(call.phoneNumberId);
+    if (byPhone) return byPhone;
+  }
+  return null;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Function call handler — execute the tool, return Vapi-formatted result.
+// Supports both Vapi's older "function-call" and newer "tool-calls" payloads.
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function handleFunctionCall(
+  message: VapiFunctionCallMessage,
+  businessId: string
+): Promise<VapiToolResult | { results: Array<{ toolCallId: string; result?: string; error?: string }> }> {
+  const callId = `call_vapi_${message.call.id}`;
+  const callerPhone = message.call.customer?.number;
+
+  // Newer Vapi payload: array of tool calls
+  if (message.type === "tool-calls" && Array.isArray(message.toolCalls)) {
+    const results = await Promise.all(
+      message.toolCalls.map(async (tc) => {
+        const params =
+          typeof tc.function.arguments === "string"
+            ? safeJsonParse(tc.function.arguments)
+            : tc.function.arguments;
+        const out = await executeTool(tc.function.name, params ?? {}, businessId, callId, callerPhone);
+        return { toolCallId: tc.id, ...out };
+      })
+    );
+    return { results };
+  }
+
+  // Older payload: single function call
+  if (message.functionCall) {
+    return executeTool(
+      message.functionCall.name,
+      message.functionCall.parameters,
+      businessId,
+      callId,
+      callerPhone
+    );
+  }
+
+  return { error: "No function call in payload" };
+}
+
+async function executeTool(
+  name: string,
+  params: Record<string, unknown>,
+  businessId: string,
+  callId: string,
+  callerPhone?: string
+): Promise<VapiToolResult> {
+  try {
+    switch (name) {
+      case "bookAppointment": {
+        const startTime = toTimestamp(params.startTime ?? params.preferredTime);
+        const endTime = toTimestamp(params.endTime) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
+        const appt = await bookAppointment({
+          businessId,
+          callerName: String(params.name ?? params.callerName ?? "Unknown"),
+          callerPhone: String(params.phone ?? params.callerPhone ?? callerPhone ?? ""),
+          serviceType: optionalStr(params.serviceType ?? params.service),
+          address: optionalStr(params.address),
+          startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
+          endTime,
+          sourceCallId: callId,
+        });
+        await logAction(businessId, callId, "bookAppointment", params, appt, "success");
+        return {
+          result: `Appointment requested for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: "America/New_York" })}. The team will confirm shortly.`,
+        };
+      }
+
+      case "createLead": {
+        const lead = await createLead({
+          businessId,
+          callerName: optionalStr(params.name ?? params.callerName),
+          callerPhone: optionalStr(params.phone ?? params.callerPhone) ?? callerPhone,
+          serviceRequested: optionalStr(params.serviceRequested ?? params.service),
+          address: optionalStr(params.address),
+          urgency: parseUrgency(params.urgency),
+          notes: optionalStr(params.notes),
+          sourceCallId: callId,
+        });
+        await logAction(businessId, callId, "createLead", params, lead, "success");
+        return { result: `Lead captured for ${lead.callerName ?? "caller"}. The team will follow up.` };
+      }
+
+      case "escalateCall": {
+        const reason = String(params.reason ?? "Emergency reported by caller");
+        const result = await escalateCall({
+          businessId,
+          callId,
+          reason,
+          callerPhone: callerPhone ?? optionalStr(params.callerPhone),
+          summary: optionalStr(params.summary),
+        });
+        await logAction(businessId, callId, "escalateCall", params, result, "success");
+        return { result: "Call flagged as urgent. The team has been notified and will call back within 15 minutes." };
+      }
+
+      case "checkAvailability": {
+        const result = await checkAvailability({
+          businessId,
+          preferredDate: optionalStr(params.preferredDate),
+          serviceType: optionalStr(params.serviceType ?? params.service),
+        });
+        if (!result.available || result.suggestedSlots.length === 0) {
+          return { result: "No openings in the next few days. I can take a message and have someone reach out." };
+        }
+        const slots = result.suggestedSlots
+          .slice(0, 3)
+          .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
+          .join("; ");
+        return { result: `Available slots: ${slots}` };
+      }
+
+      default:
+        return { error: `Unknown tool: ${name}` };
+    }
+  } catch (err) {
+    console.error(`Tool ${name} failed:`, err);
+    await logAction(businessId, callId, name, params, { error: String(err) }, "failed");
+    return { error: err instanceof Error ? err.message : "Tool execution failed" };
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Call lifecycle handlers
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function handleStatusUpdate(
+  message: VapiStatusUpdateMessage,
+  businessId: string
+): Promise<void> {
+  const db = getAdminFirestore();
+  if (!db) return;
+
+  const callId = `call_vapi_${message.call.id}`;
+  const callRef = db.collection("businesses").doc(businessId).collection("calls").doc(callId);
+
+  if (message.status === "in-progress" || message.status === "ringing") {
+    await callRef.set(
+      {
+        callId,
+        businessId,
+        callerPhone: message.call.customer?.number ?? null,
+        status: "active",
+        startedAt: Date.now(),
+        updatedAt: Date.now(),
+        vapiCallId: message.call.id,
+        messages: [],
+      },
+      { merge: true }
+    );
+  } else if (message.status === "ended") {
+    await callRef.set({ status: "ended", endedAt: Date.now(), updatedAt: Date.now() }, { merge: true });
+  }
+}
+
+async function handleEndOfCallReport(
+  message: VapiEndOfCallReportMessage,
+  businessId: string
+): Promise<void> {
+  const db = getAdminFirestore();
+  if (!db) return;
+
+  const callId = `call_vapi_${message.call.id}`;
+  const callRef = db.collection("businesses").doc(businessId).collection("calls").doc(callId);
+
+  // Convert Vapi message log to our CallMessage format
+  const transcript = (message.messages ?? []).map((m, i) => ({
+    messageId: `m_${i}`,
+    role: m.role === "user" ? "caller" : m.role === "assistant" ? "agent" : "system",
+    text: m.message ?? "",
+    timestamp: m.time ?? Date.now(),
+  }));
+
+  await callRef.set(
+    {
+      callId,
+      businessId,
+      callerPhone: message.call.customer?.number ?? null,
+      status: "ended",
+      endedAt: Date.now(),
+      updatedAt: Date.now(),
+      vapiCallId: message.call.id,
+      summary: message.summary ?? null,
+      endedReason: message.endedReason ?? null,
+      recordingUrl: message.recordingUrl ?? null,
+      cost: message.cost ?? null,
+      messages: transcript,
+    },
+    { merge: true }
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+function optionalStr(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const trimmed = v.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function safeJsonParse(s: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(s) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function toTimestamp(v: unknown): number | undefined {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? undefined : t;
+  }
+  return undefined;
+}
+
+function parseUrgency(v: unknown): "low" | "normal" | "urgent" | "unknown" {
+  if (v === "low" || v === "normal" || v === "urgent" || v === "unknown") return v;
+  return "unknown";
+}
+
+async function logAction(
+  businessId: string,
+  callId: string,
+  type: string,
+  input: unknown,
+  output: unknown,
+  status: "pending" | "success" | "failed"
+): Promise<void> {
+  const validTypes = [
+    "checkAvailability",
+    "bookAppointment",
+    "createLead",
+    "sendOwnerNotification",
+    "sendCustomerConfirmation",
+    "escalateCall",
+    "endCall",
+  ] as const;
+  type ActionType = (typeof validTypes)[number];
+  if (!(validTypes as readonly string[]).includes(type)) return;
+
+  await logAgentAction({
+    actionId: `act_${Date.now()}`,
+    businessId,
+    callId,
+    type: type as ActionType,
+    input,
+    output,
+    status,
+    createdAt: Date.now(),
+  });
+}

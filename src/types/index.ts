@@ -29,6 +29,9 @@ export interface BusinessConfig {
   agentTone?: string;
   temperature?: number;
   maxTokens?: number;
+  // Vapi integration (per-business voice agent on Vapi platform)
+  vapiAssistantId?: string;
+  vapiPhoneNumberId?: string;
   active: boolean;
   createdAt: number;
   updatedAt: number;
