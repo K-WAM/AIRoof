@@ -128,13 +128,21 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     const host = request.headers.get("host") ?? "";
     const transcribeUrl = `https://${host}/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
+    // Put Roofus's response INSIDE the Gather so the listener starts
+    // immediately after he finishes speaking — no second prompt unless
+    // the caller actually stays silent past the timeout.
+    // speechTimeout="auto" uses Twilio's voice activity detection so we
+    // don't wait a fixed 5s of silence to decide the caller is done.
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="${agentVoice}">${escapeXml(responseText)}</Say>
-  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${escapeXml(transcribeUrl)}" method="POST">
+  <Gather input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
+    <Say voice="${agentVoice}">${escapeXml(responseText)}</Say>
+  </Gather>
+  <Pause length="1"/>
+  <Gather input="speech" timeout="4" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
     <Say voice="${agentVoice}">Are you still there?</Say>
   </Gather>
-  <Say voice="${agentVoice}">Thank you for calling. Have a great day!</Say>
+  <Say voice="${agentVoice}">Thanks for calling. Goodbye.</Say>
   <Hangup/>
 </Response>`;
 

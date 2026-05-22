@@ -84,10 +84,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="5" maxSpeechTime="15" action="${escapeXml(transcribeUrl)}" method="POST">
+  <Gather input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
     <Say voice="${agentVoice}">${escapeXml(greeting)}</Say>
   </Gather>
-  <Say>Sorry, I didn't catch that. Please call back and try again.</Say>
+  <Say voice="${agentVoice}">Sorry, I didn't catch that. Please call back and try again.</Say>
   <Hangup/>
 </Response>`;
 
