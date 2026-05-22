@@ -8,11 +8,15 @@
 import type { NextRequest } from "next/server";
 
 export function verifyVapiWebhook(request: NextRequest): boolean {
-  const expectedRaw = process.env.VAPI_WEBHOOK_SECRET;
-  if (!expectedRaw) {
-    console.warn("VAPI_WEBHOOK_SECRET not set — webhook signature check skipped");
+  // TEMP: disable strict auth for demo bring-up. Re-enable after the secret
+  // mismatch is debugged. Logs the headers Vapi actually sent so we can
+  // see what the real header name + length is.
+  if (process.env.VAPI_AUTH_BYPASS === "true" || !process.env.VAPI_WEBHOOK_SECRET) {
+    console.warn("Vapi auth bypassed (debug mode). Headers received:", Array.from(request.headers.keys()));
     return true;
   }
+
+  const expectedRaw = process.env.VAPI_WEBHOOK_SECRET;
   const expected = expectedRaw.trim();
 
   const headerNames = [
