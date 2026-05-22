@@ -82,9 +82,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     const host = request.headers.get("host") ?? "";
     const transcribeUrl = `https://${host}/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
+    // Domain hints + enhanced ASR for accurate first-turn recognition.
+    const serviceAreaHints = Array.isArray(businessData?.serviceArea)
+      ? businessData.serviceArea
+      : typeof businessData?.serviceArea === "string"
+        ? [businessData.serviceArea]
+        : [];
+    const speechHints = escapeXml([
+      ...serviceAreaHints,
+      "roof", "roofing", "leak", "leaking", "shingle", "shingles", "metal roof",
+      "inspection", "estimate", "quote", "appointment", "emergency",
+      "water damage", "storm damage", "gutter", "flashing", "tile",
+    ].join(", "));
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
+  <Gather input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" speechModel="experimental_conversations" enhanced="true" hints="${speechHints}" action="${escapeXml(transcribeUrl)}" method="POST">
     <Say voice="${agentVoice}">${escapeXml(greeting)}</Say>
   </Gather>
   <Say voice="${agentVoice}">Sorry, I didn't catch that. Please call back and try again.</Say>

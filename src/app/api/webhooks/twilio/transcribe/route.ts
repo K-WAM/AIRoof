@@ -128,18 +128,35 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     const host = request.headers.get("host") ?? "";
     const transcribeUrl = `https://${host}/api/webhooks/twilio/transcribe?businessId=${businessId}&callId=${encodeURIComponent(callId)}`;
 
-    // Put Roofus's response INSIDE the Gather so the listener starts
-    // immediately after he finishes speaking — no second prompt unless
-    // the caller actually stays silent past the timeout.
-    // speechTimeout="auto" uses Twilio's voice activity detection so we
-    // don't wait a fixed 5s of silence to decide the caller is done.
+    // Domain hints help Twilio's STT recognize industry vocabulary correctly.
+    // Combine business-configured service area with roofing-domain terms.
+    const serviceAreaHints = Array.isArray(businessConfig.serviceArea)
+      ? businessConfig.serviceArea
+      : typeof businessConfig.serviceArea === "string"
+        ? [businessConfig.serviceArea]
+        : [];
+    const speechHints = escapeXml([
+      ...serviceAreaHints,
+      "roof", "roofing", "leak", "leaking", "shingle", "shingles", "metal roof",
+      "inspection", "estimate", "quote", "appointment", "emergency",
+      "water damage", "storm damage", "gutter", "flashing", "tile",
+    ].join(", "));
+
+    // Gather params for natural conversation:
+    //  - speechTimeout="auto": voice activity detection (faster end-of-speech)
+    //  - speechModel="experimental_conversations": tuned for dialogue
+    //  - enhanced="true": premium ASR for higher accuracy
+    //  - hints: roofing-domain vocabulary so addresses/terms transcribe right
+    //  - <Say> NESTED inside Gather: implicit barge-in — caller can interrupt
+    const gatherAttrs = `input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" speechModel="experimental_conversations" enhanced="true" hints="${speechHints}" action="${escapeXml(transcribeUrl)}" method="POST"`;
+
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Gather input="speech" timeout="6" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
+  <Gather ${gatherAttrs}>
     <Say voice="${agentVoice}">${escapeXml(responseText)}</Say>
   </Gather>
   <Pause length="1"/>
-  <Gather input="speech" timeout="4" speechTimeout="auto" maxSpeechTime="30" action="${escapeXml(transcribeUrl)}" method="POST">
+  <Gather ${gatherAttrs}>
     <Say voice="${agentVoice}">Are you still there?</Say>
   </Gather>
   <Say voice="${agentVoice}">Thanks for calling. Goodbye.</Say>
