@@ -88,7 +88,7 @@ const demoBusiness = {
   agentIdentity: "receptionist",
   greeting: "Thanks for calling Apex Roofing South Florida, this is Roofus. How can I help?",
   afterHoursGreeting: "Thanks for calling Apex Roofing South Florida, this is Roofus. The office is closed, but I can still help take a message or flag an urgent roof leak.",
-  agentVoice: "Polly.Matthew-Neural",
+  agentVoice: "Polly.Matthew-Generative",
   agentTone: "calm, friendly, concise, and efficient",
   temperature: 0.5,
   maxTokens: 150,

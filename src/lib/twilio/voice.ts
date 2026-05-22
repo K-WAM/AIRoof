@@ -10,29 +10,30 @@
 const POLLY_PREFIX = "Polly.";
 const LEGACY_TWILIO_VOICES = new Set(["alice", "man", "woman"]);
 
-// Default fallback: human-sounding male voice for Roofus.
-const DEFAULT_VOICE = "Polly.Matthew-Neural";
+// Default fallback: AWS's highest-quality "Generative" tier male voice for Roofus.
+// Twilio docs: "most human-like, emotionally engaged, optimal for Conversational AI."
+const DEFAULT_VOICE = "Polly.Matthew-Generative";
 
 const APP_TO_TWILIO_SAY_VOICE: Record<string, string> = {
-  // OpenAI voice names → closest Polly equivalent
-  alloy: "Polly.Matthew-Neural",
-  ash: "Polly.Matthew-Neural",
-  ballad: "Polly.Joanna-Neural",
-  coral: "Polly.Joanna-Neural",
-  echo: "Polly.Matthew-Neural",
-  fable: "Polly.Brian-Neural",
-  nova: "Polly.Joanna-Neural",
-  onyx: "Polly.Matthew-Neural",
-  sage: "Polly.Joanna-Neural",
-  shimmer: "Polly.Joanna-Neural",
-  verse: "Polly.Matthew-Neural",
+  // OpenAI voice names → closest Polly Generative equivalent
+  alloy: "Polly.Matthew-Generative",
+  ash: "Polly.Matthew-Generative",
+  ballad: "Polly.Joanna-Generative",
+  coral: "Polly.Joanna-Generative",
+  echo: "Polly.Matthew-Generative",
+  fable: "Polly.Brian-Generative",
+  nova: "Polly.Joanna-Generative",
+  onyx: "Polly.Stephen-Generative",
+  sage: "Polly.Joanna-Generative",
+  shimmer: "Polly.Ruth-Generative",
+  verse: "Polly.Matthew-Generative",
   // Gendered shortcuts
-  male: "Polly.Matthew-Neural",
-  female: "Polly.Joanna-Neural",
-  man: "Polly.Matthew-Neural",
-  woman: "Polly.Joanna-Neural",
-  // Legacy Twilio names → Polly upgrade
-  alice: "Polly.Joanna-Neural",
+  male: "Polly.Matthew-Generative",
+  female: "Polly.Joanna-Generative",
+  man: "Polly.Matthew-Generative",
+  woman: "Polly.Joanna-Generative",
+  // Legacy Twilio names → Polly Generative upgrade
+  alice: "Polly.Joanna-Generative",
 };
 
 export function getTwilioSayVoice(agentVoice?: string | null): string {
