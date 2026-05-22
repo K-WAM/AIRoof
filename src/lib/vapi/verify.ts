@@ -1,26 +1,48 @@
 // Verify that an incoming webhook is from Vapi by checking the secret header.
-// Vapi sends the header you configure in its dashboard ("Server URL Secret").
-// We compare against VAPI_WEBHOOK_SECRET in our env.
+// Vapi sends the header you configure in its dashboard ("Server URL Secret"
+// or a custom HTTP header).
+//
+// We accept several common header names and trim whitespace defensively
+// (Vapi's UI sometimes adds trailing newlines on paste).
 
 import type { NextRequest } from "next/server";
 
 export function verifyVapiWebhook(request: NextRequest): boolean {
-  const expected = process.env.VAPI_WEBHOOK_SECRET;
-  if (!expected) {
-    // No secret configured — skip verification in dev. In production, set the env var.
+  const expectedRaw = process.env.VAPI_WEBHOOK_SECRET;
+  if (!expectedRaw) {
     console.warn("VAPI_WEBHOOK_SECRET not set — webhook signature check skipped");
     return true;
   }
+  const expected = expectedRaw.trim();
 
-  // Vapi sends the secret in the "x-vapi-secret" header (the name you choose in their UI).
-  // We accept a few common header names defensively.
-  const candidates = [
-    request.headers.get("x-vapi-secret"),
-    request.headers.get("x-vapi-signature"),
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, ""),
+  const headerNames = [
+    "x-vapi-secret",
+    "x-vapi-signature",
+    "vapi-secret",
+    "vapi-signature",
+    "secret",
   ];
 
-  return candidates.some((c) => c && timingSafeEqual(c, expected));
+  const candidates: Array<{ source: string; value: string }> = [];
+  for (const name of headerNames) {
+    const v = request.headers.get(name);
+    if (v) candidates.push({ source: name, value: v.trim() });
+  }
+  const auth = request.headers.get("authorization");
+  if (auth) candidates.push({ source: "authorization", value: auth.replace(/^Bearer\s+/i, "").trim() });
+
+  for (const c of candidates) {
+    if (timingSafeEqual(c.value, expected)) return true;
+  }
+
+  // Diagnostic log on mismatch — lengths only, no values (safe).
+  console.warn("Vapi webhook auth mismatch", {
+    expectedLen: expected.length,
+    receivedHeaders: candidates.map((c) => ({ source: c.source, len: c.value.length, matchesLen: c.value.length === expected.length })),
+    allHeaderKeys: Array.from(request.headers.keys()),
+  });
+
+  return false;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
