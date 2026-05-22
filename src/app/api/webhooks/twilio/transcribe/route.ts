@@ -28,16 +28,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<string | 
     }
 
     // Verify Twilio signature in production
+    // Twilio signs the full URL it POSTed to (including query params we set in the action URL)
+    // plus the POST body params. Reconstruct the exact URL Twilio saw.
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     if (authToken) {
       const sig = request.headers.get("x-twilio-signature") ?? "";
       const host = request.headers.get("host") ?? "";
-      const webhookUrl = `https://${host}${url.pathname}`;
+      const webhookUrl = `https://${host}${url.pathname}${url.search}`;
       const formData: Record<string, string> = {};
       params.forEach((value, key) => { formData[key] = value; });
 
       if (!validateRequest(authToken, sig, webhookUrl, formData)) {
-        console.warn("Invalid Twilio signature on transcribe");
+        console.warn("Invalid Twilio signature on transcribe — url:", webhookUrl);
         return new NextResponse("Forbidden", { status: 403 });
       }
     }
