@@ -37,3 +37,11 @@ graphify-out/
 
 # Firebase service account — never commit
 firebase-service-account.json
+
+.vercel
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# PDF documents — use cloud storage, not git
+*.pdf

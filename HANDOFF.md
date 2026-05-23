@@ -1,59 +1,117 @@
-# Roofus Call Failure Handoff
+# AI Receptionist Platform — Handoff
 
-Date: 2026-05-21
+Date: 2026-05-22
 
-## Current Status
+## Current Status: Vapi-Powered, Working End-to-End
 
-All known call blockers are fixed and deployed. The next step is a live test call to +16892042643.
+The platform migrated from a custom Twilio webhook pipeline to **Vapi** (managed voice AI). The old Twilio routes are deleted. Alice (formerly Roofus) answers calls on Vapi, conducts multi-turn conversations, fires tools (bookAppointment / createLead), writes to Firestore, and sends Resend emails — all confirmed with a live call.
 
-## What Was Fixed This Session
+**Demo number**: +1 (754) 283-7658 (Vapi number)
 
-### Fix 1 — Relative URL in `<Gather action="">` (was causing 100% call failure)
-Both `incoming/route.ts` and `transcribe/route.ts` were generating a relative URL like
-`/api/webhooks/twilio/transcribe?...` in the TwiML `<Gather action="">` attribute.
-Twilio requires absolute URLs. Fixed to `https://${host}/api/webhooks/twilio/transcribe?...`
-using the request's `host` header.
+---
 
-### Fix 2 — Missing `businessPhoneNumbers` Firestore document (caused immediate hangup)
-`mapPhoneToBusinessId()` queries `businessPhoneNumbers` where `normalizedPhoneNumber == twilioTo`
-and `active == true`. The seed script never created this doc, so every call got
-"Sorry, we could not process your call." Fixed seed script + re-ran it live.
-Firestore now has `businessPhoneNumbers/demo-roofing-main` with `active: true`.
+## What Was Built This Session
 
-### Fix 3 — Signature validation included query string (caused 403 on every transcribe request)
-`transcribe/route.ts` built the validation URL as `pathname + search`. Twilio signs the base
-URL + POST body only — the `?businessId=...&callId=...` we added are not part of Twilio's
-signature. Changed to `pathname` only.
+### Migration: Twilio custom pipeline → Vapi
+- **Deleted**: `src/app/api/webhooks/twilio/incoming/route.ts`, `transcribe/route.ts`, `src/lib/twilio/voice.ts`
+- **Added**: `src/app/api/webhooks/vapi/route.ts` — single webhook handles all Vapi message types
+- **Added**: `src/lib/vapi/types.ts`, `src/lib/vapi/verify.ts`, `src/lib/vapi/businessLookup.ts`
+- Vapi stack: Deepgram nova-3 (STT) + Claude Haiku 4.5 (LLM) + ElevenLabs (TTS) ≈ ~1826ms avg turn latency
+- Conversation memory: `openaiClient.ts` now accepts `history?: ConversationTurn[]`, passes prior turns to the model
 
-### Fix 4 — No root page.tsx (caused Vercel 404 on every visit)
-Added `src/app/page.tsx` that server-redirects to `/login`.
+### Agent setup (done in Vapi UI, not in code)
+- **Assistant ID**: `9267a84a-0f4f-416b-a328-1dc539f5265e`
+- **Agent name**: Alice (renamed from Roofus)
+- **Webhook URL**: `https://ai-roof.vercel.app/api/webhooks/vapi` (set in Vapi assistant → Advanced → Server URL)
+- **4 tools in Vapi**: bookAppointment, createLead, escalateCall, checkAvailability — each points to the same webhook URL
 
-### Fix 5 — Login page: email/password added
-Login page now supports Google OAuth and email/password sign-in + account creation.
+### Demo customizer
+- `/admin/demo` page — enter prospect company + email → Alice greets them by their company name in one click
+- `POST /api/admin/demo-customize` — updates Firestore + PATCHes Vapi assistant firstMessage via `VAPI_API_KEY`
+- `DELETE /api/admin/demo-customize` — resets to "Apex Roofing South Florida" defaults
+- CLI equivalent: `node scripts/demo-customize.mjs <email> "<Company Name>"` / `--reset`
 
-### Fix 6 — Superadmin provisioned
-`businessUsers/GNIGxFp0utMtaFa8xpMaNB5RAsj2` written with `superadmin: true, role: "superadmin"`
-for `connect@luxordev.com`. Signing in with that account now grants access to `/admin`.
+### Confirmed working (live call)
+- Multi-turn conversation holds context across turns
+- Caller says "book an appointment" → Alice fires bookAppointment tool → Firestore appointment doc written → Resend email arrives in inbox
+- Demo customizer: company name appears in greeting after Apply
 
-## Verified Firestore State
+---
 
-- `businessUsers/GNIGxFp0utMtaFa8xpMaNB5RAsj2` → superadmin: true ✓
-- `businessPhoneNumbers/demo-roofing-main` → active: true, normalizedPhoneNumber: +16892042643 ✓
-- `businesses/demo-roofing` → agentVoice: alice, active: true ✓
+## Pending Items
 
-## Deployed Commits (on main, live on Vercel)
+| Item | Status | Notes |
+|------|--------|-------|
+| VAPI_WEBHOOK_SECRET mismatch | Bypassed with `VAPI_AUTH_BYPASS=true` in Vercel | Not urgent for demo. To fix properly: delete secret in Vercel, generate new one, set in Vercel, then carefully paste same value in Vapi UI (assistant → Advanced + each tool server) |
+| Voice upgrade | User task in Vapi UI | Switch Alice to `eleven_multilingual_v2` + Rachel voice ID `21m00Tcm4TlvDq8ikWAM` for hyper-realistic demo voice |
+| Superadmin onboarding wizard | Not built | Auto-create Vapi assistant + phone number + 4 tools for each new business client; currently manual |
+| Google Calendar integration | Not built | Post-MVP; requires per-business OAuth |
 
-- `ebdf2cd` — Fix 3 Twilio call blockers: absolute URLs, phone mapping, sig validation
-- `5614674` — Add root page redirect to /login
-- `3e3f625` — Add email/password sign-in and superadmin setup script
+---
 
-## Next Action
+## Architecture (Current)
 
-1. **Make a test call to +16892042643** — should hear: "Thanks for calling Apex Roofing South Florida, this is Roofus. How can I help?"
-2. If call fails, check Vercel logs for the incoming webhook. The most likely remaining issue would be Twilio console webhook URL not yet set.
-3. **Confirm Twilio webhook URL** is set to `https://ai-roof.vercel.app/api/webhooks/twilio/incoming` (POST) in the Twilio console for the +16892042643 number.
+```
+Inbound call → Vapi phone number → Vapi assistant (Alice, 9267a84a)
+  → Deepgram nova-3 STT (~100ms)
+  → Claude Haiku 4.5 via Vapi LLM config
+  → ElevenLabs TTS (~612ms)
+  → Vapi posts webhook to: https://ai-roof.vercel.app/api/webhooks/vapi
 
-## Remaining Gaps After Call Works
+Vapi webhook types handled:
+  function-call   → routes to agentTools.ts (bookAppointment, createLead, escalateCall, checkAvailability)
+  status-update   → creates call record in Firestore calls/{callId}
+  end-of-call-report → saves transcript, recording URL, summary to Firestore
+```
 
-- **Conversation memory**: Roofus sees only the current turn — fix is to load `call.messages[]` from Firestore before calling OpenAI in `transcribe/route.ts`
-- **Tool use during calls**: Roofus never calls `bookAppointment()` or `createLead()` mid-call
+Business lookup: `src/lib/vapi/businessLookup.ts` maps `vapiAssistantId → businessId` via Firestore query on the `businesses` collection.
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/app/api/webhooks/vapi/route.ts` | Single Vapi webhook — handles all message types |
+| `src/lib/vapi/types.ts` | Vapi payload types |
+| `src/lib/vapi/verify.ts` | Webhook secret verification (bypass active) |
+| `src/lib/vapi/businessLookup.ts` | Maps vapiAssistantId → businessId |
+| `src/app/admin/demo/page.tsx` | Demo customizer UI |
+| `src/app/api/admin/demo-customize/route.ts` | Demo POST/DELETE endpoint |
+| `scripts/demo-customize.mjs` | CLI demo customizer |
+| `src/lib/tools/agentTools.ts` | bookAppointment, createLead, escalateCall (Resend wired) |
+| `src/lib/ai/openaiClient.ts` | OpenAI wrapper (accepts history: ConversationTurn[]) |
+
+---
+
+## How to Run a Demo
+
+1. Go to `/admin/demo`
+2. Enter prospect company name + email → click **Apply demo config**
+3. Have the prospect call **+1 (754) 283-7658**
+4. Alice greets them as their company ("Thanks for calling [Company Name], this is Alice...")
+5. They can book an appointment — email arrives in prospect inbox in real time
+6. Open `/company/dashboard` (logged in as that business) to show the captured lead
+7. Click **Reset to defaults** when done
+
+---
+
+## Next Engineering Actions
+
+1. **Superadmin onboarding wizard** — `/admin/onboarding` auto-creates Vapi assistant + phone number + 4 tools via Vapi API; writes `businesses/` and `businessPhoneNumbers/` docs to Firestore
+2. **Fix VAPI_WEBHOOK_SECRET** — remove bypass, generate new secret, set in both Vercel and Vapi UI
+3. **Phase 3** — after-hours logic, call outcome tagging (DeepSeek), FAQ suggestions cron
+
+---
+
+## Environment Variables (Vercel, Production)
+
+| Var | Purpose |
+|-----|---------|
+| `VAPI_API_KEY` | Vapi REST API for demo-customize |
+| `VAPI_AUTH_BYPASS` | Set to `true` — bypasses webhook signature check |
+| `VAPI_WEBHOOK_SECRET` | Currently mismatched; bypass active |
+| `OPENAI_API_KEY` | LLM responses |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firestore Admin SDK |
+| `RESEND_API_KEY` | Email notifications |
+| `RESEND_FROM` | Needs a verified Resend sending domain |
