@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luxor AI — Demo & Onboarding Guide</title>
+<style>
+  /* ── Reset ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── Typography & Base ── */
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1e293b;
+    background: #fff;
+  }
+
+  /* ── Page Layout ── */
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 48px 56px;
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 56px;
+    background: #0f172a;
+    color: #fff;
+    page-break-after: always;
+  }
+  .cover-badge {
+    display: inline-block;
+    background: #3b82f6;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+  }
+  .cover h1 {
+    font-size: 42px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+  .cover h1 span { color: #60a5fa; }
+  .cover-sub {
+    font-size: 16px;
+    color: #94a3b8;
+    max-width: 540px;
+    margin-bottom: 48px;
+    line-height: 1.7;
+  }
+  .cover-meta {
+    font-size: 12px;
+    color: #475569;
+    border-top: 1px solid #1e293b;
+    padding-top: 24px;
+    display: flex;
+    gap: 32px;
+  }
+  .cover-meta span { color: #94a3b8; }
+  .cover-toc {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .toc-item {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 16px 20px;
+    border-left: 3px solid #3b82f6;
+  }
+  .toc-item .toc-num { font-size: 10px; color: #60a5fa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+  .toc-item .toc-title { font-size: 14px; font-weight: 600; color: #f1f5f9; margin-top: 4px; }
+  .toc-item .toc-desc { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+  /* ── Section Headers ── */
+  .section-cover {
+    background: #0f172a;
+    color: #fff;
+    padding: 48px 56px 40px;
+    margin: 0 -56px;
+    margin-bottom: 40px;
+    page-break-before: always;
+  }
+  .section-cover .section-num {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #60a5fa;
+    margin-bottom: 8px;
+  }
+  .section-cover h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+  .section-cover p {
+    font-size: 14px;
+    color: #94a3b8;
+    max-width: 540px;
+  }
+
+  /* ── Headings ── */
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 32px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 11px;
+    color: #64748b;
+  }
+
+  /* ── Body text ── */
+  p { margin-bottom: 12px; }
+  strong { font-weight: 700; }
+  em { font-style: italic; color: #475569; }
+
+  /* ── Stat Cards ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 24px 0;
+  }
+  .stat-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 18px 16px;
+    text-align: center;
+  }
+  .stat-card .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+  .stat-card .stat-value.blue { color: #2563eb; }
+  .stat-card .stat-value.green { color: #16a34a; }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+  .stat-card .stat-source {
+    font-size: 9px;
+    color: #94a3b8;
+    margin-top: 6px;
+  }
+
+  /* ── Highlight Box ── */
+  .highlight {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #1e40af;
+  }
+  .highlight strong { color: #1e3a8a; }
+
+  .success-box {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #15803d;
+  }
+
+  .warning-box {
+    background: #fefce8;
+    border-left: 4px solid #ca8a04;
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+    color: #854d0e;
+  }
+
+  /* ── Step List ── */
+  .step-list { list-style: none; margin: 16px 0; }
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    background: #0f172a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .step-num.blue { background: #2563eb; }
+  .step-num.green { background: #16a34a; }
+  .step-body { flex: 1; }
+  .step-body strong { display: block; margin-bottom: 2px; font-size: 13px; }
+  .step-body p { margin-bottom: 4px; color: #475569; font-size: 12px; }
+
+  /* ── URL / Code Chips ── */
+  .url {
+    display: inline-block;
+    background: #1e293b;
+    color: #7dd3fc;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 5px;
+    margin: 2px 0;
+  }
+  code {
+    background: #f1f5f9;
+    color: #0f172a;
+    font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  /* ── Comparison Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  th {
+    background: #0f172a;
+    color: #fff;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .td-bad { color: #b91c1c; }
+  .td-good { color: #16a34a; font-weight: 600; }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; margin: 12px 0; }
+  .checklist li {
+    padding: 6px 0;
+    padding-left: 24px;
+    position: relative;
+    font-size: 12px;
+    color: #374151;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .checklist li::before {
+    content: '☐';
+    position: absolute;
+    left: 0;
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+
+  /* ── Tag ── */
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-right: 4px;
+  }
+  .tag.blue { background: #dbeafe; color: #1d4ed8; }
+  .tag.green { background: #dcfce7; color: #15803d; }
+  .tag.orange { background: #ffedd5; color: #c2410c; }
+
+  /* ── Two column layout ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 16px 0;
+  }
+  .col-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .col-box h4 { margin-top: 0; }
+
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 28px 0; }
+
+  /* ── Print ── */
+  @media print {
+    body { font-size: 12px; }
+    .cover { min-height: auto; padding: 60px 56px; }
+    .page { padding: 40px 56px; }
+    .section-cover { page-break-before: always; }
+    h3 { page-break-after: avoid; }
+    .stat-grid, .two-col { page-break-inside: avoid; }
+    .step-list li { page-break-inside: avoid; }
+    table { page-break-inside: avoid; }
+    @page { margin: 0.6in 0.5in; size: letter; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div style="max-width:820px;margin:0 auto;padding:0 56px;">
+    <div class="cover-badge">Luxor AI — Internal Guide</div>
+    <h1>AI Receptionist<br><span>Demo &amp; Onboarding</span><br>Playbook</h1>
+    <p class="cover-sub">
+      Everything you need to run a compelling demo for roofing prospects
+      and onboard new company clients end-to-end — including Vapi setup,
+      portal configuration, phone numbers, and go-live verification.
+    </p>
+    <div class="cover-toc">
+      <div class="toc-item">
+        <div class="toc-num">Part 1</div>
+        <div class="toc-title">Demo Playbook</div>
+        <div class="toc-desc">Stats, talking points, live demo script, URLs</div>
+      </div>
+      <div class="toc-item">
+        <div class="toc-num">Part 2</div>
+        <div class="toc-title">Client Onboarding</div>
+        <div class="toc-desc">Vapi setup, portal config, phone numbers, testing</div>
+      </div>
+    </div>
+    <div class="cover-meta">
+      <div><span>Version</span> 1.0 — May 2026</div>
+      <div><span>Portal</span> ai-roof.vercel.app</div>
+      <div><span>Demo line</span> +1 (754) 283-7658</div>
+      <div><span>Superadmin</span> connect@luxordev.com</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PART 1: DEMO PLAYBOOK
+════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="section-cover">
+    <div class="section-num">Part 1 of 2</div>
+    <h2>Demo Playbook</h2>
+    <p>How to pitch the AI receptionist, what numbers to lead with, and the exact steps to run a live demo that books an appointment in real time.</p>
+  </div>
+
+  <!-- ── The Pitch ── -->
+  <h3>The One-Paragraph Pitch</h3>
+  <p>
+    Roofing companies miss <strong>35–45% of inbound calls</strong> because they come in during jobs, after hours, or when the office is busy.
+    Each missed call is a missed estimate — and the average roofing job in South Florida is worth <strong>$4,000–$18,000</strong>.
+    Luxor AI puts a trained AI receptionist on your phone line 24/7: it answers every call in under 2 seconds, qualifies the lead,
+    books the inspection, and sends you a confirmation email — all without any staff involvement.
+    You get back to the job. We get you the booking.
+  </p>
+
+  <!-- ── Key Stats ── -->
+  <h3>Key Numbers to Lead With</h3>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value blue">40%</div>
+      <div class="stat-label">of inbound calls go unanswered at the average roofing company</div>
+      <div class="stat-source">Source: Home Services industry data</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value green">&lt;2s</div>
+      <div class="stat-label">AI answer time vs. 2–4 hour average human callback</div>
+      <div class="stat-source">Measured on Vapi + ElevenLabs stack</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value blue">50%</div>
+      <div class="stat-label">more jobs won by whoever responds first (speed-to-lead effect)</div>
+      <div class="stat-source">InsideSales / Harvard Business Review</div>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value green">24/7</div>
+      <div class="stat-label">coverage — evenings, weekends, storms — when most emergency calls come in</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value blue">$42K</div>
+      <div class="stat-label">average annual cost of a full-time receptionist (salary + benefits)</div>
+      <div class="stat-source">Bureau of Labor Statistics 2024</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value green">100%</div>
+      <div class="stat-label">call answer rate — zero missed leads, zero hold music</div>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <strong>ROI framing for a 50-call/month business:</strong> If 40% of calls go unanswered, that's 20 missed leads/month.
+    At a 30% close rate and $6,000 average job value → <strong>$36,000/month in lost revenue</strong>.
+    Recovering even 5 of those jobs per month = $30,000 in additional revenue.
+  </div>
+
+  <!-- ── Comparison ── -->
+  <h3>Before vs. After</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Scenario</th>
+        <th>Without Luxor AI</th>
+        <th>With Luxor AI</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Call comes in during a job</strong></td>
+        <td class="td-bad">Goes to voicemail. Caller hangs up, calls competitor.</td>
+        <td class="td-good">AI answers in &lt;2s, captures lead, books inspection.</td>
+      </tr>
+      <tr>
+        <td><strong>9 PM storm damage call</strong></td>
+        <td class="td-bad">No one answers. Emergency lead lost overnight.</td>
+        <td class="td-good">AI flags as urgent, sends owner notification immediately.</td>
+      </tr>
+      <tr>
+        <td><strong>Caller asks about pricing</strong></td>
+        <td class="td-bad">Callback 2–4 hrs later. Caller already got 3 other quotes.</td>
+        <td class="td-good">AI answers FAQs, books inspection while caller is still warm.</td>
+      </tr>
+      <tr>
+        <td><strong>Follow-up call about existing appointment</strong></td>
+        <td class="td-bad">Owner digs through notes or calls back to confirm.</td>
+        <td class="td-good">AI looks up appointment and confirms details instantly.</td>
+      </tr>
+      <tr>
+        <td><strong>Staff cost</strong></td>
+        <td class="td-bad">$35K–$50K/year receptionist (or owner's time).</td>
+        <td class="td-good">Fraction of that cost. No sick days, no training.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ── Pre-Demo Setup ── -->
+  <h3>Before the Demo — 5-Minute Setup</h3>
+  <p>Do this the morning of the demo, or right before the call.</p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num blue">1</div>
+      <div class="step-body">
+        <strong>Customize the demo for the prospect</strong>
+        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span> (log in as connect@luxordev.com)</p>
+        <p>Enter their company name (e.g. "Roof Doctors South Florida") and their email address → click <strong>Apply demo config</strong>. Alice will now greet callers using their company name.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">2</div>
+      <div class="step-body">
+        <strong>Do a quick test call yourself</strong>
+        <p>Call <strong>+1 (754) 283-7658</strong> and say "I need a roof inspection". Confirm Alice greets them by their company name and the call flows smoothly.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">3</div>
+      <div class="step-body">
+        <strong>Open the dashboard in a browser tab</strong>
+        <p><span class="url">https://ai-roof.vercel.app/company/dashboard</span> — logged in, ready to show live data after the demo call.</p>
+      </div>
+    </li>
+  </ol>
+
+  <!-- ── Live Demo Script ── -->
+  <h3>Live Demo Script (10 Minutes)</h3>
+
+  <h4>Step 1 — Set the stage (2 min)</h4>
+  <p>
+    "Right now, your phone rings and if you're on a roof or in a meeting, it goes to voicemail.
+    Studies show the first company to respond wins the job over 50% of the time.
+    I'm going to show you what happens when your phone never goes unanswered again."
+  </p>
+
+  <h4>Step 2 — The live call (3 min)</h4>
+  <p>Hand the prospect their phone (or dial from yours on speaker) and call <strong>+1 (754) 283-7658</strong>.</p>
+  <p>Script for the call: <em>"Hi, I have some storm damage on my roof and I need someone to take a look. Can I book an inspection for next week?"</em></p>
+  <p>Let Alice handle it fully — she'll ask for their name, address, preferred time, and book the appointment.</p>
+
+  <h4>Step 3 — Show the dashboard (3 min)</h4>
+  <p>Switch to your browser tab with the dashboard open: <span class="url">https://ai-roof.vercel.app/company/dashboard</span></p>
+  <p>Walk through:</p>
+  <ul style="margin-left:20px;margin-bottom:12px;">
+    <li style="margin-bottom:6px;"><strong>Appointments tab</strong> → their booking appears in real time</li>
+    <li style="margin-bottom:6px;"><strong>Calls tab</strong> → full transcript of the call just completed</li>
+    <li style="margin-bottom:6px;"><strong>Send Confirmation</strong> → click it and a branded email arrives in their inbox</li>
+  </ul>
+
+  <h4>Step 4 — Close (2 min)</h4>
+  <p>
+    "That just happened without any staff involvement. The appointment is booked, you have a transcript,
+    and the customer has a confirmation email with your company's branding on it.
+    This is running 24/7 on your line — nights, weekends, during the hurricane season surge."
+  </p>
+  <p><em>"The setup takes about a week. Want to talk about getting your number on this?"</em></p>
+
+  <!-- ── Reset ── -->
+  <div class="warning-box">
+    <strong>After every demo:</strong> Go back to <span class="url">https://ai-roof.vercel.app/admin/demo</span> and click <strong>Reset to defaults</strong> to restore Apex Roofing South Florida branding.
+  </div>
+
+  <!-- ── Portal URLs ── -->
+  <h3>Key URLs</h3>
+  <table>
+    <thead><tr><th>URL</th><th>What it is</th><th>Login</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-roof.vercel.app/login</code></td><td>Login page</td><td>Any account</td></tr>
+      <tr><td><code>ai-roof.vercel.app/admin/demo</code></td><td>Demo customizer — set prospect name</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>ai-roof.vercel.app/company/dashboard</code></td><td>Live ops dashboard to show during demo</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>ai-roof.vercel.app/admin/businesses</code></td><td>All tenants list</td><td>Superadmin only</td></tr>
+      <tr><td><code>ai-roof.vercel.app/admin/onboarding</code></td><td>Add a new company</td><td>Superadmin only</td></tr>
+      <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi — manage voice assistants</td><td>Luxor Vapi account</td></tr>
+    </tbody>
+  </table>
+
+</div><!-- /page -->
+
+<!-- ═══════════════════════════════════════════════════
+     PART 2: CLIENT ONBOARDING
+════════════════════════════════════════════════════ -->
+<div class="page">
+
+  <div class="section-cover">
+    <div class="section-num">Part 2 of 2</div>
+    <h2>Client Onboarding Guide</h2>
+    <p>Step-by-step instructions to take a new signed client from zero to live calls — covering Vapi, the portal, phone numbers, and go-live verification.</p>
+  </div>
+
+  <!-- ── Overview ── -->
+  <h3>Overview — What You're Setting Up</h3>
+  <div class="two-col">
+    <div class="col-box">
+      <h4>Vapi (voice platform)</h4>
+      <ul style="margin-left:16px;">
+        <li style="margin-bottom:4px;">One AI assistant per client</li>
+        <li style="margin-bottom:4px;">5 tools attached (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment)</li>
+        <li style="margin-bottom:4px;">One phone number (new or forwarded)</li>
+        <li>Webhook URL pointing to our server</li>
+      </ul>
+    </div>
+    <div class="col-box">
+      <h4>Portal (Firestore + UI)</h4>
+      <ul style="margin-left:16px;">
+        <li style="margin-bottom:4px;">One business document with their config</li>
+        <li style="margin-bottom:4px;">Vapi assistant ID linked so calls route correctly</li>
+        <li style="margin-bottom:4px;">Branding (logo URL, brand color, contact phone)</li>
+        <li>Client login provisioned so they can see their dashboard</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── PHASE 1: Vapi ── -->
+  <h3>Phase 1 — Create the Vapi Assistant</h3>
+  <p>Go to <span class="url">dashboard.vapi.ai</span> → <strong>Assistants</strong> → <strong>+ Create Assistant</strong></p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Name the assistant</strong>
+        <p>Use the receptionist name the client agreed on (e.g. "Alice", "Mia", "Riley"). This is what the AI introduces itself as.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Set the First Message (greeting)</strong>
+        <p>Example: <em>"Thanks for calling [Company Name], this is Alice. How can I help you today?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Set the System Prompt</strong>
+        <p>Use the prompt generated from our portal (see Phase 2). For now set a placeholder — you'll update it after the portal generates the real config.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Configure the model</strong>
+        <p>Provider: <strong>OpenAI</strong> — Model: <strong>gpt-4o-mini</strong> — Temperature: <strong>0.5</strong> — Max tokens: <strong>150</strong></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Configure voice (TTS)</strong>
+        <p>Provider: <strong>ElevenLabs</strong> — Voice: <strong>Rachel</strong> (ID: <code>21m00Tcm4TlvDq8ikWAM</code>) — Model: <strong>eleven_turbo_v2_5</strong></p>
+        <p>This gives the most natural, low-latency voice. Target latency is under 1.5 seconds.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <strong>Configure transcription (STT)</strong>
+        <p>Provider: <strong>Deepgram</strong> — Model: <strong>nova-3</strong> — Endpointing: <strong>300ms</strong></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <strong>Set the Server URL (Advanced tab)</strong>
+        <p><span class="url">https://ai-roof.vercel.app/api/webhooks/vapi</span></p>
+        <p>Leave the secret field blank while <code>VAPI_AUTH_BYPASS=true</code> is active.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <strong>Add all 5 tools</strong>
+        <p>Go to the <strong>Tools tab</strong> → <strong>+ Add Tool</strong> and add each of these (they already exist in your Vapi account — just search and select):</p>
+        <p><code>bookAppointment</code> &nbsp; <code>createLead</code> &nbsp; <code>escalateCall</code> &nbsp; <code>checkAvailability</code> &nbsp; <code>lookupAppointment</code></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">9</div>
+      <div class="step-body">
+        <strong>Save and copy the Assistant ID</strong>
+        <p>After saving, the assistant ID appears in the URL bar and in the assistant settings. It looks like: <code>9267a84a-0f4f-416b-a328-1dc539f5265e</code></p>
+        <p>Copy it — you'll need it in Phase 2.</p>
+      </div>
+    </li>
+  </ol>
+
+  <hr>
+
+  <!-- ── PHASE 2: Phone Number ── -->
+  <h3>Phase 2 — Set Up the Phone Number</h3>
+
+  <div class="two-col">
+    <div class="col-box">
+      <h4>Option A — New Vapi number (recommended for new clients)</h4>
+      <ol style="margin-left:16px;font-size:12px;">
+        <li style="margin-bottom:6px;">Vapi dashboard → <strong>Phone Numbers</strong> → <strong>+ Buy Number</strong></li>
+        <li style="margin-bottom:6px;">Search by area code (use client's local area code)</li>
+        <li style="margin-bottom:6px;">Select the number → assign to the assistant you just created</li>
+        <li style="margin-bottom:6px;">Copy the <strong>Phone Number ID</strong> (starts with <code>pn_</code>)</li>
+        <li>Give the client this number to use as their business line, or set up a forward from their existing number</li>
+      </ol>
+    </div>
+    <div class="col-box">
+      <h4>Option B — Forward existing number to Vapi</h4>
+      <ol style="margin-left:16px;font-size:12px;">
+        <li style="margin-bottom:6px;">Client keeps their existing number</li>
+        <li style="margin-bottom:6px;">Set up call forwarding on their carrier to forward to the Vapi number you provisioned in Option A</li>
+        <li style="margin-bottom:6px;">Most carriers: dial <code>*72 + [Vapi number]</code> to enable forwarding</li>
+        <li style="margin-bottom:6px;">Test by calling the client's original number — Alice should answer</li>
+        <li>Unconditional forward: all calls go to AI. Conditional forward: only unanswered calls.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="highlight">
+    <strong>Recommended for most clients:</strong> Buy a new local Vapi number + set conditional forwarding (forward on no-answer after 2 rings) from their existing number. This way staff can still answer — if they don't, the AI catches it.
+  </div>
+
+  <hr>
+
+  <!-- ── PHASE 3: Portal ── -->
+  <h3>Phase 3 — Create the Business in the Portal</h3>
+  <p>Go to <span class="url">https://ai-roof.vercel.app/admin/onboarding</span></p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num green">1</div>
+      <div class="step-body">
+        <strong>Step 1 — Company Profile</strong>
+        <p><strong>Business name:</strong> Exact legal or trade name (e.g. "Roof Doctors South Florida")</p>
+        <p><strong>Business ID:</strong> Lowercase, hyphens only (e.g. <code>roof-doctors-sf</code>) — this is permanent, choose carefully</p>
+        <p><strong>Owner email:</strong> The email they'll use to log in</p>
+        <p><strong>Main phone:</strong> Their business phone number</p>
+        <p><strong>Service area:</strong> Comma-separated cities (e.g. Miami, Coral Gables, Doral)</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num green">2</div>
+      <div class="step-body">
+        <strong>Step 2 — Template and Plan</strong>
+        <p>Industry: <strong>Roofing</strong> (pre-fills services, FAQs, emergency rules)</p>
+        <p>Receptionist name: agreed name (e.g. "Alice")</p>
+        <p>Greeting: <em>"Thanks for calling [Company Name], this is Alice. How can I help?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num green">3</div>
+      <div class="step-body">
+        <strong>Step 3 — Services and FAQs</strong>
+        <p>Review the auto-filled roofing defaults. They will be used by the AI to answer service questions.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num green">4</div>
+      <div class="step-body">
+        <strong>Step 4 — Rules and Routing</strong>
+        <p><strong>Escalation phone:</strong> Owner's cell — called/texted for emergencies</p>
+        <p><strong>Notification email:</strong> Where appointment and lead emails are sent</p>
+        <p>Review emergency rules and booking rules — adjust if client has specific policies</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num green">5</div>
+      <div class="step-body">
+        <strong>Step 5 — Vapi and Branding</strong>
+        <p><strong>Vapi assistant ID:</strong> Paste the ID from Phase 1 Step 9</p>
+        <p><strong>Vapi phone number ID:</strong> Paste the <code>pn_</code> ID from Phase 2</p>
+        <p><strong>Brand color:</strong> Their primary brand hex color (e.g. <code>#1e3a5f</code>)</p>
+        <p><strong>Contact phone:</strong> The number shown on confirmation emails</p>
+        <p><strong>Logo URL:</strong> HTTPS link to their logo image (optional but recommended)</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num green">6</div>
+      <div class="step-body">
+        <strong>Click "Create company"</strong>
+        <p>The portal creates the Firestore document. The AI will now route calls to this business automatically via the Vapi assistant ID.</p>
+      </div>
+    </li>
+  </ol>
+
+  <hr>
+
+  <!-- ── PHASE 4: Client Login ── -->
+  <h3>Phase 4 — Provision Client Login</h3>
+  <p>The client needs a Firebase Auth account + a <code>businessUsers</code> document to log in and see their dashboard.</p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Create their Firebase Auth account</strong>
+        <p>Go to Firebase Console → Authentication → Users → Add User. Enter their email + a temporary password. They can reset it after first login.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Create their businessUsers document</strong>
+        <p>In Firestore → <code>businessUsers/{their-uid}</code> → create document with these fields:</p>
+        <code style="display:block;white-space:pre;background:#f1f5f9;padding:10px;border-radius:6px;font-size:11px;margin-top:8px;line-height:1.8;">uid: "their-firebase-uid"
+email: "their@email.com"
+businessId: "roof-doctors-sf"
+businessName: "Roof Doctors South Florida"
+role: "owner"
+superadmin: false</code>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Send them their login credentials</strong>
+        <p>Portal URL: <span class="url">https://ai-roof.vercel.app/login</span></p>
+        <p>Email: their email | Temp password: whatever you set</p>
+      </div>
+    </li>
+  </ol>
+
+  <hr>
+
+  <!-- ── PHASE 5: Testing ── -->
+  <h3>Phase 5 — Go-Live Testing (15 Minutes)</h3>
+  <p>Run through this checklist before handing off to the client.</p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Call the Vapi number directly</strong>
+        <p>Call the number assigned in Phase 2. Alice should answer with the correct greeting within 3 seconds.</p>
+        <p>✓ Correct company name in greeting &nbsp; ✓ Receptionist name correct &nbsp; ✓ No dead air</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Book a test appointment</strong>
+        <p>Say: <em>"I need a roof inspection, I'm available next Tuesday morning at 10am."</em></p>
+        <p>Provide a test name, phone, and address when asked. Alice should call <code>bookAppointment</code> and confirm.</p>
+        <p>✓ Appointment appears in portal at <code>/company/appointments</code></p>
+        <p>✓ Notification email arrives at the configured notification address</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Test lead capture</strong>
+        <p>Call again. Say: <em>"I just want to get some information about your services, not ready to book yet."</em></p>
+        <p>Alice should capture as a lead. Check <code>/company/leads</code> in the portal.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Test emergency escalation</strong>
+        <p>Call and say: <em>"I have water coming through my ceiling right now."</em></p>
+        <p>Alice should flag as urgent and trigger escalation. Check escalation email arrives at configured address.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Test appointment lookup</strong>
+        <p>Call from the same number you used in test 2. Say: <em>"I want to confirm my appointment."</em></p>
+        <p>Alice should find the appointment by phone number and read back the details.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <strong>Test client login</strong>
+        <p>Log in to the portal using the client's credentials. Confirm they see only their data — no other businesses visible.</p>
+        <p>✓ Dashboard shows call counts &nbsp; ✓ Appointments tab shows test appointment &nbsp; ✓ Leads tab shows test lead</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <strong>Send confirmation email</strong>
+        <p>On the Appointments page, click <strong>Send Confirmation</strong> on the test appointment.</p>
+        <p>✓ Email arrives with client's brand color and logo &nbsp; ✓ Footer says "Powered by Luxor AI" (subtle)</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="success-box">
+    <strong>All 7 tests passed?</strong> The client is live. Send them their login credentials and schedule a 15-minute walkthrough call to show them the dashboard.
+  </div>
+
+  <hr>
+
+  <!-- ── Go-live Checklist ── -->
+  <h3>Go-Live Checklist</h3>
+  <ul class="checklist">
+    <li>Vapi assistant created with correct greeting and system prompt</li>
+    <li>All 5 tools added to the assistant in Vapi</li>
+    <li>Webhook URL set: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code></li>
+    <li>ElevenLabs voice configured (Rachel, eleven_turbo_v2_5)</li>
+    <li>Deepgram STT configured (nova-3, 300ms endpointing)</li>
+    <li>Phone number purchased and assigned to assistant in Vapi</li>
+    <li>Call forwarding tested (if using existing number)</li>
+    <li>Business created in portal at /admin/onboarding</li>
+    <li>Vapi assistant ID saved in portal config</li>
+    <li>Vapi phone number ID saved in portal config</li>
+    <li>Brand color, logo URL, contact phone saved in portal</li>
+    <li>Notification email and escalation phone configured</li>
+    <li>Firebase Auth account created for client</li>
+    <li>businessUsers Firestore doc created for client UID</li>
+    <li>Test appointment booked via live call — appears in portal</li>
+    <li>Notification email confirmed received</li>
+    <li>Escalation test passed</li>
+    <li>Confirmation email sent — branded correctly</li>
+    <li>Client login tested — sees only their business data</li>
+    <li>Portal status set to <strong>Active</strong> in config edit page</li>
+  </ul>
+
+  <hr>
+
+  <!-- ── Troubleshooting ── -->
+  <h3>Quick Troubleshooting</h3>
+  <table>
+    <thead><tr><th>Problem</th><th>Most likely cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Alice answers but uses wrong company name</td>
+        <td>Greeting not updated in Vapi or portal</td>
+        <td>Update First Message in Vapi assistant AND greeting field in portal config</td>
+      </tr>
+      <tr>
+        <td>Call answered but no Firestore record written</td>
+        <td>Webhook not reaching server</td>
+        <td>Check Vercel logs at <code>ai-roof.vercel.app</code> → Vapi dashboard → Logs for webhook errors</td>
+      </tr>
+      <tr>
+        <td>Tool call fires but no email received</td>
+        <td>notificationEmail not set or RESEND_API_KEY not valid</td>
+        <td>Check portal config → notification email field; check Vercel env vars</td>
+      </tr>
+      <tr>
+        <td>Client can't log in to portal</td>
+        <td>businessUsers doc missing or businessId mismatch</td>
+        <td>Check Firestore → businessUsers → {uid} → businessId matches the businesses doc ID exactly</td>
+      </tr>
+      <tr>
+        <td>Client sees empty dashboard</td>
+        <td>businessId in businessUsers doesn't match businesses collection</td>
+        <td>Verify businessId field in businessUsers/{uid} matches the key in businesses/{businessId}</td>
+      </tr>
+      <tr>
+        <td>Alice not answering the forwarded number</td>
+        <td>Forwarding not set up or Vapi number not assigned</td>
+        <td>Test by calling the Vapi number directly first. If that works, the issue is the forwarding setup on the carrier.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr>
+
+  <!-- ── Footer ── -->
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
+    <span>Luxor AI — Internal Use Only</span>
+    <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
+    <span>v1.0 — May 2026</span>
+  </div>
+
+</div><!-- /page -->
+
+</body>
+</html>

@@ -2,6 +2,17 @@
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items (VAPI_AUTH_BYPASS, voice upgrade, onboarding wizard), and demo instructions.
 
+## Onboarding & Demo Guide
+The file `docs/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. Open it in a browser and print → Save as PDF to generate the PDF version.
+
+**Update the guide when any of these change:**
+- Demo phone number, portal URL, or superadmin login
+- Onboarding form steps (e.g. new required fields added)
+- Vapi assistant setup steps (new tools, changed voice/model config)
+- Phone number provisioning process
+- Client login provisioning steps (e.g. if businessUsers creation is automated)
+- Key stats or ROI numbers used in the pitch
+
 **Project**: AI Receptionist Platform for local service businesses
 **Status**: Phase 2 complete + admin UI wired — Vapi live, onboarding form built, config edit page live, route protection added
 **Estimated Completion**: 70%
