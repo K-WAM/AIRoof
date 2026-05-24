@@ -6,6 +6,7 @@ const links = [
   { href: "/admin/businesses", label: "Businesses" },
   { href: "/admin/onboarding", label: "+ Add Company" },
   { href: "/admin/demo", label: "Demo" },
+  { href: "/admin/guide", label: "Playbooks" },
 ];
 
 const bottomLinks = [

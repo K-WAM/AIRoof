@@ -3,7 +3,7 @@
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items (VAPI_AUTH_BYPASS, voice upgrade, onboarding wizard), and demo instructions.
 
 ## Onboarding & Demo Guide
-The file `docs/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. Open it in a browser and print → Save as PDF to generate the PDF version.
+The file `public/guides/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. It is served live at `/guides/onboarding-guide.html` and embedded in the superadmin portal at `/admin/guide`. Open it in a browser and print → Save as PDF to generate the PDF version.
 
 **Update the guide when any of these change:**
 - Demo phone number, portal URL, or superadmin login
