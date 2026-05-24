@@ -2,15 +2,49 @@
 
 Date: 2026-05-24
 
-## Current Status: Vapi Live, Admin Onboarding Wired, Route Protection Added
+## Current Status: Admin UI complete, Preview-as-client wired, Usage monitoring live
 
-The platform is 70% complete. Vapi voice AI is live end-to-end. Admin onboarding form now creates tenants with Vapi IDs and branding. Business config edit page loads live Firestore data. Next.js middleware blocks URL-based route bypassing.
+The platform is 75% complete. Vapi is live end-to-end. Admin panel has dark sidebar with usage monitoring, preview-as-client, and playbooks tabs. Demo seed is populated in Firestore.
 
 **Demo number**: +1 (754) 283-7658 (Vapi number)
+**Demo business**: `demo-roofing` → Apex Roofing South Florida (seeded 2026-05-24)
 
 ---
 
-## What Was Built This Session (2026-05-23/24)
+## What Was Built This Session (2026-05-24)
+
+### Admin UI redesign
+- Dark sidebar (`#0d1117`) with CSS class system: `.nav-link`, `.nav-section`, `.nav-section-label`, `.admin-brand`, `.admin-sidebar-footer`
+- Navigation sections: Platform (Businesses, Add Company, Usage) / Tools (Demo, Playbooks)
+- Active nav item highlighted with blue left border + tinted background
+- "Client view ↗" link at bottom of sidebar
+
+### Usage monitoring (`/admin/usage`)
+- `src/app/admin/usage/page.tsx` — platform-wide totals + per-tenant call/lead/appointment counts
+- `src/app/api/admin/usage/route.ts` — Firestore aggregation with Admin SDK `.count()` queries
+
+### Preview-as-client
+- `src/hooks/useBusinessId.ts` — returns `?preview=businessId` for superadmin, falls back to `user.businessId`
+- All 5 company pages updated to use `useBusinessId()` hook
+- Company layout allows superadmin through when `?preview=` param present
+- "Preview ↗" button on businesses table → opens `/company/dashboard?preview=businessId` in new tab
+- Use this to QA any client's view without creating a separate login
+
+### Concurrent call handling
+- Vapi runs in the cloud; every inbound call spawns its own independent session — no queue, no bottleneck from our code. Concurrency limits are set by the Vapi plan (Standard = 10 concurrent, scale on request).
+
+### Playbooks tabs
+- `src/app/admin/guide/page.tsx` — two tabs: "Demo Playbook" and "Client Onboarding" switch the iframe src; no more scrolling through both sections
+- HTML guide anchors: `#part-1` / `#part-2` added to guide HTML
+
+### Demo data seeded
+- `node scripts/seed-demo-business.mjs` run against production Firestore — `demo-roofing` (Apex Roofing South Florida) now live
+- To see it in the admin: /admin/businesses → shows the demo tenant with Preview button
+- To customize for a prospect: /admin/demo → enter company name + email → click Apply
+
+---
+
+## What Was Built Previously (2026-05-23)
 
 ### lookupAppointment tool (new 5th Vapi tool)
 - `src/lib/tools/agentTools.ts` — `lookupAppointment()` searches appointments by phone → name → address, returns human-readable summary so Alice can tell callers their upcoming appointment details
@@ -124,16 +158,21 @@ Business lookup: `src/lib/vapi/businessLookup.ts` maps `vapiAssistantId → busi
 | `src/lib/tools/agentTools.ts` | All tools + BizBranding email templates |
 | `src/middleware.ts` | Route protection — checks __session cookie |
 | `src/contexts/AuthContext.tsx` | Sets/clears __session cookie on auth state change |
+| `src/hooks/useBusinessId.ts` | Returns `?preview=businessId` for superadmin, user.businessId otherwise |
+| `src/app/admin/admin-nav.tsx` | Sidebar nav (sections: Platform / Tools) |
+| `src/app/admin/usage/page.tsx` | Platform-wide usage monitoring |
+| `src/app/api/admin/usage/route.ts` | Firestore aggregation per tenant |
 | `src/app/admin/onboarding/page.tsx` | Onboarding form (5 steps, includes Vapi IDs) |
-| `src/app/admin/businesses/page.tsx` | Live business list |
+| `src/app/admin/businesses/page.tsx` | Live business list + Edit + Preview buttons |
 | `src/app/admin/businesses/[businessId]/config/page.tsx` | Live config edit |
+| `src/app/admin/guide/page.tsx` | Playbooks page with Demo/Onboarding tabs |
 | `src/app/api/admin/businesses/route.ts` | GET list + POST create |
 | `src/app/api/admin/businesses/[businessId]/config/route.ts` | GET + PUT config |
 | `src/app/api/appointments/send-confirmation/route.ts` | Branded confirmation email |
 | `src/app/admin/demo/page.tsx` | Demo customizer UI |
 | `scripts/demo-customize.mjs` | CLI demo customizer |
 | `scripts/provision-superadmin.mjs` | Set custom claim + businessUsers doc |
-| `scripts/seed-demo-business.mjs` | Demo data init |
+| `scripts/seed-demo-business.mjs` | Demo data init (run once against prod Firestore) |
 
 ---
 

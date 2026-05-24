@@ -14,8 +14,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 2 complete + admin UI wired — Vapi live, onboarding form built, config edit page live, route protection added
-**Estimated Completion**: 70%
+**Status**: Phase 2 complete + admin UI redesigned — dark sidebar, usage monitoring, preview-as-client, playbooks tabs, demo data seeded
+**Estimated Completion**: 75%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -154,12 +154,17 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
 - scripts/demo-customize.mjs — CLI demo customizer
 - src/app/admin/onboarding/page.tsx — Onboarding wizard (5 steps, includes vapiAssistantId + branding)
-- src/app/admin/businesses/page.tsx — Live business list from Firestore
+- src/hooks/useBusinessId.ts — Returns ?preview=businessId for superadmin, user.businessId otherwise
+- src/app/admin/admin-nav.tsx — Sidebar nav with section groups (Platform / Tools)
+- src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
+- src/app/api/admin/usage/route.ts — Firestore count aggregation per business
+- src/app/admin/guide/page.tsx — Playbooks page with Demo Playbook / Client Onboarding tabs
+- src/app/admin/businesses/page.tsx — Live business list + Edit + Preview ↗ buttons
 - src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (loads real Firestore data)
 - src/app/api/admin/businesses/route.ts — GET list + POST create business
 - src/app/api/admin/businesses/[businessId]/config/route.ts — GET + PUT config per business
 - src/app/api/appointments/send-confirmation/route.ts — Branded confirmation email via Resend
-- src/app/company/dashboard/page.tsx — Company operations dashboard
+- src/app/company/dashboard/page.tsx — Company operations dashboard (uses useBusinessId hook)
 - src/app/company/leads/page.tsx — Company lead queue
 - src/app/company/calls/page.tsx — Company call history/transcript (system prompt filtered)
 - src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation
