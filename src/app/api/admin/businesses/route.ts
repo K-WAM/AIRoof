@@ -33,6 +33,15 @@ interface CreateBusinessRequest {
   temperature?: number;
   maxTokens?: number;
   active?: boolean;
+  // Vapi
+  vapiAssistantId?: string;
+  vapiPhoneNumberId?: string;
+  // Branding
+  brandColor?: string;
+  logoUrl?: string | null;
+  contactPhone?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
   actorUid?: string;
   actorEmail?: string;
 }
@@ -169,6 +178,15 @@ export async function POST(
       temperature: body.temperature ?? preset.temperature,
       maxTokens: body.maxTokens ?? preset.maxTokens,
       active: body.active ?? false,
+      // Vapi integration
+      ...(body.vapiAssistantId ? { vapiAssistantId: body.vapiAssistantId } : {}),
+      ...(body.vapiPhoneNumberId ? { vapiPhoneNumberId: body.vapiPhoneNumberId } : {}),
+      // Branding
+      ...(body.brandColor ? { brandColor: body.brandColor } : {}),
+      ...(body.logoUrl !== undefined ? { logoUrl: body.logoUrl } : {}),
+      ...(body.contactPhone ? { contactPhone: body.contactPhone } : {}),
+      ...(body.contactEmail ? { contactEmail: body.contactEmail } : {}),
+      ...(body.websiteUrl ? { websiteUrl: body.websiteUrl } : {}),
       createdAt: now,
       updatedAt: now,
     };

@@ -3,8 +3,8 @@
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items (VAPI_AUTH_BYPASS, voice upgrade, onboarding wizard), and demo instructions.
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 2 complete — Vapi voice AI live, multi-turn memory working, tools fire, emails confirmed
-**Estimated Completion**: 65%
+**Status**: Phase 2 complete + admin UI wired — Vapi live, onboarding form built, config edit page live, route protection added
+**Estimated Completion**: 70%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -21,18 +21,21 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **65% complete**.
+Current estimate: **70% complete**.
 
 Basis:
 - Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Vapi, Resend all configured.
 - Migrated from custom Twilio pipeline to Vapi (managed voice AI) — old Twilio routes deleted.
 - Alice (Vapi assistant) answers calls end-to-end: multi-turn conversation memory, tool use confirmed.
-- bookAppointment tool fires → Firestore appointment doc → Resend email to prospect inbox (verified live).
+- 5 tools wired in code: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment. lookupAppointment needs Vapi UI step.
+- Branded HTML emails: client logo/color in notifications + confirmation emails; "Powered by Luxor AI" hidden footer.
 - All 5 company dashboard pages wired to live Firestore data.
-- Auth guards on /company and /admin; Google + email/password login live.
+- Auth guards on /company and /admin: Next.js middleware (__session cookie) + layout redirects + Firestore rules.
 - Superadmin provisioned: connect@luxordev.com → /admin access.
 - Demo customizer built: /admin/demo page + CLI script for prospect demos.
-- Critical gaps remaining: VAPI_AUTH_BYPASS active (webhook secret mismatch), superadmin onboarding wizard not built, no real Google Calendar integration.
+- Admin onboarding form (5 steps): creates business doc, accepts vapiAssistantId, branding fields.
+- Business config edit page: loads live Firestore data, editable vapiAssistantId + all agent settings.
+- Critical gaps remaining: VAPI_AUTH_BYPASS active, lookupAppointment not yet added to Vapi UI, no real Google Calendar.
 
 ## Architecture
 
@@ -128,24 +131,29 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 ## Key Files
 
 - src/types/index.ts — Type definitions (includes vapiAssistantId, vapiPhoneNumberId on BusinessConfig)
-- firestore.rules — Draft tenant isolation rules
-- src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler
+- firestore.rules — Tenant isolation rules (isSuperadmin checks businessUsers doc as fallback)
+- src/middleware.ts — Next.js route protection (__session cookie check for /admin/* and /company/*)
+- src/contexts/AuthContext.tsx — Sets/clears __session cookie on auth state change
+- src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (5 tools)
 - src/lib/vapi/types.ts — Vapi payload types
 - src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS active)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
+- src/lib/tools/agentTools.ts — All tools + BizBranding email templates (lookupAppointment added)
 - src/app/admin/demo/page.tsx — Demo customizer UI
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
 - scripts/demo-customize.mjs — CLI demo customizer
-- src/app/admin/onboarding/page.tsx — Superadmin onboarding wizard shell (not wired to Vapi API yet)
+- src/app/admin/onboarding/page.tsx — Onboarding wizard (5 steps, includes vapiAssistantId + branding)
+- src/app/admin/businesses/page.tsx — Live business list from Firestore
+- src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (loads real Firestore data)
+- src/app/api/admin/businesses/route.ts — GET list + POST create business
+- src/app/api/admin/businesses/[businessId]/config/route.ts — GET + PUT config per business
+- src/app/api/appointments/send-confirmation/route.ts — Branded confirmation email via Resend
 - src/app/company/dashboard/page.tsx — Company operations dashboard
 - src/app/company/leads/page.tsx — Company lead queue
-- src/app/company/calls/page.tsx — Company call history/transcript
-- src/app/company/appointments/page.tsx — Company inspection schedule
-- src/lib/ai/scopeClassifier.ts — Off-topic defense
-- src/lib/ai/agentPromptBuilder.ts — System prompt generation
-- src/lib/ai/openaiClient.ts — OpenAI wrapper (accepts history: ConversationTurn[])
-- src/lib/tools/agentTools.ts — Scoped actions (bookAppointment, createLead, escalateCall — Resend wired)
+- src/app/company/calls/page.tsx — Company call history/transcript (system prompt filtered)
+- src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
+- scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
 - TODO.md — Implementation roadmap
 
@@ -161,10 +169,11 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **CURRENT**: Build superadmin onboarding wizard — `/admin/onboarding` auto-creates Vapi assistant + phone + 4 tools via Vapi REST API; writes `businesses/` and `businessPhoneNumbers/` docs
-2. Fix VAPI_WEBHOOK_SECRET mismatch — delete current secret in Vercel, generate new one, set in Vercel and Vapi UI (assistant + each tool server header)
-3. Add RESEND_FROM env var to Vercel: `Alice <notify@yourdomain.com>` (needs verified Resend domain)
-4. Phase 3: after-hours logic, call outcome tagging via DeepSeek, FAQ suggestions cron
+1. **CURRENT**: Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
+2. Fix VAPI_WEBHOOK_SECRET mismatch — delete current secret in Vercel, generate new one, set in Vercel and Vapi UI (assistant + each tool server header); remove VAPI_AUTH_BYPASS
+3. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in and see their data
+4. Add RESEND_FROM env var to Vercel: `Alice <notify@yourdomain.com>` (needs verified Resend domain)
+5. Phase 3: after-hours logic, call outcome tagging via DeepSeek, FAQ suggestions cron
 
 ## Implementation Phases
 

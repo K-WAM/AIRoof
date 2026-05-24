@@ -9,7 +9,7 @@ const wizardSteps = [
   "Template and plan",
   "Services and FAQs",
   "Rules and routing",
-  "Test calls",
+  "Vapi and branding",
   "Launch readiness",
 ];
 
@@ -64,6 +64,13 @@ export default function OnboardingPage() {
         .split("\n")
         .map((rule) => rule.trim())
         .filter(Boolean),
+      // Vapi
+      vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim() || undefined,
+      vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim() || undefined,
+      // Branding
+      brandColor: String(formData.get("brandColor") || "").trim() || undefined,
+      contactPhone: String(formData.get("contactPhone") || "").trim() || undefined,
+      logoUrl: String(formData.get("logoUrl") || "").trim() || null,
       active: false,
       actorEmail: "connect@luxordev.com",
     };
@@ -290,21 +297,65 @@ export default function OnboardingPage() {
                   />
                 </div>
                 <div className="field full">
-                  <label htmlFor="emergencyRules">Emergency rules</label>
+                  <label htmlFor="emergencyRules">Emergency rules (one per line)</label>
                   <textarea
                     id="emergencyRules"
+                    name="emergencyRules"
                     defaultValue={roofingTemplate.emergencyRules.join("\n")}
                   />
                 </div>
                 <div className="field full">
-                  <label htmlFor="bookingRules">Booking rules</label>
-                  <textarea id="bookingRules" defaultValue={roofingTemplate.bookingRules.join("\n")} />
+                  <label htmlFor="bookingRules">Booking rules (one per line)</label>
+                  <textarea id="bookingRules" name="bookingRules" defaultValue={roofingTemplate.bookingRules.join("\n")} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel" aria-labelledby="vapi-onboarding-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="vapi-onboarding-title">
+                5. Vapi and Branding
+              </h2>
+            </div>
+            <div className="panel-body">
+              <div className="form-grid">
+                <div className="field full">
+                  <label htmlFor="vapiAssistantId">
+                    Vapi assistant ID <span style={{ color: "#94a3b8", fontWeight: 400 }}>(set after creating in Vapi dashboard)</span>
+                  </label>
+                  <input
+                    id="vapiAssistantId"
+                    name="vapiAssistantId"
+                    placeholder="e.g. 9267a84a-0f4f-416b-a328-1dc539f5265e"
+                    style={{ fontFamily: "monospace", fontSize: 13 }}
+                  />
+                </div>
+                <div className="field full">
+                  <label htmlFor="vapiPhoneNumberId">
+                    Vapi phone number ID <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <input
+                    id="vapiPhoneNumberId"
+                    name="vapiPhoneNumberId"
+                    placeholder="e.g. pn_xxxxxxxxxxxxxxxx"
+                    style={{ fontFamily: "monospace", fontSize: 13 }}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="brandColor">Brand color (hex)</label>
+                  <input id="brandColor" name="brandColor" placeholder="#1e3a5f" />
+                </div>
+                <div className="field">
+                  <label htmlFor="contactPhone">Contact phone (shown in emails)</label>
+                  <input id="contactPhone" name="contactPhone" placeholder="+1 (604) 555-1234" />
+                </div>
+                <div className="field full">
+                  <label htmlFor="logoUrl">Logo URL (HTTPS, optional)</label>
+                  <input id="logoUrl" name="logoUrl" placeholder="https://…/logo.png" />
                 </div>
               </div>
               <div className="button-row">
-                <button className="button" type="button">
-                  Save draft
-                </button>
                 <button
                   className="button primary"
                   type="submit"

@@ -42,12 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setIdToken(null);
         setLoading(false);
+        // Clear session marker so middleware redirects on next visit
+        document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
         return;
       }
 
       try {
         const token = await firebaseUser.getIdToken();
         setIdToken(token);
+        // Set session marker so middleware allows protected routes.
+        // Not a security token — Firestore rules are the authoritative gate.
+        document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
 
         let profile: AuthUser = {
           uid: firebaseUser.uid,

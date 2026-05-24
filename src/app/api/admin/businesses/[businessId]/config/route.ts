@@ -35,10 +35,45 @@ interface UpdateBusinessConfigRequest {
   temperature?: number;
   maxTokens?: number;
   active?: boolean;
+  // Vapi integration
+  vapiAssistantId?: string;
+  vapiPhoneNumberId?: string;
+  // Branding
+  brandColor?: string;
+  logoUrl?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
   applyTemplateDefaults?: boolean;
   onboarding?: Partial<BusinessOnboardingStatus>;
   actorUid?: string;
   actorEmail?: string;
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ businessId: string }> }
+): Promise<NextResponse> {
+  try {
+    const { businessId } = await params;
+    const db = getAdminFirestore();
+    if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
+
+    const [bizDoc, onboardingDoc] = await Promise.all([
+      db.collection("businesses").doc(businessId).get(),
+      db.collection("businessOnboarding").doc(businessId).get(),
+    ]);
+
+    if (!bizDoc.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+
+    return NextResponse.json({
+      business: bizDoc.data(),
+      onboarding: onboardingDoc.exists ? onboardingDoc.data() : null,
+    });
+  } catch (error) {
+    console.error("GET /api/admin/businesses/[businessId]/config error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function PUT(
@@ -106,6 +141,15 @@ export async function PUT(
         temperature: body.temperature ?? (body.planTier ? preset.temperature : undefined),
         maxTokens: body.maxTokens ?? (body.planTier ? preset.maxTokens : undefined),
         active: body.active,
+        // Vapi integration
+        vapiAssistantId: body.vapiAssistantId,
+        vapiPhoneNumberId: body.vapiPhoneNumberId,
+        // Branding
+        brandColor: body.brandColor,
+        logoUrl: body.logoUrl,
+        contactPhone: body.contactPhone,
+        contactEmail: body.contactEmail,
+        websiteUrl: body.websiteUrl,
         updatedAt: now,
       };
 

@@ -1,10 +1,48 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 
-const roofingTemplate = VERTICAL_TEMPLATES.roofing;
+interface BizData {
+  businessName: string;
+  industry: string;
+  active: boolean;
+  serviceArea: string | string[];
+  phoneNumber?: string;
+  calendarProvider?: string;
+  escalationPhone?: string;
+  notificationEmail?: string;
+  planTier?: string;
+  agentName?: string;
+  agentIdentity?: string;
+  greeting?: string;
+  afterHoursGreeting?: string;
+  liveModel?: string;
+  backOfficeModel?: string;
+  agentVoice?: string;
+  agentTone?: string;
+  temperature?: number;
+  maxTokens?: number;
+  emergencyRules?: string[];
+  bookingRules?: string[];
+  vapiAssistantId?: string;
+  vapiPhoneNumberId?: string;
+  brandColor?: string;
+  logoUrl?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
+}
+
+interface OnboardingData {
+  profileComplete?: boolean;
+  agentRulesComplete?: boolean;
+  faqComplete?: boolean;
+  phoneMapped?: boolean;
+  testCallsPassed?: boolean;
+  readyForLaunch?: boolean;
+}
 
 const readinessChecks = [
   { key: "profileComplete", label: "Business profile completed" },
@@ -21,22 +59,35 @@ export default function AdminBusinessConfigPage({
   params: Promise<{ businessId: string }>;
 }) {
   const { businessId } = use(params);
+  const [biz, setBiz] = useState<BizData | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "idle" | "submitting" | "success" | "error";
     message: string;
   }>({ type: "idle", message: "" });
+
+  useEffect(() => {
+    fetch(`/api/admin/businesses/${businessId}/config`)
+      .then((r) => r.json())
+      .then((data) => {
+        setBiz(data.business ?? null);
+        setOnboarding(data.onboarding ?? null);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [businessId]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitStatus({ type: "submitting", message: "Saving config..." });
 
     const formData = new FormData(event.currentTarget);
-    const industry = String(formData.get("industry") || "roofing");
     const activeStatus = String(formData.get("active") || "draft");
 
     const payload = {
       businessName: String(formData.get("businessName") || "").trim(),
-      industry,
+      industry: String(formData.get("industry") || "roofing"),
       active: activeStatus === "active",
       serviceArea: String(formData.get("serviceArea") || "")
         .split(",")
@@ -53,8 +104,8 @@ export default function AdminBusinessConfigPage({
       afterHoursGreeting: String(formData.get("afterHoursGreeting") || "").trim(),
       liveModel: String(formData.get("liveModel") || "").trim(),
       backOfficeModel: String(formData.get("backOfficeModel") || "").trim(),
-      agentVoice: String(formData.get("voice") || "").trim(),
-      agentTone: String(formData.get("tone") || "").trim(),
+      agentVoice: String(formData.get("agentVoice") || "").trim(),
+      agentTone: String(formData.get("agentTone") || "").trim(),
       temperature: Number(formData.get("temperature") || 0.5),
       maxTokens: Number(formData.get("maxTokens") || 150),
       emergencyRules: String(formData.get("emergencyRules") || "")
@@ -65,6 +116,15 @@ export default function AdminBusinessConfigPage({
         .split("\n")
         .map((rule) => rule.trim())
         .filter(Boolean),
+      // Vapi
+      vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
+      vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
+      // Branding
+      brandColor: String(formData.get("brandColor") || "").trim(),
+      logoUrl: String(formData.get("logoUrl") || "").trim() || null,
+      contactPhone: String(formData.get("contactPhone") || "").trim(),
+      contactEmail: String(formData.get("contactEmail") || "").trim(),
+      websiteUrl: String(formData.get("websiteUrl") || "").trim(),
       applyTemplateDefaults: formData.get("applyTemplateDefaults") === "on",
       onboarding: Object.fromEntries(
         readinessChecks.map((check) => [check.key, formData.get(check.key) === "on"])
@@ -84,10 +144,7 @@ export default function AdminBusinessConfigPage({
         throw new Error(result.error || "Failed to save config");
       }
 
-      setSubmitStatus({
-        type: "success",
-        message: `Saved config for ${result.businessId}.`,
-      });
+      setSubmitStatus({ type: "success", message: `Saved config for ${businessId}.` });
     } catch (error) {
       setSubmitStatus({
         type: "error",
@@ -96,91 +153,124 @@ export default function AdminBusinessConfigPage({
     }
   }
 
+  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading config…</div>;
+  if (!biz) return <div style={{ padding: 32, color: "#b91c1c" }}>Business not found.</div>;
+
+  const serviceAreaStr = Array.isArray(biz.serviceArea)
+    ? biz.serviceArea.join(", ")
+    : (biz.serviceArea ?? "");
+
   return (
     <>
       <header className="page-header">
         <div>
           <h1 className="page-title">Company Config</h1>
           <p className="page-subtitle">
-            Configure tenant setup, AI model behavior, voice, routing, rules,
-            and launch readiness for <strong>{businessId}</strong>.
+            Edit agent settings, voice, routing, and Vapi IDs for{" "}
+            <strong>{biz.businessName}</strong> ({businessId}).
           </p>
         </div>
-        <span className="status-pill">Draft changes</span>
+        <a className="button" href="/admin/businesses">← All companies</a>
       </header>
 
       <form className="config-grid" onSubmit={handleSubmit}>
         <div className="section-stack">
+
+          {/* ─── Business Profile ─── */}
           <section className="panel" aria-labelledby="profile-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="profile-config-title">
-                Business Profile
-              </h2>
+              <h2 className="panel-title" id="profile-config-title">Business Profile</h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="businessName">Business name</label>
-                  <input id="businessName" name="businessName" defaultValue="Apex Roofing" />
+                  <input id="businessName" name="businessName" defaultValue={biz.businessName} />
                 </div>
                 <div className="field">
                   <label htmlFor="industry">Industry template</label>
-                  <select id="industry" name="industry" defaultValue="roofing">
-                    {Object.values(VERTICAL_TEMPLATES).map((template) => (
-                      <option value={template.verticalId} key={template.verticalId}>
-                        {template.label}
-                      </option>
+                  <select id="industry" name="industry" defaultValue={biz.industry ?? "roofing"}>
+                    {Object.values(VERTICAL_TEMPLATES).map((t) => (
+                      <option value={t.verticalId} key={t.verticalId}>{t.label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="field">
                   <label htmlFor="active">Status</label>
-                  <select id="active" name="active" defaultValue="active">
+                  <select id="active" name="active" defaultValue={biz.active ? "active" : "draft"}>
                     <option value="active">Active</option>
                     <option value="draft">Draft</option>
-                    <option value="paused">Paused</option>
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="serviceArea">Service area</label>
-                  <input
-                    id="serviceArea"
-                    name="serviceArea"
-                    defaultValue="Vancouver, Burnaby, New Westminster, Coquitlam"
-                  />
+                  <label htmlFor="serviceArea">Service area (comma-separated)</label>
+                  <input id="serviceArea" name="serviceArea" defaultValue={serviceAreaStr} />
                 </div>
               </div>
             </div>
           </section>
 
+          {/* ─── Vapi Integration ─── */}
+          <section className="panel" aria-labelledby="vapi-config-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="vapi-config-title">Vapi Integration</h2>
+            </div>
+            <div className="panel-body">
+              <div className="form-grid">
+                <div className="field full">
+                  <label htmlFor="vapiAssistantId">Vapi assistant ID</label>
+                  <input
+                    id="vapiAssistantId"
+                    name="vapiAssistantId"
+                    placeholder="e.g. 9267a84a-0f4f-416b-a328-1dc539f5265e"
+                    defaultValue={biz.vapiAssistantId ?? ""}
+                    style={{ fontFamily: "monospace", fontSize: 13 }}
+                  />
+                </div>
+                <div className="field full">
+                  <label htmlFor="vapiPhoneNumberId">Vapi phone number ID</label>
+                  <input
+                    id="vapiPhoneNumberId"
+                    name="vapiPhoneNumberId"
+                    placeholder="e.g. pn_xxxxxxxxxxxxxxxx"
+                    defaultValue={biz.vapiPhoneNumberId ?? ""}
+                    style={{ fontFamily: "monospace", fontSize: 13 }}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                Find these in your Vapi dashboard → Assistants and Phone Numbers.
+                Set them here so calls route to the correct agent.
+              </p>
+            </div>
+          </section>
+
+          {/* ─── AI Model and Voice ─── */}
           <section className="panel" aria-labelledby="ai-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="ai-config-title">
-                AI Model and Voice
-              </h2>
+              <h2 className="panel-title" id="ai-config-title">AI Model and Voice</h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="planTier">Plan tier</label>
-                  <select id="planTier" name="planTier" defaultValue="standard">
+                  <select id="planTier" name="planTier" defaultValue={biz.planTier ?? "standard"}>
                     {Object.values(PLAN_PRESETS).map((preset) => (
-                      <option value={preset.planTier} key={preset.planTier}>
-                        {preset.label}
-                      </option>
+                      <option value={preset.planTier} key={preset.planTier}>{preset.label}</option>
                     ))}
                   </select>
                 </div>
                 <div className="field">
                   <label htmlFor="liveModel">Live call model</label>
-                  <select id="liveModel" name="liveModel" defaultValue="gpt-4o-mini">
+                  <select id="liveModel" name="liveModel" defaultValue={biz.liveModel ?? "gpt-4o-mini"}>
                     <option value="gpt-4o-mini">gpt-4o-mini</option>
                     <option value="gpt-4.1">gpt-4.1</option>
+                    <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
                   </select>
                 </div>
                 <div className="field">
                   <label htmlFor="backOfficeModel">Back-office model</label>
-                  <select id="backOfficeModel" name="backOfficeModel" defaultValue="deepseek-chat">
+                  <select id="backOfficeModel" name="backOfficeModel" defaultValue={biz.backOfficeModel ?? "deepseek-chat"}>
                     <option value="deepseek-chat">deepseek-chat</option>
                     <option value="gpt-4o-mini">gpt-4o-mini</option>
                     <option value="gpt-4.1-mini">gpt-4.1-mini</option>
@@ -188,64 +278,51 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="agentName">Receptionist name</label>
-                  <input id="agentName" name="agentName" defaultValue="Mia" />
+                  <input id="agentName" name="agentName" defaultValue={biz.agentName ?? "Mia"} />
                 </div>
                 <div className="field">
                   <label htmlFor="agentIdentity">Role</label>
-                  <select id="agentIdentity" name="agentIdentity" defaultValue="receptionist">
+                  <select id="agentIdentity" name="agentIdentity" defaultValue={biz.agentIdentity ?? "receptionist"}>
                     <option value="receptionist">Receptionist</option>
                     <option value="front desk assistant">Front desk assistant</option>
                     <option value="booking assistant">Booking assistant</option>
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="voice">Voice</label>
-                  <select id="voice" name="voice" defaultValue="alice">
-                    <option value="alice">Alice - clear and professional</option>
-                    <option value="woman">Woman - clear and direct</option>
-                    <option value="man">Man - clear and direct</option>
-                  </select>
+                  <label htmlFor="agentVoice">Voice</label>
+                  <input
+                    id="agentVoice"
+                    name="agentVoice"
+                    placeholder="e.g. eleven_turbo_v2_5 or Polly.Matthew-Generative"
+                    defaultValue={biz.agentVoice ?? ""}
+                  />
                 </div>
                 <div className="field full">
                   <label htmlFor="greeting">Greeting</label>
-                  <input
-                    id="greeting"
-                    name="greeting"
-                    defaultValue="Thanks for calling Apex Roofing, this is Mia. How can I help?"
-                  />
+                  <input id="greeting" name="greeting" defaultValue={biz.greeting ?? ""} />
                 </div>
                 <div className="field full">
                   <label htmlFor="afterHoursGreeting">After-hours greeting</label>
-                  <input
-                    id="afterHoursGreeting"
-                    name="afterHoursGreeting"
-                    defaultValue="Thanks for calling Apex Roofing, this is Mia. The office is closed, but I can still help take a message or flag an urgent roof leak."
-                  />
+                  <input id="afterHoursGreeting" name="afterHoursGreeting" defaultValue={biz.afterHoursGreeting ?? ""} />
                 </div>
                 <div className="field">
-                  <label htmlFor="tone">Agent tone</label>
-                  <select id="tone" name="tone" defaultValue="calm, concise, service-focused">
-                    <option value="calm, concise, service-focused">
-                      Calm, concise, service-focused
-                    </option>
-                    <option value="friendly and conversational">Friendly and conversational</option>
-                    <option value="direct emergency triage">Direct emergency triage</option>
-                  </select>
+                  <label htmlFor="agentTone">Agent tone</label>
+                  <input id="agentTone" name="agentTone" defaultValue={biz.agentTone ?? ""} placeholder="calm, friendly, concise" />
                 </div>
                 <div className="field">
                   <label htmlFor="temperature">Temperature</label>
-                  <select id="temperature" name="temperature" defaultValue="0.5">
-                    <option value="0.2">0.2 - strict</option>
-                    <option value="0.5">0.5 - balanced</option>
-                    <option value="0.7">0.7 - flexible</option>
+                  <select id="temperature" name="temperature" defaultValue={String(biz.temperature ?? 0.5)}>
+                    <option value="0.2">0.2 — strict</option>
+                    <option value="0.5">0.5 — balanced</option>
+                    <option value="0.7">0.7 — flexible</option>
                   </select>
                 </div>
                 <div className="field">
                   <label htmlFor="maxTokens">Response length</label>
-                  <select id="maxTokens" name="maxTokens" defaultValue="150">
-                    <option value="100">Short</option>
-                    <option value="150">Standard</option>
-                    <option value="250">Detailed</option>
+                  <select id="maxTokens" name="maxTokens" defaultValue={String(biz.maxTokens ?? 150)}>
+                    <option value="100">Short (100)</option>
+                    <option value="150">Standard (150)</option>
+                    <option value="250">Detailed (250)</option>
                   </select>
                 </div>
                 <label className="check-row">
@@ -256,61 +333,53 @@ export default function AdminBusinessConfigPage({
             </div>
           </section>
 
+          {/* ─── Services and Rules ─── */}
           <section className="panel" aria-labelledby="services-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="services-config-title">
-                Services and Rules
-              </h2>
+              <h2 className="panel-title" id="services-config-title">Services and Rules</h2>
             </div>
             <div className="panel-body">
               <div className="rule-section">
-                <div className="rule-group">
-                  <h3 className="rule-heading">Approved services</h3>
-                  <div className="chip-list">
-                    {roofingTemplate.approvedServices.map((service) => (
-                      <span className="chip" key={service}>
-                        {service}
-                      </span>
-                    ))}
-                  </div>
-                </div>
                 <div className="field">
-                  <label htmlFor="emergencyRules">Emergency rules</label>
+                  <label htmlFor="emergencyRules">Emergency rules (one per line)</label>
                   <textarea
                     id="emergencyRules"
                     name="emergencyRules"
-                    defaultValue={roofingTemplate.emergencyRules.join("\n")}
+                    defaultValue={(biz.emergencyRules ?? []).join("\n")}
+                    rows={5}
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="bookingRules">Booking rules</label>
+                  <label htmlFor="bookingRules">Booking rules (one per line)</label>
                   <textarea
                     id="bookingRules"
                     name="bookingRules"
-                    defaultValue={roofingTemplate.bookingRules.join("\n")}
+                    defaultValue={(biz.bookingRules ?? []).join("\n")}
+                    rows={5}
                   />
                 </div>
               </div>
             </div>
           </section>
+
         </div>
 
         <aside className="section-stack">
+
+          {/* ─── Routing ─── */}
           <section className="panel" aria-labelledby="routing-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="routing-title">
-                Routing
-              </h2>
+              <h2 className="panel-title" id="routing-title">Routing</h2>
             </div>
             <div className="panel-body">
-              <div className="contact-card">
+              <div className="form-grid">
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" defaultValue="+1 (604) 555-1234" />
+                  <input id="phoneNumber" name="phoneNumber" defaultValue={biz.phoneNumber ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="calendarProvider">Calendar provider</label>
-                  <select id="calendarProvider" name="calendarProvider" defaultValue="mock">
+                  <select id="calendarProvider" name="calendarProvider" defaultValue={biz.calendarProvider ?? "mock"}>
                     <option value="mock">Mock scheduling</option>
                     <option value="google">Google Calendar</option>
                     <option value="calendly">Calendly</option>
@@ -318,62 +387,91 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="escalationPhone">Escalation phone</label>
-                  <input
-                    id="escalationPhone"
-                    name="escalationPhone"
-                    defaultValue="+1 (604) 555-0000"
-                  />
+                  <input id="escalationPhone" name="escalationPhone" defaultValue={biz.escalationPhone ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="notificationEmail">Notification email</label>
-                  <input
-                    id="notificationEmail"
-                    name="notificationEmail"
-                    defaultValue="dispatch@apexroofing.local"
-                  />
+                  <input id="notificationEmail" name="notificationEmail" defaultValue={biz.notificationEmail ?? ""} />
                 </div>
               </div>
             </div>
           </section>
 
+          {/* ─── Branding ─── */}
+          <section className="panel" aria-labelledby="branding-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="branding-title">Branding</h2>
+            </div>
+            <div className="panel-body">
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="brandColor">Brand color (hex)</label>
+                  <input id="brandColor" name="brandColor" placeholder="#1e3a5f" defaultValue={biz.brandColor ?? ""} />
+                </div>
+                <div className="field">
+                  <label htmlFor="contactPhone">Contact phone (public)</label>
+                  <input id="contactPhone" name="contactPhone" defaultValue={biz.contactPhone ?? ""} />
+                </div>
+                <div className="field full">
+                  <label htmlFor="logoUrl">Logo URL (HTTPS)</label>
+                  <input id="logoUrl" name="logoUrl" placeholder="https://…/logo.png" defaultValue={biz.logoUrl ?? ""} />
+                </div>
+                <div className="field full">
+                  <label htmlFor="contactEmail">Contact email (public)</label>
+                  <input id="contactEmail" name="contactEmail" defaultValue={biz.contactEmail ?? ""} />
+                </div>
+                <div className="field full">
+                  <label htmlFor="websiteUrl">Website URL</label>
+                  <input id="websiteUrl" name="websiteUrl" placeholder="https://…" defaultValue={biz.websiteUrl ?? ""} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Launch Readiness ─── */}
           <section className="panel" aria-labelledby="readiness-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="readiness-title">
-                Launch Readiness
-              </h2>
+              <h2 className="panel-title" id="readiness-title">Launch Readiness</h2>
             </div>
             <div className="panel-body">
               <div className="readiness-list">
-                {readinessChecks.map((check, index) => (
+                {readinessChecks.map((check) => (
                   <label className="check-row" key={check.key}>
-                    <input name={check.key} type="checkbox" defaultChecked={index < 4} />
+                    <input
+                      name={check.key}
+                      type="checkbox"
+                      defaultChecked={
+                        onboarding?.[check.key as keyof OnboardingData] ?? false
+                      }
+                    />
                     <span>{check.label}</span>
                   </label>
                 ))}
               </div>
-              <div className="button-row">
-                <button className="button" type="button">
-                  Save draft
-                </button>
+              <div className="button-row" style={{ marginTop: 16 }}>
                 <button
                   className="button primary"
                   type="submit"
                   disabled={submitStatus.type === "submitting"}
                 >
-                  Save config
+                  {submitStatus.type === "submitting" ? "Saving…" : "Save config"}
                 </button>
               </div>
               {submitStatus.message ? (
                 <p
                   className="helper-text"
                   role={submitStatus.type === "error" ? "alert" : "status"}
-                  style={{ marginTop: 12 }}
+                  style={{
+                    marginTop: 12,
+                    color: submitStatus.type === "error" ? "#b91c1c" : submitStatus.type === "success" ? "#15803d" : undefined,
+                  }}
                 >
                   {submitStatus.message}
                 </p>
               ) : null}
             </div>
           </section>
+
         </aside>
       </form>
     </>

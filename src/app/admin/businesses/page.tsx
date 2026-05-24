@@ -1,127 +1,139 @@
-const businesses = [
-  {
-    name: "Apex Roofing",
-    id: "demo-roofing",
-    industry: "Roofing",
-    status: "Active",
-    readiness: 82,
-    phone: "Mapped",
-    tests: "3/4 passed",
-    health: ["Agent active", "Mock calendar", "Rules drafted"],
-  },
-  {
-    name: "Northline Roofing",
-    id: "northline-roofing",
-    industry: "Roofing",
-    status: "Draft",
-    readiness: 48,
-    phone: "Not mapped",
-    tests: "0/4 passed",
-    health: ["Needs FAQs", "Needs phone", "Needs tests"],
-  },
-  {
-    name: "Evergreen HVAC",
-    id: "evergreen-hvac",
-    industry: "HVAC",
-    status: "Paused",
-    readiness: 64,
-    phone: "Mapped",
-    tests: "2/4 passed",
-    health: ["Inactive", "Rules drafted", "Needs calendar"],
-  },
-];
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface BizRow {
+  businessId: string;
+  businessName: string;
+  industry: string;
+  active: boolean;
+  vapiAssistantId?: string;
+  contactPhone?: string;
+  notificationEmail?: string;
+  serviceArea?: string[];
+  createdAt: number;
+}
+
+function timeAgo(ms: number): string {
+  const d = Math.floor((Date.now() - ms) / 86400000);
+  if (d === 0) return "today";
+  if (d === 1) return "1d ago";
+  return `${d}d ago`;
+}
 
 export default function AdminBusinessesPage() {
+  const [businesses, setBusinesses] = useState<BizRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/businesses")
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = (data.businesses ?? []).map(
+          (b: { business: BizRow }) => b.business
+        );
+        setBusinesses(rows);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const active = businesses.filter((b) => b.active && b.vapiAssistantId);
+  const needsSetup = businesses.filter((b) => !b.vapiAssistantId);
+
+  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading businesses…</div>;
+
   return (
     <>
       <header className="page-header">
         <div>
           <h1 className="page-title">Businesses</h1>
           <p className="page-subtitle">
-            Monitor tenant setup, launch readiness, phone routing, and agent
-            health across every company on the platform.
+            All tenants on the platform. Click a row to edit their agent config.
           </p>
         </div>
-        <a className="button primary" href="/admin/onboarding">
-          Add business
-        </a>
+        <a className="button primary" href="/admin/onboarding">+ Add business</a>
       </header>
 
-      <section className="metric-grid" aria-label="Business summary">
+      <section className="metric-grid" aria-label="Business summary" style={{ marginBottom: 24 }}>
         <article className="metric">
-          <p className="metric-label">Total businesses</p>
-          <p className="metric-value">3</p>
+          <p className="metric-label">Total</p>
+          <p className="metric-value">{businesses.length}</p>
         </article>
         <article className="metric">
-          <p className="metric-label">Active agents</p>
-          <p className="metric-value">1</p>
+          <p className="metric-label">Vapi active</p>
+          <p className="metric-value">{active.length}</p>
         </article>
         <article className="metric">
-          <p className="metric-label">Need setup</p>
-          <p className="metric-value">2</p>
+          <p className="metric-label">Needs Vapi</p>
+          <p className="metric-value">{needsSetup.length}</p>
         </article>
         <article className="metric">
-          <p className="metric-label">Phone mapped</p>
-          <p className="metric-value">2</p>
+          <p className="metric-label">Industries</p>
+          <p className="metric-value">{new Set(businesses.map((b) => b.industry)).size}</p>
         </article>
       </section>
 
-      <section className="panel" aria-labelledby="business-list-title">
+      <section className="panel" aria-labelledby="biz-list-title">
         <div className="panel-header">
-          <h2 className="panel-title" id="business-list-title">
-            Company Setup Status
-          </h2>
+          <h2 className="panel-title" id="biz-list-title">All Companies</h2>
         </div>
-        <div className="panel-body">
-          <table className="business-table">
-            <thead>
-              <tr>
-                <th>Business</th>
-                <th>Status</th>
-                <th>Readiness</th>
-                <th>Phone</th>
-                <th>Tests</th>
-                <th>Health</th>
-              </tr>
-            </thead>
-            <tbody>
-              {businesses.map((business) => (
-                <tr key={business.id}>
-                  <td>
-                    <p className="business-name">{business.name}</p>
-                    <p className="business-id">
-                      {business.id} · {business.industry}
-                    </p>
-                  </td>
-                  <td>
-                    <span className={business.status === "Active" ? "tag success" : "tag"}>
-                      {business.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="progress-track" aria-label={`${business.readiness}% ready`}>
-                      <div
-                        className="progress-fill"
-                        style={{ width: `${business.readiness}%` }}
-                      />
-                    </div>
-                    <p className="business-id">{business.readiness}% ready</p>
-                  </td>
-                  <td>{business.phone}</td>
-                  <td>{business.tests}</td>
-                  <td>
-                    <div className="health-grid">
-                      {business.health.map((item) => (
-                        <span className="tag" key={item}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
+        <div className="panel-body" style={{ padding: 0 }}>
+          {businesses.length === 0 ? (
+            <p style={{ padding: 20, color: "#888", fontSize: 14 }}>
+              No businesses yet. Click &ldquo;Add business&rdquo; to onboard your first client.
+            </p>
+          ) : (
+            <table className="business-table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Industry</th>
+                  <th>Vapi assistant</th>
+                  <th>Notification email</th>
+                  <th>Status</th>
+                  <th>Added</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {businesses.map((b) => (
+                  <tr key={b.businessId}>
+                    <td>
+                      <p className="business-name">{b.businessName}</p>
+                      <p className="business-id">{b.businessId}</p>
+                    </td>
+                    <td style={{ textTransform: "capitalize" }}>{b.industry}</td>
+                    <td>
+                      {b.vapiAssistantId ? (
+                        <span className="tag success" style={{ fontFamily: "monospace", fontSize: 11 }}>
+                          {b.vapiAssistantId.slice(0, 8)}…
+                        </span>
+                      ) : (
+                        <span className="tag urgent">Not set</span>
+                      )}
+                    </td>
+                    <td style={{ fontSize: 13, color: "#64748b" }}>{b.notificationEmail ?? "—"}</td>
+                    <td>
+                      <span className={b.active ? "tag success" : "tag"}>
+                        {b.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 13, color: "#94a3b8" }}>{timeAgo(b.createdAt)}</td>
+                    <td>
+                      <a
+                        href={`/admin/businesses/${b.businessId}/config`}
+                        className="button"
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                      >
+                        Edit
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
     </>
