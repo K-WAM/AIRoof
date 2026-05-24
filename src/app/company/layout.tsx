@@ -14,6 +14,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
+      return;
+    }
+    // Superadmin belongs in the admin panel, not the company shell
+    if (!loading && user?.superadmin) {
+      router.replace("/admin/businesses");
     }
   }, [user, loading, router]);
 
