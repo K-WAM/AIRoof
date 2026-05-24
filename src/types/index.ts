@@ -32,6 +32,12 @@ export interface BusinessConfig {
   // Vapi integration (per-business voice agent on Vapi platform)
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  // Branding (used in notification/confirmation emails)
+  brandColor?: string;
+  logoUrl?: string | null;
+  contactPhone?: string;
+  contactEmail?: string;
+  websiteUrl?: string;
   active: boolean;
   createdAt: number;
   updatedAt: number;
