@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Lead {
   leadId: string;
@@ -29,8 +29,7 @@ function timeAgo(ms: number): string {
 }
 
 export default function CompanyLeadsPage() {
-  const { user } = useAuth();
-  const businessId = user?.businessId ?? "demo-roofing";
+  const businessId = useBusinessId();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selected, setSelected] = useState<Lead | null>(null);

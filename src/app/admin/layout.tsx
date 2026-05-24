@@ -40,16 +40,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <div className="admin-brand">Luxor AI</div>
+        <div className="admin-brand">
+          <p className="admin-brand-name">Luxor AI</p>
+          <p className="admin-brand-sub">Superadmin</p>
+        </div>
         <AdminNav />
-        <div style={{ marginTop: "auto", padding: "12px 0", borderTop: "1px solid #1e293b" }}>
-          <p style={{ fontSize: 11, color: "#475569", marginBottom: 8, padding: "0 4px" }}>{user.email}</p>
-          <button
-            onClick={handleLogout}
-            style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 12, padding: "4px", width: "100%", textAlign: "left" }}
-          >
-            Sign out
-          </button>
+        <div className="admin-sidebar-footer">
+          <span className="admin-sidebar-email">{user.email}</span>
+          <button className="admin-signout-btn" onClick={handleLogout}>Sign out</button>
         </div>
       </aside>
       <main className="admin-main">{children}</main>

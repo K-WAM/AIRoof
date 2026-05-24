@@ -2,44 +2,55 @@
 
 import { usePathname } from "next/navigation";
 
-const links = [
-  { href: "/admin/businesses", label: "Businesses" },
-  { href: "/admin/onboarding", label: "+ Add Company" },
-  { href: "/admin/demo", label: "Demo" },
-  { href: "/admin/guide", label: "Playbooks" },
+const mainLinks = [
+  { href: "/admin/businesses", label: "Businesses", icon: "◈" },
+  { href: "/admin/onboarding", label: "Add Company", icon: "+" },
+  { href: "/admin/usage", label: "Usage", icon: "~" },
 ];
 
-const bottomLinks = [
-  { href: "/company/dashboard", label: "Client view ↗" },
+const toolLinks = [
+  { href: "/admin/demo", label: "Demo", icon: "▶" },
+  { href: "/admin/guide", label: "Playbooks", icon: "≡" },
 ];
 
 export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="admin-nav" aria-label="Admin navigation" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <div style={{ flex: 1 }}>
-        {links.map((link) => (
+    <nav className="admin-nav" aria-label="Admin navigation">
+      <div className="nav-section">
+        <p className="nav-section-label">Platform</p>
+        {mainLinks.map((link) => (
           <a
             href={link.href}
             key={link.href}
+            className="nav-link"
             aria-current={pathname === link.href ? "page" : undefined}
           >
+            <span className="nav-link-icon">{link.icon}</span>
             {link.label}
           </a>
         ))}
       </div>
-      <div style={{ borderTop: "1px solid #1e293b", paddingTop: 12, marginTop: 16 }}>
-        {bottomLinks.map((link) => (
+      <div className="nav-section">
+        <p className="nav-section-label">Tools</p>
+        {toolLinks.map((link) => (
           <a
             href={link.href}
             key={link.href}
-            style={{ opacity: 0.6, fontSize: 12 }}
+            className="nav-link"
+            aria-current={pathname === link.href ? "page" : undefined}
           >
+            <span className="nav-link-icon">{link.icon}</span>
             {link.label}
           </a>
         ))}
       </div>
+      <div className="nav-spacer" />
+      <a href="/company/dashboard" className="nav-divider-link">
+        <span className="nav-link-icon">↗</span>
+        Client view
+      </a>
     </nav>
   );
 }

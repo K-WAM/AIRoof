@@ -120,13 +120,22 @@ export default function AdminBusinessesPage() {
                       </span>
                     </td>
                     <td style={{ fontSize: 13, color: "#94a3b8" }}>{timeAgo(b.createdAt)}</td>
-                    <td>
+                    <td style={{ display: "flex", gap: 6 }}>
                       <a
                         href={`/admin/businesses/${b.businessId}/config`}
                         className="button"
                         style={{ fontSize: 12, padding: "4px 10px" }}
                       >
                         Edit
+                      </a>
+                      <a
+                        href={`/company/dashboard?preview=${b.businessId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="button"
+                        style={{ fontSize: 12, padding: "4px 10px" }}
+                      >
+                        Preview ↗
                       </a>
                     </td>
                   </tr>

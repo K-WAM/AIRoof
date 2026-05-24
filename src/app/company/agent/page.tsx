@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 import type { BusinessConfig } from "@/types";
 
 export default function CompanyAgentPage() {
-  const { user } = useAuth();
-  const businessId = user?.businessId ?? "demo-roofing";
+  const businessId = useBusinessId();
 
   const [config, setConfig] = useState<BusinessConfig | null>(null);
   const [loading, setLoading] = useState(true);

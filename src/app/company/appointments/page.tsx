@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Appointment {
   appointmentId: string;
@@ -41,8 +41,7 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export default function CompanyAppointmentsPage() {
-  const { user } = useAuth();
-  const businessId = user?.businessId ?? "demo-roofing";
+  const businessId = useBusinessId();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);

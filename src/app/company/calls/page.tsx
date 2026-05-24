@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -62,8 +62,7 @@ const CATEGORY_STYLE: Record<string, string> = {
 };
 
 export default function CompanyCallsPage() {
-  const { user } = useAuth();
-  const businessId = user?.businessId ?? "demo-roofing";
+  const businessId = useBusinessId();
 
   const [calls, setCalls] = useState<Call[]>([]);
   const [selected, setSelected] = useState<Call | null>(null);

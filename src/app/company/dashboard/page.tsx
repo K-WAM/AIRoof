@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface LeadSnapshot {
   leadId: string;
@@ -27,8 +27,7 @@ interface AgentSnapshot {
 }
 
 export default function CompanyDashboardPage() {
-  const { user } = useAuth();
-  const businessId = user?.businessId ?? "demo-roofing";
+  const businessId = useBusinessId();
 
   const [callCount, setCallCount] = useState<number | null>(null);
   const [leads, setLeads] = useState<LeadSnapshot[]>([]);

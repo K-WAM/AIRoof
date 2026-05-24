@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
@@ -10,17 +10,19 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 function CompanyShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isPreview = Boolean(searchParams?.get("preview"));
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
       return;
     }
-    // Superadmin belongs in the admin panel, not the company shell
-    if (!loading && user?.superadmin) {
+    // Superadmin belongs in admin panel — unless using ?preview=businessId
+    if (!loading && user?.superadmin && !isPreview) {
       router.replace("/admin/businesses");
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isPreview]);
 
   async function handleLogout() {
     if (auth) await signOut(auth);
