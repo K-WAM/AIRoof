@@ -100,14 +100,14 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
       from: FROM,
       to: businessData.notificationEmail,
       subject: `New Inspection Booked — ${input.callerName}`,
-      text: [
-        `Name: ${input.callerName}`,
-        `Phone: ${input.callerPhone}`,
-        `Service: ${input.serviceType ?? "Not specified"}`,
-        `Time: ${startDate}`,
-        `Address: ${input.address ?? "Not provided"}`,
-        `Call ID: ${input.sourceCallId ?? "N/A"}`,
-      ].join("\n"),
+      html: bookingEmailHtml({
+        callerName: input.callerName,
+        callerPhone: input.callerPhone,
+        serviceType: input.serviceType ?? "Not specified",
+        startDate,
+        address: input.address ?? "Not provided",
+        callId: input.sourceCallId ?? "N/A",
+      }),
     }).catch((err) => console.error("Booking email failed:", err));
   }
 
@@ -177,23 +177,96 @@ export async function escalateCall(
   console.log(`ESCALATION: call ${input.callId} for ${input.businessId} — ${input.reason}`);
 
   if (resend && businessData?.notificationEmail) {
+    const escalationTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
     await resend.emails.send({
       from: FROM,
       to: businessData.notificationEmail,
       subject: `URGENT: Call Escalation — ${businessData.businessName ?? input.businessId}`,
-      text: [
-        `Caller: ${input.callerPhone ?? "Unknown"}`,
-        `Reason: ${input.reason}`,
-        `Summary: ${input.summary ?? "No summary"}`,
-        `Call ID: ${input.callId}`,
-        `Time: ${new Date().toLocaleString("en-US", { timeZone: "America/New_York" })}`,
-        "",
-        "Respond immediately.",
-      ].join("\n"),
+      html: escalationEmailHtml({
+        callerPhone: input.callerPhone ?? "Unknown",
+        reason: input.reason,
+        summary: input.summary ?? "No summary",
+        callId: input.callId,
+        escalationTime,
+      }),
     }).catch((err) => console.error("Escalation email failed:", err));
   }
 
   return { escalated: true, escalationTarget: escalationPhone };
+}
+
+const LOGO_URL = "https://ai-roof.vercel.app/logo.png";
+const BASE_URL = "https://ai-roof.vercel.app";
+
+function emailShell(headerBg: string, accentColor: string, badgeLabel: string, badgeColor: string, title: string, subtitle: string, cardRows: string, footer: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+<tr><td align="center">
+<table width="540" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <tr><td style="background:${headerBg};padding:28px 32px;text-align:center;">
+    <img src="${LOGO_URL}" alt="Luxor AI" height="36" style="display:block;margin:0 auto 14px;opacity:0.95;">
+    <span style="display:inline-block;background:${badgeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;">${badgeLabel}</span>
+  </td></tr>
+  <tr><td style="padding:28px 32px 16px;">
+    <h1 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#0f172a;">${title}</h1>
+    <p style="margin:0;font-size:14px;color:#64748b;line-height:1.5;">${subtitle}</p>
+  </td></tr>
+  <tr><td style="padding:0 32px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+    <tr><td style="padding:20px 24px;">${cardRows}</td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:14px 32px;">
+    <p style="margin:0;font-size:11px;color:#94a3b8;">${footer} · <a href="${BASE_URL}/company/dashboard" style="color:#6366f1;text-decoration:none;">View dashboard</a></p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
+function dataRow(label: string, value: string): string {
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
+<tr>
+  <td style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;vertical-align:top;width:110px;padding-top:2px;">${label}</td>
+  <td style="font-size:14px;color:#1e293b;font-weight:500;">${value}</td>
+</tr></table>`;
+}
+
+function bookingEmailHtml(p: { callerName: string; callerPhone: string; serviceType: string; startDate: string; address: string; callId: string }): string {
+  const rows = [
+    dataRow("Name", p.callerName),
+    dataRow("Phone", p.callerPhone),
+    dataRow("Service", p.serviceType),
+    dataRow("Time", p.startDate),
+    dataRow("Address", p.address),
+  ].join("");
+  return emailShell(
+    "#0f172a", "#4f46e5",
+    "New Booking", "#22c55e",
+    `New Inspection Booked`,
+    `Alice captured and confirmed this appointment on your behalf.`,
+    rows,
+    `Call ID: ${p.callId} · Powered by Luxor AI`
+  );
+}
+
+function escalationEmailHtml(p: { callerPhone: string; reason: string; summary: string; callId: string; escalationTime: string }): string {
+  const rows = [
+    dataRow("Caller", p.callerPhone),
+    dataRow("Reason", p.reason),
+    dataRow("Summary", p.summary),
+    dataRow("Time", p.escalationTime),
+  ].join("");
+  return emailShell(
+    "#7f1d1d", "#dc2626",
+    "Urgent Escalation", "#dc2626",
+    `Urgent: Call Escalation`,
+    `Alice flagged this call as urgent. Respond immediately.`,
+    rows,
+    `Call ID: ${p.callId} · Powered by Luxor AI`
+  );
 }
 
 export async function logAgentAction(action: AgentAction): Promise<void> {

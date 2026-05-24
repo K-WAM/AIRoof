@@ -23,6 +23,7 @@ interface AgentSnapshot {
   approvedFaqs?: Array<{ question: string; answer: string }>;
   greeting?: string;
   active?: boolean;
+  vapiAssistantId?: string;
 }
 
 export default function CompanyDashboardPage() {
@@ -57,6 +58,7 @@ export default function CompanyDashboardPage() {
             approvedFaqs: d["approvedFaqs"],
             greeting: d["greeting"],
             active: d["active"],
+            vapiAssistantId: d["vapiAssistantId"],
           });
         }
 
@@ -82,14 +84,16 @@ export default function CompanyDashboardPage() {
     { label: "Appointments", value: apptCount ?? "—" },
   ];
 
+  const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
+
   const agentSettings = agent
     ? [
-        ["Agent name", agent.agentName ?? "Roofus"],
-        ["Status", agent.active ? "Active" : "Inactive"],
+        ["Agent name", agent.agentName ?? "Alice"],
+        ["Status", isAgentActive ? "Active — answering calls" : "Inactive"],
         ["Escalation", agent.escalationPhone ?? "—"],
         ["Approved services", `${agent.approvedServices?.length ?? 0} configured`],
         ["Approved FAQs", `${agent.approvedFaqs?.length ?? 0} answers`],
-        ["Calendar", "Mock scheduling"],
+        ["Calendar", "Scheduling enabled"],
       ]
     : [];
 
@@ -109,7 +113,7 @@ export default function CompanyDashboardPage() {
             and the agent settings that affect this company.
           </p>
         </div>
-        <span className="status-pill">{agent?.active ? "Agent active" : "Agent inactive"}</span>
+        <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
       </header>
 
       <section className="metric-grid" aria-label="Summary">
