@@ -735,6 +735,114 @@ a {
   font-size: 13px;
 }
 
+/* ── Appointment cards ────────────────────── */
+
+.appt-card {
+  display: grid;
+  grid-template-columns: 200px 1fr auto;
+  gap: 20px;
+  align-items: start;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.appt-date-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 20px;
+  border-right: 1px solid var(--border);
+}
+
+.appt-day {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.appt-date {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.appt-time {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 4px;
+  line-height: 1;
+}
+
+.appt-booked-at {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.appt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.appt-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.appt-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.appt-detail {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.appt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  min-width: 160px;
+}
+
+/* ── Call detail panel ────────────────────── */
+
+.call-detail-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.call-detail-phone {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.call-detail-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .appointment-list {
   display: grid;
   gap: 12px;
