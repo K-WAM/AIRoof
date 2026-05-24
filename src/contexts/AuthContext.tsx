@@ -9,6 +9,7 @@ interface AuthUser {
   uid: string;
   email: string | null;
   businessId?: string;
+  businessName?: string;
   role?: "superadmin" | "owner" | "staff" | "viewer";
   superadmin?: boolean;
 }

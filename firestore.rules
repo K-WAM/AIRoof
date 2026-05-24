@@ -7,7 +7,15 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      return signedIn() && request.auth.token.superadmin == true;
+      // Check Firebase custom claim first (fastest path, no extra read)
+      // Fall back to businessUsers document flag (covers accounts without custom claims)
+      return signedIn() && (
+        request.auth.token.superadmin == true ||
+        (
+          exists(/databases/$(database)/documents/businessUsers/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/businessUsers/$(request.auth.uid)).data.superadmin == true
+        )
+      );
     }
 
     function membershipDoc() {
