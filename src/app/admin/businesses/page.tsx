@@ -49,10 +49,9 @@ export default function AdminBusinessesPage() {
         <div>
           <h1 className="page-title">Businesses</h1>
           <p className="page-subtitle">
-            All tenants on the platform. Click a row to edit their agent config.
+            All tenants on the platform. Click Edit to configure an agent, Preview to see the client view.
           </p>
         </div>
-        <a className="button primary" href="/admin/onboarding">+ Add business</a>
       </header>
 
       <section className="metric-grid" aria-label="Business summary" style={{ marginBottom: 24 }}>
