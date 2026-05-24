@@ -27,14 +27,11 @@ function formatApptDate(ms: number): { day: string; date: string; time: string }
   };
 }
 
-function timeAgo(ms: number): string {
-  const diff = Date.now() - ms;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+function formatCallTime(ms: number): string {
+  return new Date(ms).toLocaleString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+  });
 }
 
 const STATUS_CLASS: Record<string, string> = {
@@ -50,6 +47,7 @@ export default function CompanyAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!db || !businessId) return;
@@ -85,6 +83,7 @@ export default function CompanyAppointmentsPage() {
         body: JSON.stringify({ businessId, appointmentId: appt.appointmentId }),
       });
       if (res.ok) {
+        setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
@@ -102,13 +101,19 @@ export default function CompanyAppointmentsPage() {
   function AppointmentCard({ appt, isPast }: { appt: Appointment; isPast?: boolean }) {
     const { day, date, time } = formatApptDate(appt.startTime);
     const busy = updating === appt.appointmentId || updating === appt.appointmentId + "_confirm";
+    const justConfirmed = confirmedSet.has(appt.appointmentId);
+    const isConfirmed = appt.status === "confirmed" || justConfirmed;
+
     return (
       <article className="appt-card" style={{ opacity: isPast ? 0.75 : 1 }}>
         <div className="appt-date-block">
-          <span className="appt-day">{day}</span>
+          <span className="appt-day">Appt. {day}</span>
           <span className="appt-date">{date}</span>
           <span className="appt-time">{time} ET</span>
-          <span className="appt-booked-at">Booked {timeAgo(appt.createdAt)}</span>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
+            <span className="appt-booked-at" style={{ display: "block", marginBottom: 2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Call received</span>
+            <span className="appt-booked-at">{formatCallTime(appt.createdAt)}</span>
+          </div>
         </div>
 
         <div className="appt-body">
@@ -121,9 +126,13 @@ export default function CompanyAppointmentsPage() {
           <p className="appt-detail">{appt.address ?? "No address provided"}</p>
         </div>
 
-        {!isPast && (
-          <div className="appt-actions">
-            {appt.status !== "confirmed" && (
+        <div className="appt-actions">
+          {justConfirmed ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
+              <span>✓</span> Confirmation sent
+            </div>
+          ) : !isPast && !isConfirmed ? (
+            <>
               <button
                 className="button primary"
                 disabled={busy}
@@ -132,8 +141,6 @@ export default function CompanyAppointmentsPage() {
               >
                 {updating === appt.appointmentId + "_confirm" ? "Sending…" : "Send Confirmation"}
               </button>
-            )}
-            {appt.status !== "confirmed" && appt.status !== "cancelled" && (
               <button
                 className="button"
                 disabled={busy}
@@ -142,8 +149,6 @@ export default function CompanyAppointmentsPage() {
               >
                 Mark Confirmed
               </button>
-            )}
-            {appt.status !== "cancelled" && (
               <button
                 className="button"
                 disabled={busy}
@@ -152,9 +157,18 @@ export default function CompanyAppointmentsPage() {
               >
                 Cancel
               </button>
-            )}
-          </div>
-        )}
+            </>
+          ) : isConfirmed && !isPast ? (
+            <button
+              className="button"
+              disabled={busy}
+              onClick={() => updateStatus(appt, "cancelled")}
+              style={{ fontSize: 13, color: "#b91c1c" }}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
       </article>
     );
   }

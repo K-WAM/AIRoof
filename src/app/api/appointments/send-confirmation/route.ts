@@ -5,7 +5,6 @@ import { Resend } from "resend";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM = process.env.RESEND_FROM ?? "Alice <alice@yourdomain.com>";
 const BASE_URL = "https://ai-roof.vercel.app";
-const LOGO_URL = `${BASE_URL}/logo.png`;
 
 export async function POST(request: NextRequest) {
   const db = getAdminFirestore();
@@ -46,11 +45,16 @@ export async function POST(request: NextRequest) {
 
   const html = confirmationEmailHtml({
     businessName: (biz.businessName as string) ?? "Your Roofing Company",
+    brandColor: (biz.brandColor as string | undefined) ?? null,
+    logoUrl: (biz.logoUrl as string | undefined) ?? null,
+    contactPhone: (biz.contactPhone as string | undefined) ?? null,
+    contactEmail: (biz.contactEmail as string | undefined) ?? null,
     callerName: (appt.callerName as string) ?? "Valued Customer",
     callerPhone: (appt.callerPhone as string) ?? "—",
     serviceType: (appt.serviceType as string) ?? "Inspection",
     address: (appt.address as string) ?? "Address not provided",
     apptDate,
+    appointmentId,
   });
 
   await resend.emails.send({
@@ -60,7 +64,6 @@ export async function POST(request: NextRequest) {
     html,
   });
 
-  // Mark as confirmed in Firestore
   await db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).update({
     status: "confirmed",
     updatedAt: Date.now(),
@@ -69,34 +72,52 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+function brandHeader(p: { businessName: string; brandColor?: string | null; logoUrl?: string | null; contactPhone?: string | null; contactEmail?: string | null }): string {
+  const bg = p.brandColor ?? "#0f172a";
+  const logo = p.logoUrl
+    ? `<img src="${p.logoUrl}" alt="${p.businessName}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
+    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;">${p.businessName}</p>`;
+  const contact = [p.contactPhone, p.contactEmail].filter(Boolean).join(" &nbsp;·&nbsp; ");
+  return `<td style="background:${bg};padding:28px 32px;text-align:center;">
+    ${logo}
+    ${contact ? `<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.7);">${contact}</p>` : ""}
+  </td>`;
+}
+
+function row(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:10px 24px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;vertical-align:top;width:110px;">${label}</td>
+    <td style="padding:10px 24px 10px 0;font-size:14px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${value}</td>
+  </tr>`;
+}
+
 function confirmationEmailHtml(p: {
   businessName: string;
+  brandColor?: string | null;
+  logoUrl?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
   callerName: string;
   callerPhone: string;
   serviceType: string;
   address: string;
   apptDate: string;
+  appointmentId: string;
 }): string {
-  function row(label: string, value: string): string {
-    return `<tr>
-      <td style="padding:10px 24px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;vertical-align:top;width:110px;">${label}</td>
-      <td style="padding:10px 24px 10px 0;font-size:14px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${value}</td>
-    </tr>`;
-  }
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
 <tr><td align="center">
 <table width="540" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-  <tr><td style="background:#0f172a;padding:28px 32px;text-align:center;">
-    <img src="${LOGO_URL}" alt="Luxor AI" height="36" style="display:block;margin:0 auto 14px;">
+  <tr>${brandHeader(p)}</tr>
+  <tr><td style="padding:20px 32px 8px;">
     <span style="display:inline-block;background:#22c55e;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;">Confirmed</span>
   </td></tr>
-  <tr><td style="padding:24px 32px 8px;">
+  <tr><td style="padding:12px 32px 16px;">
     <h1 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#0f172a;">Appointment Confirmed</h1>
-    <p style="margin:0;font-size:14px;color:#64748b;">Alice booked and confirmed this appointment on behalf of ${p.businessName}.</p>
+    <p style="margin:0;font-size:14px;color:#64748b;">Your AI receptionist booked and confirmed this inspection automatically.</p>
   </td></tr>
-  <tr><td style="padding:16px 32px 24px;">
+  <tr><td style="padding:0 32px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
       ${row("Customer", p.callerName)}
       ${row("Phone", p.callerPhone)}
@@ -105,8 +126,12 @@ function confirmationEmailHtml(p: {
       ${row("Address", p.address)}
     </table>
   </td></tr>
-  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:14px 32px;">
-    <p style="margin:0;font-size:11px;color:#94a3b8;">Powered by Luxor AI Receptionist · <a href="${BASE_URL}/company/appointments" style="color:#6366f1;text-decoration:none;">View all appointments</a></p>
+  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
+    <p style="margin:0;font-size:10px;color:#cbd5e1;">
+      Appt ID: ${p.appointmentId} &nbsp;·&nbsp;
+      <a href="${BASE_URL}/company/appointments" style="color:#94a3b8;text-decoration:none;">View appointments</a> &nbsp;·&nbsp;
+      <span style="color:#e2e8f0;">Powered by Luxor AI</span>
+    </p>
   </td></tr>
 </table>
 </td></tr>

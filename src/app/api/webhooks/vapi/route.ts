@@ -15,6 +15,7 @@ import {
   checkAvailability,
   createLead,
   escalateCall,
+  lookupAppointment,
   logAgentAction,
 } from "@/lib/tools/agentTools";
 import type {
@@ -204,6 +205,17 @@ async function executeTool(
           .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
           .join("; ");
         return { result: `Available slots: ${slots}` };
+      }
+
+      case "lookupAppointment": {
+        const result = await lookupAppointment({
+          businessId,
+          callerPhone: optionalStr(params.callerPhone ?? params.phone) ?? callerPhone,
+          callerName: optionalStr(params.callerName ?? params.name),
+          address: optionalStr(params.address),
+        });
+        await logAction(businessId, callId, "checkAvailability", params, { result }, "success");
+        return { result };
       }
 
       default:

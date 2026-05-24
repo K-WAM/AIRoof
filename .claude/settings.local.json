@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bash /c/Users/karee/.claude/scaffolding/setup-new-project.sh \"AI Receptionist Platform\")"
+      "Bash(bash /c/Users/karee/.claude/scaffolding/setup-new-project.sh \"AI Receptionist Platform\")",
+      "Bash(npm install *)",
+      "Bash(vercel logs *)",
+      "Bash(vercel env *)",
+      "Bash(git push *)",
+      "Bash(ls -la \"C:\\\\Users\\\\karee\\\\Desktop\\\\Apps\\\\AI Roofing Agent\\\\\" | head -30)",
+      "Read(//c/Users/karee/Desktop/Apps/**)"
     ]
   }
 }

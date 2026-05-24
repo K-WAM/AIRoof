@@ -95,7 +95,18 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
 
   // Notify business owner
   if (resend && businessData?.notificationEmail) {
-    const startDate = new Date(input.startTime).toLocaleString("en-US", { timeZone: "America/New_York" });
+    const startDate = new Date(input.startTime).toLocaleString("en-US", {
+      weekday: "long", month: "long", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+    });
+    const biz: BizBranding = {
+      businessName: businessData.businessName ?? "Your Roofing Company",
+      brandColor: businessData.brandColor ?? null,
+      logoUrl: businessData.logoUrl ?? null,
+      contactPhone: businessData.contactPhone ?? null,
+      contactEmail: businessData.contactEmail ?? null,
+      websiteUrl: businessData.websiteUrl ?? null,
+    };
     await resend.emails.send({
       from: FROM,
       to: businessData.notificationEmail,
@@ -107,7 +118,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
         startDate,
         address: input.address ?? "Not provided",
         callId: input.sourceCallId ?? "N/A",
-      }),
+      }, biz),
     }).catch((err) => console.error("Booking email failed:", err));
   }
 
@@ -178,6 +189,13 @@ export async function escalateCall(
 
   if (resend && businessData?.notificationEmail) {
     const escalationTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+    const biz: BizBranding = {
+      businessName: businessData.businessName ?? "Your Roofing Company",
+      brandColor: businessData.brandColor ?? "#7f1d1d",
+      logoUrl: businessData.logoUrl ?? null,
+      contactPhone: businessData.contactPhone ?? null,
+      contactEmail: businessData.contactEmail ?? null,
+    };
     await resend.emails.send({
       from: FROM,
       to: businessData.notificationEmail,
@@ -188,27 +206,48 @@ export async function escalateCall(
         summary: input.summary ?? "No summary",
         callId: input.callId,
         escalationTime,
-      }),
+      }, biz),
     }).catch((err) => console.error("Escalation email failed:", err));
   }
 
   return { escalated: true, escalationTarget: escalationPhone };
 }
 
-const LOGO_URL = "https://ai-roof.vercel.app/logo.png";
 const BASE_URL = "https://ai-roof.vercel.app";
 
-function emailShell(headerBg: string, accentColor: string, badgeLabel: string, badgeColor: string, title: string, subtitle: string, cardRows: string, footer: string): string {
+interface BizBranding {
+  businessName: string;
+  brandColor?: string | null;
+  logoUrl?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  websiteUrl?: string | null;
+}
+
+function brandHeader(biz: BizBranding): string {
+  const bg = biz.brandColor ?? "#0f172a";
+  const logo = biz.logoUrl
+    ? `<img src="${biz.logoUrl}" alt="${biz.businessName}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
+    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">${biz.businessName}</p>`;
+  const contact = [biz.contactPhone, biz.contactEmail]
+    .filter(Boolean).join(" &nbsp;·&nbsp; ");
+  return `<td style="background:${bg};padding:28px 32px;text-align:center;">
+    ${logo}
+    ${contact ? `<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.7);">${contact}</p>` : ""}
+  </td>`;
+}
+
+function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, title: string, subtitle: string, cardRows: string, callId: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
 <tr><td align="center">
 <table width="540" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-  <tr><td style="background:${headerBg};padding:28px 32px;text-align:center;">
-    <img src="${LOGO_URL}" alt="Luxor AI" height="36" style="display:block;margin:0 auto 14px;opacity:0.95;">
+  <tr>${brandHeader(biz)}</tr>
+  <tr><td style="padding:20px 32px 8px;">
     <span style="display:inline-block;background:${badgeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;">${badgeLabel}</span>
   </td></tr>
-  <tr><td style="padding:28px 32px 16px;">
+  <tr><td style="padding:12px 32px 16px;">
     <h1 style="margin:0 0 6px;font-size:20px;font-weight:700;color:#0f172a;">${title}</h1>
     <p style="margin:0;font-size:14px;color:#64748b;line-height:1.5;">${subtitle}</p>
   </td></tr>
@@ -217,8 +256,12 @@ function emailShell(headerBg: string, accentColor: string, badgeLabel: string, b
     <tr><td style="padding:20px 24px;">${cardRows}</td></tr>
     </table>
   </td></tr>
-  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:14px 32px;">
-    <p style="margin:0;font-size:11px;color:#94a3b8;">${footer} · <a href="${BASE_URL}/company/dashboard" style="color:#6366f1;text-decoration:none;">View dashboard</a></p>
+  <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
+    <p style="margin:0;font-size:10px;color:#cbd5e1;">
+      Call ID: ${callId} &nbsp;·&nbsp;
+      <a href="${BASE_URL}/company/dashboard" style="color:#94a3b8;text-decoration:none;">View dashboard</a> &nbsp;·&nbsp;
+      <span style="color:#e2e8f0;">Powered by Luxor AI</span>
+    </p>
   </td></tr>
 </table>
 </td></tr>
@@ -234,25 +277,29 @@ function dataRow(label: string, value: string): string {
 </tr></table>`;
 }
 
-function bookingEmailHtml(p: { callerName: string; callerPhone: string; serviceType: string; startDate: string; address: string; callId: string }): string {
+function bookingEmailHtml(
+  p: { callerName: string; callerPhone: string; serviceType: string; startDate: string; address: string; callId: string },
+  biz: BizBranding
+): string {
   const rows = [
     dataRow("Name", p.callerName),
     dataRow("Phone", p.callerPhone),
     dataRow("Service", p.serviceType),
-    dataRow("Time", p.startDate),
+    dataRow("Appointment", p.startDate),
     dataRow("Address", p.address),
   ].join("");
   return emailShell(
-    "#0f172a", "#4f46e5",
-    "New Booking", "#22c55e",
-    `New Inspection Booked`,
-    `Alice captured and confirmed this appointment on your behalf.`,
-    rows,
-    `Call ID: ${p.callId} · Powered by Luxor AI`
+    biz, "New Booking", "#22c55e",
+    "New Inspection Booked",
+    `Your AI receptionist captured and confirmed this appointment automatically.`,
+    rows, p.callId
   );
 }
 
-function escalationEmailHtml(p: { callerPhone: string; reason: string; summary: string; callId: string; escalationTime: string }): string {
+function escalationEmailHtml(
+  p: { callerPhone: string; reason: string; summary: string; callId: string; escalationTime: string },
+  biz: BizBranding
+): string {
   const rows = [
     dataRow("Caller", p.callerPhone),
     dataRow("Reason", p.reason),
@@ -260,13 +307,64 @@ function escalationEmailHtml(p: { callerPhone: string; reason: string; summary: 
     dataRow("Time", p.escalationTime),
   ].join("");
   return emailShell(
-    "#7f1d1d", "#dc2626",
-    "Urgent Escalation", "#dc2626",
-    `Urgent: Call Escalation`,
-    `Alice flagged this call as urgent. Respond immediately.`,
-    rows,
-    `Call ID: ${p.callId} · Powered by Luxor AI`
+    biz, "Urgent Escalation", "#dc2626",
+    "Urgent: Call Escalation",
+    `Your AI receptionist flagged this call as urgent. Respond immediately.`,
+    rows, p.callId
   );
+}
+
+export interface LookupAppointmentInput {
+  businessId: string;
+  callerPhone?: string;
+  callerName?: string;
+  address?: string;
+}
+
+export async function lookupAppointment(input: LookupAppointmentInput): Promise<string> {
+  const db = getAdminFirestore();
+  if (!db) return "Unable to look up appointments right now.";
+
+  try {
+    const snap = await db
+      .collection("businesses").doc(input.businessId)
+      .collection("appointments").get();
+
+    if (snap.empty) return "No appointments found for this business.";
+
+    const all = snap.docs.map((d) => d.data());
+
+    // Priority: phone > name > address (each normalized to lowercase)
+    let matches = all;
+    if (input.callerPhone) {
+      const normalized = input.callerPhone.replace(/\D/g, "");
+      const byPhone = all.filter((a) => (a.callerPhone as string)?.replace(/\D/g, "") === normalized);
+      if (byPhone.length > 0) matches = byPhone;
+    }
+    if (matches === all && input.callerName) {
+      const name = input.callerName.toLowerCase();
+      const byName = all.filter((a) => (a.callerName as string)?.toLowerCase().includes(name));
+      if (byName.length > 0) matches = byName;
+    }
+    if (matches === all && input.address) {
+      const addr = input.address.toLowerCase();
+      const byAddr = all.filter((a) => (a.address as string)?.toLowerCase().includes(addr));
+      if (byAddr.length > 0) matches = byAddr;
+    }
+
+    if (matches === all) return "No matching appointment found for that caller.";
+
+    return matches.slice(0, 3).map((a) => {
+      const t = new Date(a.startTime as number).toLocaleString("en-US", {
+        weekday: "short", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+      });
+      return `${a.callerName ?? "Unknown"} — ${a.serviceType ?? "service"} at ${a.address ?? "unknown address"} on ${t} (status: ${a.status})`;
+    }).join("; ");
+  } catch (err) {
+    console.error("lookupAppointment error:", err);
+    return "Error looking up appointment.";
+  }
 }
 
 export async function logAgentAction(action: AgentAction): Promise<void> {

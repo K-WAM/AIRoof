@@ -92,6 +92,13 @@ const demoBusiness = {
   agentTone: "calm, friendly, concise, and efficient",
   temperature: 0.5,
   maxTokens: 150,
+  // Brand identity (used in notification emails)
+  brandColor: "#1e3a5f",        // navy — set per client during onboarding
+  logoUrl: null,                // set to HTTPS URL of client logo when available
+  contactPhone: "+1 (754) 283-7658",
+  contactEmail: null,
+  websiteUrl: null,
+
   // Vapi integration
   vapiAssistantId: "9267a84a-0f4f-416b-a328-1dc539f5265e",
   active: true,
