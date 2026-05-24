@@ -24,6 +24,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
+      document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace("/company/dashboard");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Sign-in failed.");
@@ -44,6 +45,7 @@ export default function LoginPage() {
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
+      document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace("/company/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
