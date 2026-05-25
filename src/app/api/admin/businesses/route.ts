@@ -70,10 +70,11 @@ export async function GET(): Promise<
     const businessesSnapshot = await db.collection("businesses").orderBy("createdAt", "desc").get();
     const businesses = await Promise.all(
       businessesSnapshot.docs.map(async (businessDoc) => {
-        const business = businessDoc.data() as BusinessConfig;
+        const business = { businessId: businessDoc.id, ...businessDoc.data() } as BusinessConfig;
+        const bizId = businessDoc.id;
         const [onboardingDoc, integrationDoc] = await Promise.all([
-          db.collection("businessOnboarding").doc(business.businessId).get(),
-          db.collection("businessIntegrationStatus").doc(business.businessId).get(),
+          db.collection("businessOnboarding").doc(bizId).get(),
+          db.collection("businessIntegrationStatus").doc(bizId).get(),
         ]);
 
         return {

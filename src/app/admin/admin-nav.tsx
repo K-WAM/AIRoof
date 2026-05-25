@@ -47,7 +47,7 @@ export function AdminNav() {
         ))}
       </div>
       <div className="nav-spacer" />
-      <a href="/company/dashboard" className="nav-divider-link">
+      <a href="/company/dashboard?preview=demo-roofing" target="_blank" rel="noopener noreferrer" className="nav-divider-link">
         <span className="nav-link-icon">↗</span>
         Client view
       </a>
