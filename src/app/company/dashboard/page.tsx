@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface LeadSnapshot {
@@ -28,6 +29,8 @@ interface AgentSnapshot {
 
 export default function CompanyDashboardPage() {
   const businessId = useBusinessId();
+  const searchParams = useSearchParams();
+  const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
 
   const [callCount, setCallCount] = useState<number | null>(null);
   const [leads, setLeads] = useState<LeadSnapshot[]>([]);
@@ -77,10 +80,10 @@ export default function CompanyDashboardPage() {
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent");
 
   const metrics = [
-    { label: "Total calls", value: callCount ?? "—", href: "calls" },
-    { label: "Recent leads", value: leads.length, href: "leads" },
-    { label: "Urgent leads", value: urgentLeads.length, href: "leads?urgency=urgent" },
-    { label: "Appointments", value: apptCount ?? "—", href: "appointments" },
+    { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
+    { label: "Recent leads", value: leads.length, href: `/company/leads${previewSuffix}` },
+    { label: "Urgent leads", value: urgentLeads.length, href: `/company/leads${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
+    { label: "Appointments", value: apptCount ?? "—", href: `/company/appointments${previewSuffix}` },
   ];
 
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);

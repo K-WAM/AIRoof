@@ -1,25 +1,28 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
-const links = [
-  { href: "/company/dashboard", label: "Dashboard" },
-  { href: "/company/calls", label: "Calls" },
-  { href: "/company/leads", label: "Leads" },
-  { href: "/company/appointments", label: "Appointments" },
-  { href: "/company/agent", label: "Agent Settings" },
+const LINKS = [
+  { path: "/company/dashboard", label: "Dashboard" },
+  { path: "/company/calls", label: "Calls" },
+  { path: "/company/leads", label: "Leads" },
+  { path: "/company/appointments", label: "Appointments" },
+  { path: "/company/agent", label: "Agent Settings" },
 ];
 
 export function CompanyNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const preview = searchParams?.get("preview");
+  const suffix = preview ? `?preview=${preview}` : "";
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
-      {links.map((link) => (
+      {LINKS.map((link) => (
         <a
-          href={link.href}
-          key={link.href}
-          aria-current={pathname === link.href ? "page" : undefined}
+          href={`${link.path}${suffix}`}
+          key={link.path}
+          aria-current={pathname === link.path ? "page" : undefined}
         >
           {link.label}
         </a>
