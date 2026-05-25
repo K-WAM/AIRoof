@@ -29,6 +29,7 @@ export default function OnboardingPage() {
   const [submitStatus, setSubmitStatus] = useState<{
     type: "idle" | "submitting" | "success" | "error";
     message: string;
+    businessId?: string;
   }>({ type: "idle", message: "" });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -91,7 +92,8 @@ export default function OnboardingPage() {
 
       setSubmitStatus({
         type: "success",
-        message: `Created ${result.businessId}. Continue with test calls and launch readiness.`,
+        message: `${result.businessId} created.`,
+        businessId: result.businessId,
       });
     } catch (error) {
       setSubmitStatus({
@@ -374,11 +376,32 @@ export default function OnboardingPage() {
                   Create company
                 </button>
               </div>
-              {submitStatus.message ? (
+              {submitStatus.type === "success" && submitStatus.businessId ? (
+                <div style={{ marginTop: 16, padding: "16px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
+                  <p style={{ margin: "0 0 10px", fontWeight: 700, color: "#15803d", fontSize: 14 }}>
+                    Company created — {submitStatus.businessId}
+                  </p>
+                  <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534" }}>
+                    Next: open the config page to set the Vapi assistant ID, voice, branding, and confirm all settings before going live.
+                  </p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <a
+                      href={`/admin/businesses/${submitStatus.businessId}/config`}
+                      className="button primary"
+                      style={{ fontSize: 13 }}
+                    >
+                      Configure agent →
+                    </a>
+                    <a href="/admin/businesses" className="button" style={{ fontSize: 13 }}>
+                      All companies
+                    </a>
+                  </div>
+                </div>
+              ) : submitStatus.message ? (
                 <p
                   className="helper-text"
                   role={submitStatus.type === "error" ? "alert" : "status"}
-                  style={{ marginTop: 12 }}
+                  style={{ marginTop: 12, color: submitStatus.type === "error" ? "#b91c1c" : undefined }}
                 >
                   {submitStatus.message}
                 </p>

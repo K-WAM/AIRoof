@@ -194,6 +194,15 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
 - TODO.md — Implementation roadmap
 
+## Navigation Completeness Rule
+
+Every `page.tsx` must have a reachable UI path before being committed:
+- Admin pages: in `admin-nav.tsx` links OR linked via a visible button/CTA from another admin page
+- Company pages: in `company-nav.tsx` links
+- Dead pages (removed from nav) must redirect, not sit unreachable
+
+Check nav before closing any session. `/end-session` command includes a nav audit step.
+
 ## Agent Verification Protocol
 
 Before asking the user to verify anything, use CLI/curl first:
