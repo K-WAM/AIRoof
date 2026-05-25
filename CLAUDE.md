@@ -2,6 +2,27 @@
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items (VAPI_AUTH_BYPASS, voice upgrade, onboarding wizard), and demo instructions.
 
+## Code Navigation — Read Graphify Before Broad Work
+
+`graphify-out/graph.json` is the project knowledge graph (64 files, 104 symbols). Read it before opening many files.
+
+**Two ways to use it:**
+
+1. **Symbol lookup** — find where anything is defined without Grep:
+   ```
+   graphify query graphify-out/graph.json <name>
+   # e.g.: graphify query graphify-out/graph.json useBusinessId
+   # → src/hooks/useBusinessId.ts:6
+   ```
+
+2. **Full graph scan** — read `graphify-out/graph.json` directly to orient before a broad investigation.
+
+**Keep it fresh:**
+- `graphify build .` — full re-index (run after adding many new files)
+- `graphify auto-update .` — incremental update from git diff (runs automatically via Stop hook after each response)
+
+The Stop hook keeps it current during active work. Run `graphify build .` manually at session start if the project has had major structural changes since the last session.
+
 ## Onboarding & Demo Guide
 The file `public/guides/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. It is served live at `/guides/onboarding-guide.html` and embedded in the superadmin portal at `/admin/guide`. Open it in a browser and print → Save as PDF to generate the PDF version.
 

@@ -1,4 +1,20 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(vercel logs *)",
+      "Bash(vercel ls *)",
+      "Bash(vercel inspect *)",
+      "Bash(vercel env ls *)",
+      "Bash(stripe events *)",
+      "Bash(stripe customers *)",
+      "Bash(claude mcp *)",
+      "Bash(npm list *)",
+      "Bash(node --check *)",
+      "Bash(graphify query *)",
+      "Bash(graphify build *)",
+      "Bash(firebase deploy --only firestore:rules --dry-run *)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
