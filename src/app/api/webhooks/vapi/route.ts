@@ -150,7 +150,7 @@ async function executeTool(
         const appt = await bookAppointment({
           businessId,
           callerName: String(params.name ?? params.callerName ?? "Unknown"),
-          callerPhone: callerPhone || String(params.phone ?? params.callerPhone ?? ""),
+          callerPhone: sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? "")) ?? "",
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
           startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
@@ -167,7 +167,7 @@ async function executeTool(
         const lead = await createLead({
           businessId,
           callerName: optionalStr(params.name ?? params.callerName),
-          callerPhone: optionalStr(params.phone ?? params.callerPhone) ?? callerPhone,
+          callerPhone: sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? "")) ?? undefined,
           serviceRequested: optionalStr(params.serviceRequested ?? params.service),
           address: optionalStr(params.address),
           urgency: parseUrgency(params.urgency),
@@ -302,6 +302,16 @@ async function handleEndOfCallReport(
 // ──────────────────────────────────────────────────────────────────────────────
 // helpers
 // ──────────────────────────────────────────────────────────────────────────────
+
+// Returns a phone string only if it contains enough digits to be real (≥7 digits).
+// Rejects LLM artifacts like "caller ID", "caller", "unknown".
+function sanitizePhone(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const trimmed = v.trim();
+  if (trimmed.length === 0) return undefined;
+  const digitCount = (trimmed.match(/\d/g) ?? []).length;
+  return digitCount >= 7 ? trimmed : undefined;
+}
 
 function optionalStr(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
