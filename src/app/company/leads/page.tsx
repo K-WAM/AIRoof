@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Lead {
@@ -30,10 +31,12 @@ function timeAgo(ms: number): string {
 
 export default function CompanyLeadsPage() {
   const businessId = useBusinessId();
+  const searchParams = useSearchParams();
+  const initialFilter = (searchParams?.get("urgency") === "urgent" ? "urgent" : "all") as "all" | "urgent" | "new" | "contacted";
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selected, setSelected] = useState<Lead | null>(null);
-  const [filter, setFilter] = useState<"all" | "urgent" | "new" | "contacted">("all");
+  const [filter, setFilter] = useState<"all" | "urgent" | "new" | "contacted">(initialFilter);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 

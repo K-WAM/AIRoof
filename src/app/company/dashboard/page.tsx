@@ -77,10 +77,10 @@ export default function CompanyDashboardPage() {
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent");
 
   const metrics = [
-    { label: "Total calls", value: callCount ?? "—" },
-    { label: "Recent leads", value: leads.length },
-    { label: "Urgent leads", value: urgentLeads.length },
-    { label: "Appointments", value: apptCount ?? "—" },
+    { label: "Total calls", value: callCount ?? "—", href: "calls" },
+    { label: "Recent leads", value: leads.length, href: "leads" },
+    { label: "Urgent leads", value: urgentLeads.length, href: "leads?urgency=urgent" },
+    { label: "Appointments", value: apptCount ?? "—", href: "appointments" },
   ];
 
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
@@ -117,10 +117,15 @@ export default function CompanyDashboardPage() {
 
       <section className="metric-grid" aria-label="Summary">
         {metrics.map((metric) => (
-          <article className="metric" key={metric.label}>
+          <a
+            href={metric.href}
+            key={metric.label}
+            className="metric"
+            style={{ textDecoration: "none", cursor: "pointer" }}
+          >
             <p className="metric-label">{metric.label}</p>
             <p className="metric-value">{metric.value}</p>
-          </article>
+          </a>
         ))}
       </section>
 
