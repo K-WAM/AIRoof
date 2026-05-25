@@ -29,6 +29,8 @@ export interface BusinessConfig {
   agentTone?: string;
   temperature?: number;
   maxTokens?: number;
+  // IANA timezone for this business (e.g. "America/Chicago"). Defaults to "America/New_York".
+  timezone?: string;
   // Vapi integration (per-business voice agent on Vapi platform)
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;

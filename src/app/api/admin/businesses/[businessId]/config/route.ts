@@ -35,6 +35,7 @@ interface UpdateBusinessConfigRequest {
   temperature?: number;
   maxTokens?: number;
   active?: boolean;
+  timezone?: string;
   // Vapi integration
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
@@ -141,6 +142,7 @@ export async function PUT(
         temperature: body.temperature ?? (body.planTier ? preset.temperature : undefined),
         maxTokens: body.maxTokens ?? (body.planTier ? preset.maxTokens : undefined),
         active: body.active,
+        timezone: body.timezone,
         // Vapi integration
         vapiAssistantId: body.vapiAssistantId,
         vapiPhoneNumberId: body.vapiPhoneNumberId,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
+import { US_TIMEZONES } from "@/hooks/useBusinessTimezone";
 
 const wizardSteps = [
   "Company profile",
@@ -46,6 +47,7 @@ export default function OnboardingPage() {
       ownerEmail: String(formData.get("ownerEmail") || "").trim(),
       phoneNumber: String(formData.get("phoneNumber") || "").trim(),
       serviceArea,
+      timezone: String(formData.get("timezone") || "America/New_York"),
       industry: String(formData.get("industry") || "roofing"),
       planTier: String(formData.get("planTier") || "standard"),
       agentName: String(formData.get("agentName") || "Mia").trim(),
@@ -145,6 +147,14 @@ export default function OnboardingPage() {
                     name="serviceArea"
                     placeholder="Vancouver, Burnaby, New Westminster, Coquitlam"
                   />
+                </div>
+                <div className="field">
+                  <label htmlFor="timezone">Business timezone</label>
+                  <select id="timezone" name="timezone" defaultValue="America/New_York">
+                    {US_TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

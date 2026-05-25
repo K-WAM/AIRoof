@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 
 interface Appointment {
   appointmentId: string;
@@ -18,19 +19,19 @@ interface Appointment {
   sourceCallId?: string;
 }
 
-function formatApptDate(ms: number): { day: string; date: string; time: string } {
+function formatApptDate(ms: number, tz: string): { day: string; date: string; time: string } {
   const d = new Date(ms);
   return {
-    day: d.toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" }),
-    date: d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "America/New_York" }),
-    time: d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }),
+    day: d.toLocaleDateString("en-US", { weekday: "long", timeZone: tz }),
+    date: d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: tz }),
+    time: d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }),
   };
 }
 
-function formatCallTime(ms: number): string {
+function formatCallTime(ms: number, tz: string): string {
   return new Date(ms).toLocaleString("en-US", {
     month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+    hour: "numeric", minute: "2-digit", timeZone: tz,
   });
 }
 
@@ -42,6 +43,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function CompanyAppointmentsPage() {
   const businessId = useBusinessId();
+  const tz = useBusinessTimezone();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function CompanyAppointmentsPage() {
   if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading appointments…</div>;
 
   function AppointmentCard({ appt, isPast }: { appt: Appointment; isPast?: boolean }) {
-    const { day, date, time } = formatApptDate(appt.startTime);
+    const { day, date, time } = formatApptDate(appt.startTime, tz);
     const busy = updating === appt.appointmentId || updating === appt.appointmentId + "_confirm";
     const justConfirmed = confirmedSet.has(appt.appointmentId);
     const isConfirmed = appt.status === "confirmed" || justConfirmed;
@@ -108,10 +110,10 @@ export default function CompanyAppointmentsPage() {
         <div className="appt-date-block">
           <span className="appt-day">Appt. {day}</span>
           <span className="appt-date">{date}</span>
-          <span className="appt-time">{time} ET</span>
+          <span className="appt-time">{time}</span>
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #e2e8f0" }}>
             <span className="appt-booked-at" style={{ display: "block", marginBottom: 2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10 }}>Call received</span>
-            <span className="appt-booked-at">{formatCallTime(appt.createdAt)}</span>
+            <span className="appt-booked-at">{formatCallTime(appt.createdAt, tz)}</span>
           </div>
         </div>
 

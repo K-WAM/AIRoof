@@ -17,17 +17,29 @@ export interface CheckAvailabilityOutput {
   suggestedSlots: Array<{ startTime: string; endTime: string }>;
 }
 
-// Returns a Date representing `hour:00 AM/PM` in America/New_York for the given UTC date.
-// Vercel runs in UTC, so setHours() would create UTC times — this fixes that.
-function etHourToDate(utcDate: Date, hour: number): Date {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    timeZoneName: "shortOffset",
-  });
-  const tzPart = fmt.formatToParts(utcDate).find(p => p.type === "timeZoneName")?.value ?? "GMT-4";
+const DEFAULT_TZ = "America/New_York";
+
+// Reads timezone from business Firestore doc. Falls back to Eastern.
+export async function getBusinessTimezone(businessId: string): Promise<string> {
+  const db = getAdminFirestore();
+  if (!db) return DEFAULT_TZ;
+  try {
+    const snap = await db.collection("businesses").doc(businessId).get();
+    const tz = snap.data()?.timezone;
+    return typeof tz === "string" && tz.length > 0 ? tz : DEFAULT_TZ;
+  } catch {
+    return DEFAULT_TZ;
+  }
+}
+
+// Returns a Date representing `hour:00` in the given IANA timezone for the given UTC date.
+// Vercel runs in UTC, so setHours() creates UTC times — this fixes that.
+function tzHourToDate(utcDate: Date, hour: number, tz: string): Date {
+  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
+  const tzPart = fmt.formatToParts(utcDate).find(p => p.type === "timeZoneName")?.value ?? "GMT-5";
   const m = tzPart.match(/GMT([+-])(\d+)/);
-  const etOffsetHours = m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -4;
-  const utcHour = hour - etOffsetHours; // e.g. 9am ET: 9 - (-4) = 13 UTC
+  const offsetHours = m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -5;
+  const utcHour = hour - offsetHours;
   return new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate(), utcHour, 0, 0, 0));
 }
 
@@ -38,20 +50,21 @@ export async function checkAvailability(
   if (!db) return { available: false, suggestedSlots: [] };
 
   try {
-    const businessDoc = await db.collection("businesses").doc(input.businessId).get();
+    const [businessDoc, tz] = await Promise.all([
+      db.collection("businesses").doc(input.businessId).get(),
+      getBusinessTimezone(input.businessId),
+    ]);
     if (!businessDoc.exists) return { available: false, suggestedSlots: [] };
 
-    // Generate slots based on today + next 2 days during business hours (9am–5pm ET)
     const now = new Date();
     const slots: Array<{ startTime: string; endTime: string }> = [];
     for (let dayOffset = 1; dayOffset <= 3 && slots.length < 3; dayOffset++) {
       const day = new Date(now);
       day.setDate(day.getDate() + dayOffset);
-      // Skip Sunday
-      if (day.getDay() === 0) continue;
+      if (day.getDay() === 0) continue; // skip Sunday
       const hours = day.getDay() === 6 ? [9, 11] : [9, 13, 15];
       for (const hour of hours) {
-        const start = etHourToDate(day, hour);
+        const start = tzHourToDate(day, hour, tz);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
         slots.push({ startTime: start.toISOString(), endTime: end.toISOString() });
         if (slots.length >= 3) break;
@@ -107,9 +120,10 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
 
   // Notify business owner
   if (resend && businessData?.notificationEmail) {
+    const biz_tz: string = businessData?.timezone ?? DEFAULT_TZ;
     const startDate = new Date(input.startTime).toLocaleString("en-US", {
       weekday: "long", month: "long", day: "numeric", year: "numeric",
-      hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+      hour: "numeric", minute: "2-digit", timeZone: biz_tz,
     });
     const biz: BizBranding = {
       businessName: businessData.businessName ?? "Your Roofing Company",
@@ -200,7 +214,7 @@ export async function escalateCall(
   console.log(`ESCALATION: call ${input.callId} for ${input.businessId} — ${input.reason}`);
 
   if (resend && businessData?.notificationEmail) {
-    const escalationTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+    const escalationTime = new Date().toLocaleString("en-US", { timeZone: businessData?.timezone ?? DEFAULT_TZ });
     const biz: BizBranding = {
       businessName: businessData.businessName ?? "Your Roofing Company",
       brandColor: businessData.brandColor ?? "#7f1d1d",

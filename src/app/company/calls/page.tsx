@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -32,10 +33,10 @@ function timeAgo(ms: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function formatTime(ms: number): string {
+function formatTime(ms: number, tz: string): string {
   return new Date(ms).toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-    timeZone: "America/New_York",
+    timeZone: tz,
   });
 }
 
@@ -63,6 +64,7 @@ const CATEGORY_STYLE: Record<string, string> = {
 
 export default function CompanyCallsPage() {
   const businessId = useBusinessId();
+  const tz = useBusinessTimezone();
 
   const [calls, setCalls] = useState<Call[]>([]);
   const [selected, setSelected] = useState<Call | null>(null);
@@ -122,7 +124,7 @@ export default function CompanyCallsPage() {
                       <div className="call-row-header">
                         <div>
                           <p className="call-title">{call.callerPhone ?? "Unknown caller"}</p>
-                          <p className="call-subtitle">{formatTime(call.startedAt)}</p>
+                          <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
                         <span className={CATEGORY_STYLE[category] ?? "tag"}>{category}</span>
                       </div>
@@ -150,7 +152,7 @@ export default function CompanyCallsPage() {
                   <div>
                     <p className="call-detail-phone">{selected.callerPhone ?? "Unknown caller"}</p>
                     <p className="call-detail-sub">
-                      {formatTime(selected.startedAt)}
+                      {formatTime(selected.startedAt, tz)}
                       {callDuration(selected) ? ` · ${callDuration(selected)}` : ""}
                       {selected.endedReason ? ` · ${selected.endedReason}` : ""}
                     </p>

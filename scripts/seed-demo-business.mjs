@@ -19,6 +19,7 @@ const demoBusiness = {
   industry: "roofing",
   phoneNumber: "+16892042643",
   serviceArea: ["Miami", "Coral Gables", "Doral", "Hialeah", "Kendall", "Homestead"],
+  timezone: "America/New_York",
   businessHours: {
     Monday: "08:00 - 17:00",
     Tuesday: "08:00 - 17:00",

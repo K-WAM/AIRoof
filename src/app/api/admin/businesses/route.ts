@@ -42,6 +42,7 @@ interface CreateBusinessRequest {
   contactPhone?: string;
   contactEmail?: string;
   websiteUrl?: string;
+  timezone?: string;
   actorUid?: string;
   actorEmail?: string;
 }
@@ -144,6 +145,7 @@ export async function POST(
       businessName,
       industry,
       phoneNumber: body.phoneNumber,
+      timezone: body.timezone ?? "America/New_York",
       serviceArea: body.serviceArea,
       businessHours: body.businessHours || {
         Monday: "08:00 - 17:00",

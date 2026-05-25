@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
+import { US_TIMEZONES } from "@/hooks/useBusinessTimezone";
 
 interface BizData {
   businessName: string;
@@ -26,6 +27,7 @@ interface BizData {
   maxTokens?: number;
   emergencyRules?: string[];
   bookingRules?: string[];
+  timezone?: string;
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
   brandColor?: string;
@@ -116,6 +118,7 @@ export default function AdminBusinessConfigPage({
         .split("\n")
         .map((rule) => rule.trim())
         .filter(Boolean),
+      timezone: String(formData.get("timezone") || "America/New_York"),
       // Vapi
       vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
       vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
@@ -205,6 +208,14 @@ export default function AdminBusinessConfigPage({
                 <div className="field">
                   <label htmlFor="serviceArea">Service area (comma-separated)</label>
                   <input id="serviceArea" name="serviceArea" defaultValue={serviceAreaStr} />
+                </div>
+                <div className="field">
+                  <label htmlFor="timezone">Business timezone</label>
+                  <select id="timezone" name="timezone" defaultValue={biz.timezone ?? "America/New_York"}>
+                    {US_TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>{tz.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>

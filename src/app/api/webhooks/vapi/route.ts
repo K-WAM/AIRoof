@@ -17,6 +17,7 @@ import {
   escalateCall,
   lookupAppointment,
   logAgentAction,
+  getBusinessTimezone,
 } from "@/lib/tools/agentTools";
 import type {
   VapiWebhookPayload,
@@ -142,11 +143,12 @@ async function executeTool(
   callId: string,
   callerPhone?: string
 ): Promise<VapiToolResult> {
+  const tz = await getBusinessTimezone(businessId);
   try {
     switch (name) {
       case "bookAppointment": {
-        const startTime = toTimestamp(params.startTime ?? params.preferredTime);
-        const endTime = toTimestamp(params.endTime) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
+        const startTime = toTimestamp(params.startTime ?? params.preferredTime, tz);
+        const endTime = toTimestamp(params.endTime, tz) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
         const appt = await bookAppointment({
           businessId,
           callerName: String(params.name ?? params.callerName ?? "Unknown"),
@@ -159,7 +161,7 @@ async function executeTool(
         });
         await logAction(businessId, callId, "bookAppointment", params, appt, "success");
         return {
-          result: `Appointment requested for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: "America/New_York" })}. The team will confirm shortly.`,
+          result: `Appointment requested for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}. The team will confirm shortly.`,
         };
       }
 
@@ -202,7 +204,7 @@ async function executeTool(
         }
         const slots = result.suggestedSlots
           .slice(0, 3)
-          .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
+          .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
           .join("; ");
         return { result: `Available slots: ${slots}` };
       }
@@ -327,21 +329,21 @@ function safeJsonParse(s: string): Record<string, unknown> | null {
   }
 }
 
-function getETUTCOffsetHours(date: Date): number {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "shortOffset" });
-  const tzPart = fmt.formatToParts(date).find(p => p.type === "timeZoneName")?.value ?? "GMT-4";
+function getTZUTCOffsetHours(date: Date, tz: string): number {
+  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
+  const tzPart = fmt.formatToParts(date).find(p => p.type === "timeZoneName")?.value ?? "GMT-5";
   const m = tzPart.match(/GMT([+-])(\d+)/);
-  return m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -4;
+  return m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -5;
 }
 
-function toTimestamp(v: unknown): number | undefined {
+function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
-    // Bare ISO string (no timezone) — treat as ET, not UTC, since Vercel runs in UTC
+    // Bare ISO string (no timezone) — treat as business local time, not UTC, since Vercel runs in UTC
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(v)) {
-      const etOffset = getETUTCOffsetHours(new Date());
-      const sign = etOffset >= 0 ? "+" : "-";
-      const offsetStr = `${sign}${String(Math.abs(etOffset)).padStart(2, "0")}:00`;
+      const offset = getTZUTCOffsetHours(new Date(), tz);
+      const sign = offset >= 0 ? "+" : "-";
+      const offsetStr = `${sign}${String(Math.abs(offset)).padStart(2, "0")}:00`;
       const t = Date.parse(v + offsetStr);
       return Number.isNaN(t) ? undefined : t;
     }
