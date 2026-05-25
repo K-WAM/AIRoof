@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
@@ -64,7 +66,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 export default function CompanyLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <CompanyShell>{children}</CompanyShell>
+      <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>Loading…</div>}>
+        <CompanyShell>{children}</CompanyShell>
+      </Suspense>
     </AuthProvider>
   );
 }
