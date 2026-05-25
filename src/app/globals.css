@@ -147,14 +147,14 @@ a {
   padding: 7px 8px;
   border-radius: 6px;
   font-size: 11px;
-  color: #273549;
+  color: #4d6580;
   text-decoration: none;
   transition: color 0.1s, background 0.1s;
   margin-bottom: 12px;
 }
 
 .nav-divider-link:hover {
-  color: #475569;
+  color: #7a9ab8;
   background: #0f1a26;
 }
 
