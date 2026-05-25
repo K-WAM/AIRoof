@@ -274,8 +274,9 @@ async function handleEndOfCallReport(
   // Convert Vapi message log to our CallMessage format
   const transcript = (message.messages ?? []).map((m, i) => ({
     messageId: `m_${i}`,
-    role: m.role === "user" ? "caller" : m.role === "assistant" ? "agent" : "system",
-    text: m.message ?? "",
+    // Vapi sends "bot" (not "assistant") for Alice's turns in end-of-call-report
+    role: m.role === "user" ? "caller" : (m.role === "assistant" || m.role === "bot") ? "agent" : "system",
+    text: m.message ?? m.content ?? "",
     timestamp: m.time ?? Date.now(),
   }));
 

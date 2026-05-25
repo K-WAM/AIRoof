@@ -54,8 +54,9 @@ export interface VapiEndOfCallReportMessage {
   transcript?: string;
   recordingUrl?: string;
   messages?: Array<{
-    role: "user" | "assistant" | "system" | "function" | "tool";
+    role: "user" | "assistant" | "bot" | "system" | "function" | "tool";
     message?: string;
+    content?: string;
     time?: number;
     secondsFromStart?: number;
   }>;

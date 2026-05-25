@@ -3,6 +3,19 @@
 Parked features worth building later. Not the active sprint (see TODO.md), not current state (see HANDOFF.md).
 Each entry has enough context to pick up in 5 minutes. Build when the trigger condition is true.
 
+## Priority Ranking
+
+Scored on **value × ease** (higher = build sooner). Ease weighted heavily — fast wins compound.
+
+| # | Feature | Value | Ease | Score | Trigger |
+|---|---------|-------|------|-------|---------|
+| 1 | **Multi-Vertical Demo Wizard** | High | Easy — templates already built | ★★★★★ | First non-roofing demo |
+| 2 | **After-Hours Logic** | High | Easy — one flag in prompt builder | ★★★★★ | Client complains about 2am bookings |
+| 3 | **Outbound Appointment Confirmation** | High | Medium — Vapi outbound API + button | ★★★★☆ | Customer asks "will I get a reminder?" |
+| 4 | **Call Outcome Tagging** | High | Medium — DeepSeek classify in webhook | ★★★★☆ | Client asks "how many calls convert?" |
+| 5 | **Client Login Auto-Provisioning** | Medium | Medium — getUserByEmail + write doc | ★★★☆☆ | First paying client signed |
+| 6 | **Stripe Billing** | High | Hard — billing portal, webhooks, plan gates | ★★★☆☆ | First paying client |
+
 ---
 
 ## Multi-Vertical Demo Wizard
@@ -62,6 +75,22 @@ Each entry has enough context to pick up in 5 minutes. Build when the trigger co
 **What's missing**: `end-of-call-report` webhook hits Firestore but doesn't run DeepSeek classification.
 
 **How to build**: In the `end-of-call-report` handler in `webhooks/vapi/route.ts`, after saving the transcript, call `classifyCallOutcome()` from DeepSeek and write the `outcome` field to the call doc. Surface it as a tag in `/company/calls`.
+
+---
+
+## Outbound Appointment Confirmation
+
+**Trigger**: Customer asks "will I get a reminder?" or first client requests it.
+
+**Value**: After Alice books an appointment, a confirmation call goes out to the customer's phone — no human needed. Alice reads back the appointment details and confirms. Completely differentiates from voicemail products.
+
+**What's missing**: Nothing in the codebase. Vapi has an outbound call API (`POST /call` with `phoneNumberToCall` + assistant config).
+
+**How to build** (1–2 days):
+1. Add "Call to Confirm" button on the appointments page (next to "Send Confirmation")
+2. `POST /api/appointments/confirm-call` → Vapi outbound call API with the caller's phone number
+3. Wire a simple assistant script: "Hi [name], this is Alice calling to confirm your [service] inspection on [date] at [time] at [address]. Press 1 to confirm or 2 to reschedule."
+4. Vapi webhook updates appointment status on response
 
 ---
 
