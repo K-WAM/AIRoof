@@ -17,6 +17,20 @@ export interface CheckAvailabilityOutput {
   suggestedSlots: Array<{ startTime: string; endTime: string }>;
 }
 
+// Returns a Date representing `hour:00 AM/PM` in America/New_York for the given UTC date.
+// Vercel runs in UTC, so setHours() would create UTC times — this fixes that.
+function etHourToDate(utcDate: Date, hour: number): Date {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "shortOffset",
+  });
+  const tzPart = fmt.formatToParts(utcDate).find(p => p.type === "timeZoneName")?.value ?? "GMT-4";
+  const m = tzPart.match(/GMT([+-])(\d+)/);
+  const etOffsetHours = m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -4;
+  const utcHour = hour - etOffsetHours; // e.g. 9am ET: 9 - (-4) = 13 UTC
+  return new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate(), utcHour, 0, 0, 0));
+}
+
 export async function checkAvailability(
   input: CheckAvailabilityInput
 ): Promise<CheckAvailabilityOutput> {
@@ -27,7 +41,7 @@ export async function checkAvailability(
     const businessDoc = await db.collection("businesses").doc(input.businessId).get();
     if (!businessDoc.exists) return { available: false, suggestedSlots: [] };
 
-    // Generate slots based on today + next 2 days during business hours (9am–5pm)
+    // Generate slots based on today + next 2 days during business hours (9am–5pm ET)
     const now = new Date();
     const slots: Array<{ startTime: string; endTime: string }> = [];
     for (let dayOffset = 1; dayOffset <= 3 && slots.length < 3; dayOffset++) {
@@ -37,10 +51,8 @@ export async function checkAvailability(
       if (day.getDay() === 0) continue;
       const hours = day.getDay() === 6 ? [9, 11] : [9, 13, 15];
       for (const hour of hours) {
-        const start = new Date(day);
-        start.setHours(hour, 0, 0, 0);
-        const end = new Date(start);
-        end.setHours(hour + 1);
+        const start = etHourToDate(day, hour);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
         slots.push({ startTime: start.toISOString(), endTime: end.toISOString() });
         if (slots.length >= 3) break;
       }

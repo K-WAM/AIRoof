@@ -150,7 +150,7 @@ async function executeTool(
         const appt = await bookAppointment({
           businessId,
           callerName: String(params.name ?? params.callerName ?? "Unknown"),
-          callerPhone: String(params.phone ?? params.callerPhone ?? callerPhone ?? ""),
+          callerPhone: callerPhone || String(params.phone ?? params.callerPhone ?? ""),
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
           startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
@@ -316,9 +316,24 @@ function safeJsonParse(s: string): Record<string, unknown> | null {
   }
 }
 
+function getETUTCOffsetHours(date: Date): number {
+  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "shortOffset" });
+  const tzPart = fmt.formatToParts(date).find(p => p.type === "timeZoneName")?.value ?? "GMT-4";
+  const m = tzPart.match(/GMT([+-])(\d+)/);
+  return m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -4;
+}
+
 function toTimestamp(v: unknown): number | undefined {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
+    // Bare ISO string (no timezone) — treat as ET, not UTC, since Vercel runs in UTC
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(v)) {
+      const etOffset = getETUTCOffsetHours(new Date());
+      const sign = etOffset >= 0 ? "+" : "-";
+      const offsetStr = `${sign}${String(Math.abs(etOffset)).padStart(2, "0")}:00`;
+      const t = Date.parse(v + offsetStr);
+      return Number.isNaN(t) ? undefined : t;
+    }
     const t = Date.parse(v);
     return Number.isNaN(t) ? undefined : t;
   }

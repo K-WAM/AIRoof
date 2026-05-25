@@ -7,7 +7,6 @@ const LINKS = [
   { path: "/company/calls", label: "Calls" },
   { path: "/company/leads", label: "Leads" },
   { path: "/company/appointments", label: "Appointments" },
-  { path: "/company/agent", label: "Agent Settings" },
 ];
 
 export function CompanyNav() {
