@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -44,6 +45,8 @@ const STATUS_CLASS: Record<string, string> = {
 export default function CompanyAppointmentsPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const searchParams = useSearchParams();
+  const preview = searchParams?.get("preview");
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,13 +80,13 @@ export default function CompanyAppointmentsPage() {
 
   function createJob(appt: Appointment) {
     const params = new URLSearchParams({
-      businessId: businessId ?? "",
       clientName: appt.callerName ?? "",
       clientPhone: appt.callerPhone ?? "",
       address: appt.address ?? "",
       serviceType: appt.serviceType ?? "",
       appointmentId: appt.appointmentId,
     });
+    if (preview) params.set("preview", preview);
     window.location.href = `/company/jobs?${params.toString()}#new`;
   }
 

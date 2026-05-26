@@ -12,11 +12,14 @@ interface ApplyResult {
   error?: string;
 }
 
+const DEMO_URL = "https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing";
+
 export default function DemoCustomizePage() {
   const [email, setEmail] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [busy, setBusy] = useState<"customize" | "reset" | null>(null);
   const [result, setResult] = useState<ApplyResult | null>(null);
+  const [activeCompany, setActiveCompany] = useState<string | null>(null);
 
   async function customize(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +33,7 @@ export default function DemoCustomizePage() {
       });
       const data = (await res.json()) as ApplyResult;
       setResult(res.ok ? data : { error: data.error ?? "Failed" });
+      if (res.ok) setActiveCompany(companyName.trim());
     } catch (err) {
       setResult({ error: err instanceof Error ? err.message : "Network error" });
     } finally {
@@ -47,6 +51,7 @@ export default function DemoCustomizePage() {
       if (res.ok) {
         setEmail("");
         setCompanyName("");
+        setActiveCompany(null);
       }
     } catch (err) {
       setResult({ error: err instanceof Error ? err.message : "Network error" });
@@ -65,6 +70,30 @@ export default function DemoCustomizePage() {
             greeting on Vapi in one click.
           </p>
         </div>
+        <a
+          href={DEMO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0.65rem 1.1rem",
+            background: activeCompany ? "#3a7afe" : "rgba(255,255,255,0.05)",
+            color: activeCompany ? "#fff" : "#64748b",
+            border: `1px solid ${activeCompany ? "#3a7afe" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: "0.9rem",
+            textDecoration: "none",
+            transition: "all 0.15s",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ fontSize: "0.75rem" }}>▶</span>
+          {activeCompany ? `View "${activeCompany}" demo` : "View demo live"}
+          <span style={{ fontSize: "0.75rem", opacity: 0.7 }}>↗</span>
+        </a>
       </header>
 
       <section style={{ maxWidth: 560, marginTop: "1.5rem" }}>
@@ -151,7 +180,7 @@ export default function DemoCustomizePage() {
           <li>Enter prospect&apos;s company name and email above, click Apply.</li>
           <li>Have the prospect call <strong>+1 (754) 283-7658</strong>.</li>
           <li>Alice greets them as <em>their</em> company. They book an appointment with her.</li>
-          <li>The booking email lands in their inbox in real time. Open their dashboard at <code>/company/dashboard</code> to show the captured lead.</li>
+          <li>The booking email lands in their inbox. Click <strong>View &ldquo;[Company]&rdquo; demo ↗</strong> above to open the client dashboard and show the captured lead in real time.</li>
           <li>After the demo, click <strong>Reset to defaults</strong>.</li>
         </ol>
       </section>

@@ -26,6 +26,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const searchParams = useSearchParams();
   const hookBusinessId = useBusinessId();
   const businessId = searchParams?.get("businessId") ?? hookBusinessId;
+  const preview = searchParams?.get("preview");
+  const previewSuffix = preview ? `?preview=${preview}` : "";
 
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
@@ -123,7 +125,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       <header className="page-header">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <a href="/company/jobs" style={{ color: "#64748b", fontSize: 13 }}>← Jobs</a>
+            <a href={`/company/jobs${previewSuffix}`} style={{ color: "#64748b", fontSize: 13 }}>← Jobs</a>
             <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 18, color: "#1e293b" }}>{jobId}</span>
           </div>
           <h1 className="page-title" style={{ marginBottom: 4 }}>{job.title}</h1>
@@ -132,7 +134,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a
-            href={`/company/field?jobId=${jobId}&businessId=${businessId}`}
+            href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`}
             className="button"
           >
             Field view ↗
@@ -384,7 +386,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <h2 className="panel-title">Field Updates ({updates.length})</h2>
           <a
             className="button"
-            href={`/company/field?jobId=${jobId}&businessId=${businessId}`}
+            href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`}
             style={{ fontSize: 12 }}
           >
             Submit update ↗

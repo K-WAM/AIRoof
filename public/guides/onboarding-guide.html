@@ -397,17 +397,18 @@
 
   <!-- ── Demo Day Cheat Sheet ── -->
   <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:32px 0;page-break-inside:avoid;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:12px;">Demo Day — 60 second cheat sheet</div>
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:12px;">AI Receptionist Demo — 60-second cheat sheet</div>
     <ol style="margin:0;padding-left:20px;line-height:2;">
-      <li>Go to <strong style="color:#60a5fa">/admin/demo</strong> → enter their company name + email → <strong>Apply</strong></li>
+      <li>Go to <strong style="color:#60a5fa">https://ai-roof.vercel.app/admin/demo</strong> → enter <em>the prospect's company name</em> + their email → click <strong>Apply demo config</strong></li>
       <li>Hand them the phone → <strong style="color:#34d399;font-size:15px;">+1 (754) 283-7658</strong></li>
       <li>Alice answers as <em>their</em> company — they book or leave their info</li>
-      <li>After the call → click <strong style="color:#60a5fa">Client view ↗</strong> in the sidebar (opens new tab)</li>
-      <li>Show: <strong>Leads</strong> tab (their name) → <strong>Calls</strong> tab (transcript) → <strong>Appointments</strong> tab</li>
-      <li>Done → click <strong>Reset to defaults</strong> on the Demo tab</li>
+      <li>After the call → open <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</strong> in a new tab (or click <strong>Client view ↗</strong> at the bottom of the admin sidebar)</li>
+      <li>Show: <strong>Appointments</strong> (booking just created) → <strong>Calls</strong> (full transcript) → <strong>Leads</strong></li>
+      <li>Done → back to <strong>https://ai-roof.vercel.app/admin/demo</strong> → click <strong>Reset to defaults</strong></li>
     </ol>
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e3a5f;font-size:11px;color:#475569;">
-      If something breaks during demo: refresh the Client view tab. Data saves to Firestore in real time — it will appear.
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e3a5f;font-size:11px;color:#94a3b8;">
+      <strong style="color:#60a5fa">What does "Client view" mean?</strong> The admin sidebar has a <em>Client view ↗</em> link at the bottom. It opens the company dashboard as if you were the client — showing their live calls, leads, and appointments. The URL is always <code>https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</code>. Bookmark it before the demo.<br><br>
+      If something breaks: refresh the tab. Data saves to Firestore in real time and will appear.
     </div>
   </div>
 
@@ -513,7 +514,8 @@
       <div class="step-body">
         <strong>Customize the demo for the prospect</strong>
         <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span> (log in as connect@luxordev.com)</p>
-        <p>Enter their company name (e.g. "Roof Doctors South Florida") and their email address → click <strong>Apply demo config</strong>. Alice will now greet callers using their company name.</p>
+        <p>Enter <strong>the prospect's company name</strong> (e.g. "Roof Doctors South Florida") — this is the name Alice will answer with. Enter their email address so they receive the confirmation email during the demo. Click <strong>Apply demo config</strong>.</p>
+        <p style="margin-top:8px;font-size:12px;color:#64748b;">Note: "demo-roofing" is the internal ID of the demo account — you never enter that. You enter the prospect's real company name.</p>
       </div>
     </li>
     <li>
@@ -527,7 +529,7 @@
       <div class="step-num blue">3</div>
       <div class="step-body">
         <strong>Open the dashboard in a browser tab</strong>
-        <p><span class="url">https://ai-roof.vercel.app/company/dashboard</span> — logged in, ready to show live data after the demo call.</p>
+        <p><span class="url">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</span> — bookmark this. The <code>?preview=demo-roofing</code> is required when logged in as the superadmin account; without it you'll be redirected to the admin panel instead of seeing the client view.</p>
       </div>
     </li>
   </ol>
@@ -548,12 +550,13 @@
   <p>Let Alice handle it fully — she'll ask for their name, address, preferred time, and book the appointment.</p>
 
   <h4>Step 3 — Show the dashboard (3 min)</h4>
-  <p>Switch to your browser tab with the dashboard open: <span class="url">https://ai-roof.vercel.app/company/dashboard</span></p>
+  <p>Switch to your browser tab: <span class="url">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</span></p>
   <p>Walk through:</p>
   <ul style="margin-left:20px;margin-bottom:12px;">
-    <li style="margin-bottom:6px;"><strong>Appointments tab</strong> → their booking appears in real time</li>
-    <li style="margin-bottom:6px;"><strong>Calls tab</strong> → full transcript of the call just completed</li>
-    <li style="margin-bottom:6px;"><strong>Send Confirmation</strong> → click it and a branded email arrives in their inbox</li>
+    <li style="margin-bottom:6px;"><strong>Appointments tab</strong> (<span class="url">https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</span>) → their booking appears in real time</li>
+    <li style="margin-bottom:6px;"><strong>Calls tab</strong> (<span class="url">https://ai-roof.vercel.app/company/calls?preview=demo-roofing</span>) → full transcript of the call just completed</li>
+    <li style="margin-bottom:6px;"><strong>Send Confirmation</strong> → click the button on the appointment card and a branded email arrives in their inbox within seconds</li>
+    <li style="margin-bottom:6px;"><strong>Leads tab</strong> (<span class="url">https://ai-roof.vercel.app/company/leads?preview=demo-roofing</span>) → if they didn't book, their info appears here instead</li>
   </ul>
 
   <h4>Step 4 — Close (2 min)</h4>
@@ -570,16 +573,53 @@
   </div>
 
   <!-- ── Portal URLs ── -->
-  <h3>Key URLs</h3>
+  <h3>Key URLs — AI Receptionist Demo</h3>
   <table>
-    <thead><tr><th>URL</th><th>What it is</th><th>Login</th></tr></thead>
+    <thead><tr><th>Full URL</th><th>What it is</th><th>Login</th></tr></thead>
     <tbody>
-      <tr><td><code>ai-roof.vercel.app/login</code></td><td>Login page</td><td>Any account</td></tr>
-      <tr><td><code>ai-roof.vercel.app/admin/demo</code></td><td>Demo customizer — set prospect name</td><td>connect@luxordev.com</td></tr>
-      <tr><td><code>ai-roof.vercel.app/company/dashboard</code></td><td>Live ops dashboard to show during demo</td><td>connect@luxordev.com</td></tr>
-      <tr><td><code>ai-roof.vercel.app/admin/businesses</code></td><td>All tenants list</td><td>Superadmin only</td></tr>
-      <tr><td><code>ai-roof.vercel.app/admin/onboarding</code></td><td>Add a new company</td><td>Superadmin only</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/login</code></td><td>Login page</td><td>Any account</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/admin/demo</code></td><td>Demo customizer — enter prospect name + email here</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</code></td><td>Live ops dashboard (bookmark this)</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</code></td><td>Appointments — shows booking from demo call</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/calls?preview=demo-roofing</code></td><td>Call history + full transcript</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/leads?preview=demo-roofing</code></td><td>Lead queue</td><td>connect@luxordev.com</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/admin/businesses</code></td><td>All tenants list</td><td>Superadmin only</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/admin/onboarding</code></td><td>Add a new company</td><td>Superadmin only</td></tr>
       <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi — manage voice assistants</td><td>Luxor Vapi account</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ── Field Operations Demo ── -->
+  <h3 style="margin-top:40px;">Bonus Demo — Field Voice Input (3 min add-on)</h3>
+  <p>Show this after the AI receptionist demo to demonstrate the full workflow: from call → appointment → field job → invoice.</p>
+
+  <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:20px 0;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:12px;">Field Demo — Step by Step</div>
+    <ol style="margin:0;padding-left:20px;line-height:2.2;">
+      <li>Go to <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</strong> → find the appointment just booked → click <strong>Create Job →</strong></li>
+      <li>The job form prefills with the client's info. Add a title (e.g. "Roof inspection — 123 Main St") → click <strong>Create Job</strong>. Note the short ID assigned (e.g. <strong style="color:#34d399">J-1042</strong>).</li>
+      <li>Open <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/field?preview=demo-roofing</strong> on your phone (or Chrome → DevTools → Toggle device toolbar for mobile view)</li>
+      <li>Select the job from the dropdown → tap the <strong>mic button</strong> → speak a field update in plain English (or Spanish for impact):<br>
+        <em style="color:#94a3b8;font-size:12px;">"We replaced 14 squares of shingles on the north face. Crew was Marco and Dani. Found some rotted decking near the chimney, about 6 square feet. Took 3 hours. Need to come back for the flashing."</em>
+      </li>
+      <li>Tap <strong>Submit</strong> → green confirmation appears</li>
+      <li>Switch back to admin computer → go to <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/jobs?preview=demo-roofing</strong> → click <strong>View →</strong> on the job</li>
+      <li>Show the parsed tabs: <strong>Timeline</strong>, <strong>Materials</strong> (14 squares), <strong>Labor</strong> (Marco + Dani, 3 hrs), <strong>Issues</strong> (rotted decking, high severity)</li>
+      <li>Click <strong>Generate Invoice</strong> → editable draft invoice appears with line items</li>
+      <li>Click <strong>Generate Report</strong> → plain-text job report auto-written from the voice update</li>
+    </ol>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e3a5f;font-size:12px;color:#94a3b8;">
+      <strong style="color:#60a5fa">Pitch line:</strong> "Your field crew spoke in plain English — the AI organized it into a structured job record, flagged a problem, and drafted the invoice. No forms, no typing. Works in Spanish too."
+    </div>
+  </div>
+
+  <h3>Field Demo — Key URLs</h3>
+  <table>
+    <thead><tr><th>Full URL</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>https://ai-roof.vercel.app/company/jobs?preview=demo-roofing</code></td><td>Job list — create and manage field jobs</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/field?preview=demo-roofing</code></td><td>Field screen — open this on your phone for voice input</td></tr>
+      <tr><td><code>https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</code></td><td>Appointments — "Create Job →" button is here</td></tr>
     </tbody>
   </table>
 

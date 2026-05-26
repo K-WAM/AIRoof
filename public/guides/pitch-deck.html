@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luxor AI — AI Receptionist · Pitch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    @page { size: letter portrait; margin: 0; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #07090e;
+      --surface:     #0c1118;
+      --surface2:    #111924;
+      --border:      rgba(255,255,255,0.07);
+      --blue:        #3b82f6;
+      --blue-light:  #93c5fd;
+      --blue-dim:    rgba(59,130,246,0.1);
+      --amber:       #f59e0b;
+      --amber-light: #fcd34d;
+      --amber-dim:   rgba(245,158,11,0.1);
+      --green:       #22c55e;
+      --red:         #ef4444;
+      --text:        #f1f5f9;
+      --muted:       #8896a9;
+      --subtle:      #48596e;
+    }
+
+    body {
+      font-family: 'Barlow', sans-serif;
+      background: #111520;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color: var(--text);
+    }
+
+    /* ── Sheet (one per page) ── */
+    .sheet {
+      width: 8.5in;
+      height: 11in;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media screen {
+      body { padding: 48px 0 80px; }
+      .sheet {
+        margin: 0 auto 28px;
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.04),
+          0 48px 120px rgba(0,0,0,0.7);
+      }
+    }
+
+    @media print {
+      body { background: none; padding: 0; }
+      .sheet { page-break-after: always; }
+      .sheet:last-child { page-break-after: avoid; }
+    }
+
+    /* ─────────────────────────────
+       PAGE 1
+    ───────────────────────────── */
+
+    /* Top bar */
+    .p1-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 36px 56px 32px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .logo-lockup {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .logo-lockup img {
+      height: 26px;
+      width: auto;
+      filter: brightness(0) invert(1);
+      opacity: 0.95;
+    }
+
+    .logo-name {
+      font-family: 'Fraunces', serif;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--text);
+    }
+
+    .topbar-pill {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: var(--blue-dim);
+      border: 1px solid rgba(59,130,246,0.2);
+      padding: 5px 14px;
+      border-radius: 100px;
+    }
+
+    /* Hero */
+    .p1-hero {
+      flex: 1;
+      padding: 60px 56px 52px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .p1-hero::after {
+      content: '';
+      position: absolute;
+      top: -80px;
+      right: -80px;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--subtle);
+      margin-bottom: 20px;
+    }
+
+    .hero-headline {
+      font-family: 'Fraunces', serif;
+      font-size: 76px;
+      font-weight: 800;
+      line-height: 0.93;
+      letter-spacing: -0.035em;
+      color: var(--text);
+      margin-bottom: 28px;
+    }
+
+    .hero-headline .hl { color: var(--blue-light); }
+
+    .hero-body {
+      font-family: 'Barlow', sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--muted);
+      max-width: 580px;
+      font-weight: 400;
+    }
+
+    .hero-body strong { color: var(--text); font-weight: 600; }
+
+    /* Stats grid */
+    .p1-stats {
+      padding: 32px 56px 30px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .section-eyebrow {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--subtle);
+      margin-bottom: 16px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 18px 20px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), var(--blue-light)); }
+    .stat-card.amber::before { background: linear-gradient(90deg, var(--amber), var(--amber-light)); }
+
+    .stat-num {
+      font-family: 'Fraunces', serif;
+      font-size: 46px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      margin-bottom: 5px;
+    }
+
+    .stat-card.blue .stat-num { color: var(--blue-light); }
+    .stat-card.amber .stat-num { color: var(--amber-light); }
+
+    .stat-desc {
+      font-family: 'Barlow', sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    /* ROI band */
+    .p1-roi {
+      flex-shrink: 0;
+      padding: 26px 56px;
+      background: linear-gradient(90deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.03) 100%);
+      border-top: 1px solid rgba(245,158,11,0.18);
+    }
+
+    .roi-row {
+      display: grid;
+      grid-template-columns: 3px 1fr auto;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .roi-bar {
+      width: 3px;
+      height: 56px;
+      background: var(--amber);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .roi-copy-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 5px;
+    }
+
+    .roi-copy {
+      font-family: 'Barlow', sans-serif;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .roi-copy strong { color: var(--text); }
+
+    .roi-big {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .roi-number {
+      font-family: 'Fraunces', serif;
+      font-size: 56px;
+      font-weight: 900;
+      color: var(--amber-light);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .roi-sublabel {
+      font-family: 'Barlow', sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Page footer (absolute) */
+    .pg-footer {
+      position: absolute;
+      bottom: 20px;
+      left: 56px;
+      right: 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .pg-footer-brand {
+      font-family: 'Barlow', sans-serif;
+      font-size: 10.5px;
+      color: var(--subtle);
+      letter-spacing: 0.03em;
+    }
+
+    .pg-footer-num {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--subtle);
+      letter-spacing: 0.08em;
+    }
+
+
+    /* ─────────────────────────────
+       PAGE 2
+    ───────────────────────────── */
+
+    .p2-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 36px 56px 32px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .p2-headline {
+      font-family: 'Fraunces', serif;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+    }
+
+    .p2-headline span { color: var(--blue-light); }
+
+    .demo-call-area {
+      text-align: right;
+    }
+
+    .demo-call-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--subtle);
+      margin-bottom: 4px;
+    }
+
+    .demo-call-num {
+      font-family: 'Fraunces', serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .demo-call-sub {
+      font-family: 'Barlow', sans-serif;
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Two-col body */
+    .p2-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--border);
+      min-height: 0;
+    }
+
+    .how-col {
+      padding: 40px 48px 40px 56px;
+      border-right: 1px solid var(--border);
+    }
+
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      margin-top: 22px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .step-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--blue-dim);
+      border: 1px solid rgba(59,130,246,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--blue);
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-family: 'Barlow', sans-serif;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .step-desc {
+      font-family: 'Barlow', sans-serif;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .ba-col {
+      padding: 40px 56px 40px 44px;
+    }
+
+    .ba-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 22px;
+    }
+
+    .ba-table th {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding-bottom: 10px;
+      text-align: left;
+    }
+
+    .ba-table th:first-child { color: var(--subtle); }
+    .ba-table th.th-bad  { color: var(--red); opacity: 0.8; }
+    .ba-table th.th-good { color: var(--green); }
+
+    .ba-table td {
+      font-family: 'Barlow', sans-serif;
+      font-size: 12px;
+      line-height: 1.5;
+      padding: 9px 0;
+      border-top: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .ba-table td:first-child {
+      color: var(--subtle);
+      font-style: italic;
+      padding-right: 12px;
+      width: 28%;
+    }
+
+    .ba-table td.td-bad {
+      color: var(--red);
+      opacity: 0.75;
+      padding-right: 10px;
+    }
+
+    .ba-table td.td-good { color: #4ade80; }
+
+    /* Footer strip */
+    .p2-footer {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      min-height: 0;
+    }
+
+    .cta-strip {
+      padding: 26px 48px 26px 56px;
+      background: var(--blue-dim);
+      border-right: 1px solid rgba(59,130,246,0.14);
+    }
+
+    .cta-strip-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 6px;
+    }
+
+    .cta-strip-num {
+      font-family: 'Fraunces', serif;
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+    }
+
+    .cta-strip-sub {
+      font-family: 'Barlow', sans-serif;
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .cta-strip-url {
+      font-family: 'Barlow', sans-serif;
+      font-size: 11.5px;
+      color: var(--blue);
+      margin-top: 8px;
+    }
+
+    .contact-strip {
+      padding: 26px 56px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .contact-strip-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--subtle);
+      margin-bottom: 8px;
+    }
+
+    .contact-line {
+      font-family: 'Barlow', sans-serif;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .contact-line.sm {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .contact-line.xs {
+      font-size: 11px;
+      color: var(--subtle);
+      font-weight: 400;
+      margin-top: 6px;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ PAGE 1 ═══════════ -->
+<div class="sheet">
+
+  <div class="p1-topbar">
+    <div class="logo-lockup">
+      <img src="/logo.png" alt="Luxor AI">
+      <span class="logo-name">Luxor AI</span>
+    </div>
+    <span class="topbar-pill">AI Receptionist Platform</span>
+  </div>
+
+  <div class="p1-hero">
+    <p class="hero-eyebrow">The problem every roofing company ignores</p>
+    <h1 class="hero-headline">
+      <span class="hl">40%</span> of your calls<br>go to voicemail.
+    </h1>
+    <p class="hero-body">
+      The first company to respond wins the job <strong>over 50% of the time.</strong>
+      Roofus — your AI receptionist — answers every call in under 2 seconds,
+      qualifies the lead, and books the inspection. 24/7. No staff required.
+    </p>
+  </div>
+
+  <div class="p1-stats">
+    <p class="section-eyebrow">By the numbers</p>
+    <div class="stats-grid">
+
+      <div class="stat-card blue">
+        <div class="stat-num">40%</div>
+        <div class="stat-desc">of inbound calls go unanswered at the average roofing company</div>
+      </div>
+
+      <div class="stat-card blue">
+        <div class="stat-num">&lt;2s</div>
+        <div class="stat-desc">answer time — vs. a 2–4 hour average human callback</div>
+      </div>
+
+      <div class="stat-card blue">
+        <div class="stat-num">50%</div>
+        <div class="stat-desc">more jobs won by whoever responds first (speed-to-lead)</div>
+      </div>
+
+      <div class="stat-card amber">
+        <div class="stat-num">$42K</div>
+        <div class="stat-desc">average annual cost of a full-time receptionist</div>
+      </div>
+
+      <div class="stat-card amber">
+        <div class="stat-num">24/7</div>
+        <div class="stat-desc">coverage — nights, weekends, and storm-surge hours</div>
+      </div>
+
+      <div class="stat-card amber">
+        <div class="stat-num">100%</div>
+        <div class="stat-desc">call answer rate — zero missed leads, zero hold music</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="p1-roi">
+    <div class="roi-row">
+      <div class="roi-bar"></div>
+      <div>
+        <div class="roi-copy-label">ROI Example — 50 calls/month</div>
+        <div class="roi-copy">
+          40% missed = <strong>20 uncontacted leads/month.</strong>
+          At a 30% close rate and $6,000 average job value, recovering just 5 of those
+          adds <strong>$30,000 to your top line — every single month.</strong>
+        </div>
+      </div>
+      <div class="roi-big">
+        <div class="roi-number">$30K</div>
+        <div class="roi-sublabel">recovered revenue/month</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pg-footer">
+    <span class="pg-footer-brand">Luxor AI &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; 2026</span>
+    <span class="pg-footer-num">1 / 2</span>
+  </div>
+
+</div><!-- /sheet 1 -->
+
+
+<!-- ═══════════ PAGE 2 ═══════════ -->
+<div class="sheet">
+
+  <div class="p2-topbar">
+    <h2 class="p2-headline">
+      Meet <span>Roofus</span> —<br>your AI receptionist.
+    </h2>
+    <div class="demo-call-area">
+      <div class="demo-call-label">Call the live demo now</div>
+      <div class="demo-call-num">+1 (754) 283-7658</div>
+      <div class="demo-call-sub">Ask to book a roofing inspection</div>
+    </div>
+  </div>
+
+  <div class="p2-body">
+
+    <!-- How it works -->
+    <div class="how-col">
+      <p class="section-eyebrow">How it works</p>
+      <div class="step-list">
+
+        <div class="step">
+          <div class="step-badge">01</div>
+          <div>
+            <div class="step-title">Call received — answered instantly</div>
+            <div class="step-desc">Roofus picks up in under 2 seconds, every hour of every day. No hold music. No missed calls. No voicemail.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-badge">02</div>
+          <div>
+            <div class="step-title">Lead qualified, appointment booked</div>
+            <div class="step-desc">Collects name, address, service type, and preferred time — then books the inspection directly into your schedule.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-badge">03</div>
+          <div>
+            <div class="step-title">You're notified in real time</div>
+            <div class="step-desc">A branded confirmation email goes to the client. You get an instant notification with the lead summary and full transcript.</div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-badge">04</div>
+          <div>
+            <div class="step-title">Field crew, automated too</div>
+            <div class="step-desc">Voice updates from your crew are parsed by AI into job timelines, material lists, and draft invoices — no paperwork required.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Before / After -->
+    <div class="ba-col">
+      <p class="section-eyebrow">Before vs. After</p>
+      <table class="ba-table">
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th class="th-bad">Without Roofus</th>
+            <th class="th-good">With Roofus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Call during a job</td>
+            <td class="td-bad">Voicemail. Caller calls a competitor.</td>
+            <td class="td-good">Answered, qualified, booked.</td>
+          </tr>
+          <tr>
+            <td>9 PM storm call</td>
+            <td class="td-bad">Missed. Lead gone by morning.</td>
+            <td class="td-good">Flagged urgent. Owner notified instantly.</td>
+          </tr>
+          <tr>
+            <td>Pricing question</td>
+            <td class="td-bad">2–4 hr callback. Already called 3 competitors.</td>
+            <td class="td-good">FAQs answered. Inspection booked.</td>
+          </tr>
+          <tr>
+            <td>Field updates</td>
+            <td class="td-bad">Crew texts photos. Owner types notes manually.</td>
+            <td class="td-good">Voice → AI → invoice. 30 seconds.</td>
+          </tr>
+          <tr>
+            <td>Receptionist cost</td>
+            <td class="td-bad">$35K–$50K/year + sick days + training.</td>
+            <td class="td-good">Fraction of the cost. Always on.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Footer: Demo CTA + Contact -->
+  <div class="p2-footer">
+
+    <div class="cta-strip">
+      <div class="cta-strip-label">Try the live demo</div>
+      <div class="cta-strip-num">+1 (754) 283-7658</div>
+      <div class="cta-strip-sub">Call and ask Roofus to book a roofing inspection — see the entire flow in under 3 minutes.</div>
+      <div class="cta-strip-url">ai-roof.vercel.app</div>
+    </div>
+
+    <div class="contact-strip">
+      <div class="contact-strip-label">Get started</div>
+      <div class="contact-line">connect@luxordev.com</div>
+      <div class="contact-line">luxordev.com/contact</div>
+      <div class="contact-line xs">Luxor Developments LLC</div>
+    </div>
+
+  </div>
+
+  <div class="pg-footer">
+    <span class="pg-footer-brand">Luxor AI &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; 2026</span>
+    <span class="pg-footer-num">2 / 2</span>
+  </div>
+
+</div><!-- /sheet 2 -->
+
+</body>
+</html>

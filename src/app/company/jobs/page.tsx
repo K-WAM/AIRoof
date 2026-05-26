@@ -22,6 +22,8 @@ export default function JobsPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const searchParams = useSearchParams();
+  const preview = searchParams?.get("preview");
+  const previewSuffix = preview ? `?preview=${preview}` : "";
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -94,7 +96,7 @@ export default function JobsPage() {
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <a className="button" href="/company/field">Field view ↗</a>
+          <a className="button" href={`/company/field${previewSuffix}`}>Field view ↗</a>
           <button className="button primary" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Cancel" : "+ New Job"}
           </button>
@@ -194,7 +196,7 @@ export default function JobsPage() {
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <a
-                        href={`/company/jobs/${job.jobId}?businessId=${businessId}`}
+                        href={`/company/jobs/${job.jobId}${previewSuffix}`}
                         className="button"
                         style={{ fontSize: 12, padding: "4px 12px" }}
                       >

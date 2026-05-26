@@ -21,6 +21,12 @@ const TABS = [
     src: "/guides/field-operations-guide.html",
     description: "Job creation, field crew voice updates, report and invoice generation.",
   },
+  {
+    id: "pitch",
+    label: "Pitch Deck",
+    src: "/guides/pitch-deck.html",
+    description: "2-page printable pitch deck — open full screen, then print → Save as PDF.",
+  },
 ];
 
 export default function AdminGuidePage() {
@@ -34,14 +40,25 @@ export default function AdminGuidePage() {
           <h1 className="page-title">Playbooks</h1>
           <p className="page-subtitle">{current.description}</p>
         </div>
-        <a
-          className="button primary"
-          href={current.src}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Open full screen ↗
-        </a>
+        <div style={{ display: "flex", gap: 8 }}>
+          {active === "pitch" && (
+            <a
+              className="button"
+              href="/Luxor-AI-Pitch.pptx"
+              download="Luxor-AI-Pitch.pptx"
+            >
+              Download PPTX ↓
+            </a>
+          )}
+          <a
+            className="button primary"
+            href={current.src}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {active === "pitch" ? "Open → Print as PDF ↗" : "Open full screen ↗"}
+          </a>
+        </div>
       </header>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
@@ -68,7 +85,15 @@ export default function AdminGuidePage() {
         ))}
       </div>
 
-      <div className="panel" style={{ padding: 0, overflow: "hidden", borderRadius: 10 }}>
+      <div
+        className="panel"
+        style={{
+          padding: 0,
+          overflow: "hidden",
+          borderRadius: 10,
+          background: active === "pitch" ? "#111520" : undefined,
+        }}
+      >
         <iframe
           key={current.src}
           src={current.src}
