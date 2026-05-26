@@ -35,7 +35,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "invoice" | "notes">("timeline");
   const [report, setReport] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [generating, setGenerating] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [editableInvoice, setEditableInvoice] = useState<InvoiceLineItem[]>([]);
 
   const load = useCallback(async () => {
@@ -53,7 +54,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   useEffect(() => { load(); }, [load]);
 
   async function generateReport() {
-    setGenerating(true);
+    setGeneratingReport(true);
     try {
       const res = await fetch(`/api/jobs/${jobId}/report`, {
         method: "POST",
@@ -64,12 +65,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setReport(data.report ?? "");
       setActiveTab("notes");
     } finally {
-      setGenerating(false);
+      setGeneratingReport(false);
     }
   }
 
   async function generateInvoice() {
-    setGenerating(true);
+    setGeneratingInvoice(true);
     try {
       const res = await fetch(`/api/jobs/${jobId}/invoice`, {
         method: "POST",
@@ -81,7 +82,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setEditableInvoice(data.invoice?.lineItems ?? []);
       setActiveTab("invoice");
     } finally {
-      setGenerating(false);
+      setGeneratingInvoice(false);
     }
   }
 
@@ -139,11 +140,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           >
             Field view ↗
           </a>
-          <button className="button" onClick={generateReport} disabled={generating || updates.length === 0}>
-            {generating ? "Generating…" : "Generate Report"}
+          <button className="button" onClick={generateReport} disabled={generatingReport || generatingInvoice || updates.length === 0}>
+            {generatingReport ? "⏳ Generating…" : "Generate Report"}
           </button>
-          <button className="button primary" onClick={generateInvoice} disabled={generating || updates.length === 0}>
-            {generating ? "Generating…" : "Generate Invoice"}
+          <button className="button primary" onClick={generateInvoice} disabled={generatingReport || generatingInvoice || updates.length === 0}>
+            {generatingInvoice ? "⏳ Generating…" : "Generate Invoice"}
           </button>
         </div>
       </header>
@@ -172,7 +173,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body">
             {timeline.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>No timeline events extracted yet. Submit field updates to populate this.</p>
+              <div style={{ color: "#888", fontSize: 14 }}>
+                <p style={{ margin: "0 0 8px" }}>No timeline events yet.</p>
+                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
             ) : (
               <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
                 {timeline.map((t, i) => (
@@ -194,7 +198,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
             {materials.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14, padding: 20 }}>No materials extracted yet.</p>
+              <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
+                <p style={{ margin: "0 0 8px" }}>No materials extracted yet.</p>
+                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
@@ -227,7 +234,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
             {labor.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14, padding: 20 }}>No labor extracted yet.</p>
+              <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
+                <p style={{ margin: "0 0 8px" }}>No labor extracted yet.</p>
+                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
@@ -262,7 +272,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body">
             {issues.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>No issues extracted yet.</p>
+              <div style={{ color: "#888", fontSize: 14 }}>
+                <p style={{ margin: "0 0 8px" }}>No issues extracted yet.</p>
+                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
                 {issues.map((issue, i) => (

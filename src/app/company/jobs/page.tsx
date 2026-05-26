@@ -28,6 +28,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
 
   // Prefill from "Create Job" button on appointments page
   const prefillClientName = searchParams?.get("clientName") ?? "";
@@ -73,7 +74,9 @@ export default function JobsPage() {
       if (res.ok && data.job) {
         setJobs((prev) => [data.job, ...prev]);
         setShowForm(false);
+        setJustCreatedId(data.job.jobId);
         (e.target as HTMLFormElement).reset();
+        setTimeout(() => setJustCreatedId(null), 4000);
       }
     } finally {
       setCreating(false);
@@ -147,6 +150,20 @@ export default function JobsPage() {
         </section>
       )}
 
+      {justCreatedId && (
+        <div style={{
+          marginBottom: 12, padding: "10px 16px", background: "#f0fdf4",
+          border: "1px solid #86efac", borderRadius: 8,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontSize: 14,
+        }}>
+          <span style={{ color: "#15803d", fontWeight: 700 }}>✓ Job {justCreatedId} created</span>
+          <a href={`/company/jobs/${justCreatedId}${previewSuffix}`} className="button" style={{ fontSize: 12, padding: "4px 12px" }}>
+            View →
+          </a>
+        </div>
+      )}
+
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
@@ -169,7 +186,7 @@ export default function JobsPage() {
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr key={job.jobId} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <tr key={job.jobId} style={{ borderBottom: "1px solid #f1f5f9", background: job.jobId === justCreatedId ? "#f0fdf4" : undefined, transition: "background 1s" }}>
                     <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
                       {job.jobId}
                     </td>

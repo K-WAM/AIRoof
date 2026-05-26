@@ -103,6 +103,13 @@ export default function CompanyAppointmentsPage() {
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
+        setTimeout(() => {
+          setConfirmedSet((prev) => {
+            const next = new Set(prev);
+            next.delete(appt.appointmentId);
+            return next;
+          });
+        }, 3000);
       }
     } finally {
       setUpdating(null);

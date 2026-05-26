@@ -49,6 +49,7 @@ export default function FieldPage() {
   const prefillJobId = searchParams?.get("jobId") ?? "";
 
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
   const [detectedLang, setDetectedLang] = useState("en-US");
   const [text, setText] = useState("");
@@ -56,9 +57,11 @@ export default function FieldPage() {
   const [listening, setListening] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [countdown, setCountdown] = useState(5);
   const [error, setError] = useState<string | null>(null);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const recRef = useRef<SpeechRecognition | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
@@ -78,7 +81,8 @@ export default function FieldPage() {
           setSelectedJobId(prefillJobId);
         }
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingJobs(false));
   }, [businessId, prefillJobId]);
 
   function startListening() {
@@ -139,6 +143,18 @@ export default function FieldPage() {
       if (res.ok) {
         setSubmitted(true);
         setText("");
+        setCountdown(5);
+        countdownRef.current = setInterval(() => {
+          setCountdown((c) => {
+            if (c <= 1) {
+              clearInterval(countdownRef.current!);
+              setSubmitted(false);
+              setError(null);
+              return 5;
+            }
+            return c - 1;
+          });
+        }, 1000);
       } else {
         setError("Failed to submit. Try again.");
       }
@@ -150,8 +166,10 @@ export default function FieldPage() {
   }
 
   function reset() {
+    clearInterval(countdownRef.current!);
     setSubmitted(false);
     setError(null);
+    setCountdown(5);
   }
 
   const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
@@ -166,17 +184,24 @@ export default function FieldPage() {
           textAlign: "center", padding: 40, background: "#f0fdf4", borderRadius: 20,
           border: "2px solid #86efac", width: "100%",
         }}>
-          <div style={{ fontSize: 56, marginBottom: 16 }}>✓</div>
+          <div style={{
+            width: 72, height: 72, borderRadius: "50%", background: "#15803d",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 20px", fontSize: 32, color: "#fff",
+          }}>✓</div>
           <h2 style={{ fontWeight: 800, fontSize: 22, margin: "0 0 8px", color: "#15803d" }}>Update sent!</h2>
           <p style={{ color: "#166534", fontSize: 15, margin: "0 0 4px" }}>
             Saved to <strong>{selectedJobId}</strong>.
           </p>
-          <p style={{ color: "#166534", fontSize: 14, margin: "0 0 24px" }}>
-            AI is structuring your update in the background.
+          <p style={{ color: "#166534", fontSize: 13, margin: "0 0 28px" }}>
+            AI is structuring your update. It will appear in the job detail momentarily.
           </p>
-          <button className="button primary" onClick={reset} style={{ fontSize: 16, padding: "12px 32px" }}>
+          <button className="button primary" onClick={reset} style={{ fontSize: 16, padding: "12px 32px", marginBottom: 12 }}>
             Submit another
           </button>
+          <p style={{ margin: 0, fontSize: 12, color: "#4ade80" }}>
+            Resetting automatically in {countdown}s…
+          </p>
         </div>
       </div>
     );
@@ -197,14 +222,23 @@ export default function FieldPage() {
         <select
           value={selectedJobId}
           onChange={(e) => setSelectedJobId(e.target.value)}
-          style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15 }}
+          disabled={loadingJobs}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, background: loadingJobs ? "#f8fafc" : "#fff" }}
         >
-          <option value="">— Select a job —</option>
-          {jobs.map((j) => (
-            <option key={j.jobId} value={j.jobId}>
-              {j.jobId} — {j.title}
-            </option>
-          ))}
+          {loadingJobs ? (
+            <option>Loading jobs…</option>
+          ) : jobs.length === 0 ? (
+            <option value="">— No open jobs —</option>
+          ) : (
+            <>
+              <option value="">— Select a job —</option>
+              {jobs.map((j) => (
+                <option key={j.jobId} value={j.jobId}>
+                  {j.jobId} — {j.title}
+                </option>
+              ))}
+            </>
+          )}
         </select>
         {selectedJob && (
           <div style={{ marginTop: 8, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 12, color: "#64748b" }}>
