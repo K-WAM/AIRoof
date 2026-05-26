@@ -48,6 +48,7 @@ function FieldApp() {
 
   const recRef = useRef<SpeechRecognitionI | null>(null);
   const pressingRef = useRef(false);
+  const lastCommittedIndexRef = useRef(-1); // persists across session restarts — prevents Android Chrome buffer replay
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const detectedLang = useRef("en-US");
 
@@ -79,15 +80,13 @@ function FieldApp() {
     rec.lang = detectedLang.current;
     rec.continuous = true;
     rec.interimResults = true;
-    let lastCommittedIndex = -1;
-
     rec.onresult = (e: SpeechRecognitionEvent) => {
       let interim = "", newFinals = "";
       for (let i = 0; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
-          if (i > lastCommittedIndex) {
+          if (i > lastCommittedIndexRef.current) {
             newFinals += (newFinals ? " " : "") + e.results[i][0].transcript.trim();
-            lastCommittedIndex = i;
+            lastCommittedIndexRef.current = i;
           }
         } else {
           interim = e.results[i][0].transcript;
@@ -116,6 +115,7 @@ function FieldApp() {
     e.preventDefault();
     if (pressingRef.current) return;
     pressingRef.current = true;
+    lastCommittedIndexRef.current = -1; // reset for a fresh hold session
     setPressing(true);
     startRecognition();
   }

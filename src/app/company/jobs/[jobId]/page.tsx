@@ -43,6 +43,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [reportError, setReportError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
+  // Send invoice state
+  const [sendEmail, setSendEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [showSendPanel, setShowSendPanel] = useState(false);
+
   const load = useCallback(async () => {
     if (!businessId) return;
     try {
@@ -71,14 +78,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setGeneratingInvoice(true);
     setInvoiceError(null);
     try {
-      // Build labor rows from parsed labor data
-      const newLaborRows: LaborRow[] = labor.map((l) => ({
-        name: l.description,
-        arrival: l.arrivalTime ?? "",
-        departure: l.departureTime ?? "",
-        hours: l.hours != null ? String(l.hours) : "",
-        rate: l.rate != null ? String(l.rate) : "65",
-      }));
+      // Build labor rows — auto-calculate hours from arrival/departure when not explicitly stated
+      const newLaborRows: LaborRow[] = labor.map((l) => {
+        const arrival = l.arrivalTime ?? "";
+        const departure = l.departureTime ?? "";
+        const autoHours = calcHours(arrival, departure);
+        const hours = l.hours != null ? String(l.hours) : autoHours;
+        return { name: l.description, arrival, departure, hours, rate: l.rate != null ? String(l.rate) : "65" };
+      });
       if (newLaborRows.length === 0) {
         newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: "65" });
       }
@@ -122,6 +129,67 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setReportError(e instanceof Error ? e.message : "Failed to generate report");
     } finally {
       setGeneratingReport(false);
+    }
+  }
+
+  // Auto-calculate hours from arrival/departure time strings (e.g. "08:00", "8:00 AM", "4:00 PM", "16:00")
+  function calcHours(arrival: string, departure: string): string {
+    const parse = (t: string): number | null => {
+      t = t.trim();
+      const ampm = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (ampm) {
+        let h = parseInt(ampm[1]), m = parseInt(ampm[2]);
+        if (ampm[3].toUpperCase() === "PM" && h !== 12) h += 12;
+        if (ampm[3].toUpperCase() === "AM" && h === 12) h = 0;
+        return h * 60 + m;
+      }
+      const h24 = t.match(/^(\d{1,2}):(\d{2})$/);
+      if (h24) return parseInt(h24[1]) * 60 + parseInt(h24[2]);
+      return null;
+    };
+    const a = parse(arrival), d = parse(departure);
+    if (a === null || d === null || d <= a) return "";
+    const total = (d - a) / 60;
+    const net = total > 5 ? total - 0.5 : total; // subtract lunch if > 5h
+    return String(Math.round(net * 10) / 10);
+  }
+
+  async function sendInvoice() {
+    if (!sendEmail.trim()) { setSendError("Enter a recipient email."); return; }
+    setSending(true); setSendError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          to: sendEmail.trim(),
+          jobId,
+          clientName: job?.clientName,
+          address: job?.address,
+          serviceType: job?.serviceType,
+          laborRows,
+          materialRows,
+          otherRows,
+          taxRate,
+          subtotal,
+          tax,
+          grandTotal,
+          invoiceNotes,
+        }),
+      });
+      if (res.ok) {
+        setSendSuccess(true);
+        setSendEmail("");
+        setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setSendError(d.error ?? "Failed to send. Try again.");
+      }
+    } catch {
+      setSendError("Network error. Try again.");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -356,11 +424,39 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
-              {/* Print button */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }} className="no-print">
+              {/* Invoice toolbar */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
+                <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined }}>
+                  📧 Send to Customer
+                </button>
                 <button className="button" onClick={() => window.print()} style={{ fontSize: 13 }}>🖨 Print / Save as PDF</button>
                 <button className="button" onClick={() => setInvoiceReady(false)} style={{ fontSize: 13 }}>Regenerate</button>
               </div>
+
+              {/* Send invoice panel */}
+              {showSendPanel && (
+                <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
+                  <p style={{ margin: "0 0 10px", fontWeight: 600, fontSize: 14, color: "#0369a1" }}>Send draft invoice by email</p>
+                  {sendSuccess ? (
+                    <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Invoice sent successfully!</p>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      <input
+                        type="email"
+                        value={sendEmail}
+                        onChange={e => setSendEmail(e.target.value)}
+                        placeholder={job?.clientName ? `Email for ${job.clientName}` : "customer@email.com"}
+                        style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }}
+                      />
+                      <button onClick={sendInvoice} disabled={sending} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                        {sending ? "Sending…" : "Send Invoice"}
+                      </button>
+                    </div>
+                  )}
+                  {sendError && <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 13 }}>{sendError}</p>}
+                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Sends the current invoice totals as a draft. Customer can reply to discuss.</p>
+                </div>
+              )}
 
               {/* Invoice document */}
               <div style={{
@@ -416,17 +512,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <th style={thStyle("right")}>Hours</th>
                           <th style={thStyle("right")}>Rate/hr</th>
                           <th style={thStyle("right")}>Total</th>
+                          <th style={thStyle("right")} className="no-print"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {laborRows.map((row, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                             <td style={tdStyle()}><InlineInput value={row.name} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Name" /></td>
-                            <td style={tdStyle()}><InlineInput value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, arrival: v } : x))} placeholder="8:00 AM" /></td>
-                            <td style={tdStyle()}><InlineInput value={row.departure} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, departure: v } : x))} placeholder="4:00 PM" /></td>
+                            <td style={tdStyle()}><InlineInput value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => {
+                              if (j !== i) return x;
+                              const u = { ...x, arrival: v };
+                              u.hours = u.hours === "" || u.hours === calcHours(x.arrival, x.departure) ? calcHours(v, u.departure) : u.hours;
+                              return u;
+                            }))} placeholder="8:00 AM" /></td>
+                            <td style={tdStyle()}><InlineInput value={row.departure} onChange={(v) => setLaborRows(r => r.map((x, j) => {
+                              if (j !== i) return x;
+                              const u = { ...x, departure: v };
+                              u.hours = u.hours === "" || u.hours === calcHours(x.arrival, x.departure) ? calcHours(u.arrival, v) : u.hours;
+                              return u;
+                            }))} placeholder="4:00 PM" /></td>
                             <td style={tdStyle("right")}><InlineInput value={row.hours} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, hours: v } : x))} placeholder="0" align="right" /></td>
                             <td style={tdStyle("right")}>$<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder="65" align="right" width={48} /></td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${laborTotal(row).toFixed(2)}</td>
+                            <td style={tdStyle("right")} className="no-print"><button onClick={() => setLaborRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
                         ))}
                       </tbody>
@@ -450,6 +558,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <th style={thStyle("left")}>Unit</th>
                           <th style={thStyle("right")}>Unit Price</th>
                           <th style={thStyle("right")}>Total</th>
+                          <th style={thStyle("right")} className="no-print"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -460,6 +569,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                             <td style={tdStyle()}><InlineInput value={row.unit} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unit: v } : x))} placeholder="sq/pieces/lbs" /></td>
                             <td style={tdStyle("right")}>$<InlineInput value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} /></td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialTotal(row).toFixed(2)}</td>
+                            <td style={tdStyle("right")} className="no-print"><button onClick={() => setMaterialRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
                         ))}
                       </tbody>

@@ -72,6 +72,7 @@ export default function FieldPage() {
 
   const recRef = useRef<SpeechRecognition | null>(null);
   const pressingRef = useRef(false);   // stable ref for callbacks
+  const lastCommittedIndexRef = useRef(-1); // persists across session restarts — prevents Android Chrome buffer replay
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const detectedLang = useRef(typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US");
 
@@ -105,19 +106,19 @@ export default function FieldPage() {
     rec.continuous = true;      // natural speech — no pauses required
     rec.interimResults = true;
 
-    // Track committed indices per session. Prevents Android Chrome from re-committing
-    // results when the 20s-silence timer fires and the session auto-restarts (buffer bleed).
-    let lastCommittedIndex = -1;
-
+    // lastCommittedIndexRef persists across session restarts.
+    // When Android Chrome auto-restarts after 20s, the new session replays
+    // buffered results from i=0. Using a ref (not a closure var) ensures
+    // already-committed indices stay blocked even after restart.
     rec.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
       let newFinals = "";
 
       for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          if (i > lastCommittedIndex) {
+          if (i > lastCommittedIndexRef.current) {
             newFinals += (newFinals ? " " : "") + event.results[i][0].transcript.trim();
-            lastCommittedIndex = i;
+            lastCommittedIndexRef.current = i;
           }
         } else {
           interim = event.results[i][0].transcript;
@@ -158,6 +159,7 @@ export default function FieldPage() {
     e.preventDefault(); // prevent ghost clicks on mobile
     if (pressingRef.current) return;
     pressingRef.current = true;
+    lastCommittedIndexRef.current = -1; // reset for a fresh hold session
     setPressing(true);
     startRecognition();
   }
