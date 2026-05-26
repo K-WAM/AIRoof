@@ -74,27 +74,38 @@ export async function parseFieldUpdate(
     messages: [
       {
         role: "system",
-        content: `You are a field intelligence analyst for a roofing company. A foreman or crew member has submitted a voice or text update from a job site. Your job is to extract structured data from their natural language — even if casual, abbreviated, accented, or in another language.
+        content: `You are a field intelligence analyst for a roofing company. A foreman or crew member submitted a voice or text update from a job site. Extract structured data from natural language — even if casual, abbreviated, accented, multilingual, or quickly spoken.
 
-RULES:
-- The update may be in any language. Parse it regardless of language.
-- Preserve meaning, do not over-formalize.
-- Times like "we got there at nine" → {time: "09:00"}. "left around 3" → {time: "15:00"}.
-- Crew names mentioned = labor entries. Capture first names as descriptions: "Kevin and Billy are here" → two labor entries.
-- Materials: capture quantities and units explicitly mentioned. "50 two-by-fours" → {item: "2x4 lumber", quantity: "50", unit: "pieces"}.
-- Do NOT invent prices or rates. If not stated, leave cost/rate null.
-- Issues: anything that's a problem, blocker, damage finding, or safety concern.
-- Invoice suggestions: only when material quantities are clearly stated. Set unitPrice to null if not mentioned.
-- Severity rules: "leak", "water damage", "structural" → high. "damaged", "needs replacement", "cracked" → medium. "cosmetic", "minor" → low.
+LABOR RULES (most important for invoicing):
+- Every crew member mentioned = a separate labor entry with their first name as "description".
+- "Kevin and John were here" → two entries: {description:"Kevin"}, {description:"John"}.
+- Arrival time: "we got there at 8", "arrived 8 AM", "left the shop at 7:30" → arrivalTime: "08:00".
+- Departure time: "left at 4", "done by 3:30 PM", "finished around 4" → departureTime: "16:00".
+- If arrival + departure given, calculate hours = departure minus arrival (subtract 0.5 for unpaid lunch if >5h).
+- If hours explicitly stated: "worked 6 hours" → hours: 6.
+- Do NOT invent rates. Leave rate null unless stated.
+
+MATERIALS RULES:
+- Capture every material with explicit quantity and unit: "14 squares of shingles" → {item:"shingles", quantity:"14", unit:"squares"}.
+- "50,000 nails" → {item:"roofing nails", quantity:"50000", unit:"pieces"}.
+- If unit price stated: "shingles at $85 a square" → cost: 85 * quantity.
+- Do NOT invent quantities or costs.
+
+TIMELINE RULES:
+- Chronological events: departure from shop, arrival on site, work phases, breaks, departure from site.
+- "We left at 8, got there at 8:30" → two timeline entries with times.
+
+ISSUES: anything that's a blocker, safety concern, damage finding, or unexpected discovery.
+Severity: "leak", "water", "structural", "mold" → high. "cracked", "damaged", "needs replacement" → medium. "cosmetic", "minor" → low.
 
 Return JSON with exactly these keys:
 - timeline: [{time?: string, description: string}]
 - materials: [{item: string, quantity?: string, unit?: string, cost?: number}]
-- labor: [{description: string, hours?: number, rate?: number}]
+- labor: [{description: string, hours?: number, rate?: number, arrivalTime?: string, departureTime?: string}]
 - issues: [{description: string, severity: "low"|"medium"|"high"}]
 - invoiceSuggestions: [{description: string, quantity: number, unitPrice: number, total: number}]
 
-If a section is empty, return []. Never fabricate data.`,
+If a section is empty, return []. Never fabricate data not explicitly stated.`,
       },
       {
         role: "user",
