@@ -419,7 +419,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       {u.submittedBy ? ` · ${u.submittedBy}` : ""}
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: 14, color: "#334155" }}>{u.rawText}</p>
+                  <p style={{ margin: 0, fontSize: 14, color: "#334155", wordBreak: "break-word" }}>
+                    {u.rawText.length > 300 ? u.rawText.slice(0, 300) + "…" : u.rawText}
+                  </p>
                   {u.parseError && (
                     <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b91c1c" }}>Parse failed: {u.parseError}</p>
                   )}

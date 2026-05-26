@@ -102,38 +102,36 @@ export default function FieldPage() {
 
     const rec = new SR();
     rec.lang = detectedLang.current;
-    rec.continuous = true;
+    // Non-continuous: each session ends at a natural pause and fires onend cleanly.
+    // Continuous mode on Android Chrome re-sends buffered audio when restarted,
+    // causing every phrase to be duplicated across restart cycles.
+    rec.continuous = false;
     rec.interimResults = true;
 
+    // Scoped to this session — never shared between restarts
+    let sessionFinal = "";
+
     rec.onresult = (event: SpeechRecognitionEvent) => {
-      let newFinal = "";
       let interim = "";
-      // Start from resultIndex — never re-process already-finalized results
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          newFinal += t;
+          sessionFinal += (sessionFinal ? " " : "") + t.trim();
         } else {
           interim = t;
         }
-      }
-      if (newFinal) {
-        // Append final text with a space separator
-        setText((prev) => {
-          const base = prev.trimEnd();
-          return base ? base + " " + newFinal.trim() : newFinal.trim();
-        });
       }
       setInterimText(interim);
     };
 
     rec.onerror = (event: SpeechRecognitionErrorEvent) => {
       setInterimText("");
-      // Auto-restart on recoverable errors while still pressing
+      if (sessionFinal.trim()) {
+        setText((prev) => (prev.trimEnd() ? prev.trimEnd() + " " + sessionFinal.trim() : sessionFinal.trim()));
+        sessionFinal = "";
+      }
       if (pressingRef.current && event.error !== "not-allowed" && event.error !== "service-not-allowed") {
-        setTimeout(() => {
-          if (pressingRef.current) startRecognition();
-        }, 200);
+        setTimeout(() => { if (pressingRef.current) startRecognition(); }, 250);
       } else {
         setListening(false);
       }
@@ -141,11 +139,14 @@ export default function FieldPage() {
 
     rec.onend = () => {
       setInterimText("");
-      // Browser killed it (20s silence limit etc.) — restart if still pressing
+      // Commit whatever this session captured
+      if (sessionFinal.trim()) {
+        setText((prev) => (prev.trimEnd() ? prev.trimEnd() + " " + sessionFinal.trim() : sessionFinal.trim()));
+        sessionFinal = "";
+      }
+      // Restart immediately if still pressing — fresh instance, clean buffer
       if (pressingRef.current) {
-        setTimeout(() => {
-          if (pressingRef.current) startRecognition();
-        }, 100);
+        setTimeout(() => { if (pressingRef.current) startRecognition(); }, 80);
       } else {
         setListening(false);
       }
