@@ -2,7 +2,7 @@
   "name": "Luxor Field",
   "short_name": "Field",
   "description": "Field crew voice updates for Luxor AI jobs",
-  "start_url": "/company/field?preview=demo-roofing",
+  "start_url": "/field?businessId=demo-roofing",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",

@@ -8,6 +8,7 @@ const LINKS = [
   { path: "/company/leads", label: "Leads" },
   { path: "/company/appointments", label: "Appointments" },
   { path: "/company/jobs", label: "Jobs" },
+  { path: "/company/calendar", label: "Calendar" },
   { path: "/company/field", label: "Field" },
 ];
 
