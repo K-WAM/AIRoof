@@ -35,8 +35,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 2 complete + admin UI redesigned — dark sidebar, usage monitoring, preview-as-client, playbooks tabs, demo data seeded
-**Estimated Completion**: 75%
+**Status**: Phase 2 complete + field operations layer shipped — job tracking, voice updates, AI parsing, draft invoices, field ops guide
+**Estimated Completion**: 80%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -179,16 +179,28 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/admin/admin-nav.tsx — Sidebar nav with section groups (Platform / Tools)
 - src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
 - src/app/api/admin/usage/route.ts — Firestore count aggregation per business
-- src/app/admin/guide/page.tsx — Playbooks page with Demo Playbook / Client Onboarding tabs
+- src/app/admin/guide/page.tsx — Playbooks — 3 tabs: Demo Playbook / Client Onboarding / Field Operations
 - src/app/admin/businesses/page.tsx — Live business list + Edit + Preview ↗ buttons
-- src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (loads real Firestore data)
+- src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (Vapi IDs, branding, rules, timezone)
 - src/app/api/admin/businesses/route.ts — GET list + POST create business
 - src/app/api/admin/businesses/[businessId]/config/route.ts — GET + PUT config per business
 - src/app/api/appointments/send-confirmation/route.ts — Branded confirmation email via Resend
 - src/app/company/dashboard/page.tsx — Company operations dashboard (uses useBusinessId hook)
 - src/app/company/leads/page.tsx — Company lead queue
 - src/app/company/calls/page.tsx — Company call history/transcript (system prompt filtered)
-- src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation
+- src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation + Create Job
+- src/app/company/jobs/page.tsx — Job list with status badges + create form
+- src/app/company/jobs/[jobId]/page.tsx — Job detail: 6 tabs (timeline/materials/labor/issues/invoice/report)
+- src/app/company/field/page.tsx — Mobile field screen: auto language detect, voice via Web Speech API
+- src/app/api/jobs/route.ts — GET list + POST create (atomic J-XXXX short ID via runTransaction)
+- src/app/api/jobs/[jobId]/updates/route.ts — Submit field update + DeepSeek parse
+- src/app/api/jobs/[jobId]/report/route.ts — Generate text report from all parsed updates
+- src/app/api/jobs/[jobId]/invoice/route.ts — Generate editable draft invoice
+- src/types/jobs.ts — Job, FieldUpdate, ParsedUpdate, InvoiceLineItem types
+- src/lib/ai/deepseekClient.ts — DeepSeek: summaries, classification, FAQ suggestions, parseFieldUpdate()
+- src/hooks/useBusinessTimezone.ts — US_TIMEZONES list + useBusinessTimezone() hook
+- public/guides/field-operations-guide.html — Printable 4-section field ops guide (Luxor branded)
+- public/guides/onboarding-guide.html — Printable demo + onboarding guide
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
 - scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
@@ -215,10 +227,10 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **CURRENT**: Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
-2. Fix VAPI_WEBHOOK_SECRET mismatch — delete current secret in Vercel, generate new one, set in Vercel and Vapi UI (assistant + each tool server header); remove VAPI_AUTH_BYPASS
-3. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in and see their data
-4. Add RESEND_FROM env var to Vercel: `Alice <notify@yourdomain.com>` (needs verified Resend domain)
+1. **CURRENT**: Fix VAPI_WEBHOOK_SECRET — delete Vercel secret, generate new one, set in both Vercel + Vapi UI (assistant Advanced + each tool server header); remove VAPI_AUTH_BYPASS
+2. Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
+3. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in automatically
+4. Add "Complete" button to job detail page so staff can mark jobs done (removes from field crew's dropdown)
 5. Phase 3: after-hours logic, call outcome tagging via DeepSeek, FAQ suggestions cron
 
 ## Implementation Phases

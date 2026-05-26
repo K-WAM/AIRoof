@@ -11,10 +11,14 @@ Scored on **value × ease** (higher = build sooner). Ease weighted heavily — f
 |---|---------|-------|------|-------|---------|
 | 1 | **Multi-Vertical Demo Wizard** | High | Easy — templates already built | ★★★★★ | First non-roofing demo |
 | 2 | **After-Hours Logic** | High | Easy — one flag in prompt builder | ★★★★★ | Client complains about 2am bookings |
-| 3 | **Outbound Appointment Confirmation** | High | Medium — Vapi outbound API + button | ★★★★☆ | Customer asks "will I get a reminder?" |
-| 4 | **Call Outcome Tagging** | High | Medium — DeepSeek classify in webhook | ★★★★☆ | Client asks "how many calls convert?" |
-| 5 | **Client Login Auto-Provisioning** | Medium | Medium — getUserByEmail + write doc | ★★★☆☆ | First paying client signed |
-| 6 | **Stripe Billing** | High | Hard — billing portal, webhooks, plan gates | ★★★☆☆ | First paying client |
+| 3 | **Job "Complete" Button** | Medium | Easy — one status update call | ★★★★☆ | First field client using jobs feature |
+| 4 | **Outbound Appointment Confirmation** | High | Medium — Vapi outbound API + button | ★★★★☆ | Customer asks "will I get a reminder?" |
+| 5 | **Call Outcome Tagging** | High | Medium — DeepSeek classify in webhook | ★★★★☆ | Client asks "how many calls convert?" |
+| 6 | **Client Login Auto-Provisioning** | Medium | Medium — getUserByEmail + write doc | ★★★☆☆ | First paying client signed |
+| 7 | **Stripe Billing** | High | Hard — billing portal, webhooks, plan gates | ★★★☆☆ | First paying client |
+
+## ✅ Completed This Session
+- **Field Job Updates** — full feature: short IDs, mobile voice screen, DeepSeek parsing, report + invoice generation
 
 ---
 
