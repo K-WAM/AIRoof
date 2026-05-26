@@ -1,68 +1,83 @@
 # AI Receptionist Platform — Handoff
 
-Date: 2026-05-25
+Date: 2026-05-26
 
-## Current Status: Field operations layer complete — 80% done
+## Current Status: Field operations layer polished — 82% done
 
-Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates, AI parsing, report and invoice generation all shipped. Demo-ready for roofing vertical.
+Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates (push-to-hold, no duplication), GPT-4o parsing, professional invoice editor, styled report renderer all shipped. Demo-ready for roofing vertical.
 
 **Demo number**: +1 (754) 283-7658 (Vapi number)
 **Demo business**: `demo-roofing` → Apex Roofing South Florida
 
 ---
 
-## What Was Built This Session (2026-05-25)
+## What Was Built This Session (2026-05-26)
 
-### Field Job Updates (full feature)
-- Short human-friendly job IDs (`J-1042`) via atomic Firestore counter (`runTransaction` on `jobCounter` field)
-- `src/types/jobs.ts` — `Job`, `FieldUpdate`, `ParsedUpdate`, `InvoiceLineItem` types
-- `src/app/api/jobs/route.ts` — GET list + POST create (with counter transaction)
-- `src/app/api/jobs/[jobId]/updates/route.ts` — POST submit update + trigger DeepSeek parse
-- `src/app/api/jobs/[jobId]/report/route.ts` — POST generate plain-text report
-- `src/app/api/jobs/[jobId]/invoice/route.ts` — POST generate editable draft invoice
-- `src/app/company/jobs/page.tsx` — admin job list with status badges, create form
-- `src/app/company/jobs/[jobId]/page.tsx` — job detail: 6 tabs (timeline / materials / labor / issues / invoice / report), editable invoice
-- `src/app/company/field/page.tsx` — mobile-first field screen: auto-detects browser language, voice via Web Speech API, text fallback, submit → green confirmation
-- `company-nav.tsx` — added "Jobs" and "Field" links
-- `appointments/page.tsx` — added "Create Job →" button that prefills job form from appointment data
-- `firestore.rules` — added `jobs/{jobId}` and `jobs/{jobId}/updates/{updateId}` rules
+### Voice Input — Foolproof Push-to-Hold (field/page.tsx)
+- Switched from toggle-mic to **push-to-hold**: `onPointerDown` starts, `onPointerUp/Leave/Cancel` stops
+- `pressingRef` mirrors pressing state so `onend`/`onerror` callbacks always see current hold state
+- **Android Chrome buffer-bleed fix**: `lastCommittedIndex` closure variable per session — prevents re-committing buffered results when session auto-restarts after ~20s silence
+- `continuous: true` so natural fast speech flows without forced pauses
+- 400ms restart delay before new session to flush audio buffer
+- `interimText` live preview shown in yellow "Hearing: …" box below textarea
 
-### DeepSeek Field Update Parser
-- `parseFieldUpdate()` added to `src/lib/ai/deepseekClient.ts`
-- Roofing-specific extraction rules: time phrases → timeline, crew names → labor, quantities → materials, leak/damage → high severity issues
-- Accepts `jobContext` (address, serviceType, clientName, title) for smarter contextual extraction
-- Job context passed from field page through updates API to parser
-- Never invents prices — `unitPrice: null` if not stated
-- Raw text always preserved even if parse fails
+### Parser — Switched to GPT-4o (deepseekClient.ts)
+- `parseFieldUpdate()` now uses GPT-4o when `OPENAI_API_KEY` is set, falls back to DeepSeek
+- Improved system prompt: each crew member = separate labor entry; extract `arrivalTime`/`departureTime` per person; calculate hours (−0.5 for lunch if >5h); materials with quantity + unit; timeline with departure-from-shop event
+- `arrivalTime` and `departureTime` added to `ParsedUpdate.labor[]` type
 
-### Language auto-detection
-- Removed language picker from field screen — uses `navigator.language` automatically
-- Spanish phone → `es-MX`, English → `en-US`, etc. — correct accent/dialect matching
-- Language code forwarded to DeepSeek as context hint
+### Professional Invoice (jobs/[jobId]/page.tsx)
+- **No API call**: invoice builds entirely from client-side parsed data — no crash possible
+- Editable labor table: Technician | Arrival | Departure | Hours | Rate/hr | Total
+- Editable materials table: Item | Qty | Unit | Unit Price | Total
+- "+ Add other charge" section for extras
+- Tax rate input → calculated tax + grand total
+- Notes/payment terms textarea
+- Print button → `window.print()` with `@media print { .no-print { display: none } }`
+- `InlineInput` component: borderless dashed-bottom inputs for clean inline editing
 
-### Config page cleanup
-- Removed `liveModel`, `backOfficeModel`, `agentTone`, `temperature`, `maxTokens` from admin config edit page — these are Vapi dashboard settings, not ours to manage
+### Styled Report Renderer (jobs/[jobId]/page.tsx)
+- `ReportRenderer` component parses `## Section` and `- item` markdown patterns into styled HTML cards
+- Professional header with job metadata (ID, address, date)
+- Print button
 
-### Field Operations Guide
-- `public/guides/field-operations-guide.html` — 4-section printable HTML guide (How It Works, Field Worker Guide, Office Admin Guide, Quick Reference)
-- Luxor logo, Luxor dark theme, matches onboarding guide style
-- `src/app/admin/guide/page.tsx` — added "Field Operations" tab (3 tabs now: Demo Playbook / Client Onboarding / Field Operations)
+### PWA — Add to Home Screen (manifest.json + layout.tsx)
+- `public/manifest.json`: `display: standalone`, `start_url: /company/field?preview=demo-roofing`
+- `layout.tsx`: `<link rel="manifest">`, `apple-touch-icon`, `mobile-web-app-capable`, `Viewport` with no user scaling
+- Field crew can install "Luxor Field" as a home screen app — opens directly to field screen
 
 ---
 
-## What Was Built Previously (2026-05-24 and earlier)
+## What Was Built Previously (2026-05-25)
 
-See git log for full history. Summary of major milestones:
-- Vapi migration: custom Twilio pipeline replaced by Vapi — Alice answers calls end-to-end with tool use
-- 5 tools wired: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment
-- Branded HTML emails via Resend — client logo/color in every notification
+### Field Job Updates (full feature — shipped last session)
+- Short human-friendly job IDs (`J-1042`) via atomic Firestore counter
+- `src/types/jobs.ts` — `Job`, `FieldUpdate`, `ParsedUpdate`, `InvoiceLineItem` types
+- `src/app/api/jobs/route.ts` — GET list + POST create (counter transaction)
+- `src/app/api/jobs/[jobId]/updates/route.ts` — POST submit update + parse
+- `src/app/api/jobs/[jobId]/report/route.ts` — POST generate plain-text report
+- `src/app/api/jobs/[jobId]/invoice/route.ts` — POST generate draft invoice (still in place but invoice UI no longer calls it)
+- `src/app/company/jobs/page.tsx` — job list with status badges + create form
+- `src/app/company/field/page.tsx` — mobile-first field screen
+- `company-nav.tsx` — Jobs and Field links
+- `appointments/page.tsx` — "Create Job →" button prefills from appointment
+
+### Demo & Pitch Assets (2026-05-26)
+- `public/guides/pitch-deck.html` — HTML pitch deck (no personal email, luxordev.com/contact)
+- `public/Luxor-AI-Pitch.pptx` — 3-slide PPTX (problem/stats, ChatGPT-esque chat mockup, contact)
+- `src/app/admin/guide/page.tsx` — Pitch Deck tab added (4 tabs now: Demo / Onboarding / Field Ops / Pitch Deck)
+- `public/guides/onboarding-guide.html` — full 15-min demo script rewritten with exact call scripts and field voice walkthrough
+
+### Other Previous Milestones
+- Vapi migration: Alice answers calls end-to-end with tool use
+- 5 tools: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment
+- Branded HTML emails via Resend
 - All 5 company dashboard pages wired to live Firestore
 - Auth guards: Next.js middleware + layout redirects + Firestore rules
-- Admin onboarding wizard (5 steps) + config edit page (live Firestore load)
-- Demo customizer: /admin/demo + CLI + per-prospect personalization
-- Per-business timezone: IANA field, dropdown in config, all timestamps rendered in business local time
+- Admin onboarding wizard (5 steps) + config edit page
+- Demo customizer: /admin/demo + CLI
+- Per-business timezone
 - Usage monitoring across all tenants
-- Preview-as-client for superadmin
 
 ---
 
@@ -73,10 +88,9 @@ See git log for full history. Summary of major milestones:
 | VAPI_WEBHOOK_SECRET mismatch | Bypassed with `VAPI_AUTH_BYPASS=true` | Fix: delete Vercel secret, generate new one, set in both Vercel + Vapi UI |
 | lookupAppointment in Vapi UI | Needs Vapi UI step | Add as 5th tool in Vapi dashboard (walkthrough below) |
 | businessUsers provisioning on onboarding | Not automated | Must manually create `businessUsers/{uid}` for new clients so they can log in |
+| Job "Complete" button | Not built | No UI to mark a job done — removes from field crew dropdown |
 | Google Calendar | Not built | Post-MVP, requires per-business OAuth |
-| API route auth guards | Not built | API routes trust businessId from request body — Firestore rules are the gate |
 | RESEND_FROM verified domain | Not set | Needs verified domain before "From" name shows correctly |
-| Job status "Complete" UI | Not built | No button to mark a job complete — status is set manually via Firestore or future update |
 
 ---
 
@@ -114,11 +128,13 @@ Webhook types handled:
   end-of-call-report          → saves transcript, recording URL, summary
 
 Field update flow:
-  Field screen → POST /api/jobs/{jobId}/updates
+  Field screen (PWA, push-to-hold mic) → POST /api/jobs/{jobId}/updates
     → saves rawText to Firestore immediately
-    → calls DeepSeek parseFieldUpdate() with job context
-    → writes structured ParsedUpdate back to the update doc
+    → calls GPT-4o parseFieldUpdate() with job context (falls back to DeepSeek)
+    → writes structured ParsedUpdate (timeline/materials/labor/issues) back to Firestore
     → admin sees parsed data in Jobs → job detail tabs
+    → "Generate Invoice" builds editable invoice from parsed data (client-side, no API call)
+    → "Generate Report" calls /api/jobs/{jobId}/report → renders as styled section cards
 ```
 
 ---
@@ -135,10 +151,18 @@ Field update flow:
 ### Field Operations Demo
 1. From Appointments, click "Create Job →" on any appointment — form prefills
 2. Create the job → note the `J-XXXX` ID assigned
-3. Open `/company/field` on a phone (or Chrome mobile simulator)
-4. Select the job, tap mic, speak (any language — try Spanish for impact)
-5. Submit → go back to job detail on admin to show parsed timeline/materials/issues
-6. Click "Generate Invoice" to show draft invoice with editable line items
+3. Open `/company/field` on a phone (or Chrome mobile DevTools)
+4. Select the job, hold the mic button, speak naturally:
+   > "We replaced 14 squares of shingles on the north face. Crew was Marco and Dani. We left the shop at 7:30, got there at 8. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."
+5. Release, tap Submit → show green confirmation screen
+6. Go back to job detail on admin → show parsed timeline/materials/labor/issues
+7. Click "Generate Invoice" → professional editable invoice with crew rows, material rows, tax, grand total
+8. Click "Generate Report" → styled section cards, print to PDF
+
+### PWA Install (for field crew)
+- Android: Chrome menu → "Add to Home Screen" → opens fullscreen as "Luxor Field"
+- iOS: Safari → Share → "Add to Home Screen"
+- Pre-set `start_url`: `/company/field?preview=demo-roofing`
 
 ---
 
@@ -150,27 +174,29 @@ Field update flow:
 | `src/lib/vapi/verify.ts` | Webhook secret verification (bypass active) |
 | `src/lib/vapi/businessLookup.ts` | Maps vapiAssistantId → businessId |
 | `src/lib/tools/agentTools.ts` | All tools + BizBranding email templates |
-| `src/lib/ai/deepseekClient.ts` | DeepSeek: summaries, classification, FAQ suggestions, field update parser |
-| `src/types/jobs.ts` | Job, FieldUpdate, ParsedUpdate, InvoiceLineItem types |
+| `src/lib/ai/deepseekClient.ts` | GPT-4o field update parser + DeepSeek summaries/classification |
+| `src/types/jobs.ts` | Job, FieldUpdate, ParsedUpdate, InvoiceLineItem types (arrivalTime/departureTime in labor) |
 | `src/app/api/jobs/route.ts` | GET list + POST create (atomic short ID) |
-| `src/app/api/jobs/[jobId]/updates/route.ts` | Submit update + DeepSeek parse |
+| `src/app/api/jobs/[jobId]/updates/route.ts` | Submit update + GPT-4o parse |
 | `src/app/api/jobs/[jobId]/report/route.ts` | Generate text report |
-| `src/app/api/jobs/[jobId]/invoice/route.ts` | Generate draft invoice |
 | `src/app/company/jobs/page.tsx` | Job list admin view |
-| `src/app/company/jobs/[jobId]/page.tsx` | Job detail (6 tabs + invoice editor) |
-| `src/app/company/field/page.tsx` | Mobile field screen (voice + text) |
+| `src/app/company/jobs/[jobId]/page.tsx` | Job detail (6 tabs, invoice editor, report renderer, print) |
+| `src/app/company/field/page.tsx` | Mobile PWA field screen (push-to-hold, continuous, dedup) |
 | `src/middleware.ts` | Route protection — checks __session cookie |
 | `src/contexts/AuthContext.tsx` | Sets/clears __session cookie |
 | `src/hooks/useBusinessId.ts` | Returns ?preview= for superadmin, user.businessId otherwise |
 | `src/hooks/useBusinessTimezone.ts` | US_TIMEZONES array + hook for per-business tz |
 | `src/app/admin/admin-nav.tsx` | Sidebar nav (Platform / Tools sections) |
-| `src/app/admin/guide/page.tsx` | Playbooks — 3 tabs: Demo / Onboarding / Field Ops |
+| `src/app/admin/guide/page.tsx` | Playbooks — 4 tabs: Demo / Onboarding / Field Ops / Pitch Deck |
 | `src/app/admin/usage/page.tsx` | Platform-wide usage monitoring |
 | `src/app/admin/onboarding/page.tsx` | Onboarding wizard (5 steps) |
 | `src/app/admin/businesses/[businessId]/config/page.tsx` | Live config edit |
 | `src/app/admin/demo/page.tsx` | Demo customizer UI |
+| `public/manifest.json` | PWA manifest (standalone, start_url = field screen) |
 | `public/guides/field-operations-guide.html` | Printable field ops guide |
-| `public/guides/onboarding-guide.html` | Printable demo + onboarding guide |
+| `public/guides/onboarding-guide.html` | Printable demo + onboarding guide (15-min script) |
+| `public/guides/pitch-deck.html` | HTML pitch deck |
+| `public/Luxor-AI-Pitch.pptx` | 3-slide PPTX pitch deck |
 | `scripts/seed-demo-business.mjs` | Demo data init (run once) |
 | `scripts/provision-superadmin.mjs` | Set custom claim + businessUsers doc |
 | `firestore.rules` | Tenant isolation + jobs subcollection rules |
@@ -182,7 +208,7 @@ Field update flow:
 1. **Fix VAPI_WEBHOOK_SECRET** — remove VAPI_AUTH_BYPASS, set new secret in Vercel + Vapi UI
 2. **Add lookupAppointment to Vapi dashboard** — see walkthrough above
 3. **businessUsers auto-provisioning** — wire onboarding POST to create `businessUsers/{uid}` from owner email
-4. **Job "Complete" button** — add status toggle on job detail header
+4. **Job "Complete" button** — status toggle on job detail header → removes from field crew dropdown
 5. **Phase 3** — after-hours logic, call outcome tagging (DeepSeek), FAQ suggestions cron
 
 ---
@@ -194,8 +220,8 @@ Field update flow:
 | `VAPI_API_KEY` | ✓ Set | Vapi REST API |
 | `VAPI_AUTH_BYPASS` | ✓ Set (true) | Bypasses webhook sig check — remove after secret fix |
 | `VAPI_WEBHOOK_SECRET` | ✓ Set (mismatched) | Fix by resetting in both places |
-| `OPENAI_API_KEY` | ✓ Set | LLM responses |
-| `DEEPSEEK_API_KEY` | ✓ Set | Back-office AI (summaries, parsing) — already working |
+| `OPENAI_API_KEY` | ✓ Set | GPT-4o for field update parsing + LLM responses |
+| `DEEPSEEK_API_KEY` | ✓ Set | Back-office AI (summaries, classification) — fallback for parsing |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | ✓ Set | Firestore Admin SDK |
 | `RESEND_API_KEY` | ✓ Set | Email notifications |
 | `RESEND_FROM` | ✓ Set | Needs verified sending domain for correct "From" name |
