@@ -1,9 +1,15 @@
-// DeepSeek client for back-office tasks (summaries, classification, FAQ generation)
-// Uses OpenAI-compatible SDK — not called during live phone calls
+// AI clients for back-office tasks (summaries, classification, FAQ generation, field parsing)
+// parseFieldUpdate uses GPT-4o for accuracy; other functions use DeepSeek as a cheaper option
 
 import OpenAI from "openai";
 import type { ParsedUpdate } from "@/types/jobs";
 
+// GPT-4o for field update parsing — more accurate structured extraction
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
+
+// DeepSeek for cheaper back-office tasks (summaries, classification)
 const deepseek = process.env.DEEPSEEK_API_KEY
   ? new OpenAI({
       apiKey: process.env.DEEPSEEK_API_KEY,
@@ -44,7 +50,10 @@ export async function parseFieldUpdate(
     invoiceSuggestions: [],
   };
 
-  if (!deepseek) return empty;
+  // Prefer GPT-4o — better at structured extraction from messy voice transcripts
+  const client = openai ?? deepseek;
+  const model = openai ? "gpt-4o" : "deepseek-chat";
+  if (!client) return empty;
 
   const { jobContext } = options;
   const contextBlock = jobContext
@@ -58,8 +67,8 @@ export async function parseFieldUpdate(
         .join("\n")
     : null;
 
-  const res = await deepseek.chat.completions.create({
-    model: "deepseek-chat",
+  const res = await client.chat.completions.create({
+    model,
     temperature: 0.1,
     response_format: { type: "json_object" },
     messages: [

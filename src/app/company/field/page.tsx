@@ -19,13 +19,17 @@ interface SpeechRecognition extends EventTarget {
   start(): void;
   stop(): void;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
 }
 
 interface SpeechRecognitionEvent extends Event {
   resultIndex: number;
   results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
 }
 
 interface SpeechRecognitionResultList {
@@ -51,23 +55,30 @@ export default function FieldPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
-  const [detectedLang, setDetectedLang] = useState("en-US");
-  const [text, setText] = useState("");
   const [workerName, setWorkerName] = useState("");
-  const [listening, setListening] = useState(false);
+
+  // Voice state
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [listening, setListening] = useState(false);   // SR is actively running
+  const [pressing, setPressing] = useState(false);     // finger is held down
+  const [text, setText] = useState("");                // confirmed transcript (editable)
+  const [interimText, setInterimText] = useState(""); // live interim from SR
+
+  // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [countdown, setCountdown] = useState(5);
   const [error, setError] = useState<string | null>(null);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+
   const recRef = useRef<SpeechRecognition | null>(null);
+  const pressingRef = useRef(false);   // stable ref for callbacks
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const detectedLang = useRef(typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US");
 
   useEffect(() => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     setVoiceSupported(!!SR);
-    // Auto-detect browser/OS language — no picker needed
-    setDetectedLang(navigator.language || "en-US");
+    detectedLang.current = navigator.language || "en-US";
   }, []);
 
   useEffect(() => {
@@ -85,43 +96,92 @@ export default function FieldPage() {
       .finally(() => setLoadingJobs(false));
   }, [businessId, prefillJobId]);
 
-  function startListening() {
+  function startRecognition() {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SR) return;
+
     const rec = new SR();
-    // Use browser language for recognition — picks up accent/dialect automatically
-    rec.lang = detectedLang;
+    rec.lang = detectedLang.current;
     rec.continuous = true;
     rec.interimResults = true;
+
     rec.onresult = (event: SpeechRecognitionEvent) => {
-      let full = "";
-      for (let i = 0; i < event.results.length; i++) {
-        full += event.results[i][0].transcript;
+      let newFinal = "";
+      let interim = "";
+      // Start from resultIndex — never re-process already-finalized results
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          newFinal += t;
+        } else {
+          interim = t;
+        }
       }
-      setText(full);
+      if (newFinal) {
+        // Append final text with a space separator
+        setText((prev) => {
+          const base = prev.trimEnd();
+          return base ? base + " " + newFinal.trim() : newFinal.trim();
+        });
+      }
+      setInterimText(interim);
     };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
+
+    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+      setInterimText("");
+      // Auto-restart on recoverable errors while still pressing
+      if (pressingRef.current && event.error !== "not-allowed" && event.error !== "service-not-allowed") {
+        setTimeout(() => {
+          if (pressingRef.current) startRecognition();
+        }, 200);
+      } else {
+        setListening(false);
+      }
+    };
+
+    rec.onend = () => {
+      setInterimText("");
+      // Browser killed it (20s silence limit etc.) — restart if still pressing
+      if (pressingRef.current) {
+        setTimeout(() => {
+          if (pressingRef.current) startRecognition();
+        }, 100);
+      } else {
+        setListening(false);
+      }
+    };
+
     rec.start();
     recRef.current = rec;
     setListening(true);
   }
 
-  function stopListening() {
+  function handlePressStart(e: React.PointerEvent) {
+    e.preventDefault(); // prevent ghost clicks on mobile
+    if (pressingRef.current) return;
+    pressingRef.current = true;
+    setPressing(true);
+    startRecognition();
+  }
+
+  function handlePressEnd() {
+    if (!pressingRef.current) return;
+    pressingRef.current = false;
+    setPressing(false);
     recRef.current?.stop();
+    setInterimText("");
     setListening(false);
   }
 
   async function submit() {
     if (!selectedJobId || !text.trim()) {
-      setError("Select a job and enter an update.");
+      setError("Select a job and record an update.");
       return;
     }
     setError(null);
     setSubmitting(true);
 
     const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
-
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
         method: "POST",
@@ -129,9 +189,8 @@ export default function FieldPage() {
         body: JSON.stringify({
           businessId,
           rawText: text.trim(),
-          language: detectedLang.split("-")[0],
+          language: detectedLang.current.split("-")[0],
           submittedBy: workerName.trim() || undefined,
-          // Job context passed to AI parser for smarter extraction
           jobContext: {
             title: selectedJob?.title,
             address: selectedJob?.address,
@@ -143,6 +202,7 @@ export default function FieldPage() {
       if (res.ok) {
         setSubmitted(true);
         setText("");
+        setInterimText("");
         setCountdown(5);
         countdownRef.current = setInterval(() => {
           setCountdown((c) => {
@@ -196,11 +256,18 @@ export default function FieldPage() {
           <p style={{ color: "#166534", fontSize: 13, margin: "0 0 28px" }}>
             AI is structuring your update. It will appear in the job detail momentarily.
           </p>
-          <button className="button primary" onClick={reset} style={{ fontSize: 16, padding: "12px 32px", marginBottom: 12 }}>
+          <button
+            onClick={reset}
+            style={{
+              padding: "12px 32px", background: "#15803d", color: "#fff",
+              border: "none", borderRadius: 10, fontSize: 16, fontWeight: 700, cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
             Submit another
           </button>
           <p style={{ margin: 0, fontSize: 12, color: "#4ade80" }}>
-            Resetting automatically in {countdown}s…
+            Resetting in {countdown}s…
           </p>
         </div>
       </div>
@@ -208,22 +275,27 @@ export default function FieldPage() {
   }
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 40px" }}>
+    <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 60px", fontFamily: "system-ui, sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontWeight: 800, fontSize: 24, margin: "0 0 4px", color: "#1e293b" }}>Field Update</h1>
         <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
-          Select your job, speak your update, tap Submit.
+          Select your job, hold the mic, speak your update, tap Submit.
         </p>
       </div>
 
       {/* Job selector */}
       <div style={{ marginBottom: 20 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6 }}>Job *</label>
+        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>Job *</label>
         <select
           value={selectedJobId}
           onChange={(e) => setSelectedJobId(e.target.value)}
           disabled={loadingJobs}
-          style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, background: loadingJobs ? "#f8fafc" : "#fff" }}
+          style={{
+            width: "100%", padding: "12px 14px", borderRadius: 10,
+            border: "1.5px solid #e2e8f0", fontSize: 15,
+            background: loadingJobs ? "#f8fafc" : "#fff",
+            color: "#1e293b",
+          }}
         >
           {loadingJobs ? (
             <option>Loading jobs…</option>
@@ -249,55 +321,87 @@ export default function FieldPage() {
       </div>
 
       {/* Worker name */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6 }}>Your name <span style={{ fontWeight: 400, color: "#94a3b8" }}>(optional)</span></label>
+      <div style={{ marginBottom: 24 }}>
+        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>
+          Your name <span style={{ fontWeight: 400, color: "#94a3b8" }}>(optional)</span>
+        </label>
         <input
           value={workerName}
           onChange={(e) => setWorkerName(e.target.value)}
           placeholder="e.g. Miguel"
-          style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, boxSizing: "border-box" }}
+          style={{
+            width: "100%", padding: "12px 14px", borderRadius: 10,
+            border: "1.5px solid #e2e8f0", fontSize: 15, boxSizing: "border-box", color: "#1e293b",
+          }}
         />
       </div>
 
-      {/* Voice button */}
+      {/* Push-to-hold mic button */}
       {voiceSupported && (
-        <div style={{ marginBottom: 16, textAlign: "center" }}>
+        <div style={{ marginBottom: 20, textAlign: "center" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+            Hold to talk — release to pause — tap Submit when done
+          </p>
           <button
-            onClick={listening ? stopListening : startListening}
+            onPointerDown={handlePressStart}
+            onPointerUp={handlePressEnd}
+            onPointerLeave={handlePressEnd}
+            onPointerCancel={handlePressEnd}
             style={{
-              width: 96, height: 96, borderRadius: "50%", border: "none",
-              background: listening ? "#fee2e2" : "#eff6ff",
-              cursor: "pointer", fontSize: 40,
-              boxShadow: listening ? "0 0 0 10px #fca5a540" : "0 2px 12px #2563eb20",
-              transition: "box-shadow 0.3s, background 0.2s",
+              width: 112, height: 112, borderRadius: "50%", border: "none",
+              background: pressing ? "#ef4444" : "#2563eb",
+              cursor: "pointer", fontSize: 44,
+              boxShadow: pressing
+                ? "0 0 0 16px rgba(239,68,68,0.2), 0 0 0 32px rgba(239,68,68,0.08)"
+                : "0 4px 20px rgba(37,99,235,0.35)",
+              transition: "background 0.1s, box-shadow 0.2s, transform 0.1s",
+              transform: pressing ? "scale(0.95)" : "scale(1)",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+              touchAction: "none",
             }}
           >
-            {listening ? "⏹" : "🎤"}
+            🎤
           </button>
-          <p style={{ fontSize: 12, color: listening ? "#b91c1c" : "#94a3b8", margin: "8px 0 0", fontWeight: listening ? 700 : 400 }}>
-            {listening ? `Listening (${detectedLang})… tap to stop` : "Tap to speak"}
+          <p style={{
+            fontSize: 13, fontWeight: 700, margin: "12px 0 0",
+            color: pressing ? "#ef4444" : "#94a3b8",
+          }}>
+            {pressing ? "● Recording…" : "Hold to record"}
           </p>
         </div>
       )}
 
-      {/* Text area */}
+      {/* Transcript area */}
       <div style={{ marginBottom: 20 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6 }}>
+        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>
           Update *
-          {voiceSupported && <span style={{ fontWeight: 400, color: "#94a3b8" }}> (or use voice above)</span>}
+          {voiceSupported && <span style={{ fontWeight: 400, color: "#94a3b8" }}> — or type below</span>}
         </label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Describe what was done, materials used, issues found, crew on site, hours worked…"
+          placeholder="Hold the mic above and speak, or type your update here…"
           rows={6}
           style={{
-            width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0",
+            width: "100%", padding: "12px 14px", borderRadius: 10,
+            border: pressing ? "1.5px solid #ef4444" : "1.5px solid #e2e8f0",
             fontSize: 15, lineHeight: 1.6, resize: "vertical", boxSizing: "border-box",
+            color: "#1e293b", transition: "border-color 0.15s",
           }}
         />
+        {/* Live interim preview */}
+        {interimText && (
+          <div style={{
+            marginTop: 6, padding: "8px 12px", background: "#fefce8",
+            border: "1px solid #fde68a", borderRadius: 8, fontSize: 13, color: "#92400e",
+            fontStyle: "italic",
+          }}>
+            <span style={{ fontWeight: 700, fontStyle: "normal" }}>Hearing: </span>{interimText}
+          </div>
+        )}
         <p style={{ fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>
-          Speak naturally in any language — AI extracts materials, hours, and issues automatically.
+          Speak naturally — crew names, materials, hours, issues — AI extracts and structures everything.
         </p>
       </div>
 
@@ -314,7 +418,7 @@ export default function FieldPage() {
           color: submitting || !selectedJobId || !text.trim() ? "#94a3b8" : "#fff",
           fontWeight: 800, fontSize: 17,
           cursor: submitting || !selectedJobId || !text.trim() ? "not-allowed" : "pointer",
-          transition: "background 0.2s",
+          transition: "background 0.15s",
         }}
       >
         {submitting ? "Sending…" : "Submit Update"}
