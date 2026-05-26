@@ -66,6 +66,18 @@ service cloud.firestore {
         allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
         allow delete: if false;
       }
+
+      match /jobs/{jobId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+        allow delete: if false;
+
+        match /updates/{updateId} {
+          allow read: if isSuperadmin() || isBusinessMember(businessId);
+          allow create: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
+          allow update, delete: if false;
+        }
+      }
     }
 
     match /businessUsers/{uid} {

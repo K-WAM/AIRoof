@@ -15,6 +15,12 @@ const TABS = [
     src: "/guides/onboarding-guide.html#part-2",
     description: "Vapi setup, portal provisioning, and go-live checklist.",
   },
+  {
+    id: "field",
+    label: "Field Operations",
+    src: "/guides/field-operations-guide.html",
+    description: "Job creation, field crew voice updates, report and invoice generation.",
+  },
 ];
 
 export default function AdminGuidePage() {

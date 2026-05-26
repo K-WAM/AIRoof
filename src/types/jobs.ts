@@ -1,0 +1,39 @@
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface ParsedUpdate {
+  timeline: Array<{ time?: string; description: string }>;
+  materials: Array<{ item: string; quantity?: string; unit?: string; cost?: number }>;
+  labor: Array<{ description: string; hours?: number; rate?: number }>;
+  issues: Array<{ description: string; severity: "low" | "medium" | "high" }>;
+  invoiceSuggestions: InvoiceLineItem[];
+}
+
+export interface FieldUpdate {
+  updateId: string;
+  rawText: string;
+  language?: string;
+  submittedBy?: string;
+  createdAt: number;
+  parsed?: ParsedUpdate;
+  parseError?: string;
+}
+
+export interface Job {
+  jobId: string;            // e.g. "J-1042"
+  businessId: string;
+  title: string;
+  status: "open" | "in_progress" | "complete";
+  address?: string;
+  clientName?: string;
+  clientPhone?: string;
+  serviceType?: string;
+  appointmentId?: string;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}

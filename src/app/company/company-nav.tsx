@@ -7,6 +7,8 @@ const LINKS = [
   { path: "/company/calls", label: "Calls" },
   { path: "/company/leads", label: "Leads" },
   { path: "/company/appointments", label: "Appointments" },
+  { path: "/company/jobs", label: "Jobs" },
+  { path: "/company/field", label: "Field" },
 ];
 
 export function CompanyNav() {

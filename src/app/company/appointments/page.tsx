@@ -75,6 +75,18 @@ export default function CompanyAppointmentsPage() {
     }
   }
 
+  function createJob(appt: Appointment) {
+    const params = new URLSearchParams({
+      businessId: businessId ?? "",
+      clientName: appt.callerName ?? "",
+      clientPhone: appt.callerPhone ?? "",
+      address: appt.address ?? "",
+      serviceType: appt.serviceType ?? "",
+      appointmentId: appt.appointmentId,
+    });
+    window.location.href = `/company/jobs?${params.toString()}#new`;
+  }
+
   async function sendConfirmation(appt: Appointment) {
     setUpdating(appt.appointmentId + "_confirm");
     try {
@@ -128,6 +140,13 @@ export default function CompanyAppointmentsPage() {
         </div>
 
         <div className="appt-actions">
+          <button
+            className="button"
+            onClick={() => createJob(appt)}
+            style={{ fontSize: 12, marginBottom: 8 }}
+          >
+            Create Job →
+          </button>
           {justConfirmed ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
               <span>✓</span> Confirmation sent

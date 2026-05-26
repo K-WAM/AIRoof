@@ -19,12 +19,7 @@ interface BizData {
   agentIdentity?: string;
   greeting?: string;
   afterHoursGreeting?: string;
-  liveModel?: string;
-  backOfficeModel?: string;
   agentVoice?: string;
-  agentTone?: string;
-  temperature?: number;
-  maxTokens?: number;
   emergencyRules?: string[];
   bookingRules?: string[];
   timezone?: string;
@@ -104,12 +99,7 @@ export default function AdminBusinessConfigPage({
       agentIdentity: String(formData.get("agentIdentity") || "").trim(),
       greeting: String(formData.get("greeting") || "").trim(),
       afterHoursGreeting: String(formData.get("afterHoursGreeting") || "").trim(),
-      liveModel: String(formData.get("liveModel") || "").trim(),
-      backOfficeModel: String(formData.get("backOfficeModel") || "").trim(),
       agentVoice: String(formData.get("agentVoice") || "").trim(),
-      agentTone: String(formData.get("agentTone") || "").trim(),
-      temperature: Number(formData.get("temperature") || 0.5),
-      maxTokens: Number(formData.get("maxTokens") || 150),
       emergencyRules: String(formData.get("emergencyRules") || "")
         .split("\n")
         .map((rule) => rule.trim())
@@ -272,22 +262,6 @@ export default function AdminBusinessConfigPage({
                   </select>
                 </div>
                 <div className="field">
-                  <label htmlFor="liveModel">Live call model</label>
-                  <select id="liveModel" name="liveModel" defaultValue={biz.liveModel ?? "gpt-4o-mini"}>
-                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                    <option value="gpt-4.1">gpt-4.1</option>
-                    <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="backOfficeModel">Back-office model</label>
-                  <select id="backOfficeModel" name="backOfficeModel" defaultValue={biz.backOfficeModel ?? "deepseek-chat"}>
-                    <option value="deepseek-chat">deepseek-chat</option>
-                    <option value="gpt-4o-mini">gpt-4o-mini</option>
-                    <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                  </select>
-                </div>
-                <div className="field">
                   <label htmlFor="agentName">Receptionist name</label>
                   <input id="agentName" name="agentName" defaultValue={biz.agentName ?? "Mia"} />
                 </div>
@@ -315,26 +289,6 @@ export default function AdminBusinessConfigPage({
                 <div className="field full">
                   <label htmlFor="afterHoursGreeting">After-hours greeting</label>
                   <input id="afterHoursGreeting" name="afterHoursGreeting" defaultValue={biz.afterHoursGreeting ?? ""} />
-                </div>
-                <div className="field">
-                  <label htmlFor="agentTone">Agent tone</label>
-                  <input id="agentTone" name="agentTone" defaultValue={biz.agentTone ?? ""} placeholder="calm, friendly, concise" />
-                </div>
-                <div className="field">
-                  <label htmlFor="temperature">Temperature</label>
-                  <select id="temperature" name="temperature" defaultValue={String(biz.temperature ?? 0.5)}>
-                    <option value="0.2">0.2 — strict</option>
-                    <option value="0.5">0.5 — balanced</option>
-                    <option value="0.7">0.7 — flexible</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="maxTokens">Response length</label>
-                  <select id="maxTokens" name="maxTokens" defaultValue={String(biz.maxTokens ?? 150)}>
-                    <option value="100">Short (100)</option>
-                    <option value="150">Standard (150)</option>
-                    <option value="250">Detailed (250)</option>
-                  </select>
                 </div>
                 <label className="check-row">
                   <input name="applyTemplateDefaults" type="checkbox" />
