@@ -35,8 +35,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 2 complete + field operations layer shipped — job tracking, voice updates, AI parsing, draft invoices, field ops guide
-**Estimated Completion**: 80%
+**Status**: Phase 2 complete + field ops + outbound callbacks + UI modernization shipped
+**Estimated Completion**: 82%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -53,7 +53,7 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **70% complete**.
+Current estimate: **82% complete**.
 
 Basis:
 - Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Vapi, Resend all configured.
@@ -170,7 +170,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/vapi/types.ts — Vapi payload types
 - src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS active)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
-- src/lib/tools/agentTools.ts — All tools + BizBranding email templates (lookupAppointment added)
+- src/lib/tools/agentTools.ts — All tools + BizBranding email templates + auto-callback on createLead()
+- src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
+- src/app/api/calls/outbound/route.ts — Staff-authenticated outbound call initiation (POST)
 - src/app/admin/demo/page.tsx — Demo customizer UI
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
 - scripts/demo-customize.mjs — CLI demo customizer
@@ -227,11 +229,13 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **CURRENT**: Fix VAPI_WEBHOOK_SECRET — delete Vercel secret, generate new one, set in both Vercel + Vapi UI (assistant Advanced + each tool server header); remove VAPI_AUTH_BYPASS
-2. Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
-3. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in automatically
-4. Add "Complete" button to job detail page so staff can mark jobs done (removes from field crew's dropdown)
-5. Phase 3: after-hours logic, call outcome tagging via DeepSeek, FAQ suggestions cron
+1. **CURRENT**: Add `VAPI_API_KEY` to Vercel env vars — required for outbound callbacks to fire
+2. Fix VAPI_WEBHOOK_SECRET — generate new secret in Vapi dashboard, set in Vercel, remove `VAPI_AUTH_BYPASS`
+3. Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
+4. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in automatically
+5. Add "Complete" button to job detail page so staff can mark jobs done (removes from field crew's dropdown)
+6. Vapi voice: switch to `eleven_flash_v2_5` + set Stability to 0.35 for faster, more natural sound
+7. Phase 3: after-hours logic, call outcome tagging via DeepSeek, follow-up cadence cron
 
 ## Implementation Phases
 
@@ -249,10 +253,13 @@ Before asking the user to verify anything, use CLI/curl first:
 ## Known Limitations
 
 - **VAPI_AUTH_BYPASS active**: Webhook signature not verified — bypassed with env var. Fix: re-generate secret and set in both Vercel and Vapi UI
+- **VAPI_API_KEY missing from Vercel**: Outbound calls (`/api/calls/outbound` + auto-callback) silently fail without it. Add to Vercel env vars.
+- **Outbound calls need callbackDelayMinutes set**: Auto-callback only fires when `callbackDelayMinutes` is configured per business in `/admin/businesses/{id}/config`
 - **No superadmin onboarding wizard**: New businesses must be onboarded manually (create Vapi assistant + phone in dashboard, write Firestore docs via seed script)
 - **Google Calendar**: Uses mock availability slots — real per-business OAuth is post-MVP
 - **SMS escalation**: Requires Twilio A2P 10DLC registration (~2-4 weeks) — email covers MVP
 - **RESEND_FROM**: Needs a verified sending domain in Resend before "From" name shows correctly in emails
+- **ElevenLabs v3 latency**: Voice takes ~1,200ms. Fix in Vapi dashboard: change voice model to `eleven_flash_v2_5`, set Stability to 0.35
 
 ## Contact
 

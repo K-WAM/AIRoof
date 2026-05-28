@@ -12,13 +12,16 @@ Scored on **value × ease** (higher = build sooner). Ease weighted heavily — f
 | 1 | **Multi-Vertical Demo Wizard** | High | Easy — templates already built | ★★★★★ | First non-roofing demo |
 | 2 | **After-Hours Logic** | High | Easy — one flag in prompt builder | ★★★★★ | Client complains about 2am bookings |
 | 3 | **Job "Complete" Button** | Medium | Easy — one status update call | ★★★★☆ | First field client using jobs feature |
-| 4 | **Outbound Appointment Confirmation** | High | Medium — Vapi outbound API + button | ★★★★☆ | Customer asks "will I get a reminder?" |
+| 4 | **Follow-up Cadence Cron** | High | Medium — daily cron, days [3,7] config | ★★★★☆ | Business wants automated re-engagement |
 | 5 | **Call Outcome Tagging** | High | Medium — DeepSeek classify in webhook | ★★★★☆ | Client asks "how many calls convert?" |
 | 6 | **Client Login Auto-Provisioning** | Medium | Medium — getUserByEmail + write doc | ★★★☆☆ | First paying client signed |
-| 7 | **Stripe Billing** | High | Hard — billing portal, webhooks, plan gates | ★★★☆☆ | First paying client |
+| 7 | **CRM Webhook Receiver** | High | Medium — generic POST /api/integrations/leads | ★★★☆☆ | Client uses Bonzo/JobNimbus |
+| 8 | **Stripe Billing** | High | Hard — billing portal, webhooks, plan gates | ★★★☆☆ | First paying client |
 
-## ✅ Completed This Session
-- **Field Job Updates** — full feature: short IDs, mobile voice screen, DeepSeek parsing, report + invoice generation
+## ✅ Completed
+- **Field Job Updates** — short IDs, mobile voice screen, DeepSeek parsing, report + invoice generation
+- **Outbound Callbacks** — vapiClient, /api/calls/outbound, auto-callback on lead creation, Call Back buttons on leads + appointments, inbound/outbound filter on calls page
+- **UI Modernization** — Inter font, card shadows, logo in nav, job progress bar, company nav icons + pill active state
 
 ---
 
@@ -82,19 +85,32 @@ Scored on **value × ease** (higher = build sooner). Ease weighted heavily — f
 
 ---
 
-## Outbound Appointment Confirmation
+## Follow-up Cadence Cron
 
-**Trigger**: Customer asks "will I get a reminder?" or first client requests it.
+**Trigger**: Business wants automated re-engagement on cold leads.
 
-**Value**: After Alice books an appointment, a confirmation call goes out to the customer's phone — no human needed. Alice reads back the appointment details and confirms. Completely differentiates from voicemail products.
+**Value**: Alice calls leads back on day 3 and day 7 if no appointment was booked, without any staff action.
 
-**What's missing**: Nothing in the codebase. Vapi has an outbound call API (`POST /call` with `phoneNumberToCall` + assistant config).
+**What's missing**: `/api/cron/follow-up-calls` route (stub exists). Vercel cron entry. Lead `callAttempts` + `lastCallAttemptAt` fields already on Lead type.
 
-**How to build** (1–2 days):
-1. Add "Call to Confirm" button on the appointments page (next to "Send Confirmation")
-2. `POST /api/appointments/confirm-call` → Vapi outbound call API with the caller's phone number
-3. Wire a simple assistant script: "Hi [name], this is Alice calling to confirm your [service] inspection on [date] at [time] at [address]. Press 1 to confirm or 2 to reschedule."
-4. Vapi webhook updates appointment status on response
+**How to build** (half-day):
+1. Implement `src/app/api/cron/follow-up-calls/route.ts` — query leads per business where `status !== "booked"` + `callAttempts < maxCallAttempts` + `daysSinceLastCall` in `followUpDays[]`
+2. Call `initiateVapiCall()` for each eligible lead (client already built)
+3. Add to `vercel.json` crons: `{ "path": "/api/cron/follow-up-calls", "schedule": "0 14 * * *" }` (2pm UTC daily)
+4. Authenticate with `CRON_SECRET` header (already the pattern)
+
+---
+
+## CRM Webhook Receiver
+
+**Trigger**: Client uses Bonzo, JobNimbus, or HubSpot and wants AI follow-up on those leads too.
+
+**Value**: Any CRM can send leads to Alice for immediate callback — one integration, all CRMs.
+
+**How to build**:
+1. `POST /api/integrations/leads` — generic receiver (validated via HMAC or shared secret)
+2. Normalize to Lead shape → call `createLead()` → auto-callback triggers automatically
+3. Per-CRM adapters are just field-mapping wrappers
 
 ---
 
