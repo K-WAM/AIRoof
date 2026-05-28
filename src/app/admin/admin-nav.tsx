@@ -13,6 +13,12 @@ const toolLinks = [
   { href: "/admin/guide", label: "Playbooks", icon: "≡" },
 ];
 
+const fieldDemoLink = {
+  href: "/company/field?businessId=demo-roofing",
+  label: "Field Demo",
+  icon: "◉",
+};
+
 export function AdminNav() {
   const pathname = usePathname();
 
@@ -47,6 +53,10 @@ export function AdminNav() {
         ))}
       </div>
       <div className="nav-spacer" />
+      <a href={fieldDemoLink.href} className="nav-link nav-link-cta" style={{ marginBottom: 8 }}>
+        <span className="nav-link-icon">{fieldDemoLink.icon}</span>
+        {fieldDemoLink.label}
+      </a>
       <a href="/company/dashboard?preview=demo-roofing" target="_blank" rel="noopener noreferrer" className="nav-divider-link">
         <span className="nav-link-icon">↗</span>
         Client view
