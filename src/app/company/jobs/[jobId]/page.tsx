@@ -4,6 +4,7 @@ import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import type { Job, FieldUpdate, ParsedUpdate } from "@/types/jobs";
+import type { BusinessConfig } from "@/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
   high: "#b91c1c",
@@ -25,6 +26,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
+  const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "invoice" | "report">("timeline");
 
@@ -53,13 +55,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const load = useCallback(async () => {
     if (!businessId) return;
     try {
-      const [jobRes, updatesRes] = await Promise.all([
+      const [jobRes, updatesRes, configRes] = await Promise.all([
         fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
+        fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.jobs as Job[]).find((j) => j.jobId === jobId) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
+      if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
     } catch {
       // silently fail — show not found below
     }
@@ -74,6 +78,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const labor = allParsed.flatMap((p) => p.labor);
   const issues = allParsed.flatMap((p) => p.issues);
 
+  const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
+
   async function generateInvoice() {
     setGeneratingInvoice(true);
     setInvoiceError(null);
@@ -84,10 +90,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         const departure = l.departureTime ?? "";
         const autoHours = calcHours(arrival, departure);
         const hours = l.hours != null ? String(l.hours) : autoHours;
-        return { name: l.description, arrival, departure, hours, rate: l.rate != null ? String(l.rate) : "65" };
+        return { name: l.description, arrival, departure, hours, rate: l.rate != null ? String(l.rate) : defaultLaborRate };
       });
       if (newLaborRows.length === 0) {
-        newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: "65" });
+        newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate });
       }
 
       // Build material rows
@@ -252,7 +258,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {job.clientName && <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}</p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a href={`/field?businessId=${businessId}&jobId=${jobId}`} target="_blank" rel="noopener noreferrer" className="button">Voice Update ↗</a>
+          <button className="button" onClick={() => {
+            const link = `${window.location.origin}/company/field?businessId=${businessId}&jobId=${jobId}`;
+            navigator.clipboard.writeText(link).then(() => alert("Field link copied — send to your foreman.")).catch(() => prompt("Copy this link for your foreman:", link));
+          }}>Send to foreman ↗</button>
           <button className="button" onClick={generateReport} disabled={generatingReport || generatingInvoice || updates.length === 0}>
             {generatingReport ? "⏳ Generating…" : "Generate Report"}
           </button>
@@ -262,23 +271,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       </header>
 
-      {/* Job progress bar */}
+      {/* Job progress bar — 5 roofing-native steps */}
       <div className="job-progress no-print">
-        {(["open", "in_progress", "complete"] as const).map((step, i) => {
-          const labels: Record<string, string> = { open: "Open", in_progress: "In Progress", complete: "Complete" };
-          const statusOrder = { open: 0, in_progress: 1, complete: 2 };
-          const currentIdx = statusOrder[job.status as keyof typeof statusOrder] ?? 0;
+        {JOB_STEPS.map((step, i) => {
+          const currentIdx = statusToStepIdx(job.status);
           const done = i < currentIdx;
           const active = i === currentIdx;
           return (
-            <div key={step} style={{ display: "flex", alignItems: "center", flex: i < 2 ? "1" : "0" }}>
+            <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < JOB_STEPS.length - 1 ? "1" : "0" }}>
               <div className="job-progress-step-wrapper">
                 <div className={`job-progress-step ${done ? "done" : active ? "active" : "pending"}`}>
                   {done ? "✓" : i + 1}
                 </div>
-                <span className={`job-progress-label ${done ? "done" : active ? "active" : "pending"}`}>{labels[step]}</span>
+                <span className={`job-progress-label ${done ? "done" : active ? "active" : "pending"}`}>{step.label}</span>
               </div>
-              {i < 2 && <div className={`job-progress-line ${done ? "done" : ""}`} />}
+              {i < JOB_STEPS.length - 1 && <div className={`job-progress-line ${done ? "done" : ""}`} />}
             </div>
           );
         })}
@@ -489,9 +496,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: "#0f172a" }}>Apex Roofing South Florida</div>
+                    <div style={{ fontWeight: 800, fontSize: 20, color: "#0f172a" }}>{job.title}</div>
                     <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, lineHeight: 1.7 }}>
-                      Miami, FL · (754) 283-7658<br />connect@apexroofing.com
+                      {job.address && <>{job.address}<br /></>}
+                      {job.clientPhone && <>{job.clientPhone}<br /></>}
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -554,14 +562,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                               return u;
                             }))} placeholder="4:00 PM" /></td>
                             <td style={tdStyle("right")}><InlineInput value={row.hours} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, hours: v } : x))} placeholder="0" align="right" /></td>
-                            <td style={tdStyle("right")}>$<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder="65" align="right" width={48} /></td>
+                            <td style={tdStyle("right")}>$<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} /></td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${laborTotal(row).toFixed(2)}</td>
                             <td style={tdStyle("right")} className="no-print"><button onClick={() => setLaborRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <button className="no-print" onClick={() => setLaborRows(r => [...r, { name: "", arrival: "", departure: "", hours: "", rate: "65" }])} style={{ marginTop: 6, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
+                    <button className="no-print" onClick={() => setLaborRows(r => [...r, { name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate }])} style={{ marginTop: 6, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
                     <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Labor subtotal: <strong>${laborSubtotal.toFixed(2)}</strong></div>
                   </div>
                 )}
@@ -695,7 +703,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
-      {/* Raw field updates */}
+      {/* Field updates — parsed summary cards */}
       <section className="panel no-print" style={{ marginTop: 20 }}>
         <div className="panel-header">
           <h2 className="panel-title">Field Updates ({updates.length})</h2>
@@ -703,34 +711,141 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
         <div className="panel-body">
           {updates.length === 0 ? (
-            <p style={{ color: "#888", fontSize: 14 }}>No field updates yet. Send crew to the field view to submit voice or text updates.</p>
+            <p style={{ color: "#888", fontSize: 14 }}>No field updates yet. Send your foreman the field link to submit voice or text updates.</p>
           ) : (
-            <div style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: "grid", gap: 14 }}>
               {updates.map((u, i) => (
-                <div key={u.updateId} style={{ padding: "12px 16px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>Update {i + 1}</span>
-                    <span style={{ fontSize: 12, color: "#94a3b8" }}>
-                      {new Date(u.createdAt).toLocaleString("en-US")}
-                      {u.submittedBy ? ` · ${u.submittedBy}` : ""}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 14, color: "#334155", wordBreak: "break-word" }}>
-                    {u.rawText.length > 300 ? u.rawText.slice(0, 300) + "…" : u.rawText}
-                  </p>
-                  {u.parseError && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#b91c1c" }}>Parse failed: {u.parseError}</p>}
-                  {u.parsed && (
-                    <p style={{ margin: "8px 0 0", fontSize: 12, color: "#15803d" }}>
-                      ✓ Parsed: {u.parsed.timeline.length} events · {u.parsed.materials.length} materials · {u.parsed.labor.length} crew · {u.parsed.issues.length} issues
-                    </p>
-                  )}
-                </div>
+                <ParsedUpdateCard key={u.updateId} update={u} index={i} />
               ))}
             </div>
           )}
         </div>
       </section>
     </>
+  );
+}
+
+// ── Job status steps ─────────────────────────────────────────────────────────
+const JOB_STEPS = [
+  { key: "inspection", label: "Inspection" },
+  { key: "quoted",     label: "Quoted" },
+  { key: "in_progress", label: "Working" },
+  { key: "invoiced",   label: "Invoiced" },
+  { key: "complete",   label: "Complete" },
+] as const;
+
+function statusToStepIdx(status: string): number {
+  const map: Record<string, number> = {
+    open: 0, inspection: 0, quoted: 1, in_progress: 2, invoiced: 3, complete: 4,
+  };
+  return map[status] ?? 0;
+}
+
+// ── Parsed field update card ──────────────────────────────────────────────────
+function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: number }) {
+  const [showRaw, setShowRaw] = useState(false);
+  const p = update.parsed;
+  const totalItems = p ? p.timeline.length + p.materials.length + p.labor.length + p.issues.length : 0;
+  const hasData = totalItems > 0;
+
+  return (
+    <div style={{ padding: "14px 16px", background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: hasData ? 12 : 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>Update {index + 1}</span>
+          {update.submittedBy && <span style={{ fontSize: 12, color: "#94a3b8" }}>by {update.submittedBy}</span>}
+          {p && !update.parseError && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 4, padding: "1px 6px" }}>✓ AI parsed</span>
+          )}
+          {update.parseError && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#b91c1c", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, padding: "1px 6px" }}>Parse failed</span>
+          )}
+        </div>
+        <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>
+          {new Date(update.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+        </span>
+      </div>
+
+      {/* Parsed content */}
+      {p && hasData && (
+        <div style={{ display: "grid", gap: 10 }}>
+          {p.timeline.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 4 }}>Timeline</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {p.timeline.map((t, i) => (
+                  <span key={i} style={{ fontSize: 12, color: "#334155", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "3px 8px" }}>
+                    {t.time ? <><strong>{t.time}</strong> — {t.description}</> : t.description}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {p.materials.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 4 }}>Materials</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {p.materials.map((m, i) => (
+                  <span key={i} style={{ fontSize: 12, color: "#334155", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "3px 8px" }}>
+                    {[m.quantity, m.unit, m.item].filter(Boolean).join(" ")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {p.labor.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 4 }}>Labor / Crew</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {p.labor.map((l, i) => (
+                  <span key={i} style={{ fontSize: 12, color: "#334155", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "3px 8px" }}>
+                    {l.description}
+                    {l.hours ? ` · ${l.hours}h` : ""}
+                    {l.arrivalTime && l.departureTime ? ` · ${l.arrivalTime}–${l.departureTime}` : l.arrivalTime ? ` · from ${l.arrivalTime}` : ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {p.issues.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 4 }}>Issues</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {p.issues.map((iss, i) => (
+                  <span key={i} style={{ fontSize: 12, color: SEVERITY_COLOR[iss.severity], background: SEVERITY_COLOR[iss.severity] + "18", border: `1px solid ${SEVERITY_COLOR[iss.severity]}40`, borderRadius: 6, padding: "3px 8px" }}>
+                    {iss.description}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {p && !hasData && (
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>No extracted items</p>
+      )}
+      {!p && !update.parseError && (
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>Parsing…</p>
+      )}
+      {update.parseError && (
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "#b91c1c" }}>Parse error: {update.parseError}</p>
+      )}
+
+      {/* View original disclosure */}
+      <button
+        onClick={() => setShowRaw((r) => !r)}
+        style={{ marginTop: 10, fontSize: 11, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
+      >
+        {showRaw ? "Hide original" : "View original"}
+      </button>
+      {showRaw && (
+        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.5, wordBreak: "break-word", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 10px" }}>
+          {update.rawText}
+        </p>
+      )}
+    </div>
   );
 }
 

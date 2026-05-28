@@ -1,8 +1,8 @@
 # AI Receptionist Platform — Handoff
 
-Date: 2026-05-26
+Date: 2026-05-28 (latest session)
 
-## Current Status: Field operations layer polished — 82% done
+## Current Status: Invoice plan shipped, UI modernized — ~85% done
 
 Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates (push-to-hold, no duplication), GPT-4o parsing, professional invoice editor, styled report renderer all shipped. Demo-ready for roofing vertical.
 
@@ -11,7 +11,43 @@ Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates (p
 
 ---
 
-## What Was Built This Session (2026-05-26)
+## What Was Built This Session (2026-05-28)
+
+### Plan
+Full implementation plan written and approved: `docs/plans/invoice-from-field-updates-and-ui-facelift.md`
+
+### Job Status Stepper — 5 roofing-native steps
+- Replaced `open → in_progress → complete` with `Inspection → Quoted → Working → Invoiced → Complete`
+- Type union updated: `Job.status` now includes all 5 + `"open"` kept for backward compat (maps to Inspection in UI)
+- `statusToStepIdx()` helper handles old + new status strings gracefully
+
+### Field Updates — Parsed Summary Cards
+- Replaced raw transcript display with clean AI-extracted info: timeline chips, material chips, labor chips, issues with severity colors
+- Raw text hidden behind "View original" disclosure (collapsed by default)
+- "Parsing…" state shown while `parsed` is null and no `parseError`
+- "No extracted items" shown when parsed returned empty
+- `ParsedUpdateCard` component added to job detail page
+
+### Invoice UI
+- Removed hardcoded `$65/hr` — now reads `BusinessConfig.laborRate.defaultHourlyRate` (falls back to `65` if unset)
+- Removed hardcoded "Apex Roofing South Florida" from invoice header — now uses job title + address
+- `laborRate` field added to `BusinessConfig` type (with `defaultHourlyRate`, `lunchDeductionHours`, `roleRates`)
+- `Job` type extended with `clientEmail?` and `invoiceId?` fields
+
+### Auth Security Fix
+- Added `src/lib/auth/verifyRole.ts` — `verifyAuthAndRole(req, businessId, allowedRoles)` helper
+- Reads `__session` cookie → `verifyIdToken()` → looks up `businessUsers` doc → checks role
+- Applied to `POST /api/jobs/[jobId]/updates` — was previously unauthenticated (Admin SDK bypasses Firestore rules)
+
+### UI Modernization
+- Logo: admin 30px → 48px, company 28px → 36px
+- Admin sidebar: darker bg (`#080e1a`), gradient brand area, deeper nav link hover
+- Active nav item: teal glow + border-left highlight
+- "Voice Update ↗" (opened new tab, broke mobile) → "Send to foreman ↗" (copies field URL to clipboard)
+
+---
+
+## What Was Built Previously (2026-05-26)
 
 ### Voice Input — Foolproof Push-to-Hold (field/page.tsx)
 - Switched from toggle-mic to **push-to-hold**: `onPointerDown` starts, `onPointerUp/Leave/Cancel` stops
@@ -203,13 +239,31 @@ Field update flow:
 
 ---
 
-## Next Engineering Actions
+## Next Engineering Actions (Phase 2 of invoice plan)
 
-1. **Fix VAPI_WEBHOOK_SECRET** — remove VAPI_AUTH_BYPASS, set new secret in Vercel + Vapi UI
-2. **Add lookupAppointment to Vapi dashboard** — see walkthrough above
-3. **businessUsers auto-provisioning** — wire onboarding POST to create `businessUsers/{uid}` from owner email
-4. **Job "Complete" button** — status toggle on job detail header → removes from field crew dropdown
-5. **Phase 3** — after-hours logic, call outcome tagging (DeepSeek), FAQ suggestions cron
+See full plan: `docs/plans/invoice-from-field-updates-and-ui-facelift.md`
+
+### Invoice / Pricing (Phase 2)
+1. **Material price catalog** — `businesses/{bid}/priceList/{itemId}` collection + CRUD API + admin pricing UI page
+2. **Parser v2** — extend `ParsedUpdate` with `confidence`, `unresolved`, `assumptions`; update AI prompt + zod validation
+3. **Material matcher** — `src/lib/pricing/matchMaterial.ts`: exact → alias → fuzzy match against price catalog
+4. **Labor calc** — `src/lib/pricing/calcLabor.ts`: apply `BusinessConfig.laborRate`, preserve lunch deduction
+5. **Persisted invoice draft** — `POST /api/jobs/[jobId]/invoice/draft` → `invoices/{invoiceId}` Firestore doc
+6. **Invoice tab loads from persisted draft** — replaces current transient client-side generation
+
+### Vapi / Security
+7. **Fix VAPI_WEBHOOK_SECRET** — remove VAPI_AUTH_BYPASS, set new secret in Vercel + Vapi UI
+8. **Add lookupAppointment to Vapi dashboard** — see walkthrough below
+9. **businessUsers auto-provisioning** — wire onboarding POST to create `businessUsers/{uid}` from owner email
+
+### Backlog (build when trigger is true)
+- **After-hours logic** — inject `IS_AFTER_HOURS` flag into system prompt based on businessHours. Trigger: first client complaint.
+- **Call outcome tagging** — DeepSeek classify in end-of-call-report webhook. Trigger: client asks about conversion rate.
+- **Job "Complete" button** — status toggle; removes job from field crew dropdown. Trigger: first field client.
+- **Follow-up cadence cron** — leads on days [3,7]. Trigger: client wants re-engagement.
+- **Multi-vertical demo wizard** — industry dropdown swaps Alice's full knowledge base. Trigger: first non-roofing demo.
+- **Client login auto-provisioning** — getUserByEmail → create businessUsers doc. Trigger: first paying client.
+- **Stripe billing** — plan tier gates. Account: `acct_1Sf8lp0CMYfTqgSy`. Trigger: first paying client.
 
 ---
 

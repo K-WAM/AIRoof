@@ -27,13 +27,16 @@ export interface Job {
   jobId: string;            // e.g. "J-1042"
   businessId: string;
   title: string;
-  status: "open" | "in_progress" | "complete";
+  // "open" kept for backward compat with existing Firestore docs; maps to "inspection" in UI
+  status: "open" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
   address?: string;
   clientName?: string;
   clientPhone?: string;
+  clientEmail?: string;
   serviceType?: string;
   appointmentId?: string;
   notes?: string;
+  invoiceId?: string;
   createdAt: number;
   updatedAt: number;
 }

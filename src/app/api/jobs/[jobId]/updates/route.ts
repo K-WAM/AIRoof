@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
 import type { FieldUpdate } from "@/types/jobs";
 
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!businessId || !rawText?.trim()) {
     return NextResponse.json({ error: "businessId and rawText required" }, { status: 400 });
   }
+
+  const authResult = await verifyAuthAndRole(req, businessId, ["owner", "staff"]);
+  if ("error" in authResult) return authResult.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
