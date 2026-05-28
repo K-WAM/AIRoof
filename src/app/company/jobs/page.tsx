@@ -99,7 +99,7 @@ export default function JobsPage() {
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <a className="button" href={`/company/field${previewSuffix}`}>Field view ↗</a>
+          <a className="button" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer">Field view ↗</a>
           <button className="button primary" onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Cancel" : "+ New Job"}
           </button>

@@ -385,12 +385,47 @@ export async function lookupAppointment(input: LookupAppointmentInput): Promise<
         weekday: "short", month: "short", day: "numeric",
         hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
       });
-      return `${a.callerName ?? "Unknown"} — ${a.serviceType ?? "service"} at ${a.address ?? "unknown address"} on ${t} (status: ${a.status})`;
+      return `${a.callerName ?? "Unknown"} — ${a.serviceType ?? "service"} at ${a.address ?? "unknown address"} on ${t} (status: ${a.status}, appointmentId: ${a.appointmentId})`;
     }).join("; ");
   } catch (err) {
     console.error("lookupAppointment error:", err);
     return "Error looking up appointment.";
   }
+}
+
+export interface CancelAppointmentInput {
+  businessId: string;
+  appointmentId: string;
+}
+
+export async function cancelAppointment(input: CancelAppointmentInput): Promise<{ cancelled: boolean }> {
+  const db = getAdminFirestore();
+  if (!db) throw new Error("Firestore not available");
+
+  const ref = db
+    .collection("businesses").doc(input.businessId)
+    .collection("appointments").doc(input.appointmentId);
+
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error(`Appointment ${input.appointmentId} not found`);
+
+  await ref.update({ status: "cancelled", updatedAt: Date.now() });
+  return { cancelled: true };
+}
+
+export interface GetCurrentDateInput {
+  businessId: string;
+}
+
+export async function getCurrentDate(input: GetCurrentDateInput): Promise<{ today: string; isoDate: string; dayOfWeek: string }> {
+  const tz = await getBusinessTimezone(input.businessId);
+  const now = new Date();
+  const today = now.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: tz,
+  });
+  const isoDate = now.toLocaleDateString("en-CA", { timeZone: tz }); // YYYY-MM-DD
+  const dayOfWeek = now.toLocaleDateString("en-US", { weekday: "long", timeZone: tz });
+  return { today, isoDate, dayOfWeek };
 }
 
 export async function logAgentAction(action: AgentAction): Promise<void> {

@@ -252,7 +252,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {job.clientName && <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}</p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button">Field view ↗</a>
+          <a href={`/field?businessId=${businessId}&jobId=${jobId}`} target="_blank" rel="noopener noreferrer" className="button">Voice Update ↗</a>
           <button className="button" onClick={generateReport} disabled={generatingReport || generatingInvoice || updates.length === 0}>
             {generatingReport ? "⏳ Generating…" : "Generate Report"}
           </button>

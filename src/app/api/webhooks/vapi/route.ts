@@ -12,10 +12,12 @@ import { verifyVapiWebhook } from "@/lib/vapi/verify";
 import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
 import {
   bookAppointment,
+  cancelAppointment,
   checkAvailability,
   createLead,
   escalateCall,
   lookupAppointment,
+  getCurrentDate,
   logAgentAction,
   getBusinessTimezone,
 } from "@/lib/tools/agentTools";
@@ -161,7 +163,7 @@ async function executeTool(
         });
         await logAction(businessId, callId, "bookAppointment", params, appt, "success");
         return {
-          result: `Appointment requested for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}. The team will confirm shortly.`,
+          result: `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}. Save this ID in case the caller asks to change it. The team will confirm shortly.`,
         };
       }
 
@@ -218,6 +220,19 @@ async function executeTool(
         });
         await logAction(businessId, callId, "checkAvailability", params, { result }, "success");
         return { result };
+      }
+
+      case "cancelAppointment": {
+        const appointmentId = optionalStr(params.appointmentId ?? params.appointment_id);
+        if (!appointmentId) return { error: "appointmentId is required to cancel an appointment" };
+        await cancelAppointment({ businessId, appointmentId });
+        await logAction(businessId, callId, "bookAppointment", params, { cancelled: true }, "success");
+        return { result: `Appointment ${appointmentId} has been cancelled. You can now book a new one with the correct date.` };
+      }
+
+      case "getCurrentDate": {
+        const dateInfo = await getCurrentDate({ businessId });
+        return { result: `Today is ${dateInfo.today} (${dateInfo.dayOfWeek}). ISO: ${dateInfo.isoDate}. Use this when calculating relative dates like "next Wednesday" or "this Friday".` };
       }
 
       default:
