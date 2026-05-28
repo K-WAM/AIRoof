@@ -1,5 +1,6 @@
 import type { Appointment, Lead, AgentAction } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { initiateVapiCall } from "@/lib/vapi/vapiClient";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -187,6 +188,77 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   };
 
   await businessRef.collection("leads").doc(leadId).set(lead);
+
+  // Auto-callback: if business has callbackDelayMinutes configured and lead has a phone number
+  const bizData = businessDoc.data();
+  const delayMinutes = typeof bizData?.callbackDelayMinutes === "number" ? bizData.callbackDelayMinutes : undefined;
+  const vapiAssistantId = bizData?.vapiAssistantId as string | undefined;
+  const vapiPhoneNumberId = bizData?.vapiPhoneNumberId as string | undefined;
+
+  if (
+    delayMinutes !== undefined &&
+    vapiAssistantId &&
+    vapiPhoneNumberId &&
+    input.callerPhone &&
+    (input.callerPhone.match(/\d/g) ?? []).length >= 7
+  ) {
+    const windowStart = typeof bizData?.callbackWindowStart === "number" ? bizData.callbackWindowStart : 8;
+    const windowEnd = typeof bizData?.callbackWindowEnd === "number" ? bizData.callbackWindowEnd : 20;
+    const tz = bizData?.timezone ?? DEFAULT_TZ;
+
+    const nowLocal = new Date();
+    const localHour = parseInt(nowLocal.toLocaleString("en-US", { hour: "numeric", hour12: false, timeZone: tz }), 10);
+    const withinWindow = localHour >= windowStart && localHour < windowEnd;
+
+    if (withinWindow) {
+      const scheduledAt = delayMinutes === 0
+        ? undefined
+        : new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+
+      // Fire and forget — don't fail lead creation if Vapi call fails
+      initiateVapiCall({
+        assistantId: vapiAssistantId,
+        phoneNumberId: vapiPhoneNumberId,
+        customerNumber: input.callerPhone,
+        scheduledAt,
+        metadata: {
+          businessId: input.businessId,
+          leadId,
+          callType: "outbound",
+          trigger: "auto-callback",
+        },
+        assistantOverrides: {
+          variableValues: { callType: "outbound", callContext: "Following up on your earlier inquiry" },
+        },
+      }).then(async (vapiCall) => {
+        const canonicalCallId = `call_vapi_${vapiCall.id}`;
+        const db2 = getAdminFirestore();
+        if (!db2) return;
+        const now2 = Date.now();
+        await db2.collection("businesses").doc(input.businessId).collection("calls").doc(canonicalCallId).set({
+          callId: canonicalCallId,
+          businessId: input.businessId,
+          callType: "outbound",
+          targetPhone: input.callerPhone,
+          status: "queued",
+          initiatedByUid: "system",
+          leadId,
+          vapiCallId: vapiCall.id,
+          callAttempt: 1,
+          startedAt: now2,
+          createdAt: now2,
+          updatedAt: now2,
+          messages: [],
+        });
+        // Track attempt count on the lead
+        await businessRef.collection("leads").doc(leadId).update({
+          callAttempts: 1,
+          lastCallAttemptAt: now2,
+          updatedAt: now2,
+        });
+      }).catch((err) => console.error("Auto-callback failed for lead", leadId, err));
+    }
+  }
 
   return lead;
 }

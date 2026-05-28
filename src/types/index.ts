@@ -34,6 +34,12 @@ export interface BusinessConfig {
   // Vapi integration (per-business voice agent on Vapi platform)
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  // Outbound callback / follow-up config
+  callbackDelayMinutes?: number;   // 0 = immediate on lead; undefined = disabled
+  followUpDays?: number[];         // e.g. [3, 7] — days after initial call with no booking
+  maxCallAttempts?: number;        // default 3
+  callbackWindowStart?: number;    // hour in business timezone (e.g. 8 = 8 AM)
+  callbackWindowEnd?: number;      // e.g. 20 = 8 PM
   // Branding (used in notification/confirmation emails)
   brandColor?: string;
   logoUrl?: string | null;
@@ -128,7 +134,7 @@ export interface BusinessIntegrationConnection {
   updatedAt: number;
 }
 
-// Call Session — complete conversation transcript
+// Call Session — complete conversation transcript (inbound or outbound)
 export interface CallSession {
   callId: string;
   businessId: string;
@@ -144,6 +150,13 @@ export interface CallSession {
   escalationRequired: boolean;
   escalationReason?: string;
   recordingUrl?: string;
+  // Outbound-specific fields
+  callType?: "inbound" | "outbound";
+  targetPhone?: string;
+  initiatedByUid?: string;
+  leadId?: string;
+  appointmentRef?: string;
+  callAttempt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -180,6 +193,9 @@ export interface Lead {
   notes?: string;
   sourceCallId?: string;
   status: "new" | "contacted" | "booked" | "closed" | "lost";
+  // Outbound follow-up tracking
+  callAttempts?: number;
+  lastCallAttemptAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -214,7 +230,8 @@ export interface AgentAction {
     | "sendOwnerNotification"
     | "sendCustomerConfirmation"
     | "escalateCall"
-    | "endCall";
+    | "endCall"
+    | "initiateOutboundCall";
   input: unknown;
   output?: unknown;
   status: "pending" | "success" | "failed";

@@ -25,6 +25,10 @@ interface BizData {
   timezone?: string;
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  callbackDelayMinutes?: number;
+  maxCallAttempts?: number;
+  callbackWindowStart?: number;
+  callbackWindowEnd?: number;
   brandColor?: string;
   logoUrl?: string;
   contactPhone?: string;
@@ -112,6 +116,10 @@ export default function AdminBusinessConfigPage({
       // Vapi
       vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
       vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
+      callbackDelayMinutes: formData.get("callbackDelayMinutes") !== "" ? Number(formData.get("callbackDelayMinutes")) : undefined,
+      maxCallAttempts: formData.get("maxCallAttempts") !== "" ? Number(formData.get("maxCallAttempts")) : undefined,
+      callbackWindowStart: formData.get("callbackWindowStart") !== "" ? Number(formData.get("callbackWindowStart")) : undefined,
+      callbackWindowEnd: formData.get("callbackWindowEnd") !== "" ? Number(formData.get("callbackWindowEnd")) : undefined,
       // Branding
       brandColor: String(formData.get("brandColor") || "").trim(),
       logoUrl: String(formData.get("logoUrl") || "").trim() || null,
@@ -243,6 +251,46 @@ export default function AdminBusinessConfigPage({
                 Find these in your Vapi dashboard → Assistants and Phone Numbers.
                 Set them here so calls route to the correct agent.
               </p>
+
+              {/* Auto-callback config */}
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+                <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 14 }}>Auto-callback settings</p>
+                <div className="form-grid">
+                  <div className="field">
+                    <label htmlFor="callbackDelayMinutes">Initial callback delay</label>
+                    <select id="callbackDelayMinutes" name="callbackDelayMinutes" defaultValue={biz.callbackDelayMinutes ?? ""}>
+                      <option value="">Disabled</option>
+                      <option value="0">Immediate</option>
+                      <option value="5">5 minutes</option>
+                      <option value="30">30 minutes</option>
+                      <option value="60">1 hour</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="maxCallAttempts">Max call attempts</label>
+                    <select id="maxCallAttempts" name="maxCallAttempts" defaultValue={biz.maxCallAttempts ?? 3}>
+                      <option value="1">1</option>
+                      <option value="3">3</option>
+                      <option value="5">5</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="callbackWindowStart">Calling window start (hour)</label>
+                    <select id="callbackWindowStart" name="callbackWindowStart" defaultValue={biz.callbackWindowStart ?? 8}>
+                      {[6,7,8,9,10].map((h) => <option key={h} value={h}>{h}:00 AM</option>)}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="callbackWindowEnd">Calling window end (hour)</label>
+                    <select id="callbackWindowEnd" name="callbackWindowEnd" defaultValue={biz.callbackWindowEnd ?? 20}>
+                      {[17,18,19,20,21].map((h) => <option key={h} value={h}>{h > 12 ? `${h-12}:00 PM` : `${h}:00 PM`}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+                  When a new lead is captured, Alice will automatically call back after the configured delay — only within the calling window and only if Vapi IDs are set above.
+                </p>
+              </div>
             </div>
           </section>
 

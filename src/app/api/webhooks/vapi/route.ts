@@ -389,6 +389,7 @@ async function logAction(
     "sendCustomerConfirmation",
     "escalateCall",
     "endCall",
+    "initiateOutboundCall",
   ] as const;
   type ActionType = (typeof validTypes)[number];
   if (!(validTypes as readonly string[]).includes(type)) return;

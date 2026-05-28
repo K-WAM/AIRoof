@@ -39,6 +39,7 @@ export default function CompanyLeadsPage() {
   const [filter, setFilter] = useState<"all" | "urgent" | "new" | "contacted">(initialFilter);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [calling, setCalling] = useState<string | null>(null); // leadId being called
 
   useEffect(() => {
     if (!db || !businessId) return;
@@ -51,6 +52,26 @@ export default function CompanyLeadsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [businessId]);
+
+  async function callBack(lead: Lead) {
+    if (!lead.callerPhone) return;
+    setCalling(lead.leadId);
+    try {
+      const res = await fetch("/api/calls/outbound", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPhone: lead.callerPhone, leadId: lead.leadId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        alert(`Call failed: ${err.error ?? "Unknown error"}`);
+      }
+    } catch {
+      alert("Network error — could not initiate call.");
+    } finally {
+      setCalling(null);
+    }
+  }
 
   async function markContacted(lead: Lead) {
     if (!db) return;
@@ -209,6 +230,17 @@ export default function CompanyLeadsPage() {
                   >
                     {selected.status === "contacted" ? "Contacted" : "Mark contacted"}
                   </button>
+                  {selected.callerPhone && (
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={calling === selected.leadId}
+                      onClick={() => callBack(selected)}
+                      title={`Call ${selected.callerPhone}`}
+                    >
+                      {calling === selected.leadId ? "Calling…" : "☎ Call Back"}
+                    </button>
+                  )}
                 </div>
               </>
             )}

@@ -52,6 +52,7 @@ export default function CompanyAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
+  const [calling, setCalling] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db || !businessId) return;
@@ -88,6 +89,26 @@ export default function CompanyAppointmentsPage() {
     });
     if (preview) params.set("preview", preview);
     window.location.href = `/company/jobs?${params.toString()}#new`;
+  }
+
+  async function callBack(appt: Appointment) {
+    if (!appt.callerPhone) return;
+    setCalling(appt.appointmentId);
+    try {
+      const res = await fetch("/api/calls/outbound", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPhone: appt.callerPhone, appointmentId: appt.appointmentId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        alert(`Call failed: ${err.error ?? "Unknown error"}`);
+      }
+    } catch {
+      alert("Network error — could not initiate call.");
+    } finally {
+      setCalling(null);
+    }
   }
 
   async function sendConfirmation(appt: Appointment) {
@@ -157,6 +178,17 @@ export default function CompanyAppointmentsPage() {
           >
             Create Job →
           </button>
+          {appt.callerPhone && (
+            <button
+              className="button"
+              disabled={calling === appt.appointmentId}
+              onClick={() => callBack(appt)}
+              style={{ fontSize: 13 }}
+              title={`Call ${appt.callerPhone}`}
+            >
+              {calling === appt.appointmentId ? "Calling…" : "☎ Call Back"}
+            </button>
+          )}
           {justConfirmed ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
               <span>✓</span> Confirmation sent

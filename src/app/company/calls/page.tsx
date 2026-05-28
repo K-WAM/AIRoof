@@ -15,6 +15,8 @@ interface CallMessage {
 interface Call {
   callId: string;
   callerPhone?: string;
+  targetPhone?: string;
+  callType?: "inbound" | "outbound";
   status: string;
   startedAt: number;
   endedAt?: number;
@@ -69,6 +71,7 @@ export default function CompanyCallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
 
   useEffect(() => {
     if (!db || !businessId) return;
@@ -87,6 +90,12 @@ export default function CompanyCallsPage() {
   const conversationMessages = (call: Call) =>
     (call.messages ?? []).filter((m) => m.role === "caller" || m.role === "agent");
 
+  const filteredCalls = calls.filter((c) => {
+    if (dirFilter === "inbound") return c.callType !== "outbound";
+    if (dirFilter === "outbound") return c.callType === "outbound";
+    return true;
+  });
+
   return (
     <>
       <header className="page-header">
@@ -101,18 +110,27 @@ export default function CompanyCallsPage() {
 
       <div className="call-workspace">
         <section className="panel" aria-labelledby="call-list-title">
-          <div className="panel-header">
+          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 className="panel-title" id="call-list-title">Call History</h2>
+            <div className="segmented-control" style={{ fontSize: 12 }}>
+              {(["all", "inbound", "outbound"] as const).map((f) => (
+                <button key={f} className="segment" type="button" aria-pressed={dirFilter === f} onClick={() => setDirFilter(f)}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="panel-body">
-            {calls.length === 0 ? (
+            {filteredCalls.length === 0 ? (
               <p style={{ color: "#888", fontSize: 14 }}>No calls yet. Calls appear here after Alice answers the phone.</p>
             ) : (
               <div className="call-list">
-                {calls.map((call) => {
+                {filteredCalls.map((call) => {
                   const msgs = conversationMessages(call);
                   const category = guessCategory(msgs);
                   const dur = callDuration(call);
+                  const isOutbound = call.callType === "outbound";
+                  const displayPhone = isOutbound ? (call.targetPhone ?? "Outbound") : (call.callerPhone ?? "Unknown caller");
                   return (
                     <article
                       className="call-row"
@@ -123,7 +141,10 @@ export default function CompanyCallsPage() {
                     >
                       <div className="call-row-header">
                         <div>
-                          <p className="call-title">{call.callerPhone ?? "Unknown caller"}</p>
+                          <p className="call-title">
+                            {isOutbound && <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700, marginRight: 6 }}>→ OUT</span>}
+                            {displayPhone}
+                          </p>
                           <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
                         <span className={CATEGORY_STYLE[category] ?? "tag"}>{category}</span>

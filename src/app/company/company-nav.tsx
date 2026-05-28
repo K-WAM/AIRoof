@@ -3,13 +3,13 @@
 import { usePathname, useSearchParams } from "next/navigation";
 
 const LINKS = [
-  { path: "/company/dashboard", label: "Dashboard" },
-  { path: "/company/calls", label: "Calls" },
-  { path: "/company/leads", label: "Leads" },
-  { path: "/company/appointments", label: "Appointments" },
-  { path: "/company/jobs", label: "Jobs" },
-  { path: "/company/calendar", label: "Calendar" },
-  { path: "/company/field", label: "Field" },
+  { path: "/company/dashboard", label: "Dashboard", icon: "▦" },
+  { path: "/company/calls", label: "Calls", icon: "☏" },
+  { path: "/company/leads", label: "Leads", icon: "◎" },
+  { path: "/company/appointments", label: "Appts", icon: "◷" },
+  { path: "/company/jobs", label: "Jobs", icon: "⚒" },
+  { path: "/company/calendar", label: "Calendar", icon: "▤" },
+  { path: "/company/field", label: "Field", icon: "⊕" },
 ];
 
 export function CompanyNav() {
@@ -26,6 +26,7 @@ export function CompanyNav() {
           key={link.path}
           aria-current={pathname === link.path ? "page" : undefined}
         >
+          <span className="company-nav-icon">{link.icon}</span>
           {link.label}
         </a>
       ))}

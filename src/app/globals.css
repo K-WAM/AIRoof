@@ -476,19 +476,42 @@ a {
 
 .company-nav {
   display: flex;
-  gap: 6px;
+  gap: 2px;
   align-items: center;
 }
 
 .company-nav a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: var(--text-muted);
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 7px 11px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.company-nav a:hover {
+  background: var(--surface-muted);
+  color: var(--text);
 }
 
 .company-nav a[aria-current="page"] {
-  color: var(--text);
-  background: var(--surface-muted);
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.company-nav-icon {
+  font-size: 12px;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.company-nav a[aria-current="page"] .company-nav-icon {
+  opacity: 1;
 }
 
 .company-main {
@@ -1253,6 +1276,86 @@ a.metric:hover {
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+/* ── Job Progress Bar ── */
+
+.job-progress {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.job-progress-step-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.job-progress-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.job-progress-step.done {
+  background: var(--accent);
+  color: #ffffff;
+  border: 2px solid var(--accent);
+}
+
+.job-progress-step.active {
+  background: #ffffff;
+  color: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+.job-progress-step.pending {
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  border: 2px solid var(--border);
+}
+
+.job-progress-label {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.job-progress-label.done,
+.job-progress-label.active {
+  color: var(--accent);
+}
+
+.job-progress-label.pending {
+  color: var(--text-muted);
+}
+
+.job-progress-line {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  margin: 0 8px;
+  margin-bottom: 18px;
+  border-radius: 1px;
+  transition: background 0.15s;
+}
+
+.job-progress-line.done {
+  background: var(--accent);
 }
 
 @media (max-width: 900px) {

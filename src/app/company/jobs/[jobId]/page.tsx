@@ -262,6 +262,28 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       </header>
 
+      {/* Job progress bar */}
+      <div className="job-progress no-print">
+        {(["open", "in_progress", "complete"] as const).map((step, i) => {
+          const labels: Record<string, string> = { open: "Open", in_progress: "In Progress", complete: "Complete" };
+          const statusOrder = { open: 0, in_progress: 1, complete: 2 };
+          const currentIdx = statusOrder[job.status as keyof typeof statusOrder] ?? 0;
+          const done = i < currentIdx;
+          const active = i === currentIdx;
+          return (
+            <div key={step} style={{ display: "flex", alignItems: "center", flex: i < 2 ? "1" : "0" }}>
+              <div className="job-progress-step-wrapper">
+                <div className={`job-progress-step ${done ? "done" : active ? "active" : "pending"}`}>
+                  {done ? "✓" : i + 1}
+                </div>
+                <span className={`job-progress-label ${done ? "done" : active ? "active" : "pending"}`}>{labels[step]}</span>
+              </div>
+              {i < 2 && <div className={`job-progress-line ${done ? "done" : ""}`} />}
+            </div>
+          );
+        })}
+      </div>
+
       {(reportError || invoiceError) && (
         <div style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 12, color: "#b91c1c", fontSize: 13 }} className="no-print">
           {reportError || invoiceError}
