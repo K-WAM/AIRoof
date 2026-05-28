@@ -13,18 +13,17 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isPreview = Boolean(searchParams?.get("preview"));
-
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
       return;
     }
-    // Superadmin belongs in admin panel — unless using ?preview=businessId
-    if (!loading && user?.superadmin && !isPreview) {
+    // Superadmin belongs in admin panel — unless using ?preview= or ?businessId= (field/demo links)
+    const hasBusinessContext = Boolean(searchParams?.get("preview") || searchParams?.get("businessId"));
+    if (!loading && user?.superadmin && !hasBusinessContext) {
       router.replace("/admin/businesses");
     }
-  }, [user, loading, router, isPreview]);
+  }, [user, loading, router, searchParams]);
 
   async function handleLogout() {
     if (auth) await signOut(auth);
