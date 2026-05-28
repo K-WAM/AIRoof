@@ -41,7 +41,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <p className="admin-brand-name">Luxor AI</p>
+          <img src="/logo.png" alt="Luxor AI" className="admin-brand-logo" />
           <p className="admin-brand-sub">Superadmin</p>
         </div>
         <AdminNav />

@@ -1,14 +1,16 @@
 :root {
-  --background: #f6f7f9;
+  --background: #f1f5f9;
   --surface: #ffffff;
-  --surface-muted: #eef1f5;
-  --border: #d7dde5;
-  --text: #17202a;
-  --text-muted: #657282;
+  --surface-muted: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
   --accent: #0f766e;
   --accent-dark: #115e59;
   --warning: #b45309;
   --success: #15803d;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
 }
 
 * {
@@ -24,7 +26,8 @@ body {
 body {
   background: var(--background);
   color: var(--text);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -47,7 +50,7 @@ a {
 }
 
 .admin-sidebar {
-  background: #0d1117;
+  background: #0f172a;
   color: #e2e8f0;
   display: flex;
   flex-direction: column;
@@ -56,12 +59,23 @@ a {
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  border-right: 1px solid #1a2332;
+  border-right: 1px solid #1e293b;
 }
 
 .admin-brand {
-  padding: 20px 16px 18px;
-  border-bottom: 1px solid #1a2332;
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-brand-logo {
+  height: 30px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .admin-brand-name {
@@ -74,7 +88,8 @@ a {
 
 .admin-brand-sub {
   font-size: 10px;
-  color: #64748b;
+  font-weight: 600;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
@@ -105,27 +120,27 @@ a {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 8px;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
   color: #94a3b8;
-  transition: background 0.1s, color 0.1s;
+  transition: background 0.12s, color 0.12s;
   border-left: 2px solid transparent;
   text-decoration: none;
   line-height: 1;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 
 .nav-link:hover {
-  background: #111c2a;
+  background: #1e293b;
   color: #e2e8f0;
 }
 
 .nav-link[aria-current="page"] {
-  background: rgba(59, 130, 246, 0.08);
-  color: #7db3f5;
-  border-left-color: #3b82f6;
+  background: rgba(15, 118, 110, 0.15);
+  color: #2dd4bf;
+  border-left-color: #14b8a6;
 }
 
 .nav-link-icon {
@@ -202,8 +217,10 @@ a {
 
 .page-title {
   margin: 0 0 6px;
-  font-size: 28px;
+  font-size: 26px;
+  font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
@@ -234,7 +251,8 @@ a {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-header {
@@ -335,21 +353,30 @@ a {
 .button {
   min-height: 40px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 9px 14px;
+  border-radius: 8px;
+  padding: 9px 16px;
   background: #ffffff;
   color: var(--text);
   cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.button:hover {
+  background: var(--surface-muted);
 }
 
 .button.primary {
   border-color: var(--accent);
   background: var(--accent);
   color: #ffffff;
+  box-shadow: 0 1px 4px rgba(15,118,110,0.25);
 }
 
 .button.primary:hover {
   background: var(--accent-dark);
+  box-shadow: 0 2px 8px rgba(15,118,110,0.3);
 }
 
 .company-shell {
@@ -366,10 +393,22 @@ a {
   padding: 0 28px;
   background: #ffffff;
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .company-brand {
   font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+
+.company-brand-logo {
+  height: 28px;
+  width: auto;
+  display: block;
 }
 
 .topbar-right {
@@ -466,29 +505,34 @@ a {
 .metric {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 16px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  border-radius: 12px;
+  padding: 20px;
+  transition: box-shadow 0.15s, transform 0.1s;
   display: block;
   color: inherit;
+  box-shadow: var(--shadow-sm);
 }
 
 a.metric:hover {
-  border-color: #94a3b8;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .metric-label {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .metric-value {
   margin: 0;
-  font-size: 26px;
+  font-size: 28px;
   line-height: 1.1;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .ops-grid {
@@ -506,10 +550,11 @@ a.metric:hover {
 .queue-item {
   display: grid;
   gap: 8px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .queue-topline {
@@ -632,10 +677,11 @@ a.metric:hover {
 .lead-card {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .lead-card[aria-selected="true"] {
@@ -730,10 +776,11 @@ a.metric:hover {
 .call-row {
   display: grid;
   gap: 8px;
-  padding: 13px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .call-row[aria-selected="true"] {
@@ -866,8 +913,9 @@ a.metric:hover {
   align-items: start;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .appt-date-block {
@@ -975,10 +1023,11 @@ a.metric:hover {
   grid-template-columns: 120px minmax(0, 1fr) auto;
   gap: 16px;
   align-items: start;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .appointment-time {
@@ -1068,10 +1117,11 @@ a.metric:hover {
 .faq-item {
   display: grid;
   gap: 5px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .faq-question {

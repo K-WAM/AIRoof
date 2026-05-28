@@ -47,7 +47,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="company-shell">
       <header className="company-topbar">
-        <div className="company-brand">{displayName}</div>
+        <div className="company-brand">
+          <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
+        </div>
         <div className="topbar-right">
           <CompanyNav />
           <div className="topbar-divider" />
