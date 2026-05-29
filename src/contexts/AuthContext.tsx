@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onIdTokenChanged, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
 
@@ -37,12 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsub = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
+    // onIdTokenChanged fires on sign-in, sign-out, and automatic token refresh (~every hour).
+    // Storing the actual ID token in __session lets server-side API routes verify auth.
+    const unsub = onIdTokenChanged(auth, async (firebaseUser: User | null) => {
       if (!firebaseUser) {
         setUser(null);
         setIdToken(null);
         setLoading(false);
-        // Clear session marker so middleware redirects on next visit
         document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
         return;
       }
@@ -50,9 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const token = await firebaseUser.getIdToken();
         setIdToken(token);
-        // Set session marker so middleware allows protected routes.
-        // Not a security token — Firestore rules are the authoritative gate.
-        document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
+        // Store actual ID token so server routes can verify with Firebase Admin SDK.
+        // Expires in 1h matching Firebase token lifetime; onIdTokenChanged refreshes it.
+        document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Strict`;
 
         let profile: AuthUser = {
           uid: firebaseUser.uid,
