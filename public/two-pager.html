@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luxor AI — AI Receptionist for Roofing Companies</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1e293b;
+    background: #f8fafc;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Page layout ── */
+  .page {
+    width: 8.5in;
+    min-height: 11in;
+    margin: 0 auto;
+    background: #fff;
+    page-break-after: always;
+  }
+
+  /* ── PAGE 1 — Hero ── */
+  .hero {
+    background: #0f172a;
+    padding: 60px 64px 48px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px;
+    right: -80px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+
+  .hero-logo-mark {
+    width: 36px;
+    height: 36px;
+    background: #f97316;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.05em;
+    flex-shrink: 0;
+  }
+
+  .hero-logo-text {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-logo-text span { color: #f97316; }
+
+  .hero-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(249,115,22,0.15);
+    border: 1px solid rgba(249,115,22,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    margin-bottom: 28px;
+  }
+
+  .hero-stat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f97316;
+    flex-shrink: 0;
+  }
+
+  .hero-stat-text {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #f97316;
+  }
+
+  .hero h1 {
+    font-size: 46px;
+    font-weight: 900;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: #fff;
+    max-width: 580px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: #f97316;
+  }
+
+  .hero-sub {
+    font-size: 16px;
+    line-height: 1.7;
+    color: #94a3b8;
+    max-width: 520px;
+    margin-bottom: 48px;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .hero-stat-box {
+    background: rgba(255,255,255,0.04);
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  .hero-stat-box .num {
+    font-size: 32px;
+    font-weight: 900;
+    color: #f97316;
+    letter-spacing: -0.03em;
+    display: block;
+  }
+
+  .hero-stat-box .label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ── Problem / Solution ── */
+  .body-section {
+    padding: 48px 64px;
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  .section-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #f97316;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    margin-bottom: 16px;
+  }
+
+  .section-body {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #475569;
+  }
+
+  .pain-list {
+    list-style: none;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pain-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .pain-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .solution-list {
+    list-style: none;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .solution-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+  }
+
+  .check-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #16a34a;
+    flex-shrink: 0;
+    margin-top: 1px;
+    font-weight: 700;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 0 64px;
+  }
+
+  /* ── PAGE 2 — Features ── */
+  .page2-hero {
+    background: #0f172a;
+    padding: 40px 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .page2-hero-left h2 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: #fff;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .page2-hero-left h2 em { font-style: normal; color: #f97316; }
+
+  .page2-hero-left p {
+    font-size: 14px;
+    color: #64748b;
+    max-width: 400px;
+    line-height: 1.6;
+  }
+
+  .page2-hero-badge {
+    background: rgba(249,115,22,0.1);
+    border: 1px solid rgba(249,115,22,0.25);
+    border-radius: 8px;
+    padding: 16px 20px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+
+  .page2-hero-badge .badge-num {
+    font-size: 36px;
+    font-weight: 900;
+    color: #f97316;
+    letter-spacing: -0.04em;
+    display: block;
+  }
+
+  .page2-hero-badge .badge-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    display: block;
+    margin-top: 4px;
+    max-width: 120px;
+  }
+
+  /* ── Feature grid ── */
+  .features-section {
+    padding: 44px 64px 32px;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .feature-card {
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 20px;
+    background: #fafafa;
+  }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .feature-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .feature-desc {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.6;
+  }
+
+  /* ── How it works ── */
+  .how-section {
+    padding: 0 64px 32px;
+  }
+
+  .how-title {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #0f172a;
+    margin-bottom: 20px;
+  }
+
+  .steps-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    position: relative;
+  }
+
+  .steps-row::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: #e2e8f0;
+    z-index: 0;
+  }
+
+  .step-item {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f97316;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+
+  .step-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+
+  .step-sub {
+    font-size: 10px;
+    color: #94a3b8;
+    line-height: 1.4;
+  }
+
+  /* ── CTA footer ── */
+  .cta-footer {
+    background: #0f172a;
+    margin: 0 64px 48px;
+    border-radius: 16px;
+    padding: 32px 36px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .cta-left h3 {
+    font-size: 20px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .cta-left p {
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  .cta-contacts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .cta-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cta-contact-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(249,115,22,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .cta-contact-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #e2e8f0;
+  }
+
+  .cta-contact-text a {
+    color: #f97316;
+    text-decoration: none;
+  }
+
+  /* ── Footer bar ── */
+  .doc-footer {
+    padding: 16px 64px;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .doc-footer-brand {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  .doc-footer-brand span { color: #f97316; }
+
+  .doc-footer-url {
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #fff; }
+    .page { width: 8.5in; box-shadow: none; }
+    .hero, .page2-hero, .cta-footer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .hero-stat-box, .feature-card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+  }
+
+  /* ── Screen: center pages ── */
+  @media screen {
+    body { padding: 40px 20px; }
+    .page {
+      box-shadow: 0 4px 40px rgba(0,0,0,0.12);
+      border-radius: 4px;
+      margin-bottom: 40px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 1 ═══ -->
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">
+      <div class="hero-logo-mark">L</div>
+      <div class="hero-logo-text">Luxor <span>AI</span></div>
+    </div>
+
+    <div class="hero-stat">
+      <div class="hero-stat-dot"></div>
+      <span class="hero-stat-text">Roofing Industry Intelligence</span>
+    </div>
+
+    <h1>The roofing industry<br>is growing <em>40%</em>.<br>Is your business ready?</h1>
+
+    <p class="hero-sub">
+      While competitors scramble to hire more staff, the smartest roofing companies are
+      deploying AI to handle calls, capture leads, and manage jobs — 24 hours a day,
+      without adding headcount.
+    </p>
+
+    <div class="hero-stats">
+      <div class="hero-stat-box">
+        <span class="num">24/7</span>
+        <span class="label">AI answers every call</span>
+      </div>
+      <div class="hero-stat-box">
+        <span class="num">&lt;60s</span>
+        <span class="label">Lead capture time</span>
+      </div>
+      <div class="hero-stat-box">
+        <span class="num">$0</span>
+        <span class="label">Missed calls — ever</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem / Solution -->
+  <div class="body-section">
+    <div class="two-col">
+      <div>
+        <p class="section-eyebrow">The Problem</p>
+        <h2 class="section-title">Every missed call is a missed contract</h2>
+        <p class="section-body">
+          Roofing is a high-ticket, high-urgency business. When a homeowner calls after a storm
+          and gets voicemail, they call your competitor next. Meanwhile, your crew is on a roof
+          and your office is overwhelmed.
+        </p>
+        <ul class="pain-list">
+          <li>
+            <div class="pain-icon">✕</div>
+            Calls going to voicemail during jobs — leads lost instantly
+          </li>
+          <li>
+            <div class="pain-icon">✕</div>
+            Hours spent on paperwork: job logs, invoices, field reports
+          </li>
+          <li>
+            <div class="pain-icon">✕</div>
+            Foremen calling the office to relay what happened on site
+          </li>
+          <li>
+            <div class="pain-icon">✕</div>
+            Urgent repairs going unescalated — liability and reputation risk
+          </li>
+        </ul>
+      </div>
+      <div>
+        <p class="section-eyebrow">The Solution</p>
+        <h2 class="section-title">An AI that works your phones and your job sites</h2>
+        <p class="section-body">
+          Luxor AI is a complete AI operations platform built for roofing companies. One
+          system handles inbound calls, qualifies leads, books inspections, and keeps your
+          field crew's job logs updated in real time.
+        </p>
+        <ul class="solution-list">
+          <li>
+            <div class="check-icon">✓</div>
+            AI receptionist answers every call, qualifies leads, books appointments
+          </li>
+          <li>
+            <div class="check-icon">✓</div>
+            Foreman holds mic button on phone → AI structures the update automatically
+          </li>
+          <li>
+            <div class="check-icon">✓</div>
+            AI-generated invoices from field voice updates — reviewed in minutes
+          </li>
+          <li>
+            <div class="check-icon">✓</div>
+            Urgent calls automatically escalated to your team immediately
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quote -->
+  <div class="divider"></div>
+  <div style="padding: 32px 64px; background: #fffbf5;">
+    <p style="font-size: 17px; font-weight: 700; color: #92400e; line-height: 1.5; font-style: italic; max-width: 620px; margin: 0 auto; text-align: center;">
+      "The AI answered 47 calls while I was on a roof. It booked 12 inspections.
+      My old answering service caught maybe 3 of those."
+    </p>
+    <p style="text-align: center; font-size: 11px; color: #b45309; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 12px;">
+      Roofing contractor — South Florida
+    </p>
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <span class="doc-footer-brand">Luxor <span>AI</span> · AI Receptionist Platform</span>
+    <span class="doc-footer-url">luxordev.com/contact · connect@luxordev.com</span>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ PAGE 2 ═══ -->
+<div class="page">
+
+  <!-- Page 2 hero bar -->
+  <div class="page2-hero">
+    <div class="page2-hero-left">
+      <h2>Everything your roofing business<br>needs to <em>scale without chaos</em></h2>
+      <p>One platform. AI receptionist for the phones. AI field log for the crew. Live dashboard for the office.</p>
+    </div>
+    <div class="page2-hero-badge">
+      <span class="badge-num">40%</span>
+      <span class="badge-label">Industry growth projection — be ready</span>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="features-section">
+    <div class="features-grid">
+
+      <div class="feature-card">
+        <div class="feature-icon">📞</div>
+        <div class="feature-title">AI Phone Receptionist</div>
+        <div class="feature-desc">
+          Alice answers every inbound call, 24/7. She qualifies leads, collects contact info,
+          explains your services, books inspections, and escalates urgent situations — all
+          in a natural conversation. No hold music. No voicemail.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🎤</div>
+        <div class="feature-title">Voice-to-Job-Log (Field Crew)</div>
+        <div class="feature-desc">
+          Foreman holds a button on their phone and speaks a 30-second update. AI transcribes,
+          extracts materials used, crew hours, timeline events, and any issues — then
+          structures it automatically. No forms. No callbacks. No paperwork.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🧾</div>
+        <div class="feature-title">AI-Generated Invoices</div>
+        <div class="feature-desc">
+          From the field voice updates, the AI builds a draft invoice with labor hours,
+          materials, and line items. The office reviews, edits if needed, and sends.
+          What used to take 2 hours takes 5 minutes.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Operations Dashboard</div>
+        <div class="feature-desc">
+          Live view of every call, lead, appointment, and active job. See where every crew
+          member is in the job lifecycle: Inspection → Quoted → Working → Invoiced → Complete.
+          Filter, sort, and act — all from one screen.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Instant Lead Callbacks</div>
+        <div class="feature-desc">
+          When a caller hangs up before booking, the AI automatically places an outbound
+          callback within minutes. No lead goes cold. No missed opportunity from a dropped
+          call or busy signal.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">Multi-Tenant & Branded</div>
+        <div class="feature-desc">
+          Each roofing company gets their own AI agent, phone number, branded emails,
+          and isolated data. Emails show your logo and colors. The AI knows your service
+          area, approved services, and pricing rules.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-section">
+    <p class="how-title">How a call works — from ring to booked</p>
+    <div class="steps-row">
+      <div class="step-item">
+        <div class="step-circle">1</div>
+        <div class="step-label">Customer calls</div>
+        <div class="step-sub">Your AI picks up in under 1 second, any time of day</div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle">2</div>
+        <div class="step-label">AI qualifies</div>
+        <div class="step-sub">Collects name, address, service needed, urgency level</div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle">3</div>
+        <div class="step-label">Books or escalates</div>
+        <div class="step-sub">Schedules inspection or immediately notifies your team</div>
+      </div>
+      <div class="step-item">
+        <div class="step-circle">4</div>
+        <div class="step-label">You close it</div>
+        <div class="step-sub">Lead in your dashboard, confirmation email sent, job created</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-footer">
+    <div class="cta-left">
+      <h3>Ready to stop missing calls<br>and start closing more jobs?</h3>
+      <p>Setup takes one business day. No hardware. No long-term contracts.<br>
+      We configure your AI, set up your number, and run a live test call before you go live.</p>
+    </div>
+    <div class="cta-contacts">
+      <div class="cta-contact-item">
+        <div class="cta-contact-icon">✉</div>
+        <div class="cta-contact-text">
+          <a href="mailto:connect@luxordev.com">connect@luxordev.com</a>
+        </div>
+      </div>
+      <div class="cta-contact-item">
+        <div class="cta-contact-icon">📞</div>
+        <div class="cta-contact-text">+1 (825) 488-7791</div>
+      </div>
+      <div class="cta-contact-item">
+        <div class="cta-contact-icon">🌐</div>
+        <div class="cta-contact-text">
+          <a href="https://luxordev.com/contact">luxordev.com/contact</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <span class="doc-footer-brand">Luxor <span>AI</span> · AI Receptionist Platform for Roofing</span>
+    <span class="doc-footer-url">© 2026 Luxor Developments LLC · All rights reserved</span>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -11,6 +11,26 @@ Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates (p
 
 ---
 
+## What Was Built This Session (2026-05-29)
+
+### Field Log — Base44-style UI + Whisper Audio (full overhaul)
+- **Dark mobile UI**: slate-900 background, orange accents, matches Base44 prototype exactly
+- **Job selector**: tappable card with prominent orange job ID (`J-XXXX`), dropdown overlay, no `<select>`
+- **Hold-to-speak mic**: animated orange pulse rings while recording, status cycles: HOLD TO SPEAK → Listening… → Transcribing… → ✓ Logged
+- **No submit button**: release the button → auto-submit. Zero extra taps for gloved hands.
+- **Audio pipeline**: MediaRecorder → base64 → Whisper (`whisper-1`) → GPT-4o extraction → Firestore merge
+  - iOS: `audio/mp4`, Android: `audio/webm;codecs=opus` — detected via `MediaRecorder.isTypeSupported()`
+  - `toFile()` from `openai/uploads` avoids writing to disk in Vercel serverless
+- **New API route**: `POST /api/jobs/[jobId]/field-audio` — accepts base64 audio, transcribes, parses, merges into job doc arrays AND writes to updates subcollection (backward compat with job detail tabs)
+- **Structured job arrays on job doc** (`materials[]`, `laborEntries[]`, `timelineEvents[]`, `fieldNotes[]`, `auditLog[]`, `totalLaborHours`) — shown in collapsible sections in the field page job log card
+- **Job type extended**: `FieldMaterial`, `FieldLaborEntry`, `FieldTimelineEvent`, `FieldAuditEntry` interfaces added to `src/types/jobs.ts`
+- **`useFieldAudio` hook** (`src/hooks/useFieldAudio.ts`): replaces Web Speech API for field input; returns `status`, `transcript`, `lastResult`, `startRecording`, `stopRecording`
+
+### Why Whisper over Web Speech API
+- Web Speech API (Google/Apple native) fails on construction vocabulary (shingles, fascia, flashing), job-site noise, and iOS reliability. Whisper handles all of these at $0.003/update. See Lesson 105.
+
+---
+
 ## What Was Built This Session (2026-05-28)
 
 ### Plan
