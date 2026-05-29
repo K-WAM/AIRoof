@@ -236,6 +236,7 @@ Before asking the user to verify anything, use CLI/curl first:
 5. Add "Complete" button to job detail page so staff can mark jobs done (removes from field crew's dropdown)
 6. Vapi voice: switch to `eleven_flash_v2_5` + set Stability to 0.35 for faster, more natural sound
 7. Phase 3: after-hours logic, call outcome tagging via DeepSeek, follow-up cadence cron
+8. **Outbound calling** (manual callback/follow-up from company dashboard via Vapi) — full spec in HANDOFF.md "Outbound Calling (Future)"
 
 ## Implementation Phases
 

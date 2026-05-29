@@ -147,6 +147,56 @@ Full implementation plan written and approved: `docs/plans/invoice-from-field-up
 | Job "Complete" button | Not built | No UI to mark a job done — removes from field crew dropdown |
 | Google Calendar | Not built | Post-MVP, requires per-business OAuth |
 | RESEND_FROM verified domain | Not set | Needs verified domain before "From" name shows correctly |
+| Outbound calling (manual) | Not built | See spec below |
+
+---
+
+## Outbound Calling (Future — Phase 3)
+
+Manual callback/follow-up trigger from the company dashboard. Do not implement cold calling in v1.
+
+**Types**
+- `OutboundCall`: `{ id, businessId, vapiCallId?, toPhone, toName?, type: "callback"|"follow-up", status: OutboundCallStatus, notes?, summary?, recordingUrl?, createdAt, updatedAt }`
+- `OutboundCallStatus`: `"queued" | "dialing" | "completed" | "no-answer" | "busy" | "failed" | "voicemail"`
+
+**API routes**
+- `POST /api/calls/outbound` — create + initiate immediately; auth via `verifyAuthAndRole`; `businessId` from auth only, never body
+- `GET /api/calls/outbound?businessId=xxx` — list for business
+- `GET /api/calls/outbound/[id]` — detail
+
+**Vapi integration**
+- Use `vapiAssistantId` + `vapiPhoneNumberId` from `BusinessConfig`
+- POST to Vapi `/call` with `assistantId`, `phoneNumberId`, `customer.number`; store returned `vapiCallId`
+- Do not claim initiated until Vapi returns 2xx
+- Webhook (`/api/webhooks/vapi`): detect outbound via `call.type === "outboundPhoneCall"` → look up outbound record by `vapiCallId` → update status; do **not** create inbound-style call record
+
+**Webhook status mapping**
+- `status-update: ringing` → `dialing`
+- `end-of-call-report: ended-reason: customer-did-not-answer` → `no-answer`
+- `end-of-call-report: ended-reason: busy` → `busy`
+- `end-of-call-report: ended-reason: voicemail` → `voicemail`
+- `end-of-call-report: completed` → `completed` (save summary + recordingUrl)
+- fallback → `failed`
+
+**Firestore**
+- `businesses/{bid}/outboundCalls/{id}` — same subcollection pattern as calls/leads/appointments
+- Security rules: mirror existing `calls` rules (staff/owner read-write, no cross-tenant)
+
+**UI**
+- `/company/outbound` page — list with status badges, target name/phone, type, timestamps, summary, recording link
+- "New call" form: name, phone, type (callback | follow-up), optional notes; no cold calling option
+- Nav entry in `company-nav.tsx`
+- Optional: dashboard metric tile (outbound calls this week)
+
+**Env**
+- `VAPI_API_KEY` — already required for auto-callback, must be set in Vercel first (current blocker)
+- `VAPI_BASE_URL` — optional override (default `https://api.vapi.ai`)
+
+**Constraints**
+- `businessId` always from verified auth token, never request body
+- No cold calling in v1 UI (type field reserved, not exposed)
+- Do not duplicate inbound call records for outbound calls
+- Map voicemail/busy/no-answer from Vapi `endedReason`, not generic status
 
 ---
 
