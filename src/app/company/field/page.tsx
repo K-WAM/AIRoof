@@ -1,38 +1,429 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
-import { useSpeechRecorder } from "@/hooks/useSpeechRecorder";
-import type { Job } from "@/types/jobs";
+import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
+import { useAuth } from "@/contexts/AuthContext";
+import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
 
-export default function FieldPage() {
+// ─── Job Selector ────────────────────────────────────────────────────────────
+
+function JobSelector({
+  jobs,
+  loading,
+  selectedId,
+  onSelect,
+}: {
+  jobs: Job[];
+  loading: boolean;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = jobs.find((j) => j.jobId === selectedId);
+
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          background: "#1e293b",
+          border: "1px solid #334155",
+          borderRadius: 16,
+          padding: "14px 16px",
+          textAlign: "left",
+          cursor: "pointer",
+          color: "#f8fafc",
+        }}
+      >
+        {loading ? (
+          <span style={{ color: "#64748b", fontSize: 15 }}>Loading jobs…</span>
+        ) : selected ? (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "#f97316", fontSize: 13, fontWeight: 700 }}>#</span>
+              <span style={{ color: "#f97316", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
+                {selected.jobId}
+              </span>
+              <span style={{ marginLeft: "auto", color: "#64748b", fontSize: 18 }}>
+                {open ? "▲" : "▼"}
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc", marginTop: 4 }}>{selected.title}</div>
+            {selected.address && (
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>📍 {selected.address}</div>
+            )}
+          </>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ color: "#64748b", fontSize: 15 }}>
+              {jobs.length === 0 ? "— No open jobs —" : "Tap to select a job…"}
+            </span>
+            <span style={{ color: "#64748b", fontSize: 18 }}>{open ? "▲" : "▼"}</span>
+          </div>
+        )}
+      </button>
+
+      {open && jobs.length > 0 && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 40 }}
+          />
+          <div style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            background: "#1e293b",
+            border: "1px solid #334155",
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+          }}>
+            {jobs.map((job, i) => (
+              <button
+                key={job.jobId}
+                onClick={() => { onSelect(job.jobId); setOpen(false); }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "14px 16px",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: i < jobs.length - 1 ? "1px solid #334155" : "none",
+                  cursor: "pointer",
+                  color: "#f8fafc",
+                  transition: "background 0.1s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#0f172a")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <div style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>
+                  #{job.jobId}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
+                  {job.title}
+                </div>
+                {job.address && (
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{job.address}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Mic Button ──────────────────────────────────────────────────────────────
+
+function MicButton({
+  status,
+  disabled,
+  onPressStart,
+  onPressEnd,
+}: {
+  status: "idle" | "recording" | "busy" | "success" | "error";
+  disabled: boolean;
+  onPressStart: (e: React.PointerEvent) => void;
+  onPressEnd: (e: React.PointerEvent) => void;
+}) {
+  const isRecording = status === "recording";
+  const isBusy = status === "busy";
+
+  const btnBg = disabled || isBusy
+    ? "#334155"
+    : isRecording
+    ? "#f97316"
+    : "#1e293b";
+
+  const btnShadow = isRecording
+    ? "0 0 0 0 rgba(249,115,22,0.6)"
+    : "none";
+
+  return (
+    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Pulse rings when recording */}
+      {isRecording && (
+        <>
+          <div style={{
+            position: "absolute",
+            width: 160,
+            height: 160,
+            borderRadius: "50%",
+            background: "rgba(249,115,22,0.15)",
+            animation: "fieldPulse 1.5s ease-in-out infinite",
+          }} />
+          <div style={{
+            position: "absolute",
+            width: 144,
+            height: 144,
+            borderRadius: "50%",
+            background: "rgba(249,115,22,0.1)",
+            animation: "fieldPulse 1.5s ease-in-out 0.2s infinite",
+          }} />
+        </>
+      )}
+
+      <button
+        onPointerDown={onPressStart}
+        onPointerUp={onPressEnd}
+        onPointerLeave={onPressEnd}
+        onPointerCancel={onPressEnd}
+        disabled={disabled || isBusy}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          border: "none",
+          background: btnBg,
+          cursor: disabled || isBusy ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: isRecording
+            ? "0 0 40px rgba(249,115,22,0.5)"
+            : "0 4px 20px rgba(0,0,0,0.4)",
+          transition: "background 0.15s, box-shadow 0.2s, transform 0.1s",
+          transform: isRecording ? "scale(0.96)" : "scale(1)",
+          touchAction: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+        }}
+      >
+        <svg
+          width={48}
+          height={48}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          style={{ color: isRecording ? "#fff" : "#94a3b8" }}
+        >
+          <path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zm6 10a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93V21H9v2h6v-2h-2v-2.07A8 8 0 0 0 20 11h-2z" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ─── Job Log Card ─────────────────────────────────────────────────────────────
+
+interface JobLogData {
+  materials: FieldMaterial[];
+  laborEntries: FieldLaborEntry[];
+  timelineEvents: FieldTimelineEvent[];
+  fieldNotes: string[];
+  totalLaborHours: number;
+}
+
+function JobLogSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  if (count === 0) return null;
+
+  return (
+    <div style={{ borderTop: "1px solid #334155" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 16px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          color: "#94a3b8",
+        }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          {title}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            background: "#f97316",
+            color: "#fff",
+            fontSize: 10,
+            fontWeight: 800,
+            borderRadius: 10,
+            padding: "1px 6px",
+            minWidth: 18,
+            textAlign: "center",
+          }}>{count}</span>
+          <span style={{ fontSize: 12, color: "#475569" }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </button>
+      {open && (
+        <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LogRow({ left, right }: { left: string; right: string }) {
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      background: "rgba(51,65,85,0.4)",
+      borderRadius: 8,
+      padding: "8px 12px",
+    }}>
+      <span style={{ fontSize: 13, color: "#f1f5f9" }}>{left}</span>
+      <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8" }}>{right}</span>
+    </div>
+  );
+}
+
+function JobLogCard({ data }: { data: JobLogData }) {
+  const hasContent =
+    data.materials.length > 0 ||
+    data.laborEntries.length > 0 ||
+    data.timelineEvents.length > 0 ||
+    data.fieldNotes.length > 0;
+
+  if (!hasContent) return null;
+
+  return (
+    <div style={{
+      background: "#1e293b",
+      border: "1px solid #334155",
+      borderRadius: 16,
+      overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: "12px 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>Job Log</span>
+        {data.totalLaborHours > 0 && (
+          <span style={{ fontSize: 12, color: "#f97316", fontWeight: 600 }}>
+            {data.totalLaborHours.toFixed(1)}h total
+          </span>
+        )}
+      </div>
+
+      {/* Materials */}
+      <JobLogSection title="📦 Materials" count={data.materials.length}>
+        {data.materials.map((m, i) => (
+          <LogRow key={i} left={m.name} right={`${m.quantity} ${m.unit}`} />
+        ))}
+      </JobLogSection>
+
+      {/* Timeline */}
+      <JobLogSection title="🕐 Timeline" count={data.timelineEvents.length}>
+        {data.timelineEvents.map((ev, i) => (
+          <LogRow key={i} left={ev.notes || ev.eventType} right={ev.time || ""} />
+        ))}
+      </JobLogSection>
+
+      {/* Labor */}
+      <JobLogSection title="👷 Labor" count={data.laborEntries.length}>
+        {data.laborEntries.map((e, i) => (
+          <div
+            key={i}
+            style={{
+              background: "rgba(51,65,85,0.4)",
+              borderRadius: 8,
+              padding: "8px 12px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13, color: "#f1f5f9", fontWeight: 500 }}>
+                {e.workerName}{e.role ? ` · ${e.role}` : ""}
+              </div>
+              {(e.timeIn || e.timeOut) && (
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                  {e.timeIn && `In: ${e.timeIn}`}
+                  {e.timeIn && e.timeOut ? " · " : ""}
+                  {e.timeOut && `Out: ${e.timeOut}`}
+                </div>
+              )}
+            </div>
+            {e.hours != null && (
+              <span style={{ fontSize: 14, color: "#f97316", fontWeight: 700, fontFamily: "monospace" }}>
+                {e.hours}h
+              </span>
+            )}
+          </div>
+        ))}
+      </JobLogSection>
+
+      {/* Notes */}
+      <JobLogSection title="📝 Notes" count={data.fieldNotes.length}>
+        {data.fieldNotes.map((n, i) => (
+          <div
+            key={i}
+            style={{
+              background: "rgba(51,65,85,0.4)",
+              borderRadius: 8,
+              padding: "8px 12px",
+              fontSize: 13,
+              color: "#cbd5e1",
+            }}
+          >
+            {n}
+          </div>
+        ))}
+      </JobLogSection>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+function FieldPageContent() {
   const searchParams = useSearchParams();
   const hookBusinessId = useBusinessId();
   const businessId = searchParams?.get("businessId") ?? hookBusinessId;
   const prefillJobId = searchParams?.get("jobId") ?? "";
+  const { user } = useAuth();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
-  const [workerName, setWorkerName] = useState("");
+  const [jobLogData, setJobLogData] = useState<JobLogData>({
+    materials: [],
+    laborEntries: [],
+    timelineEvents: [],
+    fieldNotes: [],
+    totalLaborHours: 0,
+  });
 
-  const { text, setText, interimText, pressing, voiceSupported, handlePressStart, handlePressEnd, langRef } = useSpeechRecorder();
+  const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [countdown, setCountdown] = useState(5);
-  const [error, setError] = useState<string | null>(null);
-  const countdownRef = { current: null as ReturnType<typeof setInterval> | null };
-
+  // Load jobs list
   useEffect(() => {
     if (!businessId) return;
     fetch(`/api/jobs?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => {
-        const openJobs = (d.jobs as Job[]).filter((j) => j.status !== "complete");
-        setJobs(openJobs);
-        if (prefillJobId && openJobs.find((j) => j.jobId === prefillJobId)) {
+        const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
+        setJobs(open);
+        if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) {
           setSelectedJobId(prefillJobId);
         }
       })
@@ -40,138 +431,217 @@ export default function FieldPage() {
       .finally(() => setLoadingJobs(false));
   }, [businessId, prefillJobId]);
 
-  async function submit() {
-    if (!selectedJobId || !text.trim()) {
-      setError("Select a job and record an update.");
+  // Load structured job data when selection changes
+  useEffect(() => {
+    if (!selectedJob) {
+      setJobLogData({ materials: [], laborEntries: [], timelineEvents: [], fieldNotes: [], totalLaborHours: 0 });
       return;
     }
-    setError(null);
-    setSubmitting(true);
-    const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
-    try {
-      const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId,
-          rawText: text.trim(),
-          language: langRef.current.split("-")[0],
-          submittedBy: workerName.trim() || undefined,
-          jobContext: {
-            title: selectedJob?.title,
-            address: selectedJob?.address,
-            serviceType: selectedJob?.serviceType,
-            clientName: selectedJob?.clientName,
-          },
-        }),
-      });
-      if (res.ok) {
-        setSubmitted(true);
-        setText("");
-        setCountdown(5);
-        countdownRef.current = setInterval(() => {
-          setCountdown((c) => {
-            if (c <= 1) {
-              clearInterval(countdownRef.current!);
-              setSubmitted(false);
-              setError(null);
-              return 5;
-            }
-            return c - 1;
-          });
-        }, 1000);
-      } else {
-        setError("Failed to submit. Try again.");
-      }
-    } catch {
-      setError("Network error. Try again.");
-    } finally {
-      setSubmitting(false);
+    setJobLogData({
+      materials: selectedJob.materials || [],
+      laborEntries: selectedJob.laborEntries || [],
+      timelineEvents: selectedJob.timelineEvents || [],
+      fieldNotes: selectedJob.fieldNotes || [],
+      totalLaborHours: selectedJob.totalLaborHours || 0,
+    });
+  }, [selectedJobId, jobs]);
+
+  const handleSuccess = useCallback((result: FieldAudioResult) => {
+    setJobLogData(result.updatedJob);
+  }, []);
+
+  const { status: audioStatus, transcript, startRecording, stopRecording } = useFieldAudio(
+    selectedJobId || null,
+    {
+      businessId,
+      submittedBy: user?.email || undefined,
+      jobContext: selectedJob
+        ? {
+            title: selectedJob.title,
+            address: selectedJob.address,
+            serviceType: selectedJob.serviceType,
+            clientName: selectedJob.clientName,
+          }
+        : undefined,
+      onSuccess: handleSuccess,
     }
-  }
+  );
 
-  function reset() {
-    clearInterval(countdownRef.current!);
-    setSubmitted(false);
-    setError(null);
-    setCountdown(5);
-  }
+  // Map hook status to button display status
+  const btnStatus =
+    audioStatus === "recording"
+      ? "recording"
+      : audioStatus === "transcribing"
+      ? "busy"
+      : audioStatus === "success"
+      ? "success"
+      : audioStatus === "error"
+      ? "error"
+      : "idle";
 
-  const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
+  const statusLabel =
+    !selectedJobId ? "Select a job first" :
+    btnStatus === "recording" ? "Listening…" :
+    btnStatus === "busy" ? "Transcribing…" :
+    btnStatus === "success" ? "✓ Logged" :
+    btnStatus === "error" ? "Failed — try again" :
+    "HOLD TO SPEAK";
 
-  if (submitted) {
-    return (
-      <div style={{ maxWidth: 480, margin: "0 auto", padding: 24, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40, background: "#f0fdf4", borderRadius: 20, border: "2px solid #86efac", width: "100%" }}>
-          <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 32, color: "#fff" }}>✓</div>
-          <h2 style={{ fontWeight: 800, fontSize: 22, margin: "0 0 8px", color: "#15803d" }}>Update sent!</h2>
-          <p style={{ color: "#166534", fontSize: 15, margin: "0 0 4px" }}>Saved to <strong>{selectedJobId}</strong>.</p>
-          <p style={{ color: "#166534", fontSize: 13, margin: "0 0 28px" }}>AI is structuring your update.</p>
-          <button onClick={reset} style={{ padding: "12px 32px", background: "#15803d", color: "#fff", border: "none", borderRadius: 10, fontSize: 16, fontWeight: 700, cursor: "pointer", marginBottom: 12 }}>Submit another</button>
-          <p style={{ margin: 0, fontSize: 12, color: "#4ade80" }}>Resetting in {countdown}s…</p>
-        </div>
-      </div>
-    );
-  }
+  const statusColor =
+    btnStatus === "recording" ? "#f97316" :
+    btnStatus === "busy" ? "#94a3b8" :
+    btnStatus === "success" ? "#22c55e" :
+    btnStatus === "error" ? "#ef4444" :
+    "#475569";
 
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 16px 60px", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontWeight: 800, fontSize: 24, margin: "0 0 4px", color: "#1e293b" }}>Field Update</h1>
-        <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>Select your job, hold the mic, speak your update, tap Submit.</p>
-      </div>
+    <>
+      {/* Keyframe animation injected once */}
+      <style>{`
+        @keyframes fieldPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.3; transform: scale(1.4); }
+        }
+      `}</style>
 
-      {/* Job selector */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>Job *</label>
-        <select value={selectedJobId} onChange={(e) => setSelectedJobId(e.target.value)} disabled={loadingJobs} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, background: loadingJobs ? "#f8fafc" : "#fff", color: "#1e293b" }}>
-          {loadingJobs ? <option>Loading jobs…</option>
-            : jobs.length === 0 ? <option value="">— No open jobs —</option>
-            : <><option value="">— Select a job —</option>{jobs.map((j) => <option key={j.jobId} value={j.jobId}>{j.jobId} — {j.title}</option>)}</>}
-        </select>
-        {selectedJob && (
-          <div style={{ marginTop: 8, padding: "8px 12px", background: "#f8fafc", borderRadius: 8, fontSize: 12, color: "#64748b" }}>
-            {selectedJob.address && <div>{selectedJob.address}</div>}
-            {selectedJob.clientName && <div>{selectedJob.clientName}{selectedJob.serviceType ? ` · ${selectedJob.serviceType}` : ""}</div>}
+      {/* Dark full-bleed wrapper that overrides company-main padding */}
+      <div style={{
+        margin: "-28px",
+        background: "#0f172a",
+        minHeight: "calc(100vh - 64px)",
+      }}>
+        <div style={{
+          maxWidth: 480,
+          margin: "0 auto",
+          padding: "20px 16px 80px",
+        }}>
+
+          {/* Header */}
+          <header style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 20,
+          }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc" }}>
+                Field Log
+              </h1>
+              {user && (
+                <p style={{ margin: 0, fontSize: 11, color: "#475569", marginTop: 2 }}>
+                  {user.email}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                if (!businessId) return;
+                setLoadingJobs(true);
+                fetch(`/api/jobs?businessId=${businessId}`)
+                  .then((r) => r.json())
+                  .then((d) => {
+                    const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
+                    setJobs(open);
+                    const refreshed = open.find((j) => j.jobId === selectedJobId);
+                    if (refreshed) {
+                      setJobLogData({
+                        materials: refreshed.materials || [],
+                        laborEntries: refreshed.laborEntries || [],
+                        timelineEvents: refreshed.timelineEvents || [],
+                        fieldNotes: refreshed.fieldNotes || [],
+                        totalLaborHours: refreshed.totalLaborHours || 0,
+                      });
+                    }
+                  })
+                  .catch(console.error)
+                  .finally(() => setLoadingJobs(false));
+              }}
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "#475569",
+                fontSize: 18,
+                padding: 4,
+                lineHeight: 1,
+              }}
+              title="Refresh"
+            >
+              ↻
+            </button>
+          </header>
+
+          {/* Job Selector */}
+          <div style={{ marginBottom: 32 }}>
+            <JobSelector
+              jobs={jobs}
+              loading={loadingJobs}
+              selectedId={selectedJobId}
+              onSelect={setSelectedJobId}
+            />
           </div>
-        )}
-      </div>
 
-      {/* Worker name */}
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>Your name <span style={{ fontWeight: 400, color: "#94a3b8" }}>(optional)</span></label>
-        <input value={workerName} onChange={(e) => setWorkerName(e.target.value)} placeholder="e.g. Miguel" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", fontSize: 15, boxSizing: "border-box", color: "#1e293b" }} />
-      </div>
+          {/* Mic Button */}
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 20,
+            marginBottom: 40,
+          }}>
+            <MicButton
+              status={btnStatus}
+              disabled={!selectedJobId}
+              onPressStart={startRecording}
+              onPressEnd={stopRecording}
+            />
 
-      {/* Mic button */}
-      {voiceSupported && (
-        <div style={{ marginBottom: 20, textAlign: "center" }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Hold to talk — release to pause — tap Submit when done</p>
-          <button
-            onPointerDown={handlePressStart} onPointerUp={handlePressEnd} onPointerLeave={handlePressEnd} onPointerCancel={handlePressEnd}
-            style={{ width: 112, height: 112, borderRadius: "50%", border: "none", background: pressing ? "#ef4444" : "#2563eb", cursor: "pointer", fontSize: 44, boxShadow: pressing ? "0 0 0 16px rgba(239,68,68,0.2), 0 0 0 32px rgba(239,68,68,0.08)" : "0 4px 20px rgba(37,99,235,0.35)", transition: "background 0.1s, box-shadow 0.2s, transform 0.1s", transform: pressing ? "scale(0.95)" : "scale(1)", userSelect: "none", WebkitUserSelect: "none", touchAction: "none" }}
-          >🎤</button>
-          <p style={{ fontSize: 13, fontWeight: 700, margin: "12px 0 0", color: pressing ? "#ef4444" : "#94a3b8" }}>{pressing ? "● Recording…" : "Hold to record"}</p>
+            <p style={{
+              margin: 0,
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: statusColor,
+              transition: "color 0.2s",
+            }}>
+              {statusLabel}
+            </p>
+
+            {/* Transcript preview */}
+            {transcript && btnStatus !== "recording" && (
+              <p style={{
+                margin: 0,
+                fontSize: 12,
+                color: "#475569",
+                fontStyle: "italic",
+                textAlign: "center",
+                maxWidth: 320,
+                lineHeight: 1.5,
+              }}>
+                &ldquo;{transcript}&rdquo;
+              </p>
+            )}
+          </div>
+
+          {/* Job Log Card */}
+          <JobLogCard data={jobLogData} />
+
         </div>
-      )}
-
-      {/* Transcript */}
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ fontWeight: 600, fontSize: 13, display: "block", marginBottom: 6, color: "#1e293b" }}>Update *{voiceSupported && <span style={{ fontWeight: 400, color: "#94a3b8" }}> — or type below</span>}</label>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Hold the mic above and speak, or type your update here…" rows={6} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: pressing ? "1.5px solid #ef4444" : "1.5px solid #e2e8f0", fontSize: 15, lineHeight: 1.6, resize: "vertical", boxSizing: "border-box", color: "#1e293b", transition: "border-color 0.15s" }} />
-        {interimText && (
-          <div style={{ marginTop: 6, padding: "8px 12px", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 8, fontSize: 13, color: "#92400e", fontStyle: "italic" }}>
-            <span style={{ fontWeight: 700, fontStyle: "normal" }}>Hearing: </span>{interimText}
-          </div>
-        )}
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "4px 0 0" }}>Speak naturally — crew names, materials, hours, issues — AI extracts and structures everything.</p>
       </div>
+    </>
+  );
+}
 
-      {error && <p style={{ color: "#b91c1c", fontSize: 14, marginBottom: 16, fontWeight: 600 }}>{error}</p>}
-
-      <button onClick={submit} disabled={submitting || !selectedJobId || !text.trim()} style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: submitting || !selectedJobId || !text.trim() ? "#e2e8f0" : "#2563eb", color: submitting || !selectedJobId || !text.trim() ? "#94a3b8" : "#fff", fontWeight: 800, fontSize: 17, cursor: submitting || !selectedJobId || !text.trim() ? "not-allowed" : "pointer", transition: "background 0.15s" }}>
-        {submitting ? "Sending…" : "Submit Update"}
-      </button>
-    </div>
+export default function FieldPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ background: "#0f172a", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", margin: "-28px" }}>
+        <span style={{ color: "#475569", fontSize: 14 }}>Loading…</span>
+      </div>
+    }>
+      <FieldPageContent />
+    </Suspense>
   );
 }

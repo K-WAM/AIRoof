@@ -23,6 +23,34 @@ export interface FieldUpdate {
   parseError?: string;
 }
 
+export interface FieldMaterial {
+  name: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface FieldLaborEntry {
+  workerName: string;
+  role?: string;
+  timeIn?: string;
+  timeOut?: string;
+  hours?: number;
+}
+
+export interface FieldTimelineEvent {
+  eventType: string;
+  time?: string;
+  notes?: string;
+}
+
+export interface FieldAuditEntry {
+  timestamp: string;
+  userId: string;
+  userName: string;
+  transcript: string;
+  changesSummary: string;
+}
+
 export interface Job {
   jobId: string;            // e.g. "J-1042"
   businessId: string;
@@ -39,4 +67,11 @@ export interface Job {
   invoiceId?: string;
   createdAt: number;
   updatedAt: number;
+  // Structured field data written by AI after voice updates
+  materials?: FieldMaterial[];
+  laborEntries?: FieldLaborEntry[];
+  timelineEvents?: FieldTimelineEvent[];
+  fieldNotes?: string[];
+  totalLaborHours?: number;
+  auditLog?: FieldAuditEntry[];
 }
