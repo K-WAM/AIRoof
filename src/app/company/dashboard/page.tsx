@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit, doc, getDoc, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -74,10 +74,10 @@ export default function CompanyDashboardPage() {
       try {
         const base = `businesses/${businessId}`;
 
-        const [callsSnap, leadsSnap, apptsSnap, bizDoc, jobsRes] = await Promise.all([
-          getDocs(collection(db!, base + "/calls")),
+        const [callCountSnap, leadsSnap, apptsSnap, bizDoc, jobsRes] = await Promise.all([
+          getCountFromServer(collection(db!, base + "/calls")),
           getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
-          getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"))),
+          getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
           getDoc(doc(db!, "businesses", businessId)),
           fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
         ]);
@@ -94,7 +94,7 @@ export default function CompanyDashboardPage() {
           });
         }
 
-        setCallCount(callsSnap.size);
+        setCallCount(callCountSnap.data().count);
         setLeads(leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as LeadSnapshot)));
         setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as ApptSnapshot)));
         setJobs((jobsRes.jobs ?? []) as JobSnapshot[]);

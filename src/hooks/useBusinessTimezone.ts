@@ -24,10 +24,20 @@ export function useBusinessTimezone(): string {
 
   useEffect(() => {
     if (!db || !businessId) return;
+
+    const cacheKey = `tz_${businessId}`;
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) { setTimezone(cached); return; }
+    } catch { /* sessionStorage unavailable (SSR) */ }
+
     getDoc(doc(db, "businesses", businessId))
       .then((snap) => {
         const tz = snap.data()?.timezone;
-        if (typeof tz === "string" && tz.length > 0) setTimezone(tz);
+        if (typeof tz === "string" && tz.length > 0) {
+          setTimezone(tz);
+          try { sessionStorage.setItem(cacheKey, tz); } catch { /* ignore */ }
+        }
       })
       .catch(() => {});
   }, [businessId]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -99,8 +99,17 @@ export default function CalendarPage() {
     async function load() {
       try {
         if (!db) return;
+        // Fetch prev month start → next month end so navigation feels instant
+        const startMs = new Date(year, month - 1, 1).getTime();
+        const endMs = new Date(year, month + 2, 0, 23, 59, 59, 999).getTime();
+
         const [apptSnap, jobsRes] = await Promise.all([
-          getDocs(query(collection(db, "businesses", biz, "appointments"), orderBy("startTime", "asc"))),
+          getDocs(query(
+            collection(db, "businesses", biz, "appointments"),
+            where("startTime", ">=", startMs),
+            where("startTime", "<=", endMs),
+            orderBy("startTime", "asc")
+          )),
           fetch(`/api/jobs?businessId=${biz}`).then(r => r.json()),
         ]);
 
@@ -118,7 +127,7 @@ export default function CalendarPage() {
           } as CalEvent;
         });
 
-        const jobEvts: CalEvent[] = ((jobsRes.jobs ?? []) as Job[]).map(j => ({
+        const jobEvts: CalEvent[] = ((jobsRes.jobs ?? []) as Job[]).filter(j => j.status !== "complete").map(j => ({
           id: j.jobId,
           type: "job",
           label: j.jobId,
@@ -137,7 +146,7 @@ export default function CalendarPage() {
     }
 
     load();
-  }, [businessId, tz]);
+  }, [businessId, tz, year, month]);
 
   function prevMonth() {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
