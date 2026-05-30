@@ -110,7 +110,7 @@ export default function CompanyDashboardPage() {
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
-  const activeJobs = jobs.filter((j) => j.status === "open" || j.status === "in_progress");
+  const activeJobs = jobs.filter((j) => j.status !== "complete");
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
   const metrics = [

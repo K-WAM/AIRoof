@@ -12,7 +12,9 @@
       "Bash(node --check *)",
       "Bash(graphify query *)",
       "Bash(graphify build *)",
-      "Bash(firebase deploy --only firestore:rules --dry-run *)"
+      "Bash(firebase deploy --only firestore:rules --dry-run *)",
+      "mcp__claude_ai_Vercel__get_runtime_logs",
+      "mcp__vercel__get_runtime_logs"
     ]
   },
   "hooks": {

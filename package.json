@@ -18,11 +18,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.12.3",
-    "twilio": "^6.0.2",
     "typescript": "^5.3.0"
   },
   "devDependencies": {
-    "@opentelemetry/api": "^1.9.1",
     "@types/node": "^20.10.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^18.2.0",

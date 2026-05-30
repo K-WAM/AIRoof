@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminFirestore, getAdminApp } from "@/lib/firebase/admin";
+import { getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
 import { initiateVapiCall } from "@/lib/vapi/vapiClient";
 
-// Re-use the same sanitizePhone guard from the webhook route.
 function sanitizePhone(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
   const trimmed = v.trim();
@@ -12,30 +11,25 @@ function sanitizePhone(v: unknown): string | undefined {
 
 async function getAuthenticatedBusinessId(request: NextRequest): Promise<{ businessId: string; uid: string } | null> {
   const db = getAdminFirestore();
-  const app = getAdminApp();
-  if (!db || !app) return null;
+  if (!db) return null;
 
-  // Read __session cookie set by AuthContext on login
   const sessionCookie = request.cookies.get("__session")?.value;
   if (!sessionCookie) return null;
 
-  try {
-    const { getAuth } = await import("firebase-admin/auth");
-    const decoded = await getAuth(app).verifySessionCookie(sessionCookie, true);
-    const uid = decoded.uid;
+  const decoded = await verifyIdToken(sessionCookie);
+  if (!decoded) return null;
 
-    // Look up businessId + role from businessUsers/{uid}
-    const memberSnap = await db.collection("businessUsers").doc(uid).get();
-    if (!memberSnap.exists) return null;
+  const uid = decoded.uid;
 
-    const member = memberSnap.data();
-    if (!member?.businessId) return null;
-    if (member.role !== "owner" && member.role !== "staff") return null;
+  // Look up businessId + role from businessUsers/{uid}
+  const memberSnap = await db.collection("businessUsers").doc(uid).get();
+  if (!memberSnap.exists) return null;
 
-    return { businessId: member.businessId as string, uid };
-  } catch {
-    return null;
-  }
+  const member = memberSnap.data();
+  if (!member?.businessId) return null;
+  if (member.role !== "owner" && member.role !== "staff") return null;
+
+  return { businessId: member.businessId as string, uid };
 }
 
 export async function POST(request: NextRequest) {

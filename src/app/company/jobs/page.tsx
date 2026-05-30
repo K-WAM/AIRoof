@@ -7,7 +7,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 
-type StatusFilter = "all" | "open" | "in_progress" | "complete";
+type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
 export default function JobsPage() {
   const businessId = useBusinessId();
@@ -161,11 +161,17 @@ export default function JobsPage() {
           <div className="segmented-control" aria-label="Filter by status">
             {([
               { key: "all",         label: "All" },
-              { key: "open",        label: "Open" },
+              { key: "inspection",  label: "Inspection" },
+              { key: "quoted",      label: "Quoted" },
               { key: "in_progress", label: "In Progress" },
+              { key: "invoiced",    label: "Invoiced" },
               { key: "complete",    label: "Complete" },
             ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => {
-              const count = key === "all" ? jobs.length : jobs.filter((j) => j.status === key).length;
+              const count = key === "all"
+                ? jobs.length
+                : key === "inspection"
+                ? jobs.filter((j) => j.status === "inspection" || j.status === "open").length
+                : jobs.filter((j) => j.status === key).length;
               return (
                 <button
                   key={key}
@@ -204,7 +210,10 @@ export default function JobsPage() {
               </thead>
               <tbody>
                 {jobs
-                  .filter((j) => statusFilter === "all" || j.status === statusFilter)
+                  .filter((j) =>
+                    statusFilter === "all" ||
+                    (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
+                  )
                   .map((job) => (
                   <tr key={job.jobId} style={{ borderBottom: "1px solid #f1f5f9", background: job.jobId === justCreatedId ? "#f0fdf4" : undefined, transition: "background 1s" }}>
                     <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>

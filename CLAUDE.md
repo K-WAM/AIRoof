@@ -35,8 +35,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 3 complete — call outcome tagging, after-hours, cron, invoices, client provisioning shipped
-**Estimated Completion**: 88%
+**Status**: Phase 4 in progress — bugs fixed, performance cleanup partially done
+**Estimated Completion**: 92%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -53,21 +53,19 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **82% complete**.
+Current estimate: **92% complete**.
 
 Basis:
 - Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Vapi, Resend all configured.
-- Migrated from custom Twilio pipeline to Vapi (managed voice AI) — old Twilio routes deleted.
-- Alice (Vapi assistant) answers calls end-to-end: multi-turn conversation memory, tool use confirmed.
-- 5 tools wired in code: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment. lookupAppointment needs Vapi UI step.
-- Branded HTML emails: client logo/color in notifications + confirmation emails; "Powered by Luxor AI" hidden footer.
-- All 5 company dashboard pages wired to live Firestore data.
-- Auth guards on /company and /admin: Next.js middleware (__session cookie) + layout redirects + Firestore rules.
-- Superadmin provisioned: connect@luxordev.com → /admin access.
-- Demo customizer built: /admin/demo page + CLI script for prospect demos.
-- Admin onboarding form (5 steps): creates business doc, accepts vapiAssistantId, branding fields.
-- Business config edit page: loads live Firestore data, editable vapiAssistantId + all agent settings.
-- Critical gaps remaining: VAPI_AUTH_BYPASS active, lookupAppointment not yet added to Vapi UI, no real Google Calendar.
+- Alice answers calls end-to-end: 7 tools, call outcome tagging, after-hours tagging, follow-up cron.
+- "Call Back" button fixed — outbound calls now work (BUG 1 resolved: ID token vs session cookie mismatch).
+- QR demo field submission fixed — public /field workers no longer get 401 (BUG 2 resolved).
+- /field upgraded to Whisper (MediaRecorder → server-side Whisper) — better quality than browser speech API.
+- Job status normalization: all 6 statuses consistent across dashboard, jobs filter chips, progress bar.
+- Single-job endpoint added (GET /api/jobs/[jobId]) — job detail no longer fetches all jobs to find one.
+- Unused packages removed: twilio, @opentelemetry/api.
+- All company dashboard pages wired to live Firestore; superadmin portal complete.
+- Remaining: calendar range filter, timezone caching, dashboard count aggregation, admin route auth.
 
 ## Architecture
 
@@ -166,13 +164,13 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - firestore.rules — Tenant isolation rules (isSuperadmin checks businessUsers doc as fallback)
 - src/middleware.ts — Next.js route protection (__session cookie check for /admin/* and /company/*)
 - src/contexts/AuthContext.tsx — Sets/clears __session cookie on auth state change
-- src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (5 tools)
+- src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (7 tools + outcome tagging + after-hours)
 - src/lib/vapi/types.ts — Vapi payload types
 - src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS active)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
 - src/lib/tools/agentTools.ts — All tools + BizBranding email templates + auto-callback on createLead()
 - src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
-- src/app/api/jobs/[jobId]/route.ts — PATCH job status (clickable progress bar backend)
+- src/app/api/jobs/[jobId]/route.ts — GET single job + PATCH job status
 - src/app/api/cron/follow-up-calls/route.ts — Daily follow-up cron (vercel.json: 2pm UTC)
 - src/app/api/admin/invoices/route.ts — GET/POST Luxor invoices (LX-XXXX auto-ID)
 - src/app/api/admin/invoices/[invoiceId]/route.ts — GET/PUT/DELETE single invoice
@@ -201,7 +199,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation + Create Job
 - src/app/company/jobs/page.tsx — Job list with status badges + create form
 - src/app/company/jobs/[jobId]/page.tsx — Job detail: 6 tabs (timeline/materials/labor/issues/invoice/report)
-- src/app/company/field/page.tsx — Mobile field screen: auto language detect, voice via Web Speech API
+- src/app/field/page.tsx — Public field screen (QR code): Whisper-based voice recording, no auth required
+- src/app/company/field/page.tsx — Authenticated field screen: Whisper pipeline, job log display
 - src/app/api/jobs/route.ts — GET list + POST create (atomic J-XXXX short ID via runTransaction)
 - src/app/api/jobs/[jobId]/updates/route.ts — Submit field update + DeepSeek parse
 - src/app/api/jobs/[jobId]/report/route.ts — Generate text report from all parsed updates
@@ -214,7 +213,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
 - scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
-- TODO.md — Implementation roadmap
+- docs/PERFORMANCE-CLEANUP.md — Phase 4 remaining items (calendar range, timezone cache, dashboard aggregation, admin auth)
 
 ## Navigation Completeness Rule
 
@@ -237,12 +236,15 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Test outbound call end-to-end** — VAPI_API_KEY is in Vercel; make a real test call via "Call Back" button
-2. **Vapi Stability slider** — drag to 0.35–0.40 in Vapi dashboard voice settings for more natural tone (dashboard-only, no code)
-3. **VAPI_AUTH_BYPASS** — permanently active; Vapi new UI sends no webhook secret header (confirmed from Logs tab). Do not remove.
-4. **After-hours voice behavior** — `isAfterHours` is tagged on call docs but Alice's prompt isn't dynamically changed yet. Requires Vapi `assistant-request` webhook or per-call API override (Phase 4).
-5. **Google Calendar** — post-MVP, requires per-business OAuth
-6. **Stripe billing** — Phase 6, wire Luxor invoice payments
+1. **Test outbound call end-to-end** — "Call Back" button now fixed; VAPI_API_KEY in Vercel; test a real call
+2. **Test QR demo** — scan QR on /admin/demo, speak update, confirm it appears in Jobs tab
+3. **Vapi Stability slider** — drag to 0.35–0.40 in Vapi dashboard (dashboard-only, no code)
+4. **Calendar range filter** — Firestore date-range query to stop fetching all appointments
+5. **Timezone caching** — add timezone to shared context to avoid per-page Firestore reads
+6. **Dashboard count aggregation** — /api/company/today endpoint (server-side counts)
+7. **After-hours voice behavior** — requires Vapi assistant-request webhook (Phase 5)
+8. **Google Calendar** — post-MVP, per-business OAuth
+9. **Stripe billing** — Phase 6
 
 ## Implementation Phases
 
@@ -252,8 +254,8 @@ Before asking the user to verify anything, use CLI/curl first:
 - Phase 1C–1H: Twilio pipeline built + fixed ✓ (superseded by Vapi migration)
 - Phase 1F: Company UI pages wired to live Firestore ✓
 - Phase 2: Vapi migration + conversation memory + tool use during calls ✓ (confirmed live end-to-end)
-- Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron ← CURRENT
-- Phase 4: Admin UI polish — business list, superadmin onboarding wizard (auto Vapi + Firestore)
+- Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron ✓
+- Phase 4: Performance cleanup — BUG 1 (outbound auth), BUG 2 (public field auth), job status normalization, single-job endpoint, Whisper upgrade for /field, unused package removal ✓ (partial — calendar range filter, timezone caching, dashboard aggregation still pending)
 - Phase 5: Google Calendar (post-MVP, requires per-business OAuth)
 - Phase 6: Stripe billing, SMS escalation, additional verticals
 

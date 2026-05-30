@@ -57,11 +57,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     if (!businessId) return;
     try {
       const [jobRes, updatesRes, configRes] = await Promise.all([
-        fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()),
+        fetch(`/api/jobs/${jobId}?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
       ]);
-      const found = (jobRes.jobs as Job[]).find((j) => j.jobId === jobId) ?? null;
+      const found = (jobRes.job as Job) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
       if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);

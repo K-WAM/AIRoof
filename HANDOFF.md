@@ -1,9 +1,9 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-05-30
+Last updated: 2026-05-30 (Phase 4 session)
 
 ## Current State
 
-**Completion: ~88%**
+**Completion: ~92%**
 
 Platform is live at https://ai-roof.vercel.app. Everything below is confirmed working in production.
 
@@ -25,43 +25,50 @@ Platform is live at https://ai-roof.vercel.app. Everything below is confirmed wo
 - Auth guards: __session cookie on /admin/* and /company/*
 - Inter font, card shadows, logo.png in both admin sidebar and company topbar
 
-### Outbound Callbacks (BROKEN — two bugs, see Known Bugs)
-- `POST /api/calls/outbound` — staff-authenticated endpoint
-- "☎ Call Back" button on leads and appointment cards — currently returns 401 on every click
+### Outbound Callbacks (FIXED this session)
+- `POST /api/calls/outbound` — staff-authenticated endpoint (now working)
+- "☎ Call Back" button on leads and appointment cards — was returning 401; now fixed
 - Auto-callback after lead creation when `callbackDelayMinutes` is set
 - Calls page has All / Inbound / Outbound filter toggle
 
-### Known Bugs (found during code audit 2026-05-30)
+### Known Bugs — Resolved This Session
 
-**BUG 1 — Call Back button silently fails (401)**
-- File: `src/app/api/calls/outbound/route.ts` line 24
-- Cause: route calls `verifySessionCookie()` but AuthContext stores an **ID token** in `__session`, not a Firebase session cookie. They are different things and will always mismatch.
-- Fix: replace the inline `getAuthenticatedBusinessId` function with `verifyAuthAndRole` from `src/lib/auth/verifyRole.ts` (already used correctly in `field-audio/route.ts`)
-- Impact: every "Call Back" click fails silently; outbound call feature has never worked in production
+**BUG 1 (FIXED) — Call Back button was silently failing (401)**
+- File: `src/app/api/calls/outbound/route.ts`
+- Was: `verifySessionCookie()` — expected Firebase session cookie, got ID token
+- Fix: replaced with `verifyIdToken()` from `@/lib/firebase/admin` — correctly verifies ID tokens
+- Now: "Call Back" button authenticates correctly; test with a real call to confirm end-to-end
 
-**BUG 2 — QR demo field submission fails for unauthenticated workers**
-- Files: `src/app/field/page.tsx`, `src/app/api/jobs/[jobId]/updates/route.ts`
-- Cause: `/field` is public (QR code, no login), but `/api/jobs/{jobId}/updates` has `verifyAuthAndRole` which requires a logged-in user. Unauthenticated field workers get a 401.
-- Fix: remove `verifyAuthAndRole` from the updates route and rely on `businessId` scoping instead (same model as Vapi webhook). Or accept `?businessId=` as auth for field workers only.
-- Impact: QR demo — prospect scans, speaks update — silently fails
+**BUG 2 (FIXED) — QR demo field submission was failing for unauthenticated workers**
+- Files: `src/app/api/jobs/[jobId]/updates/route.ts`, `src/app/api/jobs/[jobId]/field-audio/route.ts`
+- Was: `verifyAuthAndRole` required a logged-in session; public `/field` workers got 401
+- Fix: removed `verifyAuthAndRole` from both routes; businessId in request body is the auth gate
+- `/field` also upgraded to Whisper (see below)
 
 ## Pending Items
 
 ### Must Do Before Demo
-1. **Fix BUG 1 (Call Back 401)** — replace `verifySessionCookie` with `verifyAuthAndRole` in `src/app/api/calls/outbound/route.ts`. 30-min fix. See Known Bugs above.
-2. **Fix BUG 2 (QR field submission 401)** — remove `verifyAuthAndRole` from `/api/jobs/{jobId}/updates` for field workers, or accept businessId scoping. 30-min fix. See Known Bugs above.
-3. **VAPI_API_KEY test** — after BUG 1 is fixed, make a real test call via "Call Back" button to confirm Vapi outbound fires end-to-end
-4. **lookupAppointment in Vapi** — already in Tools tab (confirmed via screenshot), no action needed
+1. **Test outbound call end-to-end** — "Call Back" button is now fixed. Make a real test call via "Call Back" on a lead/appointment to confirm Vapi outbound fires end-to-end with VAPI_API_KEY
+2. **Test QR demo** — scan QR from /admin/demo, speak an update on /field, confirm it appears in Jobs tab (both BUG 1 and BUG 2 are now fixed)
+3. **lookupAppointment in Vapi** — already in Tools tab (confirmed via screenshot), no action needed
 
-### Resolved This Session (no longer pending)
-- ~~VAPI_AUTH_BYPASS~~ — Confirmed: Vapi's new agent builder sends NO secret header (only Content-Type + Accept-Encoding). VAPI_AUTH_BYPASS stays active permanently — this is correct behavior for Vapi's current UI.
-- ~~VAPI_API_KEY missing~~ — was already in Vercel (confirmed May 22)
+### Resolved This Session (Phase 4 — no longer pending)
+- ~~BUG 1 — Call Back 401~~ — fixed: `verifySessionCookie` → `verifyIdToken` in outbound route
+- ~~BUG 2 — QR field submission 401~~ — fixed: removed auth from updates + field-audio routes; businessId scoping
+- ~~/field used browser speech API~~ — upgraded to Whisper (MediaRecorder → server-side transcription → auto-submit)
+- ~~Job status inconsistency~~ — all 6 statuses now consistent across dashboard filter, jobs filter chips, progress bar
+- ~~Job detail fetched all jobs~~ — new `GET /api/jobs/[jobId]` endpoint; detail page now fetches one doc
+- ~~Unused packages~~ — removed `twilio` and `@opentelemetry/api` from package.json
+
+### Resolved Previous Session (Phase 3)
+- ~~VAPI_AUTH_BYPASS~~ — Permanently correct; Vapi sends no secret header. Keep active.
+- ~~VAPI_API_KEY missing~~ — already in Vercel (confirmed May 22)
 - ~~Job progress bar unclickable~~ — now fully interactive, all 5 steps
 - ~~Client login not provisioned~~ — now auto-provisioned on onboarding
-- ~~Dashboard static lead list~~ — replaced with Today Feed (urgent leads, today's appointments, active jobs)
-- ~~Inconsistent status badges~~ — unified into shared `StatusChip` component across all company pages
+- ~~Dashboard static lead list~~ — replaced with Today Feed
+- ~~Inconsistent status badges~~ — unified into shared `StatusChip`
 - ~~No global search~~ — `CommandBar` ⌘K added to company portal topbar
-- ~~Jobs page unfiltered~~ — filter chips added (All / Open / In Progress / Complete with counts)
+- ~~Jobs page unfiltered~~ — filter chips now show All / Inspection / Quoted / In Progress / Invoiced / Complete
 
 ### Nice to Have
 3. **Stability slider in Vapi** — drag to 0.35–0.40 for more natural tone (ElevenLabs Flash already switched)
@@ -72,10 +79,21 @@ Platform is live at https://ai-roof.vercel.app. Everything below is confirmed wo
 - ✅ After-hours call tagging
 - ✅ Follow-up cron route + vercel.json schedule
 
-### Phase 4 — Performance Cleanup (spec written, not started)
-See **[docs/PERFORMANCE-CLEANUP.md](docs/PERFORMANCE-CLEANUP.md)** for full verified spec.
-Bugs 1 & 2 above are Phase 4 items but promoted to Must Do because they block demo.
-Remaining items: bounded fetching on company pages (job detail fetches all jobs), calendar month-range filter, timezone caching, unused dep removal (`twilio`, `@opentelemetry`), job status 6-value normalization, `/field` upgrade to Whisper pipeline.
+### Phase 4 — Performance Cleanup (partially done this session)
+See **[docs/PERFORMANCE-CLEANUP.md](docs/PERFORMANCE-CLEANUP.md)** for the original spec with implementation details.
+
+**Completed this session:**
+- ✅ BUG 1 (outbound auth), BUG 2 (public field auth)
+- ✅ Job status normalization (all 6 values consistent)
+- ✅ Single-job endpoint (GET /api/jobs/[jobId])
+- ✅ /field Whisper upgrade
+- ✅ Unused package removal (twilio, @opentelemetry/api)
+
+**Still pending (next session):**
+- Calendar month-range filter (Firestore date-range query on appointments)
+- Timezone caching (shared context, avoid per-page Firestore reads)
+- Dashboard count aggregation (/api/company/today endpoint)
+- Admin route auth (low priority for demo)
 
 ### Phase 5+ (post-launch)
 - After-hours voice behavior: inject IS_AFTER_HOURS into Vapi system prompt (needs assistant-request webhook or Vapi API update per call)

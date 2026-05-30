@@ -1,17 +1,26 @@
 # Performance-First Cleanup — Verified Spec
 
-**Status:** Not started. Assess and execute in priority order below.
-**Phase:** 4 — after demo validation.
+**Status:** Partially complete (items 1–6 done; items 7–10 pending).
+**Phase:** 4 — in progress.
 **Last reviewed:** 2026-05-30
 
 ---
 
-## What Was Already Done (this session — do not re-do)
+## What Was Already Done (do not re-do)
 
+**Phase 3 session:**
 - Dashboard redesigned as a Today Feed: urgent leads, today's appointments, active jobs.
 - Shared `StatusChip` component replacing 4 inline badge implementations.
 - Jobs page filter chips (All / Open / In Progress / Complete with counts).
 - `CommandBar` ⌘K global search in company portal.
+
+**Phase 4 session (2026-05-30):**
+- ✅ BUG 1 — outbound route auth fixed (`verifySessionCookie` → `verifyIdToken`)
+- ✅ BUG 2 — updates and field-audio routes now accept unauthenticated businessId scoping
+- ✅ Job status normalization — dashboard filter + jobs chips now cover all 6 statuses; "open" treated as "inspection"
+- ✅ Single-job endpoint — `GET /api/jobs/[jobId]` added; job detail page updated
+- ✅ /field upgraded to Whisper — `useSpeechRecorder` replaced with `useFieldAudio` (MediaRecorder → Whisper)
+- ✅ Unused packages removed — `twilio` and `@opentelemetry/api` removed from package.json
 
 ---
 

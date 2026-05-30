@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
 import type { FieldMaterial, FieldLaborEntry, FieldTimelineEvent, FieldAuditEntry } from "@/types/jobs";
 
@@ -21,9 +20,6 @@ export async function POST(
   if (!businessId || !audioBase64) {
     return NextResponse.json({ error: "businessId and audioBase64 required" }, { status: 400 });
   }
-
-  const authResult = await verifyAuthAndRole(req, businessId, ["owner", "staff"]);
-  if ("error" in authResult) return authResult.error;
 
   if (!openai) {
     return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
@@ -115,7 +111,6 @@ export async function POST(
   const totalLaborHours = allLabor.reduce((sum, e) => sum + (e.hours || 0), 0);
 
   // 9. Build audit entry + changes summary
-  const { user } = authResult;
   const parts: string[] = [];
   if (newTimelineEvents.length) parts.push(`${newTimelineEvents.length} timeline event(s)`);
   if (parsed.materials.length) parts.push(`${parsed.materials.length} material(s)`);
@@ -127,8 +122,8 @@ export async function POST(
 
   const auditEntry: FieldAuditEntry = {
     timestamp: new Date().toISOString(),
-    userId: user.uid,
-    userName: submittedBy || user.email || user.uid,
+    userId: businessId,
+    userName: submittedBy || "field-worker",
     transcript,
     changesSummary,
   };
@@ -175,7 +170,7 @@ export async function POST(
       updateId,
       rawText: transcript,
       language: "en",
-      submittedBy: submittedBy || user.email,
+      submittedBy: submittedBy || "field-worker",
       createdAt: now,
       parsed,
     });
