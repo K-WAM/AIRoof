@@ -36,7 +36,7 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 
 **Project**: AI Receptionist Platform for local service businesses
 **Status**: Phase 4 in progress — bugs fixed, performance cleanup partially done
-**Estimated Completion**: 92%
+**Estimated Completion**: 94%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -53,7 +53,7 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **92% complete**.
+Current estimate: **94% complete**.
 
 Basis:
 - Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Vapi, Resend all configured.
@@ -65,7 +65,7 @@ Basis:
 - Single-job endpoint added (GET /api/jobs/[jobId]) — job detail no longer fetches all jobs to find one.
 - Unused packages removed: twilio, @opentelemetry/api.
 - All company dashboard pages wired to live Firestore; superadmin portal complete.
-- Remaining: calendar range filter, timezone caching, dashboard count aggregation, admin route auth.
+- Remaining: admin route auth (low priority, not blocking demo).
 
 ## Architecture
 
@@ -239,10 +239,7 @@ Before asking the user to verify anything, use CLI/curl first:
 1. **Test outbound call end-to-end** — "Call Back" button now fixed; VAPI_API_KEY in Vercel; test a real call
 2. **Test QR demo** — scan QR on /admin/demo, speak update, confirm it appears in Jobs tab
 3. **Vapi Stability slider** — drag to 0.35–0.40 in Vapi dashboard (dashboard-only, no code)
-4. **Calendar range filter** — Firestore date-range query to stop fetching all appointments
-5. **Timezone caching** — add timezone to shared context to avoid per-page Firestore reads
-6. **Dashboard count aggregation** — /api/company/today endpoint (server-side counts)
-7. **After-hours voice behavior** — requires Vapi assistant-request webhook (Phase 5)
+4. **After-hours voice behavior** — requires Vapi assistant-request webhook (Phase 5)
 8. **Google Calendar** — post-MVP, per-business OAuth
 9. **Stripe billing** — Phase 6
 
@@ -255,7 +252,7 @@ Before asking the user to verify anything, use CLI/curl first:
 - Phase 1F: Company UI pages wired to live Firestore ✓
 - Phase 2: Vapi migration + conversation memory + tool use during calls ✓ (confirmed live end-to-end)
 - Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron ✓
-- Phase 4: Performance cleanup — BUG 1 (outbound auth), BUG 2 (public field auth), job status normalization, single-job endpoint, Whisper upgrade for /field, unused package removal ✓ (partial — calendar range filter, timezone caching, dashboard aggregation still pending)
+- Phase 4: Performance cleanup ✓ — BUG 1 + BUG 2 fixed, Whisper for /field, job status normalization, single-job endpoint, package cleanup, calendar range filter, timezone caching, dashboard count aggregation
 - Phase 5: Google Calendar (post-MVP, requires per-business OAuth)
 - Phase 6: Stripe billing, SMS escalation, additional verticals
 

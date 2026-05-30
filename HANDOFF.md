@@ -3,7 +3,7 @@ Last updated: 2026-05-30 (Phase 4 session)
 
 ## Current State
 
-**Completion: ~92%**
+**Completion: ~94%**
 
 Platform is live at https://ai-roof.vercel.app. Everything below is confirmed working in production.
 
@@ -89,11 +89,13 @@ See **[docs/PERFORMANCE-CLEANUP.md](docs/PERFORMANCE-CLEANUP.md)** for the origi
 - ✅ /field Whisper upgrade
 - ✅ Unused package removal (twilio, @opentelemetry/api)
 
-**Still pending (next session):**
-- Calendar month-range filter (Firestore date-range query on appointments)
-- Timezone caching (shared context, avoid per-page Firestore reads)
-- Dashboard count aggregation (/api/company/today endpoint)
-- Admin route auth (low priority for demo)
+**Completed second commit:**
+- ✅ Calendar month-range filter (Firestore date-range query, re-fetches on nav, active jobs only)
+- ✅ Timezone sessionStorage cache (first load fetches Firestore, subsequent pages skip it)
+- ✅ Dashboard call count via getCountFromServer (no longer reads all call docs)
+
+**Still pending (lower priority):**
+- Admin route auth — add verifyAuthAndRole to /api/admin/* routes (not blocking demo)
 
 ### Phase 5+ (post-launch)
 - After-hours voice behavior: inject IS_AFTER_HOURS into Vapi system prompt (needs assistant-request webhook or Vapi API update per call)
