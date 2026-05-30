@@ -196,6 +196,18 @@ export default function CompanyCallsPage() {
                   </div>
                 )}
 
+                {selected.isAfterHours && selected.outcome !== "scheduled" && (
+                  <div style={{ padding: "10px 14px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>⏰</span>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#92400e" }}>Appointment not booked — after hours</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "#b45309" }}>
+                        This call came in outside business hours. The request has been captured as a lead for follow-up. Call the customer back during business hours to confirm.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {selected.summary && (
                   <div className="summary-block">
                     <p style={{ fontWeight: 700, fontSize: 12, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 6px" }}>

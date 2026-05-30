@@ -39,6 +39,9 @@ interface UpdateBusinessConfigRequest {
   // Vapi integration
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  // Pricing (invoice generation)
+  laborRate?: { defaultHourlyRate: number };
+  defaultTaxRate?: number;
   // Branding
   brandColor?: string;
   logoUrl?: string;
@@ -146,6 +149,9 @@ export async function PUT(
         // Vapi integration
         vapiAssistantId: body.vapiAssistantId,
         vapiPhoneNumberId: body.vapiPhoneNumberId,
+        // Pricing
+        ...(body.laborRate !== undefined ? { laborRate: body.laborRate } : {}),
+        ...(body.defaultTaxRate !== undefined ? { defaultTaxRate: body.defaultTaxRate } : {}),
         // Branding
         brandColor: body.brandColor,
         logoUrl: body.logoUrl,

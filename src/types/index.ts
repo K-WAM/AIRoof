@@ -40,12 +40,13 @@ export interface BusinessConfig {
   maxCallAttempts?: number;        // default 3
   callbackWindowStart?: number;    // hour in business timezone (e.g. 8 = 8 AM)
   callbackWindowEnd?: number;      // e.g. 20 = 8 PM
-  // Labor rate config for invoice generation
+  // Labor rate and tax config for invoice generation
   laborRate?: {
     defaultHourlyRate: number;       // dollars/hr, e.g. 65
     lunchDeductionHours?: number;    // deducted when shift > 5h; default 0.5
     roleRates?: Array<{ role: string; rate: number }>;
   };
+  defaultTaxRate?: number;           // percentage, e.g. 8.5 for 8.5%
   // Branding (used in notification/confirmation emails)
   brandColor?: string;
   logoUrl?: string | null;

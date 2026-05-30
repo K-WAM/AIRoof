@@ -34,6 +34,8 @@ interface BizData {
   contactPhone?: string;
   contactEmail?: string;
   websiteUrl?: string;
+  laborRate?: { defaultHourlyRate?: number };
+  defaultTaxRate?: number;
 }
 
 interface OnboardingData {
@@ -126,6 +128,13 @@ export default function AdminBusinessConfigPage({
       contactPhone: String(formData.get("contactPhone") || "").trim(),
       contactEmail: String(formData.get("contactEmail") || "").trim(),
       websiteUrl: String(formData.get("websiteUrl") || "").trim(),
+      // Pricing
+      laborRate: formData.get("defaultHourlyLaborRate") !== ""
+        ? { defaultHourlyRate: Number(formData.get("defaultHourlyLaborRate")) }
+        : undefined,
+      defaultTaxRate: formData.get("defaultTaxRate") !== ""
+        ? Number(formData.get("defaultTaxRate"))
+        : undefined,
       applyTemplateDefaults: formData.get("applyTemplateDefaults") === "on",
       onboarding: Object.fromEntries(
         readinessChecks.map((check) => [check.key, formData.get(check.key) === "on"])
@@ -436,6 +445,45 @@ export default function AdminBusinessConfigPage({
                 <div className="field full">
                   <label htmlFor="websiteUrl">Website URL</label>
                   <input id="websiteUrl" name="websiteUrl" placeholder="https://…" defaultValue={biz.websiteUrl ?? ""} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Job Pricing ─── */}
+          <section className="panel" aria-labelledby="pricing-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="pricing-title">Job Pricing</h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
+                Used when generating invoices from field updates. Field crews can voice these values, but setting defaults here ensures accuracy when not stated.
+              </p>
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="defaultHourlyLaborRate">Default labor rate ($/hr)</label>
+                  <input
+                    id="defaultHourlyLaborRate"
+                    name="defaultHourlyLaborRate"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="65"
+                    defaultValue={biz.laborRate?.defaultHourlyRate ?? ""}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="defaultTaxRate">Default tax rate (%)</label>
+                  <input
+                    id="defaultTaxRate"
+                    name="defaultTaxRate"
+                    type="number"
+                    min="0"
+                    max="30"
+                    step="0.01"
+                    placeholder="0"
+                    defaultValue={biz.defaultTaxRate ?? ""}
+                  />
                 </div>
               </div>
             </div>

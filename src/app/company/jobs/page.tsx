@@ -215,7 +215,13 @@ export default function JobsPage() {
                     (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
                   )
                   .map((job) => (
-                  <tr key={job.jobId} style={{ borderBottom: "1px solid #f1f5f9", background: job.jobId === justCreatedId ? "#f0fdf4" : undefined, transition: "background 1s" }}>
+                  <tr
+                    key={job.jobId}
+                    onClick={() => { window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`; }}
+                    style={{ borderBottom: "1px solid #f1f5f9", background: job.jobId === justCreatedId ? "#f0fdf4" : undefined, transition: "background 0.1s", cursor: "pointer" }}
+                    onMouseEnter={(e) => { if (job.jobId !== justCreatedId) (e.currentTarget as HTMLTableRowElement).style.background = "#f8fafc"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = job.jobId === justCreatedId ? "#f0fdf4" : ""; }}
+                  >
                     <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
                       {job.jobId}
                     </td>

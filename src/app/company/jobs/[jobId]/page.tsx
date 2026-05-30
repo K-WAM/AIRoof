@@ -42,8 +42,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Report state
   const [report, setReport] = useState<string | null>(null);
-  const [generatingReport, setGeneratingReport] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   // Send invoice state
@@ -134,24 +133,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   }
 
-  async function generateReport() {
-    setGeneratingReport(true);
-    setReportError(null);
-    try {
-      const res = await fetch(`/api/jobs/${jobId}/report`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Server error");
-      setReport(data.report ?? "");
-      setActiveTab("report");
-    } catch (e) {
-      setReportError(e instanceof Error ? e.message : "Failed to generate report");
-    } finally {
-      setGeneratingReport(false);
-    }
+  function generateReport() {
+    setReport("ready");
+    setActiveTab("report");
   }
 
   // Auto-calculate hours from arrival/departure time strings (e.g. "08:00", "8:00 AM", "4:00 PM", "16:00")
@@ -278,10 +262,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             const link = `${window.location.origin}/company/field?businessId=${businessId}&jobId=${jobId}`;
             navigator.clipboard.writeText(link).then(() => alert("Field link copied — send to your foreman.")).catch(() => prompt("Copy this link for your foreman:", link));
           }}>Send to foreman ↗</button>
-          <button className="button" onClick={generateReport} disabled={generatingReport || generatingInvoice || updates.length === 0}>
-            {generatingReport ? "⏳ Generating…" : "Generate Report"}
+          <button className="button" onClick={generateReport} disabled={generatingInvoice || updates.length === 0}>
+            Generate Report
           </button>
-          <button className="button primary" onClick={generateInvoice} disabled={generatingReport || generatingInvoice || updates.length === 0}>
+          <button className="button primary" onClick={generateInvoice} disabled={generatingInvoice || updates.length === 0}>
             {generatingInvoice ? "⏳ Generating…" : "Generate Invoice"}
           </button>
         </div>
@@ -708,8 +692,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     : "Click Generate Report to produce a job summary."}
                 </p>
                 {updates.length > 0 && (
-                  <button className="button" onClick={generateReport} disabled={generatingReport}>
-                    {generatingReport ? "Generating…" : "Generate Report"}
+                  <button className="button" onClick={generateReport}>
+                    Generate Report
                   </button>
                 )}
               </div>
@@ -718,9 +702,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }} className="no-print">
                 <button className="button" onClick={() => window.print()} style={{ fontSize: 13 }}>🖨 Print / Save as PDF</button>
-                <button className="button" onClick={() => { setReport(null); generateReport(); }} style={{ fontSize: 13 }}>Regenerate</button>
+                <button className="button" onClick={() => { setReport(null); setTimeout(generateReport, 0); }} style={{ fontSize: 13 }}>Regenerate</button>
               </div>
-              <ReportRenderer report={report} job={job} jobId={jobId} />
+              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} allParsed={allParsed} />
             </div>
           )}
         </div>
@@ -891,71 +875,279 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
   );
 }
 
-// ── Report renderer — converts markdown-like text to styled sections ───────────
-function ReportRenderer({ report, job, jobId }: { report: string; job: Job; jobId: string }) {
-  const lines = report.split("\n");
+// ── Professional branded report renderer ────────────────────────────────────────
+function ReportRenderer({
+  job, jobId, businessConfig, allParsed,
+}: {
+  report: string;
+  job: Job;
+  jobId: string;
+  businessConfig: BusinessConfig | null;
+  allParsed: ParsedUpdate[];
+}) {
+  const accent = businessConfig?.brandColor ?? "#1e3a5f";
+  const bizName = businessConfig?.businessName ?? "Field Report";
+  const logoUrl = businessConfig?.logoUrl;
+  const contactPhone = businessConfig?.contactPhone;
+  const contactEmail = businessConfig?.contactEmail;
+  const website = businessConfig?.websiteUrl;
+
+  const timeline = allParsed.flatMap((p) => p.timeline);
+  const materials = allParsed.flatMap((p) => p.materials);
+  const labor = allParsed.flatMap((p) => p.labor);
+  const issues = allParsed.flatMap((p) => p.issues);
+
+  const highIssues = issues.filter((i) => i.severity === "high");
+  const medIssues  = issues.filter((i) => i.severity === "medium");
+  const lowIssues  = issues.filter((i) => i.severity === "low");
+
+  const totalLaborHours = labor.reduce((s, l) => s + (l.hours ?? 0), 0);
+  const defaultRate = businessConfig?.laborRate?.defaultHourlyRate ?? 65;
+  const laborCost = labor.reduce((s, l) => s + ((l.hours ?? 0) * (l.rate ?? defaultRate)), 0);
+  const materialCost = materials.reduce((s, m) => s + (m.cost ?? 0), 0);
+
+  const reportDate = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const jobDate = new Date(job.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+
+  const statusLabel: Record<string, string> = {
+    open: "Inspection", inspection: "Inspection", quoted: "Quoted",
+    in_progress: "In Progress", invoiced: "Invoiced", complete: "Complete",
+  };
+
+  const SEV_COLOR: Record<string, { bg: string; border: string; text: string; label: string }> = {
+    high:   { bg: "#fef2f2", border: "#fca5a5", text: "#b91c1c", label: "HIGH PRIORITY" },
+    medium: { bg: "#fffbeb", border: "#fcd34d", text: "#92400e", label: "MEDIUM" },
+    low:    { bg: "#f0fdf4", border: "#86efac", text: "#15803d", label: "LOW" },
+  };
 
   return (
     <div style={{
-      background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
-      padding: "40px 48px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
-      boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+      background: "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: 12,
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+      color: "#1e293b",
+      boxShadow: "0 4px 32px rgba(0,0,0,0.08)",
+      overflow: "hidden",
     }}>
-      {/* Report header */}
-      <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: "2px solid #0f172a" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#3b82f6", marginBottom: 6 }}>Job Report</div>
-        <h1 style={{ fontWeight: 800, fontSize: 22, margin: "0 0 4px", color: "#0f172a" }}>{job.title}</h1>
-        <div style={{ fontSize: 13, color: "#64748b", display: "flex", gap: 20, flexWrap: "wrap", marginTop: 8 }}>
-          <span><strong>Job ID:</strong> {jobId}</span>
-          {job.clientName && <span><strong>Client:</strong> {job.clientName}</span>}
-          {job.address && <span><strong>Address:</strong> {job.address}</span>}
-          {job.serviceType && <span><strong>Service:</strong> {job.serviceType}</span>}
-          <span><strong>Status:</strong> {job.status}</span>
-          <span><strong>Date:</strong> {new Date(job.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+
+      {/* ── Branded header bar ── */}
+      <div style={{
+        background: accent,
+        padding: "28px 40px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 20,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {logoUrl && (
+            <img src={logoUrl} alt={bizName} style={{ height: 44, objectFit: "contain", filter: "brightness(0) invert(1)", maxWidth: 120 }} />
+          )}
+          <div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 2 }}>Job Report</div>
+            <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>{bizName}</div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11, marginBottom: 2 }}>Generated</div>
+          <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{reportDate}</div>
         </div>
       </div>
 
-      {/* Rendered sections */}
-      {(() => {
-        const sections: Array<{ heading: string; items: string[] }> = [];
-        let current: { heading: string; items: string[] } | null = null;
+      <div style={{ padding: "32px 40px" }}>
 
-        for (const line of lines) {
-          if (line.startsWith("## ")) {
-            if (current) sections.push(current);
-            current = { heading: line.replace("## ", ""), items: [] };
-          } else if (line.startsWith("- ") && current) {
-            current.items.push(line.replace(/^- /, ""));
-          } else if (line.startsWith("### ") && current) {
-            current.items.push("__sub__" + line.replace("### ", ""));
-          }
-        }
-        if (current) sections.push(current);
+        {/* ── Job summary card ── */}
+        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "20px 24px", marginBottom: 28, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 32px" }}>
+          <MetaRow label="Job ID" value={jobId} mono />
+          <MetaRow label="Status" value={statusLabel[job.status] ?? job.status} />
+          {job.clientName && <MetaRow label="Client" value={job.clientName} />}
+          {job.clientPhone && <MetaRow label="Phone" value={job.clientPhone} />}
+          {job.address && <MetaRow label="Address" value={job.address} span />}
+          {job.serviceType && <MetaRow label="Service" value={job.serviceType} />}
+          <MetaRow label="Job opened" value={jobDate} />
+          {(totalLaborHours > 0 || materialCost > 0) && (
+            <MetaRow label="Est. cost" value={`$${(laborCost + materialCost).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+          )}
+        </div>
 
-        return sections
-          .filter((s) => !s.heading.startsWith("Job Report") && !s.heading.startsWith("Field Notes") && s.items.length > 0)
-          .map((section) => (
-            <div key={section.heading} style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 10 }}>{section.heading}</div>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 6 }}>
-                {section.items.map((item, i) => (
-                  item.startsWith("__sub__") ? (
-                    <li key={i} style={{ fontWeight: 600, fontSize: 13, color: "#1e293b", marginTop: 8 }}>{item.replace("__sub__", "")}</li>
-                  ) : (
-                    <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, color: "#334155" }}>
-                      <span style={{ color: "#94a3b8", marginTop: 2 }}>·</span>
-                      <span>{item}</span>
-                    </li>
-                  )
-                ))}
-              </ul>
+        {/* ── Executive summary ── */}
+        {issues.length > 0 && (
+          <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10, padding: "16px 20px", marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#0369a1", marginBottom: 8 }}>Summary</div>
+            <p style={{ margin: 0, fontSize: 14, color: "#0c4a6e", lineHeight: 1.65 }}>
+              {highIssues.length > 0 && `${highIssues.length} high-priority issue${highIssues.length > 1 ? "s" : ""} identified requiring immediate attention. `}
+              {medIssues.length > 0 && `${medIssues.length} medium-priority item${medIssues.length > 1 ? "s" : ""} noted. `}
+              {lowIssues.length > 0 && `${lowIssues.length} minor item${lowIssues.length > 1 ? "s" : ""} logged. `}
+              {timeline.length > 0 && `${timeline.length} work step${timeline.length > 1 ? "s" : ""} completed on site. `}
+              {materials.length > 0 && `${materials.length} material${materials.length > 1 ? "s" : ""} used. `}
+              {totalLaborHours > 0 && `Total labor: ${totalLaborHours.toFixed(1)} hours.`}
+            </p>
+          </div>
+        )}
+
+        {/* ── Issues identified ── */}
+        {issues.length > 0 && (
+          <ReportSection title="Issues Identified">
+            <div style={{ display: "grid", gap: 10 }}>
+              {issues.map((issue, i) => {
+                const sev = SEV_COLOR[issue.severity] ?? SEV_COLOR.low;
+                return (
+                  <div key={i} style={{ padding: "12px 16px", background: sev.bg, border: `1px solid ${sev.border}`, borderLeft: `4px solid ${sev.border}`, borderRadius: 8, display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: sev.text, textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap", marginTop: 2 }}>{sev.label}</span>
+                    <span style={{ fontSize: 14, color: "#1e293b", lineHeight: 1.5 }}>{issue.description}</span>
+                  </div>
+                );
+              })}
             </div>
-          ));
-      })()}
+          </ReportSection>
+        )}
 
-      <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e2e8f0", fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
-        Report generated by Luxor AI · {new Date().toLocaleString("en-US")}
+        {/* ── Work performed ── */}
+        {timeline.length > 0 && (
+          <ReportSection title="Work Performed">
+            <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+              {timeline.map((t, i) => (
+                <li key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                  <span style={{ minWidth: 26, height: 26, borderRadius: "50%", background: accent, color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
+                  <div>
+                    {t.time && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 2 }}>{t.time}</div>}
+                    <div style={{ fontSize: 14, color: "#1e293b", lineHeight: 1.55 }}>{t.description}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </ReportSection>
+        )}
+
+        {/* ── Materials used ── */}
+        {materials.length > 0 && (
+          <ReportSection title="Materials Used">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={thStyle()}>Item</th>
+                  <th style={thStyle()}>Qty</th>
+                  <th style={thStyle()}>Unit</th>
+                  <th style={thStyle("right")}>Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {materials.map((m, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={tdStyle()}>{m.item}</td>
+                    <td style={{ ...tdStyle(), color: "#64748b" }}>{m.quantity ?? "—"}</td>
+                    <td style={{ ...tdStyle(), color: "#64748b" }}>{m.unit ?? "—"}</td>
+                    <td style={{ ...tdStyle("right"), color: "#64748b" }}>{m.cost != null ? `$${m.cost.toFixed(2)}` : "—"}</td>
+                  </tr>
+                ))}
+                {materialCost > 0 && (
+                  <tr style={{ borderTop: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                    <td colSpan={3} style={{ ...tdStyle(), fontWeight: 700 }}>Materials total</td>
+                    <td style={{ ...tdStyle("right"), fontWeight: 700 }}>${materialCost.toFixed(2)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </ReportSection>
+        )}
+
+        {/* ── Labor summary ── */}
+        {labor.length > 0 && (
+          <ReportSection title="Labor Summary">
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={thStyle()}>Technician</th>
+                  <th style={thStyle()}>In</th>
+                  <th style={thStyle()}>Out</th>
+                  <th style={thStyle("right")}>Hours</th>
+                  <th style={thStyle("right")}>Rate</th>
+                  <th style={thStyle("right")}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {labor.map((l, i) => {
+                  const hrs = l.hours ?? 0;
+                  const rate = l.rate ?? defaultRate;
+                  return (
+                    <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ ...tdStyle(), fontWeight: 600 }}>{l.description}</td>
+                      <td style={{ ...tdStyle(), color: "#64748b" }}>{l.arrivalTime ?? "—"}</td>
+                      <td style={{ ...tdStyle(), color: "#64748b" }}>{l.departureTime ?? "—"}</td>
+                      <td style={{ ...tdStyle("right"), color: "#64748b" }}>{hrs > 0 ? `${hrs}h` : "—"}</td>
+                      <td style={{ ...tdStyle("right"), color: "#64748b" }}>{l.rate != null ? `$${l.rate}/hr` : `$${defaultRate}/hr`}</td>
+                      <td style={{ ...tdStyle("right"), color: "#64748b" }}>{hrs > 0 ? `$${(hrs * rate).toFixed(2)}` : "—"}</td>
+                    </tr>
+                  );
+                })}
+                {laborCost > 0 && (
+                  <tr style={{ borderTop: "2px solid #e2e8f0", background: "#f8fafc" }}>
+                    <td colSpan={3} style={{ ...tdStyle(), fontWeight: 700 }}>Labor total</td>
+                    <td style={{ ...tdStyle("right"), fontWeight: 700 }}>{totalLaborHours.toFixed(1)}h</td>
+                    <td />
+                    <td style={{ ...tdStyle("right"), fontWeight: 700 }}>${laborCost.toFixed(2)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </ReportSection>
+        )}
+
+        {/* ── Cost estimate ── */}
+        {(laborCost > 0 || materialCost > 0) && (
+          <div style={{ background: "#f8fafc", border: `2px solid ${accent}22`, borderRadius: 10, padding: "16px 24px", marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#64748b", marginBottom: 12 }}>Cost Estimate</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {laborCost > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Labor</span><span style={{ fontWeight: 600 }}>${laborCost.toFixed(2)}</span></div>}
+              {materialCost > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}><span>Materials</span><span style={{ fontWeight: 600 }}>${materialCost.toFixed(2)}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, borderTop: `1px solid ${accent}33`, paddingTop: 8, marginTop: 4, color: accent }}>
+                <span>Estimated Total</span>
+                <span>${(laborCost + materialCost).toFixed(2)}</span>
+              </div>
+            </div>
+            <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>Estimate only. Final invoice may differ based on additional scope.</p>
+          </div>
+        )}
+
+        {/* ── Footer ── */}
+        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{bizName}</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {contactPhone && <span>{contactPhone}</span>}
+              {contactEmail && <span>{contactEmail}</span>}
+              {website && <span>{website}</span>}
+            </div>
+          </div>
+          <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "right" }}>
+            <div>Generated by Luxor AI</div>
+            <div>{reportDate}</div>
+          </div>
+        </div>
+
       </div>
+    </div>
+  );
+}
+
+function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+        <span>{title}</span>
+        <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function MetaRow({ label, value, mono, span }: { label: string; value: string; mono?: boolean; span?: boolean }) {
+  return (
+    <div style={{ gridColumn: span ? "1 / -1" : undefined }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", fontFamily: mono ? "monospace" : undefined }}>{value}</div>
     </div>
   );
 }
