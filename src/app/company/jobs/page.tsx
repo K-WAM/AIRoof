@@ -5,18 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import type { Job } from "@/types/jobs";
+import { StatusChip } from "@/components/ui/StatusChip";
 
-const STATUS_COLOR: Record<string, string> = {
-  open: "#2563eb",
-  in_progress: "#d97706",
-  complete: "#15803d",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  open: "Open",
-  in_progress: "In Progress",
-  complete: "Complete",
-};
+type StatusFilter = "all" | "open" | "in_progress" | "complete";
 
 export default function JobsPage() {
   const businessId = useBusinessId();
@@ -29,6 +20,7 @@ export default function JobsPage() {
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Prefill from "Create Job" button on appointments page
   const prefillClientName = searchParams?.get("clientName") ?? "";
@@ -164,10 +156,36 @@ export default function JobsPage() {
         </div>
       )}
 
+      {jobs.length > 0 && (
+        <div className="toolbar" style={{ marginBottom: 12 }}>
+          <div className="segmented-control" aria-label="Filter by status">
+            {([
+              { key: "all",         label: "All" },
+              { key: "open",        label: "Open" },
+              { key: "in_progress", label: "In Progress" },
+              { key: "complete",    label: "Complete" },
+            ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => {
+              const count = key === "all" ? jobs.length : jobs.filter((j) => j.status === key).length;
+              return (
+                <button
+                  key={key}
+                  className="segment"
+                  type="button"
+                  aria-pressed={statusFilter === key}
+                  onClick={() => setStatusFilter(key)}
+                >
+                  {label} <span style={{ opacity: 0.6, fontSize: 11 }}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <p style={{ color: "#888", fontSize: 14 }}>No jobs yet. Create one above or use the "Create Job" button on an appointment.</p>
+            <p style={{ color: "#888", fontSize: 14 }}>No jobs yet. Create one above or use the &ldquo;Create Job&rdquo; button on an appointment.</p>
           </div>
         </section>
       ) : (
@@ -185,7 +203,9 @@ export default function JobsPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs.map((job) => (
+                {jobs
+                  .filter((j) => statusFilter === "all" || j.status === statusFilter)
+                  .map((job) => (
                   <tr key={job.jobId} style={{ borderBottom: "1px solid #f1f5f9", background: job.jobId === justCreatedId ? "#f0fdf4" : undefined, transition: "background 1s" }}>
                     <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
                       {job.jobId}
@@ -199,14 +219,7 @@ export default function JobsPage() {
                       {job.clientPhone && <div style={{ fontSize: 12, color: "#64748b" }}>{job.clientPhone}</div>}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      <span style={{
-                        display: "inline-block", padding: "2px 10px", borderRadius: 99,
-                        fontSize: 12, fontWeight: 700,
-                        background: STATUS_COLOR[job.status] + "18",
-                        color: STATUS_COLOR[job.status],
-                      }}>
-                        {STATUS_LABEL[job.status] ?? job.status}
-                      </span>
+                      <StatusChip status={job.status} />
                     </td>
                     <td style={{ padding: "12px 16px", color: "#64748b", fontSize: 13 }}>
                       {formatDate(job.createdAt)}

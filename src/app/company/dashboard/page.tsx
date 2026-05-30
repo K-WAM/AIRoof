@@ -5,6 +5,8 @@ import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebas
 import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 interface LeadSnapshot {
   leadId: string;
@@ -17,24 +19,51 @@ interface LeadSnapshot {
   createdAt: number;
 }
 
+interface ApptSnapshot {
+  appointmentId: string;
+  callerName?: string;
+  serviceType?: string;
+  startTime: number;
+  status: string;
+}
+
+interface JobSnapshot {
+  jobId: string;
+  title: string;
+  clientName?: string;
+  address?: string;
+  status: string;
+}
+
 interface AgentSnapshot {
   agentName?: string;
   escalationPhone?: string;
   approvedServices?: string[];
   approvedFaqs?: Array<{ question: string; answer: string }>;
-  greeting?: string;
   active?: boolean;
   vapiAssistantId?: string;
 }
 
+function isToday(ms: number, tz: string): boolean {
+  const dStr = new Date(ms).toLocaleDateString("en-US", { timeZone: tz });
+  const nowStr = new Date().toLocaleDateString("en-US", { timeZone: tz });
+  return dStr === nowStr;
+}
+
+function fmtTime(ms: number, tz: string): string {
+  return new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+}
+
 export default function CompanyDashboardPage() {
   const businessId = useBusinessId();
+  const tz = useBusinessTimezone();
   const searchParams = useSearchParams();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
 
   const [callCount, setCallCount] = useState<number | null>(null);
   const [leads, setLeads] = useState<LeadSnapshot[]>([]);
-  const [apptCount, setApptCount] = useState<number | null>(null);
+  const [appointments, setAppointments] = useState<ApptSnapshot[]>([]);
+  const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [agent, setAgent] = useState<AgentSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,12 +74,14 @@ export default function CompanyDashboardPage() {
       try {
         const base = `businesses/${businessId}`;
 
-        const [callsSnap, leadsSnap, apptsSnap, bizDoc] = await Promise.all([
+        const [callsSnap, leadsSnap, apptsSnap, bizDoc, jobsRes] = await Promise.all([
           getDocs(collection(db!, base + "/calls")),
-          getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(5))),
-          getDocs(collection(db!, base + "/appointments")),
+          getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
+          getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"))),
           getDoc(doc(db!, "businesses", businessId)),
+          fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
         ]);
+
         if (bizDoc.exists()) {
           const d = bizDoc.data()!;
           setAgent({
@@ -58,7 +89,6 @@ export default function CompanyDashboardPage() {
             escalationPhone: d["escalationPhone"],
             approvedServices: d["approvedServices"],
             approvedFaqs: d["approvedFaqs"],
-            greeting: d["greeting"],
             active: d["active"],
             vapiAssistantId: d["vapiAssistantId"],
           });
@@ -66,7 +96,8 @@ export default function CompanyDashboardPage() {
 
         setCallCount(callsSnap.size);
         setLeads(leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as LeadSnapshot)));
-        setApptCount(apptsSnap.size);
+        setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as ApptSnapshot)));
+        setJobs((jobsRes.jobs ?? []) as JobSnapshot[]);
       } catch (err) {
         console.error("Dashboard load failed:", err);
       } finally {
@@ -77,16 +108,17 @@ export default function CompanyDashboardPage() {
     load();
   }, [businessId]);
 
-  const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent");
+  const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
+  const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
+  const activeJobs = jobs.filter((j) => j.status === "open" || j.status === "in_progress");
+  const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
   const metrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
-    { label: "Recent leads", value: leads.length, href: `/company/leads${previewSuffix}` },
+    { label: "Leads", value: leads.length, href: `/company/leads${previewSuffix}` },
     { label: "Urgent leads", value: urgentLeads.length, href: `/company/leads${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
-    { label: "Appointments", value: apptCount ?? "—", href: `/company/appointments${previewSuffix}` },
+    { label: "Appointments", value: appointments.length, href: `/company/appointments${previewSuffix}` },
   ];
-
-  const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
   const agentSettings = agent
     ? [
@@ -99,10 +131,10 @@ export default function CompanyDashboardPage() {
       ]
     : [];
 
+  const allClear = urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0;
+
   if (loading) {
-    return (
-      <div style={{ padding: 32, color: "#666" }}>Loading dashboard…</div>
-    );
+    return <div style={{ padding: 32, color: "#666" }}>Loading dashboard…</div>;
   }
 
   return (
@@ -111,8 +143,7 @@ export default function CompanyDashboardPage() {
         <div>
           <h1 className="page-title">Today&apos;s Work</h1>
           <p className="page-subtitle">
-            Review captured calls, urgent roofing leads, appointment requests,
-            and the agent settings that affect this company.
+            Urgent leads, today&apos;s appointments, active jobs, and agent status.
           </p>
         </div>
         <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
@@ -133,32 +164,74 @@ export default function CompanyDashboardPage() {
       </section>
 
       <div className="ops-grid">
-        <section className="panel" aria-labelledby="queue-title">
-          <div className="panel-header">
-            <h2 className="panel-title" id="queue-title">Recent Leads</h2>
-          </div>
-          <div className="panel-body">
-            {leads.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>No leads yet. Leads appear here after calls come in.</p>
-            ) : (
-              <div className="queue-list">
-                {leads.map((lead) => (
-                  <article className="queue-item" key={lead.leadId}>
-                    <div className="queue-topline">
-                      <p className="queue-title">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
-                      <span className={lead.urgency === "urgent" ? "tag urgent" : "tag"}>
-                        {lead.urgency}
-                      </span>
-                    </div>
-                    <p className="queue-meta">{lead.serviceRequested ?? "Service not specified"}</p>
-                    <p className="queue-meta">{lead.address ?? "No address"} · {lead.status}</p>
-                  </article>
-                ))}
+        {/* Today Feed */}
+        <div>
+          {urgentLeads.length > 0 && (
+            <div className="feed-section">
+              <div className="feed-section-header">
+                <p className="feed-section-title">Needs Attention</p>
+                <span className="feed-section-count">{urgentLeads.length}</span>
               </div>
-            )}
-          </div>
-        </section>
+              {urgentLeads.slice(0, 5).map((lead) => (
+                <a key={lead.leadId} href={`/company/leads${previewSuffix}`} className="feed-row">
+                  <div className="feed-icon feed-icon--urgent">⚠</div>
+                  <div className="feed-body">
+                    <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
+                    <p className="feed-sub">{lead.serviceRequested ?? lead.address ?? "New lead"}</p>
+                  </div>
+                  <StatusChip status={lead.urgency === "urgent" || lead.urgency === "Urgent" ? "urgent" : "new"} />
+                  <span className="feed-chevron">›</span>
+                </a>
+              ))}
+            </div>
+          )}
 
+          {todayAppointments.length > 0 && (
+            <div className="feed-section">
+              <div className="feed-section-header">
+                <p className="feed-section-title">Today&apos;s Appointments</p>
+                <span className="feed-section-count">{todayAppointments.length}</span>
+              </div>
+              {todayAppointments.map((appt) => (
+                <a key={appt.appointmentId} href={`/company/appointments${previewSuffix}`} className="feed-row">
+                  <div className="feed-icon feed-icon--appt">◷</div>
+                  <div className="feed-body">
+                    <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
+                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}</p>
+                  </div>
+                  <StatusChip status={appt.status} />
+                  <span className="feed-chevron">›</span>
+                </a>
+              ))}
+            </div>
+          )}
+
+          {activeJobs.length > 0 && (
+            <div className="feed-section">
+              <div className="feed-section-header">
+                <p className="feed-section-title">Active Jobs</p>
+                <span className="feed-section-count">{activeJobs.length}</span>
+              </div>
+              {activeJobs.slice(0, 5).map((job) => (
+                <a key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
+                  <div className="feed-icon feed-icon--job">⚒</div>
+                  <div className="feed-body">
+                    <p className="feed-name">{job.jobId} — {job.title}</p>
+                    <p className="feed-sub">{job.clientName ?? job.address ?? "—"}</p>
+                  </div>
+                  <StatusChip status={job.status} />
+                  <span className="feed-chevron">›</span>
+                </a>
+              ))}
+            </div>
+          )}
+
+          {allClear && (
+            <div className="feed-empty">All caught up — nothing urgent right now.</div>
+          )}
+        </div>
+
+        {/* Agent Setup panel - unchanged */}
         <aside className="panel" aria-labelledby="agent-title">
           <div className="panel-header">
             <h2 className="panel-title" id="agent-title">Agent Setup</h2>

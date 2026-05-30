@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/fi
 import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 interface Lead {
   leadId: string;
@@ -153,9 +154,7 @@ export default function CompanyLeadsPage() {
                         <p className="lead-name">{lead.callerName ?? "Unknown caller"}</p>
                         <p className="lead-phone">{lead.callerPhone ?? "—"}</p>
                       </div>
-                      <span className={lead.urgency === "urgent" ? "tag urgent" : "tag"}>
-                        {lead.urgency}
-                      </span>
+                      <StatusChip status={lead.urgency === "urgent" ? "urgent" : "normal"} />
                     </div>
                     <div className="lead-detail-grid">
                       <div className="detail-block">
@@ -205,7 +204,7 @@ export default function CompanyLeadsPage() {
                   </div>
                   <div className="detail-block">
                     <span className="detail-label">Status</span>
-                    <span className="detail-value">{selected.status}</span>
+                    <span className="detail-value"><StatusChip status={selected.status} /></span>
                   </div>
                   <div className="detail-block">
                     <span className="detail-label">Address</span>

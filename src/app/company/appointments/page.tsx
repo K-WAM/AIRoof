@@ -6,6 +6,7 @@ import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/fi
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 interface Appointment {
   appointmentId: string;
@@ -36,11 +37,6 @@ function formatCallTime(ms: number, tz: string): string {
   });
 }
 
-const STATUS_CLASS: Record<string, string> = {
-  confirmed: "tag success",
-  cancelled: "tag urgent",
-  requested: "tag",
-};
 
 export default function CompanyAppointmentsPage() {
   const businessId = useBusinessId();
@@ -163,7 +159,7 @@ export default function CompanyAppointmentsPage() {
         <div className="appt-body">
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
-            <span className={STATUS_CLASS[appt.status] ?? "tag"}>{appt.status}</span>
+            <StatusChip status={appt.status} />
           </div>
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>

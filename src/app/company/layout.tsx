@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
+import { CommandBar } from "@/components/ui/CommandBar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 function CompanyShell({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="topbar-right">
           <CompanyNav />
+          <CommandBar />
           <div className="topbar-divider" />
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>

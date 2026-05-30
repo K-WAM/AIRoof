@@ -5,6 +5,7 @@ import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { StatusChip } from "@/components/ui/StatusChip";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -60,24 +61,11 @@ function guessCategory(messages: CallMessage[]): "Emergency" | "Scheduling" | "S
   return "General";
 }
 
-const OUTCOME_LABEL: Record<string, string> = {
-  scheduled: "Booked",
-  escalated: "Escalated",
-  lead_captured: "Lead",
-  no_action: "No action",
-};
-const OUTCOME_STYLE: Record<string, React.CSSProperties> = {
-  scheduled: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#dcfce7", color: "#166534" },
-  escalated: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fee2e2", color: "#991b1b" },
-  lead_captured: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#dbeafe", color: "#1e40af" },
-  no_action: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#f1f5f9", color: "#64748b" },
-};
-
-const CATEGORY_STYLE: Record<string, string> = {
-  Emergency: "tag urgent",
-  Scheduling: "tag success",
-  "Service question": "tag",
-  General: "tag",
+const CATEGORY_STATUS: Record<string, string> = {
+  Emergency: "emergency",
+  Scheduling: "scheduling",
+  "Service question": "service",
+  General: "general",
 };
 
 export default function CompanyCallsPage() {
@@ -164,9 +152,9 @@ export default function CompanyCallsPage() {
                           <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          {call.outcome && <span style={OUTCOME_STYLE[call.outcome]}>{OUTCOME_LABEL[call.outcome]}</span>}
-                          {call.isAfterHours && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e" }}>After hrs</span>}
-                          {!call.outcome && <span className={CATEGORY_STYLE[category] ?? "tag"}>{category}</span>}
+                          {call.outcome && <StatusChip status={call.outcome} />}
+                          {call.isAfterHours && <StatusChip status="after_hours" />}
+                          {!call.outcome && <StatusChip status={CATEGORY_STATUS[category] ?? "general"} label={category} />}
                         </div>
                       </div>
                       <p className="call-subtitle">
@@ -202,8 +190,8 @@ export default function CompanyCallsPage() {
 
                 {selected.outcome && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                    <span style={OUTCOME_STYLE[selected.outcome]}>{OUTCOME_LABEL[selected.outcome]}</span>
-                    {selected.isAfterHours && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e" }}>After hours</span>}
+                    <StatusChip status={selected.outcome} />
+                    {selected.isAfterHours && <StatusChip status="after_hours" />}
                     {selected.outcomeReason && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
                   </div>
                 )}
