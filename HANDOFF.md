@@ -52,7 +52,11 @@ Platform is live at https://ai-roof.vercel.app. Everything below is confirmed wo
 - ✅ After-hours call tagging
 - ✅ Follow-up cron route + vercel.json schedule
 
-### Phase 4+ (post-launch)
+### Phase 4 — Performance Cleanup (spec written, not started)
+See **[docs/PERFORMANCE-CLEANUP.md](docs/PERFORMANCE-CLEANUP.md)** — assess feasibility before executing.
+Key items: bounded fetching on company pages, single canonical field flow, API route auth, outbound call auth bug fix, unused dep removal (`twilio`, `@opentelemetry`), job status label normalization.
+
+### Phase 5+ (post-launch)
 - After-hours voice behavior: inject IS_AFTER_HOURS into Vapi system prompt (needs assistant-request webhook or Vapi API update per call)
 - Google Calendar per-business OAuth
 - Stripe billing for Luxor clients
