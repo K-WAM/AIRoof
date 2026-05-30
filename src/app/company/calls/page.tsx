@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -22,6 +22,9 @@ interface Call {
   endedAt?: number;
   summary?: string;
   endedReason?: string;
+  outcome?: "scheduled" | "escalated" | "lead_captured" | "no_action";
+  outcomeReason?: string;
+  isAfterHours?: boolean;
   messages: CallMessage[];
 }
 
@@ -56,6 +59,19 @@ function guessCategory(messages: CallMessage[]): "Emergency" | "Scheduling" | "S
   if (text.includes("price") || text.includes("cost") || text.includes("quote") || text.includes("how much")) return "Service question";
   return "General";
 }
+
+const OUTCOME_LABEL: Record<string, string> = {
+  scheduled: "Booked",
+  escalated: "Escalated",
+  lead_captured: "Lead",
+  no_action: "No action",
+};
+const OUTCOME_STYLE: Record<string, React.CSSProperties> = {
+  scheduled: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#dcfce7", color: "#166534" },
+  escalated: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fee2e2", color: "#991b1b" },
+  lead_captured: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#dbeafe", color: "#1e40af" },
+  no_action: { fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#f1f5f9", color: "#64748b" },
+};
 
 const CATEGORY_STYLE: Record<string, string> = {
   Emergency: "tag urgent",
@@ -147,7 +163,11 @@ export default function CompanyCallsPage() {
                           </p>
                           <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
-                        <span className={CATEGORY_STYLE[category] ?? "tag"}>{category}</span>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          {call.outcome && <span style={OUTCOME_STYLE[call.outcome]}>{OUTCOME_LABEL[call.outcome]}</span>}
+                          {call.isAfterHours && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e" }}>After hrs</span>}
+                          {!call.outcome && <span className={CATEGORY_STYLE[category] ?? "tag"}>{category}</span>}
+                        </div>
                       </div>
                       <p className="call-subtitle">
                         {call.status}{dur ? ` · ${dur}` : ""} · {msgs.length} turns
@@ -179,6 +199,14 @@ export default function CompanyCallsPage() {
                     </p>
                   </div>
                 </div>
+
+                {selected.outcome && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                    <span style={OUTCOME_STYLE[selected.outcome]}>{OUTCOME_LABEL[selected.outcome]}</span>
+                    {selected.isAfterHours && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "#fef3c7", color: "#92400e" }}>After hours</span>}
+                    {selected.outcomeReason && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
+                  </div>
+                )}
 
                 {selected.summary && (
                   <div className="summary-block">

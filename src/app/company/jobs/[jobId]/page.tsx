@@ -29,6 +29,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "invoice" | "report">("timeline");
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   // Invoice state
   const [invoiceReady, setInvoiceReady] = useState(false);
@@ -71,6 +72,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }, [businessId, jobId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function updateStatus(newStatus: string) {
+    if (!businessId || !job || updatingStatus) return;
+    setUpdatingStatus(newStatus);
+    try {
+      await fetch(`/api/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, status: newStatus }),
+      });
+      setJob((j) => j ? { ...j, status: newStatus as Job["status"] } : j);
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
 
   const allParsed = updates.map((u) => u.parsed).filter(Boolean) as ParsedUpdate[];
   const timeline = allParsed.flatMap((p) => p.timeline);
@@ -277,11 +293,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           const currentIdx = statusToStepIdx(job.status);
           const done = i < currentIdx;
           const active = i === currentIdx;
+          const isUpdating = updatingStatus === step.key;
+          const isClickable = step.key !== job.status && !updatingStatus;
           return (
             <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < JOB_STEPS.length - 1 ? "1" : "0" }}>
-              <div className="job-progress-step-wrapper">
+              <div
+                className="job-progress-step-wrapper"
+                onClick={() => isClickable && updateStatus(step.key)}
+                title={isClickable ? `Move to ${step.label}` : undefined}
+                style={{ cursor: isClickable ? "pointer" : "default", opacity: isUpdating ? 0.5 : 1 }}
+              >
                 <div className={`job-progress-step ${done ? "done" : active ? "active" : "pending"}`}>
-                  {done ? "✓" : i + 1}
+                  {isUpdating ? "…" : done ? "✓" : i + 1}
                 </div>
                 <span className={`job-progress-label ${done ? "done" : active ? "active" : "pending"}`}>{step.label}</span>
               </div>

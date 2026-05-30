@@ -21,6 +21,7 @@ import {
   logAgentAction,
   getBusinessTimezone,
 } from "@/lib/tools/agentTools";
+import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
 import type {
   VapiWebhookPayload,
   VapiMessage,
@@ -260,6 +261,7 @@ async function handleStatusUpdate(
   const callRef = db.collection("businesses").doc(businessId).collection("calls").doc(callId);
 
   if (message.status === "in-progress" || message.status === "ringing") {
+    const isAfterHours = await checkAfterHours(db, businessId);
     await callRef.set(
       {
         callId,
@@ -270,6 +272,7 @@ async function handleStatusUpdate(
         updatedAt: Date.now(),
         vapiCallId: message.call.id,
         messages: [],
+        isAfterHours,
       },
       { merge: true }
     );
@@ -297,6 +300,24 @@ async function handleEndOfCallReport(
     timestamp: m.time ?? Date.now(),
   }));
 
+  // Classify outcome async — don't block the webhook response
+  let outcome: string | null = null;
+  let outcomeReason: string | null = null;
+  if (transcript.length > 1) {
+    try {
+      const bizSnap = await db.collection("businesses").doc(businessId).get();
+      const businessName = bizSnap.data()?.businessName ?? businessId;
+      const classification = await classifyCallOutcome({
+        transcript: transcript.map((m) => ({ role: m.role, text: m.text })),
+        businessName,
+      });
+      outcome = classification.outcome;
+      outcomeReason = classification.reason;
+    } catch {
+      // non-fatal — proceed without outcome
+    }
+  }
+
   await callRef.set(
     {
       callId,
@@ -311,6 +332,7 @@ async function handleEndOfCallReport(
       recordingUrl: message.recordingUrl ?? null,
       cost: message.cost ?? null,
       messages: transcript,
+      ...(outcome ? { outcome, outcomeReason } : {}),
     },
     { merge: true }
   );
@@ -319,6 +341,40 @@ async function handleEndOfCallReport(
 // ──────────────────────────────────────────────────────────────────────────────
 // helpers
 // ──────────────────────────────────────────────────────────────────────────────
+
+// Check if a call is happening outside configured business hours.
+async function checkAfterHours(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  businessId: string
+): Promise<boolean> {
+  try {
+    const snap = await db.collection("businesses").doc(businessId).get();
+    const data = snap.data();
+    if (!data) return false;
+    const hours: Record<string, string> = data.businessHours ?? {};
+    const tz: string = data.timezone ?? "America/New_York";
+
+    const now = new Date();
+    const dayName = now.toLocaleDateString("en-US", { timeZone: tz, weekday: "long" });
+    const todayHours = hours[dayName];
+    if (!todayHours || todayHours.toLowerCase() === "closed") return true;
+
+    // Parse "08:00 - 17:00"
+    const m = todayHours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+    if (!m) return false;
+    const openH = parseInt(m[1]), openM = parseInt(m[2]);
+    const closeH = parseInt(m[3]), closeM = parseInt(m[4]);
+
+    const localTime = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+    const currentMins = localTime.getHours() * 60 + localTime.getMinutes();
+    const openMins = openH * 60 + openM;
+    const closeMins = closeH * 60 + closeM;
+    return currentMins < openMins || currentMins >= closeMins;
+  } catch {
+    return false;
+  }
+}
 
 // Returns a phone string only if it contains enough digits to be real (≥7 digits).
 // Rejects LLM artifacts like "caller ID", "caller", "unknown".

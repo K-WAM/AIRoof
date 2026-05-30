@@ -1,6 +1,6 @@
 # AI Receptionist Platform — CLAUDE.md
 
-**Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items (VAPI_AUTH_BYPASS, voice upgrade, onboarding wizard), and demo instructions.
+**Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
 ## Code Navigation — Read Graphify Before Broad Work
 
@@ -35,8 +35,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 2 complete + field ops + outbound callbacks + UI modernization shipped
-**Estimated Completion**: 82%
+**Status**: Phase 3 complete — call outcome tagging, after-hours, cron, invoices, client provisioning shipped
+**Estimated Completion**: 88%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -172,9 +172,17 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
 - src/lib/tools/agentTools.ts — All tools + BizBranding email templates + auto-callback on createLead()
 - src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
+- src/app/api/jobs/[jobId]/route.ts — PATCH job status (clickable progress bar backend)
+- src/app/api/cron/follow-up-calls/route.ts — Daily follow-up cron (vercel.json: 2pm UTC)
+- src/app/api/admin/invoices/route.ts — GET/POST Luxor invoices (LX-XXXX auto-ID)
+- src/app/api/admin/invoices/[invoiceId]/route.ts — GET/PUT/DELETE single invoice
+- src/app/api/admin/invoices/[invoiceId]/send/route.ts — Send branded invoice email via Resend
+- src/app/api/admin/invoice-templates/route.ts — GET/POST/DELETE invoice templates
+- src/app/admin/invoices/page.tsx — Luxor invoice editor (line items, templates, send, PDF)
 - src/app/api/calls/outbound/route.ts — Staff-authenticated outbound call initiation (POST)
-- src/app/admin/demo/page.tsx — Demo customizer UI
+- src/app/admin/demo/page.tsx — Demo customizer UI + QR code for field demo
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
+- vercel.json — Cron schedule for follow-up-calls
 - scripts/demo-customize.mjs — CLI demo customizer
 - src/app/admin/onboarding/page.tsx — Onboarding wizard (5 steps, includes vapiAssistantId + branding)
 - src/hooks/useBusinessId.ts — Returns ?preview=businessId for superadmin, user.businessId otherwise
@@ -229,14 +237,12 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **CURRENT**: Add `VAPI_API_KEY` to Vercel env vars — required for outbound callbacks to fire
-2. Fix VAPI_WEBHOOK_SECRET — generate new secret in Vapi dashboard, set in Vercel, remove `VAPI_AUTH_BYPASS`
-3. Add `lookupAppointment` as 5th tool in Vapi dashboard (see HANDOFF.md for exact walkthrough)
-4. Wire `businessUsers/{uid}` provisioning in POST `/api/admin/businesses` — so onboarded clients can log in automatically
-5. Add "Complete" button to job detail page so staff can mark jobs done (removes from field crew's dropdown)
-6. Vapi voice: switch to `eleven_flash_v2_5` + set Stability to 0.35 for faster, more natural sound
-7. Phase 3: after-hours logic, call outcome tagging via DeepSeek, follow-up cadence cron
-8. **Outbound calling** (manual callback/follow-up from company dashboard via Vapi) — full spec in HANDOFF.md "Outbound Calling (Future)"
+1. **Test outbound call end-to-end** — VAPI_API_KEY is in Vercel; make a real test call via "Call Back" button
+2. **Vapi Stability slider** — drag to 0.35–0.40 in Vapi dashboard voice settings for more natural tone (dashboard-only, no code)
+3. **VAPI_AUTH_BYPASS** — permanently active; Vapi new UI sends no webhook secret header (confirmed from Logs tab). Do not remove.
+4. **After-hours voice behavior** — `isAfterHours` is tagged on call docs but Alice's prompt isn't dynamically changed yet. Requires Vapi `assistant-request` webhook or per-call API override (Phase 4).
+5. **Google Calendar** — post-MVP, requires per-business OAuth
+6. **Stripe billing** — Phase 6, wire Luxor invoice payments
 
 ## Implementation Phases
 
@@ -253,14 +259,13 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Known Limitations
 
-- **VAPI_AUTH_BYPASS active**: Webhook signature not verified — bypassed with env var. Fix: re-generate secret and set in both Vercel and Vapi UI
-- **VAPI_API_KEY missing from Vercel**: Outbound calls (`/api/calls/outbound` + auto-callback) silently fail without it. Add to Vercel env vars.
+- **VAPI_AUTH_BYPASS active**: Permanently correct — Vapi new agent builder sends no secret header (confirmed from Vapi Logs tab: only Content-Type + Accept-Encoding). Do not remove this env var.
+- **After-hours tagging only**: Calls are tagged `isAfterHours` in Firestore but Alice's voice prompt is not dynamically changed. Real after-hours behavior requires Vapi `assistant-request` webhook override (Phase 4).
 - **Outbound calls need callbackDelayMinutes set**: Auto-callback only fires when `callbackDelayMinutes` is configured per business in `/admin/businesses/{id}/config`
-- **No superadmin onboarding wizard**: New businesses must be onboarded manually (create Vapi assistant + phone in dashboard, write Firestore docs via seed script)
 - **Google Calendar**: Uses mock availability slots — real per-business OAuth is post-MVP
 - **SMS escalation**: Requires Twilio A2P 10DLC registration (~2-4 weeks) — email covers MVP
 - **RESEND_FROM**: Needs a verified sending domain in Resend before "From" name shows correctly in emails
-- **ElevenLabs v3 latency**: Voice takes ~1,200ms. Fix in Vapi dashboard: change voice model to `eleven_flash_v2_5`, set Stability to 0.35
+- **Vapi Stability**: Not yet set to 0.35 — do in Vapi dashboard voice settings (ElevenLabs Flash already switched)
 
 ## Contact
 

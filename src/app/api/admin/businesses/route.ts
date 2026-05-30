@@ -6,7 +6,7 @@ import type {
   BusinessOnboardingStatus,
   BusinessPhoneNumber,
 } from "@/types";
-import { getAdminFirestore } from "@/lib/firebase/admin";
+import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 
@@ -102,7 +102,7 @@ export async function GET(): Promise<
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success: true; businessId: string } | { error: string }>> {
+): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string } | { error: string }>> {
   try {
     const body: CreateBusinessRequest = await request.json();
     const { businessId, businessName, industry } = body;
@@ -123,6 +123,31 @@ export async function POST(
     }
 
     const now = Date.now();
+
+    // Provision Firebase Auth user for the business owner
+    let provisionedLogin: { uid: string; email: string; tempPassword: string } | null = null;
+    if (body.ownerEmail) {
+      const auth = getAdminAuth();
+      if (auth) {
+        const tempPassword = generateTempPassword();
+        try {
+          const userRecord = await auth.createUser({
+            email: body.ownerEmail,
+            password: tempPassword,
+            emailVerified: false,
+            displayName: businessName,
+          });
+          provisionedLogin = { uid: userRecord.uid, email: body.ownerEmail, tempPassword };
+        } catch (authErr: unknown) {
+          const code = (authErr as { code?: string })?.code;
+          // If user already exists we skip — they can be linked manually
+          if (code !== "auth/email-already-exists") {
+            console.warn("Auth user creation failed (non-fatal):", authErr);
+          }
+        }
+      }
+    }
+
     const businessRef = db.collection("businesses").doc(businessId);
     const onboardingRef = db.collection("businessOnboarding").doc(businessId);
     const integrationRef = db.collection("businessIntegrationStatus").doc(businessId);
@@ -249,17 +274,38 @@ export async function POST(
           createdAt: now,
           updatedAt: now,
         };
-
         transaction.set(phoneRef, phoneMapping);
+      }
+
+      if (provisionedLogin) {
+        const businessUserRef = db.collection("businessUsers").doc(provisionedLogin.uid);
+        transaction.set(businessUserRef, {
+          uid: provisionedLogin.uid,
+          email: provisionedLogin.email,
+          businessId,
+          role: "owner",
+        });
       }
     });
 
-    return NextResponse.json({ success: true, businessId });
+    return NextResponse.json({
+      success: true,
+      businessId,
+      ...(provisionedLogin ? {
+        loginEmail: provisionedLogin.email,
+        tempPassword: provisionedLogin.tempPassword,
+      } : {}),
+    });
   } catch (error) {
     console.error("POST /api/admin/businesses error:", error);
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
+  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
 function normalizePhone(phone: string): string {

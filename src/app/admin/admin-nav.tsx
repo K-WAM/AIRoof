@@ -10,6 +10,7 @@ const mainLinks = [
 
 const toolLinks = [
   { href: "/admin/demo", label: "Demo", icon: "▶" },
+  { href: "/admin/invoices", label: "Invoices", icon: "$" },
   { href: "/admin/guide", label: "Playbooks", icon: "≡" },
 ];
 

@@ -30,6 +30,8 @@ export default function OnboardingPage() {
     type: "idle" | "submitting" | "success" | "error";
     message: string;
     businessId?: string;
+    loginEmail?: string;
+    tempPassword?: string;
   }>({ type: "idle", message: "" });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -94,6 +96,8 @@ export default function OnboardingPage() {
         type: "success",
         message: `${result.businessId} created.`,
         businessId: result.businessId,
+        loginEmail: result.loginEmail,
+        tempPassword: result.tempPassword,
       });
     } catch (error) {
       setSubmitStatus({
@@ -379,17 +383,33 @@ export default function OnboardingPage() {
               {submitStatus.type === "success" && submitStatus.businessId ? (
                 <div style={{ marginTop: 16, padding: "16px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
                   <p style={{ margin: "0 0 10px", fontWeight: 700, color: "#15803d", fontSize: 14 }}>
-                    Company created — {submitStatus.businessId}
+                    ✓ Company created — {submitStatus.businessId}
                   </p>
-                  <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534" }}>
-                    Next: open the config page to set the Vapi assistant ID, voice, branding, and confirm all settings before going live.
-                  </p>
+                  {submitStatus.loginEmail && submitStatus.tempPassword ? (
+                    <div style={{ margin: "0 0 14px", padding: "12px 14px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6 }}>
+                      <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>Client login credentials (shown once)</p>
+                      <p style={{ margin: "0 0 4px", fontSize: 13, color: "#1e293b" }}>
+                        Email: <strong>{submitStatus.loginEmail}</strong>
+                      </p>
+                      <p style={{ margin: "0 0 8px", fontSize: 13, color: "#1e293b" }}>
+                        Temp password: <strong style={{ fontFamily: "monospace", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>{submitStatus.tempPassword}</strong>
+                      </p>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(`Email: ${submitStatus.loginEmail}\nPassword: ${submitStatus.tempPassword}`)}
+                        className="button"
+                        style={{ fontSize: 12 }}
+                      >
+                        Copy credentials
+                      </button>
+                      <p style={{ margin: "8px 0 0", fontSize: 11, color: "#64748b" }}>Ask the client to change their password after first login.</p>
+                    </div>
+                  ) : (
+                    <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534" }}>
+                      No owner email provided — client login not provisioned.
+                    </p>
+                  )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <a
-                      href={`/admin/businesses/${submitStatus.businessId}/config`}
-                      className="button primary"
-                      style={{ fontSize: 13 }}
-                    >
+                    <a href={`/admin/businesses/${submitStatus.businessId}/config`} className="button primary" style={{ fontSize: 13 }}>
                       Configure agent →
                     </a>
                     <a href="/admin/businesses" className="button" style={{ fontSize: 13 }}>
