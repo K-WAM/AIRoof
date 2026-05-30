@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { collection, getDocs, query, orderBy, limit, doc, getDoc, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
@@ -151,7 +152,7 @@ export default function CompanyDashboardPage() {
 
       <section className="metric-grid" aria-label="Summary">
         {metrics.map((metric) => (
-          <a
+          <Link
             href={metric.href}
             key={metric.label}
             className="metric"
@@ -159,7 +160,7 @@ export default function CompanyDashboardPage() {
           >
             <p className="metric-label">{metric.label}</p>
             <p className="metric-value">{metric.value}</p>
-          </a>
+          </Link>
         ))}
       </section>
 
@@ -173,7 +174,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{urgentLeads.length}</span>
               </div>
               {urgentLeads.slice(0, 5).map((lead) => (
-                <a key={lead.leadId} href={`/company/leads${previewSuffix}`} className="feed-row">
+                <Link key={lead.leadId} href={`/company/leads${previewSuffix}`} className="feed-row">
                   <div className="feed-icon feed-icon--urgent">⚠</div>
                   <div className="feed-body">
                     <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
@@ -181,7 +182,7 @@ export default function CompanyDashboardPage() {
                   </div>
                   <StatusChip status={lead.urgency === "urgent" || lead.urgency === "Urgent" ? "urgent" : "new"} />
                   <span className="feed-chevron">›</span>
-                </a>
+                </Link>
               ))}
             </div>
           )}
@@ -193,7 +194,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{todayAppointments.length}</span>
               </div>
               {todayAppointments.map((appt) => (
-                <a key={appt.appointmentId} href={`/company/appointments${previewSuffix}`} className="feed-row">
+                <Link key={appt.appointmentId} href={`/company/appointments${previewSuffix}`} className="feed-row">
                   <div className="feed-icon feed-icon--appt">◷</div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
@@ -201,7 +202,7 @@ export default function CompanyDashboardPage() {
                   </div>
                   <StatusChip status={appt.status} />
                   <span className="feed-chevron">›</span>
-                </a>
+                </Link>
               ))}
             </div>
           )}
@@ -213,7 +214,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{activeJobs.length}</span>
               </div>
               {activeJobs.slice(0, 5).map((job) => (
-                <a key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
+                <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
                   <div className="feed-icon feed-icon--job">⚒</div>
                   <div className="feed-body">
                     <p className="feed-name">{job.jobId} — {job.title}</p>
@@ -221,7 +222,7 @@ export default function CompanyDashboardPage() {
                   </div>
                   <StatusChip status={job.status} />
                   <span className="feed-chevron">›</span>
-                </a>
+                </Link>
               ))}
             </div>
           )}

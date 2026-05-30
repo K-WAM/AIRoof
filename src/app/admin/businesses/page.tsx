@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface BizRow {
@@ -97,7 +98,13 @@ export default function AdminBusinessesPage() {
               </thead>
               <tbody>
                 {businesses.map((b) => (
-                  <tr key={b.businessId}>
+                  <tr
+                    key={b.businessId}
+                    onClick={() => { window.location.href = `/admin/businesses/${b.businessId}/config`; }}
+                    style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#f8fafc"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ""; }}
+                  >
                     <td>
                       <p className="business-name">{b.businessName}</p>
                       <p className="business-id">{b.businessId}</p>
@@ -119,14 +126,14 @@ export default function AdminBusinessesPage() {
                       </span>
                     </td>
                     <td style={{ fontSize: 13, color: "#94a3b8" }}>{timeAgo(b.createdAt)}</td>
-                    <td style={{ display: "flex", gap: 6 }}>
-                      <a
+                    <td style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+                      <Link
                         href={`/admin/businesses/${b.businessId}/config`}
                         className="button"
                         style={{ fontSize: 12, padding: "4px 10px" }}
                       >
                         Edit
-                      </a>
+                      </Link>
                       <a
                         href={`/company/dashboard?preview=${b.businessId}`}
                         target="_blank"

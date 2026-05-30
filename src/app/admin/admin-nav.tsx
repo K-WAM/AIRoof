@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const mainLinks = [
@@ -28,7 +29,7 @@ export function AdminNav() {
       <div className="nav-section">
         <p className="nav-section-label">Platform</p>
         {mainLinks.map((link) => (
-          <a
+          <Link
             href={link.href}
             key={link.href}
             className="nav-link"
@@ -36,13 +37,13 @@ export function AdminNav() {
           >
             <span className="nav-link-icon">{link.icon}</span>
             {link.label}
-          </a>
+          </Link>
         ))}
       </div>
       <div className="nav-section">
         <p className="nav-section-label">Tools</p>
         {toolLinks.map((link) => (
-          <a
+          <Link
             href={link.href}
             key={link.href}
             className="nav-link"
@@ -50,14 +51,14 @@ export function AdminNav() {
           >
             <span className="nav-link-icon">{link.icon}</span>
             {link.label}
-          </a>
+          </Link>
         ))}
       </div>
       <div className="nav-spacer" />
-      <a href={fieldDemoLink.href} className="nav-link nav-link-cta" style={{ marginBottom: 8 }}>
+      <Link href={fieldDemoLink.href} className="nav-link nav-link-cta" style={{ marginBottom: 8 }}>
         <span className="nav-link-icon">{fieldDemoLink.icon}</span>
         {fieldDemoLink.label}
-      </a>
+      </Link>
       <a href="/company/dashboard?preview=demo-roofing" target="_blank" rel="noopener noreferrer" className="nav-divider-link">
         <span className="nav-link-icon">↗</span>
         Client view

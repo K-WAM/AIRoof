@@ -70,6 +70,30 @@ export default function AdminBusinessConfigPage({
     message: string;
   }>({ type: "idle", message: "" });
 
+  const [loginEmail, setLoginEmail] = useState("");
+  const [provisionStatus, setProvisionStatus] = useState<{
+    type: "idle" | "loading" | "success" | "error";
+    message: string;
+    tempPassword?: string;
+  }>({ type: "idle", message: "" });
+
+  async function provisionLogin() {
+    if (!loginEmail.trim()) return;
+    setProvisionStatus({ type: "loading", message: "Creating login…" });
+    try {
+      const res = await fetch(`/api/admin/businesses/${businessId}/provision-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerEmail: loginEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      setProvisionStatus({ type: "success", message: "Login provisioned!", tempPassword: data.tempPassword });
+    } catch (e) {
+      setProvisionStatus({ type: "error", message: e instanceof Error ? e.message : "Failed" });
+    }
+  }
+
   useEffect(() => {
     fetch(`/api/admin/businesses/${businessId}/config`)
       .then((r) => r.json())
@@ -387,6 +411,56 @@ export default function AdminBusinessConfigPage({
         </div>
 
         <aside className="section-stack">
+
+          {/* ─── Client Login ─── */}
+          <section className="panel" aria-labelledby="login-provision-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="login-provision-title">Client Login</h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
+                Provision or reset login access for this company&apos;s owner. Generates a temp password they use to log in at{" "}
+                <strong>ai-roof.vercel.app/login</strong>.
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  placeholder="owner@company.com"
+                  style={{ flex: 1, minWidth: 180, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none" }}
+                />
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={provisionLogin}
+                  disabled={provisionStatus.type === "loading" || !loginEmail.trim()}
+                  style={{ fontSize: 13, whiteSpace: "nowrap" }}
+                >
+                  {provisionStatus.type === "loading" ? "Creating…" : "Provision Login"}
+                </button>
+              </div>
+              {provisionStatus.type === "success" && provisionStatus.tempPassword && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8 }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 13, color: "#15803d" }}>✓ Login ready — share these credentials once:</p>
+                  <p style={{ margin: "0 0 2px", fontSize: 13, color: "#166534" }}>Email: <strong>{loginEmail}</strong></p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
+                    Password: <strong style={{ fontFamily: "monospace", letterSpacing: "0.05em" }}>{provisionStatus.tempPassword}</strong>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(provisionStatus.tempPassword!)}
+                      style={{ fontSize: 11, padding: "2px 8px", border: "1px solid #86efac", borderRadius: 4, background: "#fff", cursor: "pointer", color: "#15803d" }}
+                    >
+                      Copy
+                    </button>
+                  </p>
+                </div>
+              )}
+              {provisionStatus.type === "error" && (
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: "#b91c1c" }}>{provisionStatus.message}</p>
+              )}
+            </div>
+          </section>
 
           {/* ─── Routing ─── */}
           <section className="panel" aria-labelledby="routing-title">

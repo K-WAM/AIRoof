@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 const LINKS = [
@@ -21,14 +22,14 @@ export function CompanyNav() {
   return (
     <nav className="company-nav" aria-label="Company navigation">
       {LINKS.map((link) => (
-        <a
+        <Link
           href={`${link.path}${suffix}`}
           key={link.path}
           aria-current={pathname === link.path ? "page" : undefined}
         >
           <span className="company-nav-icon">{link.icon}</span>
           {link.label}
-        </a>
+        </Link>
       ))}
     </nav>
   );
