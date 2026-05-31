@@ -11,6 +11,7 @@ const LINKS = [
   { path: "/company/jobs", label: "Jobs", icon: "⚒" },
   { path: "/company/calendar", label: "Calendar", icon: "▤" },
   { path: "/company/field", label: "Field", icon: "⊕" },
+  { path: "/company/settings", label: "Settings", icon: "⚙" },
 ];
 
 export function CompanyNav() {

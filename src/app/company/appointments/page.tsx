@@ -14,6 +14,7 @@ interface Appointment {
   callerPhone?: string;
   serviceType?: string;
   address?: string;
+  notes?: string;
   startTime: number;
   endTime: number;
   status: string;
@@ -164,6 +165,11 @@ export default function CompanyAppointmentsPage() {
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="appt-detail">{appt.address ?? "No address provided"}</p>
+          {appt.notes && (
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", fontStyle: "italic", lineHeight: 1.45 }}>
+              &ldquo;{appt.notes.length > 120 ? appt.notes.slice(0, 120) + "…" : appt.notes}&rdquo;
+            </p>
+          )}
         </div>
 
         <div className="appt-actions">

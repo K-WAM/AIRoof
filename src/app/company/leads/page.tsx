@@ -170,6 +170,11 @@ export default function CompanyLeadsPage() {
                         <span className="detail-value">{lead.address ?? "—"}</span>
                       </div>
                     </div>
+                    {lead.notes && (
+                      <p style={{ margin: "4px 0 0", fontSize: 12, color: "#475569", fontStyle: "italic", lineHeight: 1.4 }}>
+                        &ldquo;{lead.notes.length > 100 ? lead.notes.slice(0, 100) + "…" : lead.notes}&rdquo;
+                      </p>
+                    )}
                     <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
                   </article>
                 ))}

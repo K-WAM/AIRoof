@@ -85,6 +85,7 @@ export interface BookAppointmentInput {
   callerPhone: string;
   serviceType?: string;
   address?: string;
+  notes?: string;
   startTime: number;
   endTime: number;
   sourceCallId?: string;
@@ -108,6 +109,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
     callerPhone: input.callerPhone,
     serviceType: input.serviceType,
     address: input.address,
+    notes: input.notes,
     startTime: input.startTime,
     endTime: input.endTime,
     calendarProvider: "mock",

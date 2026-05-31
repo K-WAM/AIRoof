@@ -221,6 +221,7 @@ export interface Appointment {
   calendarEventId?: string;
   status: "requested" | "confirmed" | "cancelled" | "completed";
   sourceCallId?: string;
+  notes?: string;
   createdAt: number;
   updatedAt: number;
 }

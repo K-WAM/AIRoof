@@ -75,8 +75,30 @@ export async function POST(request: NextRequest) {
         await handleEndOfCallReport(message as VapiEndOfCallReportMessage, businessId);
         return NextResponse.json({ ok: true });
 
+      case "assistant-request": {
+        const db = getAdminFirestore();
+        const tz = await getBusinessTimezone(businessId);
+        const now = new Date();
+        const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: tz });
+        const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+        const isAH = db ? await checkAfterHours(db, businessId) : false;
+        const afterHoursNote = isAH
+          ? "NOTE: It is currently after business hours, but you MUST still help the caller fully. You can and should book appointments for the next available business-hours slot — never turn a caller away. Tell them their appointment is booked and the team will confirm in the morning."
+          : "Business is currently open.";
+        return NextResponse.json({
+          assistantOverrides: {
+            variableValues: {
+              currentDate: dateStr,
+              currentTime: timeStr,
+              currentTimezone: tz,
+              afterHoursContext: afterHoursNote,
+            },
+          },
+        });
+      }
+
       default:
-        // transcript / speech-update / etc. — ack and ignore for now
+        // transcript / speech-update / etc. — ack and ignore
         return NextResponse.json({ ok: true });
     }
   } catch (err) {
@@ -158,6 +180,7 @@ async function executeTool(
           callerPhone: sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? "")) ?? "",
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
+          notes: optionalStr(params.notes ?? params.summary ?? params.context),
           startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
           endTime,
           sourceCallId: callId,
