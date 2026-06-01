@@ -3,6 +3,7 @@
 import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { buildProjection } from "@/lib/jobs/projection";
 import type { Job, FieldUpdate, ParsedUpdate } from "@/types/jobs";
 import type { BusinessConfig } from "@/types";
 
@@ -30,6 +31,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  // Edit buffer for the data tabs (null = read-only). Edits write to job.parsed via PATCH.
+  const [editParsed, setEditParsed] = useState<ParsedUpdate | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Invoice state
   const [invoiceReady, setInvoiceReady] = useState(false);
@@ -87,11 +92,48 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   }
 
-  const allParsed = updates.map((u) => u.parsed).filter(Boolean) as ParsedUpdate[];
-  const timeline = allParsed.flatMap((p) => p.timeline);
-  const materials = allParsed.flatMap((p) => p.materials);
-  const labor = allParsed.flatMap((p) => p.labor);
-  const issues = allParsed.flatMap((p) => p.issues);
+  // Single source of truth: the job's authoritative projection. Backfill from the
+  // ledger for legacy jobs that predate job.parsed. buildProjection merges duplicate
+  // materials by name, so the "2×4s 50 / 50 / 150" duplication is gone.
+  const projection: ParsedUpdate = job?.parsed ?? buildProjection(updates);
+  const allParsed = [projection];
+  const view = editParsed ?? projection;
+  const timeline = view.timeline;
+  const materials = view.materials;
+  const labor = view.labor;
+  const issues = view.issues;
+  const editing = editParsed !== null;
+
+  function startEdit() {
+    setEditParsed(JSON.parse(JSON.stringify(projection)) as ParsedUpdate);
+  }
+  function cancelEdit() {
+    setEditParsed(null);
+  }
+  async function saveEdit() {
+    if (!businessId || !editParsed) return;
+    setSavingEdit(true);
+    try {
+      await fetch(`/api/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, parsed: editParsed }),
+      });
+      setJob((j) => (j ? { ...j, parsed: editParsed } : j));
+      setEditParsed(null);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+  // Mutators for the edit buffer
+  function mutate(fn: (p: ParsedUpdate) => void) {
+    setEditParsed((prev) => {
+      if (!prev) return prev;
+      const next = JSON.parse(JSON.stringify(prev)) as ParsedUpdate;
+      fn(next);
+      return next;
+    });
+  }
 
   const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
 
@@ -319,6 +361,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         ))}
       </div>
 
+      {/* Edit / Save / Cancel — data tabs only */}
+      {["timeline", "materials", "labor", "issues"].includes(activeTab) && (
+        <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+          {!editing ? (
+            <button className="button" style={{ fontSize: 12 }} onClick={startEdit} disabled={updates.length === 0 && !job?.parsed}>✎ Edit</button>
+          ) : (
+            <>
+              <button className="button" style={{ fontSize: 12 }} onClick={cancelEdit} disabled={savingEdit}>Cancel</button>
+              <button className="button primary" style={{ fontSize: 12 }} onClick={saveEdit} disabled={savingEdit}>{savingEdit ? "Saving…" : "Save changes"}</button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── Timeline ── */}
       {activeTab === "timeline" && (
         <section className="panel">
@@ -327,6 +383,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <div style={{ color: "#888", fontSize: 14 }}>
                 <p style={{ margin: "0 0 8px" }}>No timeline events yet.</p>
                 <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
+            ) : editing ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {timeline.map((t, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <InlineInput value={t.time ?? ""} onChange={(v) => mutate(p => { p.timeline[i].time = v; })} placeholder="time" width={70} />
+                    <InlineInput value={t.description} onChange={(v) => mutate(p => { p.timeline[i].description = v; })} placeholder="What happened" />
+                    <button className="no-print" onClick={() => mutate(p => { p.timeline.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
+                  </div>
+                ))}
+                <button className="no-print" onClick={() => mutate(p => { p.timeline.push({ description: "" }); })} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add event</button>
               </div>
             ) : (
               <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
@@ -349,7 +416,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "materials" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
-            {materials.length === 0 ? (
+            {materials.length === 0 && !editing ? (
               <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
                 <p style={{ margin: "0 0 8px" }}>No materials extracted yet.</p>
                 <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
@@ -362,19 +429,35 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Qty</th>
                     <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Unit</th>
                     <th style={{ padding: "10px 16px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>Cost</th>
+                    {editing && <th className="no-print" />}
                   </tr>
                 </thead>
                 <tbody>
                   {materials.map((m, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "10px 16px" }}>{m.item}</td>
-                      <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.quantity ?? "—"}</td>
-                      <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.unit ?? "—"}</td>
-                      <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{m.cost != null ? `$${m.cost.toFixed(2)}` : "—"}</td>
+                      {editing ? (
+                        <>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.item} onChange={(v) => mutate(p => { p.materials[i].item = v; })} placeholder="Item" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.quantity ?? ""} onChange={(v) => mutate(p => { p.materials[i].quantity = v; })} placeholder="0" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.unit ?? ""} onChange={(v) => mutate(p => { p.materials[i].unit = v; })} placeholder="unit" /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<InlineInput value={m.cost != null ? String(m.cost) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.materials[i].cost = n; else delete p.materials[i].cost; })} placeholder="0.00" align="right" width={64} /></td>
+                          <td className="no-print" style={{ padding: "8px 8px", textAlign: "right" }}><button onClick={() => mutate(p => { p.materials.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button></td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: "10px 16px" }}>{m.item}</td>
+                          <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.quantity ?? "—"}</td>
+                          <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.unit ?? "—"}</td>
+                          <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{m.cost != null ? `$${m.cost.toFixed(2)}` : "—"}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+            {editing && (
+              <button className="no-print" onClick={() => mutate(p => { p.materials.push({ item: "", quantity: "1", unit: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add material</button>
             )}
           </div>
         </section>
@@ -384,7 +467,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "labor" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
-            {labor.length === 0 ? (
+            {labor.length === 0 && !editing ? (
               <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
                 <p style={{ margin: "0 0 8px" }}>No labor extracted yet.</p>
                 <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
@@ -398,20 +481,37 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Departure</th>
                     <th style={{ padding: "10px 16px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>Hours</th>
                     <th style={{ padding: "10px 16px", textAlign: "right", fontWeight: 600, color: "#64748b" }}>Rate/hr</th>
+                    {editing && <th className="no-print" />}
                   </tr>
                 </thead>
                 <tbody>
                   {labor.map((l, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.description}</td>
-                      <td style={{ padding: "10px 16px", color: "#64748b" }}>{l.arrivalTime ?? "—"}</td>
-                      <td style={{ padding: "10px 16px", color: "#64748b" }}>{l.departureTime ?? "—"}</td>
-                      <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{l.hours ?? "—"}</td>
-                      <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{l.rate != null ? `$${l.rate}/hr` : "—"}</td>
+                      {editing ? (
+                        <>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.description} onChange={(v) => mutate(p => { p.labor[i].description = v; })} placeholder="Name" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.arrivalTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].arrivalTime = v; })} placeholder="8:00 AM" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.departureTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].departureTime = v; })} placeholder="4:00 PM" /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}><InlineInput value={l.hours != null ? String(l.hours) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.labor[i].hours = n; else delete p.labor[i].hours; })} placeholder="0" align="right" width={48} /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<InlineInput value={l.rate != null ? String(l.rate) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.labor[i].rate = n; else delete p.labor[i].rate; })} placeholder={defaultLaborRate} align="right" width={48} /></td>
+                          <td className="no-print" style={{ padding: "8px 8px", textAlign: "right" }}><button onClick={() => mutate(p => { p.labor.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button></td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: "10px 16px", fontWeight: 600 }}>{l.description}</td>
+                          <td style={{ padding: "10px 16px", color: "#64748b" }}>{l.arrivalTime ?? "—"}</td>
+                          <td style={{ padding: "10px 16px", color: "#64748b" }}>{l.departureTime ?? "—"}</td>
+                          <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{l.hours ?? "—"}</td>
+                          <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{l.rate != null ? `$${l.rate}/hr` : "—"}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+            {editing && (
+              <button className="no-print" onClick={() => mutate(p => { p.labor.push({ description: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
             )}
           </div>
         </section>
@@ -421,10 +521,25 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "issues" && (
         <section className="panel">
           <div className="panel-body">
-            {issues.length === 0 ? (
+            {issues.length === 0 && !editing ? (
               <div style={{ color: "#888", fontSize: 14 }}>
                 <p style={{ margin: "0 0 8px" }}>No issues extracted yet.</p>
                 <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Submit a field update ↗</a>
+              </div>
+            ) : editing ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {issues.map((issue, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 12px", borderRadius: 8, background: SEVERITY_COLOR[issue.severity] + "10", borderLeft: `3px solid ${SEVERITY_COLOR[issue.severity]}` }}>
+                    <select value={issue.severity} onChange={(e) => mutate(p => { p.issues[i].severity = e.target.value as "low" | "medium" | "high"; })} style={{ fontSize: 12, padding: "2px 6px", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                      <option value="low">low</option>
+                      <option value="medium">medium</option>
+                      <option value="high">high</option>
+                    </select>
+                    <InlineInput value={issue.description} onChange={(v) => mutate(p => { p.issues[i].description = v; })} placeholder="Issue description" />
+                    <button className="no-print" onClick={() => mutate(p => { p.issues.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
+                  </div>
+                ))}
+                <button className="no-print" onClick={() => mutate(p => { p.issues.push({ description: "", severity: "medium" }); })} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add issue</button>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
@@ -751,6 +866,23 @@ function statusToStepIdx(status: string): number {
 // ── Parsed field update card ──────────────────────────────────────────────────
 function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: number }) {
   const [showRaw, setShowRaw] = useState(false);
+
+  // Correction entries: render a compact audit line instead of the parsed grid.
+  if (update.kind === "correction") {
+    return (
+      <div style={{ padding: "12px 16px", background: "#faf5ff", borderRadius: 10, border: "1px solid #e9d5ff", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: "#7c3aed", background: "#f3e8ff", border: "1px solid #e9d5ff", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Correction</span>
+        <span style={{ fontSize: 13, color: "#1e293b", textTransform: "capitalize" }}>
+          {update.correctionItem} → <strong>{update.correctionNewValue}</strong>
+        </span>
+        {update.submittedBy && <span style={{ fontSize: 12, color: "#94a3b8" }}>by {update.submittedBy}</span>}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>
+          {new Date(update.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+        </span>
+      </div>
+    );
+  }
+
   const p = update.parsed;
   const totalItems = p ? p.timeline.length + p.materials.length + p.labor.length + p.issues.length : 0;
   const hasData = totalItems > 0;

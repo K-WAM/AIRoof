@@ -450,7 +450,7 @@ function FieldPageContent() {
     setJobLogData(result.updatedJob);
   }, []);
 
-  const { status: audioStatus, transcript, startRecording, stopRecording } = useFieldAudio(
+  const { status: audioStatus, transcript, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording } = useFieldAudio(
     selectedJobId || null,
     {
       businessId,
@@ -624,6 +624,24 @@ function FieldPageContent() {
               </p>
             )}
           </div>
+
+          {/* One-tap correction confirm card */}
+          {proposedCorrection && (
+            <div style={{ marginBottom: 20, padding: "16px", background: "#1e293b", border: "1.5px solid #f97316", borderRadius: 16 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 800, color: "#fdba74", textTransform: "uppercase", letterSpacing: "0.06em" }}>Confirm correction</p>
+              <p style={{ margin: "0 0 4px", fontSize: 15, color: "#f8fafc", lineHeight: 1.5 }}>
+                Change <strong style={{ textTransform: "capitalize" }}>{proposedCorrection.item}</strong> from{" "}
+                <strong style={{ color: "#fca5a5" }}>{proposedCorrection.oldValue}</strong> → <strong style={{ color: "#86efac" }}>{proposedCorrection.newValue}</strong>?
+              </p>
+              <p style={{ margin: "0 0 14px", fontSize: 13, color: "#94a3b8" }}>
+                Running total becomes <strong style={{ color: "#f8fafc" }}>{proposedCorrection.newTotal}</strong> (was {proposedCorrection.currentTotal}).
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={cancelCorrection} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                <button onClick={confirmCorrection} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#f97316", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Confirm change</button>
+              </div>
+            </div>
+          )}
 
           {/* Job Log Card */}
           <JobLogCard data={jobLogData} />

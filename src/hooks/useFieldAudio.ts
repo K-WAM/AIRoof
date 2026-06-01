@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import type { FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
+import type { FieldMaterial, FieldLaborEntry, FieldTimelineEvent, ProposedCorrection } from "@/types/jobs";
 
 export type FieldAudioStatus = null | "recording" | "transcribing" | "success" | "error";
 
@@ -34,10 +34,38 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
   const [status, setStatus] = useState<FieldAudioStatus>(null);
   const [transcript, setTranscript] = useState("");
   const [lastResult, setLastResult] = useState<FieldAudioResult | null>(null);
+  const [proposedCorrection, setProposedCorrection] = useState<ProposedCorrection | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef("audio/webm");
+
+  // Apply a correction the user confirmed on the device.
+  const confirmCorrection = useCallback(async () => {
+    if (!proposedCorrection || !jobId) return;
+    setStatus("transcribing");
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: options.businessId, submittedBy: options.submittedBy, confirmCorrection: proposedCorrection }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProposedCorrection(null);
+        setStatus("success");
+        options.onSuccess?.({ transcript: "", changesSummary: "Correction applied", updatedJob: data.updatedJob });
+      } else {
+        setStatus("error");
+      }
+    } catch {
+      setStatus("error");
+    } finally {
+      setTimeout(() => setStatus(null), 2500);
+    }
+  }, [proposedCorrection, jobId, options]);
+
+  const cancelCorrection = useCallback(() => setProposedCorrection(null), []);
 
   const startRecording = useCallback(async (e?: React.PointerEvent) => {
     e?.preventDefault();
@@ -106,7 +134,12 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
             });
 
             const data = await res.json();
-            if (res.ok && data.success) {
+            if (res.ok && data.proposedCorrection) {
+              // Correction detected — surface a one-tap confirm card; don't apply yet.
+              setTranscript(data.transcript || "");
+              setProposedCorrection(data.proposedCorrection);
+              setStatus(null);
+            } else if (res.ok && data.success) {
               setTranscript(data.transcript || "");
               setLastResult(data);
               setStatus("success");
@@ -127,5 +160,5 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     });
   }, [jobId, options]);
 
-  return { status, transcript, lastResult, startRecording, stopRecording };
+  return { status, transcript, lastResult, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording };
 }

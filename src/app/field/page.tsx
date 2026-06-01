@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { Job, FieldUpdate } from "@/types/jobs";
+import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
 
 // ── SVG mic icon ────────────────────────────────────────────────────────────
 function MicIcon({ size = 32, color = "currentColor" }: { size?: number; color?: string }) {
@@ -31,6 +31,7 @@ function FieldApp() {
   const [recentUpdates, setRecentUpdates] = useState<FieldUpdate[]>([]);
   const [showRecent, setShowRecent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [proposed, setProposed] = useState<ProposedCorrection | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -119,7 +120,19 @@ function FieldApp() {
     recorder.stop();
   }
 
-  async function handleSave() {
+  const jobContext = selectedJob
+    ? { title: selectedJob.title, address: selectedJob.address, serviceType: selectedJob.serviceType, clientName: selectedJob.clientName }
+    : undefined;
+
+  function onSaved(saved: { update?: FieldUpdate }) {
+    setText("");
+    setSubmitted(true);
+    if (saved.update) setRecentUpdates(prev => [saved.update as FieldUpdate, ...prev].slice(0, 8));
+    setShowRecent(true);
+    setTimeout(() => setSubmitted(false), 3000);
+  }
+
+  async function handleSave(forceNormal = false) {
     if (!text.trim() || !selectedJobId || saving) return;
     setSaving(true);
     setError(null);
@@ -127,24 +140,38 @@ function FieldApp() {
       const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId,
-          rawText: text.trim(),
-          submittedBy: workerName.trim() || undefined,
-          jobContext: selectedJob
-            ? { title: selectedJob.title, address: selectedJob.address, serviceType: selectedJob.serviceType, clientName: selectedJob.clientName }
-            : undefined,
-        }),
+        body: JSON.stringify({ businessId, rawText: text.trim(), submittedBy: workerName.trim() || undefined, jobContext, forceNormal }),
       });
-      if (res.ok) {
-        const saved = await res.json();
-        setText("");
-        setSubmitted(true);
-        setRecentUpdates(prev => [saved.update, ...prev].slice(0, 8));
-        setShowRecent(true);
-        setTimeout(() => setSubmitted(false), 3000);
+      const data = await res.json();
+      if (res.ok && data.proposedCorrection) {
+        setProposed(data.proposedCorrection as ProposedCorrection);   // show one-tap confirm card
+      } else if (res.ok) {
+        onSaved(data);
       } else {
         setError("Failed to save. Try again.");
+      }
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmCorrection() {
+    if (!proposed || !selectedJobId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, submittedBy: workerName.trim() || undefined, confirmCorrection: proposed }),
+      });
+      if (res.ok) {
+        setProposed(null);
+        onSaved({});
+      } else {
+        setError("Failed to apply correction. Try again.");
       }
     } catch {
       setError("Network error. Try again.");
@@ -310,23 +337,43 @@ function FieldApp() {
             </div>
           )}
 
+          {/* One-tap correction confirm card — code computed old/new + running total */}
+          {proposed && (
+            <div style={{ padding: "16px", background: "#1a1430", border: "1.5px solid #7c3aed", borderRadius: 14 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.06em" }}>Confirm correction</p>
+              <p style={{ margin: "0 0 4px", fontSize: 15, color: "#f1f5f9", lineHeight: 1.5 }}>
+                Change <strong style={{ textTransform: "capitalize" }}>{proposed.item}</strong> on the matching entry from{" "}
+                <strong style={{ color: "#fca5a5" }}>{proposed.oldValue}</strong> → <strong style={{ color: "#86efac" }}>{proposed.newValue}</strong>?
+              </p>
+              <p style={{ margin: "0 0 14px", fontSize: 13, color: "#94a3b8" }}>
+                Running total becomes <strong style={{ color: "#f1f5f9" }}>{proposed.newTotal}</strong> (was {proposed.currentTotal}).
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setProposed(null); }} disabled={saving} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                <button onClick={confirmCorrection} disabled={saving} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{saving ? "Applying…" : "Confirm change"}</button>
+              </div>
+            </div>
+          )}
+
           {/* Parse & Save */}
-          <button
-            onClick={handleSave}
-            disabled={!canSave}
-            style={{
-              width: "100%", padding: "16px",
-              borderRadius: 14, border: "none",
-              background: canSave ? "#1e2a4a" : "#0f172a",
-              color: canSave ? "#f1f5f9" : "#334155",
-              fontWeight: 700, fontSize: 16,
-              cursor: canSave ? "pointer" : "not-allowed",
-              transition: "background 0.15s, color 0.15s",
-              letterSpacing: "0.01em",
-            }}
-          >
-            {saving ? "Saving…" : "Parse & Save"}
-          </button>
+          {!proposed && (
+            <button
+              onClick={() => handleSave()}
+              disabled={!canSave}
+              style={{
+                width: "100%", padding: "16px",
+                borderRadius: 14, border: "none",
+                background: canSave ? "#1e2a4a" : "#0f172a",
+                color: canSave ? "#f1f5f9" : "#334155",
+                fontWeight: 700, fontSize: 16,
+                cursor: canSave ? "pointer" : "not-allowed",
+                transition: "background 0.15s, color 0.15s",
+                letterSpacing: "0.01em",
+              }}
+            >
+              {saving ? "Saving…" : "Parse & Save"}
+            </button>
+          )}
 
           {/* RECENT */}
           {recentUpdates.length > 0 && (

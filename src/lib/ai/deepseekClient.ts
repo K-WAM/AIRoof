@@ -98,14 +98,21 @@ TIMELINE RULES:
 ISSUES: anything that's a blocker, safety concern, damage finding, or unexpected discovery.
 Severity: "leak", "water", "structural", "mold" → high. "cracked", "damaged", "needs replacement" → medium. "cosmetic", "minor" → low.
 
+CORRECTIONS (critical — do NOT do math, only flag intent):
+- If the speaker is FIXING a previous entry — "actually it was 120 not 150", "scratch that, I meant 120", "correction, the 2x4s were 120", "the last note was wrong" — set the "correction" field.
+- correction.item = the thing being corrected (e.g. "2x4s"). correction.newValue = the corrected number (e.g. 120). correction.field = "materials" or "labor".
+- When you emit a correction, do NOT also put that item in the materials/labor arrays — the correction handles it. Only put NEW (non-correcting) items in the arrays.
+- If it's NOT a correction (just a new delivery/usage), leave correction null and add to materials normally.
+
 Return JSON with exactly these keys:
 - timeline: [{time?: string, description: string}]
 - materials: [{item: string, quantity?: string, unit?: string, cost?: number}]
 - labor: [{description: string, hours?: number, rate?: number, arrivalTime?: string, departureTime?: string}]
 - issues: [{description: string, severity: "low"|"medium"|"high"}]
 - invoiceSuggestions: [{description: string, quantity: number, unitPrice: number, total: number}]
+- correction: null OR {item: string, newValue: number, field: "materials"|"labor"}
 
-If a section is empty, return []. Never fabricate data not explicitly stated.`,
+If a section is empty, return []. Never fabricate data not explicitly stated. Never compute totals — the system sums quantities itself.`,
       },
       {
         role: "user",
@@ -125,12 +132,18 @@ If a section is empty, return []. Never fabricate data not explicitly stated.`,
 
   try {
     const parsed = JSON.parse(res.choices[0].message.content ?? "{}");
+    const c = parsed.correction;
+    const correction =
+      c && typeof c === "object" && typeof c.item === "string" && typeof c.newValue === "number"
+        ? { item: c.item, newValue: c.newValue, field: c.field === "labor" ? "labor" : "materials" as "materials" | "labor" }
+        : undefined;
     return {
       timeline: Array.isArray(parsed.timeline) ? parsed.timeline : [],
       materials: Array.isArray(parsed.materials) ? parsed.materials : [],
       labor: Array.isArray(parsed.labor) ? parsed.labor : [],
       issues: Array.isArray(parsed.issues) ? parsed.issues : [],
       invoiceSuggestions: Array.isArray(parsed.invoiceSuggestions) ? parsed.invoiceSuggestions : [],
+      ...(correction ? { correction } : {}),
     };
   } catch {
     return empty;
