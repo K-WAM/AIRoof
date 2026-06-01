@@ -4,7 +4,7 @@ import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
-import type { Job, FieldUpdate, ParsedUpdate } from "@/types/jobs";
+import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { BusinessConfig } from "@/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -29,8 +29,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
   const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "invoice" | "report">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+  // Photos (Phase 2) — metas loaded lazily when the tab opens; full blobs on lightbox open.
+  const [photos, setPhotos] = useState<JobPhotoMeta[]>([]);
+  const [photosLoaded, setPhotosLoaded] = useState(false);
+  const [lightbox, setLightbox] = useState<{ photoId: string; label: string; fullB64?: string } | null>(null);
 
   // Edit buffer for the data tabs (null = read-only). Edits write to job.parsed via PATCH.
   const [editParsed, setEditParsed] = useState<ParsedUpdate | null>(null);
@@ -133,6 +138,37 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       fn(next);
       return next;
     });
+  }
+
+  // Lazy-load photo thumbnails the first time the Photos tab is opened.
+  useEffect(() => {
+    if (activeTab !== "photos" || photosLoaded || !businessId) return;
+    fetch(`/api/jobs/${jobId}/photos?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => setPhotos((d.photos ?? []) as JobPhotoMeta[]))
+      .catch(() => {})
+      .finally(() => setPhotosLoaded(true));
+  }, [activeTab, photosLoaded, businessId, jobId]);
+
+  async function openLightbox(meta: JobPhotoMeta) {
+    setLightbox({ photoId: meta.photoId, label: meta.label });
+    const r = await fetch(`/api/jobs/${jobId}/photos/${meta.photoId}?businessId=${businessId}`).then((x) => x.json()).catch(() => null);
+    if (r?.fullB64) setLightbox((lb) => (lb && lb.photoId === meta.photoId ? { ...lb, fullB64: r.fullB64 } : lb));
+  }
+
+  async function toggleInclude(meta: JobPhotoMeta) {
+    const next = !meta.includeInReport;
+    setPhotos((ps) => ps.map((p) => (p.photoId === meta.photoId ? { ...p, includeInReport: next } : p)));
+    await fetch(`/api/jobs/${jobId}/photos/${meta.photoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, includeInReport: next }),
+    }).catch(() => {});
+  }
+
+  async function deletePhoto(meta: JobPhotoMeta) {
+    setPhotos((ps) => ps.filter((p) => p.photoId !== meta.photoId));
+    await fetch(`/api/jobs/${jobId}/photos/${meta.photoId}?businessId=${businessId}`, { method: "DELETE" }).catch(() => {});
   }
 
   const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
@@ -264,6 +300,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
     { id: "issues", label: `Issues (${issues.length})` },
+    { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
     { id: "invoice", label: "Invoice" },
     { id: "report", label: "Report" },
   ] as const;
@@ -553,6 +590,61 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             )}
           </div>
         </section>
+      )}
+
+      {/* ── Photos ── */}
+      {activeTab === "photos" && (
+        <section className="panel">
+          <div className="panel-body">
+            {!photosLoaded ? (
+              <p style={{ color: "#888", fontSize: 14 }}>Loading photos…</p>
+            ) : photos.length === 0 ? (
+              <div style={{ color: "#888", fontSize: 14 }}>
+                <p style={{ margin: "0 0 8px" }}>No photos yet.</p>
+                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12 }}>Add from field ↗</a>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Tap a photo to view full size. Toggle &ldquo;In report&rdquo; to include it in the generated report (max 2 pages).</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 14 }}>
+                  {photos.map((ph) => (
+                    <div key={ph.photoId} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                      <img
+                        src={`data:image/jpeg;base64,${ph.thumbB64}`}
+                        alt={ph.label}
+                        onClick={() => openLightbox(ph)}
+                        style={{ width: "100%", height: 120, objectFit: "cover", cursor: "pointer", display: "block" }}
+                      />
+                      <div style={{ padding: "8px 10px" }}>
+                        <p style={{ margin: "0 0 6px", fontSize: 12, color: "#334155", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{ph.label}</p>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#475569", cursor: "pointer" }}>
+                            <input type="checkbox" checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} />
+                            In report
+                          </label>
+                          <button onClick={() => deletePhoto(ph)} title="Delete" style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 15 }}>🗑</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Lightbox popup */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          {lightbox.fullB64 ? (
+            <img src={`data:image/jpeg;base64,${lightbox.fullB64}`} alt={lightbox.label} style={{ maxWidth: "100%", maxHeight: "80vh", objectFit: "contain", borderRadius: 8 }} />
+          ) : (
+            <div style={{ color: "#94a3b8", fontSize: 14 }}>Loading…</div>
+          )}
+          <p style={{ color: "#fff", fontSize: 14, marginTop: 16, maxWidth: 600, textAlign: "center" }}>{lightbox.label}</p>
+          <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: 20, right: 24, background: "none", border: "none", color: "#fff", fontSize: 28, cursor: "pointer" }}>×</button>
+        </div>
       )}
 
       {/* ── Invoice ── */}

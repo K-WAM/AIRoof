@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { PhotoCapture } from "@/components/field/PhotoCapture";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
 
 // ── SVG mic icon ────────────────────────────────────────────────────────────
@@ -305,6 +306,9 @@ function FieldApp() {
               {micLabel}
             </p>
           </div>
+
+          {/* Photo capture */}
+          <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerName.trim() || undefined} disabled={isBusy} onUploaded={() => { setSubmitted(true); setTimeout(() => setSubmitted(false), 2500); }} />
 
           {/* Textarea */}
           <textarea

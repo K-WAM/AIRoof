@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
+import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
 
@@ -623,6 +624,11 @@ function FieldPageContent() {
                 &ldquo;{transcript}&rdquo;
               </p>
             )}
+          </div>
+
+          {/* Photo capture */}
+          <div style={{ marginBottom: 20 }}>
+            <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={user?.email || undefined} />
           </div>
 
           {/* One-tap correction confirm card */}

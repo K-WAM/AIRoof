@@ -77,6 +77,17 @@ service cloud.firestore {
           allow create: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
           allow update, delete: if false;
         }
+
+        // Photos: meta+thumbnail and full blobs. All writes go through admin-SDK API
+        // routes (public field workers included), so client writes are denied here.
+        match /photos/{photoId} {
+          allow read: if isSuperadmin() || isBusinessMember(businessId);
+          allow write: if false;
+        }
+        match /photoBlobs/{photoId} {
+          allow read: if isSuperadmin() || isBusinessMember(businessId);
+          allow write: if false;
+        }
       }
     }
 
