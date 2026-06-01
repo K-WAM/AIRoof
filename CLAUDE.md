@@ -35,9 +35,9 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Phase 4 in progress — bugs fixed, performance cleanup partially done
-**Estimated Completion**: 94%
-**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore, OpenAI, DeepSeek, Vapi, ElevenLabs, Resend, Vercel
+**Status**: Field Ops + Calendar Powerhouse + Library epic complete (7 phases). See docs/EPIC-PLAN.md.
+**Estimated Completion**: 97%
+**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
 **Vercel URL**: https://ai-roof.vercel.app
@@ -53,19 +53,18 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **94% complete**.
+Current estimate: **97% complete**.
 
 Basis:
-- Full infrastructure live on Vercel: Firestore, OpenAI, DeepSeek, Vapi, Resend all configured.
-- Alice answers calls end-to-end: 7 tools, call outcome tagging, after-hours tagging, follow-up cron.
-- "Call Back" button fixed — outbound calls now work (BUG 1 resolved: ID token vs session cookie mismatch).
-- QR demo field submission fixed — public /field workers no longer get 401 (BUG 2 resolved).
-- /field upgraded to Whisper (MediaRecorder → server-side Whisper) — better quality than browser speech API.
-- Job status normalization: all 6 statuses consistent across dashboard, jobs filter chips, progress bar.
-- Single-job endpoint added (GET /api/jobs/[jobId]) — job detail no longer fetches all jobs to find one.
-- Unused packages removed: twilio, @opentelemetry/api.
-- All company dashboard pages wired to live Firestore; superadmin portal complete.
-- Remaining: admin route auth (low priority, not blocking demo).
+- Full infrastructure live on Vercel; Alice answers calls end-to-end with 7 Vapi tools (confirmed in dashboard: bookAppointment, checkAvailability, createLead, escalateCall, lookupAppointment, cancelAppointment, getCurrentDate).
+- **Booking fixed platform-wide**: Admin Firestore uses `ignoreUndefinedProperties` — no more "undefined value" rejections.
+- **Single source of truth for job data**: `job.parsed` is computed in code from the immutable `updates` ledger (`src/lib/jobs/projection.ts`). Materials dedup/sum by name. Tabs are inline-editable. **Voice corrections** are a one-tap confirm card (code computes old/new + running total — LLM never does arithmetic).
+- **Job-site photos** on the free plan: base64-in-Firestore, split thumb/full docs, 10-photo cap, lightbox, include-in-report toggle (`src/lib/photos/store.ts` — swappable to Firebase Storage when on Blaze).
+- **Report**: editable preview + Scope/Resolution notes + embedded photos (≤2 pages), manual "Mail report" gate.
+- **Library** (`/company/library`): pricing catalog (auto-fills invoices), crews, documents.
+- **Calendar Powerboard**: drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → Confirm → branded crew email + color.
+- **After-hours booking**: Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown grey, one-click "Confirm & notify customer".
+- Remaining: admin route auth (low priority); customer-email capture for after-hours confirmations (only phone captured today); SMS (needs Twilio A2P).
 
 ## Architecture
 
@@ -205,15 +204,28 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/updates/route.ts — Submit field update + DeepSeek parse
 - src/app/api/jobs/[jobId]/report/route.ts — Generate text report from all parsed updates
 - src/app/api/jobs/[jobId]/invoice/route.ts — Generate editable draft invoice
-- src/types/jobs.ts — Job, FieldUpdate, ParsedUpdate, InvoiceLineItem types
-- src/lib/ai/deepseekClient.ts — DeepSeek: summaries, classification, FAQ suggestions, parseFieldUpdate()
-- src/hooks/useBusinessTimezone.ts — US_TIMEZONES list + useBusinessTimezone() hook
+- src/types/jobs.ts — Job, FieldUpdate (+ correction fields), ParsedUpdate, ProposedCorrection, JobPhotoMeta
+- src/lib/ai/deepseekClient.ts — DeepSeek/GPT-4o: summaries, classification, parseFieldUpdate() (now also flags corrections)
+- src/lib/jobs/projection.ts — buildProjection() (code-owned aggregation), resolveCorrection(), parsedToFieldLog() — **single source of truth for job data**
+- src/lib/photos/store.ts — swappable photo storage (base64-Firestore now, Firebase Storage later); MAX_PHOTOS_PER_JOB, MAX_FULL_BYTES
+- src/lib/photos/clientResize.ts — browser canvas compression (thumb + capped full)
+- src/components/field/PhotoCapture.tsx — shared ＋Photo control (mandatory description) for both field screens
+- src/app/api/jobs/[jobId]/photos/route.ts + [photoId]/route.ts — photo upload/list/blob/toggle/delete
+- src/app/api/jobs/[jobId]/report/send/route.ts — branded report email (Resend), manual Mail gate
+- src/app/api/jobs/[jobId]/assign/route.ts — crew assignment + branded crew email
+- src/lib/notify.ts — sendCrewAssignment / sendCustomerConfirmation (email now, SMS seam later)
+- src/types/library.ts — LibraryPricing/Material/LaborRate/Document, Crew, lookupUnitPrice()
+- src/app/company/library/page.tsx + src/app/api/company/library/route.ts + crews/route.ts — Library (pricing/crews/docs)
+- src/app/company/calendar/page.tsx — Calendar Powerboard (@dnd-kit crew×day drag-drop scheduling)
+- src/hooks/useBusinessTimezone.ts — US_TIMEZONES list + useBusinessTimezone() hook (sessionStorage cached)
 - public/guides/field-operations-guide.html — Printable 4-section field ops guide (Luxor branded)
 - public/guides/onboarding-guide.html — Printable demo + onboarding guide
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
 - scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
-- docs/PERFORMANCE-CLEANUP.md — Phase 4 remaining items (calendar range, timezone cache, dashboard aggregation, admin auth)
+- docs/PERFORMANCE-CLEANUP.md — Phase 4 spec (mostly done)
+- docs/EPIC-PLAN.md — Field Ops + Calendar Powerhouse + Library epic plan (the 7-phase build that's now complete)
+- docs/DEMO-STUDIO-PLAN.md — Multi-vertical Demo Studio plan (Phase 6+)
 
 ## Navigation Completeness Rule
 
@@ -236,35 +248,31 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Test outbound call end-to-end** — "Call Back" button now fixed; VAPI_API_KEY in Vercel; test a real call
-2. **Test QR demo** — scan QR on /admin/demo, speak update, confirm it appears in Jobs tab
-3. **Vapi Stability slider** — drag to 0.35–0.40 in Vapi dashboard (dashboard-only, no code)
-4. **After-hours voice behavior** — requires Vapi assistant-request webhook (Phase 5)
-8. **Google Calendar** — post-MVP, per-business OAuth
-9. **Stripe billing** — Phase 6
+1. **Live smoke test the epic** — voice correction (say "make that 120 not 150"), drag a job on the Powerboard + Confirm, snap a field photo, generate+mail a report, add Library pricing → generate invoice.
+2. **Capture customer email** so after-hours "Confirm & notify customer" reaches the customer (today only phone is captured; the branded email infra is ready in `src/lib/notify.ts`).
+3. **Admin route auth** — add `verifyAuthAndRole(["superadmin"])` to `/api/admin/*` before public launch (low priority).
+4. **Google Calendar** — post-MVP, per-business OAuth (still mock availability slots).
+5. **Stripe billing** + **SMS** (Twilio A2P 10DLC) — later.
 
 ## Implementation Phases
 
 - Phase 0: Firebase project setup ✓
-- Phase 1A: DeepSeek back-office wired ✓
-- Phase 1B: Auth guards + login page ✓
-- Phase 1C–1H: Twilio pipeline built + fixed ✓ (superseded by Vapi migration)
-- Phase 1F: Company UI pages wired to live Firestore ✓
-- Phase 2: Vapi migration + conversation memory + tool use during calls ✓ (confirmed live end-to-end)
+- Phase 1A–1H: DeepSeek back-office, auth guards, Twilio (superseded by Vapi), company UI wired ✓
+- Phase 2: Vapi migration + conversation memory + tool use ✓ (live; 7 tools confirmed in dashboard)
 - Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron ✓
-- Phase 4: Performance cleanup ✓ — BUG 1 + BUG 2 fixed, Whisper for /field, job status normalization, single-job endpoint, package cleanup, calendar range filter, timezone caching, dashboard count aggregation
-- Phase 5: Google Calendar (post-MVP, requires per-business OAuth)
-- Phase 6: Stripe billing, SMS escalation, additional verticals
+- Phase 4: Performance cleanup ✓ — outbound auth, public field auth, Whisper, status normalization, single-job endpoint, calendar range filter, timezone caching, dashboard aggregation
+- **Field Ops + Calendar Powerhouse + Library epic ✓ (see docs/EPIC-PLAN.md)** — booking fix; unified/editable/voice-correctable job data; job-site photos; editable report with mail gate; Library (pricing/crews/docs); Calendar Powerboard (drag-drop crews); after-hours booking confirmation. Vapi date injection (`assistant-request` → `{{currentDate}}`/`{{afterHoursContext}}`) wired and confirmed in the dashboard prompt.
+- Post-MVP: Google Calendar OAuth, Stripe billing, SMS escalation, additional verticals (see docs/DEMO-STUDIO-PLAN.md)
 
 ## Known Limitations
 
-- **VAPI_AUTH_BYPASS active**: Permanently correct — Vapi new agent builder sends no secret header (confirmed from Vapi Logs tab: only Content-Type + Accept-Encoding). Do not remove this env var.
-- **After-hours tagging only**: Calls are tagged `isAfterHours` in Firestore but Alice's voice prompt is not dynamically changed. Real after-hours behavior requires Vapi `assistant-request` webhook override (Phase 4).
-- **Outbound calls need callbackDelayMinutes set**: Auto-callback only fires when `callbackDelayMinutes` is configured per business in `/admin/businesses/{id}/config`
-- **Google Calendar**: Uses mock availability slots — real per-business OAuth is post-MVP
-- **SMS escalation**: Requires Twilio A2P 10DLC registration (~2-4 weeks) — email covers MVP
-- **RESEND_FROM**: Needs a verified sending domain in Resend before "From" name shows correctly in emails
-- **Vapi Stability**: Not yet set to 0.35 — do in Vapi dashboard voice settings (ElevenLabs Flash already switched)
+- **VAPI_AUTH_BYPASS active**: Permanently correct — Vapi sends no secret header. Do not remove.
+- **After-hours**: now functional — `assistant-request` injects date/time/after-hours context (confirmed live in the dashboard prompt), and after-hours appts are flagged `pendingConfirmation` for one-click morning confirmation. Customer-email-on-confirm needs a captured customer email (only phone today).
+- **Photos/files on free Spark plan**: base64-in-Firestore (no Firebase Storage). 10 photos/job, ~900KB each. Swap `src/lib/photos/store.ts` to Firebase Storage when a client justifies Blaze.
+- **Google Calendar**: mock availability slots — real per-business OAuth is post-MVP.
+- **SMS**: Requires Twilio A2P 10DLC (~2–4 weeks) — `notify.ts` has the seam; email covers MVP.
+- **RESEND_FROM**: Needs a verified sending domain in Resend for the "From" name to show correctly.
+- **Voice**: Cartesia Sonic 3.5 "Ariana - kind friend" (~250ms latency). For maximum raw human realism, ElevenLabs is the leader (higher latency); see HANDOFF for the tradeoff.
 
 ## Contact
 

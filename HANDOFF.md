@@ -1,11 +1,34 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-05-30 (Phase 4 session)
+Last updated: 2026-06-01 (Field Ops + Calendar Powerhouse + Library epic)
 
 ## Current State
 
-**Completion: ~94%**
+**Completion: ~97%**
 
 Platform is live at https://ai-roof.vercel.app. Everything below is confirmed working in production.
+
+### Latest epic — Field Ops + Calendar Powerhouse + Library (shipped, 7 commits)
+Full plan: **docs/EPIC-PLAN.md**. Built straight through, type-checked + built green per phase, Firestore rules deployed.
+
+- **Booking fixed platform-wide** — Admin Firestore now uses `ignoreUndefinedProperties` (was rejecting every booking on the `notes: undefined` field).
+- **Unified, editable, voice-correctable job data** — `job.parsed` is the single source of truth, computed in code from the immutable `updates` ledger (`src/lib/jobs/projection.ts`). Materials dedup/sum by name (fixes the "2×4s 50/50/150" duplication). Job-detail tabs are inline-editable. Voice corrections are a **one-tap confirm card** that shows old→new + the recomputed running total — the LLM never does the arithmetic, so a correction can't wipe prior days (e.g. 30+20+40+150 → correct 150→120 → 210, not 120).
+- **Job-site photos** (free Spark plan) — `＋ Photo` on both field screens with a mandatory description; base64 split into thumbnail + full-blob Firestore docs so grids load instantly; 10-photo cap; admin Photos tab + lightbox + "In report" toggle. `src/lib/photos/store.ts` swaps to Firebase Storage in one file when on Blaze.
+- **Editable report** — Scope & Resolution notes section, included photos (≤2 pages, captioned), and a manual **📧 Mail report** button (branded Resend email). Automation assembles; a human sends.
+- **Library** (`/company/library`) — pricing catalog (auto-fills invoice unit prices, never fabricates), crews, documents.
+- **Calendar Powerboard** — drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → **Confirm** → branded crew email + tile turns crew color. Bookings row shows appointments (unconfirmed dashed-grey).
+- **After-hours booking** — Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown amber/grey with a one-click **"Confirm & notify customer"**. Vapi `assistant-request` injects `{{currentDate}}`/`{{currentTime}}`/`{{afterHoursContext}}` — **confirmed live in the dashboard prompt**, and all 7 tools are attached.
+
+### Vapi config (confirmed from dashboard 2026-06-01)
+- **Tools (7):** bookAppointment, checkAvailability, createLead, escalateCall, lookupAppointment, cancelAppointment, getCurrentDate.
+- **System prompt** opens with `CONTEXT: Today is {{currentDate}} at {{currentTime}} ({{currentTimezone}}). {{afterHoursContext}}` + an explicit BOOKING FLOW (call checkAvailability first, read slots, bookAppointment, confirm warmly).
+- **Voice:** Cartesia Sonic 3.5 "Ariana - kind friend" (~250 ms). **Transcriber:** Deepgram nova-3 multilingual. **Model:** GPT-4o Mini Cluster. ~$0.09/min, ~840 ms latency.
+
+### Most human-sounding voice — recommendation
+Two different axes of "human":
+- **Raw voice realism:** **ElevenLabs** is the leader (Turbo v2.5 / Multilingual v2 / Flash). Warmest receptionist-style voices: *Sarah, Jessica, Matilda*. Tradeoff: higher latency (~400–700 ms) and ~$0.05–0.10/min more. Tune Stability ~0.40–0.50, Similarity ~0.75, Style low.
+- **Conversational naturalness (turn-taking):** **Cartesia Sonic** (current) wins on latency (~250 ms). On a phone call, fast responses with no awkward pause feel *more* human than a marginally richer voice that lags — so the current pick is genuinely strong for a receptionist.
+
+**Verdict:** Keep Cartesia "Ariana" if low latency matters most (recommended for phone). If you want maximum raw realism and can accept slower replies, switch provider → ElevenLabs → a warm conversational voice and lower Stability for more expressiveness. A/B both on a real call before deciding.
 
 ### What's Working (Confirmed Live)
 - Alice answers inbound calls end-to-end, runs 7 tools
