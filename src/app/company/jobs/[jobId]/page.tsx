@@ -54,6 +54,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [report, setReport] = useState<string | null>(null);
   const [reportError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [reportNotes, setReportNotes] = useState("");
+  const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string }>>([]);
+  const [showReportSend, setShowReportSend] = useState(false);
+  const [reportTo, setReportTo] = useState("");
+  const [reportSending, setReportSending] = useState(false);
+  const [reportSent, setReportSent] = useState(false);
+  const [reportSendError, setReportSendError] = useState<string | null>(null);
 
   // Send invoice state
   const [sendEmail, setSendEmail] = useState("");
@@ -211,9 +218,60 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   }
 
-  function generateReport() {
+  async function generateReport() {
     setReport("ready");
     setActiveTab("report");
+    setReportNotes(job?.reportNotes ?? "");
+    // Load full-res blobs for the photos marked include-in-report (≤ 8 → 2 pages).
+    let metas = photos;
+    if (!photosLoaded) {
+      metas = await fetch(`/api/jobs/${jobId}/photos?businessId=${businessId}`).then((r) => r.json()).then((d) => (d.photos ?? []) as JobPhotoMeta[]).catch(() => []);
+      setPhotos(metas);
+      setPhotosLoaded(true);
+    }
+    const included = metas.filter((p) => p.includeInReport).slice(0, 8);
+    const withBlobs = await Promise.all(
+      included.map(async (p) => {
+        const r = await fetch(`/api/jobs/${jobId}/photos/${p.photoId}?businessId=${businessId}`).then((x) => x.json()).catch(() => null);
+        return r?.fullB64 ? { label: p.label, fullB64: r.fullB64 as string } : null;
+      })
+    );
+    setReportPhotos(withBlobs.filter(Boolean) as Array<{ label: string; fullB64: string }>);
+  }
+
+  async function saveReportNotes() {
+    if (!businessId) return;
+    await fetch(`/api/jobs/${jobId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, reportNotes }),
+    }).catch(() => {});
+    setJob((j) => (j ? { ...j, reportNotes } : j));
+  }
+
+  async function mailReport() {
+    if (!businessId || !reportTo.trim()) { setReportSendError("Enter a recipient email."); return; }
+    setReportSending(true);
+    setReportSendError(null);
+    try {
+      await saveReportNotes();
+      const res = await fetch(`/api/jobs/${jobId}/report/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes, photos: reportPhotos }),
+      });
+      if (res.ok) {
+        setReportSent(true);
+        setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setReportSendError(d.error ?? "Failed to send.");
+      }
+    } catch {
+      setReportSendError("Network error. Try again.");
+    } finally {
+      setReportSending(false);
+    }
   }
 
   // Auto-calculate hours from arrival/departure time strings (e.g. "08:00", "8:00 AM", "4:00 PM", "16:00")
@@ -907,11 +965,36 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }} className="no-print">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
+                <button className="button" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, background: showReportSend ? "#eff6ff" : undefined }}>📧 Mail report</button>
                 <button className="button" onClick={() => window.print()} style={{ fontSize: 13 }}>🖨 Print / Save as PDF</button>
                 <button className="button" onClick={() => { setReport(null); setTimeout(generateReport, 0); }} style={{ fontSize: 13 }}>Regenerate</button>
               </div>
-              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} allParsed={allParsed} />
+
+              {/* Mail panel — automation prepares the report; a human presses send */}
+              {showReportSend && (
+                <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
+                  <p style={{ margin: "0 0 10px", fontWeight: 600, fontSize: 14, color: "#0369a1" }}>Email this report to the client</p>
+                  {reportSent ? (
+                    <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Report sent successfully!</p>
+                  ) : (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <input type="email" value={reportTo} onChange={(e) => setReportTo(e.target.value)} placeholder={job?.clientName ? `Email for ${job.clientName}` : "client@email.com"} style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }} />
+                      <button onClick={mailReport} disabled={reportSending} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap" }}>{reportSending ? "Sending…" : "Send report"}</button>
+                    </div>
+                  )}
+                  {reportSendError && <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 13 }}>{reportSendError}</p>}
+                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Includes the notes and any photos marked &ldquo;In report&rdquo;.</p>
+                </div>
+              )}
+
+              {/* Scope & Resolution notes — admin-edited, persisted, included in the report */}
+              <div style={{ marginBottom: 16 }} className="no-print">
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
+                <textarea value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={saveReportNotes} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+              </div>
+
+              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} allParsed={allParsed} reportNotes={reportNotes} reportPhotos={reportPhotos} />
             </div>
           )}
         </div>
@@ -1101,13 +1184,15 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
 
 // ── Professional branded report renderer ────────────────────────────────────────
 function ReportRenderer({
-  job, jobId, businessConfig, allParsed,
+  job, jobId, businessConfig, allParsed, reportNotes, reportPhotos,
 }: {
   report: string;
   job: Job;
   jobId: string;
   businessConfig: BusinessConfig | null;
   allParsed: ParsedUpdate[];
+  reportNotes?: string;
+  reportPhotos?: Array<{ label: string; fullB64: string }>;
 }) {
   const accent = businessConfig?.brandColor ?? "#1e3a5f";
   const bizName = businessConfig?.businessName ?? "Field Report";
@@ -1208,6 +1293,13 @@ function ReportRenderer({
               {totalLaborHours > 0 && `Total labor: ${totalLaborHours.toFixed(1)} hours.`}
             </p>
           </div>
+        )}
+
+        {/* ── Scope & resolution (admin notes) ── */}
+        {reportNotes?.trim() && (
+          <ReportSection title="Scope & Resolution">
+            <p style={{ margin: 0, fontSize: 14, color: "#334155", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{reportNotes.trim()}</p>
+          </ReportSection>
         )}
 
         {/* ── Issues identified ── */}
@@ -1331,6 +1423,22 @@ function ReportRenderer({
               </div>
             </div>
             <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8" }}>Estimate only. Final invoice may differ based on additional scope.</p>
+          </div>
+        )}
+
+        {/* ── Photo documentation (max 2 pages: up to 8 photos, 4 per page) ── */}
+        {reportPhotos && reportPhotos.length > 0 && (
+          <div style={{ pageBreakBefore: "always", marginTop: 8 }}>
+            <ReportSection title="Photo Documentation">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {reportPhotos.slice(0, 8).map((ph, i) => (
+                  <div key={i} style={{ breakInside: "avoid" }}>
+                    <img src={`data:image/jpeg;base64,${ph.fullB64}`} alt={ph.label} style={{ width: "100%", height: 200, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.4 }}>{ph.label}</p>
+                  </div>
+                ))}
+              </div>
+            </ReportSection>
           </div>
         )}
 
