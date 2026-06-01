@@ -2,17 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import {
+  LayoutDashboard,
+  Phone,
+  Workflow,
+  Briefcase,
+  CalendarDays,
+  BookOpen,
+  Settings,
+} from "lucide-react";
 
 const LINKS = [
-  { path: "/company/dashboard", label: "Dashboard", icon: "▦" },
-  { path: "/company/calls", label: "Calls", icon: "☏" },
-  { path: "/company/leads", label: "Leads", icon: "◎" },
-  { path: "/company/appointments", label: "Appts", icon: "◷" },
-  { path: "/company/jobs", label: "Jobs", icon: "⚒" },
-  { path: "/company/calendar", label: "Calendar", icon: "▤" },
-  { path: "/company/field", label: "Field", icon: "⊕" },
-  { path: "/company/library", label: "Library", icon: "▦" },
-  { path: "/company/settings", label: "Settings", icon: "⚙" },
+  { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { path: "/company/calls", label: "Calls", Icon: Phone },
+  { path: "/company/pipeline", label: "Pipeline", Icon: Workflow },
+  { path: "/company/jobs", label: "Jobs", Icon: Briefcase },
+  { path: "/company/calendar", label: "Calendar", Icon: CalendarDays },
+  { path: "/company/library", label: "Library", Icon: BookOpen },
+  { path: "/company/settings", label: "Settings", Icon: Settings },
 ];
 
 export function CompanyNav() {
@@ -23,14 +30,14 @@ export function CompanyNav() {
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
-      {LINKS.map((link) => (
+      {LINKS.map(({ path, label, Icon }) => (
         <Link
-          href={`${link.path}${suffix}`}
-          key={link.path}
-          aria-current={pathname === link.path ? "page" : undefined}
+          href={`${path}${suffix}`}
+          key={path}
+          aria-current={pathname === path ? "page" : undefined}
         >
-          <span className="company-nav-icon">{link.icon}</span>
-          {link.label}
+          <Icon size={16} strokeWidth={1.75} />
+          {label}
         </Link>
       ))}
     </nav>

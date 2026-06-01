@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { AlertTriangle, Clock, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
   leadId: string;
@@ -116,9 +117,9 @@ export default function CompanyDashboardPage() {
 
   const metrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
-    { label: "Leads", value: leads.length, href: `/company/leads${previewSuffix}` },
-    { label: "Urgent leads", value: urgentLeads.length, href: `/company/leads${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
-    { label: "Appointments", value: appointments.length, href: `/company/appointments${previewSuffix}` },
+    { label: "Leads", value: leads.length, href: `/company/pipeline${previewSuffix}` },
+    { label: "Urgent leads", value: urgentLeads.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
+    { label: "Appointments", value: appointments.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}` },
   ];
 
   const agentSettings = agent
@@ -174,8 +175,8 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{urgentLeads.length}</span>
               </div>
               {urgentLeads.slice(0, 5).map((lead) => (
-                <Link key={lead.leadId} href={`/company/leads${previewSuffix}`} className="feed-row">
-                  <div className="feed-icon feed-icon--urgent">⚠</div>
+                <Link key={lead.leadId} href={`/company/pipeline${previewSuffix}`} className="feed-row">
+                  <div className="feed-icon feed-icon--urgent"><AlertTriangle size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
                     <p className="feed-sub">{lead.serviceRequested ?? lead.address ?? "New lead"}</p>
@@ -194,8 +195,8 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{todayAppointments.length}</span>
               </div>
               {todayAppointments.map((appt) => (
-                <Link key={appt.appointmentId} href={`/company/appointments${previewSuffix}`} className="feed-row">
-                  <div className="feed-icon feed-icon--appt">◷</div>
+                <Link key={appt.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`} className="feed-row">
+                  <div className="feed-icon feed-icon--appt"><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
                     <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}</p>
@@ -215,7 +216,7 @@ export default function CompanyDashboardPage() {
               </div>
               {activeJobs.slice(0, 5).map((job) => (
                 <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
-                  <div className="feed-icon feed-icon--job">⚒</div>
+                  <div className="feed-icon feed-icon--job"><Wrench size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{job.jobId} — {job.title}</p>
                     <p className="feed-sub">{job.clientName ?? job.address ?? "—"}</p>

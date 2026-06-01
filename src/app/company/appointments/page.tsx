@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { Phone, Clock } from "lucide-react";
 
 interface Appointment {
   appointmentId: string;
@@ -167,7 +168,8 @@ export default function CompanyAppointmentsPage() {
           </div>
           {isPending && (
             <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45 }}>
-              ⏰ Booked by Alice after hours. Confirm to notify the customer and lock it in.
+              <Clock size={13} style={{ marginTop: 1, flexShrink: 0 }} />
+              Booked by Alice after hours. Confirm to notify the customer and lock it in.
             </div>
           )}
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
@@ -193,15 +195,16 @@ export default function CompanyAppointmentsPage() {
               className="button"
               disabled={calling === appt.appointmentId}
               onClick={() => callBack(appt)}
-              style={{ fontSize: 13 }}
+              style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
               title={`Call ${appt.callerPhone}`}
             >
-              {calling === appt.appointmentId ? "Calling…" : "☎ Call Back"}
+              <Phone size={13} />
+              {calling === appt.appointmentId ? "Calling…" : "Call Back"}
             </button>
           )}
           {justConfirmed ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
-              <span>✓</span> Confirmation sent
+              Confirmation sent
             </div>
           ) : !isPast && !isConfirmed ? (
             <>
@@ -256,7 +259,7 @@ export default function CompanyAppointmentsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (
-            <span className="status-pill" style={{ background: "#fffbeb", color: "#92400e", borderColor: "#fcd34d" }}>⏰ {pendingCount} to confirm</span>
+            <span className="status-pill" style={{ background: "#fffbeb", color: "#92400e", borderColor: "#fcd34d", display: "inline-flex", alignItems: "center", gap: 5 }}><Clock size={12} /> {pendingCount} to confirm</span>
           )}
           <span className="status-pill">{upcoming.length} upcoming</span>
         </div>

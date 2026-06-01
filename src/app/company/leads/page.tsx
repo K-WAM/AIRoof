@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { Phone } from "lucide-react";
 
 interface Lead {
   leadId: string;
@@ -241,8 +242,10 @@ export default function CompanyLeadsPage() {
                       disabled={calling === selected.leadId}
                       onClick={() => callBack(selected)}
                       title={`Call ${selected.callerPhone}`}
+                      style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
-                      {calling === selected.leadId ? "Calling…" : "☎ Call Back"}
+                      <Phone size={13} />
+                      {calling === selected.leadId ? "Calling…" : "Call Back"}
                     </button>
                   )}
                 </div>

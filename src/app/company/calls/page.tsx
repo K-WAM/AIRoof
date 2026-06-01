@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { Clock } from "lucide-react";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -198,7 +199,7 @@ export default function CompanyCallsPage() {
 
                 {selected.isAfterHours && selected.outcome !== "scheduled" && (
                   <div style={{ padding: "10px 14px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 18, lineHeight: 1 }}>⏰</span>
+                    <Clock size={18} style={{ flexShrink: 0 }} />
                     <div>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#92400e" }}>Appointment not booked — after hours</p>
                       <p style={{ margin: "2px 0 0", fontSize: 12, color: "#b45309" }}>

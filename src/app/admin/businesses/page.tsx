@@ -53,6 +53,9 @@ export default function AdminBusinessesPage() {
             All tenants on the platform. Click Edit to configure an agent, Preview to see the client view.
           </p>
         </div>
+        <Link href="/admin/onboarding" className="button primary" style={{ alignSelf: "flex-start" }}>
+          + Add Company
+        </Link>
       </header>
 
       <section className="metric-grid" aria-label="Business summary" style={{ marginBottom: 24 }}>
