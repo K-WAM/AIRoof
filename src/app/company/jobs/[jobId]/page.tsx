@@ -4,7 +4,9 @@ import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
+import { lookupUnitPrice } from "@/types/library";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
+import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -28,6 +30,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
   const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
+  const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -72,15 +75,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const load = useCallback(async () => {
     if (!businessId) return;
     try {
-      const [jobRes, updatesRes, configRes] = await Promise.all([
+      const [jobRes, updatesRes, configRes, libRes] = await Promise.all([
         fetch(`/api/jobs/${jobId}?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/company/library?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.job as Job) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
       if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
+      if (libRes?.library) setLibrary(libRes.library as LibraryPricing);
     } catch {
       // silently fail — show not found below
     }
@@ -196,19 +201,25 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate });
       }
 
-      // Build material rows
-      const newMaterialRows: MaterialRow[] = materials.map((m) => ({
-        item: m.item,
-        quantity: m.quantity ?? "1",
-        unit: m.unit ?? "",
-        unitPrice: m.cost != null && m.quantity
-          ? String((m.cost / (parseFloat(m.quantity) || 1)).toFixed(2))
-          : "",
-      }));
+      // Build material rows — auto-fill unit price from the Library catalog when the field
+      // update didn't state a cost. Never fabricate: a no-match leaves the field blank.
+      const catalog = library?.materials ?? [];
+      const newMaterialRows: MaterialRow[] = materials.map((m) => {
+        let unitPrice = "";
+        if (m.cost != null && m.quantity) {
+          unitPrice = String((m.cost / (parseFloat(m.quantity) || 1)).toFixed(2));
+        } else {
+          const fromCatalog = lookupUnitPrice(catalog, m.item);
+          if (fromCatalog != null) unitPrice = String(fromCatalog);
+        }
+        return { item: m.item, quantity: m.quantity ?? "1", unit: m.unit ?? "", unitPrice };
+      });
 
       setLaborRows(newLaborRows);
       setMaterialRows(newMaterialRows);
       setOtherRows([]);
+      if (library?.defaultTaxRate != null) setTaxRate(String(library.defaultTaxRate));
+      else if (businessConfig?.defaultTaxRate != null) setTaxRate(String(businessConfig.defaultTaxRate));
       setInvoiceReady(true);
       setActiveTab("invoice");
     } catch (e) {

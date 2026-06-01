@@ -67,6 +67,17 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // Library: pricing/docs and crews. Writes go through admin-SDK API routes.
+      match /library/{docId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow write: if false;
+      }
+
+      match /crews/{crewId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow write: if false;
+      }
+
       match /jobs/{jobId} {
         allow read: if isSuperadmin() || isBusinessMember(businessId);
         allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
