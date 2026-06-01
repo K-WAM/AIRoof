@@ -91,6 +91,25 @@ export interface BookAppointmentInput {
   sourceCallId?: string;
 }
 
+// True if `now` falls outside the configured business hours for today (in the business tz).
+export function isAfterHoursNow(hours: Record<string, string>, tz: string): boolean {
+  try {
+    const now = new Date();
+    const dayName = now.toLocaleDateString("en-US", { timeZone: tz, weekday: "long" });
+    const todayHours = hours[dayName];
+    if (!todayHours || todayHours.toLowerCase() === "closed") return true;
+    const m = todayHours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+    if (!m) return false;
+    const open = parseInt(m[1]) * 60 + parseInt(m[2]);
+    const close = parseInt(m[3]) * 60 + parseInt(m[4]);
+    const local = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+    const cur = local.getHours() * 60 + local.getMinutes();
+    return cur < open || cur >= close;
+  } catch {
+    return false;
+  }
+}
+
 export async function bookAppointment(input: BookAppointmentInput): Promise<Appointment> {
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
@@ -100,6 +119,10 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
   if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
 
   const businessData = businessDoc.data();
+
+  // Alice books 24/7. If the call lands outside business hours, mark the appointment
+  // pending so staff confirm it (and notify the customer) in the morning.
+  const pendingConfirmation = isAfterHoursNow(businessData?.businessHours ?? {}, businessData?.timezone ?? DEFAULT_TZ);
 
   const appointmentId = `apt_${Date.now()}`;
   const appointment: Appointment = {
@@ -114,6 +137,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
     endTime: input.endTime,
     calendarProvider: "mock",
     status: "requested",
+    pendingConfirmation,
     sourceCallId: input.sourceCallId,
     createdAt: Date.now(),
     updatedAt: Date.now(),

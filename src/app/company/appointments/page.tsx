@@ -18,6 +18,7 @@ interface Appointment {
   startTime: number;
   endTime: number;
   status: string;
+  pendingConfirmation?: boolean;
   createdAt: number;
   sourceCallId?: string;
 }
@@ -136,6 +137,7 @@ export default function CompanyAppointmentsPage() {
 
   const upcoming = appointments.filter((a) => a.startTime > Date.now() && a.status !== "cancelled");
   const past = appointments.filter((a) => a.startTime <= Date.now() || a.status === "cancelled");
+  const pendingCount = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled").length;
 
   if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading appointments…</div>;
 
@@ -144,9 +146,10 @@ export default function CompanyAppointmentsPage() {
     const busy = updating === appt.appointmentId || updating === appt.appointmentId + "_confirm";
     const justConfirmed = confirmedSet.has(appt.appointmentId);
     const isConfirmed = appt.status === "confirmed" || justConfirmed;
+    const isPending = !!appt.pendingConfirmation && !isConfirmed && appt.status !== "cancelled";
 
     return (
-      <article className="appt-card" style={{ opacity: isPast ? 0.75 : 1 }}>
+      <article className="appt-card" style={{ opacity: isPast ? 0.75 : 1, ...(isPending ? { borderLeft: "4px solid #f59e0b", background: "#fffdf7" } : {}) }}>
         <div className="appt-date-block">
           <span className="appt-day">Appt. {day}</span>
           <span className="appt-date">{date}</span>
@@ -160,8 +163,13 @@ export default function CompanyAppointmentsPage() {
         <div className="appt-body">
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
-            <StatusChip status={appt.status} />
+            {isPending ? <StatusChip status="requested" label="After-hours · unconfirmed" /> : <StatusChip status={appt.status} />}
           </div>
+          {isPending && (
+            <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45 }}>
+              ⏰ Booked by Alice after hours. Confirm to notify the customer and lock it in.
+            </div>
+          )}
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="appt-detail">{appt.address ?? "No address provided"}</p>
@@ -201,9 +209,9 @@ export default function CompanyAppointmentsPage() {
                 className="button primary"
                 disabled={busy}
                 onClick={() => sendConfirmation(appt)}
-                style={{ fontSize: 13 }}
+                style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
               >
-                {updating === appt.appointmentId + "_confirm" ? "Sending…" : "Send Confirmation"}
+                {updating === appt.appointmentId + "_confirm" ? "Sending…" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
               </button>
               <button
                 className="button"
@@ -246,7 +254,12 @@ export default function CompanyAppointmentsPage() {
             Inspection bookings captured by Alice from incoming calls.
           </p>
         </div>
-        <span className="status-pill">{upcoming.length} upcoming</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {pendingCount > 0 && (
+            <span className="status-pill" style={{ background: "#fffbeb", color: "#92400e", borderColor: "#fcd34d" }}>⏰ {pendingCount} to confirm</span>
+          )}
+          <span className="status-pill">{upcoming.length} upcoming</span>
+        </div>
       </header>
 
       <section className="panel" aria-labelledby="upcoming-title">

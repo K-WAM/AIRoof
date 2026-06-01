@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
 
   await db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).update({
     status: "confirmed",
+    pendingConfirmation: false,
     updatedAt: Date.now(),
   });
 

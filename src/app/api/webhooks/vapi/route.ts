@@ -186,8 +186,11 @@ async function executeTool(
           sourceCallId: callId,
         });
         await logAction(businessId, callId, "bookAppointment", params, appt, "success");
+        const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
         return {
-          result: `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}. Save this ID in case the caller asks to change it. The team will confirm shortly.`,
+          result: appt.pendingConfirmation
+            ? `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Since we're currently after hours, let the caller know it's reserved and a team member will confirm it first thing in the morning. Save this ID in case they ask to change it.`
+            : `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Save this ID in case the caller asks to change it. The team will confirm shortly.`,
         };
       }
 

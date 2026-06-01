@@ -222,6 +222,8 @@ export interface Appointment {
   status: "requested" | "confirmed" | "cancelled" | "completed";
   sourceCallId?: string;
   notes?: string;
+  // Set when Alice books outside business hours — needs a one-click morning confirmation.
+  pendingConfirmation?: boolean;
   createdAt: number;
   updatedAt: number;
 }
