@@ -35,16 +35,14 @@ export async function PATCH(
 ) {
   const { jobId } = await params;
   const body = await req.json();
-  const { businessId, status, parsed, reportNotes } = body as {
+  const { businessId, status, parsed, reportNotes, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed } = body as {
     businessId?: string; status?: string; parsed?: ParsedUpdate; reportNotes?: string;
+    assignedCrewId?: string | null; scheduledStart?: number | null; scheduledEnd?: number | null; crewConfirmed?: boolean;
   };
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   if (status && !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-  }
-  if (status === undefined && parsed === undefined && reportNotes === undefined) {
-    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
   const db = getAdminFirestore();
@@ -53,6 +51,10 @@ export async function PATCH(
   const update: Record<string, unknown> = { updatedAt: Date.now() };
   if (status) update.status = status;
   if (reportNotes !== undefined) update.reportNotes = reportNotes;
+  if (assignedCrewId !== undefined) update.assignedCrewId = assignedCrewId;
+  if (scheduledStart !== undefined) update.scheduledStart = scheduledStart;
+  if (scheduledEnd !== undefined) update.scheduledEnd = scheduledEnd;
+  if (crewConfirmed !== undefined) update.crewConfirmed = crewConfirmed;
   if (parsed) {
     // Admin override of the projection — keep the legacy display mirror in sync.
     const log = parsedToFieldLog(parsed);
