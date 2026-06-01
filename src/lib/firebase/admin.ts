@@ -20,6 +20,10 @@ function initializeAdmin() {
     adminApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
+    // Drop undefined fields instead of throwing on .set()/.update().
+    // Must run once, before any Firestore operation. Prevents the entire class of
+    // "Cannot use 'undefined' as a Firestore value" errors (e.g. optional appointment notes).
+    admin.firestore(adminApp).settings({ ignoreUndefinedProperties: true });
     return adminApp;
   } catch (error) {
     console.error("Failed to initialize Firebase Admin:", error);
