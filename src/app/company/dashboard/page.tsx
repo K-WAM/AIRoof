@@ -27,6 +27,7 @@ interface ApptSnapshot {
   serviceType?: string;
   startTime: number;
   status: string;
+  pendingConfirmation?: boolean;
 }
 
 interface JobSnapshot {
@@ -112,7 +113,9 @@ export default function CompanyDashboardPage() {
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
+  const pendingAppts = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled");
   const activeJobs = jobs.filter((j) => j.status !== "complete");
+  const apptTabHref = `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`;
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
   const metrics = [
@@ -133,7 +136,7 @@ export default function CompanyDashboardPage() {
       ]
     : [];
 
-  const allClear = urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0;
+  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0;
 
   if (loading) {
     return <div style={{ padding: 32, color: "#666" }}>Loading dashboard…</div>;
@@ -148,7 +151,18 @@ export default function CompanyDashboardPage() {
             Urgent leads, today&apos;s appointments, active jobs, and agent status.
           </p>
         </div>
-        <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {pendingAppts.length > 0 && (
+            <Link
+              href={apptTabHref}
+              className="status-pill"
+              style={{ background: "#fffbeb", color: "#92400e", borderColor: "#fcd34d", textDecoration: "none" }}
+            >
+              {pendingAppts.length} pending approval
+            </Link>
+          )}
+          <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
+        </div>
       </header>
 
       <section className="metric-grid" aria-label="Summary">
@@ -168,6 +182,26 @@ export default function CompanyDashboardPage() {
       <div className="ops-grid">
         {/* Today Feed */}
         <div>
+          {pendingAppts.length > 0 && (
+            <div className="feed-section">
+              <div className="feed-section-header">
+                <p className="feed-section-title">After-hours — Pending Your Approval</p>
+                <span className="feed-section-count">{pendingAppts.length}</span>
+              </div>
+              {pendingAppts.slice(0, 6).map((appt) => (
+                <Link key={appt.appointmentId} href={`${apptTabHref}&appt=${appt.appointmentId}`} className="feed-row">
+                  <div className="feed-icon feed-icon--appt" style={{ background: "#fef3c7", color: "#92400e" }}><Clock size={14} /></div>
+                  <div className="feed-body">
+                    <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
+                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"} · booked after hours</p>
+                  </div>
+                  <StatusChip status="after_hours" />
+                  <span className="feed-chevron">›</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
           {urgentLeads.length > 0 && (
             <div className="feed-section">
               <div className="feed-section-header">
@@ -235,8 +269,9 @@ export default function CompanyDashboardPage() {
 
         {/* Agent Setup panel - unchanged */}
         <aside className="panel" aria-labelledby="agent-title">
-          <div className="panel-header">
+          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 className="panel-title" id="agent-title">Agent Setup</h2>
+            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>Settings →</Link>
           </div>
           <div className="panel-body">
             {agentSettings.length === 0 ? (

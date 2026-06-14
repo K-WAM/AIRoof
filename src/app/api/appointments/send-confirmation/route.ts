@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { sendCustomerConfirmation } from "@/lib/notify";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -33,36 +34,68 @@ export async function POST(request: NextRequest) {
   const appt = apptDoc.data()!;
   const biz = bizDoc.data()!;
   const notificationEmail = biz.notificationEmail as string | undefined;
-
-  if (!resend || !notificationEmail) {
-    return NextResponse.json({ error: "Email not configured" }, { status: 503 });
-  }
+  const customerEmail = (appt.callerEmail as string | undefined) || undefined;
+  const tz = (biz.timezone as string | undefined) ?? "America/New_York";
 
   const apptDate = new Date(appt.startTime as number).toLocaleString("en-US", {
     weekday: "long", month: "long", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+    hour: "numeric", minute: "2-digit", timeZone: tz,
   });
 
-  const html = confirmationEmailHtml({
-    businessName: (biz.businessName as string) ?? "Your Roofing Company",
+  const brand = {
+    businessName: (biz.businessName as string) ?? "Your Company",
     brandColor: (biz.brandColor as string | undefined) ?? null,
     logoUrl: (biz.logoUrl as string | undefined) ?? null,
     contactPhone: (biz.contactPhone as string | undefined) ?? null,
     contactEmail: (biz.contactEmail as string | undefined) ?? null,
-    callerName: (appt.callerName as string) ?? "Valued Customer",
-    callerPhone: (appt.callerPhone as string) ?? "—",
-    serviceType: (appt.serviceType as string) ?? "Inspection",
-    address: (appt.address as string) ?? "Address not provided",
-    apptDate,
-    appointmentId,
-  });
+  };
 
-  await resend.emails.send({
-    from: FROM,
-    to: notificationEmail,
-    subject: `Appointment Confirmed — ${appt.callerName ?? "Customer"} · ${apptDate}`,
-    html,
-  });
+  // Best-effort notifications. Confirming the appointment is the primary action and
+  // must succeed even if email isn't configured or the customer left no email.
+  let notifiedCustomer = false;
+  if (resend) {
+    // 1. Notify the CUSTOMER — the whole point of "Confirm & notify customer".
+    if (customerEmail) {
+      try {
+        await sendCustomerConfirmation({
+          to: customerEmail,
+          brand,
+          clientName: appt.callerName as string | undefined,
+          serviceType: appt.serviceType as string | undefined,
+          when: apptDate,
+          address: appt.address as string | undefined,
+        });
+        notifiedCustomer = true;
+      } catch (e) {
+        console.error("Customer confirmation email failed:", e);
+      }
+    }
+    // 2. Notify the business (internal record), as before.
+    if (notificationEmail) {
+      try {
+        await resend.emails.send({
+          from: FROM,
+          to: notificationEmail,
+          subject: `Appointment Confirmed — ${appt.callerName ?? "Customer"} · ${apptDate}`,
+          html: confirmationEmailHtml({
+            businessName: brand.businessName,
+            brandColor: brand.brandColor,
+            logoUrl: brand.logoUrl,
+            contactPhone: brand.contactPhone,
+            contactEmail: brand.contactEmail,
+            callerName: (appt.callerName as string) ?? "Valued Customer",
+            callerPhone: (appt.callerPhone as string) ?? "—",
+            serviceType: (appt.serviceType as string) ?? "Inspection",
+            address: (appt.address as string) ?? "Address not provided",
+            apptDate,
+            appointmentId,
+          }),
+        });
+      } catch (e) {
+        console.error("Business confirmation email failed:", e);
+      }
+    }
+  }
 
   await db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).update({
     status: "confirmed",
@@ -70,7 +103,7 @@ export async function POST(request: NextRequest) {
     updatedAt: Date.now(),
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, notifiedCustomer, customerEmail: customerEmail ?? null });
 }
 
 function brandHeader(p: { businessName: string; brandColor?: string | null; logoUrl?: string | null; contactPhone?: string | null; contactEmail?: string | null }): string {

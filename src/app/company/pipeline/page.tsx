@@ -29,6 +29,7 @@ interface Appointment {
   appointmentId: string;
   callerName?: string;
   callerPhone?: string;
+  callerEmail?: string;
   serviceType?: string;
   address?: string;
   notes?: string;
@@ -92,11 +93,11 @@ export default function PipelinePage() {
   const [apptCalling, setApptCalling] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; tone: "error" | "warn" | "ok" } | null>(null);
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 4000);
+  function showToast(msg: string, tone: "error" | "warn" | "ok" = "error") {
+    setToast({ msg, tone });
+    setTimeout(() => setToast(null), 4500);
   }
 
   useEffect(() => {
@@ -209,10 +210,16 @@ export default function PipelinePage() {
         body: JSON.stringify({ businessId, appointmentId: appt.appointmentId }),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({} as { notifiedCustomer?: boolean; customerEmail?: string | null }));
         setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
+        if (data.notifiedCustomer && data.customerEmail) {
+          showToast(`Confirmed — customer notified at ${data.customerEmail}`, "ok");
+        } else {
+          showToast("Confirmed. No customer email on file — reach out to the customer directly.", "warn");
+        }
         setTimeout(() => {
           setConfirmedSet((prev) => {
             const next = new Set(prev);
@@ -220,7 +227,11 @@ export default function PipelinePage() {
             return next;
           });
         }, 3000);
+      } else {
+        showToast("Couldn't confirm the appointment. Try again.");
       }
+    } catch {
+      showToast("Network error — couldn't confirm the appointment.");
     } finally {
       setApptUpdating(null);
     }
@@ -281,6 +292,9 @@ export default function PipelinePage() {
             </div>
           )}
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
+          {appt.callerEmail
+            ? <p className="appt-detail">{appt.callerEmail}</p>
+            : isPending && <p className="appt-detail" style={{ color: "#b45309" }}>No email on file — notify the customer manually</p>}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="appt-detail">{appt.address ?? "No address provided"}</p>
           {appt.notes && (
@@ -340,8 +354,14 @@ export default function PipelinePage() {
   return (
     <>
       {toast && (
-        <div role="alert" style={{ position: "fixed", top: 72, right: 24, zIndex: 50, background: "#fef2f2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, boxShadow: "0 6px 18px rgba(0,0,0,0.10)", maxWidth: 360 }}>
-          {toast}
+        <div role="alert" style={{
+          position: "fixed", top: 72, right: 24, zIndex: 50,
+          background: toast.tone === "ok" ? "#f0fdf4" : toast.tone === "warn" ? "#fffbeb" : "#fef2f2",
+          border: `1px solid ${toast.tone === "ok" ? "#86efac" : toast.tone === "warn" ? "#fcd34d" : "#fca5a5"}`,
+          color: toast.tone === "ok" ? "#15803d" : toast.tone === "warn" ? "#92400e" : "#b91c1c",
+          padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, boxShadow: "0 6px 18px rgba(0,0,0,0.10)", maxWidth: 380,
+        }}>
+          {toast.msg}
         </div>
       )}
       <header className="page-header">

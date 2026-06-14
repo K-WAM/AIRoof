@@ -83,6 +83,7 @@ export interface BookAppointmentInput {
   businessId: string;
   callerName: string;
   callerPhone: string;
+  callerEmail?: string;
   serviceType?: string;
   address?: string;
   notes?: string;
@@ -130,6 +131,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
     businessId: input.businessId,
     callerName: input.callerName,
     callerPhone: input.callerPhone,
+    callerEmail: input.callerEmail,
     serviceType: input.serviceType,
     address: input.address,
     notes: input.notes,
@@ -182,6 +184,7 @@ export interface CreateLeadInput {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  callerEmail?: string;
   serviceRequested?: string;
   address?: string;
   urgency: "low" | "normal" | "urgent" | "unknown";
@@ -203,6 +206,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     businessId: input.businessId,
     callerName: input.callerName,
     callerPhone: input.callerPhone,
+    callerEmail: input.callerEmail,
     serviceRequested: input.serviceRequested,
     address: input.address,
     urgency: input.urgency,

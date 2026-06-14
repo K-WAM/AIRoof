@@ -193,6 +193,7 @@ export interface Lead {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  callerEmail?: string;
   serviceRequested?: string;
   address?: string;
   urgency: "low" | "normal" | "urgent" | "unknown";
@@ -213,6 +214,7 @@ export interface Appointment {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  callerEmail?: string;
   serviceType?: string;
   address?: string;
   startTime: number;

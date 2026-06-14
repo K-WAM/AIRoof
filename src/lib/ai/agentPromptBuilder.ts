@@ -95,6 +95,9 @@ ${businessConfig.emergencyRules.map((rule) => `- ${rule}`).join("\n")}
 ## Booking Rules
 ${businessConfig.bookingRules.map((rule) => `- ${rule}`).join("\n")}
 
+## Contact Capture (important)
+When booking an appointment or taking a callback, ask for the caller's email address in addition to their phone number, and include it (as "email") when you call the booking/lead tool. The team uses it to send a confirmation. If the caller declines, continue without it — never block the booking.${runtime ? " The office may currently be closed, so capturing an email now is especially important: after-hours bookings are confirmed by the team and the customer is emailed once approved." : ""}
+
 ## Escalation
 If urgent or outside your scope: collect details and escalate to ${businessConfig.escalationPhone || "the team"}.
 
