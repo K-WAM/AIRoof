@@ -100,8 +100,9 @@ export async function POST(request: NextRequest) {
             const snap = await db.collection("businesses").doc(businessId).get();
             const config = snap.data() as BusinessConfig | undefined;
             if (config) {
+              const callerNumber = message.call?.customer?.number;
               systemPrompt = buildAgentPrompt(config, {
-                runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote },
+                runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote, callerPhone: callerNumber },
               });
               greeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
             }

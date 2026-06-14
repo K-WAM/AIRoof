@@ -434,8 +434,8 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;font-size:12px;line-height:1.7;">
       <div style="background:#1e293b;border-radius:8px;padding:14px;">
         <div style="font-weight:700;color:#34d399;margin-bottom:6px;">📞 Call</div>
-        <div><strong>Roofing only:</strong> phone number appears — hand it to the prospect to call live.</div>
-        <div style="margin-top:6px;color:#94a3b8;">All other industries: amber <em>"Voice: Pending"</em> chip — skip to Dashboard.</div>
+        <div>If a phone number appears, hand it to the prospect to call live. The AI auto-adjusts to the launched industry — name, services, FAQs, greeting — so the agent is industry-aware for <em>every</em> vertical.</div>
+        <div style="margin-top:6px;color:#94a3b8;"><em>"Voice: Pending"</em> only means no phone number is connected to that vertical's demo line yet (today only roofing has one) — it is <strong>not</strong> an agent limitation. Skip to the Dashboard demo.</div>
       </div>
       <div style="background:#1e293b;border-radius:8px;padding:14px;">
         <div style="font-weight:700;color:#60a5fa;margin-bottom:6px;">📊 Dashboard</div>
@@ -457,14 +457,14 @@
 
   <!-- ══ VERTICAL QUICK REFERENCE ══ -->
   <h3>Industry Quick Reference</h3>
-  <p>Voice demos require a live Vapi assistant. Dashboard demos work immediately for all industries — the dashboards are pre-populated with realistic data so no page is empty.</p>
+  <p><strong>The AI agent adapts to every industry automatically</strong> — it builds its script live from each business's own config (industry, approved services, FAQs, greeting), so the same brain serves roofing, HVAC, dental, and the rest. The column below labelled <strong>Demo phone line</strong> only reflects whether a <em>phone number</em> is currently connected for that vertical's demo — today only roofing has one. Connecting more is a quick provisioning step (see below), not an agent change. Dashboard demos work immediately for all industries (pre-populated with realistic data).</p>
 
   <table>
     <thead>
       <tr>
         <th>Industry</th>
         <th>Agent</th>
-        <th>Voice demo</th>
+        <th>Demo phone line</th>
         <th>Dashboard</th>
         <th>Field QR</th>
         <th>Hidden tabs</th>
@@ -523,7 +523,7 @@
   </table>
 
   <div class="highlight">
-    <strong>Adding voice to a new industry:</strong> Create a Vapi assistant in the dashboard (same webhook URL: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code>), paste its ID into Firestore → <code>businesses/demo-{industry}</code> → <code>vapiAssistantId</code>. The "Voice: Pending" chip upgrades to a live phone number automatically on next page load — no code change needed.
+    <strong>Connecting a phone line to a vertical:</strong> You never write a per-industry prompt — the agent's script is generated live from each business's config. To make a vertical callable, connect a Vapi phone number and map it to that demo business: set <code>vapiPhoneNumberId</code> on <code>businesses/demo-{industry}</code> (the webhook resolves the business by phone number first). Set the shared assistant's System Prompt to <code>{{systemPrompt}}</code> and First Message to <code>{{greeting}}</code> so it pulls the live, industry-aware script — meaning one number can even cover multiple verticals. The "Voice: Pending" chip flips to the number automatically on next page load.
   </div>
 
   <!-- ══ BEFORE THE DEMO ══ -->
@@ -646,14 +646,14 @@
 
   <!-- ══ DASHBOARD-ONLY DEMO ══ -->
   <h3>HVAC / Landscaping / Dental / GC / Property Mgmt — Dashboard Demo</h3>
-  <p>These industries don't have a live Vapi assistant yet. Run the dashboard demo: it's fast, visual, and works for any prospect who doesn't need to hear a live call.</p>
+  <p>The agent is fully industry-aware for these verticals too — they simply don't have a demo <em>phone number</em> connected yet. Run the dashboard demo: it's fast, visual, and works for any prospect who doesn't need to hear a live call. (To make any of these callable, connect a number — see "Connecting a phone line to a vertical" above.)</p>
 
   <ol class="step-list">
     <li>
       <div class="step-num blue">1</div>
       <div class="step-body">
         <strong>Open Demo Studio, pick the industry, enter prospect info, click Launch</strong>
-        <p>The launch panel shows the "Voice: Pending" chip. That's fine — move to the Dashboard column.</p>
+        <p>The launch panel shows the "Voice: Pending" chip — that only means no demo phone number is wired for this vertical yet; the agent itself is ready. Move to the Dashboard column.</p>
       </div>
     </li>
     <li>
@@ -694,32 +694,32 @@
   <div class="vertical-grid">
     <div class="vertical-card" style="border-left:4px solid #1e3a5f;">
       <div class="v-name" style="color:#1e3a5f;">🔨 Roofing — Alice</div>
-      <div class="v-agent">Voice: LIVE · +1 (754) 283-7658</div>
+      <div class="v-agent">Phone line: LIVE · +1 (754) 283-7658</div>
       <div class="v-script">"Hey [Prospect], imagine your customer calling after last night's storm — your AI books the inspection, sends the confirmation, and captures the lead, all while you're on the roof. Want to hear it live?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #1a5276;">
       <div class="v-name" style="color:#1a5276;">❄️ HVAC — Claire</div>
-      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-agent">Phone line: not connected · Agent ready · Dashboard ready</div>
       <div class="v-script">"Hi [Prospect], imagine your customers calling — AC out in July — and your receptionist books them same-day without you lifting a finger. Want to see it live right now?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #1e8449;">
       <div class="v-name" style="color:#1e8449;">🌿 Landscaping — Maya</div>
-      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-agent">Phone line: not connected · Agent ready · Dashboard ready</div>
       <div class="v-script">"Hey [Prospect], picture a homeowner calling for a lawn quote Saturday morning — your AI qualifies them, books a site visit, sends a confirmation, all while you're on another job."</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #0e6fa7;">
       <div class="v-name" style="color:#0e6fa7;">🦷 Dental — Aria</div>
-      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-agent">Phone line: not connected · Agent ready · Dashboard ready</div>
       <div class="v-script">"Hey [Prospect], your front desk just missed a call from a new patient with a toothache. Our AI would have booked them a same-day slot instantly. Want to hear how it sounds?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #b45309;">
       <div class="v-name" style="color:#b45309;">🏗️ General Contractors — Rex</div>
-      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-agent">Phone line: not connected · Agent ready · Dashboard ready</div>
       <div class="v-script">"Hey [Prospect], a homeowner just called asking for a kitchen remodel quote — your AI captured all the project details, booked a site visit, and sent a confirmation. Sound useful?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #5a3ea1;">
       <div class="v-name" style="color:#5a3ea1;">🏢 Property Mgmt — Val</div>
-      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-agent">Phone line: not connected · Agent ready · Dashboard ready</div>
       <div class="v-script">"Hey [Prospect], your tenant calls at 11pm about a burst pipe — our AI answers, escalates to your on-call, creates a work order, all before you see it in the morning."</div>
     </div>
   </div>

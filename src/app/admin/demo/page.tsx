@@ -295,10 +295,10 @@ export default function DemoStudioPage() {
               ) : (
                 <>
                   <div style={pendingChipStyle}>
-                    ◐ Voice: Pending
+                    ◐ Phone line: pending
                   </div>
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-                    Vapi assistant not yet provisioned for {selected.label}. Show the dashboard demo instead — it&apos;s fully live.
+                    {selected.agentName} is fully industry-ready for {selected.label} — there&apos;s just no demo phone number connected yet. Show the dashboard demo (fully live); connect a Vapi number to make this vertical callable.
                   </p>
                 </>
               )}
