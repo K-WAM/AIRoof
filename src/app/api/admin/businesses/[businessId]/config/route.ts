@@ -6,6 +6,7 @@ import type {
   BusinessOnboardingStatus,
 } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 
@@ -55,9 +56,12 @@ interface UpdateBusinessConfigRequest {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
 ): Promise<NextResponse> {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const { businessId } = await params;
     const db = getAdminFirestore();
@@ -84,6 +88,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
 ): Promise<NextResponse<{ success: true; businessId: string } | { error: string }>> {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const { businessId } = await params;
     const body: UpdateBusinessConfigRequest = await request.json();

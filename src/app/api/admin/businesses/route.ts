@@ -7,6 +7,7 @@ import type {
   BusinessPhoneNumber,
 } from "@/types";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 
@@ -47,7 +48,7 @@ interface CreateBusinessRequest {
   actorEmail?: string;
 }
 
-export async function GET(): Promise<
+export async function GET(req: NextRequest): Promise<
   NextResponse<
     | {
         businesses: Array<{
@@ -59,6 +60,9 @@ export async function GET(): Promise<
     | { error: string }
   >
 > {
+  const gate = await verifySuperadmin(req);
+  if ("error" in gate) return gate.error;
+
   try {
     const db = getAdminFirestore();
     if (!db) {
@@ -103,6 +107,9 @@ export async function GET(): Promise<
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string } | { error: string }>> {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const body: CreateBusinessRequest = await request.json();
     const { businessId, businessName, industry } = body;

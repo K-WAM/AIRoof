@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const gate = await verifySuperadmin(req);
+  if ("error" in gate) return gate.error;
+
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Admin SDK unavailable" }, { status: 503 });
 

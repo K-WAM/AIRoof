@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ invoiceId: string }> }) {
+  const gate = await verifySuperadmin(req);
+  if ("error" in gate) return gate.error;
+
   const { invoiceId } = await params;
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });

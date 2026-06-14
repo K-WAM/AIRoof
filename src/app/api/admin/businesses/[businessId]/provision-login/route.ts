@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -13,6 +14,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
 ) {
+  const gate = await verifySuperadmin(req);
+  if ("error" in gate) return gate.error;
+
   const { businessId } = await params;
   const body = await req.json();
   const { ownerEmail } = body;

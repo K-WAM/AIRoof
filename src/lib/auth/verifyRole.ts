@@ -22,7 +22,7 @@ export async function verifyAuthAndRole(
   req: NextRequest,
   businessId: string,
   allowedRoles: AllowedRole[]
-): Promise<{ user: VerifiedUser } | { error: NextResponse }> {
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   const sessionCookie = req.cookies.get("__session")?.value;
   if (!sessionCookie) {
     return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
@@ -71,4 +71,19 @@ export async function verifyAuthAndRole(
       businessId: member.businessId,
     },
   };
+}
+
+/**
+ * Guard for superadmin-only routes (e.g. all of /api/admin/*). Pass the
+ * NextRequest; returns { user } if the caller is a superadmin, otherwise a
+ * 401/403 NextResponse the caller should return immediately.
+ *
+ * Auth is cookie-based (__session holds the Firebase ID token, set by
+ * AuthContext), so same-origin fetches from the admin UI are authorized
+ * automatically — no Authorization header needed.
+ */
+export async function verifySuperadmin(
+  req: NextRequest
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  return verifyAuthAndRole(req, "", ["superadmin"]);
 }

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 
 const DEFAULT_EMAIL = "kwamwad@gmail.com";
 
@@ -67,6 +68,9 @@ function resolveDemoBusiness(verticalId?: string | null) {
 }
 
 export async function POST(request: NextRequest) {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   let body: { email?: string; companyName?: string; verticalId?: string };
   try {
     body = await request.json();
@@ -92,6 +96,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   const verticalId = new URL(request.url).searchParams.get("verticalId");
   const entry = resolveDemoBusiness(verticalId);
   const result = await applyCustomization({
