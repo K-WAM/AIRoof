@@ -30,6 +30,10 @@ interface ApplyResult {
   error?: string;
   businessId?: string;
   demoUrl?: string;
+  phone?: string;
+  verticalId?: string;
+  label?: string;
+  agentName?: string;
 }
 
 const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
@@ -144,7 +148,9 @@ export default function DemoStudioPage() {
     });
   }
 
-  const phone = selectedId ? VERTICAL_PHONE[selectedId] : undefined;
+  // The demo runs on one universal live line — the API returns its number for every
+  // vertical (the line reconfigures to whatever you launched).
+  const phone = result?.phone ?? (selectedId ? VERTICAL_PHONE[selectedId] : undefined);
   const isFieldService = selectedId ? FIELD_SERVICE_VERTICALS.has(selectedId) : false;
   const fieldUrl = result?.businessId
     ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`
@@ -289,7 +295,7 @@ export default function DemoStudioPage() {
                     </a>
                   </div>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.75rem" }}>
-                    Have the prospect call this number. {selected.agentName} will greet them as <em>{companyName}</em>.
+                    Have the prospect call this number. {result?.agentName ?? selected.agentName} will greet them as <em>{companyName}</em>.
                   </p>
                 </>
               ) : (
