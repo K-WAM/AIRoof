@@ -127,15 +127,13 @@
     border-bottom: 2px solid #e2e8f0;
   }
   h4 {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
-    color: #1e293b;
+    color: #64748b;
     margin-top: 20px;
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    font-size: 11px;
-    color: #64748b;
   }
 
   /* ── Body text ── */
@@ -316,6 +314,7 @@
   .tag.blue { background: #dbeafe; color: #1d4ed8; }
   .tag.green { background: #dcfce7; color: #15803d; }
   .tag.orange { background: #ffedd5; color: #c2410c; }
+  .tag.amber { background: #fef3c7; color: #92400e; }
 
   /* ── Two column layout ── */
   .two-col {
@@ -335,6 +334,23 @@
   /* ── Divider ── */
   hr { border: none; border-top: 1px solid #e2e8f0; margin: 28px 0; }
 
+  /* ── Vertical Grid ── */
+  .vertical-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .vertical-card {
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .vertical-card .v-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .vertical-card .v-agent { font-size: 11px; color: #64748b; margin-bottom: 6px; }
+  .vertical-card .v-script { font-size: 11px; color: #475569; font-style: italic; line-height: 1.5; }
+
   /* ── Print ── */
   @media print {
     body { font-size: 12px; }
@@ -342,7 +358,7 @@
     .page { padding: 40px 56px; }
     .section-cover { page-break-before: always; }
     h3 { page-break-after: avoid; }
-    .stat-grid, .two-col { page-break-inside: avoid; }
+    .stat-grid, .two-col, .vertical-grid { page-break-inside: avoid; }
     .step-list li { page-break-inside: avoid; }
     table { page-break-inside: avoid; }
     @page { margin: 0.6in 0.5in; size: letter; }
@@ -359,15 +375,14 @@
     <div class="cover-badge">Luxor AI — Internal Guide</div>
     <h1>AI Receptionist<br><span>Demo &amp; Onboarding</span><br>Playbook</h1>
     <p class="cover-sub">
-      Everything you need to run a compelling demo for roofing prospects
-      and onboard new company clients end-to-end — including Vapi setup,
-      portal configuration, phone numbers, and go-live verification.
+      Everything you need to run a live demo for any service business — roofing, HVAC, dental,
+      landscaping, general contractors, property management — and onboard new clients end-to-end.
     </p>
     <div class="cover-toc">
       <div class="toc-item">
         <div class="toc-num">Part 1</div>
         <div class="toc-title">Demo Playbook</div>
-        <div class="toc-desc">Stats, talking points, live demo script, URLs</div>
+        <div class="toc-desc">Demo Studio steps, pitch scripts, live call flow, URLs</div>
       </div>
       <div class="toc-item">
         <div class="toc-num">Part 2</div>
@@ -376,9 +391,9 @@
       </div>
     </div>
     <div class="cover-meta">
-      <div><span>Version</span> 1.0 — May 2026</div>
+      <div><span>Version</span> 2.0 — June 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
-      <div><span>Demo line</span> +1 (754) 283-7658</div>
+      <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
     </div>
   </div>
@@ -392,64 +407,330 @@
   <div id="part-1" class="section-cover">
     <div class="section-num">Part 1 of 2</div>
     <h2>Demo Playbook</h2>
-    <p>How to pitch the AI receptionist, what numbers to lead with, and the exact steps to run a live demo that books an appointment in real time.</p>
+    <p>How to run a live demo for any industry in under 60 seconds of setup — with the Demo Studio. Includes live call flow for roofing and dashboard demos for all other verticals.</p>
   </div>
 
-  <!-- ── Full Demo Cheat Sheet ── -->
-  <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:32px 0;page-break-inside:avoid;">
-    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:4px;">Full Demo Cheat Sheet — 3 Features, ~15 Minutes</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:16px;">AI Receptionist → Job Dashboard → Field Voice Input</div>
+  <!-- ══ MASTER CHEAT SHEET ══ -->
+  <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:0 0 32px;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:4px;">Demo Studio — 3 Steps, Any Industry, Under 60 Seconds</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:20px;">Always log in first as connect@luxordev.com → then go to Demo Studio</div>
+
+    <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Pick the Industry</div>
+    <p style="font-size:13px;margin:0 0 16px;line-height:1.8;">
+      Go to <strong style="color:#60a5fa">https://ai-roof.vercel.app/admin/demo</strong> (Demo Studio).<br>
+      Six industry cards appear: <strong>Roofing · HVAC · Landscaping · Dental · Property Mgmt · General Contractors</strong><br>
+      Click the one that matches the prospect. The card highlights with a colored border.
+    </p>
+
+    <div style="font-size:11px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">② Enter Prospect Info</div>
+    <p style="font-size:13px;margin:0 0 16px;line-height:1.8;">
+      Two fields appear below the cards:<br>
+      <strong>Company name:</strong> their actual business name (e.g. "Sunrise HVAC" or "Bright Dental") — the AI will greet callers by this name.<br>
+      <strong>Email:</strong> their email — booking confirmations and lead alerts go here during the demo.<br>
+      Hit <strong>Enter</strong> or click <strong>Launch demo →</strong>
+    </p>
+
+    <div style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">③ The Launch Panel — Three Columns</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;font-size:12px;line-height:1.7;">
+      <div style="background:#1e293b;border-radius:8px;padding:14px;">
+        <div style="font-weight:700;color:#34d399;margin-bottom:6px;">📞 Call</div>
+        <div><strong>Roofing only:</strong> phone number appears — hand it to the prospect to call live.</div>
+        <div style="margin-top:6px;color:#94a3b8;">All other industries: amber <em>"Voice: Pending"</em> chip — skip to Dashboard.</div>
+      </div>
+      <div style="background:#1e293b;border-radius:8px;padding:14px;">
+        <div style="font-weight:700;color:#60a5fa;margin-bottom:6px;">📊 Dashboard</div>
+        <div>Click <strong>"Open [Industry] dashboard →"</strong> to open the live client view. Show Calls, Leads, Appointments, Pipeline.</div>
+        <div style="margin-top:6px;color:#94a3b8;">QR code below — scan for field voice demo (field-service industries only).</div>
+      </div>
+      <div style="background:#1e293b;border-radius:8px;padding:14px;">
+        <div style="font-weight:700;color:#a78bfa;margin-bottom:6px;">💬 Script</div>
+        <div>Pitch line pre-written per industry. Copy it or read it verbatim as your opener before the demo.</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">④ Reset When Done</div>
+    <p style="font-size:13px;margin:0;line-height:1.8;">
+      Click <strong>Reset demo</strong> in the launch panel. This restores the industry's default name and removes the prospect's data.
+      You can also just pick a new industry — launching a new one automatically overwrites the previous config.
+    </p>
+  </div>
+
+  <!-- ══ VERTICAL QUICK REFERENCE ══ -->
+  <h3>Industry Quick Reference</h3>
+  <p>Voice demos require a live Vapi assistant. Dashboard demos work immediately for all industries — the dashboards are pre-populated with realistic data so no page is empty.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Industry</th>
+        <th>Agent</th>
+        <th>Voice demo</th>
+        <th>Dashboard</th>
+        <th>Field QR</th>
+        <th>Hidden tabs</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Roofing</strong></td>
+        <td>Alice</td>
+        <td class="td-good">✓ Live — +1 (754) 283-7658</td>
+        <td class="td-good">✓ demo-roofing</td>
+        <td class="td-good">✓</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>HVAC</strong></td>
+        <td>Claire</td>
+        <td class="td-bad">Pending</td>
+        <td class="td-good">✓ demo-hvac</td>
+        <td class="td-good">✓</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>Landscaping</strong></td>
+        <td>Maya</td>
+        <td class="td-bad">Pending</td>
+        <td class="td-good">✓ demo-landscaping</td>
+        <td class="td-good">✓</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>General Contractors</strong></td>
+        <td>Rex</td>
+        <td class="td-bad">Pending</td>
+        <td class="td-good">✓ demo-general-contractors</td>
+        <td class="td-good">✓</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>Dental</strong></td>
+        <td>Aria</td>
+        <td class="td-bad">Pending</td>
+        <td class="td-good">✓ demo-dental</td>
+        <td>—</td>
+        <td>Jobs, Library</td>
+      </tr>
+      <tr>
+        <td><strong>Property Mgmt</strong></td>
+        <td>Val</td>
+        <td class="td-bad">Pending</td>
+        <td class="td-good">✓ demo-property-management</td>
+        <td>—</td>
+        <td>Jobs, Library</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight">
+    <strong>Adding voice to a new industry:</strong> Create a Vapi assistant in the dashboard (same webhook URL: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code>), paste its ID into Firestore → <code>businesses/demo-{industry}</code> → <code>vapiAssistantId</code>. The "Voice: Pending" chip upgrades to a live phone number automatically on next page load — no code change needed.
+  </div>
+
+  <!-- ══ BEFORE THE DEMO ══ -->
+  <h3>Before the Demo — 5-Minute Setup</h3>
+  <p>Do this the morning of the demo or right before the meeting. All you need is two browser tabs.</p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num blue">1</div>
+      <div class="step-body">
+        <strong>Log in as superadmin</strong>
+        <p>Go to <span class="url">https://ai-roof.vercel.app/login</span> and sign in as <strong>connect@luxordev.com</strong>. You must be logged in for the preview links and Demo Studio to work.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">2</div>
+      <div class="step-body">
+        <strong>Open Demo Studio</strong>
+        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span>. You'll see six industry cards. Do not enter anything yet.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">3</div>
+      <div class="step-body">
+        <strong>Pick the prospect's industry and enter their info</strong>
+        <p>Click their industry card → enter their company name and email → click <strong>Launch demo →</strong>. The launch panel appears in under 3 seconds.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">4</div>
+      <div class="step-body">
+        <strong>Open the dashboard in a second tab</strong>
+        <p>In the launch panel, click <strong>"Open [Industry] dashboard →"</strong>. This opens the correct client view pre-loaded with their industry's data. Keep this tab open for the demo.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">5</div>
+      <div class="step-body">
+        <strong>Optional test call (roofing only)</strong>
+        <p>If demoing roofing, call <strong>+1 (754) 283-7658</strong> and say "I need a roof inspection." Confirm Alice greets by the prospect's company name. Hang up before booking so you don't clutter the demo data.</p>
+      </div>
+    </li>
+  </ol>
+
+  <!-- ══ ROOFING FULL DEMO SCRIPT ══ -->
+  <h3>Roofing — Full Live Demo (~15 min)</h3>
+  <p>This is the primary live demo with a real phone call. Most compelling for roofing prospects. Adapt the script for field-service industries once their Vapi assistants are provisioned.</p>
+
+  <!-- Cheat sheet box -->
+  <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:20px 0;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:12px;">Full Roofing Demo Cheat Sheet — 3 Features, ~15 Minutes</div>
 
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Prep (5 min before)</div>
     <ol style="margin:0 0 20px;padding-left:20px;line-height:2.1;font-size:13px;">
       <li>Log in as <strong>connect@luxordev.com</strong> at <strong style="color:#60a5fa">https://ai-roof.vercel.app/login</strong></li>
-      <li>Go to <strong style="color:#60a5fa">https://ai-roof.vercel.app/admin/demo</strong> → enter <em>prospect's company name</em> + email → click <strong>Apply demo config</strong> → button turns blue showing their company name</li>
-      <li>Open a second tab: <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</strong> — keep it ready</li>
-      <li>Optional: do a quick test call yourself to confirm Alice greets by the right company name</li>
+      <li>Go to Demo Studio → click <strong>Roofing</strong> → enter prospect name + email → click <strong>Launch demo →</strong></li>
+      <li>Click <strong>"Open Roofing dashboard →"</strong> — keep that tab ready</li>
+      <li>Optional: quick test call to confirm the greeting is right</li>
     </ol>
 
     <div style="font-size:11px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">② AI Receptionist Live Call</div>
     <ol style="margin:0 0 20px;padding-left:20px;line-height:2.1;font-size:13px;">
       <li>Hand the prospect your phone → dial <strong style="color:#34d399;font-size:15px;">+1 (754) 283-7658</strong></li>
-      <li>They say: <em>"Hi, I have storm damage on my roof, can I book an inspection?"</em></li>
+      <li>They say: <em>"Hi, I had storm damage last night and need someone to inspect my roof."</em></li>
       <li>Alice answers as <em>their</em> company and books the appointment</li>
       <li>Switch to your dashboard tab → click <strong>Appointments</strong> → booking appears in real time</li>
       <li>Click <strong>Calls</strong> → show full transcript of the call just completed</li>
-      <li>On the appointment card → click <strong>Send Confirmation</strong> → email lands in their inbox in seconds</li>
+      <li>On the appointment card → click <strong>Send Confirmation</strong> → branded email lands in their inbox in seconds</li>
     </ol>
 
     <div style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">③ Job Dashboard + Field Voice (the wow moment)</div>
     <ol style="margin:0 0 16px;padding-left:20px;line-height:2.1;font-size:13px;">
-      <li>On the appointment card → click <strong>Create Job →</strong> → lands on Jobs page with form pre-filled from the call data</li>
-      <li>Type a job title → click <strong>Create Job</strong> → green banner confirms + job appears highlighted</li>
-      <li>Click <strong>View →</strong> to open the job detail page</li>
-      <li>Open <strong style="color:#60a5fa">https://ai-roof.vercel.app/company/field?preview=demo-roofing</strong> on your <strong>phone</strong> (Chrome mobile or desktop DevTools mobile view)</li>
-      <li>Select the job from the dropdown → tap <strong>🎤</strong> → speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
-      <li>Tap mic to stop → tap <strong>Submit Update</strong> → green screen confirms, auto-resets in 5 seconds</li>
-      <li>Switch to the job detail tab on your computer → refresh → click each tab: <strong>Timeline</strong>, <strong>Materials</strong> (14 squares of shingles), <strong>Labor</strong> (Marco, Dani, 3 hrs), <strong>Issues</strong> (rotted decking, high severity)</li>
-      <li>Click <strong>Generate Invoice</strong> → editable line items appear from the voice update</li>
-      <li>Click <strong>Generate Report</strong> → full text report written by AI</li>
+      <li>On the appointment card → click <strong>Create Job →</strong> → Jobs page opens, form pre-filled from the call</li>
+      <li>Type a job title → click <strong>Create Job</strong> → green banner confirms + job appears</li>
+      <li>Click <strong>View →</strong> to open job detail</li>
+      <li>Scan the QR code from the Demo Studio launch panel on your phone (or open <span style="color:#60a5fa">ai-roof.vercel.app/field?businessId=demo-roofing</span>)</li>
+      <li>Select the job → tap <strong>🎤</strong> → speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
+      <li>Tap mic to stop → tap <strong>Submit Update</strong> → green screen confirms, auto-resets</li>
+      <li>On the job detail tab → refresh → click each tab: <strong>Timeline · Materials</strong> (14 squares) <strong>· Labor</strong> (Marco, Dani, 3 hrs) <strong>· Issues</strong> (rotted decking, HIGH severity)</li>
+      <li>Click <strong>Generate Invoice</strong> → editable line items from the voice update</li>
+      <li>Click <strong>Generate Report</strong> → full AI-written job report</li>
     </ol>
 
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">④ Close + Reset</div>
     <ol style="margin:0;padding-left:20px;line-height:2;font-size:13px;">
-      <li>Pitch line: <em>"Your field crew spoke in plain English — the AI organized it, flagged a defect, and drafted the invoice. No forms, no typing."</em></li>
-      <li>Go to <strong>https://ai-roof.vercel.app/admin/demo</strong> → click <strong>Reset to defaults</strong></li>
+      <li><em>"Your field crew spoke in plain English — the AI organized it, flagged a defect, and drafted the invoice. No forms, no typing."</em></li>
+      <li>Go back to Demo Studio → click <strong>Reset demo</strong> in the launch panel</li>
     </ol>
+  </div>
 
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1e3a5f;font-size:11px;color:#94a3b8;">
-      <strong style="color:#60a5fa">Note:</strong> The <code>?preview=demo-roofing</code> param in all URLs is required when logged in as superadmin — without it you'll land on the admin panel instead of the client view.<br>
-      If something breaks: refresh. Firestore data saves in real time and will appear.
+  <h4>Part 1 — AI Receptionist (7 min)</h4>
+  <p><strong>Set the stage (1 min):</strong></p>
+  <p style="font-style:italic;color:#475569;margin-bottom:12px;">"Right now, every call that comes in while you're on a roof goes to voicemail — and studies show the first company to respond wins the job over 50% of the time. I'm going to show you what happens when your phone never goes unanswered again."</p>
+
+  <p><strong>The live call (3 min):</strong></p>
+  <p>Hand the prospect your phone or dial on speaker. Call <strong>+1 (754) 283-7658</strong>. Have them say:</p>
+  <p style="font-style:italic;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">"Hi, I had some storm damage last night and I need someone to come inspect my roof. Can I book something for this week?"</p>
+  <p>Let Alice handle it fully — she qualifies, books, captures all contact info. Don't interrupt.</p>
+
+  <p><strong>Show the dashboard (3 min):</strong></p>
+  <p>Switch to the dashboard tab (opened from Demo Studio) and walk through:</p>
+  <ul style="margin-left:20px;margin-bottom:12px;">
+    <li style="margin-bottom:8px;"><strong>Appointments</strong> — the booking from the call just appeared. Show name, phone, address, service type, time.</li>
+    <li style="margin-bottom:8px;"><strong>Send Confirmation</strong> — click the button on the appointment card. A branded email arrives in their inbox within seconds.</li>
+    <li style="margin-bottom:8px;"><strong>Calls</strong> — full transcript of the call, every line the AI said.</li>
+    <li style="margin-bottom:8px;"><strong>Leads</strong> — explain that callers who don't book land here instead, still captured.</li>
+  </ul>
+  <p style="font-style:italic;color:#475569;">"That happened without any staff involvement. The booking is confirmed, they have an email with your logo on it, you have a full transcript. This runs 24/7 — nights, weekends, storm season surges."</p>
+
+  <h4>Part 2 — Job Dashboard (3 min)</h4>
+  <p>On the appointment card just created: click <strong>Create Job →</strong>. Type a job title, click <strong>Create Job</strong>, click <strong>View →</strong>. Show the six tabs — all empty for now.</p>
+  <p style="font-style:italic;color:#475569;">"The call just became a structured job. The crew opens this on their phone."</p>
+
+  <h4>Part 3 — Field Voice Input (5 min) — The Wow Moment</h4>
+  <p>Scan the QR from the Demo Studio launch panel (or open the field URL on your phone). Select the job, tap the mic, speak the script above. Submit. Show the job tabs update with extracted data, then Generate Invoice and Generate Report.</p>
+  <p style="font-style:italic;color:#475569;font-weight:600;">"Your crew spoke for 15 seconds in plain English. The AI extracted materials, logged labor, flagged a defect, and drafted the invoice — ready to send."</p>
+
+  <h4>Close</h4>
+  <p style="font-style:italic;color:#475569;">"This is the full picture — AI answers the phone 24/7, books the job, your crew updates from the field by voice, and you have a report and invoice without touching a spreadsheet. Setup takes about a week. Want to talk about getting your number on this?"</p>
+
+  <!-- ══ DASHBOARD-ONLY DEMO ══ -->
+  <h3>HVAC / Landscaping / Dental / GC / Property Mgmt — Dashboard Demo</h3>
+  <p>These industries don't have a live Vapi assistant yet. Run the dashboard demo: it's fast, visual, and works for any prospect who doesn't need to hear a live call.</p>
+
+  <ol class="step-list">
+    <li>
+      <div class="step-num blue">1</div>
+      <div class="step-body">
+        <strong>Open Demo Studio, pick the industry, enter prospect info, click Launch</strong>
+        <p>The launch panel shows the "Voice: Pending" chip. That's fine — move to the Dashboard column.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">2</div>
+      <div class="step-body">
+        <strong>Deliver the pitch line from the Script column</strong>
+        <p>Each industry has a pre-written opener. Say it verbatim before opening the dashboard — it frames what they're about to see.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">3</div>
+      <div class="step-body">
+        <strong>Click "Open [Industry] dashboard →"</strong>
+        <p>The dashboard opens at <code>?preview=demo-{industry}</code> and shows realistic data: calls with outcome badges, leads with urgency, appointments. Walk them through each tab.</p>
+        <p>Dental and Property Mgmt: Jobs and Library tabs are automatically hidden — the nav only shows what's relevant to their industry.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">4</div>
+      <div class="step-body">
+        <strong>For field-service industries (HVAC, Landscaping, GC): scan the QR</strong>
+        <p>The QR in the Dashboard column points to the field voice screen. Run the same field voice demo as roofing to show how crew updates work.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num blue">5</div>
+      <div class="step-body">
+        <strong>Click Reset when done</strong>
+        <p>Tap <strong>Reset demo</strong> in the launch panel. Or just pick a new industry for the next demo — it overrides automatically.</p>
+      </div>
+    </li>
+  </ol>
+
+  <!-- ══ PER-INDUSTRY PITCH SCRIPTS ══ -->
+  <h3>Pitch Scripts — One Per Industry</h3>
+  <p>These are the same scripts shown in the Demo Studio's "What to say" panel. Use as your opener before pulling up the dashboard.</p>
+
+  <div class="vertical-grid">
+    <div class="vertical-card" style="border-left:4px solid #1e3a5f;">
+      <div class="v-name" style="color:#1e3a5f;">🔨 Roofing — Alice</div>
+      <div class="v-agent">Voice: LIVE · +1 (754) 283-7658</div>
+      <div class="v-script">"Hey [Prospect], imagine your customer calling after last night's storm — your AI books the inspection, sends the confirmation, and captures the lead, all while you're on the roof. Want to hear it live?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #1a5276;">
+      <div class="v-name" style="color:#1a5276;">❄️ HVAC — Claire</div>
+      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-script">"Hi [Prospect], imagine your customers calling — AC out in July — and your receptionist books them same-day without you lifting a finger. Want to see it live right now?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #1e8449;">
+      <div class="v-name" style="color:#1e8449;">🌿 Landscaping — Maya</div>
+      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-script">"Hey [Prospect], picture a homeowner calling for a lawn quote Saturday morning — your AI qualifies them, books a site visit, sends a confirmation, all while you're on another job."</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #0e6fa7;">
+      <div class="v-name" style="color:#0e6fa7;">🦷 Dental — Aria</div>
+      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-script">"Hey [Prospect], your front desk just missed a call from a new patient with a toothache. Our AI would have booked them a same-day slot instantly. Want to hear how it sounds?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #b45309;">
+      <div class="v-name" style="color:#b45309;">🏗️ General Contractors — Rex</div>
+      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-script">"Hey [Prospect], a homeowner just called asking for a kitchen remodel quote — your AI captured all the project details, booked a site visit, and sent a confirmation. Sound useful?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #5a3ea1;">
+      <div class="v-name" style="color:#5a3ea1;">🏢 Property Mgmt — Val</div>
+      <div class="v-agent">Voice: Pending · Dashboard ready</div>
+      <div class="v-script">"Hey [Prospect], your tenant calls at 11pm about a burst pipe — our AI answers, escalates to your on-call, creates a work order, all before you see it in the morning."</div>
     </div>
   </div>
 
-  <!-- ── The Pitch ── -->
+  <!-- ══ THE PITCH ══ -->
   <h3>The One-Paragraph Pitch</h3>
   <p>
-    Roofing companies miss <strong>35–45% of inbound calls</strong> because they come in during jobs, after hours, or when the office is busy.
-    Each missed call is a missed estimate — and the average roofing job in South Florida is worth <strong>$4,000–$18,000</strong>.
+    Service businesses miss <strong>35–45% of inbound calls</strong> because they come in during jobs, after hours, or when the office is busy.
+    Each missed call is a missed estimate — and the average job in these trades is worth <strong>$2,000–$18,000</strong>.
     Luxor AI puts a trained AI receptionist on your phone line 24/7: it answers every call in under 2 seconds, qualifies the lead,
-    books the inspection, and sends you a confirmation email — all without any staff involvement.
+    books the appointment, and sends a confirmation email — all without any staff involvement.
     You get back to the job. We get you the booking.
   </p>
 
@@ -459,13 +740,13 @@
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-value blue">40%</div>
-      <div class="stat-label">of inbound calls go unanswered at the average roofing company</div>
+      <div class="stat-label">of inbound calls go unanswered at the average service business</div>
       <div class="stat-source">Source: Home Services industry data</div>
     </div>
     <div class="stat-card">
       <div class="stat-value green">&lt;2s</div>
       <div class="stat-label">AI answer time vs. 2–4 hour average human callback</div>
-      <div class="stat-source">Measured on Vapi + ElevenLabs stack</div>
+      <div class="stat-source">Measured on Vapi + Cartesia stack</div>
     </div>
     <div class="stat-card">
       <div class="stat-value blue">50%</div>
@@ -477,7 +758,7 @@
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-value green">24/7</div>
-      <div class="stat-label">coverage — evenings, weekends, storms — when most emergency calls come in</div>
+      <div class="stat-label">coverage — evenings, weekends, emergencies — when most urgent calls come in</div>
     </div>
     <div class="stat-card">
       <div class="stat-value blue">$42K</div>
@@ -510,20 +791,20 @@
       <tr>
         <td><strong>Call comes in during a job</strong></td>
         <td class="td-bad">Goes to voicemail. Caller hangs up, calls competitor.</td>
-        <td class="td-good">AI answers in &lt;2s, captures lead, books inspection.</td>
+        <td class="td-good">AI answers in &lt;2s, captures lead, books appointment.</td>
       </tr>
       <tr>
-        <td><strong>9 PM storm damage call</strong></td>
+        <td><strong>9 PM emergency call</strong></td>
         <td class="td-bad">No one answers. Emergency lead lost overnight.</td>
         <td class="td-good">AI flags as urgent, sends owner notification immediately.</td>
       </tr>
       <tr>
         <td><strong>Caller asks about pricing</strong></td>
         <td class="td-bad">Callback 2–4 hrs later. Caller already got 3 other quotes.</td>
-        <td class="td-good">AI answers FAQs, books inspection while caller is still warm.</td>
+        <td class="td-good">AI answers FAQs, books while caller is still warm.</td>
       </tr>
       <tr>
-        <td><strong>Follow-up call about existing appointment</strong></td>
+        <td><strong>Follow-up on existing appointment</strong></td>
         <td class="td-bad">Owner digs through notes or calls back to confirm.</td>
         <td class="td-good">AI looks up appointment and confirms details instantly.</td>
       </tr>
@@ -535,128 +816,27 @@
     </tbody>
   </table>
 
-  <!-- ── Pre-Demo Setup ── -->
-  <h3>Before the Demo — 5-Minute Setup</h3>
-  <p>Do this the morning of the demo, or right before the call. Have two browser tabs open before you start.</p>
-
-  <ol class="step-list">
-    <li>
-      <div class="step-num blue">1</div>
-      <div class="step-body">
-        <strong>Log in as the superadmin</strong>
-        <p>Go to <span class="url">https://ai-roof.vercel.app/login</span> and log in as <strong>connect@luxordev.com</strong>.</p>
-      </div>
-    </li>
-    <li>
-      <div class="step-num blue">2</div>
-      <div class="step-body">
-        <strong>Customize the demo for the prospect</strong>
-        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span></p>
-        <p>Enter <strong>the prospect's company name</strong> (e.g. "Roof Doctors South Florida") and their email. Click <strong>Apply demo config</strong>. The button at the top turns blue and shows their company name — that's the confirmation. Do not enter "demo-roofing"; that's the internal ID.</p>
-      </div>
-    </li>
-    <li>
-      <div class="step-num blue">3</div>
-      <div class="step-body">
-        <strong>Open the client dashboard in a second tab</strong>
-        <p><span class="url">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</span> — bookmark it. The <code>?preview=demo-roofing</code> is required; without it the superadmin account redirects to the admin panel, not the client view.</p>
-      </div>
-    </li>
-    <li>
-      <div class="step-num blue">4</div>
-      <div class="step-body">
-        <strong>Quick test call (optional but recommended)</strong>
-        <p>Call <strong>+1 (754) 283-7658</strong> and say "I need a roof inspection." Confirm Alice greets by the prospect's company name and the conversation flows naturally. Hang up before booking so you don't clutter the demo data.</p>
-      </div>
-    </li>
-  </ol>
-
-  <!-- ── Live Demo Script ── -->
-  <h3>Live Demo Script — Full 3-Feature Flow (~15 min)</h3>
-
-  <h4>Part 1 — AI Receptionist (7 min)</h4>
-
-  <p><strong>Set the stage (1 min):</strong></p>
-  <p style="font-style:italic;color:#475569;margin-bottom:12px;">"Right now, every call that comes in while you're on a roof goes to voicemail — and studies show the first company to respond wins the job over 50% of the time. I'm going to show you what happens when your phone never goes unanswered again."</p>
-
-  <p><strong>The live call (3 min):</strong></p>
-  <p>Hand the prospect your phone or dial on speaker. Call <strong>+1 (754) 283-7658</strong>. Have them say:</p>
-  <p style="font-style:italic;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">"Hi, I had some storm damage last night and I need someone to come inspect my roof. Can I book something for this week?"</p>
-  <p>Let Alice handle it fully — she qualifies, books, captures all contact info. Don't interrupt.</p>
-
-  <p><strong>Show the dashboard (3 min):</strong></p>
-  <p>Switch to your second browser tab (<span class="url">https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</span>) and walk through:</p>
-  <ul style="margin-left:20px;margin-bottom:12px;">
-    <li style="margin-bottom:8px;"><strong>Appointments</strong> (<span class="url">https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</span>) — the booking from the call just appeared. Show the appointment card with name, phone, address, service type, and time.</li>
-    <li style="margin-bottom:8px;"><strong>Send Confirmation</strong> — click the button on the appointment card. A branded email arrives in their inbox within seconds. Watch them react when it hits.</li>
-    <li style="margin-bottom:8px;"><strong>Calls</strong> (<span class="url">https://ai-roof.vercel.app/company/calls?preview=demo-roofing</span>) — show the full transcript of the call, with every line the AI said.</li>
-    <li style="margin-bottom:8px;"><strong>Leads</strong> (<span class="url">https://ai-roof.vercel.app/company/leads?preview=demo-roofing</span>) — explain that if a caller doesn't book, they land here instead, still captured.</li>
-  </ul>
-  <p style="font-style:italic;color:#475569;">"That happened without any staff involvement. The booking is confirmed, they have an email with your company logo on it, you have a full transcript. This runs 24/7 — nights, weekends, storm season surges."</p>
-
-  <h4>Part 2 — Job Dashboard (3 min)</h4>
-
-  <p>Stay on the Appointments page. On the appointment card just created:</p>
-  <ol style="margin-left:20px;margin-bottom:12px;line-height:2;">
-    <li>Click <strong>Create Job →</strong> — the Jobs page opens with the form pre-filled from the call data (name, phone, address, service type).</li>
-    <li>Type a job title, e.g. <em>"Storm inspection — [their address]"</em> → click <strong>Create Job</strong>.</li>
-    <li>A green banner confirms the job and shows its ID (e.g. J-1042) with a <strong>View →</strong> link.</li>
-    <li>Click <strong>View →</strong> to open the job detail. Show the six tabs — Timeline, Materials, Labor, Issues, Invoice, Report — all empty for now.</li>
-    <li>Point out the <strong>Field view ↗</strong> button in the header — that's what the crew will open on their phone.</li>
-  </ol>
-  <p style="font-style:italic;color:#475569;">"The call just became a structured job. The crew gets this job ID on their phone."</p>
-
-  <h4>Part 3 — Field Voice Input (5 min) — The Wow Moment</h4>
-
-  <p>Take out your phone (or open Chrome DevTools → device toolbar to simulate mobile):</p>
-  <ol style="margin-left:20px;margin-bottom:12px;line-height:2;">
-    <li>Open <span class="url">https://ai-roof.vercel.app/company/field?preview=demo-roofing</span> on the phone.</li>
-    <li>Select the job you just created from the dropdown (it loads automatically).</li>
-    <li>Type your name if you want (optional). Tap the <strong>🎤 microphone button</strong>.</li>
-    <li>Speak naturally — this is the exact script to use:<br>
-      <span style="display:block;font-style:italic;background:#f8fafc;padding:10px 14px;border-left:3px solid #a78bfa;border-radius:4px;margin:6px 0;color:#1e293b;">"We replaced 14 squares of shingles on the north face. Crew was Marco and Dani. We found some rotted decking near the chimney — about 6 square feet. The whole job took 3 hours. We need to come back for the flashing."</span>
-    </li>
-    <li>Tap the mic to stop. Watch the transcript appear in the text box.</li>
-    <li>Tap <strong>Submit Update</strong> → green confirmation screen appears, auto-resets in 5 seconds.</li>
-    <li>Switch back to your computer. Go to the job detail page and refresh.</li>
-    <li>Click through each tab:
-      <ul style="margin-top:4px;line-height:1.8;">
-        <li><strong>Timeline</strong> — chronological events extracted from the voice</li>
-        <li><strong>Materials</strong> — 14 squares of shingles, quantities and costs</li>
-        <li><strong>Labor</strong> — Marco, Dani, 3 hours each</li>
-        <li><strong>Issues</strong> — rotted decking near chimney, severity flagged as HIGH</li>
-      </ul>
-    </li>
-    <li>Click <strong>Generate Invoice</strong> — editable draft invoice appears in seconds with all line items pre-populated.</li>
-    <li>Click <strong>Generate Report</strong> — a full plain-text job report written by AI from the voice update.</li>
-  </ol>
-
-  <p style="font-style:italic;color:#475569;font-weight:600;">"Your crew spoke for 15 seconds in plain English. The AI extracted materials, logged labor, flagged a problem, and drafted the invoice — ready to send. No forms, no typing, no back-and-forth."</p>
-
-  <h4>Close (1 min)</h4>
-  <p style="font-style:italic;color:#475569;">"This is the full picture — AI answers the phone, books the job, your crew updates from the field by voice, and you have a report and invoice without touching a spreadsheet. Setup takes about a week. Want to talk about getting your number on this?"</p>
-
-  <!-- ── Reset ── -->
-  <div class="warning-box">
-    <strong>After every demo:</strong> Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span> and click <strong>Reset to defaults</strong> to restore Apex Roofing South Florida branding before the next prospect.
-  </div>
-
-  <!-- ── Portal URLs ── -->
-  <h3>All Demo URLs — Quick Reference</h3>
+  <!-- ── URL Quick Reference ── -->
+  <h3>Demo URLs — Quick Reference</h3>
   <table>
-    <thead><tr><th>Full URL</th><th>What it is</th><th>When to use</th></tr></thead>
+    <thead><tr><th>URL</th><th>What it is</th><th>When to use</th></tr></thead>
     <tbody>
-      <tr><td><code>https://ai-roof.vercel.app/login</code></td><td>Login page</td><td>Start of every demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/admin/demo</code></td><td>Demo customizer — enter prospect name + email</td><td>Pre-demo setup + reset after</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing</code></td><td>Live ops dashboard — bookmark this</td><td>Open in second tab before demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/appointments?preview=demo-roofing</code></td><td>Appointment cards — booking appears here after call</td><td>Feature 1 demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/calls?preview=demo-roofing</code></td><td>Full call transcript</td><td>Feature 1 demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/leads?preview=demo-roofing</code></td><td>Lead queue for callers who didn't book</td><td>Feature 1 demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/jobs?preview=demo-roofing</code></td><td>Job list — created from appointment</td><td>Feature 2 demo</td></tr>
-      <tr><td><code>https://ai-roof.vercel.app/company/field?preview=demo-roofing</code></td><td>Field voice screen — open on phone</td><td>Feature 3 demo (the wow moment)</td></tr>
-      <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi — voice assistant config</td><td>Setup / troubleshooting only</td></tr>
+      <tr><td><code>ai-roof.vercel.app/login</code></td><td>Login page</td><td>Start of every demo</td></tr>
+      <tr><td><code>ai-roof.vercel.app/admin/demo</code></td><td><strong>Demo Studio</strong> — pick industry, enter prospect, launch</td><td>Every demo, every industry</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-roofing</code></td><td>Roofing client dashboard (opened via Demo Studio)</td><td>Roofing demo</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-hvac</code></td><td>HVAC client dashboard</td><td>HVAC demo</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-dental</code></td><td>Dental client dashboard (Jobs + Library hidden)</td><td>Dental demo</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-landscaping</code></td><td>Landscaping client dashboard</td><td>Landscaping demo</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-general-contractors</code></td><td>GC client dashboard</td><td>GC demo</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-property-management</code></td><td>Property Mgmt dashboard (Jobs + Library hidden)</td><td>Prop Mgmt demo</td></tr>
+      <tr><td><code>…/field?businessId=demo-roofing</code></td><td>Field voice screen — for crew voice updates</td><td>Field demo (roofing + field-service)</td></tr>
+      <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi assistant config</td><td>Setup / troubleshooting only</td></tr>
     </tbody>
   </table>
+
+  <div class="warning-box">
+    <strong>Important:</strong> All <code>?preview=demo-*</code> links require being logged in as superadmin (<strong>connect@luxordev.com</strong>). Without a login session, they redirect to the login page. Log in first, then open the demo dashboard — or use the "Open dashboard →" button in the Demo Studio launch panel, which handles this automatically.
+  </div>
 
 </div><!-- /page -->
 
@@ -678,7 +858,7 @@
       <h4>Vapi (voice platform)</h4>
       <ul style="margin-left:16px;">
         <li style="margin-bottom:4px;">One AI assistant per client</li>
-        <li style="margin-bottom:4px;">5 tools attached (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment)</li>
+        <li style="margin-bottom:4px;">7 tools attached: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate</li>
         <li style="margin-bottom:4px;">One phone number (new or forwarded)</li>
         <li>Webhook URL pointing to our server</li>
       </ul>
@@ -705,7 +885,7 @@
       <div class="step-num">1</div>
       <div class="step-body">
         <strong>Name the assistant</strong>
-        <p>Use the receptionist name the client agreed on (e.g. "Alice", "Mia", "Riley"). This is what the AI introduces itself as.</p>
+        <p>Use the receptionist name from the industry template (see Industry Quick Reference). E.g. "Alice" for roofing, "Claire" for HVAC, "Aria" for dental.</p>
       </div>
     </li>
     <li>
@@ -733,8 +913,7 @@
       <div class="step-num">5</div>
       <div class="step-body">
         <strong>Configure voice (TTS)</strong>
-        <p>Provider: <strong>ElevenLabs</strong> — Voice: <strong>Rachel</strong> (ID: <code>21m00Tcm4TlvDq8ikWAM</code>) — Model: <strong>eleven_turbo_v2_5</strong></p>
-        <p>This gives the most natural, low-latency voice. Target latency is under 1.5 seconds.</p>
+        <p>Provider: <strong>Cartesia</strong> — Voice: <strong>Sonic 3.5 "Ariana - kind friend"</strong> (~250ms latency, excellent for phone). Alternatively: <strong>ElevenLabs</strong> Flash for maximum voice realism at slightly higher latency.</p>
       </div>
     </li>
     <li>
@@ -749,22 +928,22 @@
       <div class="step-body">
         <strong>Set the Server URL (Advanced tab)</strong>
         <p><span class="url">https://ai-roof.vercel.app/api/webhooks/vapi</span></p>
-        <p>Leave the secret field blank while <code>VAPI_AUTH_BYPASS=true</code> is active.</p>
+        <p>Leave the secret field blank — <code>VAPI_AUTH_BYPASS=true</code> is active (Vapi doesn't send a secret header in the current UI).</p>
       </div>
     </li>
     <li>
       <div class="step-num">8</div>
       <div class="step-body">
-        <strong>Add all 5 tools</strong>
-        <p>Go to the <strong>Tools tab</strong> → <strong>+ Add Tool</strong> and add each of these (they already exist in your Vapi account — just search and select):</p>
-        <p><code>bookAppointment</code> &nbsp; <code>createLead</code> &nbsp; <code>escalateCall</code> &nbsp; <code>checkAvailability</code> &nbsp; <code>lookupAppointment</code></p>
+        <strong>Add all 7 tools</strong>
+        <p>Go to the <strong>Tools tab</strong> → <strong>+ Add Tool</strong> and add each (they already exist in your Vapi account — search and select):</p>
+        <p><code>bookAppointment</code> &nbsp; <code>createLead</code> &nbsp; <code>escalateCall</code> &nbsp; <code>checkAvailability</code> &nbsp; <code>lookupAppointment</code> &nbsp; <code>cancelAppointment</code> &nbsp; <code>getCurrentDate</code></p>
       </div>
     </li>
     <li>
       <div class="step-num">9</div>
       <div class="step-body">
         <strong>Save and copy the Assistant ID</strong>
-        <p>After saving, the assistant ID appears in the URL bar and in the assistant settings. It looks like: <code>9267a84a-0f4f-416b-a328-1dc539f5265e</code></p>
+        <p>After saving, the assistant ID appears in the URL bar and assistant settings. Looks like: <code>9267a84a-0f4f-416b-a328-1dc539f5265e</code></p>
         <p>Copy it — you'll need it in Phase 2.</p>
       </div>
     </li>
@@ -777,23 +956,23 @@
 
   <div class="two-col">
     <div class="col-box">
-      <h4>Option A — New Vapi number (recommended for new clients)</h4>
+      <h4>Option A — New Vapi number (recommended)</h4>
       <ol style="margin-left:16px;font-size:12px;">
         <li style="margin-bottom:6px;">Vapi dashboard → <strong>Phone Numbers</strong> → <strong>+ Buy Number</strong></li>
         <li style="margin-bottom:6px;">Search by area code (use client's local area code)</li>
         <li style="margin-bottom:6px;">Select the number → assign to the assistant you just created</li>
         <li style="margin-bottom:6px;">Copy the <strong>Phone Number ID</strong> (starts with <code>pn_</code>)</li>
-        <li>Give the client this number to use as their business line, or set up a forward from their existing number</li>
+        <li>Give the client this number to use as their business line, or forward their existing number to it</li>
       </ol>
     </div>
     <div class="col-box">
-      <h4>Option B — Forward existing number to Vapi</h4>
+      <h4>Option B — Forward existing number</h4>
       <ol style="margin-left:16px;font-size:12px;">
         <li style="margin-bottom:6px;">Client keeps their existing number</li>
-        <li style="margin-bottom:6px;">Set up call forwarding on their carrier to forward to the Vapi number you provisioned in Option A</li>
+        <li style="margin-bottom:6px;">Set up call forwarding on their carrier to forward to the Vapi number</li>
         <li style="margin-bottom:6px;">Most carriers: dial <code>*72 + [Vapi number]</code> to enable forwarding</li>
-        <li style="margin-bottom:6px;">Test by calling the client's original number — Alice should answer</li>
-        <li>Unconditional forward: all calls go to AI. Conditional forward: only unanswered calls.</li>
+        <li style="margin-bottom:6px;">Test by calling the client's original number — AI should answer</li>
+        <li>Unconditional forward: all calls go to AI. Conditional: only unanswered calls.</li>
       </ol>
     </div>
   </div>
@@ -814,26 +993,25 @@
       <div class="step-body">
         <strong>Step 1 — Company Profile</strong>
         <p><strong>Business name:</strong> Exact legal or trade name (e.g. "Roof Doctors South Florida")</p>
-        <p><strong>Business ID:</strong> Lowercase, hyphens only (e.g. <code>roof-doctors-sf</code>) — this is permanent, choose carefully</p>
+        <p><strong>Business ID:</strong> Lowercase, hyphens only (e.g. <code>roof-doctors-sf</code>) — permanent, choose carefully</p>
         <p><strong>Owner email:</strong> The email they'll use to log in</p>
         <p><strong>Main phone:</strong> Their business phone number</p>
-        <p><strong>Service area:</strong> Comma-separated cities (e.g. Miami, Coral Gables, Doral)</p>
+        <p><strong>Service area:</strong> Comma-separated cities</p>
       </div>
     </li>
     <li>
       <div class="step-num green">2</div>
       <div class="step-body">
         <strong>Step 2 — Template and Plan</strong>
-        <p>Industry: <strong>Roofing</strong> (pre-fills services, FAQs, emergency rules)</p>
-        <p>Receptionist name: agreed name (e.g. "Alice")</p>
-        <p>Greeting: <em>"Thanks for calling [Company Name], this is Alice. How can I help?"</em></p>
+        <p>Industry: select the matching vertical (Roofing, HVAC, Dental, Landscaping, General Contractors, Property Management). This pre-fills services, FAQs, emergency rules, and agent personality from the template.</p>
+        <p>Receptionist name: use the industry default or customize (e.g. "Alice" for roofing).</p>
       </div>
     </li>
     <li>
       <div class="step-num green">3</div>
       <div class="step-body">
         <strong>Step 3 — Services and FAQs</strong>
-        <p>Review the auto-filled roofing defaults. They will be used by the AI to answer service questions.</p>
+        <p>Review the auto-filled template defaults. Adjust any services or FAQs the client specifically requested.</p>
       </div>
     </li>
     <li>
@@ -842,7 +1020,7 @@
         <strong>Step 4 — Rules and Routing</strong>
         <p><strong>Escalation phone:</strong> Owner's cell — called/texted for emergencies</p>
         <p><strong>Notification email:</strong> Where appointment and lead emails are sent</p>
-        <p>Review emergency rules and booking rules — adjust if client has specific policies</p>
+        <p>Review emergency rules and booking rules — adjust for client-specific policies</p>
       </div>
     </li>
     <li>
@@ -851,7 +1029,7 @@
         <strong>Step 5 — Vapi and Branding</strong>
         <p><strong>Vapi assistant ID:</strong> Paste the ID from Phase 1 Step 9</p>
         <p><strong>Vapi phone number ID:</strong> Paste the <code>pn_</code> ID from Phase 2</p>
-        <p><strong>Brand color:</strong> Their primary brand hex color (e.g. <code>#1e3a5f</code>)</p>
+        <p><strong>Brand color:</strong> Their primary hex color (e.g. <code>#1e3a5f</code>)</p>
         <p><strong>Contact phone:</strong> The number shown on confirmation emails</p>
         <p><strong>Logo URL:</strong> HTTPS link to their logo image (optional but recommended)</p>
       </div>
@@ -875,15 +1053,15 @@
     <li>
       <div class="step-num">1</div>
       <div class="step-body">
-        <strong>Create their Firebase Auth account</strong>
-        <p>Go to Firebase Console → Authentication → Users → Add User. Enter their email + a temporary password. They can reset it after first login.</p>
+        <strong>Use the onboarding wizard (automatic)</strong>
+        <p>If you entered the owner email in Phase 3 Step 1, the wizard creates the Firebase Auth account and <code>businessUsers</code> doc automatically. A temporary password is shown once on the success screen — copy it immediately.</p>
       </div>
     </li>
     <li>
       <div class="step-num">2</div>
       <div class="step-body">
-        <strong>Create their businessUsers document</strong>
-        <p>In Firestore → <code>businessUsers/{their-uid}</code> → create document with these fields:</p>
+        <strong>If provisioning manually (fallback)</strong>
+        <p>Firebase Console → Authentication → Users → Add User (email + temp password). Then Firestore → <code>businessUsers/{uid}</code>:</p>
         <code style="display:block;white-space:pre;background:#f1f5f9;padding:10px;border-radius:6px;font-size:11px;margin-top:8px;line-height:1.8;">uid: "their-firebase-uid"
 email: "their@email.com"
 businessId: "roof-doctors-sf"
@@ -897,7 +1075,7 @@ superadmin: false</code>
       <div class="step-body">
         <strong>Send them their login credentials</strong>
         <p>Portal URL: <span class="url">https://ai-roof.vercel.app/login</span></p>
-        <p>Email: their email | Temp password: whatever you set</p>
+        <p>Email: their email | Temp password: from the wizard success screen</p>
       </div>
     </li>
   </ol>
@@ -913,58 +1091,50 @@ superadmin: false</code>
       <div class="step-num">1</div>
       <div class="step-body">
         <strong>Call the Vapi number directly</strong>
-        <p>Call the number assigned in Phase 2. Alice should answer with the correct greeting within 3 seconds.</p>
-        <p>✓ Correct company name in greeting &nbsp; ✓ Receptionist name correct &nbsp; ✓ No dead air</p>
+        <p>AI should answer with the correct greeting within 3 seconds. ✓ Correct company name &nbsp; ✓ Receptionist name &nbsp; ✓ No dead air</p>
       </div>
     </li>
     <li>
       <div class="step-num">2</div>
       <div class="step-body">
         <strong>Book a test appointment</strong>
-        <p>Say: <em>"I need a roof inspection, I'm available next Tuesday morning at 10am."</em></p>
-        <p>Provide a test name, phone, and address when asked. Alice should call <code>bookAppointment</code> and confirm.</p>
-        <p>✓ Appointment appears in portal at <code>/company/appointments</code></p>
-        <p>✓ Notification email arrives at the configured notification address</p>
+        <p>Say: <em>"I need an inspection, I'm available next Tuesday morning at 10am."</em> Provide name, phone, address. AI calls <code>bookAppointment</code> and confirms.</p>
+        <p>✓ Appointment appears at <code>/company/appointments</code> &nbsp; ✓ Notification email arrives</p>
       </div>
     </li>
     <li>
       <div class="step-num">3</div>
       <div class="step-body">
         <strong>Test lead capture</strong>
-        <p>Call again. Say: <em>"I just want to get some information about your services, not ready to book yet."</em></p>
-        <p>Alice should capture as a lead. Check <code>/company/leads</code> in the portal.</p>
+        <p>Call again: <em>"I just want some information, not ready to book yet."</em> Check <code>/company/leads</code>.</p>
       </div>
     </li>
     <li>
       <div class="step-num">4</div>
       <div class="step-body">
         <strong>Test emergency escalation</strong>
-        <p>Call and say: <em>"I have water coming through my ceiling right now."</em></p>
-        <p>Alice should flag as urgent and trigger escalation. Check escalation email arrives at configured address.</p>
+        <p>Call and say: <em>"I have water coming through my ceiling right now."</em> Check escalation email arrives at configured address.</p>
       </div>
     </li>
     <li>
       <div class="step-num">5</div>
       <div class="step-body">
         <strong>Test appointment lookup</strong>
-        <p>Call from the same number you used in test 2. Say: <em>"I want to confirm my appointment."</em></p>
-        <p>Alice should find the appointment by phone number and read back the details.</p>
+        <p>Call from same number: <em>"I want to confirm my appointment."</em> AI should find it and read back the details.</p>
       </div>
     </li>
     <li>
       <div class="step-num">6</div>
       <div class="step-body">
         <strong>Test client login</strong>
-        <p>Log in to the portal using the client's credentials. Confirm they see only their data — no other businesses visible.</p>
-        <p>✓ Dashboard shows call counts &nbsp; ✓ Appointments tab shows test appointment &nbsp; ✓ Leads tab shows test lead</p>
+        <p>Log in with client credentials. ✓ Dashboard shows their data &nbsp; ✓ No other businesses visible &nbsp; ✓ Nav shows only relevant tabs for their industry</p>
       </div>
     </li>
     <li>
       <div class="step-num">7</div>
       <div class="step-body">
         <strong>Send confirmation email</strong>
-        <p>On the Appointments page, click <strong>Send Confirmation</strong> on the test appointment.</p>
-        <p>✓ Email arrives with client's brand color and logo &nbsp; ✓ Footer says "Powered by Luxor AI" (subtle)</p>
+        <p>On Appointments page, click <strong>Send Confirmation</strong>. ✓ Email arrives with brand color and logo &nbsp; ✓ Footer says "Powered by Luxor AI"</p>
       </div>
     </li>
   </ol>
@@ -979,24 +1149,24 @@ superadmin: false</code>
   <h3>Go-Live Checklist</h3>
   <ul class="checklist">
     <li>Vapi assistant created with correct greeting and system prompt</li>
-    <li>All 5 tools added to the assistant in Vapi</li>
+    <li>All 7 tools added to the assistant in Vapi (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate)</li>
     <li>Webhook URL set: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code></li>
-    <li>ElevenLabs voice configured (Rachel, eleven_turbo_v2_5)</li>
+    <li>Secret field left blank (VAPI_AUTH_BYPASS=true is correct — Vapi sends no secret)</li>
+    <li>Voice configured (Cartesia Sonic 3.5 "Ariana" or ElevenLabs Flash)</li>
     <li>Deepgram STT configured (nova-3, 300ms endpointing)</li>
     <li>Phone number purchased and assigned to assistant in Vapi</li>
     <li>Call forwarding tested (if using existing number)</li>
-    <li>Business created in portal at /admin/onboarding</li>
+    <li>Business created in portal at /admin/onboarding — correct industry selected</li>
     <li>Vapi assistant ID saved in portal config</li>
     <li>Vapi phone number ID saved in portal config</li>
     <li>Brand color, logo URL, contact phone saved in portal</li>
     <li>Notification email and escalation phone configured</li>
-    <li>Firebase Auth account created for client</li>
-    <li>businessUsers Firestore doc created for client UID</li>
+    <li>Client login provisioned (auto via wizard, or manually via Firebase Console)</li>
     <li>Test appointment booked via live call — appears in portal</li>
     <li>Notification email confirmed received</li>
     <li>Escalation test passed</li>
     <li>Confirmation email sent — branded correctly</li>
-    <li>Client login tested — sees only their business data</li>
+    <li>Client login tested — sees only their business data, correct nav tabs visible</li>
     <li>Portal status set to <strong>Active</strong> in config edit page</li>
   </ul>
 
@@ -1008,24 +1178,24 @@ superadmin: false</code>
     <thead><tr><th>Problem</th><th>Most likely cause</th><th>Fix</th></tr></thead>
     <tbody>
       <tr>
-        <td>Alice answers but uses wrong company name</td>
+        <td>AI answers but uses wrong company name</td>
         <td>Greeting not updated in Vapi or portal</td>
         <td>Update First Message in Vapi assistant AND greeting field in portal config</td>
       </tr>
       <tr>
         <td>Call answered but no Firestore record written</td>
         <td>Webhook not reaching server</td>
-        <td>Check Vercel logs at <code>ai-roof.vercel.app</code> → Vapi dashboard → Logs for webhook errors</td>
+        <td>Check Vercel logs → Vapi dashboard → Logs tab for webhook errors</td>
       </tr>
       <tr>
         <td>Tool call fires but no email received</td>
-        <td>notificationEmail not set or RESEND_API_KEY not valid</td>
-        <td>Check portal config → notification email field; check Vercel env vars</td>
+        <td>notificationEmail not set or RESEND_API_KEY invalid</td>
+        <td>Check portal config notification email; check Vercel env vars</td>
       </tr>
       <tr>
         <td>Client can't log in to portal</td>
         <td>businessUsers doc missing or businessId mismatch</td>
-        <td>Check Firestore → businessUsers → {uid} → businessId matches the businesses doc ID exactly</td>
+        <td>Check Firestore → businessUsers → {uid} → businessId matches businesses doc ID exactly</td>
       </tr>
       <tr>
         <td>Client sees empty dashboard</td>
@@ -1033,9 +1203,19 @@ superadmin: false</code>
         <td>Verify businessId field in businessUsers/{uid} matches the key in businesses/{businessId}</td>
       </tr>
       <tr>
-        <td>Alice not answering the forwarded number</td>
+        <td>Dashboard shows wrong tabs for the industry</td>
+        <td>industry field not set or misspelled in businesses doc</td>
+        <td>Check Firestore → businesses/{id} → industry field matches exactly: roofing, hvac, dental, landscaping, general-contractors, property-management</td>
+      </tr>
+      <tr>
+        <td>Demo Studio "Voice: Pending" for an industry that should be live</td>
+        <td>vapiAssistantId is null in the demo business doc</td>
+        <td>Create Vapi assistant → paste ID into Firestore → businesses/demo-{industry} → vapiAssistantId</td>
+      </tr>
+      <tr>
+        <td>AI not answering the forwarded number</td>
         <td>Forwarding not set up or Vapi number not assigned</td>
-        <td>Test by calling the Vapi number directly first. If that works, the issue is the forwarding setup on the carrier.</td>
+        <td>Test by calling the Vapi number directly first. If that works, the issue is carrier forwarding setup.</td>
       </tr>
     </tbody>
   </table>
@@ -1046,7 +1226,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v1.0 — May 2026</span>
+    <span>v2.0 — June 2026</span>
   </div>
 
 </div><!-- /page -->

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   BarChart2,
-  Play,
+  Presentation,
   Receipt,
   BookMarked,
   QrCode,
@@ -18,7 +18,7 @@ const mainLinks = [
 ];
 
 const toolLinks = [
-  { href: "/admin/demo", label: "Demo", Icon: Play },
+  { href: "/admin/demo", label: "Demo Studio", Icon: Presentation },
   { href: "/admin/invoices", label: "Invoices", Icon: Receipt },
   { href: "/admin/guide", label: "Playbooks", Icon: BookMarked },
 ];

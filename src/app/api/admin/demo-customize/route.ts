@@ -1,21 +1,73 @@
-// Demo customization endpoint — points the demo business at a prospect's
-// email + company name, and updates Alice's first message on Vapi so she
-// greets the caller as that company.
+// Demo customization endpoint — points a vertical's demo business at a prospect's
+// email + company name, and updates the agent's first message on Vapi so they
+// greet the caller as that company.
 //
-// POST   { email, companyName }   → customize
-// DELETE                          → reset to defaults
+// POST   { email, companyName, verticalId? }   → customize (verticalId defaults to "roofing")
+// DELETE ?verticalId=...                        → reset to defaults
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 
-const BUSINESS_ID = "demo-roofing";
 const DEFAULT_EMAIL = "kwamwad@gmail.com";
-const DEFAULT_NAME = "Apex Roofing South Florida";
-const DEFAULT_GREETING = "Hello. Thanks for calling Apex Roofing. This is Alice. How can I help?";
-const VAPI_ASSISTANT_ID = "9267a84a-0f4f-416b-a328-1dc539f5265e";
+
+const DEMO_BUSINESS_MAP: Record<string, {
+  businessId: string;
+  vapiAssistantId: string | null;
+  agentName: string;
+  defaultName: string;
+  defaultGreeting: string;
+}> = {
+  roofing: {
+    businessId: "demo-roofing",
+    vapiAssistantId: "9267a84a-0f4f-416b-a328-1dc539f5265e",
+    agentName: "Alice",
+    defaultName: "Apex Roofing South Florida",
+    defaultGreeting: "Hello. Thanks for calling Apex Roofing. This is Alice. How can I help?",
+  },
+  hvac: {
+    businessId: "demo-hvac",
+    vapiAssistantId: null,
+    agentName: "Claire",
+    defaultName: "Summit HVAC Demo",
+    defaultGreeting: "Thanks for calling Summit HVAC Demo, this is Claire. How can I help?",
+  },
+  landscaping: {
+    businessId: "demo-landscaping",
+    vapiAssistantId: null,
+    agentName: "Maya",
+    defaultName: "Greenpath Landscaping Demo",
+    defaultGreeting: "Hi, thanks for calling Greenpath Landscaping Demo! This is Maya.",
+  },
+  dental: {
+    businessId: "demo-dental",
+    vapiAssistantId: null,
+    agentName: "Aria",
+    defaultName: "Bright Smile Dental Demo",
+    defaultGreeting: "Thank you for calling Bright Smile Dental Demo, this is Aria.",
+  },
+  "property-management": {
+    businessId: "demo-property-management",
+    vapiAssistantId: null,
+    agentName: "Val",
+    defaultName: "Harbor Property Mgmt Demo",
+    defaultGreeting: "Thanks for calling Harbor Property Mgmt Demo — this is Val.",
+  },
+  "general-contractors": {
+    businessId: "demo-general-contractors",
+    vapiAssistantId: null,
+    agentName: "Rex",
+    defaultName: "Summit GC Demo",
+    defaultGreeting: "Thanks for calling Summit GC Demo, this is Rex. How can I help?",
+  },
+};
+
+function resolveDemoBusiness(verticalId?: string | null) {
+  const key = verticalId && DEMO_BUSINESS_MAP[verticalId] ? verticalId : "roofing";
+  return DEMO_BUSINESS_MAP[key];
+}
 
 export async function POST(request: NextRequest) {
-  let body: { email?: string; companyName?: string };
+  let body: { email?: string; companyName?: string; verticalId?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,57 +84,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid email format" }, { status: 400 });
   }
 
-  const greeting = `Hello. Thanks for calling ${companyName}. This is Alice. How can I help?`;
-  const result = await applyCustomization({ email, companyName, greeting });
+  const entry = resolveDemoBusiness(body.verticalId);
+  const greeting = `Hello. Thanks for calling ${companyName}. This is ${entry.agentName}. How can I help?`;
+
+  const result = await applyCustomization({ email, companyName, greeting, ...entry });
   return NextResponse.json(result);
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const verticalId = new URL(request.url).searchParams.get("verticalId");
+  const entry = resolveDemoBusiness(verticalId);
   const result = await applyCustomization({
     email: DEFAULT_EMAIL,
-    companyName: DEFAULT_NAME,
-    greeting: DEFAULT_GREETING,
+    companyName: entry.defaultName,
+    greeting: entry.defaultGreeting,
+    ...entry,
   });
   return NextResponse.json({ ...result, reset: true });
 }
 
-async function applyCustomization(opts: { email: string; companyName: string; greeting: string }) {
+async function applyCustomization(opts: {
+  email: string;
+  companyName: string;
+  greeting: string;
+  businessId: string;
+  vapiAssistantId: string | null;
+  agentName?: string;
+  defaultName?: string;
+  defaultGreeting?: string;
+}) {
   const db = getAdminFirestore();
   if (!db) {
     return { ok: false, error: "Firestore not available" };
   }
 
-  await db.collection("businesses").doc(BUSINESS_ID).update({
+  await db.collection("businesses").doc(opts.businessId).update({
     notificationEmail: opts.email,
     businessName: opts.companyName,
     greeting: opts.greeting,
     updatedAt: Date.now(),
   });
 
-  const vapiKey = process.env.VAPI_API_KEY;
   let vapiUpdated = false;
   let vapiError: string | undefined;
 
-  if (vapiKey) {
-    try {
-      const res = await fetch(`https://api.vapi.ai/assistant/${VAPI_ASSISTANT_ID}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${vapiKey}`,
-        },
-        body: JSON.stringify({ firstMessage: opts.greeting }),
-      });
-      if (res.ok) {
-        vapiUpdated = true;
-      } else {
-        vapiError = `Vapi PATCH ${res.status}: ${await res.text()}`;
-      }
-    } catch (err) {
-      vapiError = err instanceof Error ? err.message : "Vapi request failed";
-    }
+  if (!opts.vapiAssistantId) {
+    vapiError = "No Vapi assistant configured for this vertical — voice demo pending provisioning";
   } else {
-    vapiError = "VAPI_API_KEY not configured — first message must be updated manually in Vapi UI";
+    const vapiKey = process.env.VAPI_API_KEY;
+    if (vapiKey) {
+      try {
+        const res = await fetch(`https://api.vapi.ai/assistant/${opts.vapiAssistantId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${vapiKey}`,
+          },
+          body: JSON.stringify({ firstMessage: opts.greeting }),
+        });
+        if (res.ok) {
+          vapiUpdated = true;
+        } else {
+          vapiError = `Vapi PATCH ${res.status}: ${await res.text()}`;
+        }
+      } catch (err) {
+        vapiError = err instanceof Error ? err.message : "Vapi request failed";
+      }
+    } else {
+      vapiError = "VAPI_API_KEY not configured — first message must be updated manually in Vapi UI";
+    }
   }
 
   return {
@@ -91,5 +161,7 @@ async function applyCustomization(opts: { email: string; companyName: string; gr
     vapiUpdated,
     vapiError,
     appliedGreeting: opts.greeting,
+    businessId: opts.businessId,
+    demoUrl: `https://ai-roof.vercel.app/company/dashboard?preview=${opts.businessId}`,
   };
 }
