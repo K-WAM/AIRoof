@@ -22,6 +22,8 @@ import {
   getBusinessTimezone,
 } from "@/lib/tools/agentTools";
 import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
+import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import type { BusinessConfig } from "@/types";
 import type {
   VapiWebhookPayload,
   VapiMessage,
@@ -85,6 +87,29 @@ export async function POST(request: NextRequest) {
         const afterHoursNote = isAH
           ? "NOTE: It is currently after business hours, but you MUST still help the caller fully. You can and should book appointments for the next available business-hours slot — never turn a caller away. Tell them their appointment is booked and the team will confirm in the morning."
           : "Business is currently open.";
+
+        // Build the full, industry-aware system prompt + greeting from THIS business's
+        // own config so a single shared Vapi assistant can serve every vertical.
+        // To activate: in the Vapi assistant, set the System Prompt to {{systemPrompt}}
+        // and the First Message to {{greeting}}. Until then, the date variables below
+        // keep the existing dashboard prompt working unchanged (backward compatible).
+        let systemPrompt = "";
+        let greeting = "";
+        try {
+          if (db) {
+            const snap = await db.collection("businesses").doc(businessId).get();
+            const config = snap.data() as BusinessConfig | undefined;
+            if (config) {
+              systemPrompt = buildAgentPrompt(config, {
+                runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote },
+              });
+              greeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
+            }
+          }
+        } catch (err) {
+          console.error("assistant-request: failed to build dynamic prompt", err);
+        }
+
         return NextResponse.json({
           assistantOverrides: {
             variableValues: {
@@ -92,6 +117,8 @@ export async function POST(request: NextRequest) {
               currentTime: timeStr,
               currentTimezone: tz,
               afterHoursContext: afterHoursNote,
+              systemPrompt,
+              greeting,
             },
           },
         });
@@ -109,13 +136,16 @@ export async function POST(request: NextRequest) {
 
 async function resolveBusinessId(call?: VapiCall): Promise<string | null> {
   if (!call) return null;
-  if (call.assistantId) {
-    const byAssistant = await findBusinessByVapiAssistantId(call.assistantId);
-    if (byAssistant) return byAssistant;
-  }
+  // Phone number first: it's the unique per-business discriminator when one shared
+  // assistant serves many businesses. Falls back to assistantId for businesses that
+  // still run a dedicated assistant (e.g. the current roofing demo).
   if (call.phoneNumberId) {
     const byPhone = await findBusinessByVapiPhoneNumberId(call.phoneNumberId);
     if (byPhone) return byPhone;
+  }
+  if (call.assistantId) {
+    const byAssistant = await findBusinessByVapiAssistantId(call.assistantId);
+    if (byAssistant) return byAssistant;
   }
   return null;
 }

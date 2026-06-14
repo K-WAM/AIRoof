@@ -5,15 +5,26 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
-export const US_TIMEZONES = [
-  { value: "America/New_York",    label: "Eastern (New York, Miami, Atlanta)" },
-  { value: "America/Chicago",     label: "Central (Chicago, Dallas, Houston)" },
-  { value: "America/Denver",      label: "Mountain (Denver, Salt Lake City)" },
-  { value: "America/Phoenix",     label: "Mountain – no daylight saving (Phoenix)" },
-  { value: "America/Los_Angeles", label: "Pacific (Los Angeles, Seattle)" },
-  { value: "America/Anchorage",   label: "Alaska" },
-  { value: "America/Honolulu",    label: "Hawaii" },
-  { value: "America/Puerto_Rico", label: "Atlantic (Puerto Rico, USVI)" },
+// US + Canada timezones. Rendered as a flat <select>, so country is baked into
+// each label for scannability. Add other countries here as we expand.
+export const SUPPORTED_TIMEZONES = [
+  // United States
+  { value: "America/New_York",    label: "US – Eastern (New York, Miami, Atlanta)" },
+  { value: "America/Chicago",     label: "US – Central (Chicago, Dallas, Houston)" },
+  { value: "America/Denver",      label: "US – Mountain (Denver, Salt Lake City)" },
+  { value: "America/Phoenix",     label: "US – Mountain, no DST (Phoenix)" },
+  { value: "America/Los_Angeles", label: "US – Pacific (Los Angeles, Seattle)" },
+  { value: "America/Anchorage",   label: "US – Alaska" },
+  { value: "America/Honolulu",    label: "US – Hawaii" },
+  { value: "America/Puerto_Rico", label: "US – Atlantic (Puerto Rico, USVI)" },
+  // Canada
+  { value: "America/Toronto",     label: "Canada – Eastern (Toronto, Ottawa, Montréal)" },
+  { value: "America/Winnipeg",    label: "Canada – Central (Winnipeg)" },
+  { value: "America/Regina",      label: "Canada – Central, no DST (Saskatchewan)" },
+  { value: "America/Edmonton",    label: "Canada – Mountain (Calgary, Edmonton)" },
+  { value: "America/Vancouver",   label: "Canada – Pacific (Vancouver, Victoria)" },
+  { value: "America/Halifax",     label: "Canada – Atlantic (Halifax)" },
+  { value: "America/St_Johns",    label: "Canada – Newfoundland (St. John's)" },
 ] as const;
 
 export const DEFAULT_TZ = "America/New_York";

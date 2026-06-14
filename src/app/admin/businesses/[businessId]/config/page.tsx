@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
-import { US_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 
 interface BizData {
   businessName: string;
@@ -243,7 +243,7 @@ export default function AdminBusinessConfigPage({
                 <div className="field">
                   <label htmlFor="timezone">Business timezone</label>
                   <select id="timezone" name="timezone" defaultValue={biz.timezone ?? "America/New_York"}>
-                    {US_TIMEZONES.map((tz) => (
+                    {SUPPORTED_TIMEZONES.map((tz) => (
                       <option key={tz.value} value={tz.value}>{tz.label}</option>
                     ))}
                   </select>

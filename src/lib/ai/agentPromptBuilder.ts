@@ -4,13 +4,24 @@ import type { BusinessConfig } from "@/types";
 export interface PromptOptions {
   /** True when there are already prior turns in the conversation. Suppresses the greeting instruction so the agent doesn't re-introduce itself. */
   midConversation?: boolean;
+  /**
+   * Live per-call context (date/time/after-hours), injected by the Vapi webhook at
+   * call start. Lets a single prompt builder produce a fully date-aware system prompt
+   * so one shared assistant can serve every business/vertical. Omit for static/test use.
+   */
+  runtime?: {
+    currentDate?: string;
+    currentTime?: string;
+    timezone?: string;
+    afterHoursNote?: string;
+  };
 }
 
 export function buildAgentPrompt(
   businessConfig: BusinessConfig,
   opts: PromptOptions = {}
 ): string {
-  const { midConversation = false } = opts;
+  const { midConversation = false, runtime } = opts;
   const agentName = businessConfig.agentName || "Mia";
   const agentIdentity = businessConfig.agentIdentity || "receptionist";
   const agentTone =
@@ -32,9 +43,17 @@ You are MID-CALL with the caller. You have already greeted them. Do NOT re-intro
     : `## Conversation Context
 This is the start of the call. Greet the caller naturally and ask how you can help.`;
 
+  const runtimeContext = runtime
+    ? `\n## Current Context (use for any date/time math)
+- Today is ${runtime.currentDate ?? "unknown"}${runtime.currentTime ? `, current local time ${runtime.currentTime}` : ""}${runtime.timezone ? ` (${runtime.timezone})` : ""}.
+- ${runtime.afterHoursNote ?? "Business is currently open."}
+When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date from today's date above before booking.\n`
+    : "";
+
   return `You are ${agentName}, the ${agentIdentity} for ${businessConfig.businessName}, a ${businessConfig.industry} business.
 
 ${conversationContext}
+${runtimeContext}
 
 ## Your Role
 Answer inbound calls, qualify leads, schedule appointments, escalate urgent cases, and take messages.

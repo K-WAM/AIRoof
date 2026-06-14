@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
-import { US_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -174,7 +174,7 @@ export default function CompanySettingsPage() {
                   value={settings.timezone}
                   onChange={e => setSettings(prev => prev ? { ...prev, timezone: e.target.value } : prev)}
                 >
-                  {US_TIMEZONES.map(tz => (
+                  {SUPPORTED_TIMEZONES.map(tz => (
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                   ))}
                 </select>
