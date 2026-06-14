@@ -73,13 +73,15 @@ export default function PipelinePage() {
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
 
+  const urgencyParam = searchParams?.get("urgency");
+  const leadParam = searchParams?.get("lead");
   const initialTab: Tab = searchParams?.get("tab") === "appointments" ? "appointments" : "leads";
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Leads state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">("all");
+  const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">(urgencyParam === "urgent" ? "urgent" : "all");
   const [leadCalling, setLeadCalling] = useState<string | null>(null);
   const [leadUpdating, setLeadUpdating] = useState(false);
 
@@ -90,6 +92,12 @@ export default function PipelinePage() {
   const [apptCalling, setApptCalling] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
 
   useEffect(() => {
     if (!db || !businessId) return;
@@ -100,7 +108,8 @@ export default function PipelinePage() {
       .then(([leadsSnap, apptsSnap]) => {
         const leadsData = leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as Lead));
         setLeads(leadsData);
-        if (leadsData.length > 0) setSelectedLead(leadsData[0]);
+        const chosenLead = leadParam ? leadsData.find((l) => l.leadId === leadParam) : undefined;
+        setSelectedLead(chosenLead ?? leadsData[0] ?? null);
         setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
       })
       .catch(console.error)
@@ -119,10 +128,10 @@ export default function PipelinePage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed" }));
-        alert(`Call failed: ${err.error ?? "Unknown error"}`);
+        showToast(`Call failed: ${err.error ?? "Unknown error"}`);
       }
     } catch {
-      alert("Network error — could not initiate call.");
+      showToast("Network error — could not initiate call.");
     } finally {
       setLeadCalling(null);
     }
@@ -182,10 +191,10 @@ export default function PipelinePage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed" }));
-        alert(`Call failed: ${err.error ?? "Unknown error"}`);
+        showToast(`Call failed: ${err.error ?? "Unknown error"}`);
       }
     } catch {
-      alert("Network error — could not initiate call.");
+      showToast("Network error — could not initiate call.");
     } finally {
       setApptCalling(null);
     }
@@ -330,6 +339,11 @@ export default function PipelinePage() {
 
   return (
     <>
+      {toast && (
+        <div role="alert" style={{ position: "fixed", top: 72, right: 24, zIndex: 50, background: "#fef2f2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, boxShadow: "0 6px 18px rgba(0,0,0,0.10)", maxWidth: 360 }}>
+          {toast}
+        </div>
+      )}
       <header className="page-header">
         <div>
           <h1 className="page-title">Pipeline</h1>

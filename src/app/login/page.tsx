@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
@@ -14,7 +13,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,23 +38,15 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      if (mode === "signin") {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace("/company/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/user-not-found" || code === "auth/invalid-credential") {
-        setError("No account found. Check your email and password.");
+        setError("No account found. Check your email and password, or contact your administrator.");
       } else if (code === "auth/wrong-password") {
         setError("Incorrect password.");
-      } else if (code === "auth/email-already-in-use") {
-        setError("An account with this email already exists. Sign in instead.");
-      } else if (code === "auth/weak-password") {
-        setError("Password must be at least 6 characters.");
       } else {
         setError(err instanceof Error ? err.message : "Sign-in failed.");
       }
@@ -87,6 +77,7 @@ export default function LoginPage() {
         gap: "1.25rem",
       }}>
         <div style={{ textAlign: "center" }}>
+          <img src="/logo.png" alt="Luxor AI" style={{ height: 40, width: "auto", margin: "0 auto 12px", display: "block" }} />
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>AI Receptionist</h1>
           <p style={{ color: "#666", marginTop: "0.4rem", fontSize: "0.9rem" }}>
             Sign in to access your dashboard
@@ -127,21 +118,15 @@ export default function LoginPage() {
             onChange={e => setPassword(e.target.value)}
             disabled={loading}
             style={inputStyle}
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
+            autoComplete="current-password"
           />
           <button type="submit" disabled={loading} style={primaryBtnStyle(loading)}>
-            {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
 
-        <p style={{ textAlign: "center", fontSize: "0.85rem", color: "#666", margin: 0 }}>
-          {mode === "signin" ? "No account? " : "Already have an account? "}
-          <button
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
-            style={{ background: "none", border: "none", color: "#4285F4", cursor: "pointer", padding: 0, fontSize: "0.85rem" }}
-          >
-            {mode === "signin" ? "Create one" : "Sign in"}
-          </button>
+        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "#999", margin: 0 }}>
+          Access is provisioned by your administrator.
         </p>
 
         {error && (

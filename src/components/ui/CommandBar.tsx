@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { collection, getDocs, query as fsQuery, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Result {
@@ -42,11 +44,21 @@ export function CommandBar() {
     }
   }, [open, businessId]);
 
+  function pipelineHref(tab: "leads" | "appointments", idKey: "lead" | "appt", id: string) {
+    const base = previewSuffix ? previewSuffix + "&" : "?";
+    return `/company/pipeline${base}tab=${tab}&${idKey}=${id}`;
+  }
+
   async function fetchData() {
     try {
-      const [leadsRes, jobsRes] = await Promise.all([
+      const [leadsRes, jobsRes, apptsSnap] = await Promise.all([
         fetch(`/api/businesses/${businessId}/leads`).catch(() => null),
         fetch(`/api/jobs?businessId=${businessId}`).catch(() => null),
+        db
+          ? getDocs(
+              fsQuery(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "desc"))
+            ).catch(() => null)
+          : Promise.resolve(null),
       ]);
       const results: Result[] = [];
 
@@ -58,7 +70,20 @@ export function CommandBar() {
             id: l.leadId,
             name: l.callerName ?? l.callerPhone ?? "Unknown caller",
             sub: l.serviceRequested ?? l.address ?? l.status ?? "",
-            href: `/company/leads${previewSuffix}`,
+            href: pipelineHref("leads", "lead", l.leadId),
+          });
+        }
+      }
+
+      if (apptsSnap) {
+        for (const docSnap of apptsSnap.docs) {
+          const a = docSnap.data() as Record<string, unknown>;
+          results.push({
+            type: "appt",
+            id: docSnap.id,
+            name: (a.callerName as string) ?? (a.callerPhone as string) ?? "Unknown caller",
+            sub: (a.serviceType as string) ?? (a.address as string) ?? "",
+            href: pipelineHref("appointments", "appt", docSnap.id),
           });
         }
       }
@@ -118,7 +143,7 @@ export function CommandBar() {
               className="cmd-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search leads, jobs…"
+              placeholder="Search leads, appointments, jobs…"
             />
             {query && (
               <button

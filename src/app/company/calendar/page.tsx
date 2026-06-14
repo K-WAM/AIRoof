@@ -217,7 +217,7 @@ export default function CalendarPage() {
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
-                        <Link key={a.appointmentId} href={`/company/appointments${previewSuffix}`} style={{ textDecoration: "none" }}>
+                        <Link key={a.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${a.appointmentId}`} style={{ textDecoration: "none" }}>
                           <div style={{ fontSize: 11, padding: "3px 6px", borderRadius: 6, background: pending ? "#f1f5f9" : "#dbeafe", color: pending ? "#64748b" : "#1d4ed8", border: pending ? "1px dashed #cbd5e1" : "none", lineHeight: 1.3 }}>
                             {new Date(a.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} {a.callerName ?? "Appt"}
                             {pending && <span style={{ display: "block", fontSize: 9, fontWeight: 700 }}>UNCONFIRMED</span>}

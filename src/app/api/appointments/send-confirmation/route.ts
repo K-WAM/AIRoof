@@ -130,7 +130,7 @@ function confirmationEmailHtml(p: {
   <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
     <p style="margin:0;font-size:10px;color:#cbd5e1;">
       Appt ID: ${p.appointmentId} &nbsp;·&nbsp;
-      <a href="${BASE_URL}/company/appointments" style="color:#94a3b8;text-decoration:none;">View appointments</a> &nbsp;·&nbsp;
+      <a href="${BASE_URL}/company/pipeline?tab=appointments" style="color:#94a3b8;text-decoration:none;">View appointments</a> &nbsp;·&nbsp;
       <span style="color:#e2e8f0;">Powered by Luxor AI</span>
     </p>
   </td></tr>
