@@ -1,183 +1,75 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-06-01 (Field Ops + Calendar Powerhouse + Library epic)
+Last updated: 2026-06-15 (Demo Studio + dynamic per-industry agent + after-hours + security + universal demo line)
 
 ## Current State
 
-**Completion: ~97%**
+**Completion: ~98%** — live at https://ai-roof.vercel.app. Everything below is shipped and (where noted) verified in production.
 
-Platform is live at https://ai-roof.vercel.app. Everything below is confirmed working in production.
+---
 
-### Latest epic — Field Ops + Calendar Powerhouse + Library (shipped, 7 commits)
-Full plan: **docs/EPIC-PLAN.md**. Built straight through, type-checked + built green per phase, Firestore rules deployed.
+## This session — what shipped (all build + tsc green, pushed to main)
 
-- **Booking fixed platform-wide** — Admin Firestore now uses `ignoreUndefinedProperties` (was rejecting every booking on the `notes: undefined` field).
-- **Unified, editable, voice-correctable job data** — `job.parsed` is the single source of truth, computed in code from the immutable `updates` ledger (`src/lib/jobs/projection.ts`). Materials dedup/sum by name (fixes the "2×4s 50/50/150" duplication). Job-detail tabs are inline-editable. Voice corrections are a **one-tap confirm card** that shows old→new + the recomputed running total — the LLM never does the arithmetic, so a correction can't wipe prior days (e.g. 30+20+40+150 → correct 150→120 → 210, not 120).
-- **Job-site photos** (free Spark plan) — `＋ Photo` on both field screens with a mandatory description; base64 split into thumbnail + full-blob Firestore docs so grids load instantly; 10-photo cap; admin Photos tab + lightbox + "In report" toggle. `src/lib/photos/store.ts` swaps to Firebase Storage in one file when on Blaze.
-- **Editable report** — Scope & Resolution notes section, included photos (≤2 pages, captioned), and a manual **📧 Mail report** button (branded Resend email). Automation assembles; a human sends.
-- **Library** (`/company/library`) — pricing catalog (auto-fills invoice unit prices, never fabricates), crews, documents.
-- **Calendar Powerboard** — drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → **Confirm** → branded crew email + tile turns crew color. Bookings row shows appointments (unconfirmed dashed-grey).
-- **After-hours booking** — Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown amber/grey with a one-click **"Confirm & notify customer"**. Vapi `assistant-request` injects `{{currentDate}}`/`{{currentTime}}`/`{{afterHoursContext}}` — **confirmed live in the dashboard prompt**, and all 7 tools are attached.
+1. **Demo Studio (multi-vertical)** `1c0b388` — `/admin/demo` rebuilt as a 3-step pick→prospect→launch studio for 6 verticals (Roofing, HVAC, Landscaping, Dental, GC, Property Mgmt), per-industry personas/pitch scripts/brand colors, Firestore-driven nav-module hiding (Dental & Property Mgmt hide Jobs/Library).
 
-### Vapi config (confirmed from dashboard 2026-06-01)
-- **Tools (7):** bookAppointment, checkAvailability, createLead, escalateCall, lookupAppointment, cancelAppointment, getCurrentDate.
-- **System prompt** opens with `CONTEXT: Today is {{currentDate}} at {{currentTime}} ({{currentTimezone}}). {{afterHoursContext}}` + an explicit BOOKING FLOW (call checkAvailability first, read slots, bookAppointment, confirm warmly).
-- **Voice:** Cartesia Sonic 3.5 "Ariana - kind friend" (~250 ms). **Transcriber:** Deepgram nova-3 multilingual. **Model:** GPT-4o Mini Cluster. ~$0.09/min, ~840 ms latency.
+2. **Dynamic per-industry Vapi prompt + Canadian timezones** `16d51ed` — the `assistant-request` webhook now builds the FULL system prompt + greeting from each business's own config (`buildAgentPrompt`) and serves them as Vapi vars `{{systemPrompt}}` / `{{greeting}}`. One assistant adapts to any vertical. `resolveBusinessId` resolves **by phone number first** (assistant-id fallback). Timezone picker gained Canada (`SUPPORTED_TIMEZONES`).
 
-### Most human-sounding voice — recommendation
-Two different axes of "human":
-- **Raw voice realism:** **ElevenLabs** is the leader (Turbo v2.5 / Multilingual v2 / Flash). Warmest receptionist-style voices: *Sarah, Jessica, Matilda*. Tradeoff: higher latency (~400–700 ms) and ~$0.05–0.10/min more. Tune Stability ~0.40–0.50, Similarity ~0.75, Style low.
-- **Conversational naturalness (turn-taking):** **Cartesia Sonic** (current) wins on latency (~250 ms). On a phone call, fast responses with no awkward pause feel *more* human than a marginally richer voice that lags — so the current pick is genuinely strong for a receptionist.
+3. **UX unification + login hardening** `46b37bd` — `/company/leads` and `/company/appointments` are now redirects into the unified **Pipeline** (single source of truth); Pipeline reads `?urgency=urgent` (fixes the dashboard "Urgent leads" link) and `?lead=<id>` deep-select. CommandBar now searches appointments too and deep-links to the record. Removed public self-signup from `/login` (was creating orphan accounts) + Luxor branding. `alert()` → inline toast.
 
-**Verdict:** Keep Cartesia "Ariana" if low latency matters most (recommended for phone). If you want maximum raw realism and can accept slower replies, switch provider → ElevenLabs → a warm conversational voice and lower Stability for more expressiveness. A/B both on a real call before deciding.
+4. **Security: all `/api/admin/*` gated** `bf7c249` — every admin route was UNAUTHENTICATED. Added `verifySuperadmin()` (`src/lib/auth/verifyRole.ts`) to all ~17 admin handlers. Cookie-based, so no client changes. Curl-verified: every admin endpoint returns 401 without a valid session. **Verified live in prod (401).**
 
-### What's Working (Confirmed Live)
-- Alice answers inbound calls end-to-end, runs 7 tools
-- Vapi webhook handler: function-call, status-update, end-of-call-report
-- **Call outcome tagging**: DeepSeek classifies each call as `scheduled` / `lead_captured` / `escalated` / `no_action` after end-of-call-report. Badge shown on Calls page.
-- **After-hours tagging**: Calls flagged `isAfterHours` based on business hours + timezone. "After hrs" badge on Calls page.
-- **Follow-up cron**: `/api/cron/follow-up-calls` fires daily at 2pm UTC (vercel.json). Calls back uncontacted leads within configured calling window.
-- **Clickable 5-step job progress bar**: Inspection → Quoted → Working → Invoiced → Complete. Click any step to advance; `PATCH /api/jobs/[jobId]` backs it.
-- **Client login auto-provisioning**: Onboarding wizard creates Firebase Auth user + writes `businessUsers/{uid}` automatically. Temp password shown once in success screen with copy button.
-- **QR code on demo page**: Admin demo page shows scannable QR → `/field?businessId=demo-roofing` for live field update demo with prospects.
-- **Luxor admin invoices** at `/admin/invoices`: editable invoice form, line items with +/×, auto-calculated totals + tax, template save/load, Save/Send (Resend email)/Download PDF (print)/Mark Paid. Luxor-branded HTML email.
-- Company dashboard: calls, leads, appointments, jobs, calendar, field all wired to live Firestore
-- Job detail: 6 tabs + 3-step progress bar + clickable status steps
-- Field crew page (/field) — unprotected mobile route, voice updates via Web Speech API (browser-side). Note: /company/field uses Whisper (server-side). See Known Bugs below.
-- Superadmin portal: businesses list, config editor, usage stats, demo customizer, playbooks, invoices
-- Branded HTML emails via Resend (booking + escalation + confirmation)
-- Auth guards: __session cookie on /admin/* and /company/*
-- Inter font, card shadows, logo.png in both admin sidebar and company topbar
+5. **After-hours done end-to-end** `aa0a843` — customer email captured at booking (`Appointment.callerEmail`); "Confirm & notify customer" now actually emails the **customer** (`sendCustomerConfirmation`, was only emailing the business), fixes the hardcoded tz, always confirms even without email. Dashboard surfaces an **"After-hours — Pending Your Approval"** section + clickable pill → Pipeline. Cards clickable app-wide.
 
-### Outbound Callbacks (FIXED this session)
-- `POST /api/calls/outbound` — staff-authenticated endpoint (now working)
-- "☎ Call Back" button on leads and appointment cards — was returning 401; now fixed
-- Auto-callback after lead creation when `callbackDelayMinutes` is set
-- Calls page has All / Inbound / Outbound filter toggle
+6. **Caller-ID phone + optional email + playbook accuracy** `0e1e5a7` — webhook feeds caller ID into the prompt; the agent **confirms the number casually** ("…ending in 4821?") instead of making the caller recite it. Email is explicitly **optional** (offered once, never blocks). Rewrote the guide/Demo Studio to say the agent adapts to *every* industry; "Voice: Pending" = no phone line connected for that vertical yet, not an agent limit.
 
-### Known Bugs — Resolved This Session
+7. **Universal demo line** `71c5758` — `demo-roofing` is the single live demo tenant (owns the Vapi number + assistant). Each Demo Studio launch **reconfigures it in place** to the chosen vertical (config + reseeds sample data via `src/lib/verticals/demoSeed.ts`), so the **one number adapts** to whatever you launched. One seeded appointment is an after-hours pending booking WITH an email, so the approval flow is demoable immediately. (Reconfigure-in-place, not remap, to avoid the phone-number lookup cache going stale.)
 
-**BUG 1 (FIXED) — Call Back button was silently failing (401)**
-- File: `src/app/api/calls/outbound/route.ts`
-- Was: `verifySessionCookie()` — expected Firebase session cookie, got ID token
-- Fix: replaced with `verifyIdToken()` from `@/lib/firebase/admin` — correctly verifies ID tokens
-- Now: "Call Back" button authenticates correctly; test with a real call to confirm end-to-end
+8. **Vapi tools/config verified via API** — confirmed System Prompt = `{{systemPrompt}}`, First Message = `{{greeting}}`. Added the optional **`email`** param to the `bookAppointment` and `createLead` tools (was missing → live calls couldn't pass an email). Optional (not in `required`); webhook/server config intact. *(Vapi-side change, no deploy.)*
 
-**BUG 2 (FIXED) — QR demo field submission was failing for unauthenticated workers**
-- Files: `src/app/api/jobs/[jobId]/updates/route.ts`, `src/app/api/jobs/[jobId]/field-audio/route.ts`
-- Was: `verifyAuthAndRole` required a logged-in session; public `/field` workers got 401
-- Fix: removed `verifyAuthAndRole` from both routes; businessId in request body is the auth gate
-- `/field` also upgraded to Whisper (see below)
+---
 
-## Pending Items
+## Vapi Architecture (current)
 
-### Must Do Before Demo
-1. **Test outbound call end-to-end** — "Call Back" button is now fixed. Make a real test call via "Call Back" on a lead/appointment to confirm Vapi outbound fires end-to-end with VAPI_API_KEY
-2. **Test QR demo** — scan QR from /admin/demo, speak an update on /field, confirm it appears in Jobs tab (both BUG 1 and BUG 2 are now fixed)
-3. **lookupAppointment in Vapi** — already in Tools tab (confirmed via screenshot), no action needed
+- **Assistant**: `9267a84a-0f4f-416b-a328-1dc539f5265e` ("Alice - Roofing" = the universal demo line / `demo-roofing`).
+- **Phone**: +1 (754) 283-7658. **Webhook**: `https://ai-roof.vercel.app/api/webhooks/vapi`.
+- **Prompt is dynamic**: System Prompt = `{{systemPrompt}}`, First Message = `{{greeting}}`, both served by the `assistant-request` webhook from the resolved business's config. Do **not** overwrite those two fields with literal text.
+- **Tenant resolution**: by phone number first, then assistant id (`resolveBusinessId`).
+- **7 tools** (by id): bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate. bookAppointment + createLead now include an optional `email` param.
+- **Keys (3, don't mix up):** **Private key** = `VAPI_API_KEY` (server REST + outbound); **Public key** (browser only); **`VAPI_WEBHOOK_SECRET`** (inbound verification, bypassed via `VAPI_AUTH_BYPASS=true`). `VAPI_API_KEY` + `VAPI_WEBHOOK_SECRET` are **Sensitive** in Vercel (can't be read back via `vercel env pull`).
+- **Voice**: Vapi "Layla" / Cartesia stack, GPT-4o Mini, Deepgram nova-3. ~$0.09/min, ~840 ms. (ElevenLabs = max raw realism at higher latency if you ever want to A/B.)
 
-### Resolved This Session (Phase 4 — no longer pending)
-- ~~BUG 1 — Call Back 401~~ — fixed: `verifySessionCookie` → `verifyIdToken` in outbound route
-- ~~BUG 2 — QR field submission 401~~ — fixed: removed auth from updates + field-audio routes; businessId scoping
-- ~~/field used browser speech API~~ — upgraded to Whisper (MediaRecorder → server-side transcription → auto-submit)
-- ~~Job status inconsistency~~ — all 6 statuses now consistent across dashboard filter, jobs filter chips, progress bar
-- ~~Job detail fetched all jobs~~ — new `GET /api/jobs/[jobId]` endpoint; detail page now fetches one doc
-- ~~Unused packages~~ — removed `twilio` and `@opentelemetry/api` from package.json
+## Demo Instructions (universal line)
 
-### Resolved Previous Session (Phase 3)
-- ~~VAPI_AUTH_BYPASS~~ — Permanently correct; Vapi sends no secret header. Keep active.
-- ~~VAPI_API_KEY missing~~ — already in Vercel (confirmed May 22)
-- ~~Job progress bar unclickable~~ — now fully interactive, all 5 steps
-- ~~Client login not provisioned~~ — now auto-provisioned on onboarding
-- ~~Dashboard static lead list~~ — replaced with Today Feed
-- ~~Inconsistent status badges~~ — unified into shared `StatusChip`
-- ~~No global search~~ — `CommandBar` ⌘K added to company portal topbar
-- ~~Jobs page unfiltered~~ — filter chips now show All / Inspection / Quoted / In Progress / Invoiced / Complete
+1. Log in at `/login` → connect@luxordev.com (must be superadmin; if admin pages 401, run `node scripts/provision-superadmin.mjs` then sign out/in).
+2. `/admin/demo` → pick industry → enter prospect company + email → **Launch**.
+3. The launch panel shows the live number **for every vertical** now. Hand the prospect the phone → the agent answers **as that industry/company**, confirms their number from caller ID, optionally asks for an email, books.
+4. **Open dashboard** (opens the live line) → show Calls/Pipeline + the seeded **after-hours "Pending Your Approval"** booking → **Confirm & notify customer** (emails the customer).
+5. Field-service verticals: scan the QR for the voice field-update demo.
+6. **Reset demo** restores the roofing default.
 
-### Nice to Have
-3. **Stability slider in Vapi** — drag to 0.35–0.40 for more natural tone (ElevenLabs Flash already switched)
-4. **businessUsers provisioning on businesses POST** — partially done (ownerEmail required); if no email, login not created — acceptable
+## Pending / Next
 
-### Phase 3 (shipped this session)
-- ✅ Call outcome tagging via DeepSeek
-- ✅ After-hours call tagging
-- ✅ Follow-up cron route + vercel.json schedule
+- **Mobile responsiveness** — the company topbar (logo + nav + search + user) likely overflows on phones; needs a responsive pass. Main untested surface.
+- **Email deliverability** — confirm `RESEND_FROM` uses a verified domain so customer confirmation emails land cleanly.
+- **Vestigial** — per-vertical demo businesses (`demo-hvac`, etc.) are unused now that the Demo Studio runs on the universal line (`demo-roofing`). Harmless; left in place.
+- **Minor** — favicon 404; admin "Field Demo"/"Client view" links hardcoded to `demo-roofing`; `__session` cookie ~1h staleness on very long admin sessions.
+- **Post-MVP** — Google Calendar per-business OAuth, Stripe billing, SMS (Twilio A2P 10DLC), more verticals going live (connect a number per the guide's "Connecting a phone line to a vertical").
 
-### Phase 4 — Performance Cleanup (partially done this session)
-See **[docs/PERFORMANCE-CLEANUP.md](docs/PERFORMANCE-CLEANUP.md)** for the original spec with implementation details.
+## Key Files (added/changed this session)
 
-**Completed this session:**
-- ✅ BUG 1 (outbound auth), BUG 2 (public field auth)
-- ✅ Job status normalization (all 6 values consistent)
-- ✅ Single-job endpoint (GET /api/jobs/[jobId])
-- ✅ /field Whisper upgrade
-- ✅ Unused package removal (twilio, @opentelemetry/api)
+- `src/lib/ai/agentPromptBuilder.ts` — `buildAgentPrompt(config, { runtime })`: industry-aware prompt + runtime context (date/time/after-hours/caller phone), contact-capture (caller-ID confirm + optional email).
+- `src/app/api/webhooks/vapi/route.ts` — `assistant-request` serves `{{systemPrompt}}`/`{{greeting}}` + caller phone; bookAppointment/createLead read `email`; phone-first `resolveBusinessId`.
+- `src/lib/auth/verifyRole.ts` — `verifySuperadmin()`; all `/api/admin/*` handlers gated.
+- `src/app/api/admin/demo-customize/route.ts` — universal line: reconfigure + reseed `demo-roofing` per launch.
+- `src/lib/verticals/demoSeed.ts` — template-driven per-vertical sample data (incl. an after-hours pending booking with email).
+- `src/lib/verticals/templates.ts` — 6 vertical templates (incl. general-contractors) + icon/color/script/disabledModules.
+- `src/app/company/pipeline/page.tsx` — unified Leads+Appointments; `?urgency`/`?lead`; tone-aware toast; customer email on appt cards.
+- `src/app/company/dashboard/page.tsx` — after-hours pending section + pill; clickable cards.
+- `src/app/api/appointments/send-confirmation/route.ts` — notifies the customer (not just the business).
+- `src/app/company/{leads,appointments}/page.tsx` — redirects into Pipeline.
+- `src/app/login/page.tsx` — sign-in only + branding.
+- `src/hooks/useBusinessTimezone.ts` — `SUPPORTED_TIMEZONES` (US + Canada).
+- `public/guides/onboarding-guide.html` — v2 Demo Studio + accurate per-industry framing.
+- `src/types/index.ts` — `callerEmail` on Lead + Appointment.
 
-**Completed second commit:**
-- ✅ Calendar month-range filter (Firestore date-range query, re-fetches on nav, active jobs only)
-- ✅ Timezone sessionStorage cache (first load fetches Firestore, subsequent pages skip it)
-- ✅ Dashboard call count via getCountFromServer (no longer reads all call docs)
-
-**Still pending (lower priority):**
-- Admin route auth — add verifyAuthAndRole to /api/admin/* routes (not blocking demo)
-
-### Phase 5+ (post-launch)
-- After-hours voice behavior: inject IS_AFTER_HOURS into Vapi system prompt (needs assistant-request webhook or Vapi API update per call)
-- Google Calendar per-business OAuth
-- Stripe billing for Luxor clients
-- SMS escalation (Twilio A2P 10DLC)
-- Additional verticals (HVAC, dental, etc.)
-
-## Vapi Architecture
-
-**Assistant ID**: `9267a84a-0f4f-416b-a328-1dc539f5265e` (Apex Roofing / demo-roofing)
-**Phone**: +1 (754) 283-7658
-**Webhook**: `https://ai-roof.vercel.app/api/webhooks/vapi`
-**Webhook secret**: None — Vapi new UI sends no secret header. VAPI_AUTH_BYPASS=true is correct.
-**Voice**: Cartesia (switched to flash, lower latency)
-
-### Vapi Webhook Headers (confirmed from Logs tab)
-```json
-{ "Content-Type": "application/json", "Accept-Encoding": "identity" }
-```
-No secret. No Authorization. This is Vapi's behavior in the new agent builder — their Authorization credential system is for calling external APIs FROM Vapi, not for authenticating TO your server.
-
-## Demo Instructions
-
-1. Go to `/admin/demo` — enter prospect company name + email, click Apply
-2. Call +1 (754) 283-7658 — Alice greets them as their company
-3. Alice books appointment, emails prospect
-4. Log in at https://ai-roof.vercel.app/login → connect@luxordev.com
-5. Show Calls (outcome badge), Leads, Appointments in real time
-6. From appointment → Create Job → show Jobs tab
-7. QR code on `/admin/demo` → prospect scans → speaks voice update → show parsed result in Jobs tab
-8. From any lead/appointment, click "Call Back" to trigger outbound (requires VAPI_API_KEY test)
-
-**Demo customizer**: `/admin/demo` — enter prospect name/email, click Apply. Reset when done.
-**Field QR**: Always-visible QR on `/admin/demo` → `https://ai-roof.vercel.app/field?businessId=demo-roofing`
-
-## Key Files
-
-- src/types/index.ts — BusinessConfig types
-- src/types/jobs.ts — Job, FieldUpdate, ParsedUpdate types
-- firestore.rules — Tenant isolation
-- src/middleware.ts — Route protection (__session cookie)
-- src/contexts/AuthContext.tsx — Sets __session cookie on auth state change
-- src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (7 tools + outcome tagging + after-hours)
-- src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS active — correct state)
-- src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall()
-- src/lib/tools/agentTools.ts — All tools + email templates + auto-callback
-- src/lib/ai/deepseekClient.ts — DeepSeek + GPT-4o: classifyCallOutcome, parseFieldUpdate, etc.
-- src/app/api/jobs/[jobId]/route.ts — PATCH for job status updates (new this session)
-- src/app/api/cron/follow-up-calls/route.ts — Daily follow-up cron (new this session)
-- src/app/api/admin/invoices/route.ts — GET/POST Luxor invoices (new this session)
-- src/app/api/admin/invoices/[invoiceId]/route.ts — GET/PUT/DELETE single invoice
-- src/app/api/admin/invoices/[invoiceId]/send/route.ts — Send branded invoice email
-- src/app/api/admin/invoice-templates/route.ts — GET/POST/DELETE invoice templates
-- src/app/admin/invoices/page.tsx — Luxor invoice editor (new this session)
-- src/app/admin/demo/page.tsx — Demo customizer + QR code
-- src/app/admin/onboarding/page.tsx — 5-step wizard with auto-provisioning + temp password
-- src/app/api/admin/businesses/route.ts — POST now creates Firebase Auth user + businessUsers doc
-- src/app/company/calls/page.tsx — Calls list with outcome + after-hours badges
-- src/app/company/jobs/[jobId]/page.tsx — Job detail: 6 tabs, clickable 5-step progress bar
-- vercel.json — Cron schedule (new this session)
-- public/guides/onboarding-guide.html — Demo + client onboarding playbook (live at /guides/onboarding-guide.html)
+## Prior epic (Field Ops + Calendar Powerhouse + Library) — still live
+Booking fix (`ignoreUndefinedProperties`); unified voice-correctable job data (`src/lib/jobs/projection.ts`); job-site photos (base64 split, free Spark); editable report + Mail gate; Library (pricing/crews/docs); Calendar Powerboard (@dnd-kit). See `docs/EPIC-PLAN.md`.

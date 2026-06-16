@@ -4,7 +4,7 @@
 
 ## Code Navigation — Read Graphify Before Broad Work
 
-`graphify-out/graph.json` is the project knowledge graph (64 files, 104 symbols). Read it before opening many files.
+`graphify-out/graph.json` is the project knowledge graph (127 files, 229 symbols). Read it before opening many files.
 
 **Two ways to use it:**
 
@@ -35,8 +35,8 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Field Ops + Calendar Powerhouse + Library epic complete (7 phases). See docs/EPIC-PLAN.md.
-**Estimated Completion**: 97%
+**Status**: Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify shipped (2026-06-14). Field Ops + Calendar Powerhouse + Library epic before that. See HANDOFF.md.
+**Estimated Completion**: 98%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -53,7 +53,7 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **97% complete**.
+Current estimate: **98% complete**.
 
 Basis:
 - Full infrastructure live on Vercel; Alice answers calls end-to-end with 7 Vapi tools (confirmed in dashboard: bookAppointment, checkAvailability, createLead, escalateCall, lookupAppointment, cancelAppointment, getCurrentDate).
@@ -64,7 +64,11 @@ Basis:
 - **Library** (`/company/library`): pricing catalog (auto-fills invoices), crews, documents.
 - **Calendar Powerboard**: drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → Confirm → branded crew email + color.
 - **After-hours booking**: Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown grey, one-click "Confirm & notify customer".
-- Remaining: admin route auth (low priority); customer-email capture for after-hours confirmations (only phone captured today); SMS (needs Twilio A2P).
+- **Admin API auth ✓**: `verifySuperadmin()` gates all `/api/admin/*` (cookie-based; curl-verified 401 in prod).
+- **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
+- **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
+- **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
+- Remaining: mobile responsiveness pass; verified RESEND_FROM domain; SMS (Twilio A2P); Google Calendar OAuth.
 
 ## Architecture
 
@@ -249,8 +253,8 @@ Before asking the user to verify anything, use CLI/curl first:
 ## Next Steps
 
 1. **Live smoke test the epic** — voice correction (say "make that 120 not 150"), drag a job on the Powerboard + Confirm, snap a field photo, generate+mail a report, add Library pricing → generate invoice.
-2. **Capture customer email** so after-hours "Confirm & notify customer" reaches the customer (today only phone is captured; the branded email infra is ready in `src/lib/notify.ts`).
-3. **Admin route auth** — add `verifyAuthAndRole(["superadmin"])` to `/api/admin/*` before public launch (low priority).
+2. **Capture customer email** ✓ done — captured at booking; "Confirm & notify customer" emails the customer via `sendCustomerConfirmation` (commit aa0a843). Needs the Vapi `email` tool param (added) + a verified RESEND_FROM domain for deliverability.
+3. **Admin route auth** ✓ done — `verifySuperadmin()` gates all `/api/admin/*` (commit bf7c249).
 4. **Google Calendar** — post-MVP, per-business OAuth (still mock availability slots).
 5. **Stripe billing** + **SMS** (Twilio A2P 10DLC) — later.
 
