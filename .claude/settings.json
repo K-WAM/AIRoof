@@ -14,7 +14,18 @@
       "Bash(graphify build *)",
       "Bash(firebase deploy --only firestore:rules --dry-run *)",
       "mcp__claude_ai_Vercel__get_runtime_logs",
-      "mcp__vercel__get_runtime_logs"
+      "mcp__vercel__get_runtime_logs",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "mcp__vercel__list_deployments",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_snapshot",
+      "Bash(stripe subscriptions list *)",
+      "Bash(stripe subscriptions retrieve *)"
     ]
   },
   "hooks": {

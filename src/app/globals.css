@@ -7,10 +7,49 @@
   --text-muted: #64748b;
   --accent: #0f766e;
   --accent-dark: #115e59;
+  --accent-soft: rgba(15, 118, 110, 0.1);
   --warning: #b45309;
   --success: #15803d;
+  --danger: #b91c1c;
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 14px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+
+  /* Keyboard focus ring — applied app-wide via :focus-visible */
+  --ring: 0 0 0 3px rgba(15, 118, 110, 0.35);
+
+  /* Border-radius scale */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* Spacing scale (4px rhythm) */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s8: 32px;
+
+  /* Semantic status colors — one source of truth for chips/tags/tints */
+  --c-danger-bg: #fee2e2;  --c-danger-fg: #b91c1c;  --c-danger-bd: #fecaca;
+  --c-success-bg: #dcfce7; --c-success-fg: #166534; --c-success-bd: #bbf7d0;
+  --c-info-bg: #dbeafe;    --c-info-fg: #1e40af;    --c-info-bd: #bfdbfe;
+  --c-warn-bg: #fef3c7;    --c-warn-fg: #92400e;    --c-warn-bd: #fde68a;
+  --c-neutral-bg: #f1f5f9; --c-neutral-fg: #64748b; --c-neutral-bd: #e2e8f0;
+}
+
+/* Visible keyboard focus everywhere (mouse clicks stay clean) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: inherit;
 }
 
 * {
@@ -89,16 +128,16 @@ a {
 }
 
 .admin-brand-sub {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  color: #2d4a6e;
+  color: #9fb0c9;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   margin: 0;
   background: #0b1828;
   padding: 3px 10px;
   border-radius: 20px;
-  border: 1px solid #162032;
+  border: 1px solid #1e3252;
 }
 
 .admin-nav {
@@ -113,11 +152,11 @@ a {
 }
 
 .nav-section-label {
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #1e3a5f;
+  letter-spacing: 0.12em;
+  color: #8595ad;
   padding: 0 10px;
   margin: 0 0 6px;
 }
@@ -126,21 +165,21 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 500;
-  color: #475569;
+  color: #cbd5e1;
   transition: background 0.15s, color 0.15s;
   border-left: 2px solid transparent;
   text-decoration: none;
   line-height: 1;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 
 .nav-link:hover {
-  background: #0d1a2e;
-  color: #94a3b8;
+  background: #14233b;
+  color: #ffffff;
 }
 
 .nav-link[aria-current="page"] {
@@ -154,7 +193,7 @@ a {
   text-align: center;
   font-size: 12px;
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.9;
 }
 
 /* Field demo CTA — amber highlight */
@@ -177,16 +216,16 @@ a {
   gap: 7px;
   padding: 8px 10px;
   border-radius: 6px;
-  font-size: 12px;
-  color: #1e3a5f;
+  font-size: 13px;
+  color: #94a3b8;
   text-decoration: none;
   transition: color 0.1s, background 0.1s;
   margin-bottom: 12px;
 }
 
 .nav-divider-link:hover {
-  color: #475569;
-  background: #0a1420;
+  color: #e2e8f0;
+  background: #14233b;
 }
 
 .admin-sidebar-footer {
@@ -195,8 +234,8 @@ a {
 }
 
 .admin-sidebar-email {
-  font-size: 11px;
-  color: #1e3a5f;
+  font-size: 12px;
+  color: #94a3b8;
   margin: 0 0 8px;
   display: block;
   white-space: nowrap;
@@ -207,19 +246,20 @@ a {
 .admin-signout-btn {
   background: none;
   border: none;
-  color: #334155;
-  font-size: 12px;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   padding: 0;
   transition: color 0.1s;
   font-family: inherit;
 }
-.admin-signout-btn:hover { color: #64748b; }
+.admin-signout-btn:hover { color: #ffffff; }
 
 .admin-main {
   min-width: 0;
   padding: 32px 36px;
-  background: #f6f7f9;
+  background: var(--background);
 }
 
 /* ── Admin mobile: stack sidebar above main ── */
@@ -472,6 +512,67 @@ a {
 .button.primary:hover {
   background: var(--accent-dark);
   box-shadow: 0 2px 8px rgba(15,118,110,0.3);
+}
+
+.button.secondary {
+  background: var(--surface-muted);
+  border-color: var(--border);
+  color: var(--text);
+}
+.button.secondary:hover {
+  background: #e9eef4;
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+.button.ghost:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.button.danger {
+  border-color: #fca5a5;
+  background: #fef2f2;
+  color: var(--danger);
+  box-shadow: none;
+}
+.button.danger:hover {
+  background: var(--c-danger-bg);
+  border-color: #f87171;
+}
+
+.button.small {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Reusable low-emphasis delete/remove icon button (was near-invisible #cbd5e1) */
+.icon-del {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  transition: color 0.12s, background 0.12s;
+}
+.icon-del:hover {
+  color: var(--danger);
+  background: var(--c-danger-bg);
 }
 
 .company-shell {
@@ -750,6 +851,10 @@ a.metric:hover {
 .sc--service       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
 .sc--general       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
 .sc--outbound      { background: #f0fdf4; color: #0f766e; border-color: #a7f3d0; }
+.sc--inspection    { background: var(--c-info-bg);  color: var(--c-info-fg);  border-color: var(--c-info-bd); }
+.sc--quoted        { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
+.sc--invoiced      { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+.sc--pending       { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
 
 /* ── Today Feed (dashboard) ─────────────── */
 
@@ -1185,13 +1290,24 @@ a.metric:hover {
   gap: 8px;
   padding: 14px 16px;
   border: 1px solid var(--border);
+  border-left: 3px solid transparent;
   border-radius: 12px;
   background: #ffffff;
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow 0.12s, border-color 0.12s, transform 0.1s;
+}
+
+.call-row:hover {
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
 }
 
 .call-row[aria-selected="true"] {
   border-color: var(--accent);
+  border-left-color: var(--accent);
+  background: #f0fdfa;
   box-shadow: 0 0 0 1px var(--accent);
 }
 

@@ -74,8 +74,10 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
   const [laborRates, setLaborRates] = useState<LibraryLaborRate[]>(library.laborRates);
   const [taxRate, setTaxRate] = useState(String(library.defaultTaxRate ?? ""));
 
-  function commit() {
-    onSave({ ...library, materials, laborRates, defaultTaxRate: taxRate === "" ? undefined : Number(taxRate) });
+  function commit(over?: { materials?: LibraryMaterial[]; laborRates?: LibraryLaborRate[] }) {
+    const m = over?.materials ?? materials;
+    const l = over?.laborRates ?? laborRates;
+    onSave({ ...library, materials: m, laborRates: l, defaultTaxRate: taxRate === "" ? undefined : Number(taxRate) });
   }
 
   return (
@@ -91,15 +93,15 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {materials.map((m, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={commit} placeholder="Shingles bundle" style={cell} /></td>
-                  <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={commit} placeholder="sq / piece" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={commit} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
-                  <td style={td}><button onClick={() => { setMaterials(a => a.filter((_, j) => j !== i)); }} onMouseUp={commit} style={delBtn} title="Remove">×</button></td>
+                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder="Shingles bundle" style={cell} /></td>
+                  <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
+                  <td style={td}><button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" title="Remove">×</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button onClick={() => setMaterials(a => [...a, { name: "", unit: "", unitPrice: 0 }])} style={addBtn}>+ Add material</button>
+          <button type="button" className="button small" onClick={() => setMaterials(a => [...a, { name: "", unit: "", unitPrice: 0 }])}>+ Add material</button>
         </div>
       </section>
 
@@ -113,17 +115,17 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {laborRates.map((l, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={commit} placeholder="Foreman / Laborer" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={commit} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
-                  <td style={td}><button onClick={() => setLaborRates(a => a.filter((_, j) => j !== i))} onMouseUp={commit} style={delBtn} title="Remove">×</button></td>
+                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} /></td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
+                  <td style={td}><button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" title="Remove">×</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button onClick={() => setLaborRates(a => [...a, { role: "", rate: 0 }])} style={addBtn}>+ Add role rate</button>
+          <button type="button" className="button small" onClick={() => setLaborRates(a => [...a, { role: "", rate: 0 }])}>+ Add role rate</button>
           <div className="field" style={{ marginTop: 16, maxWidth: 200 }}>
             <label>Default tax rate (%)</label>
-            <input type="number" min="0" max="30" step="0.01" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} onBlur={commit} placeholder="0" />
+            <input type="number" min="0" max="30" step="0.01" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} onBlur={() => commit()} placeholder="0" />
           </div>
         </div>
       </section>
@@ -155,6 +157,8 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
   }
 
   async function removeCrew(crewId: string) {
+    const crew = crews.find((c) => c.crewId === crewId);
+    if (!confirm(`Remove ${crew?.name ?? "this crew"}? They'll disappear from the Calendar Powerboard.`)) return;
     setCrews(crews.filter((c) => c.crewId !== crewId));
     await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" }).catch(() => {});
   }
@@ -172,7 +176,7 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</div>
               </div>
-              <button onClick={() => removeCrew(c.crewId)} style={delBtn} title="Remove">×</button>
+              <button onClick={() => removeCrew(c.crewId)} className="icon-del" title="Remove">×</button>
             </div>
           ))}
           {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No crews yet. Add your first below.</p>}
@@ -213,8 +217,8 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
           {docs.map((d) => (
             <div key={d.docId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
               <span style={{ fontSize: 18 }}>📄</span>
-              <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "#2563eb", textDecoration: "none" }}>{d.name} ↗</a>
-              <button onClick={() => removeDoc(d.docId)} style={delBtn} title="Remove">×</button>
+              <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>{d.name} ↗</a>
+              <button onClick={() => removeDoc(d.docId)} className="icon-del" title="Remove">×</button>
             </div>
           ))}
           {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}
@@ -232,5 +236,3 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#64748b", fontSize: 12 };
 const td: React.CSSProperties = { padding: "6px 12px" };
 const cell: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%", outline: "none", fontFamily: "inherit" };
-const addBtn: React.CSSProperties = { marginTop: 8, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 };
-const delBtn: React.CSSProperties = { background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 18 };

@@ -148,6 +148,9 @@ export default function PipelinePage() {
       });
       setLeads((prev) => prev.map((l) => (l.leadId === lead.leadId ? { ...l, status: "contacted" } : l)));
       if (selectedLead?.leadId === lead.leadId) setSelectedLead({ ...lead, status: "contacted" });
+      showToast("Marked as contacted.", "ok");
+    } catch {
+      showToast("Couldn't update the lead. Try again.");
     } finally {
       setLeadUpdating(false);
     }
@@ -238,7 +241,7 @@ export default function PipelinePage() {
   }
 
   const filteredLeads = leads.filter((l) => {
-    if (leadFilter === "urgent") return l.urgency === "urgent";
+    if (leadFilter === "urgent") return l.urgency === "urgent" || l.urgency === "Urgent";
     if (leadFilter === "new") return l.status === "new";
     if (leadFilter === "contacted") return l.status === "contacted";
     return true;
@@ -305,47 +308,47 @@ export default function PipelinePage() {
         </div>
 
         <div className="appt-actions">
-          <button className="button" onClick={() => createJob(appt)} style={{ fontSize: 12, marginBottom: 8 }}>
-            Create Job
-          </button>
+          {justConfirmed ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
+              ✓ Confirmation sent
+            </div>
+          ) : !isPast && !isConfirmed ? (
+            <button
+              className="button primary"
+              disabled={busy}
+              onClick={() => sendConfirmation(appt)}
+              style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
+            >
+              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
+            </button>
+          ) : null}
+
           {appt.callerPhone && (
             <button
-              className="button"
+              className="button secondary"
               disabled={apptCalling === appt.appointmentId}
               onClick={() => callBackAppt(appt)}
-              style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+              style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}
               title={`Call ${appt.callerPhone}`}
             >
               <Phone size={13} />
               {apptCalling === appt.appointmentId ? "Calling…" : "Call Back"}
             </button>
           )}
-          {justConfirmed ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
-              Confirmation sent
-            </div>
-          ) : !isPast && !isConfirmed ? (
-            <>
-              <button
-                className="button primary"
-                disabled={busy}
-                onClick={() => sendConfirmation(appt)}
-                style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
-              >
-                {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
-              </button>
-              <button className="button" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")} style={{ fontSize: 13 }}>
-                Mark Confirmed
-              </button>
-              <button className="button" disabled={busy} onClick={() => updateApptStatus(appt, "cancelled")} style={{ fontSize: 13, color: "#b91c1c" }}>
-                Cancel
-              </button>
-            </>
-          ) : isConfirmed && !isPast ? (
-            <button className="button" disabled={busy} onClick={() => updateApptStatus(appt, "cancelled")} style={{ fontSize: 13, color: "#b91c1c" }}>
+          <button className="button secondary" onClick={() => createJob(appt)} style={{ fontSize: 13 }}>
+            Create Job
+          </button>
+
+          {!isPast && !isConfirmed && !justConfirmed && (
+            <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")} style={{ fontSize: 12 }} title="Mark confirmed without emailing the customer">
+              Confirm without email
+            </button>
+          )}
+          {!isPast && appt.status !== "cancelled" && (
+            <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }} style={{ fontSize: 12 }}>
               Cancel
             </button>
-          ) : null}
+          )}
         </div>
       </article>
     );
@@ -465,6 +468,31 @@ export default function PipelinePage() {
                           </p>
                         )}
                         <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
+                        <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
+                          {lead.callerPhone && (
+                            <button
+                              className="button small"
+                              type="button"
+                              disabled={leadCalling === lead.leadId}
+                              onClick={() => callBackLead(lead)}
+                              title={`Call ${lead.callerPhone}`}
+                              style={{ display: "flex", alignItems: "center", gap: 6 }}
+                            >
+                              <Phone size={13} />
+                              {leadCalling === lead.leadId ? "Calling…" : "Call Back"}
+                            </button>
+                          )}
+                          {lead.status !== "contacted" && (
+                            <button
+                              className="button small secondary"
+                              type="button"
+                              disabled={leadUpdating}
+                              onClick={() => markContacted(lead)}
+                            >
+                              Mark contacted
+                            </button>
+                          )}
+                        </div>
                       </article>
                     ))}
                   </div>
@@ -584,7 +612,7 @@ export default function PipelinePage() {
       {leads.length === 0 && appointments.length === 0 && (
         <div style={{ padding: "48px 24px", textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
           No leads or appointments yet.{" "}
-          <Link href={`/company/calls${previewSuffix}`} style={{ color: "#2563eb" }}>
+          <Link href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>
             View call history
           </Link>{" "}
           to see incoming activity.

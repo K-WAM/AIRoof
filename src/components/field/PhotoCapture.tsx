@@ -105,7 +105,7 @@ export function PhotoCapture({
             {error && <p style={{ margin: "0 0 10px", fontSize: 13, color: "#fca5a5" }}>{error}</p>}
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => { setPhoto(null); setError(null); }} disabled={uploading} style={{ flex: 1, padding: "13px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>Cancel</button>
-              <button onClick={save} disabled={!label.trim() || uploading} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: label.trim() ? "#2563eb" : "#1e2a4a", color: label.trim() ? "#fff" : "#475569", fontWeight: 700, fontSize: 15, cursor: label.trim() ? "pointer" : "not-allowed" }}>{uploading ? "Saving…" : "Save photo"}</button>
+              <button onClick={save} disabled={!label.trim() || uploading} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: label.trim() ? "var(--accent)" : "#1e2a4a", color: label.trim() ? "#fff" : "#475569", fontWeight: 700, fontSize: 15, cursor: label.trim() ? "pointer" : "not-allowed" }}>{uploading ? "Saving…" : "Save photo"}</button>
             </div>
           </div>
         </div>

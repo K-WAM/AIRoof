@@ -57,13 +57,14 @@ export function AdminNav() {
         ))}
       </div>
       <div className="nav-spacer" />
+      <p className="nav-section-label" style={{ marginBottom: 6 }}>Demo (Apex Roofing)</p>
       <Link href="/company/field?businessId=demo-roofing" className="nav-link nav-link-cta" style={{ marginBottom: 8 }}>
         <QrCode size={15} strokeWidth={1.75} className="nav-link-icon" />
-        Field Demo
+        Demo: Field screen
       </Link>
       <a href="/company/dashboard?preview=demo-roofing" target="_blank" rel="noopener noreferrer" className="nav-divider-link">
         <ExternalLink size={13} strokeWidth={1.75} className="nav-link-icon" />
-        Client view
+        Demo: Client view
       </a>
     </nav>
   );

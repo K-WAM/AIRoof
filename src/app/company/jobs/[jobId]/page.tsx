@@ -34,6 +34,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Photos (Phase 2) — metas loaded lazily when the tab opens; full blobs on lightbox open.
   const [photos, setPhotos] = useState<JobPhotoMeta[]>([]);
@@ -406,14 +407,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {job.clientName && <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}</p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="button" onClick={() => {
+          <button className="button" title="Copies a field-log link you can text or email to your crew" onClick={() => {
             const link = `${window.location.origin}/company/field?businessId=${businessId}&jobId=${jobId}`;
-            navigator.clipboard.writeText(link).then(() => alert("Field link copied — send to your foreman.")).catch(() => prompt("Copy this link for your foreman:", link));
-          }}>Send to foreman ↗</button>
-          <button className="button" onClick={generateReport} disabled={generatingInvoice || updates.length === 0}>
+            navigator.clipboard.writeText(link).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); }).catch(() => prompt("Copy this link for your foreman:", link));
+          }}>{linkCopied ? "✓ Link copied" : "Copy field link ↗"}</button>
+          <button className="button" onClick={generateReport} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined}>
             Generate Report
           </button>
-          <button className="button primary" onClick={generateInvoice} disabled={generatingInvoice || updates.length === 0}>
+          <button className="button primary" onClick={generateInvoice} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined}>
             {generatingInvoice ? "⏳ Generating…" : "Generate Invoice"}
           </button>
         </div>
@@ -458,8 +459,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
             fontWeight: activeTab === tab.id ? 700 : 400,
-            color: activeTab === tab.id ? "#2563eb" : "#64748b",
-            borderBottom: activeTab === tab.id ? "2px solid #2563eb" : "2px solid transparent",
+            color: activeTab === tab.id ? "var(--accent)" : "#64748b",
+            borderBottom: activeTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
             marginBottom: -2, fontSize: 13,
           }}>
             {tab.label}
@@ -499,7 +500,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <button className="no-print" onClick={() => mutate(p => { p.timeline.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
                   </div>
                 ))}
-                <button className="no-print" onClick={() => mutate(p => { p.timeline.push({ description: "" }); })} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add event</button>
+                <button className="no-print" onClick={() => mutate(p => { p.timeline.push({ description: "" }); })} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add event</button>
               </div>
             ) : (
               <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
@@ -563,7 +564,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               </table>
             )}
             {editing && (
-              <button className="no-print" onClick={() => mutate(p => { p.materials.push({ item: "", quantity: "1", unit: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add material</button>
+              <button className="no-print" onClick={() => mutate(p => { p.materials.push({ item: "", quantity: "1", unit: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add material</button>
             )}
           </div>
         </section>
@@ -617,7 +618,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               </table>
             )}
             {editing && (
-              <button className="no-print" onClick={() => mutate(p => { p.labor.push({ description: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
+              <button className="no-print" onClick={() => mutate(p => { p.labor.push({ description: "" }); })} style={{ margin: "10px 16px", fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
             )}
           </div>
         </section>
@@ -645,7 +646,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <button className="no-print" onClick={() => mutate(p => { p.issues.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
                   </div>
                 ))}
-                <button className="no-print" onClick={() => mutate(p => { p.issues.push({ description: "", severity: "medium" }); })} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add issue</button>
+                <button className="no-print" onClick={() => mutate(p => { p.issues.push({ description: "", severity: "medium" }); })} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>+ Add issue</button>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
@@ -691,7 +692,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                             <input type="checkbox" checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} />
                             In report
                           </label>
-                          <button onClick={() => deletePhoto(ph)} title="Delete" style={{ background: "none", border: "none", color: "#cbd5e1", cursor: "pointer", fontSize: 15 }}>🗑</button>
+                          <button onClick={() => { if (confirm("Delete this photo?")) deletePhoto(ph); }} title="Delete" className="icon-del" style={{ fontSize: 15 }}>🗑</button>
                         </div>
                       </div>
                     </div>
@@ -852,7 +853,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         ))}
                       </tbody>
                     </table>
-                    <button className="no-print" onClick={() => setLaborRows(r => [...r, { name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate }])} style={{ marginTop: 6, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
+                    <button className="no-print" onClick={() => setLaborRows(r => [...r, { name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate }])} style={{ marginTop: 6, fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add technician</button>
                     <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Labor subtotal: <strong>${laborSubtotal.toFixed(2)}</strong></div>
                   </div>
                 )}
@@ -888,7 +889,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       </tbody>
                     </table>
                   )}
-                  <button className="no-print" onClick={() => setMaterialRows(r => [...r, { item: "", quantity: "1", unit: "", unitPrice: "" }])} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add material</button>
+                  <button className="no-print" onClick={() => setMaterialRows(r => [...r, { item: "", quantity: "1", unit: "", unitPrice: "" }])} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ Add material</button>
                   {materialRows.length > 0 && <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Materials subtotal: <strong>${materialSubtotal.toFixed(2)}</strong></div>}
                 </div>
 
@@ -904,7 +905,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     ))}
                   </div>
                 )}
-                <button className="no-print" onClick={() => setOtherRows(r => [...r, { description: "", amount: "" }])} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: "0 0 24px", display: "block" }}>+ Add other charge (disposal, permit, etc.)</button>
+                <button className="no-print" onClick={() => setOtherRows(r => [...r, { description: "", amount: "" }])} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "0 0 24px", display: "block" }}>+ Add other charge (disposal, permit, etc.)</button>
 
                 {/* Totals */}
                 <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>

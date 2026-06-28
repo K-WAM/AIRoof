@@ -92,7 +92,7 @@ export default function AdminUsagePage() {
                       {r.vapiAssistantId ? (
                         <span className="tag success">Active</span>
                       ) : (
-                        <span className="tag urgent">Not set</span>
+                        <a href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }} title="Set up this tenant's Vapi assistant">Not set — fix ↗</a>
                       )}
                     </td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.calls}</td>
@@ -100,11 +100,18 @@ export default function AdminUsagePage() {
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.appointments}</td>
                     <td style={{ display: "flex", gap: 6 }}>
                       <a
+                        href={`/admin/businesses/${r.businessId}/config`}
+                        className="button small"
+                        style={{ fontSize: 12 }}
+                      >
+                        Configure
+                      </a>
+                      <a
                         href={`/company/dashboard?preview=${r.businessId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="button"
-                        style={{ fontSize: 12, padding: "4px 10px" }}
+                        className="button small"
+                        style={{ fontSize: 12 }}
                       >
                         Preview ↗
                       </a>

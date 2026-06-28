@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useSearchParams } from "next/navigation";
@@ -169,14 +170,34 @@ export default function CalendarPage() {
       </header>
 
       {/* Week nav */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="button" onClick={() => setWeekStart(startOfWeek(new Date()))} style={{ fontSize: 13 }}>Today</button>
-          <button className="button" onClick={() => setWeekStart(addDays(weekStart, -7))} style={{ fontSize: 13, padding: "6px 12px" }}>‹</button>
-          <button className="button" onClick={() => setWeekStart(addDays(weekStart, 7))} style={{ fontSize: 13, padding: "6px 12px" }}>›</button>
+          <button className="button small" onClick={() => setWeekStart(startOfWeek(new Date()))}>Today</button>
+          <button className="button small" aria-label="Previous week" onClick={() => setWeekStart(addDays(weekStart, -7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronLeft size={16} /></button>
+          <button className="button small" aria-label="Next week" onClick={() => setWeekStart(addDays(weekStart, 7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronRight size={16} /></button>
           <strong style={{ fontSize: 15, color: "#0f172a", marginLeft: 6 }}>{rangeLabel}</strong>
         </div>
-        <button className="button" onClick={() => setFullWeek((f) => !f)} style={{ fontSize: 13 }}>{fullWeek ? "Work week" : "Full week"}</button>
+        <div className="segmented-control" aria-label="Week length" style={{ fontSize: 13 }}>
+          <button className="segment" type="button" aria-pressed={!fullWeek} onClick={() => setFullWeek(false)}>Work week</button>
+          <button className="segment" type="button" aria-pressed={fullWeek} onClick={() => setFullWeek(true)}>Full week</button>
+        </div>
+      </div>
+
+      {/* Legend + how-to */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px dashed #94a3b8", background: "#f8fafc", flexShrink: 0 }} />
+          Scheduled — not confirmed
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
+          Confirmed — crew emailed
+        </span>
+        {crews.length > 0 && unscheduled.length > 0 && (
+          <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
+            <GripVertical size={14} /> Drag a job from the left onto any crew + day to schedule it.
+          </span>
+        )}
       </div>
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
@@ -203,7 +224,7 @@ export default function CalendarPage() {
                 return (
                   <div key={d.toISOString()} style={{ padding: "12px 8px", borderBottom: "1px solid #e2e8f0", borderLeft: "1px solid #f1f5f9", background: isToday ? "#eff6ff" : "#f8fafc", textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{DOW[d.getDay()]}</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: isToday ? "#2563eb" : "#0f172a" }}>{d.getDate()}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: isToday ? "var(--accent)" : "#0f172a" }}>{d.getDate()}</div>
                   </div>
                 );
               })}
@@ -232,7 +253,7 @@ export default function CalendarPage() {
               {/* Crew rows */}
               {crews.length === 0 ? (
                 <div style={{ gridColumn: `1 / -1`, padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-                  No crews yet. <Link href={`/company/library${previewSuffix}`} style={{ color: "#2563eb" }}>Add crews in the Library →</Link>
+                  No crews yet. <Link href={`/company/library${previewSuffix}`} style={{ color: "var(--accent)" }}>Add crews in the Library →</Link>
                 </div>
               ) : (
                 crews.map((crew) => (
@@ -288,9 +309,15 @@ function CrewRow({
 function DayCell({ crewId, day, children }: { crewId: string; day: Date; children: React.ReactNode }) {
   const id = `${crewId}|${dayAt8am(day)}`;
   const { setNodeRef, isOver } = useDroppable({ id });
+  const isEmpty = !children || (Array.isArray(children) && children.length === 0);
   return (
-    <div ref={setNodeRef} style={{ padding: 6, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 64, background: isOver ? "#eff6ff" : "transparent", transition: "background 0.12s", display: "grid", gap: 4, alignContent: "start" }}>
+    <div ref={setNodeRef} style={{ padding: 6, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 64, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 6 : 0, transition: "background 0.12s", display: "grid", gap: 4, alignContent: "start" }}>
       {children}
+      {isEmpty && (
+        <span style={{ fontSize: 10, color: isOver ? "var(--accent)" : "#cbd5e1", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
+          {isOver ? "Drop to schedule" : "+"}
+        </span>
+      )}
     </div>
   );
 }
@@ -303,16 +330,20 @@ function JobTile({ job }: { job: Job; crew?: Crew }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      title="Drag onto a crew + day"
       style={{
-        padding: "8px 10px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0",
+        padding: "8px 10px 8px 6px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0",
         cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: "none",
+        touchAction: "none", display: "flex", gap: 6, alignItems: "flex-start",
       }}
     >
-      <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: "#1e293b" }}>{job.jobId}</div>
-      <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{job.title}</div>
-      {job.address && <div style={{ fontSize: 11, color: "#94a3b8" }}>{job.address}</div>}
+      <GripVertical size={14} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: "#1e293b" }}>{job.jobId}</div>
+        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{job.title}</div>
+        {job.address && <div style={{ fontSize: 11, color: "#94a3b8" }}>{job.address}</div>}
+      </div>
     </div>
   );
 }
@@ -340,17 +371,20 @@ function ScheduledTile({
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "6px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
-        <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace", color: confirmed ? crew.color : "#64748b" }}>{job.jobId}</div>
-        <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
+      <div {...listeners} {...attributes} style={{ padding: "6px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 5, alignItems: "flex-start" }}>
+        <GripVertical size={12} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 1, opacity: 0.8 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace", color: confirmed ? crew.color : "#64748b" }}>{job.jobId}</div>
+          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
+        </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         {!confirmed ? (
-          <button onClick={() => onConfirm(job)} disabled={busy} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "4px", border: "none", background: "transparent", color: "#16a34a", cursor: "pointer" }}>{busy ? "…" : "✓ Confirm"}</button>
+          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails this crew their assignment and locks the schedule" style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email"}</button>
         ) : (
-          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "4px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
+          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "5px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
         )}
-        <button onClick={() => onUnschedule(job.jobId)} title="Unschedule" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>×</button>
+        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>⤺</button>
       </div>
     </div>
   );

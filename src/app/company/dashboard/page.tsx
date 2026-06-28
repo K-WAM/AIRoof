@@ -112,6 +112,8 @@ export default function CompanyDashboardPage() {
   }, [businessId]);
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
+  // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).
+  const trulyUrgentCount = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent").length;
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
   const pendingAppts = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled");
   const activeJobs = jobs.filter((j) => j.status !== "complete");
@@ -121,7 +123,7 @@ export default function CompanyDashboardPage() {
   const metrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
     { label: "Leads", value: leads.length, href: `/company/pipeline${previewSuffix}` },
-    { label: "Urgent leads", value: urgentLeads.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
+    { label: "Urgent leads", value: trulyUrgentCount, href: `/company/pipeline${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
     { label: "Appointments", value: appointments.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}` },
   ];
 
@@ -271,7 +273,7 @@ export default function CompanyDashboardPage() {
         <aside className="panel" aria-labelledby="agent-title">
           <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 className="panel-title" id="agent-title">Agent Setup</h2>
-            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>Settings →</Link>
+            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>Settings →</Link>
           </div>
           <div className="panel-body">
             {agentSettings.length === 0 ? (

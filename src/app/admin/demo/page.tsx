@@ -125,6 +125,7 @@ export default function DemoStudioPage() {
 
   async function resetDemo() {
     if (!selectedId) return;
+    if (!confirm("Reset this demo to default data? Any prospect personalization will be cleared.")) return;
     setBusy("reset");
     try {
       await fetch(`/api/admin/demo-customize?verticalId=${selectedId}`, { method: "DELETE" });
@@ -266,6 +267,10 @@ export default function DemoStudioPage() {
             3 · Demo ready
           </p>
 
+          <div style={{ ...alertStyle("success"), marginBottom: "1rem" }}>
+            ✓ Live — {result?.agentName ?? selected.agentName} now answers as <strong>{companyName || selected.label}</strong>{phone ? ` on ${phone}` : ""}.
+          </div>
+
           <div style={launchGridStyle}>
             {/* Col 1 — Call */}
             <div style={panelStyle}>
@@ -379,7 +384,7 @@ export default function DemoStudioPage() {
               </button>
 
               {result.appliedGreeting && (
-                <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
                   <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Applied greeting</p>
                   <p style={{ fontSize: "0.83rem", fontStyle: "italic", margin: 0, lineHeight: 1.5 }}>
                     &ldquo;{result.appliedGreeting}&rdquo;
@@ -390,7 +395,7 @@ export default function DemoStudioPage() {
           </div>
 
           {/* Reset */}
-          <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
             <button onClick={resetDemo} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
               <RotateCcw size={14} strokeWidth={1.75} />
               {busy === "reset" ? "Resetting…" : "Reset demo"}
@@ -418,10 +423,11 @@ function verticalCardStyle(selected: boolean, color: string): React.CSSPropertie
     textAlign: "left",
     padding: "1rem 1.1rem",
     borderRadius: 10,
-    background: selected ? `${color}14` : "rgba(255,255,255,0.03)",
-    border: selected ? `2px solid ${color}` : "1px solid rgba(255,255,255,0.09)",
+    background: selected ? `${color}14` : "var(--surface)",
+    border: selected ? `2px solid ${color}` : "1px solid var(--border)",
+    boxShadow: "var(--shadow-sm)",
     cursor: "pointer",
-    transition: "border-color 0.15s, background 0.15s",
+    transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
     width: "100%",
     color: "inherit",
   };
@@ -432,8 +438,8 @@ const formStyle: React.CSSProperties = {
   flexDirection: "column",
   gap: "1rem",
   padding: "1.25rem 1.4rem",
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
   borderRadius: 10,
   maxWidth: 680,
 };
@@ -456,16 +462,16 @@ const inputStyle: React.CSSProperties = {
   padding: "0.58rem 0.8rem",
   fontSize: "0.92rem",
   borderRadius: 6,
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(0,0,0,0.22)",
-  color: "inherit",
+  border: "1px solid var(--border)",
+  background: "#fff",
+  color: "var(--text)",
   boxSizing: "border-box",
 };
 
 function primaryBtnStyle(disabled: boolean): React.CSSProperties {
   return {
     padding: "0.62rem 1.2rem",
-    background: disabled ? "#555" : "#3a7afe",
+    background: disabled ? "#94a3b8" : "var(--accent)",
     color: "#fff",
     border: "none",
     borderRadius: 6,
@@ -482,8 +488,8 @@ function secondaryBtnStyle(disabled: boolean): React.CSSProperties {
     gap: 6,
     padding: "0.55rem 1rem",
     background: "transparent",
-    color: "inherit",
-    border: "1px solid rgba(255,255,255,0.2)",
+    color: "var(--text)",
+    border: "1px solid var(--border)",
     borderRadius: 6,
     cursor: disabled ? "not-allowed" : "pointer",
     fontSize: "0.85rem",
@@ -505,10 +511,12 @@ const ghostLinkStyle: React.CSSProperties = {
 function alertStyle(kind: "error" | "success"): React.CSSProperties {
   return {
     padding: "0.7rem 0.9rem",
-    background: kind === "error" ? "rgba(220,60,60,0.15)" : "rgba(60,180,90,0.15)",
-    border: `1px solid ${kind === "error" ? "rgba(220,60,60,0.4)" : "rgba(60,180,90,0.4)"}`,
+    background: kind === "error" ? "var(--c-danger-bg)" : "var(--c-success-bg)",
+    border: `1px solid ${kind === "error" ? "var(--c-danger-bd)" : "var(--c-success-bd)"}`,
+    color: kind === "error" ? "var(--c-danger-fg)" : "var(--c-success-fg)",
     borderRadius: 7,
     fontSize: "0.85rem",
+    fontWeight: 600,
   };
 }
 
@@ -520,9 +528,10 @@ const launchGridStyle: React.CSSProperties = {
 
 const panelStyle: React.CSSProperties = {
   padding: "1.1rem 1.25rem",
-  background: "rgba(255,255,255,0.03)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
   borderRadius: 10,
+  boxShadow: "var(--shadow-sm)",
 };
 
 const panelLabelStyle: React.CSSProperties = {
@@ -574,11 +583,11 @@ const iconBtnStyle: React.CSSProperties = {
   alignItems: "center",
   gap: 5,
   padding: "0.4rem 0.75rem",
-  background: "rgba(255,255,255,0.06)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background: "var(--surface-muted)",
+  border: "1px solid var(--border)",
   borderRadius: 6,
   cursor: "pointer",
   fontSize: "0.8rem",
-  color: "inherit",
+  color: "var(--text)",
   textDecoration: "none",
 };

@@ -28,6 +28,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
   async function handleLogout() {
     if (auth) await signOut(auth);
+    document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
     router.replace("/login");
   }
 

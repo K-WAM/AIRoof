@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { Clock } from "lucide-react";
+import { Clock, Headphones } from "lucide-react";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -23,6 +23,7 @@ interface Call {
   startedAt: number;
   endedAt?: number;
   summary?: string;
+  recordingUrl?: string;
   endedReason?: string;
   outcome?: "scheduled" | "escalated" | "lead_captured" | "no_action";
   outcomeReason?: string;
@@ -130,6 +131,7 @@ export default function CompanyCallsPage() {
               <p style={{ color: "#888", fontSize: 14 }}>No calls yet. Calls appear here after Alice answers the phone.</p>
             ) : (
               <div className="call-list">
+                <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Click a call to read its transcript and play the recording.</p>
                 {filteredCalls.map((call) => {
                   const msgs = conversationMessages(call);
                   const category = guessCategory(msgs);
@@ -146,9 +148,10 @@ export default function CompanyCallsPage() {
                     >
                       <div className="call-row-header">
                         <div>
-                          <p className="call-title">
-                            {isOutbound && <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700, marginRight: 6 }}>→ OUT</span>}
+                          <p className="call-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {isOutbound && <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>→ OUT</span>}
                             {displayPhone}
+                            {call.recordingUrl && <Headphones size={13} style={{ color: "var(--accent)", flexShrink: 0 }} aria-label="Recording available" />}
                           </p>
                           <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
@@ -180,7 +183,10 @@ export default function CompanyCallsPage() {
               <>
                 <div className="call-detail-meta">
                   <div>
-                    <p className="call-detail-phone">{selected.callerPhone ?? "Unknown caller"}</p>
+                    <p className="call-detail-phone">
+                      {selected.callType === "outbound" && <span style={{ fontSize: 12, color: "#0f766e", fontWeight: 700, marginRight: 6 }}>→ OUT</span>}
+                      {selected.callType === "outbound" ? (selected.targetPhone ?? "Outbound") : (selected.callerPhone ?? "Unknown caller")}
+                    </p>
                     <p className="call-detail-sub">
                       {formatTime(selected.startedAt, tz)}
                       {callDuration(selected) ? ` · ${callDuration(selected)}` : ""}
@@ -188,6 +194,13 @@ export default function CompanyCallsPage() {
                     </p>
                   </div>
                 </div>
+
+                {selected.recordingUrl && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                    <Headphones size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                    <audio controls src={selected.recordingUrl} style={{ width: "100%", height: 36 }} />
+                  </div>
+                )}
 
                 {selected.outcome && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>

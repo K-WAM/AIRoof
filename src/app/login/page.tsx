@@ -16,6 +16,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Honor middleware's ?next= deep link (e.g. a superadmin who clicked an /admin link
+  // while logged out), falling back to the dashboard. Only allow same-origin paths.
+  function postLoginDest(): string {
+    if (typeof window === "undefined") return "/company/dashboard";
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/") && !next.startsWith("//") ? next : "/company/dashboard";
+  }
+
   async function handleGoogle() {
     if (!auth) { setError("Firebase not configured."); return; }
     setLoading(true);
@@ -23,9 +31,14 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, new GoogleAuthProvider());
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
-      router.replace("/company/dashboard");
+      router.replace(postLoginDest());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Sign-in failed.");
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Sign-in failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -40,7 +53,7 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
-      router.replace("/company/dashboard");
+      router.replace(postLoginDest());
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/user-not-found" || code === "auth/invalid-credential") {
@@ -62,78 +75,74 @@ export default function LoginPage() {
       alignItems: "center",
       justifyContent: "center",
       minHeight: "100vh",
-      background: "#f5f5f7",
-      fontFamily: "system-ui, sans-serif",
+      background: "var(--background)",
+      padding: "24px",
     }}>
-      <div style={{
-        background: "#fff",
-        borderRadius: "12px",
-        padding: "2.5rem 2rem",
-        width: "100%",
-        maxWidth: "380px",
-        boxShadow: "0 2px 16px rgba(0,0,0,0.10)",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1.25rem",
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <img src="/logo.png" alt="Luxor AI" style={{ height: 40, width: "auto", margin: "0 auto 12px", display: "block" }} />
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>AI Receptionist</h1>
-          <p style={{ color: "#666", marginTop: "0.4rem", fontSize: "0.9rem" }}>
-            Sign in to access your dashboard
-          </p>
-        </div>
+      <div className="panel" style={{ width: "100%", maxWidth: 380, boxShadow: "var(--shadow-md)" }}>
+        <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: "1.25rem", padding: "32px 28px" }}>
+          <div style={{ textAlign: "center" }}>
+            <img src="/logo.png" alt="Luxor AI" style={{ height: 40, width: "auto", margin: "0 auto 14px", display: "block" }} />
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>AI Receptionist</h1>
+            <p style={{ color: "var(--text-muted)", marginTop: "0.4rem", fontSize: "0.9rem" }}>
+              Sign in to access your dashboard
+            </p>
+          </div>
 
-        {/* Google */}
-        <button
-          onClick={handleGoogle}
-          disabled={loading}
-          style={googleBtnStyle(loading)}
-        >
-          <GoogleIcon />
-          {loading ? "Signing in…" : "Continue with Google"}
-        </button>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <hr style={{ flex: 1, border: "none", borderTop: "1px solid #e0e0e0" }} />
-          <span style={{ color: "#aaa", fontSize: "0.8rem" }}>or</span>
-          <hr style={{ flex: 1, border: "none", borderTop: "1px solid #e0e0e0" }} />
-        </div>
-
-        {/* Email / Password */}
-        <form onSubmit={handleEmailAuth} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
+          {/* Google */}
+          <button
+            type="button"
+            className="button"
+            onClick={handleGoogle}
             disabled={loading}
-            style={inputStyle}
-            autoComplete="email"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            disabled={loading}
-            style={inputStyle}
-            autoComplete="current-password"
-          />
-          <button type="submit" disabled={loading} style={primaryBtnStyle(loading)}>
-            {loading ? "Signing in…" : "Sign in"}
+            style={{ width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: 8 }}
+          >
+            <GoogleIcon />
+            {loading ? "Signing in…" : "Continue with Google"}
           </button>
-        </form>
 
-        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "#999", margin: 0 }}>
-          Access is provisioned by your administrator.
-        </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <hr style={{ flex: 1, border: "none", borderTop: "1px solid var(--border)" }} />
+            <span style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>or</span>
+            <hr style={{ flex: 1, border: "none", borderTop: "1px solid var(--border)" }} />
+          </div>
 
-        {error && (
-          <p style={{ color: "#c00", fontSize: "0.85rem", textAlign: "center", margin: 0 }}>
-            {error}
+          {/* Email / Password */}
+          <form onSubmit={handleEmailAuth} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div className="field">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={loading}
+                autoComplete="email"
+              />
+            </div>
+            <div className="field">
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                disabled={loading}
+                autoComplete="current-password"
+              />
+            </div>
+            <button type="submit" className="button primary" disabled={loading} style={{ width: "100%", justifyContent: "center" }}>
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+
+          <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)", margin: 0 }}>
+            Access is provisioned by your administrator.
           </p>
-        )}
+
+          {error && (
+            <p style={{ color: "var(--danger)", fontSize: "0.85rem", textAlign: "center", margin: 0 }}>
+              {error}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -141,51 +150,11 @@ export default function LoginPage() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 48 48" style={{ marginRight: "8px" }}>
+    <svg width="18" height="18" viewBox="0 0 48 48">
       <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 20-9 20-20 0-1.3-.1-2.7-.4-3.9z"/>
       <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.5 29.5 4 24 4c-7.7 0-14.3 4.4-17.7 10.7z"/>
       <path fill="#4CAF50" d="M24 44c5.3 0 10.1-2 13.7-5.2l-6.3-5.4C29.4 34.9 26.8 36 24 36c-5.1 0-9.5-3.3-11.2-7.9l-6.6 5.1C9.8 39.6 16.4 44 24 44z"/>
       <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.3 5.4C37.1 38.9 44 33.3 44 24c0-1.3-.1-2.7-.4-3.9z"/>
     </svg>
   );
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.65rem 0.9rem",
-  border: "1px solid #ddd",
-  borderRadius: "6px",
-  fontSize: "0.95rem",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
-function primaryBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: "0.7rem",
-    background: disabled ? "#999" : "#1a1a1a",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontSize: "0.95rem",
-    fontWeight: 600,
-  };
-}
-
-function googleBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "0.7rem",
-    background: "#fff",
-    color: "#333",
-    border: "1px solid #ddd",
-    borderRadius: "6px",
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontSize: "0.95rem",
-    fontWeight: 500,
-    opacity: disabled ? 0.7 : 1,
-  };
 }

@@ -320,7 +320,7 @@ export default function AdminInvoicesPage() {
                 ))}
               </tbody>
             </table>
-            <button className="no-print" onClick={addItem} style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: "4px 12px 0" }}>+ Add line item</button>
+            <button className="no-print" onClick={addItem} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "4px 12px 0" }}>+ Add line item</button>
 
             {/* Totals */}
             <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 16 }}>
