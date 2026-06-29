@@ -35,7 +35,7 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify shipped (2026-06-14). Field Ops + Calendar Powerhouse + Library epic before that. See HANDOFF.md.
+**Status**: UX overhaul shipped (2026-06-28) — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
 **Estimated Completion**: 98%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof

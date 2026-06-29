@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-06-15 (Demo Studio + dynamic per-industry agent + after-hours + security + universal demo line)
+Last updated: 2026-06-28 (UX overhaul: one design language, fewer clicks, pro PDFs, Guide tab)
 
 ## Current State
 
@@ -7,7 +7,29 @@ Last updated: 2026-06-15 (Demo Studio + dynamic per-industry agent + after-hours
 
 ---
 
-## This session — what shipped (all build + tsc green, pushed to main)
+## This session (2026-06-28) — UX overhaul: one design language, fewer clicks, pro PDFs, Guide tab
+
+Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three commits, all tsc + build green, pushed to main. Login smoke-tested via Playwright (renders clean, on-brand).
+
+**`9e3a173` — design system + navigation + clarity:**
+- One **teal accent** — removed the competing `#2563eb` app-wide (incl. PWA `themeColor`, job tab bar, dashboard/pipeline/library/calendar/invoices/PhotoCapture). New `.button` variants (`secondary`/`ghost`/`danger` + `.small`), global `:focus-visible` ring, spacing/radius/semantic-status-color tokens, reusable `.icon-del`; missing job status chips (inspection/quoted/invoiced/pending).
+- **Login** rebuilt on the design system (was off-brand black/system-ui); **Demo Studio** re-skinned dark→light + teal + success banner + reset confirm.
+- **Field** added to company nav; `/admin` landing redirect; Usage rows get **Configure** links; demo nav relabeled "Demo: …"; login honors `?next=`; company logout clears `__session`.
+- **Play call recordings** (was stored at webhook but never surfaced) + headphones indicator + outbound-phone fix in detail; inline **Call Back / Mark contacted** on lead cards (2 clicks → 1); appointment actions simplified (one primary + "Confirm without email" + danger Cancel); `confirm()` guards on destructive actions; Library delete contrast + guards.
+
+**`7cafc0b` — PDF / Guide / Calendar / multi-day:**
+- **PDF invoices/reports** now print as a clean document — `@media print` hides app chrome (topbar/nav/sidebar), strips the card border/shadow, sets `@page` margins; docs tagged `.invoice-doc`/`.report-doc`. (See global Lesson 118.)
+- New **`/company/guide` "Guide" tab** (Compass icon): the talk-don't-type idea, full workflow, what-each-tab-does cards, quick how-tos (create a crew, schedule, send invoice, voice update, call back).
+- **Calendar**: page title renamed "Powerboard" → **"Calendar"** (matches the nav tab); now defaults to the **full 7-day week** so weekends are always schedulable (emergencies); added a **"+ Manage crews"** link → `Library?section=crews` (Library now honors `?section=`). Earlier in the session: legend, drag grips, "Drop to schedule" hint, full **"Confirm + email crew"** button, clearer unschedule + guard, segmented week toggle.
+- **Multi-day jobs**: timeline events carry their source-update day (`dateMs`, stamped in `buildProjection`); the Timeline tab + report "Work Performed" show the **date** alongside the time when a job spans >1 day.
+
+**`9e3a173`/`7cafc0b` key files:** `src/app/globals.css` (token layer + button/icon/focus + print + nav contrast), `src/app/login/page.tsx`, `src/app/admin/demo/page.tsx`, `src/app/admin/page.tsx` (new), `src/app/admin/usage/page.tsx`, `src/app/admin/admin-nav.tsx`, `src/app/company/company-nav.tsx`, `src/app/company/guide/page.tsx` (new), `src/app/company/{calls,pipeline,library,calendar,dashboard}/page.tsx`, `src/app/company/jobs/[jobId]/page.tsx`, `src/lib/jobs/projection.ts` + `src/types/jobs.ts` (timeline `dateMs`), `src/components/{ui/StatusChip,field/PhotoCapture}.tsx`.
+
+**Design-system convention going forward:** one teal `var(--accent)` (no blue), use the `.button` variants + `.icon-del` + tokens — do not reintroduce per-page inline button styles or `#2563eb`. (Saved to project memory `design-system-conventions`.)
+
+---
+
+## Previous session (2026-06-15) — Demo Studio + dynamic agent + after-hours + security + universal line
 
 1. **Demo Studio (multi-vertical)** `1c0b388` — `/admin/demo` rebuilt as a 3-step pick→prospect→launch studio for 6 verticals (Roofing, HVAC, Landscaping, Dental, GC, Property Mgmt), per-industry personas/pitch scripts/brand colors, Firestore-driven nav-module hiding (Dental & Property Mgmt hide Jobs/Library).
 
@@ -48,10 +70,12 @@ Last updated: 2026-06-15 (Demo Studio + dynamic per-industry agent + after-hours
 
 ## Pending / Next
 
-- **Mobile responsiveness** — the company topbar (logo + nav + search + user) likely overflows on phones; needs a responsive pass. Main untested surface.
+- **Mobile responsiveness** — the company topbar (logo + nav + search + user) still stacks into a tall column on phones (≤900px); needs a hamburger/sheet. Largest remaining UX gap, untested surface.
+- **UX follow-ups (audit bigger-bets not yet done):** unify the two field screens (`/field` vs `/company/field` — different interaction models/colors); shared skeleton loaders (still bare "Loading…" text); onboarding "wizard" → real stepper or honest anchor list; sticky save bars + dirty-state on long admin/company forms; crew **color picker** in Library.
 - **Email deliverability** — confirm `RESEND_FROM` uses a verified domain so customer confirmation emails land cleanly.
-- **Vestigial** — per-vertical demo businesses (`demo-hvac`, etc.) are unused now that the Demo Studio runs on the universal line (`demo-roofing`). Harmless; left in place.
-- **Minor** — favicon 404; admin "Field Demo"/"Client view" links hardcoded to `demo-roofing`; `__session` cookie ~1h staleness on very long admin sessions.
+- **Verify the PDF fix live** — once deployed, open a job → Generate Invoice → Print / Save as PDF and confirm only the document prints (Playwright couldn't reach auth-gated pages headlessly).
+- **Vestigial** — per-vertical demo businesses (`demo-hvac`, etc.) unused now that the Demo Studio runs on the universal line (`demo-roofing`). Harmless; left in place.
+- **Minor** — favicon 404; admin demo links are intentionally `demo-roofing` (now clearly labeled "Demo: …"); `__session` cookie ~1h staleness on very long admin sessions.
 - **Post-MVP** — Google Calendar per-business OAuth, Stripe billing, SMS (Twilio A2P 10DLC), more verticals going live (connect a number per the guide's "Connecting a phone line to a vertical").
 
 ## Key Files (added/changed this session)
