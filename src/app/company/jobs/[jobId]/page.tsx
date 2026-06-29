@@ -121,6 +121,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const labor = view.labor;
   const issues = view.issues;
   const editing = editParsed !== null;
+  // Multi-day jobs: show the date alongside each timeline event's time.
+  const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? new Date(t.dateMs).toDateString() : "")).filter(Boolean)).size > 1;
+  const fmtDay = (ms?: number) => (ms ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
 
   function startEdit() {
     setEditParsed(JSON.parse(JSON.stringify(projection)) as ParsedUpdate);
@@ -389,10 +392,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     <>
       <style>{`
         @media print {
+          /* Print ONLY the document — strip all app chrome so a PDF reads like a real invoice */
           .no-print { display: none !important; }
           .print-only { display: block !important; }
-          body { background: white; }
+          .company-topbar, .company-nav, .admin-sidebar { display: none !important; }
+          .company-main, .admin-main { padding: 0 !important; background: #fff !important; }
+          body { background: #fff !important; }
           .panel { box-shadow: none; border: none; }
+          .invoice-doc, .report-doc {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+          }
+          @page { margin: 0.5in; }
         }
       `}</style>
 
@@ -508,7 +522,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   <li key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                     <span style={{ minWidth: 24, height: 24, borderRadius: "50%", background: "#e0e7ff", color: "#3730a3", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
                     <div>
-                      {t.time && <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>{t.time}</span>}
+                      {(t.time || (timelineMultiDay && t.dateMs)) && (
+                        <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>
+                          {timelineMultiDay && t.dateMs ? fmtDay(t.dateMs) : ""}
+                          {timelineMultiDay && t.dateMs && t.time ? " · " : ""}
+                          {t.time ?? ""}
+                        </span>
+                      )}
                       <span style={{ fontSize: 14 }}>{t.description}</span>
                     </div>
                   </li>
@@ -772,7 +792,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               )}
 
               {/* Invoice document */}
-              <div style={{
+              <div className="invoice-doc" style={{
                 background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
                 padding: "40px 48px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
@@ -1214,6 +1234,8 @@ function ReportRenderer({
   const website = businessConfig?.websiteUrl;
 
   const timeline = allParsed.flatMap((p) => p.timeline);
+  const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? new Date(t.dateMs).toDateString() : "")).filter(Boolean)).size > 1;
+  const fmtDay = (ms?: number) => (ms ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
   const materials = allParsed.flatMap((p) => p.materials);
   const labor = allParsed.flatMap((p) => p.labor);
   const issues = allParsed.flatMap((p) => p.issues);
@@ -1242,7 +1264,7 @@ function ReportRenderer({
   };
 
   return (
-    <div style={{
+    <div className="report-doc" style={{
       background: "#fff",
       border: "1px solid #e2e8f0",
       borderRadius: 12,
@@ -1339,7 +1361,13 @@ function ReportRenderer({
                 <li key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                   <span style={{ minWidth: 26, height: 26, borderRadius: "50%", background: accent, color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
                   <div>
-                    {t.time && <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 2 }}>{t.time}</div>}
+                    {(t.time || (timelineMultiDay && t.dateMs)) && (
+                      <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, marginBottom: 2 }}>
+                        {timelineMultiDay && t.dateMs ? fmtDay(t.dateMs) : ""}
+                        {timelineMultiDay && t.dateMs && t.time ? " · " : ""}
+                        {t.time ?? ""}
+                      </div>
+                    )}
                     <div style={{ fontSize: 14, color: "#1e293b", lineHeight: 1.55 }}>{t.description}</div>
                   </div>
                 </li>

@@ -83,10 +83,14 @@ export function buildProjection(updatesInput: FieldUpdate[]): ParsedUpdate {
     }
   }
 
-  // 4. Timeline — concat, sort by time when present.
+  // 4. Timeline — concat, stamping each event with its source update's day so multi-day
+  //    jobs can show the date. Sort by day, then by time within the day.
   const timeline = normal
-    .flatMap((u) => u.parsed!.timeline)
-    .sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+    .flatMap((u) => u.parsed!.timeline.map((t) => ({ ...t, dateMs: t.dateMs ?? u.createdAt })))
+    .sort((a, b) => {
+      const d = (a.dateMs ?? 0) - (b.dateMs ?? 0);
+      return d !== 0 ? d : (a.time ?? "").localeCompare(b.time ?? "");
+    });
 
   // 5. Issues — concat, dedupe identical descriptions (keep first, preserve resolution).
   const seen = new Set<string>();

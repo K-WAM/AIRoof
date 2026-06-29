@@ -51,7 +51,8 @@ export default function CalendarPage() {
   const previewSuffix = preview ? `?preview=${preview}` : "";
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
-  const [fullWeek, setFullWeek] = useState(false);
+  // Default to the full 7-day week so weekends are always visible/schedulable (emergencies).
+  const [fullWeek, setFullWeek] = useState(true);
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
@@ -163,10 +164,13 @@ export default function CalendarPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Powerboard</h1>
-          <p className="page-subtitle">Drag jobs onto a crew &amp; day. Confirm to email the crew and lock it in.</p>
+          <h1 className="page-title">Calendar</h1>
+          <p className="page-subtitle">Your scheduling board — drag a job onto a crew &amp; day, then Confirm to email the crew and lock it in.</p>
         </div>
-        {toast && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {toast && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
+          <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small">+ Manage crews</Link>
+        </div>
       </header>
 
       {/* Week nav */}

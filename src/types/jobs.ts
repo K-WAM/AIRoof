@@ -6,7 +6,9 @@ export interface InvoiceLineItem {
 }
 
 export interface ParsedUpdate {
-  timeline: Array<{ time?: string; description: string }>;
+  // dateMs = source field-update timestamp, stamped by buildProjection so multi-day jobs
+  // can show which day each event happened on.
+  timeline: Array<{ time?: string; description: string; dateMs?: number }>;
   materials: Array<{ item: string; quantity?: string; unit?: string; cost?: number }>;
   labor: Array<{ description: string; hours?: number; rate?: number; arrivalTime?: string; departureTime?: string }>;
   issues: Array<{ description: string; severity: "low" | "medium" | "high"; resolution?: string }>;

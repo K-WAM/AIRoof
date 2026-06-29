@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
 
@@ -8,7 +9,11 @@ type Section = "pricing" | "crews" | "documents";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
-  const [section, setSection] = useState<Section>("pricing");
+  const searchParams = useSearchParams();
+  const initialSection = searchParams?.get("section");
+  const [section, setSection] = useState<Section>(
+    initialSection === "crews" || initialSection === "documents" ? initialSection : "pricing"
+  );
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);

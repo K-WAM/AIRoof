@@ -12,6 +12,7 @@ import {
   CalendarDays,
   BookOpen,
   Settings,
+  Compass,
 } from "lucide-react";
 import { getDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
@@ -27,6 +28,7 @@ const LINKS = [
   { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: "calendar" },
   { path: "/company/library",   label: "Library",   Icon: BookOpen,        module: "library" },
   { path: "/company/settings",  label: "Settings",  Icon: Settings,        module: null },
+  { path: "/company/guide",     label: "Guide",     Icon: Compass,         module: null },
 ] as const;
 
 export function CompanyNav() {

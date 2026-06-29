@@ -390,6 +390,16 @@ a {
   box-shadow: var(--shadow-sm);
 }
 
+/* Clickable cards (e.g. the Guide tiles) get a subtle hover lift */
+a.panel {
+  transition: box-shadow 0.12s, transform 0.1s, border-color 0.12s;
+}
+a.panel:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
+}
+
 .panel-header {
   padding: 18px 20px;
   border-bottom: 1px solid var(--border);
