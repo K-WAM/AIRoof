@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 interface BizData {
   businessName: string;
@@ -187,7 +188,7 @@ export default function AdminBusinessConfigPage({
     }
   }
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading config…</div>;
+  if (loading) return <PageSkeleton rows={6} />;
   if (!biz) return <div style={{ padding: 32, color: "#b91c1c" }}>Business not found.</div>;
 
   const serviceAreaStr = Array.isArray(biz.serviceArea)

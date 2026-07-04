@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 interface LineItem {
   description: string;
@@ -189,7 +190,7 @@ export default function AdminInvoicesPage() {
 
   const currentInvoice = editingId ? invoices.find(i => i.invoiceId === editingId) : null;
 
-  if (loading) return <div style={{ padding: 40, color: "#64748b" }}>Loading…</div>;
+  if (loading) return <PageSkeleton rows={5} />;
 
   return (
     <>

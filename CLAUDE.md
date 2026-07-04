@@ -35,7 +35,7 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: UX overhaul shipped (2026-06-28) — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
+**Status**: (2026-07-04) Mobile hamburger nav, skeleton loaders, crew color picker, Demo Playbook "forgot everything" cheat sheet. (2026-07-03) Data-plane locked down — `verifyFieldAccess()`/fieldKey guard all jobs/field APIs, one-tap field voice on public `/field`, industry-aware AI parsing. (2026-06-28) UX overhaul — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
 **Estimated Completion**: 98%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
@@ -65,6 +65,7 @@ Basis:
 - **Calendar Powerboard**: drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → Confirm → branded crew email + color.
 - **After-hours booking**: Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown grey, one-click "Confirm & notify customer".
 - **Admin API auth ✓**: `verifySuperadmin()` gates all `/api/admin/*` (cookie-based; curl-verified 401 in prod).
+- **Data-plane auth ✓ (2026-07-03)**: `verifyFieldAccess()` (session-or-`fieldKey`) gates all `/api/jobs/*` + `/api/transcribe`; office actions (create/PATCH job, invoice/report/assign/send, photo toggle/delete, send-confirmation, calls) are session-role-gated; agent test endpoints superadmin-only. QR field links carry `&key=<fieldKey>` (minted by a Demo Studio launch or the seed script — one launch needed after deploy).
 - **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
 - **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.

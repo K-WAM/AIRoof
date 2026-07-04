@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -46,7 +47,7 @@ export default function CompanySettingsPage() {
       .finally(() => setLoading(false));
   }, [businessId]);
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading settings…</div>;
+  if (loading) return <PageSkeleton rows={5} />;
   if (!settings) return <div style={{ padding: 32, color: "#b91c1c" }}>Could not load settings.</div>;
 
   function setHours(day: string, value: string) {

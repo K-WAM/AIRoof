@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 interface BizRow {
   businessId: string;
@@ -42,7 +43,7 @@ export default function AdminBusinessesPage() {
   const active = businesses.filter((b) => b.active && b.vapiAssistantId);
   const needsSetup = businesses.filter((b) => !b.vapiAssistantId);
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading businesses…</div>;
+  if (loading) return <PageSkeleton rows={6} />;
 
   return (
     <>

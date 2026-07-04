@@ -2,9 +2,10 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
+import { Menu, X } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
@@ -13,7 +14,10 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 function CompanyShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
@@ -25,6 +29,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       router.replace("/admin/businesses");
     }
   }, [user, loading, router, searchParams]);
+
+  // Close the mobile nav sheet whenever the route changes (link tap, back button, etc.)
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   async function handleLogout() {
     if (auth) await signOut(auth);
@@ -51,6 +60,15 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <div className="company-brand">
           <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
         </div>
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen((v) => !v)}
+        >
+          {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
+        </button>
         <div className="topbar-right">
           <CompanyNav />
           <CommandBar />
@@ -62,6 +80,22 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {mobileMenuOpen && (
+        <div className="mobile-nav-sheet">
+          <CompanyNav />
+          <div className="mobile-nav-search">
+            <CommandBar />
+          </div>
+          <div className="mobile-nav-divider" />
+          <div className="mobile-nav-user">
+            <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
+            <span className="user-email">{user.email}</span>
+          </div>
+          <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
+        </div>
+      )}
+
       <main className="company-main">{children}</main>
     </div>
   );

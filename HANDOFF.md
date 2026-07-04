@@ -1,9 +1,43 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-06-28 (UX overhaul: one design language, fewer clicks, pro PDFs, Guide tab)
+Last updated: 2026-07-04 (mobile nav, skeleton loaders, crew colors, demo cheat sheet — on top of the 07-03 security session)
 
 ## Current State
 
 **Completion: ~98%** — live at https://ai-roof.vercel.app. Everything below is shipped and (where noted) verified in production.
+
+---
+
+## This session (2026-07-04) — mobile nav, skeleton loaders, crew colors, demo cheat sheet
+
+Closes out the UX-gap punch list from the 2026-06-28 audit + adds a fast-recall cheat sheet to the Demo Playbook.
+
+- **Mobile nav (largest remaining UX gap, now fixed)**: the company topbar used to stack logo/nav/search/user into a tall column under 900px. Now a **hamburger button** (`src/app/company/layout.tsx`) toggles a `.mobile-nav-sheet` — full-width nav links, search, role/email, and a full-width Sign out button, closes automatically on route change. Desktop layout untouched. Verified with Playwright at 390×844 and 1280×800.
+- **Skeleton loaders**: new `src/components/ui/PageSkeleton.tsx` (shimmer via `.skeleton` CSS) replaces the bare "Loading X…" text on 11 pages (dashboard, calls, pipeline, jobs, library, settings, calendar, admin businesses/config/usage/invoices).
+- **Crew color picker** (`src/app/company/library/page.tsx`): click a crew's color dot → pick from the same 8-color palette the API auto-assigns from → `PATCH /api/company/crews` persists it. Was previously fixed at creation time only.
+- **Demo Playbook cheat sheet**: added a **"⚡ Forgot everything? Read this and go."** 6-line box at the very top of Part 1 in `public/guides/onboarding-guide.html` — sits right where the `#part-1` anchor (used by both the admin Playbooks iframe and "Open full screen") lands, above the existing detailed cheat sheet.
+- Verified: `tsc --noEmit` clean, `next build` green, Playwright smoke test of `/login`, `/field` (401 → friendly "link isn't active" notice, confirms the 07-03 field-key guard works end-to-end), and a throwaway route to visually confirm the mobile drawer (deleted after verification).
+
+**Files**: `src/app/company/layout.tsx`, `src/app/globals.css`, `src/components/ui/PageSkeleton.tsx` (new), `src/app/company/{dashboard,calls,pipeline,jobs,library,settings,calendar}/page.tsx`, `src/app/admin/{businesses/page.tsx,businesses/[businessId]/config/page.tsx,usage/page.tsx,invoices/page.tsx}`, `public/guides/onboarding-guide.html`.
+
+---
+
+## Previous session (2026-07-03) — data-plane lockdown + one-tap field voice + AI accuracy
+
+**Security — the whole jobs/field data plane was unauthenticated** (anyone with a businessId could read customer PII, create jobs, send invoice/report/crew emails from our Resend domain, and farm `/api/transcribe`/`/api/agent/respond` as free OpenAI proxies). Now:
+- New **`verifyFieldAccess(req, businessId)`** (`src/lib/auth/verifyRole.ts`): passes on a session with any role on the business (or superadmin), **or** a per-business **`fieldKey`** sent as `x-field-key` header / `?key=` query — this is what the QR link carries so unauthenticated crews still work. Secure by default: no fieldKey on the business → no anonymous access.
+- **Field-access (session or key)**: GET `/api/jobs`, GET `/api/jobs/[jobId]`, GET+POST `updates`, POST `field-audio`, GET+POST `photos`, GET `photos/[photoId]`, POST `/api/transcribe` (now requires businessId).
+- **Session-only (owner/staff/superadmin)**: POST `/api/jobs`, PATCH `/api/jobs/[jobId]`, `invoice`, `invoice/send`, `report`, `report/send`, `assign`, photo PATCH/DELETE, `/api/appointments/send-confirmation`, `/api/calls/[callId]` (GET also allows viewer), `agent-config` GET, `faq-suggestions` POST.
+- **Superadmin-only**: `/api/agent/respond`, `/api/agent/classify`, `/api/tools/execute` (test endpoints, no UI uses them).
+- **fieldKey provisioning**: demo-customize launch mints a stable key for `demo-roofing` (kept across launches so printed QRs stay valid) and returns **`fieldUrl`** — the Demo Studio QR + "Copy link" now use it. Seed script preserves/mints it and prints it. `fieldKey?` added to `BusinessConfig`.
+- ⚠️ **After deploy: hit Launch (or Reset) in Demo Studio once** (or run the seed script) to mint demo-roofing's fieldKey — until then the public QR page shows a friendly "link isn't active" notice for anonymous visitors (signed-in staff unaffected).
+
+**Field UX — public `/field` reworked to one-tap voice** (was: record → transcript → review → tap "Parse & Save"): now hold-to-speak → release → Whisper+parse+save in one round trip via `useFieldAudio`/`field-audio` (same flow as `/company/field`), with the correction confirm card, a collapsed "⌨ Type instead" fallback, an access-denied notice, and **localStorage persistence of businessId+key** so the PWA (`start_url` has no key) keeps working after the first QR scan.
+
+**AI accuracy**:
+- Whisper now gets a **vocabulary-bias prompt** built from the job context (client/address/title) + trade terms ("squares of shingles, underlayment, drip edge…") — materially better on noisy job sites (`field-audio/route.ts`).
+- `parseFieldUpdate` takes **`industry`** (read from the business doc) instead of hardcoding "roofing company"; summarize/classify/FAQ prompts neutralized to "local service business" — correct extraction for all 6 verticals.
+
+**Files**: `src/lib/auth/verifyRole.ts`, 14 API route files, `src/hooks/useFieldAudio.ts` (+`fieldKey`), `src/components/field/PhotoCapture.tsx` (+`fieldKey`), `src/app/field/page.tsx` (rewritten), `src/app/admin/demo/page.tsx`, `src/app/api/admin/demo-customize/route.ts`, `src/lib/ai/deepseekClient.ts`, `src/types/index.ts`, `scripts/seed-demo-business.mjs`, `public/guides/onboarding-guide.html`.
 
 ---
 
@@ -70,8 +104,9 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 
 ## Pending / Next
 
-- **Mobile responsiveness** — the company topbar (logo + nav + search + user) still stacks into a tall column on phones (≤900px); needs a hamburger/sheet. Largest remaining UX gap, untested surface.
-- **UX follow-ups (audit bigger-bets not yet done):** unify the two field screens (`/field` vs `/company/field` — different interaction models/colors); shared skeleton loaders (still bare "Loading…" text); onboarding "wizard" → real stepper or honest anchor list; sticky save bars + dirty-state on long admin/company forms; crew **color picker** in Library.
+- **Deploy this push**, then mint demo-roofing's fieldKey (one Demo Studio launch) and smoke-test: QR → /field → hold-to-speak → update lands on the job. Also spot-check the new mobile nav on a real phone (only Playwright-verified so far).
+- ~~Mobile responsiveness~~ — done 2026-07-04 (hamburger nav).  ~~Skeleton loaders~~ — done 2026-07-04. ~~Crew color picker~~ — done 2026-07-04.
+- **UX follow-ups (audit bigger-bets not yet done):** unify the two field screens' *visuals* (public `/field` is purple, `/company/field` is orange — behavior now matches since both use `useFieldAudio`, but the color schemes still differ); onboarding "wizard" → real stepper or honest anchor list; sticky save bars + dirty-state on long admin/company forms.
 - **Email deliverability** — confirm `RESEND_FROM` uses a verified domain so customer confirmation emails land cleanly.
 - **Verify the PDF fix live** — once deployed, open a job → Generate Invoice → Print / Save as PDF and confirm only the document prints (Playwright couldn't reach auth-gated pages headlessly).
 - **Vestigial** — per-vertical demo businesses (`demo-hvac`, etc.) unused now that the Demo Studio runs on the universal line (`demo-roofing`). Harmless; left in place.

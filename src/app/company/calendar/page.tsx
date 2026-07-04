@@ -9,6 +9,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useSearchParams } from "next/navigation";
 import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 interface Appointment {
   appointmentId: string;
@@ -156,7 +157,7 @@ export default function CalendarPage() {
     return crews.find((c) => c.crewId === id);
   }
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading Powerboard…</div>;
+  if (loading) return <PageSkeleton rows={5} />;
 
   const rangeLabel = `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTHS[days[days.length - 1].getMonth()]} ${days[days.length - 1].getDate()}`;
 

@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { AlertTriangle, Clock, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
@@ -141,7 +142,7 @@ export default function CompanyDashboardPage() {
   const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0;
 
   if (loading) {
-    return <div style={{ padding: 32, color: "#666" }}>Loading dashboard…</div>;
+    return <PageSkeleton metrics={4} rows={4} />;
   }
 
   return (

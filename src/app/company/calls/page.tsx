@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Clock, Headphones } from "lucide-react";
 
 interface CallMessage {
@@ -91,7 +92,7 @@ export default function CompanyCallsPage() {
       .finally(() => setLoading(false));
   }, [businessId]);
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading calls…</div>;
+  if (loading) return <PageSkeleton rows={6} />;
 
   const conversationMessages = (call: Call) =>
     (call.messages ?? []).filter((m) => m.role === "caller" || m.role === "agent");

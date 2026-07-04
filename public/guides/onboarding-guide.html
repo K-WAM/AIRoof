@@ -410,6 +410,20 @@
     <p>How to run a live demo for any industry in under 60 seconds of setup — with the Demo Studio. Includes live call flow for roofing and dashboard demos for all other verticals.</p>
   </div>
 
+  <!-- ══ 60-SECOND RECALL — for a busy week when you've forgotten everything else ══ -->
+  <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:18px 24px;margin:0 0 24px;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;margin-bottom:10px;">⚡ Forgot everything? Read this and go.</div>
+    <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:2.1;color:#1e293b;">
+      <li>Log in at <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> as <strong>connect@luxordev.com</strong></li>
+      <li>Go to <strong>Demo Studio</strong> (left nav, or <strong style="color:#1d4ed8">/admin/demo</strong>) → click the prospect's industry card</li>
+      <li>Type their <strong>company name</strong> + <strong>email</strong> → click <strong>Launch demo →</strong></li>
+      <li>Hand them the phone number shown, or click <strong>"Open [Industry] dashboard →"</strong> — that's the whole demo</li>
+      <li>Talking on the phone? Say what a caller would say (e.g. "I need a roof inspection") — the AI books it live</li>
+      <li>When you're done: click <strong>Reset demo</strong> so the next person starts clean</li>
+    </ol>
+    <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">Need more than this? The full step-by-step, pitch scripts, and live-call walkthrough are right below.</p>
+  </div>
+
   <!-- ══ MASTER CHEAT SHEET ══ -->
   <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:0 0 32px;page-break-inside:avoid;">
     <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#3b82f6;margin-bottom:4px;">Demo Studio — 3 Steps, Any Industry, Under 60 Seconds</div>
@@ -599,9 +613,9 @@
       <li>On the appointment card → click <strong>Create Job →</strong> → Jobs page opens, form pre-filled from the call</li>
       <li>Type a job title → click <strong>Create Job</strong> → green banner confirms + job appears</li>
       <li>Click <strong>View →</strong> to open job detail</li>
-      <li>Scan the QR code from the Demo Studio launch panel on your phone (or open <span style="color:#60a5fa">ai-roof.vercel.app/field?businessId=demo-roofing</span>)</li>
-      <li>Select the job → tap <strong>🎤</strong> → speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
-      <li>Tap mic to stop → tap <strong>Submit Update</strong> → green screen confirms, auto-resets</li>
+      <li>Scan the QR code from the Demo Studio launch panel on your phone — the link carries a secure field key, so always use the Demo Studio QR / "Copy link" (a plain URL without the key won't load jobs unless you're signed in)</li>
+      <li>Select the job → <strong>hold the 🎤</strong> and speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
+      <li>Release the mic → the update transcribes, parses, and saves automatically — a green "✓" confirms with what was captured</li>
       <li>On the job detail tab → refresh → click each tab: <strong>Timeline · Materials</strong> (14 squares) <strong>· Labor</strong> (Marco, Dani, 3 hrs) <strong>· Issues</strong> (rotted decking, HIGH severity)</li>
       <li>Click <strong>Generate Invoice</strong> → editable line items from the voice update</li>
       <li>Click <strong>Generate Report</strong> → full AI-written job report</li>
@@ -829,7 +843,7 @@
       <tr><td><code>…/company/dashboard?preview=demo-landscaping</code></td><td>Landscaping client dashboard</td><td>Landscaping demo</td></tr>
       <tr><td><code>…/company/dashboard?preview=demo-general-contractors</code></td><td>GC client dashboard</td><td>GC demo</td></tr>
       <tr><td><code>…/company/dashboard?preview=demo-property-management</code></td><td>Property Mgmt dashboard (Jobs + Library hidden)</td><td>Prop Mgmt demo</td></tr>
-      <tr><td><code>…/field?businessId=demo-roofing</code></td><td>Field voice screen — for crew voice updates</td><td>Field demo (roofing + field-service)</td></tr>
+      <tr><td><code>…/field?businessId=demo-roofing&amp;key=…</code></td><td>Field voice screen — for crew voice updates (use the Demo Studio QR / Copy link; the key is required when not signed in)</td><td>Field demo (roofing + field-service)</td></tr>
       <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi assistant config</td><td>Setup / troubleshooting only</td></tr>
     </tbody>
   </table>

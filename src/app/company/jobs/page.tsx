@@ -6,6 +6,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -81,7 +82,7 @@ export default function JobsPage() {
     });
   }
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading jobs…</div>;
+  if (loading) return <PageSkeleton rows={6} />;
 
   return (
     <>

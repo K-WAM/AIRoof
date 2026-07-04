@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 interface BizUsage {
   businessId: string;
@@ -30,7 +31,7 @@ export default function AdminUsagePage() {
     { calls: 0, leads: 0, appts: 0 }
   );
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading usage…</div>;
+  if (loading) return <PageSkeleton metrics={4} rows={5} />;
 
   return (
     <>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
 type Section = "pricing" | "crews" | "documents";
 
@@ -44,7 +45,7 @@ export default function LibraryPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading library…</div>;
+  if (loading) return <PageSkeleton rows={5} />;
 
   return (
     <>
@@ -139,11 +140,16 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
 }
 
 // ── Crews ─────────────────────────────────────────────────────────────────────
+// Same palette the API auto-assigns from — keeps manual picks visually consistent
+// with newly created crews.
+const CREW_COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#dc2626", "#65a30d"];
+
 function CrewsSection({ businessId, crews, setCrews }: { businessId: string | null; crews: Crew[]; setCrews: (c: Crew[]) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [adding, setAdding] = useState(false);
+  const [pickerCrewId, setPickerCrewId] = useState<string | null>(null);
 
   async function addCrew() {
     if (!name.trim() || !businessId) return;
@@ -168,20 +174,54 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
     await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" }).catch(() => {});
   }
 
+  async function setCrewColor(crewId: string, color: string) {
+    setCrews(crews.map((c) => (c.crewId === crewId ? { ...c, color } : c)));
+    setPickerCrewId(null);
+    await fetch("/api/company/crews", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, crewId, color }),
+    }).catch(() => {});
+  }
+
   return (
     <section className="panel">
       <div className="panel-header"><h2 className="panel-title">Crews</h2></div>
       <div className="panel-body">
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Crews appear on the Calendar Powerboard for drag-and-drop scheduling. Email is used for branded assignment notices.</p>
+        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Crews appear on the Calendar Powerboard for drag-and-drop scheduling. Email is used for branded assignment notices. Click a crew's color dot to change its Calendar color.</p>
         <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
           {crews.map((c) => (
-            <div key={c.crewId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
-              <span style={{ width: 14, height: 14, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+            <div key={c.crewId} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+              <button
+                onClick={() => setPickerCrewId(pickerCrewId === c.crewId ? null : c.crewId)}
+                title="Change color"
+                style={{ width: 18, height: 18, borderRadius: "50%", background: c.color, flexShrink: 0, border: "2px solid #fff", boxShadow: "0 0 0 1px #d7dde5", cursor: "pointer", padding: 0 }}
+              />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</div>
               </div>
               <button onClick={() => removeCrew(c.crewId)} className="icon-del" title="Remove">×</button>
+
+              {pickerCrewId === c.crewId && (
+                <>
+                  <div onClick={() => setPickerCrewId(null)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 14, zIndex: 21, display: "flex", gap: 6, padding: "8px 10px", background: "#fff", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 8px 24px rgba(15,23,42,0.14)" }}>
+                    {CREW_COLORS.map((hex) => (
+                      <button
+                        key={hex}
+                        onClick={() => setCrewColor(c.crewId, hex)}
+                        title={hex}
+                        style={{
+                          width: 22, height: 22, borderRadius: "50%", background: hex, cursor: "pointer",
+                          border: c.color === hex ? "2px solid #0f172a" : "2px solid transparent",
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ))}
           {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No crews yet. Add your first below.</p>}

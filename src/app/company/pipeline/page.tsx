@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Phone, Clock } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -254,7 +255,7 @@ export default function PipelinePage() {
     (a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled"
   ).length;
 
-  if (loading) return <div style={{ padding: 32, color: "#666" }}>Loading pipeline…</div>;
+  if (loading) return <PageSkeleton rows={6} />;
 
   function AppointmentCard({ appt, isPast }: { appt: Appointment; isPast?: boolean }) {
     const { day, date, time } = formatApptDate(appt.startTime, tz);
