@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildProjection } from "@/lib/jobs/projection";
 import { Resend } from "resend";
 import type { FieldUpdate } from "@/types/jobs";
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     photos?: Array<{ label: string; fullB64: string }>;
   };
   if (!businessId || !to) return NextResponse.json({ error: "businessId and to required" }, { status: 400 });
+
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });

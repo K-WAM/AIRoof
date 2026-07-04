@@ -30,6 +30,7 @@ interface ApplyResult {
   error?: string;
   businessId?: string;
   demoUrl?: string;
+  fieldUrl?: string;
   phone?: string;
   verticalId?: string;
   label?: string;
@@ -76,14 +77,15 @@ export default function DemoStudioPage() {
   useEffect(() => {
     if (!result?.businessId) return;
     const isFieldService = selectedId && FIELD_SERVICE_VERTICALS.has(selectedId);
+    // fieldUrl carries the per-business field key — required for QR access without a login
     const qrUrl = isFieldService
-      ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`
+      ? (result.fieldUrl ?? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`)
       : (result.demoUrl ?? "");
     if (!qrUrl) return;
     QRCode.toDataURL(qrUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
       .then(setQrDataUrl)
       .catch(() => {});
-  }, [result?.businessId, result?.demoUrl, selectedId]);
+  }, [result?.businessId, result?.demoUrl, result?.fieldUrl, selectedId]);
 
   function pickVertical(id: VerticalId) {
     setSelectedId(id);
@@ -153,9 +155,8 @@ export default function DemoStudioPage() {
   // vertical (the line reconfigures to whatever you launched).
   const phone = result?.phone ?? (selectedId ? VERTICAL_PHONE[selectedId] : undefined);
   const isFieldService = selectedId ? FIELD_SERVICE_VERTICALS.has(selectedId) : false;
-  const fieldUrl = result?.businessId
-    ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`
-    : "";
+  const fieldUrl = result?.fieldUrl
+    ?? (result?.businessId ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}` : "");
   const qrTargetUrl = isFieldService ? fieldUrl : (result?.demoUrl ?? "");
 
   return (

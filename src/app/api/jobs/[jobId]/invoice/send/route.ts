@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -33,6 +34,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { businessId, to } = body;
   if (!businessId || !to) return NextResponse.json({ error: "businessId and to required" }, { status: 400 });
+
+  const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const bizDoc = await db.collection("businesses").doc(businessId).get();
   const biz = bizDoc.exists ? bizDoc.data()! : {};

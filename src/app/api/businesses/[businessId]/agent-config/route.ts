@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BusinessConfig } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 
 export async function GET(
   request: NextRequest,
@@ -15,6 +16,9 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "viewer", "superadmin"]);
+    if ("error" in gate) return gate.error;
 
     const db = getAdminFirestore();
     if (!db) {

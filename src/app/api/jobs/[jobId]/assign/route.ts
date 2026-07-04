@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCrewAssignment } from "@/lib/notify";
 import type { Crew } from "@/types/library";
 
@@ -10,6 +11,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const body = await req.json();
   const { businessId, crewId, scheduledStart, scheduledEnd } = body;
   if (!businessId || !crewId) return NextResponse.json({ error: "businessId and crewId required" }, { status: 400 });
+
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

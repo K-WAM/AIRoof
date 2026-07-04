@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { listPhotoMetas, putPhoto } from "@/lib/photos/store";
 
 // GET /api/jobs/[jobId]/photos?businessId=xxx  → thumbnail metas only (light)
@@ -7,6 +8,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   const { jobId } = await params;
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -26,6 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ error: "businessId, thumbB64, fullB64 required" }, { status: 400 });
   }
   if (!label?.trim()) return NextResponse.json({ error: "A description is required." }, { status: 400 });
+
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

@@ -30,6 +30,8 @@ export interface ClassifyOutcomeOptions {
 export interface ParseFieldUpdateOptions {
   rawText: string;
   businessName: string;
+  /** Business vertical (e.g. "roofing", "hvac", "landscaping") — keeps extraction unbiased across industries. */
+  industry?: string;
   language?: string;
   jobContext?: {
     title?: string;
@@ -74,7 +76,7 @@ export async function parseFieldUpdate(
     messages: [
       {
         role: "system",
-        content: `You are a field intelligence analyst for a roofing company. A foreman or crew member submitted a voice or text update from a job site. Extract structured data from natural language — even if casual, abbreviated, accented, multilingual, or quickly spoken.
+        content: `You are a field intelligence analyst for a ${options.industry ?? "field-service"} company. A foreman or crew member submitted a voice or text update from a job site. Extract structured data from natural language — even if casual, abbreviated, accented, multilingual, or quickly spoken.
 
 LABOR RULES (most important for invoicing):
 - Every crew member mentioned = a separate labor entry with their first name as "description".
@@ -175,7 +177,7 @@ export async function summarizeTranscript(
       {
         role: "system",
         content:
-          "You are a call summarizer for a roofing company. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
+          "You are a call summarizer for a local service business. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
       },
       {
         role: "user",
@@ -217,7 +219,7 @@ export async function classifyCallOutcome(
       {
         role: "system",
         content:
-          'Classify this roofing call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence).',
+          'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence).',
       },
       {
         role: "user",
@@ -262,7 +264,7 @@ export async function generateFaqSuggestions(
       {
         role: "system",
         content:
-          "You are a roofing business assistant. Based on the call summary, suggest new FAQ entries not already covered. Return JSON with key: suggestions (array of {question, answer} objects). Max 3 suggestions.",
+          "You are a local-service-business assistant. Based on the call summary, suggest new FAQ entries not already covered. Return JSON with key: suggestions (array of {question, answer} objects). Max 3 suggestions.",
       },
       {
         role: "user",

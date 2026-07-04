@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import type { FieldUpdate, ParsedUpdate } from "@/types/jobs";
 
 function renderSection(title: string, lines: string[]): string {
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const { businessId } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

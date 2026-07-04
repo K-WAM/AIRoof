@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentResponse, BusinessConfig } from "@/types";
 import { getAdminFirestore, getAdminAuth } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { classifyMessage, getOffTopicResponse } from "@/lib/ai/scopeClassifier";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { generateAgentResponse } from "@/lib/ai/openaiClient";
@@ -14,6 +15,11 @@ interface RespondRequest {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<AgentResponse | { error: string }>> {
+  // Back-office testing endpoint (live calls go through the Vapi webhook).
+  // Superadmin-only so it can't be used as a free OpenAI proxy.
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const body: RespondRequest = await request.json();
     const { businessId, callId, callerMessage, callerPhone, idToken } = body;

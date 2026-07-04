@@ -19,6 +19,8 @@ export interface FieldAudioResult {
 
 interface UseFieldAudioOptions {
   businessId: string | null;
+  /** Per-business field key (from the QR link) — authorizes unauthenticated field access. */
+  fieldKey?: string;
   submittedBy?: string;
   jobContext?: {
     title?: string;
@@ -47,7 +49,10 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     try {
       const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.fieldKey ? { "x-field-key": options.fieldKey } : {}),
+        },
         body: JSON.stringify({ businessId: options.businessId, submittedBy: options.submittedBy, confirmCorrection: proposedCorrection }),
       });
       const data = await res.json();
@@ -123,7 +128,10 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
           try {
             const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                ...(options.fieldKey ? { "x-field-key": options.fieldKey } : {}),
+              },
               body: JSON.stringify({
                 businessId: options.businessId,
                 audioBase64: base64,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BusinessConfig, ScopeClassification } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { classifyMessage } from "@/lib/ai/scopeClassifier";
 
 interface ClassifyRequest {
@@ -9,6 +10,10 @@ interface ClassifyRequest {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<ScopeClassification | { error: string }>> {
+  // Classifier test endpoint — superadmin-only (not used by any UI).
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const body: ClassifyRequest = await request.json();
     const { businessId, message } = body;

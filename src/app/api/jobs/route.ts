@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
 
-// GET /api/jobs?businessId=xxx — list jobs
+// GET /api/jobs?businessId=xxx — list jobs (session or field key)
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -28,6 +32,9 @@ export async function POST(req: NextRequest) {
   if (!businessId || !title) {
     return NextResponse.json({ error: "businessId and title required" }, { status: 400 });
   }
+
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parsedToFieldLog } from "@/lib/jobs/projection";
 import type { Job, ParsedUpdate } from "@/types/jobs";
 
 const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced", "complete"];
 
-// GET /api/jobs/[jobId]?businessId=xxx — fetch a single job
+// GET /api/jobs/[jobId]?businessId=xxx — fetch a single job (session or field key)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
@@ -13,6 +14,9 @@ export async function GET(
   const { jobId } = await params;
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -44,6 +48,9 @@ export async function PATCH(
   if (status && !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
+
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

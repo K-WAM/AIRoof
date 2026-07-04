@@ -111,8 +111,18 @@ async function seed() {
   try {
     console.log("Seeding demo business...");
 
+    // Preserve (or mint) the stable field key — the public /field QR carries it,
+    // so regenerating on every seed would invalidate printed QR codes.
+    const existing = await db.collection("businesses").doc("demo-roofing").get();
+    const priorKey = existing.exists ? existing.data().fieldKey : undefined;
+    demoBusiness.fieldKey =
+      typeof priorKey === "string" && priorKey.length >= 16
+        ? priorKey
+        : (await import("crypto")).randomBytes(16).toString("hex");
+
     await db.collection("businesses").doc("demo-roofing").set(demoBusiness);
     console.log("✓ Created demo-roofing business (Apex Roofing South Florida)");
+    console.log(`✓ Field key: ${demoBusiness.fieldKey} (QR link: /field?businessId=demo-roofing&key=${demoBusiness.fieldKey})`);
 
     // Create phone number mapping so incoming webhook can route calls
     await db.collection("businessPhoneNumbers").doc("demo-roofing-main").set({

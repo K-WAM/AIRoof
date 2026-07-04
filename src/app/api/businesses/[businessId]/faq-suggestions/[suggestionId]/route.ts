@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BusinessConfig, FaqSuggestionBatch } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 
 interface ReviewFaqSuggestionRequest {
   action: "approve" | "reject";
@@ -42,6 +43,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
+    if ("error" in gate) return gate.error;
 
     const db = getAdminFirestore();
     if (!db) {

@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
 
@@ -14,183 +15,208 @@ function MicIcon({ size = 32, color = "currentColor" }: { size?: number; color?:
   );
 }
 
+// Remember the QR link's access (businessId + key) so the PWA / a plain
+// revisit of /field keeps working after the first scan.
+const ACCESS_STORE = "luxorFieldAccess";
+
+function loadStoredAccess(): { businessId: string; key: string } | null {
+  try {
+    const raw = localStorage.getItem(ACCESS_STORE);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.businessId === "string" && typeof parsed?.key === "string" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Main app ────────────────────────────────────────────────────────────────
 function FieldApp() {
   const searchParams = useSearchParams();
-  const businessId = searchParams?.get("businessId") ?? "demo-roofing";
+  const urlBusinessId = searchParams?.get("businessId");
+  const urlKey = searchParams?.get("key");
   const prefillJobId = searchParams?.get("jobId") ?? "";
+
+  const [businessId, setBusinessId] = useState(urlBusinessId ?? "demo-roofing");
+  const [fieldKey, setFieldKey] = useState(urlKey ?? "");
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
   const [workerName, setWorkerName] = useState("");
-  const [text, setText] = useState("");
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
   const [recentUpdates, setRecentUpdates] = useState<FieldUpdate[]>([]);
   const [showRecent, setShowRecent] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [proposed, setProposed] = useState<ProposedCorrection | null>(null);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const mimeTypeRef = useRef("audio/webm");
+  // Type-to-capture fallback (collapsed by default — voice is the primary path)
+  const [typing, setTyping] = useState(false);
+  const [text, setText] = useState("");
+  const [savingText, setSavingText] = useState(false);
+  const [textProposed, setTextProposed] = useState<ProposedCorrection | null>(null);
+
+  // Resolve access: URL key wins and is persisted; otherwise fall back to the stored one.
+  useEffect(() => {
+    if (urlKey && urlBusinessId) {
+      try {
+        localStorage.setItem(ACCESS_STORE, JSON.stringify({ businessId: urlBusinessId, key: urlKey }));
+      } catch {}
+      return;
+    }
+    const stored = loadStoredAccess();
+    if (stored && (!urlBusinessId || stored.businessId === urlBusinessId)) {
+      setBusinessId(stored.businessId);
+      setFieldKey(stored.key);
+    }
+  }, [urlKey, urlBusinessId]);
+
+  const keySuffix = fieldKey ? `&key=${encodeURIComponent(fieldKey)}` : "";
 
   // Load jobs
   useEffect(() => {
-    fetch(`/api/jobs?businessId=${businessId}`)
-      .then(r => r.json())
-      .then(d => {
-        const open = (d.jobs as Job[]).filter(j => j.status !== "complete");
+    setLoadingJobs(true);
+    fetch(`/api/jobs?businessId=${businessId}${keySuffix}`)
+      .then(async (r) => {
+        if (r.status === 401 || r.status === 403) {
+          setAccessDenied(true);
+          return { jobs: [] };
+        }
+        setAccessDenied(false);
+        return r.json();
+      })
+      .then((d) => {
+        const open = ((d.jobs ?? []) as Job[]).filter((j) => j.status !== "complete");
         setJobs(open);
-        if (prefillJobId && open.find(j => j.jobId === prefillJobId)) setSelectedJobId(prefillJobId);
+        if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) setSelectedJobId(prefillJobId);
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [businessId, prefillJobId]);
+  }, [businessId, prefillJobId, keySuffix]);
+
+  const refreshRecent = useCallback((jobId: string) => {
+    if (!jobId) { setRecentUpdates([]); return; }
+    fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}${keySuffix}`)
+      .then((r) => (r.ok ? r.json() : { updates: [] }))
+      .then((d) => setRecentUpdates(((d.updates ?? []) as FieldUpdate[]).reverse().slice(0, 8)))
+      .catch(() => {});
+  }, [businessId, keySuffix]);
 
   // Load recent updates when job changes
   useEffect(() => {
-    if (!selectedJobId) { setRecentUpdates([]); return; }
-    fetch(`/api/jobs/${selectedJobId}/updates?businessId=${businessId}`)
-      .then(r => r.json())
-      .then(d => setRecentUpdates(((d.updates ?? []) as FieldUpdate[]).reverse().slice(0, 8)))
-      .catch(() => {});
-  }, [selectedJobId, businessId]);
+    refreshRecent(selectedJobId);
+  }, [selectedJobId, refreshRecent]);
 
-  const selectedJob = jobs.find(j => j.jobId === selectedJobId);
-
-  async function startRecording(e: React.PointerEvent) {
-    e.preventDefault();
-    if (transcribing || saving) return;
-    setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : MediaRecorder.isTypeSupported("audio/webm")
-        ? "audio/webm"
-        : "audio/mp4";
-      mimeTypeRef.current = mimeType;
-      const recorder = new MediaRecorder(stream, { mimeType });
-      recorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (ev) => { if (ev.data.size > 0) chunksRef.current.push(ev.data); };
-      recorder.start();
-      setRecording(true);
-    } catch {
-      setError("Microphone access denied. Please allow microphone and try again.");
-    }
-  }
-
-  async function stopRecording(e: React.PointerEvent) {
-    e.preventDefault();
-    const recorder = recorderRef.current;
-    if (!recorder || recorder.state !== "recording") return;
-    recorder.onstop = async () => {
-      recorder.stream.getTracks().forEach(t => t.stop());
-      setRecording(false);
-      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current });
-      if (blob.size < 500) return;
-      setTranscribing(true);
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(",")[1];
-        try {
-          const res = await fetch("/api/transcribe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audioBase64: base64, mimeType: mimeTypeRef.current }),
-          });
-          const data = await res.json();
-          if (data.transcript) {
-            setText(prev => prev ? prev + " " + data.transcript : data.transcript);
-          } else {
-            setError("No speech detected. Try again.");
-          }
-        } catch {
-          setError("Transcription failed. Try again.");
-        } finally {
-          setTranscribing(false);
-        }
-      };
-    };
-    recorder.stop();
-  }
-
+  const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
   const jobContext = selectedJob
     ? { title: selectedJob.title, address: selectedJob.address, serviceType: selectedJob.serviceType, clientName: selectedJob.clientName }
     : undefined;
 
-  function onSaved(saved: { update?: FieldUpdate }) {
-    setText("");
-    setSubmitted(true);
-    if (saved.update) setRecentUpdates(prev => [saved.update as FieldUpdate, ...prev].slice(0, 8));
+  function flashSaved(summary?: string) {
+    setSavedNote(summary || "Update saved");
     setShowRecent(true);
-    setTimeout(() => setSubmitted(false), 3000);
+    setTimeout(() => setSavedNote(null), 3500);
   }
 
-  async function handleSave(forceNormal = false) {
-    if (!text.trim() || !selectedJobId || saving) return;
-    setSaving(true);
+  // ── Voice: one hold-to-talk → transcribe + parse + save in one round trip ──
+  const onVoiceSuccess = useCallback((result: FieldAudioResult) => {
+    flashSaved(result.changesSummary);
+    refreshRecent(selectedJobId);
+  }, [refreshRecent, selectedJobId]);
+
+  const {
+    status: audioStatus,
+    transcript,
+    proposedCorrection,
+    confirmCorrection,
+    cancelCorrection,
+    startRecording,
+    stopRecording,
+  } = useFieldAudio(selectedJobId || null, {
+    businessId,
+    fieldKey: fieldKey || undefined,
+    submittedBy: workerName.trim() || undefined,
+    jobContext,
+    onSuccess: onVoiceSuccess,
+  });
+
+  // ── Typed fallback (posts raw text to the updates endpoint) ──
+  async function saveTyped() {
+    if (!text.trim() || !selectedJobId || savingText) return;
+    setSavingText(true);
     setError(null);
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, rawText: text.trim(), submittedBy: workerName.trim() || undefined, jobContext, forceNormal }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(fieldKey ? { "x-field-key": fieldKey } : {}),
+        },
+        body: JSON.stringify({ businessId, rawText: text.trim(), submittedBy: workerName.trim() || undefined, jobContext }),
       });
       const data = await res.json();
       if (res.ok && data.proposedCorrection) {
-        setProposed(data.proposedCorrection as ProposedCorrection);   // show one-tap confirm card
+        setTextProposed(data.proposedCorrection as ProposedCorrection);
       } else if (res.ok) {
-        onSaved(data);
+        setText("");
+        flashSaved();
+        refreshRecent(selectedJobId);
       } else {
         setError("Failed to save. Try again.");
       }
     } catch {
       setError("Network error. Try again.");
     } finally {
-      setSaving(false);
+      setSavingText(false);
     }
   }
 
-  async function confirmCorrection() {
-    if (!proposed || !selectedJobId) return;
-    setSaving(true);
+  async function confirmTypedCorrection() {
+    if (!textProposed || !selectedJobId) return;
+    setSavingText(true);
     setError(null);
     try {
       const res = await fetch(`/api/jobs/${selectedJobId}/updates`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, submittedBy: workerName.trim() || undefined, confirmCorrection: proposed }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(fieldKey ? { "x-field-key": fieldKey } : {}),
+        },
+        body: JSON.stringify({ businessId, submittedBy: workerName.trim() || undefined, confirmCorrection: textProposed }),
       });
       if (res.ok) {
-        setProposed(null);
-        onSaved({});
+        setTextProposed(null);
+        setText("");
+        flashSaved("Correction applied");
+        refreshRecent(selectedJobId);
       } else {
         setError("Failed to apply correction. Try again.");
       }
     } catch {
       setError("Network error. Try again.");
     } finally {
-      setSaving(false);
+      setSavingText(false);
     }
   }
 
-  const isBusy = transcribing || saving;
-  const canSave = !!text.trim() && !!selectedJobId && !isBusy;
+  // One correction card serves both paths
+  const activeProposed = proposedCorrection ?? textProposed;
+  const confirmActive = proposedCorrection ? confirmCorrection : confirmTypedCorrection;
+  const cancelActive = proposedCorrection ? cancelCorrection : () => setTextProposed(null);
+
+  const recording = audioStatus === "recording";
+  const transcribing = audioStatus === "transcribing";
+  const isBusy = transcribing || savingText;
 
   const micLabel = !selectedJobId
     ? "Select a job first"
     : recording
-    ? "Release to stop"
+    ? "Listening… release when done"
     : transcribing
-    ? "Transcribing…"
-    : "Hold to record · Release to stop";
+    ? "Saving your update…"
+    : audioStatus === "error"
+    ? "Didn't catch that — hold and try again"
+    : "Hold to speak · release to save";
 
   const micBg = recording
     ? "radial-gradient(circle, #3b1a6e 0%, #1e0f40 100%)"
@@ -226,10 +252,20 @@ function FieldApp() {
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: recording ? "#7c3aed" : "#22c55e", transition: "background 0.2s", flexShrink: 0 }} />
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", color: "#f8fafc" }}>Luxor Field</span>
           {recording && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.06em" }}>● REC</span>}
-          {transcribing && <span style={{ marginLeft: "auto", fontSize: 11, color: "#64748b" }}>Transcribing…</span>}
+          {transcribing && <span style={{ marginLeft: "auto", fontSize: 11, color: "#64748b" }}>Saving…</span>}
         </div>
 
         <div style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Access denied — expired/missing key */}
+          {accessDenied && (
+            <div style={{ padding: "16px", background: "#2d0f0f", border: "1px solid #7f1d1d", borderRadius: 14 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#fca5a5" }}>This link isn&apos;t active</p>
+              <p style={{ margin: 0, fontSize: 13, color: "#f1a8a8", lineHeight: 1.5 }}>
+                Scan the current QR code from the office to open the field screen. If you keep seeing this, ask the office for a fresh field link.
+              </p>
+            </div>
+          )}
 
           {/* Job selector */}
           <div>
@@ -272,7 +308,7 @@ function FieldApp() {
             }}
           />
 
-          {/* Mic button */}
+          {/* Mic button — hold to speak, release to save (one step) */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>
             <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
               {recording && <div className="pulse" />}
@@ -285,7 +321,7 @@ function FieldApp() {
                 disabled={!selectedJobId || isBusy}
                 style={{
                   position: "relative", zIndex: 1,
-                  width: 100, height: 100, borderRadius: "50%",
+                  width: 110, height: 110, borderRadius: "50%",
                   background: micBg,
                   border: micBorder,
                   boxShadow: micGlow,
@@ -295,38 +331,31 @@ function FieldApp() {
                   touchAction: "none", userSelect: "none", WebkitUserSelect: "none",
                 }}
               >
-                <MicIcon size={36} color={recording ? "#a78bfa" : isBusy || !selectedJobId ? "#334155" : "#7c93c8"} />
+                <MicIcon size={40} color={recording ? "#a78bfa" : isBusy || !selectedJobId ? "#334155" : "#7c93c8"} />
               </button>
             </div>
             <p style={{
-              margin: 0, fontSize: 12, fontWeight: 500, letterSpacing: "0.01em",
-              color: recording ? "#a78bfa" : transcribing ? "#475569" : !selectedJobId ? "#334155" : "#475569",
+              margin: 0, fontSize: 12, fontWeight: 600, letterSpacing: "0.01em",
+              color: recording ? "#a78bfa" : transcribing ? "#94a3b8" : audioStatus === "error" ? "#fca5a5" : !selectedJobId ? "#334155" : "#64748b",
               transition: "color 0.15s",
             }}>
               {micLabel}
             </p>
+            {transcript && !recording && !activeProposed && (
+              <p style={{ margin: 0, fontSize: 12, color: "#475569", fontStyle: "italic", textAlign: "center", maxWidth: 320, lineHeight: 1.5 }}>
+                &ldquo;{transcript.length > 140 ? transcript.slice(0, 140) + "…" : transcript}&rdquo;
+              </p>
+            )}
           </div>
 
           {/* Photo capture */}
-          <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerName.trim() || undefined} disabled={isBusy} onUploaded={() => { setSubmitted(true); setTimeout(() => setSubmitted(false), 2500); }} />
-
-          {/* Textarea */}
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="Or type to capture…"
-            rows={4}
+          <PhotoCapture
+            jobId={selectedJobId || null}
+            businessId={businessId}
+            fieldKey={fieldKey || undefined}
+            submittedBy={workerName.trim() || undefined}
             disabled={isBusy}
-            style={{
-              width: "100%", padding: "14px 16px", borderRadius: 14,
-              border: "1.5px solid #1e2a4a",
-              fontSize: 15, lineHeight: 1.6, resize: "vertical",
-              color: "#f1f5f9", background: "#0f172a",
-              outline: "none", transition: "border-color 0.15s",
-              fontFamily: "inherit",
-            }}
-            onFocus={e => { e.currentTarget.style.borderColor = "#2d3f6e"; }}
-            onBlur={e => { e.currentTarget.style.borderColor = "#1e2a4a"; }}
+            onUploaded={() => flashSaved("Photo saved")}
           />
 
           {error && (
@@ -335,48 +364,86 @@ function FieldApp() {
             </div>
           )}
 
-          {submitted && (
+          {savedNote && (
             <div style={{ padding: "10px 14px", background: "#0f2d1a", border: "1px solid #166534", borderRadius: 10, fontSize: 13, color: "#86efac", fontWeight: 600 }}>
-              ✓ Update saved and parsing…
+              ✓ {savedNote}
             </div>
           )}
 
           {/* One-tap correction confirm card — code computed old/new + running total */}
-          {proposed && (
+          {activeProposed && (
             <div style={{ padding: "16px", background: "#1a1430", border: "1.5px solid #7c3aed", borderRadius: 14 }}>
               <p style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700, color: "#c4b5fd", textTransform: "uppercase", letterSpacing: "0.06em" }}>Confirm correction</p>
               <p style={{ margin: "0 0 4px", fontSize: 15, color: "#f1f5f9", lineHeight: 1.5 }}>
-                Change <strong style={{ textTransform: "capitalize" }}>{proposed.item}</strong> on the matching entry from{" "}
-                <strong style={{ color: "#fca5a5" }}>{proposed.oldValue}</strong> → <strong style={{ color: "#86efac" }}>{proposed.newValue}</strong>?
+                Change <strong style={{ textTransform: "capitalize" }}>{activeProposed.item}</strong> on the matching entry from{" "}
+                <strong style={{ color: "#fca5a5" }}>{activeProposed.oldValue}</strong> → <strong style={{ color: "#86efac" }}>{activeProposed.newValue}</strong>?
               </p>
               <p style={{ margin: "0 0 14px", fontSize: 13, color: "#94a3b8" }}>
-                Running total becomes <strong style={{ color: "#f1f5f9" }}>{proposed.newTotal}</strong> (was {proposed.currentTotal}).
+                Running total becomes <strong style={{ color: "#f1f5f9" }}>{activeProposed.newTotal}</strong> (was {activeProposed.currentTotal}).
               </p>
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setProposed(null); }} disabled={saving} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-                <button onClick={confirmCorrection} disabled={saving} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{saving ? "Applying…" : "Confirm change"}</button>
+                <button onClick={cancelActive} disabled={isBusy} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
+                <button onClick={confirmActive} disabled={isBusy} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{isBusy ? "Applying…" : "Confirm change"}</button>
               </div>
             </div>
           )}
 
-          {/* Parse & Save */}
-          {!proposed && (
+          {/* Type-to-capture fallback (collapsed — voice is the primary path) */}
+          {!typing ? (
             <button
-              onClick={() => handleSave()}
-              disabled={!canSave}
+              onClick={() => setTyping(true)}
               style={{
-                width: "100%", padding: "16px",
-                borderRadius: 14, border: "none",
-                background: canSave ? "#1e2a4a" : "#0f172a",
-                color: canSave ? "#f1f5f9" : "#334155",
-                fontWeight: 700, fontSize: 16,
-                cursor: canSave ? "pointer" : "not-allowed",
-                transition: "background 0.15s, color 0.15s",
-                letterSpacing: "0.01em",
+                width: "100%", padding: "10px 16px",
+                background: "transparent", border: "1px dashed #1e2a4a",
+                borderRadius: 12, cursor: "pointer",
+                color: "#475569", fontSize: 13, fontWeight: 600,
               }}
             >
-              {saving ? "Saving…" : "Parse & Save"}
+              ⌨ Type instead
             </button>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                placeholder="Type your update — materials, hours, issues…"
+                rows={4}
+                disabled={isBusy}
+                autoFocus
+                style={{
+                  width: "100%", padding: "14px 16px", borderRadius: 14,
+                  border: "1.5px solid #1e2a4a",
+                  fontSize: 15, lineHeight: 1.6, resize: "vertical",
+                  color: "#f1f5f9", background: "#0f172a",
+                  outline: "none", transition: "border-color 0.15s",
+                  fontFamily: "inherit",
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = "#2d3f6e"; }}
+                onBlur={e => { e.currentTarget.style.borderColor = "#1e2a4a"; }}
+              />
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => { setTyping(false); setText(""); }}
+                  disabled={savingText}
+                  style={{ flex: 1, padding: "13px", borderRadius: 12, border: "1.5px solid #1e2a4a", background: "transparent", color: "#64748b", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTyped}
+                  disabled={!text.trim() || !selectedJobId || isBusy}
+                  style={{
+                    flex: 2, padding: "13px", borderRadius: 12, border: "none",
+                    background: text.trim() && selectedJobId && !isBusy ? "#1e2a4a" : "#0f172a",
+                    color: text.trim() && selectedJobId && !isBusy ? "#f1f5f9" : "#334155",
+                    fontWeight: 700, fontSize: 15,
+                    cursor: text.trim() && selectedJobId && !isBusy ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {savingText ? "Saving…" : "Save update"}
+                </button>
+              </div>
+            </div>
           )}
 
           {/* RECENT */}

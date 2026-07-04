@@ -12,6 +12,7 @@
 // Requires the Vapi assistant's System Prompt = {{systemPrompt}} and First Message
 // = {{greeting}} for the call to adapt (no per-vertical Vapi assistant needed).
 
+import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
@@ -82,10 +83,20 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   const afterHoursGreeting = `Thanks for calling ${opts.companyName}. The office is closed, but I'm ${agentName} — I can take your details and the team will follow up first thing.`;
   const now = Date.now();
 
+  // 0. Ensure the business has a stable field key — the QR link carries it so
+  //    unauthenticated crews/prospects can use the public /field screen. Generated
+  //    once; kept stable across launches so printed QRs stay valid.
+  const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
+  const existing = await base.get();
+  let fieldKey: string = existing.data()?.fieldKey ?? "";
+  if (typeof fieldKey !== "string" || fieldKey.length < 16) {
+    fieldKey = randomBytes(16).toString("hex");
+  }
+
   // 1. Reconfigure the live-line business to this vertical + prospect. The webhook's
   //    dynamic prompt reads these fields, so the live call adapts to the industry.
-  const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
   await base.update({
+    fieldKey,
     industry: opts.verticalId,
     businessName: opts.companyName,
     notificationEmail: opts.email,
@@ -146,5 +157,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     businessId: LIVE_LINE_BUSINESS_ID,
     phone: LIVE_LINE_PHONE,
     demoUrl: `https://ai-roof.vercel.app/company/dashboard?preview=${LIVE_LINE_BUSINESS_ID}`,
+    // Secured public field link — the key authorizes the QR flow without a login.
+    fieldUrl: `https://ai-roof.vercel.app/field?businessId=${LIVE_LINE_BUSINESS_ID}&key=${fieldKey}`,
   };
 }

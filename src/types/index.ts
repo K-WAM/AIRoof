@@ -34,6 +34,9 @@ export interface BusinessConfig {
   // Vapi integration (per-business voice agent on Vapi platform)
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  // Per-business field access key — carried by the public /field QR link so
+  // unauthenticated crews can submit voice updates (see verifyFieldAccess).
+  fieldKey?: string;
   // Outbound callback / follow-up config
   callbackDelayMinutes?: number;   // 0 = immediate on lead; undefined = disabled
   followUpDays?: number[];         // e.g. [3, 7] — days after initial call with no booking

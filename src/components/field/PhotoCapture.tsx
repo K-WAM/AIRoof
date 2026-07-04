@@ -8,12 +8,15 @@ import { processPhoto, type ProcessedPhoto } from "@/lib/photos/clientResize";
 export function PhotoCapture({
   jobId,
   businessId,
+  fieldKey,
   submittedBy,
   disabled,
   onUploaded,
 }: {
   jobId: string | null;
   businessId: string;
+  /** Per-business field key (from the QR link) — authorizes unauthenticated uploads. */
+  fieldKey?: string;
   submittedBy?: string;
   disabled?: boolean;
   onUploaded?: () => void;
@@ -49,7 +52,10 @@ export function PhotoCapture({
     try {
       const res = await fetch(`/api/jobs/${jobId}/photos`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(fieldKey ? { "x-field-key": fieldKey } : {}),
+        },
         body: JSON.stringify({ businessId, label: label.trim(), thumbB64: photo.thumbB64, fullB64: photo.fullB64, uploadedBy: submittedBy, w: photo.w, h: photo.h }),
       });
       const data = await res.json();

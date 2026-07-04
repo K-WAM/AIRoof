@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
 import { buildProjection, resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
 import type { FieldUpdate } from "@/types/jobs";
 
-// GET /api/jobs/[jobId]/updates?businessId=xxx
+// GET /api/jobs/[jobId]/updates?businessId=xxx (session or field key)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -64,6 +68,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
+
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
@@ -94,12 +101,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ error: "rawText required" }, { status: 400 });
   }
 
-  // ── Parse + correction detection ──
+  // ── Parse + correction detection — industry-aware (multi-vertical platform) ──
+  const bizSnap = await db.collection("businesses").doc(businessId).get();
+  const biz = bizSnap.data();
   let parsed;
   try {
     parsed = await parseFieldUpdate({
       rawText: rawText.trim(),
-      businessName: businessName ?? "the business",
+      businessName: biz?.businessName ?? businessName ?? "the business",
+      industry: biz?.industry,
       language,
       jobContext,
     });

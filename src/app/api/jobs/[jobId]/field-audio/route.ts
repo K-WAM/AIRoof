@@ -2,11 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
 import { buildProjection, resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
 import type { FieldUpdate } from "@/types/jobs";
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+
+// Whisper accepts a free-text prompt that biases recognition toward expected
+// vocabulary. Feeding it the job's names + trade terms materially improves
+// accuracy on noisy job sites (client names, "squares", "underlayment", etc.).
+function buildWhisperPrompt(jobContext?: { title?: string; address?: string; serviceType?: string; clientName?: string }): string {
+  const context = [jobContext?.title, jobContext?.clientName, jobContext?.address, jobContext?.serviceType]
+    .filter(Boolean)
+    .join(", ");
+  return [
+    context ? `Job-site field update for: ${context}.` : "Job-site field update from a service crew.",
+    "May include materials with quantities (squares of shingles, bundles, rolls of underlayment, drip edge, flashing, plywood, OSB, 2x4s, nails),",
+    "crew member first names, arrival and departure times, hours worked, and issues found (leak, rot, mold, damaged, cracked).",
+    "Corrections sound like: make that 120 not 150, scratch that, I meant.",
+  ].join(" ");
+}
 
 async function loadLedger(db: FirebaseFirestore.Firestore, businessId: string, jobId: string): Promise<FieldUpdate[]> {
   const snap = await db.collection(`businesses/${businessId}/jobs/${jobId}/updates`).orderBy("createdAt", "asc").get();
@@ -39,6 +55,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
+  const gate = await verifyFieldAccess(req, businessId);
+  if ("error" in gate) return gate.error;
+
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
@@ -67,13 +86,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!audioBase64) return NextResponse.json({ error: "audioBase64 required" }, { status: 400 });
   if (!openai) return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
 
-  // 1. Transcribe with Whisper
+  // 1. Transcribe with Whisper — vocabulary-biased toward this job's names + trade terms
   let transcript: string;
   try {
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const ext = (mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
     const audioFile = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType || "audio/webm" });
-    const transcription = await openai.audio.transcriptions.create({ model: "whisper-1", file: audioFile });
+    const transcription = await openai.audio.transcriptions.create({
+      model: "whisper-1",
+      file: audioFile,
+      prompt: buildWhisperPrompt(jobContext),
+    });
     transcript = transcription.text.trim();
   } catch (err) {
     return NextResponse.json({ error: "Transcription failed", details: err instanceof Error ? err.message : String(err) }, { status: 500 });
@@ -82,10 +105,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ success: false, error: "No speech detected", transcript: "" });
   }
 
-  // 2. Parse + correction detection
+  // 2. Parse + correction detection — industry-aware (multi-vertical platform)
+  const bizSnap = await db.collection("businesses").doc(businessId).get();
+  const biz = bizSnap.data();
   const parsed = await parseFieldUpdate({
     rawText: transcript,
-    businessName: jobContext?.businessName || "the business",
+    businessName: biz?.businessName || jobContext?.businessName || "the business",
+    industry: biz?.industry,
     language: "en",
     jobContext,
   });

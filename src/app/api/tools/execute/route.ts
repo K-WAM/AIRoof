@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentAction } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import {
   checkAvailability,
   bookAppointment,
@@ -17,6 +18,11 @@ interface ExecuteToolRequest {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<any | { error: string }>> {
+  // Tool test endpoint (live calls execute tools via the Vapi webhook).
+  // Superadmin-only — books/escalates/creates leads, so it must not be public.
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+
   try {
     const body: ExecuteToolRequest = await request.json();
     const { businessId, callId, toolName, input } = body;

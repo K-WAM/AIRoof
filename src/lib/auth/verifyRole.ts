@@ -87,3 +87,46 @@ export async function verifySuperadmin(
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   return verifyAuthAndRole(req, "", ["superadmin"]);
 }
+
+/**
+ * Guard for the field data plane (jobs list, voice updates, photos). Two ways in:
+ *   1. A logged-in session with any role on the business (or superadmin) — covers
+ *      staff opening /field while signed in (same-origin fetch sends the cookie).
+ *   2. A per-business field key — `x-field-key` header or `?key=` query param —
+ *      matching `businesses/{businessId}.fieldKey`. This is what the QR code
+ *      carries so unauthenticated crews can submit voice updates from a phone.
+ *
+ * Secure by default: a business with no fieldKey configured has NO anonymous
+ * access — only sessions pass.
+ */
+export async function verifyFieldAccess(
+  req: NextRequest,
+  businessId: string
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  if (!businessId) {
+    return { error: NextResponse.json({ error: "businessId required" }, { status: 400 }) };
+  }
+
+  // Path 1: session (staff/owner/viewer of this business, or superadmin)
+  if (req.cookies.get("__session")?.value) {
+    const byRole = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+    if ("user" in byRole) return byRole;
+    // fall through — a stale/foreign session may still carry a valid field key
+  }
+
+  // Path 2: field key from the QR link
+  const key = req.headers.get("x-field-key") ?? req.nextUrl.searchParams.get("key");
+  if (key) {
+    const db = getAdminFirestore();
+    if (!db) {
+      return { error: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
+    }
+    const snap = await db.collection("businesses").doc(businessId).get();
+    const fieldKey = snap.data()?.fieldKey;
+    if (typeof fieldKey === "string" && fieldKey.length >= 16 && fieldKey === key) {
+      return { user: { uid: `field:${businessId}`, superadmin: false, role: "viewer", businessId } };
+    }
+  }
+
+  return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
+}

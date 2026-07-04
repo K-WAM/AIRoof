@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCustomerConfirmation } from "@/lib/notify";
 import { Resend } from "resend";
 
@@ -22,6 +23,9 @@ export async function POST(request: NextRequest) {
   if (!businessId || !appointmentId) {
     return NextResponse.json({ error: "businessId and appointmentId required" }, { status: 400 });
   }
+
+  const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const [apptDoc, bizDoc] = await Promise.all([
     db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).get(),
