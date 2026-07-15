@@ -161,7 +161,16 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 - [ ] **6. Fix or drop the Stop hook.** It calls `graphify auto-update .` — a command that has never existed (see the graphify section in CLAUDE.md). It fails silently, which is why the graph was missing. Rebuild is the `/graphify` skill, not a CLI command.
 - [ ] **7. Smoke-test the field QR** on a real phone: scan → `/field` → hold-to-speak → update lands on the job.
 
-### Backlog (unchanged)
+### Backlog
+
+- [ ] **Demo data should look like a business in full swing, not a startup.** (Raised 2026-07-15 after seeing roofing demo with a single crew, "Jaunas" — that's the pre-`6adc26a` state; the shipped seed gives 3 crews + 3 jobs. Still too thin.) A one-crew, three-job board showcases nothing: no parallelism, no conflicts, no "this is what Monday actually looks like." Target **~5–6 resources and ~12–18 jobs/bookings per vertical**, spread across the visible week so the Calendar reads busy at a glance.
+  - Edit `RESOURCES` + the `jobs`/`appointments` builders in `src/lib/verticals/demoSeed.ts` — it's the single place; every vertical flows from it.
+  - **Mix the states** so the board tells a story rather than looking uniform: some confirmed (solid, crew-colored), some provisional/unconfirmed (grey dashed), 2–3 left in Unscheduled/Unassigned so there's always something to drag live. Vary status across the job stepper (inspection / quoted / in_progress / invoiced) so Jobs + Dashboard don't read as one flat list.
+  - **Per-industry names must stay real, not filler** — the point is a prospect recognizing their own operation. Roofing: crews (Carlos, Tyler, Storm Response, +Gutter, +Repairs). HVAC: named techs + an after-hours on-call. Cleaning: Team A/B/C + Deep Clean + Post-Construction. GC: trade crews (framing, drywall, finish, concrete). Dental: 2–3 dentists + 2 hygienists (+ ops/chairs if useful). Prop Mgmt: plumbing/electrical/HVAC vendors + on-call manager + turnover crew.
+  - Keep `jobCounter` advancing past the seeded ids (see the 07-15 collision fix) and keep at least one after-hours `pendingConfirmation` booking with an email for the Dashboard approval demo.
+  - Watch the write cost: seeding is one Firestore batch per launch on the free Spark plan; ~18 jobs × 7 verticals is still trivial, but don't let it balloon into per-job subcollection writes.
+  - Re-verify per vertical with a throwaway `npx tsx` script (rows > 0, draggable > 0, states varied) the way the 07-15 session did.
+
 - **26 lint warnings** now visible via `npm run lint` — mostly `<img>` → `next/image` and `react-hooks/exhaustive-deps`. `no-explicit-any` is a warning, not an error: 10 pre-existing `any`s in webhook/tools/cron payloads. Tighten to `error` once those payload types are filled in.
 - **Intake Calendar depth**: Dental/Prop-Mgmt Calendar assigns bookings to a provider/vendor on a day. If a prospect asks for a true time-grid day view (chairs × hours), that's a build — not a gap in the pitch today.
 - **Email deliverability** — verify `RESEND_FROM` uses a verified domain.
