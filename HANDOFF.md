@@ -5,7 +5,11 @@ Last updated: 2026-07-15 (industry-applicability pass: 7 verticals, adaptive Cal
 
 **Completion: ~98%** — live at https://ai-roof.vercel.app. Everything below is shipped and (where noted) verified in production.
 
-> ⚠️ **Not yet deployed or click-tested.** This session's work is `tsc` clean, `npm run lint` clean, `next build` green, and the seed logic is verified per-vertical by script — but the drag-to-assign Calendar path is **new code that no human has clicked**. Auth-gated pages can't be driven headlessly. See "Next" below.
+**Pushed to `main` as `6adc26a`** (2026-07-15, 34 files, +5564/−842). Vercel auto-deploys from main — confirm the deployment went green.
+
+> ⚠️ **Not click-tested.** This session's work is `tsc` clean, `npm run lint` clean (0 errors), `next build` green, and the seed logic is verified per-vertical by script — but the drag-to-assign Calendar path is **new code that no human has clicked**. Auth-gated pages can't be driven headlessly. See "Pending / Next" below.
+
+**Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
 
 ---
 
@@ -147,12 +151,24 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 
 ## Pending / Next
 
-**Do these first (2026-07-15 session):**
-1. **Deploy, then launch each vertical once from Demo Studio.** A launch is what seeds resources/jobs *and* mints demo-roofing's fieldKey. Until a vertical is launched, its Calendar has no rows.
-2. **Click the new drag-to-assign path** — launch **Dental** → Calendar → drag the unassigned booking onto *Dr. Rivera* → **Confirm + email**. This is new code, verified only by build + seed script (auth-gated pages can't be driven headlessly).
-3. **Decide: Roofus or Alice?** The roofing template says the agent is "Roofus" (so a real onboarded roofing tenant is Roofus) but the live demo line answers as "Alice", and `pitch-deck.html` says "Meet Roofus". Behavior is preserved and self-consistent either way — it just needs one brand decision, then delete `DEMO_AGENT_NAME_OVERRIDE` in `templates.ts`.
-4. **Vapi**: no change needed for Cleaning or any new vertical — the prompt/greeting are dynamic (`{{systemPrompt}}`/`{{greeting}}`) and all 7 tools are industry-generic. **One thing worth checking in the dashboard** (needs `VAPI_API_KEY`, which is Sensitive in Vercel and can't be read back): confirm `address` is **not** in `bookAppointment`'s `required` array — if it is, the model will ask dental patients for a street address regardless of the prompt.
-5. **Stop hook is broken**: it calls `graphify auto-update .`, which doesn't exist (see CLAUDE.md). Fix or drop it — it's why the graph was missing.
+### TODO — next session, in order
+
+- [ ] **1. Confirm the Vercel deploy of `6adc26a` went green.** `npx vercel ls` or the dashboard.
+- [ ] **2. Launch each vertical once from Demo Studio** (`/admin/demo`). A launch is what seeds resources/jobs **and** mints demo-roofing's fieldKey. **Until a vertical is launched, its Calendar has no rows** — do this before any client meeting.
+- [ ] **3. Click the new drag-to-assign path (highest risk).** Launch **Dental** → Calendar → drag the unassigned booking onto *Dr. Rivera* → **Confirm + email**. New code, verified only by build + seed script. Then repeat for a field-service vertical (drag a job onto a crew → Confirm + email crew).
+- [ ] **4. Verify a dental call doesn't ask for a street address.** Dial +1 (754) 283-7658 after launching Dental, say *"I chipped a tooth"*. If it asks for an address, `address` is in `bookAppointment`'s `required` array in the Vapi dashboard → remove it from `required` (like `email` already is). This is the one thing needing the Vapi dashboard; **no Vapi change was needed to add Cleaning** (prompt/greeting are dynamic, all 7 tools are industry-generic).
+- [ ] **5. Decide: Roofus or Alice?** The roofing template says "Roofus" (real onboarded roofing tenants get Roofus), the live demo line answers as "Alice", `pitch-deck.html` says "Meet Roofus". Behavior is preserved and self-consistent either way — it needs one brand decision, then delete `DEMO_AGENT_NAME_OVERRIDE` in `templates.ts` and align the deck.
+- [ ] **6. Fix or drop the Stop hook.** It calls `graphify auto-update .` — a command that has never existed (see the graphify section in CLAUDE.md). It fails silently, which is why the graph was missing. Rebuild is the `/graphify` skill, not a CLI command.
+- [ ] **7. Smoke-test the field QR** on a real phone: scan → `/field` → hold-to-speak → update lands on the job.
+
+### Backlog (unchanged)
+- **26 lint warnings** now visible via `npm run lint` — mostly `<img>` → `next/image` and `react-hooks/exhaustive-deps`. `no-explicit-any` is a warning, not an error: 10 pre-existing `any`s in webhook/tools/cron payloads. Tighten to `error` once those payload types are filled in.
+- **Intake Calendar depth**: Dental/Prop-Mgmt Calendar assigns bookings to a provider/vendor on a day. If a prospect asks for a true time-grid day view (chairs × hours), that's a build — not a gap in the pitch today.
+- **Email deliverability** — verify `RESEND_FROM` uses a verified domain.
+- **Verify the PDF print fix live** — job → Generate Invoice → Print/Save as PDF.
+- **UX follow-ups**: the two field screens still differ visually (public `/field` purple vs `/company/field` orange — behavior already matches); onboarding "wizard" → real stepper; sticky save bars on long forms.
+- **Vestigial**: per-vertical demo businesses (`demo-hvac`, `demo-dental`, …) are unused now that every launch reconfigures `demo-roofing`. Harmless; the guide no longer points at them.
+- **Post-MVP** — Google Calendar per-business OAuth, Stripe billing, SMS (Twilio A2P 10DLC).
 - ~~Mobile responsiveness~~ — done 2026-07-04 (hamburger nav).  ~~Skeleton loaders~~ — done 2026-07-04. ~~Crew color picker~~ — done 2026-07-04.
 - **UX follow-ups (audit bigger-bets not yet done):** unify the two field screens' *visuals* (public `/field` is purple, `/company/field` is orange — behavior now matches since both use `useFieldAudio`, but the color schemes still differ); onboarding "wizard" → real stepper or honest anchor list; sticky save bars + dirty-state on long admin/company forms.
 - **Email deliverability** — confirm `RESEND_FROM` uses a verified domain so customer confirmation emails land cleanly.
