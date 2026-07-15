@@ -4,24 +4,23 @@
 
 ## Code Navigation — Read Graphify Before Broad Work
 
-`graphify-out/graph.json` is the project knowledge graph (127 files, 229 symbols). Read it before opening many files.
+`graphify-out/graph.json` is the project knowledge graph — **882 nodes, 1639 edges, 75 communities** (rebuilt 2026-07-15). Read it before opening many files. `graphify-out/GRAPH_REPORT.md` is the human-readable audit (god nodes, surprising connections, suggested questions).
 
-**Two ways to use it:**
+**Ways to use it:**
 
-1. **Symbol lookup** — find where anything is defined without Grep:
+1. **Ask a question** — answered from the graph, no rebuild:
    ```
-   graphify query graphify-out/graph.json <name>
-   # e.g.: graphify query graphify-out/graph.json useBusinessId
-   # → src/hooks/useBusinessId.ts:6
+   graphify query "how does field access auth work?"
+   graphify explain "useBusinessModules"
+   graphify path "CompanyNav" "VERTICAL_TEMPLATES"
    ```
-
 2. **Full graph scan** — read `graphify-out/graph.json` directly to orient before a broad investigation.
 
-**Keep it fresh:**
-- `graphify build .` — full re-index (run after adding many new files)
-- `graphify auto-update .` — incremental update from git diff (runs automatically via Stop hook after each response)
+**Rebuild it** by invoking the **`/graphify` skill** (not a CLI command). `/graphify .` full-rebuilds; `/graphify . --update` re-extracts only changed files.
 
-The Stop hook keeps it current during active work. Run `graphify build .` manually at session start if the project has had major structural changes since the last session.
+⚠️ **The CLI has no `build`, `auto-update`, or `query <graph.json> <symbol>` command** — those were documented here for months and never existed (`graphify --help` lists the real set: query/path/explain/diagnose/install/add/merge-graphs). Any Stop hook calling `graphify auto-update .` fails silently, which is why the graph can go stale or missing. Rebuild via the skill at session start after big structural changes.
+
+**Interpreter note:** graphify is installed as a **uv tool**, so its Python is `C:/Users/karee/AppData/Roaming/uv/tools/graphifyy/Scripts/python.exe` — a bare `python -c "import graphify"` fails. The skill writes this path to `graphify-out/.graphify_python`.
 
 ## Onboarding & Demo Guide
 The file `public/guides/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. It is served live at `/guides/onboarding-guide.html` and embedded in the superadmin portal at `/admin/guide`. Open it in a browser and print → Save as PDF to generate the PDF version.
@@ -35,7 +34,19 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: (2026-07-04) Mobile hamburger nav, skeleton loaders, crew color picker, Demo Playbook "forgot everything" cheat sheet. (2026-07-03) Data-plane locked down — `verifyFieldAccess()`/fieldKey guard all jobs/field APIs, one-tap field voice on public `/field`, industry-aware AI parsing. (2026-06-28) UX overhaul — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
+**Status**: (2026-07-15) **Industry-applicability pass** — 7 verticals (added **Cleaning**); every industry keeps a Calendar but the board adapts (`calendarMode: "jobs" | "appointments"` — drag jobs onto crews, or bookings onto providers/vendors); `useBusinessModules()` is the single source for which tabs/vocab a tenant gets; Demo Studio is client-safe (pitch script behind **Presenter notes**); every Demo Studio launch now seeds resources + jobs so the Calendar is never empty; dead code removed; `npm run lint` works for the first time. (2026-07-04) Mobile hamburger nav, skeleton loaders, crew color picker, Demo Playbook "forgot everything" cheat sheet. (2026-07-03) Data-plane locked down — `verifyFieldAccess()`/fieldKey guard all jobs/field APIs, one-tap field voice on public `/field`, industry-aware AI parsing. (2026-06-28) UX overhaul — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
+
+## Industry-Applicability Rule (read before touching company UI)
+
+A tenant must only ever see tools that apply to *their* industry — a dental office must never see "roofing jobs". Everything flows from **`src/lib/verticals/templates.ts`** (the single source of truth):
+
+- **Adding a vertical = one template block.** `Record<VerticalId, …>` types make `tsc` fail until every consumer handles it. Never hardcode a per-industry list (a `Set` of field-service verticals, an agent-name map) — derive it from the template, or it silently drifts.
+- **`disabledModules`**: `"jobs"` (Jobs + Field tabs) · `"pricing"` (Library's materials/labor catalog) · `"library"`. **Dashboard/Calls/Pipeline/Calendar/Settings/Guide are universal — never hide them.** A missing tab in a live demo is a lost deal; adapt the tab instead.
+- **`calendarMode`**: `"jobs"` = drag jobs onto crews · `"appointments"` = drag bookings onto providers/vendors. Every industry gets a real Calendar.
+- **`vocab`**: job/customer/resource nouns + placeholders + the field-voice example. Read it via `useBusinessModules()` — never hardcode "Crew"/"Job"/"shingles" in a shared page.
+- **Consume via `useBusinessModules()`** (`isEnabled(module)`, `vocab`, `calendarMode`). It fails *open* (unknown industry keeps every tab) and is sessionStorage-cached. Route-gating lives in one place: `MODULE_ROUTES` in `src/app/company/layout.tsx`.
+- **Agent prompt is fully config-driven** (`buildAgentPrompt`) — no industry hardcoding, no per-vertical Vapi assistant. Extra per-industry booking fields (DOB, insurance, unit no.) go in the booking tool's `notes`.
+- **Demo data**: `demoSeedFor()` must seed resources + something draggable for every vertical, or the Calendar demos empty.
 **Estimated Completion**: 98%
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof

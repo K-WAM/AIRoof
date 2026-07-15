@@ -16,7 +16,7 @@ import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
-import { VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
+import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
@@ -26,14 +26,8 @@ const DEFAULT_EMAIL = "kwamwad@gmail.com";
 const ROOFING_DEFAULT_NAME = "Apex Roofing South Florida";
 
 // The live voice is one assistant; the persona name adapts via the prompt/greeting.
-const AGENT_NAME: Record<VerticalId, string> = {
-  roofing: "Alice",
-  hvac: "Claire",
-  landscaping: "Maya",
-  dental: "Aria",
-  "property-management": "Val",
-  "general-contractors": "Rex",
-};
+// Resolved from the shared template helper so the Demo Studio screen and the live
+// call always agree on the name (see demoAgentName).
 
 function resolveVerticalId(v?: string | null): VerticalId {
   return v && VERTICAL_TEMPLATES[v as VerticalId] ? (v as VerticalId) : "roofing";
@@ -78,7 +72,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   if (!db) return { ok: false, error: "Firestore not available" };
 
   const t = VERTICAL_TEMPLATES[opts.verticalId];
-  const agentName = AGENT_NAME[opts.verticalId];
+  const agentName = demoAgentName(opts.verticalId);
   const greeting = `Thanks for calling ${opts.companyName}, this is ${agentName}. How can I help?`;
   const afterHoursGreeting = `Thanks for calling ${opts.companyName}. The office is closed, but I'm ${agentName} — I can take your details and the team will follow up first thing.`;
   const now = Date.now();
@@ -114,9 +108,10 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     updatedAt: now,
   });
 
-  // 2. Reseed sample calls/leads/appointments so the dashboard reads as this industry.
+  // 2. Reseed sample data so every surface reads as this industry — including the
+  //    Calendar, which needs resource rows and something unassigned to drag.
   const seed = demoSeedFor(opts.verticalId, now);
-  for (const sub of ["calls", "leads", "appointments"] as const) {
+  for (const sub of ["calls", "leads", "appointments", "crews", "jobs"] as const) {
     const snap = await base.collection(sub).get();
     if (!snap.empty) {
       const del = db.batch();
@@ -125,6 +120,29 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     }
   }
   const add = db.batch();
+
+  // Resources first — appointments/jobs below reference them by id.
+  const resourceIds = seed.resources.map(() => base.collection("crews").doc());
+  seed.resources.forEach((r, i) => {
+    add.set(resourceIds[i], {
+      ...r, crewId: resourceIds[i].id, businessId: LIVE_LINE_BUSINESS_ID,
+      active: true, createdAt: now,
+    });
+  });
+
+  // Job ids are handed out from the business's jobCounter (see POST /api/jobs), so
+  // seeding fixed ids without advancing it would let the next real job collide
+  // with — and overwrite — a seeded one.
+  seed.jobs.forEach((j, i) => {
+    const jobId = `J-${1001 + i}`;
+    add.set(base.collection("jobs").doc(jobId), {
+      ...j, jobId, businessId: LIVE_LINE_BUSINESS_ID,
+      createdAt: now - (i + 1) * 86_400_000, updatedAt: now,
+    });
+  });
+  if (seed.jobs.length > 0) {
+    add.update(base, { jobCounter: 1000 + seed.jobs.length });
+  }
   seed.calls.forEach((c, i) => {
     const createdAt = now - (i + 1) * 3_600_000;
     const duration = 60 + i * 25;
@@ -140,9 +158,15 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     });
   });
   seed.appointments.forEach((a) => {
+    const { resourceIndex, ...appt } = a;
     add.set(base.collection("appointments").doc(), {
-      ...a, businessId: LIVE_LINE_BUSINESS_ID, endTime: a.startTime + 3_600_000,
+      ...appt, businessId: LIVE_LINE_BUSINESS_ID, endTime: a.startTime + 3_600_000,
       calendarProvider: "mock", createdAt: now, updatedAt: now,
+      // Intake verticals open with a populated board; one booking stays
+      // unassigned on purpose so there's always a card to drag in the demo.
+      ...(resourceIndex !== undefined && resourceIds[resourceIndex]
+        ? { assignedCrewId: resourceIds[resourceIndex].id }
+        : {}),
     });
   });
   await add.commit();

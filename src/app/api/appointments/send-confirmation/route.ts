@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
             contactEmail: brand.contactEmail,
             callerName: (appt.callerName as string) ?? "Valued Customer",
             callerPhone: (appt.callerPhone as string) ?? "—",
-            serviceType: (appt.serviceType as string) ?? "Inspection",
+            serviceType: (appt.serviceType as string) ?? "Appointment",
             address: (appt.address as string) ?? "Address not provided",
             apptDate,
             appointmentId,
@@ -153,7 +153,7 @@ function confirmationEmailHtml(p: {
   </td></tr>
   <tr><td style="padding:12px 32px 16px;">
     <h1 style="margin:0 0 4px;font-size:20px;font-weight:700;color:#0f172a;">Appointment Confirmed</h1>
-    <p style="margin:0;font-size:14px;color:#64748b;">Your AI receptionist booked and confirmed this inspection automatically.</p>
+    <p style="margin:0;font-size:14px;color:#64748b;">Your AI receptionist booked and confirmed this appointment automatically.</p>
   </td></tr>
   <tr><td style="padding:0 32px 24px;">
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">

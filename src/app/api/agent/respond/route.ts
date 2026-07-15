@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AgentResponse, BusinessConfig } from "@/types";
-import { getAdminFirestore, getAdminAuth } from "@/lib/firebase/admin";
+import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { classifyMessage, getOffTopicResponse } from "@/lib/ai/scopeClassifier";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
 
   try {
     const body: RespondRequest = await request.json();
-    const { businessId, callId, callerMessage, callerPhone, idToken } = body;
+    const { businessId, callId, callerMessage } = body;
 
     // Validate required fields
     if (!businessId || !callId || !callerMessage) {

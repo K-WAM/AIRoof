@@ -10,6 +10,16 @@ import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
+
+// Routes that only exist for industries using that module. Hiding the nav tab
+// isn't enough — a dental tenant typing /company/jobs must not land on it.
+// Calendar is deliberately absent: every industry gets one (see CalendarMode).
+const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
+  { prefix: "/company/jobs", module: "jobs" },
+  { prefix: "/company/field", module: "jobs" },
+  { prefix: "/company/library", module: "library" },
+];
 
 function CompanyShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -17,6 +27,15 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { ready: modulesReady, isEnabled } = useBusinessModules();
+
+  const blockedModule = MODULE_ROUTES.find(
+    (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
+  );
+
+  useEffect(() => {
+    if (blockedModule) router.replace("/company/dashboard");
+  }, [blockedModule, router]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -50,8 +69,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+  // Don't paint a module this industry doesn't use while the redirect lands.
+  if (blockedModule) return null;
 
-  const displayName = user.businessName ?? user.businessId ?? "Dashboard";
   const roleLabel = user.superadmin ? "Superadmin" : (user.role ?? "Viewer");
 
   return (

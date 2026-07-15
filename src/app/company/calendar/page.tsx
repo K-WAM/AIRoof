@@ -6,6 +6,7 @@ import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSe
 import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useSearchParams } from "next/navigation";
 import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
@@ -14,10 +15,12 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 interface Appointment {
   appointmentId: string;
   callerName?: string;
+  callerEmail?: string;
   serviceType?: string;
   startTime: number;
   status: string;
   pendingConfirmation?: boolean;
+  assignedCrewId?: string;
 }
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -43,10 +46,21 @@ function sameDay(aMs: number, b: Date): boolean {
 function dayAt8am(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0, 0).getTime();
 }
+/**
+ * Move a booking to another day without losing its time of day — a 10:30 cleaning
+ * dragged to Thursday is still at 10:30. (Jobs have no time, so they land at 8am.)
+ */
+function sameTimeOnDay(existingMs: number, day: Date): number {
+  const t = new Date(existingMs);
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), t.getHours(), t.getMinutes(), 0, 0).getTime();
+}
 
 export default function CalendarPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
+  // Field service drags jobs onto crews; intake drags bookings onto providers/vendors.
+  const apptMode = calendarMode === "appointments";
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
@@ -60,30 +74,34 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmedAppts, setConfirmedAppts] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const days = useMemo(() => Array.from({ length: fullWeek ? 7 : 5 }, (_, i) => addDays(weekStart, i)), [weekStart, fullWeek]);
 
   useEffect(() => {
-    if (!businessId) return;
+    // Wait for the industry so intake tenants never fire a jobs request.
+    if (!businessId || !modulesReady) return;
     Promise.all([
       fetch(`/api/company/crews?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ crews: [] })),
-      fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
+      apptMode
+        ? Promise.resolve({ jobs: [] })
+        : fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
     ])
       .then(([cr, jr]) => {
         setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
         setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete"));
       })
       .finally(() => setLoading(false));
-  }, [businessId]);
+  }, [businessId, modulesReady, apptMode]);
 
-  // Appointments via API (kept light) — load active appointments for the visible window.
+  // Appointments for the visible window. In jobs mode they're a read-only
+  // "Bookings" strip; in appointments mode they're the draggable cards.
   useEffect(() => {
     if (!businessId) return;
     const startMs = weekStart.getTime();
     const endMs = addDays(weekStart, 7).getTime();
-    fetch(`/api/jobs?businessId=${businessId}`).catch(() => {}); // warm
     import("firebase/firestore").then(async ({ collection, getDocs, query, where, orderBy }) => {
       const { db } = await import("@/lib/firebase/client");
       if (!db) return;
@@ -94,14 +112,21 @@ export default function CalendarPage() {
           where("startTime", "<=", endMs),
           orderBy("startTime", "asc"),
         ));
-        setAppts(snap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
+        setAppts(
+          snap.docs
+            .map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment))
+            .filter((a) => a.status !== "cancelled")
+        );
       } catch {
         setAppts([]);
       }
     });
   }, [businessId, weekStart]);
 
+  // The rail holds whatever still needs a resource: jobs with no crew/day,
+  // or bookings the agent took that nobody has been assigned to yet.
   const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId);
+  const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
 
   function flash(msg: string) {
     setToast(msg);
@@ -145,16 +170,69 @@ export default function CalendarPage() {
     }
   }
 
+  async function placeAppt(appointmentId: string, crewId: string, day: Date) {
+    const appt = appts.find((a) => a.appointmentId === appointmentId);
+    if (!appt) return;
+    const startTime = sameTimeOnDay(appt.startTime, day);
+    setAppts((prev) =>
+      prev.map((a) => (a.appointmentId === appointmentId ? { ...a, assignedCrewId: crewId, startTime } : a))
+    );
+    await fetch(`/api/appointments/${appointmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
+    }).catch(() => {});
+  }
+
+  async function unassignAppt(appointmentId: string) {
+    setAppts((prev) =>
+      prev.map((a) => (a.appointmentId === appointmentId ? { ...a, assignedCrewId: undefined } : a))
+    );
+    await fetch(`/api/appointments/${appointmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, assignedCrewId: null }),
+    }).catch(() => {});
+  }
+
+  // Confirming a booking emails the customer — same endpoint the Dashboard's
+  // after-hours "Confirm & notify" uses.
+  async function confirmAppt(appt: Appointment) {
+    setBusyJob(appt.appointmentId);
+    try {
+      const res = await fetch(`/api/appointments/send-confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, appointmentId: appt.appointmentId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAppts((prev) =>
+          prev.map((a) =>
+            a.appointmentId === appt.appointmentId
+              ? { ...a, status: "confirmed", pendingConfirmation: false }
+              : a
+          )
+        );
+        setConfirmedAppts((prev) => new Set(prev).add(appt.appointmentId));
+        flash(
+          data.notifiedCustomer
+            ? `Confirmed & ${vocab.customerNoun.toLowerCase()} emailed ✓`
+            : "Confirmed (no email on file)"
+        );
+      }
+    } finally {
+      setBusyJob(null);
+    }
+  }
+
   function onDragEnd(e: DragEndEvent) {
-    const jobId = e.active.id as string;
+    const id = e.active.id as string;
     const over = e.over?.id as string | undefined;
     if (!over) return;
     const [crewId, dayStr] = over.split("|");
-    placeJob(jobId, crewId, Number(dayStr));
-  }
-
-  function crewOf(id?: string): Crew | undefined {
-    return crews.find((c) => c.crewId === id);
+    if (apptMode) placeAppt(id, crewId, new Date(Number(dayStr)));
+    else placeJob(id, crewId, Number(dayStr));
   }
 
   if (loading) return <PageSkeleton rows={5} />;
@@ -166,11 +244,15 @@ export default function CalendarPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">Calendar</h1>
-          <p className="page-subtitle">Your scheduling board — drag a job onto a crew &amp; day, then Confirm to email the crew and lock it in.</p>
+          <p className="page-subtitle">
+            {apptMode
+              ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.customerNoun.toLowerCase()}.`
+              : `Your scheduling board — drag a ${vocab.jobNoun.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.resourceNoun.toLowerCase()} and lock it in.`}
+          </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {toast && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
-          <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small">+ Manage crews</Link>
+          <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small">+ Manage {vocab.resourceNounPlural.toLowerCase()}</Link>
         </div>
       </header>
 
@@ -192,27 +274,39 @@ export default function CalendarPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 16, fontSize: 12, color: "var(--text-muted)" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px dashed #94a3b8", background: "#f8fafc", flexShrink: 0 }} />
-          Scheduled — not confirmed
+          {apptMode ? "Assigned — not confirmed" : "Scheduled — not confirmed"}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
-          Confirmed — crew emailed
+          Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : "crew"} emailed
         </span>
-        {crews.length > 0 && unscheduled.length > 0 && (
+        {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
-            <GripVertical size={14} /> Drag a job from the left onto any crew + day to schedule it.
+            <GripVertical size={14} /> Drag {apptMode ? "a booking" : `a ${vocab.jobNoun.toLowerCase()}`} from the left onto any {vocab.resourceNoun.toLowerCase()} + day to schedule it.
           </span>
         )}
       </div>
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16, alignItems: "start" }}>
-          {/* Unscheduled rail */}
+          {/* Needs-a-resource rail */}
           <section className="panel">
-            <div className="panel-header"><h2 className="panel-title" style={{ fontSize: 14 }}>Unscheduled ({unscheduled.length})</h2></div>
+            <div className="panel-header">
+              <h2 className="panel-title" style={{ fontSize: 14 }}>
+                {apptMode ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
+              </h2>
+            </div>
             <div className="panel-body" style={{ display: "grid", gap: 8, maxHeight: 560, overflowY: "auto" }}>
-              {unscheduled.length === 0 ? (
-                <p style={{ fontSize: 13, color: "#94a3b8" }}>All jobs scheduled 🎉</p>
+              {apptMode ? (
+                unassignedAppts.length === 0 ? (
+                  <p style={{ fontSize: 13, color: "#94a3b8" }}>
+                    Every booking this week has a {vocab.resourceNoun.toLowerCase()} 🎉
+                  </p>
+                ) : (
+                  unassignedAppts.map((a) => <ApptTile key={a.appointmentId} appt={a} tz={tz} />)
+                )
+              ) : unscheduled.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#94a3b8" }}>All {vocab.jobNounPlural.toLowerCase()} scheduled 🎉</p>
               ) : (
                 unscheduled.map((job) => <JobTile key={job.jobId} job={job} crew={undefined} />)
               )}
@@ -223,7 +317,7 @@ export default function CalendarPage() {
           <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff" }}>
             <div style={{ display: "grid", gridTemplateColumns: `140px repeat(${days.length}, minmax(150px, 1fr))`, minWidth: 700 }}>
               {/* Header row */}
-              <div style={{ padding: "12px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700, color: "#64748b" }}>Crew</div>
+              <div style={{ padding: "12px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700, color: "#64748b" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
                 const isToday = sameDay(Date.now(), d);
                 return (
@@ -234,9 +328,13 @@ export default function CalendarPage() {
                 );
               })}
 
-              {/* Bookings row (appointments, read-only) */}
-              <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>📅 Bookings</div>
-              {days.map((d) => {
+              {/* Bookings row — read-only context in jobs mode. In appointments mode
+                  the bookings are the draggable cards, so this strip would just
+                  duplicate the rows below it. */}
+              {!apptMode && (
+                <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>📅 Bookings</div>
+              )}
+              {!apptMode && days.map((d) => {
                 const dayAppts = appts.filter((a) => sameDay(a.startTime, d));
                 return (
                   <div key={d.toISOString()} style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 56, display: "grid", gap: 4 }}>
@@ -258,7 +356,10 @@ export default function CalendarPage() {
               {/* Crew rows */}
               {crews.length === 0 ? (
                 <div style={{ gridColumn: `1 / -1`, padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-                  No crews yet. <Link href={`/company/library${previewSuffix}`} style={{ color: "var(--accent)" }}>Add crews in the Library →</Link>
+                  No {vocab.resourceNounPlural.toLowerCase()} yet.{" "}
+                  <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} style={{ color: "var(--accent)" }}>
+                    Add {vocab.resourceNounPlural.toLowerCase()} in the Library →
+                  </Link>
                 </div>
               ) : (
                 crews.map((crew) => (
@@ -266,9 +367,14 @@ export default function CalendarPage() {
                     key={crew.crewId}
                     crew={crew}
                     days={days}
-                    jobs={jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
+                    jobs={apptMode ? [] : jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
+                    appts={apptMode ? appts.filter((a) => a.assignedCrewId === crew.crewId) : []}
+                    tz={tz}
                     onConfirm={confirmJob}
                     onUnschedule={unschedule}
+                    onConfirmAppt={confirmAppt}
+                    onUnassignAppt={unassignAppt}
+                    confirmedAppts={confirmedAppts}
                     busyJob={busyJob}
                     previewSuffix={previewSuffix}
                   />
@@ -282,15 +388,20 @@ export default function CalendarPage() {
   );
 }
 
-// ── Crew row with droppable day cells ─────────────────────────────────────────
+// ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, onConfirm, onUnschedule, busyJob, previewSuffix,
+  crew, days, jobs, appts, tz, onConfirm, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix,
 }: {
   crew: Crew;
   days: Date[];
   jobs: Job[];
+  appts: Appointment[];
+  tz: string;
   onConfirm: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
+  onConfirmAppt: (a: Appointment) => void;
+  onUnassignAppt: (appointmentId: string) => void;
+  confirmedAppts: Set<string>;
   busyJob: string | null;
   previewSuffix: string;
 }) {
@@ -304,6 +415,19 @@ function CrewRow({
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
           {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d)).map((job) => (
             <ScheduledTile key={job.jobId} job={job} crew={crew} onConfirm={onConfirm} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
+          ))}
+          {appts.filter((a) => sameDay(a.startTime, d)).map((appt) => (
+            <ScheduledApptTile
+              key={appt.appointmentId}
+              appt={appt}
+              crew={crew}
+              tz={tz}
+              onConfirm={onConfirmAppt}
+              onUnassign={onUnassignAppt}
+              busy={busyJob === appt.appointmentId}
+              justConfirmed={confirmedAppts.has(appt.appointmentId)}
+              previewSuffix={previewSuffix}
+            />
           ))}
         </DayCell>
       ))}
@@ -348,6 +472,92 @@ function JobTile({ job }: { job: Job; crew?: Crew }) {
         <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: "#1e293b" }}>{job.jobId}</div>
         <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{job.title}</div>
         {job.address && <div style={{ fontSize: 11, color: "#94a3b8" }}>{job.address}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Draggable booking tile (unassigned rail) ──────────────────────────────────
+function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  const pending = appt.pendingConfirmation || appt.status === "requested";
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      title="Drag onto a row + day to assign"
+      style={{
+        padding: "8px 10px 8px 6px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0",
+        cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
+        opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        touchAction: "none", display: "flex", gap: 6, alignItems: "flex-start",
+      }}
+    >
+      <GripVertical size={14} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
+          {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
+          {" · "}
+          {new Date(appt.startTime).toLocaleDateString("en-US", { weekday: "short", timeZone: tz })}
+        </div>
+        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{appt.callerName ?? "Booking"}</div>
+        {appt.serviceType && <div style={{ fontSize: 11, color: "#94a3b8" }}>{appt.serviceType}</div>}
+        {pending && (
+          <div style={{ fontSize: 9, fontWeight: 700, color: "#b45309", marginTop: 2 }}>UNCONFIRMED</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Placed booking tile (in a resource×day cell) ──────────────────────────────
+function ScheduledApptTile({
+  appt, crew, tz, onConfirm, onUnassign, busy, justConfirmed, previewSuffix,
+}: {
+  appt: Appointment;
+  crew: Crew;
+  tz: string;
+  onConfirm: (a: Appointment) => void;
+  onUnassign: (appointmentId: string) => void;
+  busy: boolean;
+  justConfirmed: boolean;
+  previewSuffix: string;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  const confirmed = appt.status === "confirmed" || justConfirmed;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        borderRadius: 8, overflow: "hidden",
+        border: confirmed ? `1px solid ${crew.color}` : "1px dashed #94a3b8",
+        background: confirmed ? `${crew.color}14` : "#f8fafc",
+        opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+      }}
+    >
+      <div {...listeners} {...attributes} style={{ padding: "6px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 5, alignItems: "flex-start" }}>
+        <GripVertical size={12} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 1, opacity: 0.8 }} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
+            {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
+          </div>
+          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {appt.callerName ?? "Booking"}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+        {!confirmed ? (
+          <button onClick={() => onConfirm(appt)} disabled={busy} title="Emails the customer their confirmed time" style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
+            {busy ? "Sending…" : "✓ Confirm + email"}
+          </button>
+        ) : (
+          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "5px", textAlign: "center", color: crew.color, textDecoration: "none" }}>
+            Open →
+          </Link>
+        )}
+        <button onClick={() => onUnassign(appt.appointmentId)} title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>⤺</button>
       </div>
     </div>
   );

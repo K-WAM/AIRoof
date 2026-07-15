@@ -31,10 +31,6 @@ function initializeAdmin() {
   }
 }
 
-export const getAdminApp = () => {
-  return initializeAdmin();
-};
-
 export const getAdminAuth = () => {
   const app = initializeAdmin();
   return app ? admin.auth(app) : null;

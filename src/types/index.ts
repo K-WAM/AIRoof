@@ -108,42 +108,6 @@ export interface BusinessIntegrationStatus {
   }>;
 }
 
-export interface BusinessIntegrationConnection {
-  connectionId: string;
-  businessId: string;
-  type:
-    | "calendar"
-    | "email"
-    | "sms"
-    | "voice"
-    | "crm"
-    | "notifications"
-    | "website_chat";
-  provider:
-    | "google-calendar"
-    | "outlook-calendar"
-    | "calendly"
-    | "resend"
-    | "sendgrid"
-    | "twilio"
-    | "jobber"
-    | "servicetitan"
-    | "gohighlevel"
-    | "hubspot"
-    | "salesforce"
-    | "slack"
-    | "teams"
-    | "custom";
-  status: "not_connected" | "connected" | "needs_attention" | "disabled";
-  displayName: string;
-  connectedByUid?: string;
-  connectedByEmail?: string;
-  lastCheckedAt?: number;
-  metadata?: Record<string, string | number | boolean>;
-  createdAt: number;
-  updatedAt: number;
-}
-
 // Call Session — complete conversation transcript (inbound or outbound)
 export interface CallSession {
   callId: string;
@@ -229,6 +193,9 @@ export interface Appointment {
   notes?: string;
   // Set when Alice books outside business hours — needs a one-click morning confirmation.
   pendingConfirmation?: boolean;
+  // Which crew/provider/vendor is taking this, assigned by dragging it on the
+  // Calendar. Only used by industries with calendarMode "appointments".
+  assignedCrewId?: string;
   createdAt: number;
   updatedAt: number;
 }

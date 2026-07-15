@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -13,6 +14,7 @@ type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced"
 export default function JobsPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const { vocab } = useBusinessModules();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
@@ -108,8 +110,8 @@ export default function JobsPage() {
             <form onSubmit={createJob}>
               <div className="form-grid">
                 <div className="field full">
-                  <label>Job title *</label>
-                  <input name="title" required placeholder="e.g. Roof inspection — 123 Main St" />
+                  <label>{vocab.jobNoun} title *</label>
+                  <input name="title" required placeholder={vocab.jobTitlePlaceholder} />
                 </div>
                 <div className="field">
                   <label>Client name</label>
@@ -125,7 +127,7 @@ export default function JobsPage() {
                 </div>
                 <div className="field">
                   <label>Service type</label>
-                  <input name="serviceType" defaultValue={prefillServiceType} placeholder="Shingle replacement" />
+                  <input name="serviceType" defaultValue={prefillServiceType} placeholder={vocab.serviceTypePlaceholder} />
                 </div>
                 <input type="hidden" name="appointmentId" value={prefillApptId} />
                 <div className="field full">

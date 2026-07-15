@@ -29,8 +29,6 @@ interface Settings {
 
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
-  const searchParams = useSearchParams();
-  const preview = searchParams?.get("preview");
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,8 +80,6 @@ export default function CompanySettingsPage() {
       setSaving(false);
     }
   }
-
-  const previewSuffix = preview ? `?preview=${preview}` : "";
 
   return (
     <>

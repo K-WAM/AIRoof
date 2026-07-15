@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -13,23 +12,21 @@ import {
   BookOpen,
   Settings,
   Compass,
+  type LucideIcon,
 } from "lucide-react";
-import { getDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
-import { VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
-import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 
-const LINKS = [
+const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyModule | null }[] = [
   { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard, module: null },
   { path: "/company/calls",     label: "Calls",     Icon: Phone,           module: null },
   { path: "/company/pipeline",  label: "Pipeline",  Icon: Workflow,        module: null },
   { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
   { path: "/company/field",     label: "Field",     Icon: Mic,             module: "jobs" },
-  { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: "calendar" },
+  { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
   { path: "/company/library",   label: "Library",   Icon: BookOpen,        module: "library" },
   { path: "/company/settings",  label: "Settings",  Icon: Settings,        module: null },
   { path: "/company/guide",     label: "Guide",     Icon: Compass,         module: null },
-] as const;
+];
 
 export function CompanyNav() {
   const pathname = usePathname();
@@ -37,24 +34,9 @@ export function CompanyNav() {
   const preview = searchParams?.get("preview");
   const suffix = preview ? `?preview=${preview}` : "";
 
-  const businessId = useBusinessId();
-  const [disabledModules, setDisabledModules] = useState<string[]>([]);
+  const { isEnabled } = useBusinessModules();
 
-  useEffect(() => {
-    if (!db || !businessId) return;
-    getDoc(doc(db, "businesses", businessId))
-      .then((snap) => {
-        if (!snap.exists()) return;
-        const industry = snap.data().industry as string | undefined;
-        const template = industry ? VERTICAL_TEMPLATES[industry as VerticalId] : undefined;
-        setDisabledModules(template?.disabledModules ?? []);
-      })
-      .catch(() => {});
-  }, [businessId]);
-
-  const visibleLinks = LINKS.filter(
-    (link) => !link.module || !disabledModules.includes(link.module)
-  );
+  const visibleLinks = LINKS.filter((link) => !link.module || isEnabled(link.module));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">

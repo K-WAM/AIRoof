@@ -9,14 +9,17 @@ import {
   Smile,
   Building,
   Hammer,
+  Sparkles,
   Presentation,
   ExternalLink,
   Copy,
   Phone,
+  Eye,
+  EyeOff,
   RotateCcw,
   type LucideIcon,
 } from "lucide-react";
-import { VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
+import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 
 type Step = "pick" | "prospect" | "launch";
 
@@ -41,18 +44,18 @@ const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
   roofing: HardHat,
   hvac: Wind,
   landscaping: Leaf,
+  cleaning: Sparkles,
   dental: Smile,
   "property-management": Building,
   "general-contractors": Hammer,
 };
 
-// Field-service verticals get a field QR; others get a dashboard QR
-const FIELD_SERVICE_VERTICALS: Set<VerticalId> = new Set([
-  "roofing",
-  "hvac",
-  "landscaping",
-  "general-contractors",
-]);
+// Field-service verticals get a field QR; others get a dashboard QR. Derived from
+// the template so a new vertical can't be forgotten here — a business has a field
+// screen exactly when it has the "jobs" module.
+function hasFieldScreen(verticalId: VerticalId): boolean {
+  return !VERTICAL_TEMPLATES[verticalId].disabledModules.includes("jobs");
+}
 
 // Phone numbers for voice-ready verticals — add entry when Vapi assistant is provisioned
 const VERTICAL_PHONE: Partial<Record<VerticalId, string>> = {
@@ -70,13 +73,14 @@ export default function DemoStudioPage() {
   const [result, setResult] = useState<ApplyResult | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<"phone" | "script" | "link" | null>(null);
+  const [scriptOpen, setScriptOpen] = useState(false);
 
   const selected = selectedId ? VERTICAL_TEMPLATES[selectedId] : null;
 
   // Regenerate QR whenever demoUrl/businessId changes
   useEffect(() => {
     if (!result?.businessId) return;
-    const isFieldService = selectedId && FIELD_SERVICE_VERTICALS.has(selectedId);
+    const isFieldService = selectedId && hasFieldScreen(selectedId);
     // fieldUrl carries the per-business field key — required for QR access without a login
     const qrUrl = isFieldService
       ? (result.fieldUrl ?? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`)
@@ -127,7 +131,7 @@ export default function DemoStudioPage() {
 
   async function resetDemo() {
     if (!selectedId) return;
-    if (!confirm("Reset this demo to default data? Any prospect personalization will be cleared.")) return;
+    if (!confirm("Reset this demo to default data? Any personalization will be cleared.")) return;
     setBusy("reset");
     try {
       await fetch(`/api/admin/demo-customize?verticalId=${selectedId}`, { method: "DELETE" });
@@ -154,7 +158,7 @@ export default function DemoStudioPage() {
   // The demo runs on one universal live line — the API returns its number for every
   // vertical (the line reconfigures to whatever you launched).
   const phone = result?.phone ?? (selectedId ? VERTICAL_PHONE[selectedId] : undefined);
-  const isFieldService = selectedId ? FIELD_SERVICE_VERTICALS.has(selectedId) : false;
+  const isFieldService = selectedId ? hasFieldScreen(selectedId) : false;
   const fieldUrl = result?.fieldUrl
     ?? (result?.businessId ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}` : "");
   const qrTargetUrl = isFieldService ? fieldUrl : (result?.demoUrl ?? "");
@@ -206,7 +210,7 @@ export default function DemoStudioPage() {
       <section style={{ marginTop: "2rem", display: step === "pick" ? "none" : "block" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "0.9rem" }}>
           <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", margin: 0 }}>
-            2 · Enter prospect info
+            2 · Personalize
           </p>
           <button onClick={changeVertical} style={ghostLinkStyle}>
             ← Change industry
@@ -217,14 +221,14 @@ export default function DemoStudioPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem", padding: "0.55rem 0.9rem", background: `${selected.color}18`, border: `1px solid ${selected.color}40`, borderRadius: 8, width: "fit-content" }}>
             {(() => { const Icon = VERTICAL_ICONS[selected.verticalId]; return <Icon size={15} strokeWidth={1.75} color={selected.color} />; })()}
             <span style={{ fontSize: "0.85rem", fontWeight: 600, color: selected.color }}>{selected.label}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>· {selected.agentName} is your agent</span>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>· {demoAgentName(selected.verticalId)} is your agent</span>
           </div>
         )}
 
         <form onSubmit={launch} style={formStyle}>
           <div style={fieldRowStyle}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Prospect company name</label>
+              <label style={labelStyle}>Company name</label>
               <input
                 type="text"
                 value={companyName}
@@ -301,7 +305,7 @@ export default function DemoStudioPage() {
                     </a>
                   </div>
                   <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.75rem" }}>
-                    Have the prospect call this number. {result?.agentName ?? selected.agentName} will greet them as <em>{companyName}</em>.
+                    Call this number — {result?.agentName ?? demoAgentName(selected.verticalId)} answers as <em>{companyName}</em>.
                   </p>
                 </>
               ) : (
@@ -332,7 +336,7 @@ export default function DemoStudioPage() {
               </a>
               <div style={{ marginTop: "1.25rem" }}>
                 <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.7rem" }}>
-                  {isFieldService ? "Field update QR — have prospect scan to try voice updates" : "Dashboard QR — scan to open on mobile"}
+                  {isFieldService ? "Field update QR — scan to try voice updates on a phone" : "Dashboard QR — scan to open on mobile"}
                 </p>
                 <div style={{
                   display: "inline-flex",
@@ -360,29 +364,47 @@ export default function DemoStudioPage() {
               </div>
             </div>
 
-            {/* Col 3 — Sample script */}
+            {/* Col 3 — Presenter notes (collapsed: this screen is often visible to
+                the person being demoed, and the script is written to them). */}
             <div style={panelStyle}>
-              <p style={panelLabelStyle}>What to say</p>
-              <blockquote style={{
-                margin: "0.5rem 0 0.75rem",
-                padding: "0.8rem 1rem",
-                borderLeft: `3px solid ${selected.color}`,
-                background: `${selected.color}10`,
-                borderRadius: "0 6px 6px 0",
-                fontStyle: "italic",
-                fontSize: "0.88rem",
-                lineHeight: 1.6,
-                color: "var(--text)",
-              }}>
-                &ldquo;{selected.sampleCallerScript}&rdquo;
-              </blockquote>
+              <p style={panelLabelStyle}>Presenter notes</p>
               <button
-                onClick={() => copyToClipboard(selected.sampleCallerScript, "script")}
-                style={iconBtnStyle}
+                onClick={() => setScriptOpen((v) => !v)}
+                aria-expanded={scriptOpen}
+                style={{ ...iconBtnStyle, marginTop: "0.5rem" }}
               >
-                <Copy size={13} strokeWidth={1.75} />
-                {copied === "script" ? "Copied!" : "Copy script"}
+                {scriptOpen ? <EyeOff size={13} strokeWidth={1.75} /> : <Eye size={13} strokeWidth={1.75} />}
+                {scriptOpen ? "Hide script" : "Show my script"}
               </button>
+              {!scriptOpen && (
+                <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+                  Hidden by default — this screen is usually facing your guest.
+                </p>
+              )}
+              {scriptOpen && (
+                <>
+                  <blockquote style={{
+                    margin: "0.75rem 0",
+                    padding: "0.8rem 1rem",
+                    borderLeft: `3px solid ${selected.color}`,
+                    background: `${selected.color}10`,
+                    borderRadius: "0 6px 6px 0",
+                    fontStyle: "italic",
+                    fontSize: "0.88rem",
+                    lineHeight: 1.6,
+                    color: "var(--text)",
+                  }}>
+                    &ldquo;{selected.sampleCallerScript}&rdquo;
+                  </blockquote>
+                  <button
+                    onClick={() => copyToClipboard(selected.sampleCallerScript, "script")}
+                    style={iconBtnStyle}
+                  >
+                    <Copy size={13} strokeWidth={1.75} />
+                    {copied === "script" ? "Copied!" : "Copy script"}
+                  </button>
+                </>
+              )}
 
               {result.appliedGreeting && (
                 <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>

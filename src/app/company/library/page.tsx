@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 
@@ -10,10 +11,18 @@ type Section = "pricing" | "crews" | "documents";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
+  const { vocab, isEnabled } = useBusinessModules();
+  // The materials/labor catalog only feeds job invoices — an intake business
+  // (dental, property mgmt) has no use for it, but still needs the roster + docs.
+  const hasPricing = isEnabled("pricing");
   const searchParams = useSearchParams();
   const initialSection = searchParams?.get("section");
   const [section, setSection] = useState<Section>(
-    initialSection === "crews" || initialSection === "documents" ? initialSection : "pricing"
+    initialSection === "crews" || initialSection === "documents"
+      ? initialSection
+      : hasPricing
+        ? "pricing"
+        : "crews"
   );
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
@@ -52,22 +61,32 @@ export default function LibraryPage() {
       <header className="page-header">
         <div>
           <h1 className="page-title">Library</h1>
-          <p className="page-subtitle">Pricing, crews, and shared documents. Invoices and reports pull pricing from here automatically.</p>
+          <p className="page-subtitle">
+            {hasPricing
+              ? `Pricing, ${vocab.resourceNounPlural.toLowerCase()}, and shared documents. Invoices and reports pull pricing from here automatically.`
+              : `Your ${vocab.resourceNounPlural.toLowerCase()} and shared documents. ${vocab.resourceNounPlural} appear as rows on the Calendar.`}
+          </p>
         </div>
         {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
       </header>
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["pricing", "crews", "documents"] as Section[]).map((s) => (
-            <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
-              {s === "pricing" ? "Pricing" : s === "crews" ? `Crews (${crews.length})` : `Documents (${library.documents?.length ?? 0})`}
-            </button>
-          ))}
+          {(["pricing", "crews", "documents"] as Section[])
+            .filter((s) => s !== "pricing" || hasPricing)
+            .map((s) => (
+              <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
+                {s === "pricing"
+                  ? "Pricing"
+                  : s === "crews"
+                    ? `${vocab.resourceNounPlural} (${crews.length})`
+                    : `Documents (${library.documents?.length ?? 0})`}
+              </button>
+            ))}
         </div>
       </div>
 
-      {section === "pricing" && <PricingSection library={library} onSave={saveLibrary} />}
+      {section === "pricing" && hasPricing && <PricingSection library={library} onSave={saveLibrary} />}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} />}
       {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} />}
     </>
@@ -76,6 +95,7 @@ export default function LibraryPage() {
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
 function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void }) {
+  const { vocab } = useBusinessModules();
   const [materials, setMaterials] = useState<LibraryMaterial[]>(library.materials);
   const [laborRates, setLaborRates] = useState<LibraryLaborRate[]>(library.laborRates);
   const [taxRate, setTaxRate] = useState(String(library.defaultTaxRate ?? ""));
@@ -99,7 +119,7 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {materials.map((m, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder="Shingles bundle" style={cell} /></td>
+                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} /></td>
                   <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
                   <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
                   <td style={td}><button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" title="Remove">×</button></td>
@@ -145,6 +165,9 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
 const CREW_COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#dc2626", "#65a30d"];
 
 function CrewsSection({ businessId, crews, setCrews }: { businessId: string | null; crews: Crew[]; setCrews: (c: Crew[]) => void }) {
+  const { vocab, isEnabled } = useBusinessModules();
+  const resource = vocab.resourceNoun;
+  const resources = vocab.resourceNounPlural;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -169,7 +192,7 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
 
   async function removeCrew(crewId: string) {
     const crew = crews.find((c) => c.crewId === crewId);
-    if (!confirm(`Remove ${crew?.name ?? "this crew"}? They'll disappear from the Calendar Powerboard.`)) return;
+    if (!confirm(`Remove ${crew?.name ?? `this ${resource.toLowerCase()}`}? They'll disappear from the Calendar.`)) return;
     setCrews(crews.filter((c) => c.crewId !== crewId));
     await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" }).catch(() => {});
   }
@@ -186,9 +209,12 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
 
   return (
     <section className="panel">
-      <div className="panel-header"><h2 className="panel-title">Crews</h2></div>
+      <div className="panel-header"><h2 className="panel-title">{resources}</h2></div>
       <div className="panel-body">
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Crews appear on the Calendar Powerboard for drag-and-drop scheduling. Email is used for branded assignment notices. Click a crew's color dot to change its Calendar color.</p>
+        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
+          {resources} are the rows on your Calendar — drag {isEnabled("jobs") ? `a ${vocab.jobNoun.toLowerCase()}` : "a booking"} onto one to schedule it.
+          {isEnabled("jobs") ? " Email is used for branded assignment notices." : ""} Click a color dot to change its Calendar color.
+        </p>
         <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
           {crews.map((c) => (
             <div key={c.crewId} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
@@ -224,13 +250,13 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
               )}
             </div>
           ))}
-          {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No crews yet. Add your first below.</p>}
+          {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No {resources.toLowerCase()} yet. Add your first below.</p>}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
-          <div className="field"><label>Crew name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Carlos Crew" /></div>
-          <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="carlos@company.com" /></div>
+          <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
+          <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
           <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
-          <div className="field"><button className="button primary" onClick={addCrew} disabled={adding || !name.trim()}>{adding ? "Adding…" : "+ Add crew"}</button></div>
+          <div className="field"><button className="button primary" onClick={addCrew} disabled={adding || !name.trim()}>{adding ? "Adding…" : `+ Add ${resource.toLowerCase()}`}</button></div>
         </div>
       </div>
     </section>
@@ -239,6 +265,7 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
 
 // ── Documents ─────────────────────────────────────────────────────────────────
 function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void }) {
+  const { vocab } = useBusinessModules();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const docs = library.documents ?? [];
@@ -269,7 +296,7 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
           {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
-          <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Shingle warranty 2026" /></div>
+          <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>
           <div className="field"><label>Link (URL)</label><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
           <div className="field"><button className="button primary" onClick={addLink} disabled={!name.trim() || !url.trim()}>+ Add document</button></div>
         </div>

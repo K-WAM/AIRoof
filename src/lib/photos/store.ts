@@ -10,7 +10,6 @@
 
 import type { JobPhotoMeta } from "@/types/jobs";
 
-export const STORAGE_DRIVER = "firestore-base64" as const;
 export const MAX_PHOTOS_PER_JOB = 10;          // tunable
 export const MAX_FULL_BYTES = 900_000;          // ~900 KB base64 cap (forgiving); under Firestore's 1 MiB doc limit
 

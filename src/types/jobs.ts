@@ -68,6 +68,7 @@ export interface FieldTimelineEvent {
   notes?: string;
 }
 
+// One entry in a Job's `auditLog` — who spoke an update and what it changed.
 export interface FieldAuditEntry {
   timestamp: string;
   userId: string;

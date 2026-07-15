@@ -295,7 +295,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       t = t.trim();
       const ampm = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
       if (ampm) {
-        let h = parseInt(ampm[1]), m = parseInt(ampm[2]);
+        let h = parseInt(ampm[1]);
+        const m = parseInt(ampm[2]);
         if (ampm[3].toUpperCase() === "PM" && h !== 12) h += 12;
         if (ampm[3].toUpperCase() === "AM" && h === 12) h = 0;
         return h * 60 + m;
@@ -434,7 +435,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       </header>
 
-      {/* Job progress bar — 5 roofing-native steps */}
+      {/* Job progress bar — 5 steps, shared by every field-service vertical */}
       <div className="job-progress no-print">
         {JOB_STEPS.map((step, i) => {
           const currentIdx = statusToStepIdx(job.status);

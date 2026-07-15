@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { AlertTriangle, Clock, Wrench } from "lucide-react";
@@ -61,6 +62,8 @@ function fmtTime(ms: number, tz: string): string {
 export default function CompanyDashboardPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const { isEnabled, ready: modulesReady, vocab } = useBusinessModules();
+  const hasJobs = modulesReady && isEnabled("jobs");
   const searchParams = useSearchParams();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
 
@@ -72,7 +75,8 @@ export default function CompanyDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!db || !businessId) return;
+    // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
+    if (!db || !businessId || !modulesReady) return;
 
     async function load() {
       try {
@@ -83,7 +87,9 @@ export default function CompanyDashboardPage() {
           getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
           getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
           getDoc(doc(db!, "businesses", businessId)),
-          fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
+          hasJobs
+            ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] }))
+            : Promise.resolve({ jobs: [] }),
         ]);
 
         if (bizDoc.exists()) {
@@ -110,7 +116,7 @@ export default function CompanyDashboardPage() {
     }
 
     load();
-  }, [businessId]);
+  }, [businessId, modulesReady, hasJobs]);
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).
@@ -151,7 +157,9 @@ export default function CompanyDashboardPage() {
         <div>
           <h1 className="page-title">Today&apos;s Work</h1>
           <p className="page-subtitle">
-            Urgent leads, today&apos;s appointments, active jobs, and agent status.
+            {hasJobs
+              ? `Urgent leads, today's appointments, active ${vocab.jobNounPlural.toLowerCase()}, and agent status.`
+              : "Urgent leads, today's appointments, and agent status."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -245,10 +253,10 @@ export default function CompanyDashboardPage() {
             </div>
           )}
 
-          {activeJobs.length > 0 && (
+          {hasJobs && activeJobs.length > 0 && (
             <div className="feed-section">
               <div className="feed-section-header">
-                <p className="feed-section-title">Active Jobs</p>
+                <p className="feed-section-title">Active {vocab.jobNounPlural}</p>
                 <span className="feed-section-count">{activeJobs.length}</span>
               </div>
               {activeJobs.slice(0, 5).map((job) => (

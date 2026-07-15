@@ -143,10 +143,6 @@ function MicButton({
     ? "#f97316"
     : "#1e293b";
 
-  const btnShadow = isRecording
-    ? "0 0 0 0 rgba(249,115,22,0.6)"
-    : "none";
-
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
       {/* Pulse rings when recording */}

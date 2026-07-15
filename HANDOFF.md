@@ -1,9 +1,52 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-07-04 (mobile nav, skeleton loaders, crew colors, demo cheat sheet — on top of the 07-03 security session)
+Last updated: 2026-07-15 (industry-applicability pass: 7 verticals, adaptive Calendar, client-safe Demo Studio, dead-code sweep)
 
 ## Current State
 
 **Completion: ~98%** — live at https://ai-roof.vercel.app. Everything below is shipped and (where noted) verified in production.
+
+> ⚠️ **Not yet deployed or click-tested.** This session's work is `tsc` clean, `npm run lint` clean, `next build` green, and the seed logic is verified per-vertical by script — but the drag-to-assign Calendar path is **new code that no human has clicked**. Auth-gated pages can't be driven headlessly. See "Next" below.
+
+---
+
+## This session (2026-07-15) — make every industry applicable, top-tier demo
+
+**The theme: a tenant must only see tools that apply to them, and a demo must never open on an empty screen.**
+
+**1. Seven verticals — added Cleaning** (`Robin`, Teams, "Team A — Rosa"). Full jobs mode, so it gets the 24/7-intake → CRM → field-notes → invoice loop like Roofing/HVAC/Landscaping/GC. Dental + Property Mgmt remain intake-only.
+
+**2. Every industry keeps a Calendar — the board adapts** (new `calendarMode` on the template):
+- `"jobs"` (field service): drag an unscheduled job onto a **crew/tech/team** × day → **Confirm + email crew**.
+- `"appointments"` (Dental, Property Mgmt): drag an unassigned booking onto a **provider/vendor** × day → **Confirm + email the patient/tenant** (reuses `/api/appointments/send-confirmation`). Dragging preserves time-of-day (a 10:30 cleaning stays 10:30); jobs land at 8am.
+- New `Appointment.assignedCrewId` + new **`PATCH /api/appointments/[appointmentId]`** (session-gated, owner/staff/superadmin) to assign/move.
+- *An earlier version of this session hid the Calendar from Dental/Prop-Mgmt. That was wrong — a missing tab in a meeting is a lost deal. Reverted; see the Industry-Applicability Rule in CLAUDE.md.*
+
+**3. `useBusinessModules()` — one source of truth** (`src/hooks/useBusinessModules.ts`): `isEnabled(module)`, `vocab`, `calendarMode`, sessionStorage-cached, **fails open** (unknown industry → all tabs). Consumed by nav, dashboard, guide, jobs, library, and the route guard. Killed the nav's private Firestore fetch.
+- **Route guard is central**: `MODULE_ROUTES` in `src/app/company/layout.tsx` — hiding a tab wasn't enough; a dental user typing `/company/jobs` now redirects to Dashboard.
+- **Per-vertical `vocab`**: HVAC reads "Service call"/"Tech" ("*replaced the capacitor, added 2 lbs of R-410A*"); GC reads "Project"/"Client" ("*hung 40 sheets of drywall*"). Dental never sees "shingles".
+
+**4. 🔴 Fixed a live demo hole: nothing ever seeded crews or jobs.** Every Demo Studio launch — *including roofing, today, in production* — opened the Calendar on "No crews yet" with an empty rail and nothing to drag. Now every launch seeds 3 resources + 3 jobs (field service) or 3 bookings with one deliberately unassigned (intake). Verified per vertical by script.
+- Caught two bugs in that seeding before ship: `updates: []` written onto job docs (it's a subcollection) and seeded `J-1001` without advancing `jobCounter` → **the next real job would have overwritten a seeded one**. Both fixed (`jobCounter` now advances).
+
+**5. Demo Studio is client-safe** (`/admin/demo` is usually facing the guest):
+- The pitch script ("*Hey [Prospect], imagine your customer calling…*") is now behind **Presenter notes → Show my script**, collapsed by default.
+- "Enter prospect info" → **"Personalize"**; "Prospect company name" → "Company name"; "Have the prospect call this number" → "Call this number — {agent} answers as {company}".
+- **Fixed a name flip visible mid-demo**: the pre-launch chip said "*Roofus* is your agent" (template) but the launch banner said "*Alice* now answers" (API override). Both now resolve through `demoAgentName()` in the template.
+
+**6. Tools are applicable per industry.** All 7 Vapi tools are generic (book/cancel/lookup appointment, createLead, escalate, checkAvailability, getCurrentDate) — no Vapi change was needed for Cleaning. But dental's booking rules say "collect DOB + insurance" and **the tool has no field for those** — the agent collected them and they evaporated. `buildAgentPrompt` now tells the agent to put extra per-industry details in `notes`, and **not to ask for an address when the rules don't mention one**. Verified: the dental prompt contains no "roof", and asks for no address.
+
+**7. Client-facing email leak fixed**: the confirmation email told every recipient "booked and confirmed this **inspection**" and defaulted the service line to `"Inspection"`. A dental patient would have received that.
+
+**8. Dead code + workflow** (~230 lines): deleted `useSpeechRecorder.ts` (superseded by `useFieldAudio`), `authMiddleware.ts` (superseded by `verifyRole.ts`), `STORAGE_DRIVER`, `getAdminApp`, `BusinessIntegrationConnection`, `crewOf`, `timeAgo`, `btnShadow`, `displayName`, `previewSuffix`, unused imports. Killed drift-prone duplicates: `FIELD_SERVICE_VERTICALS` and `AGENT_NAME` now derive from templates.
+- **Kept deliberately**: `CallSession`, `UserBusinessMembership`, `SuperadminProfile` — unused in TS but the only description of the live `calls`/`businessUsers` collections. Rule applied: *drop types with no data behind them, keep types describing a real collection.*
+- **`npm run lint` works for the first time** — there was no ESLint config or dependency, so it dropped into an interactive prompt and hung forever. Now `eslint .` on a flat config: **0 errors**, 26 warnings (`<img>`, `exhaustive-deps`) left visible as backlog. `no-explicit-any` is a *warning* (10 pre-existing `any`s in webhook/tools/cron payloads — tightening those in this session risked breaking a working webhook).
+
+**9. Demo Playbook rewritten** (`public/guides/onboarding-guide.html`) — it was **actively misleading**: said "six industry cards", described a "💬 Script" panel and "Enter Prospect Info" that no longer exist, and — worst — told you Dental/HVAC/Cleaning were **"Voice: Pending — dashboard only"**. That's obsolete since the universal line: *every* vertical is callable on +1 (754) 283-7658. Following it you'd tell a dental prospect "no phone demo" when it works. Also collapsed 6 stale `?preview=demo-{industry}` URLs (vestigial tenants → stale data) into the one that works.
+- Now: a 7-click "**Forgot everything? This is the whole demo**" block, a 7-row industry table generated from the templates, a Dental/Prop-Mgmt intake demo flow, and troubleshooting rows for the empty-Calendar and wrong-company failures. Rendered + verified in a browser.
+
+**10. Graphify rebuilt** — `graphify-out/` didn't exist at session start. **882 nodes, 1639 edges, 75 communities.** God nodes: `getAdminFirestore()` (114 edges), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), `useBusinessModules()` (20). It independently surfaced the Roofus/Alice drift.
+
+**Files**: `src/lib/verticals/templates.ts` (vocab + calendarMode + `demoAgentName`), `src/lib/verticals/demoSeed.ts` (resources + jobs), `src/hooks/useBusinessModules.ts` (new), `src/app/api/appointments/[appointmentId]/route.ts` (new), `src/app/company/{layout,company-nav,calendar,dashboard,guide,jobs,library,settings}`, `src/app/admin/demo/page.tsx`, `src/app/api/admin/demo-customize/route.ts`, `src/lib/ai/agentPromptBuilder.ts`, `src/app/api/appointments/send-confirmation/route.ts`, `eslint.config.mjs` (new), `public/guides/onboarding-guide.html`, `CLAUDE.md`.
 
 ---
 
@@ -104,7 +147,12 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 
 ## Pending / Next
 
-- **Deploy this push**, then mint demo-roofing's fieldKey (one Demo Studio launch) and smoke-test: QR → /field → hold-to-speak → update lands on the job. Also spot-check the new mobile nav on a real phone (only Playwright-verified so far).
+**Do these first (2026-07-15 session):**
+1. **Deploy, then launch each vertical once from Demo Studio.** A launch is what seeds resources/jobs *and* mints demo-roofing's fieldKey. Until a vertical is launched, its Calendar has no rows.
+2. **Click the new drag-to-assign path** — launch **Dental** → Calendar → drag the unassigned booking onto *Dr. Rivera* → **Confirm + email**. This is new code, verified only by build + seed script (auth-gated pages can't be driven headlessly).
+3. **Decide: Roofus or Alice?** The roofing template says the agent is "Roofus" (so a real onboarded roofing tenant is Roofus) but the live demo line answers as "Alice", and `pitch-deck.html` says "Meet Roofus". Behavior is preserved and self-consistent either way — it just needs one brand decision, then delete `DEMO_AGENT_NAME_OVERRIDE` in `templates.ts`.
+4. **Vapi**: no change needed for Cleaning or any new vertical — the prompt/greeting are dynamic (`{{systemPrompt}}`/`{{greeting}}`) and all 7 tools are industry-generic. **One thing worth checking in the dashboard** (needs `VAPI_API_KEY`, which is Sensitive in Vercel and can't be read back): confirm `address` is **not** in `bookAppointment`'s `required` array — if it is, the model will ask dental patients for a street address regardless of the prompt.
+5. **Stop hook is broken**: it calls `graphify auto-update .`, which doesn't exist (see CLAUDE.md). Fix or drop it — it's why the graph was missing.
 - ~~Mobile responsiveness~~ — done 2026-07-04 (hamburger nav).  ~~Skeleton loaders~~ — done 2026-07-04. ~~Crew color picker~~ — done 2026-07-04.
 - **UX follow-ups (audit bigger-bets not yet done):** unify the two field screens' *visuals* (public `/field` is purple, `/company/field` is orange — behavior now matches since both use `useFieldAudio`, but the color schemes still differ); onboarding "wizard" → real stepper or honest anchor list; sticky save bars + dirty-state on long admin/company forms.
 - **Email deliverability** — confirm `RESEND_FROM` uses a verified domain so customer confirmation emails land cleanly.

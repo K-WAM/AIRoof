@@ -26,7 +26,6 @@ import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import type { BusinessConfig } from "@/types";
 import type {
   VapiWebhookPayload,
-  VapiMessage,
   VapiFunctionCallMessage,
   VapiEndOfCallReportMessage,
   VapiStatusUpdateMessage,
