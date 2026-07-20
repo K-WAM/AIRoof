@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyVapiWebhook } from "@/lib/vapi/verify";
+import { claimVapiWebhookEvent, verifyVapiWebhook } from "@/lib/vapi/verify";
 import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
 import {
   bookAppointment,
@@ -50,6 +50,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing message.type" }, { status: 400 });
   }
 
+  const db = getAdminFirestore();
+  if (!db) {
+    console.error("Vapi webhook replay protection unavailable: Firestore is not configured");
+    return NextResponse.json({ error: "Webhook unavailable" }, { status: 503 });
+  }
+
+  try {
+    const replayClaim = await claimVapiWebhookEvent(db, message);
+    if (replayClaim === "invalid") {
+      return NextResponse.json({ error: "Missing Vapi event identity" }, { status: 400 });
+    }
+    if (replayClaim === "duplicate") {
+      return NextResponse.json({ duplicate: true });
+    }
+  } catch (error) {
+    console.error("Vapi webhook replay claim failed", error);
+    return NextResponse.json({ error: "Webhook unavailable" }, { status: 503 });
+  }
+
   const businessId = await resolveBusinessId(message.call);
   if (!businessId) {
     console.error("Vapi webhook: could not resolve business", {
@@ -77,12 +96,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
 
       case "assistant-request": {
-        const db = getAdminFirestore();
         const tz = await getBusinessTimezone(businessId);
         const now = new Date();
         const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: tz });
         const timeStr = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
-        const isAH = db ? await checkAfterHours(db, businessId) : false;
+        const isAH = await checkAfterHours(db, businessId);
         const afterHoursNote = isAH
           ? "NOTE: It is currently after business hours, but you MUST still help the caller fully. You can and should book appointments for the next available business-hours slot — never turn a caller away. Tell them their appointment is booked and the team will confirm in the morning."
           : "Business is currently open.";
@@ -95,16 +113,14 @@ export async function POST(request: NextRequest) {
         let systemPrompt = "";
         let greeting = "";
         try {
-          if (db) {
-            const snap = await db.collection("businesses").doc(businessId).get();
-            const config = snap.data() as BusinessConfig | undefined;
-            if (config) {
-              const callerNumber = message.call?.customer?.number;
-              systemPrompt = buildAgentPrompt(config, {
-                runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote, callerPhone: callerNumber },
-              });
-              greeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
-            }
+          const snap = await db.collection("businesses").doc(businessId).get();
+          const config = snap.data() as BusinessConfig | undefined;
+          if (config) {
+            const callerNumber = message.call?.customer?.number;
+            systemPrompt = buildAgentPrompt(config, {
+              runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote, callerPhone: callerNumber },
+            });
+            greeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
           }
         } catch (err) {
           console.error("assistant-request: failed to build dynamic prompt", err);
@@ -271,22 +287,71 @@ async function executeTool(
       }
 
       case "lookupAppointment": {
+        const verifiedCallerPhone = sanitizePhone(callerPhone);
+        if (!verifiedCallerPhone) {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.callerName ?? params.name),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: "normal",
+            notes: "Appointment help requested, but caller ID was unavailable for identity verification.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return { result: "I can't verify you from caller ID — the office will call back." };
+        }
         const result = await lookupAppointment({
           businessId,
-          callerPhone: optionalStr(params.callerPhone ?? params.phone) ?? callerPhone,
-          callerName: optionalStr(params.callerName ?? params.name),
-          address: optionalStr(params.address),
+          callId,
+          verifiedCallerPhone,
         });
-        await logAction(businessId, callId, "checkAvailability", params, { result }, "success");
         return { result };
       }
 
       case "cancelAppointment": {
+        const verifiedCallerPhone = sanitizePhone(callerPhone);
+        if (!verifiedCallerPhone) {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.callerName ?? params.name),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: "normal",
+            notes: "Appointment cancellation requested, but caller ID was unavailable for identity verification.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return { result: "I can't verify you from caller ID — the office will call back." };
+        }
         const appointmentId = optionalStr(params.appointmentId ?? params.appointment_id);
-        if (!appointmentId) return { error: "appointmentId is required to cancel an appointment" };
-        await cancelAppointment({ businessId, appointmentId });
-        await logAction(businessId, callId, "bookAppointment", params, { cancelled: true }, "success");
-        return { result: `Appointment ${appointmentId} has been cancelled. You can now book a new one with the correct date.` };
+        const appointmentNumberRaw = params.appointmentNumber ?? params.appointment_number;
+        const appointmentNumber =
+          typeof appointmentNumberRaw === "number" &&
+          Number.isInteger(appointmentNumberRaw) &&
+          appointmentNumberRaw >= 1
+            ? appointmentNumberRaw
+            : undefined;
+        const cancellation = await cancelAppointment({
+          businessId,
+          callId,
+          verifiedCallerPhone,
+          confirmCancellation:
+            params.confirmCancellation === true || params.confirm === true,
+          appointmentNumber,
+          appointmentId,
+        });
+        const appointmentTime = new Date(cancellation.startTime).toLocaleString("en-US", {
+          timeZone: tz,
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        return {
+          result: `Your ${cancellation.serviceType} appointment on ${appointmentTime} has been cancelled.`,
+        };
       }
 
       case "getCurrentDate": {
