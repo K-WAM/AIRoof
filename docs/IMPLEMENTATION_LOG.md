@@ -97,3 +97,18 @@ removals + rationale (if any) · deviations from spec (if any).
 - External deploy actions: NH-1 records the additive Vapi schema parameters; NH-11 records Firestore TTL policy
   activation. Removals: deleted fuzzy name/address lookup authority, appointment-ID disclosure, and ID-only
   cancellation authority. No tool was renamed and no unrelated `agentTools.ts` symbol was changed.
+
+## T-021 — Side-effect ledger (idempotency + attempts)
+- Date: 2026-07-20 · branch: task/shared-primitives · commit: this T-021 commit
+- Implemented: tenant-scoped `businesses/{businessId}/operations/{opId}` ledger with transactional
+  create-or-decline claims, stable path-safe Vapi/email operation IDs, pending/succeeded/failed states, and
+  PII-resistant entity-reference/provider/failure metadata.
+- Attempts: ordered subrecords support retryable versus terminal failure classification, provider IDs,
+  idempotent completion, single in-flight attempt enforcement, terminal-state protection, and an explicit
+  design contract requiring ambiguous provider outcomes to remain pending for reconciliation.
+- Reconciliation/read helpers: attempt listing plus a bounded tenant-scoped query for pending operations older
+  than a supplied TTL. Transactional mock tests cover 8 concurrent claimers with exactly one winner, retries,
+  terminal failure, PII-shaped failure rejection, attempt listing, provider IDs, and cross-tenant TTL queries.
+- Evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings; `npm test` →
+  7 files / 48 tests passed; `git diff --check` → green.
+- Removals/deviations: none; primitive is additive and has no call-site adoption.
