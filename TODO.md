@@ -37,7 +37,12 @@ Overall implementation: **20%** (Phases 0+1 merged and combined-gate verified on
 
 ## HELP-NEEDED
 
-- (empty — workers append per AGENTS.md stuck protocol)
+- **T-022 · task/shared-primitives:** The owned schema implementation is complete and passes type-check,
+  lint, 74/74 tests, and build only after `npm install --no-save zod@^3.23.8`. A clean `npm ci` has no
+  `node_modules/zod` because the lock records Zod only as OpenAI's optional peer. Worker A2's owned-file row
+  excludes `package.json`/`package-lock.json`, so the worker cannot make the required production dependency
+  declaration. Integrator: add Zod to project dependencies or explicitly authorize Worker A2 to update both
+  package files, then T-022 can be finalized and the batch row moved to `review`.
 
 ## NEEDS-HUMAN
 
