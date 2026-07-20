@@ -8,10 +8,11 @@ Updated: 2026-07-20 by integrator (post Phase 0+1 merge).
 - **Last verified commit:** `36dde56` — combined regression gate green (type-check clean, lint 0
   errors/26 baseline warnings, `npm test` 41/41, `npm run build` green) on a clean `npm ci` install.
   Pre-plan baseline was `1ad9566`, matching the consolidated brief's audit commit.
-- **Current phase:** Phase 0 and Phase 1 merged. Phase 2 (Batch C: T-020/T-021/T-022) assigned and
-  staged, not started. Overall implementation ~20%.
+- **Current phase:** Phase 0 and Phase 1 merged. Phase 2 split into two parallel batches, staged,
+  not started. Overall implementation ~20%.
 - **Active worktrees:**
-  - `D:\Apps\air-wt-shared-primitives` · branch `task/shared-primitives` · Batch C (T-020, T-021, T-022)
+  - `D:\Apps\air-wt-shared-primitives` · branch `task/shared-primitives` · Batch A2 (T-021, T-022) — Codex
+  - `D:\Apps\air-wt-config-guard` · branch `task/config-guard` · Batch B2 (T-020) — Deepseek
 - **Completed batches:** Batch A (T-010/T-011, Codex) and Batch B (T-000/T-001/T-002, Deepseek) — both
   reviewed, one reviewer correction applied to Batch B (see IMPLEMENTATION_LOG.md), merged to main.
 - **Pending reviews:** none.
