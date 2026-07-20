@@ -12,8 +12,9 @@ interface HeaderRule {
 
 async function getAllHeaders(): Promise<HeaderEntry[]> {
   const cfg = await import("@/../next.config");
-  const defaultExport: { headers: () => Promise<HeaderRule[]> } = cfg.default || cfg;
-  const rules = await defaultExport.headers();
+  const nextConfig = (cfg.default ?? cfg) as { headers?: () => Promise<HeaderRule[]> };
+  if (!nextConfig.headers) throw new Error("next.config.ts must export a headers() function");
+  const rules = await nextConfig.headers();
   return rules.flatMap((r) => r.headers);
 }
 
