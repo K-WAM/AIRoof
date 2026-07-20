@@ -1,6 +1,8 @@
 # HANDOFF — AI Receptionist Platform
 Last updated: 2026-07-15 (industry-applicability pass: 7 verticals, adaptive Calendar, client-safe Demo Studio, dead-code sweep)
 
+> **2026-07-20 — Release plan supersedes this file for release work.** A consolidated three-audit review (`consolidated_implementation_brief.md`) found 2 P0 + 11 P1 defects; verdict: not production-ready (internal demo OK). Canonical execution system: `MASTER_PLAN.md` · `AGENTS.md` · `TODO.md` · `docs/SESSION_HANDOFF.md`. This file remains the historical architecture/demo record.
+
 ## Current State
 
 **Completion: ~98%** — live at https://ai-roof.vercel.app. Everything below is shipped and (where noted) verified in production.

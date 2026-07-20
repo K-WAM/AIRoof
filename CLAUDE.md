@@ -1,5 +1,7 @@
 # AI Receptionist Platform — CLAUDE.md
 
+**Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
+
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
 ## Code Navigation — Read Graphify Before Broad Work
@@ -282,7 +284,7 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Known Limitations
 
-- **VAPI_AUTH_BYPASS active**: Permanently correct — Vapi sends no secret header. Do not remove.
+- **VAPI_AUTH_BYPASS active**: ⚠️ SUPERSEDED (2026-07-20) — the consolidated audit classified this fail-open path as launch-stopping (CIB-001). Task T-010 in MASTER_PLAN.md removes it; Vapi's dashboard-configured server secret header is the supported mechanism (NH-1/NH-2 in TODO.md gate the deploy).
 - **After-hours**: now functional — `assistant-request` injects date/time/after-hours context (confirmed live in the dashboard prompt), and after-hours appts are flagged `pendingConfirmation` for one-click morning confirmation. Customer-email-on-confirm needs a captured customer email (only phone today).
 - **Photos/files on free Spark plan**: base64-in-Firestore (no Firebase Storage). 10 photos/job, ~900KB each. Swap `src/lib/photos/store.ts` to Firebase Storage when a client justifies Blaze.
 - **Google Calendar**: mock availability slots — real per-business OAuth is post-MVP.
