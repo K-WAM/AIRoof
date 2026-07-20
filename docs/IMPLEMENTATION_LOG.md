@@ -112,3 +112,24 @@ removals + rationale (if any) · deviations from spec (if any).
 - Evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings; `npm test` →
   7 files / 48 tests passed; `git diff --check` → green.
 - Removals/deviations: none; primitive is additive and has no call-site adoption.
+
+## T-022 — Runtime schema layer for AI and tool I/O
+- Date: 2026-07-20 · branch: task/shared-primitives · implementation commit: b5a16fe · finalization:
+  this T-022 commit
+- Implemented: non-throwing typed Zod parse helpers for all seven unchanged Vapi tool inputs, field-update
+  extraction, summaries, call-outcome and scope classifications, FAQ suggestions, transcripts, and the
+  existing Appointment/Lead/FieldUpdate persistence shapes.
+- Boundary behavior: recursively unwraps nested JSON strings, coerces finite numeric strings, strips unknown
+  keys, rejects empty transcripts and instruction-shaped control content, and returns
+  `{ok:true,data}|{ok:false,issues}`. Failure logs contain generic typed issues plus a redacted/truncated input
+  shape, never the full payload.
+- Adversarial evidence: 21 malformed fixtures cover missing tenant/call fields, invalid ranges/enums,
+  prompt-injection-shaped tool and model output, malformed nested JSON, invalid persistence records, and empty
+  transcripts; all are rejected. Valid fixtures cover all seven tools, nested structured replies, numeric
+  coercion, extra-key stripping, AI outputs, and persistence records.
+- Dependency resolution: integrator commit `d1f6102` adds `zod@^3.23.8` to `package.json` and lockfile. A
+  no-branch-change `git merge-tree --write-tree d1f6102 b5a16fe` integration tree installed Zod 3.25.76 with a
+  clean `npm ci` and had no merge conflicts.
+- Combined-tree evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings;
+  `npm test` → 8 files / 74 tests passed; `npm run build` → green; `git diff --check` → green.
+- Removals/deviations: none; no route wiring or prompt changes (reserved for T-033).
