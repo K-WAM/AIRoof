@@ -93,3 +93,5 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
   done, deploying T-010 would break live calls — the deploy gate is tracked in TODO, not a reason to soften T-010.
 - **Firestore emulator** isn't set up; prefer transactional mocks, or add emulator config under `src/test-utils/`
   (owned by T-000) if genuinely needed.
+- **graphify skill can lag the package** (warning: "skill is from graphify 0.9.12, package is 0.9.16") —
+  fix with `graphify install`. Done 2026-07-20; if the warning reappears after a package update, rerun it.
