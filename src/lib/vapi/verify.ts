@@ -1,23 +1,25 @@
 // Verify that an incoming webhook is from Vapi by checking the secret header.
-// Vapi sends the header you configure in its dashboard ("Server URL Secret"
+// Vapi sends the header configured in its dashboard ("Server URL Secret"
 // or a custom HTTP header).
-//
-// We accept several common header names and trim whitespace defensively
-// (Vapi's UI sometimes adds trailing newlines on paste).
 
+import { createHash } from "node:crypto";
+import { Timestamp, type Firestore } from "firebase-admin/firestore";
 import type { NextRequest } from "next/server";
+import type { VapiMessage } from "@/lib/vapi/types";
+
+export const VAPI_REPLAY_WINDOW_MS = 10 * 60 * 1000;
+export const VAPI_REPLAY_COLLECTION = "_vapiWebhookEvents";
+
+export type VapiReplayClaim = "claimed" | "duplicate" | "invalid";
 
 export function verifyVapiWebhook(request: NextRequest): boolean {
-  // TEMP: disable strict auth for demo bring-up. Re-enable after the secret
-  // mismatch is debugged. Logs the headers Vapi actually sent so we can
-  // see what the real header name + length is.
-  if (process.env.VAPI_AUTH_BYPASS === "true" || !process.env.VAPI_WEBHOOK_SECRET) {
-    console.warn("Vapi auth bypassed (debug mode). Headers received:", Array.from(request.headers.keys()));
-    return true;
+  const expected = process.env.VAPI_WEBHOOK_SECRET?.trim();
+  if (!expected) {
+    console.error(
+      "Vapi webhook authentication unavailable: VAPI_WEBHOOK_SECRET is not configured"
+    );
+    return false;
   }
-
-  const expectedRaw = process.env.VAPI_WEBHOOK_SECRET;
-  const expected = expectedRaw.trim();
 
   const headerNames = [
     "x-vapi-secret",
@@ -29,24 +31,91 @@ export function verifyVapiWebhook(request: NextRequest): boolean {
 
   const candidates: Array<{ source: string; value: string }> = [];
   for (const name of headerNames) {
-    const v = request.headers.get(name);
-    if (v) candidates.push({ source: name, value: v.trim() });
-  }
-  const auth = request.headers.get("authorization");
-  if (auth) candidates.push({ source: "authorization", value: auth.replace(/^Bearer\s+/i, "").trim() });
-
-  for (const c of candidates) {
-    if (timingSafeEqual(c.value, expected)) return true;
+    const value = request.headers.get(name);
+    if (value) candidates.push({ source: name, value: value.trim() });
   }
 
-  // Diagnostic log on mismatch — lengths only, no values (safe).
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    candidates.push({
+      source: "authorization",
+      value: authorization.replace(/^Bearer\s+/i, "").trim(),
+    });
+  }
+
+  for (const candidate of candidates) {
+    if (timingSafeEqual(candidate.value, expected)) return true;
+  }
+
+  // Diagnostic metadata only: never log the configured or received secret.
   console.warn("Vapi webhook auth mismatch", {
     expectedLen: expected.length,
-    receivedHeaders: candidates.map((c) => ({ source: c.source, len: c.value.length, matchesLen: c.value.length === expected.length })),
+    receivedHeaders: candidates.map((candidate) => ({
+      source: candidate.source,
+      len: candidate.value.length,
+      matchesLen: candidate.value.length === expected.length,
+    })),
     allHeaderKeys: Array.from(request.headers.keys()),
   });
 
   return false;
+}
+
+export function getVapiEventIdentity(message: VapiMessage): string | null {
+  const record = asRecord(message);
+  const call = asRecord(record.call);
+  const callId = readNonEmptyString(call.id);
+  const messageType = readNonEmptyString(record.type);
+  if (!callId || !messageType) return null;
+
+  const explicitId = [record.id, record.messageId, record.eventId]
+    .map(readNonEmptyString)
+    .find(Boolean);
+
+  const toolCallIds = Array.isArray(record.toolCalls)
+    ? record.toolCalls
+        .map((toolCall) => readNonEmptyString(asRecord(toolCall).id))
+        .filter((id): id is string => Boolean(id))
+        .sort()
+    : [];
+
+  const discriminator =
+    explicitId ??
+    (toolCallIds.length > 0 ? toolCallIds.join(",") : hash(stableSerialize(record)));
+
+  return hash(`${callId}\u0000${messageType}\u0000${discriminator}`);
+}
+
+export async function claimVapiWebhookEvent(
+  db: Firestore,
+  message: VapiMessage,
+  now = Date.now()
+): Promise<VapiReplayClaim> {
+  const eventId = getVapiEventIdentity(message);
+  if (!eventId) return "invalid";
+
+  const record = asRecord(message);
+  const callId = readNonEmptyString(asRecord(record.call).id);
+  const messageType = readNonEmptyString(record.type);
+  if (!callId || !messageType) return "invalid";
+
+  const claimRef = db.collection(VAPI_REPLAY_COLLECTION).doc(eventId);
+  return db.runTransaction(async (transaction) => {
+    const existing = await transaction.get(claimRef);
+    const expiresAt = timestampMillis(existing.data()?.expiresAt);
+    if (existing.exists && expiresAt !== null && expiresAt > now) {
+      return "duplicate";
+    }
+
+    transaction.set(claimRef, {
+      eventId,
+      callId,
+      messageType,
+      claimedAt: Timestamp.fromMillis(now),
+      expiresAt: Timestamp.fromMillis(now + VAPI_REPLAY_WINDOW_MS),
+    });
+    return "claimed";
+  });
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -56,4 +125,47 @@ function timingSafeEqual(a: string, b: string): boolean {
     mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return mismatch === 0;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+function hash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function timestampMillis(value: unknown): number | null {
+  if (value instanceof Timestamp) return value.toMillis();
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    "toMillis" in value &&
+    typeof (value as { toMillis?: unknown }).toMillis === "function"
+  ) {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return null;
 }

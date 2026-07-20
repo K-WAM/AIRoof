@@ -65,3 +65,17 @@ removals + rationale (if any) · deviations from spec (if any).
   explicit undefined-guard for `NextConfig.headers`.
 - Re-verified on a clean install: `npm run type-check` clean, `npm run lint` 0 errors/26 warnings,
   `npm test` 9/9, `npm run build` green. Batch B is APPROVE, ready to merge.
+
+## T-010 — Fail-closed Vapi webhook authentication
+- Date: 2026-07-20 · branch: task/p0-authority · commit: this T-010 commit
+- Implemented: removed the runtime bypass and missing-secret allow path; retained timing-safe comparison and
+  all accepted Vapi secret headers; added explicit secret-free failure logging.
+- Replay protection: canonical Vapi event identity with message/tool-call IDs preferred, transactional claims
+  in Firestore, server-clock expiry, and `expiresAt` timestamps suitable for Firestore TTL cleanup. Duplicate
+  delivery returns `200 {duplicate:true}` before tenant lookup or tool execution.
+- Evidence: `npx vitest run --config src/lib/vapi/__tests__/vitest.config.ts
+  src/lib/vapi/__tests__/verify.test.ts src/lib/vapi/__tests__/route-auth.test.ts` → 20 passed; `npm run
+  type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings; `git diff --check` → green.
+- Removals: removed `VAPI_AUTH_BYPASS` behavior because it allowed unauthenticated production side effects.
+  No provider or tool-business-logic changes.
+>>>>>>> c90685c (T-010: enforce Vapi webhook authentication)
