@@ -20,8 +20,10 @@ Overall implementation: **0%** (planning artifacts complete 2026-07-20).
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
 |---|---|---|---|---|---|
-| Worker A | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | ready — not started |
-| Worker B | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | ready — not started |
+| Worker A — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | ready — not started |
+| Worker B — Deepseek V4 Pro | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **review** — T-000 (25cea58), T-001 (824c2a4), T-002 (14dc957) |
+
+**Assignment rationale:** P0 authority work (T-010/T-011) needs adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) is well-trodden config breadth — routed to the general-purpose agent.
 
 Integration order: Batch B merges first; Batch A rebases on merged main (package.json belongs to B — A uses
 `npm install --no-save vitest` meanwhile).
