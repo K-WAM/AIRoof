@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - run: npm ci
+
+      - run: npm run type-check
+
+      - run: npm run lint
+
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-dummy
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-dummy
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-dummy
+
+      - run: npm test
+        env:
+          OPENAI_API_KEY: sk-test
+          DEEPSEEK_API_KEY: sk-test

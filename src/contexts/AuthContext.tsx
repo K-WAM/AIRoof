@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setIdToken(null);
         setLoading(false);
-        document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
+        document.cookie = "__session=; path=/; max-age=0; SameSite=Lax";
         return;
       }
 
@@ -53,7 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIdToken(token);
         // Store actual ID token so server routes can verify with Firebase Admin SDK.
         // Expires in 1h matching Firebase token lifetime; onIdTokenChanged refreshes it.
-        document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Strict`;
+        // Secure only on HTTPS to allow localhost dev over HTTP.
+        const secureFlag = location.protocol === "https:" ? "; Secure" : "";
+        document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
 
         let profile: AuthUser = {
           uid: firebaseUser.uid,
