@@ -149,4 +149,134 @@ describe("Vapi route authentication and replay boundary", () => {
     expect(mocks.createLead).toHaveBeenCalledOnce();
     expect(replayWrite).toHaveBeenCalledOnce();
   });
+
+  it("uses only Vapi call metadata as lookup identity", async () => {
+    const { db } = createReplayDb();
+    mocks.getAdminFirestore.mockReturnValue(db);
+    mocks.findBusinessByVapiPhoneNumberId.mockResolvedValue(null);
+    mocks.findBusinessByVapiAssistantId.mockResolvedValue("biz_123");
+    mocks.getBusinessTimezone.mockResolvedValue("America/Los_Angeles");
+    mocks.lookupAppointment.mockResolvedValue("safe appointment summary");
+    const payload = {
+      message: {
+        type: "tool-calls",
+        call: {
+          id: "call_lookup",
+          assistantId: "assistant_123",
+          customer: { number: "+1 (604) 555-1234" },
+        },
+        toolCalls: [{
+          id: "tool_lookup",
+          type: "function",
+          function: {
+            name: "lookupAppointment",
+            arguments: {
+              callerPhone: "+1 (604) 555-9876",
+              callerName: "Guessed Name",
+              address: "Guessed Address",
+            },
+          },
+        }],
+      },
+    };
+
+    const response = await POST(requestFor(payload, "expected-secret"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.lookupAppointment).toHaveBeenCalledWith({
+      businessId: "biz_123",
+      callId: "call_vapi_call_lookup",
+      verifiedCallerPhone: "+1 (604) 555-1234",
+    });
+  });
+
+  it("binds cancellation to Vapi call metadata and returns no appointment ID", async () => {
+    const { db } = createReplayDb();
+    mocks.getAdminFirestore.mockReturnValue(db);
+    mocks.findBusinessByVapiPhoneNumberId.mockResolvedValue(null);
+    mocks.findBusinessByVapiAssistantId.mockResolvedValue("biz_123");
+    mocks.getBusinessTimezone.mockResolvedValue("America/Los_Angeles");
+    mocks.cancelAppointment.mockResolvedValue({
+      cancelled: true,
+      serviceType: "Roof inspection",
+      startTime: Date.UTC(2026, 6, 22, 17, 0, 0),
+    });
+    const payload = {
+      message: {
+        type: "tool-calls",
+        call: {
+          id: "call_cancel",
+          assistantId: "assistant_123",
+          customer: { number: "+1 (604) 555-1234" },
+        },
+        toolCalls: [{
+          id: "tool_cancel",
+          type: "function",
+          function: {
+            name: "cancelAppointment",
+            arguments: {
+              callerPhone: "+1 (604) 555-9876",
+              appointmentId: "apt_untrusted",
+              appointmentNumber: 1,
+              confirmCancellation: true,
+            },
+          },
+        }],
+      },
+    };
+
+    const response = await POST(requestFor(payload, "expected-secret"));
+    const body = await response.json() as { results: Array<{ result: string }> };
+
+    expect(response.status).toBe(200);
+    expect(mocks.cancelAppointment).toHaveBeenCalledWith({
+      businessId: "biz_123",
+      callId: "call_vapi_call_cancel",
+      verifiedCallerPhone: "+1 (604) 555-1234",
+      confirmCancellation: true,
+      appointmentNumber: 1,
+      appointmentId: "apt_untrusted",
+    });
+    expect(body.results[0].result).toContain("Roof inspection appointment");
+    expect(body.results[0].result).not.toContain("apt_untrusted");
+  });
+
+  it("creates a lead instead of disclosing data when caller ID is unavailable", async () => {
+    const { db } = createReplayDb();
+    mocks.getAdminFirestore.mockReturnValue(db);
+    mocks.findBusinessByVapiPhoneNumberId.mockResolvedValue(null);
+    mocks.findBusinessByVapiAssistantId.mockResolvedValue("biz_123");
+    mocks.getBusinessTimezone.mockResolvedValue("America/Los_Angeles");
+    mocks.createLead.mockResolvedValue({ callerName: "Unknown caller" });
+    mocks.logAgentAction.mockResolvedValue(undefined);
+    const payload = {
+      message: {
+        type: "tool-calls",
+        call: { id: "call_blocked", assistantId: "assistant_123", customer: {} },
+        toolCalls: [{
+          id: "tool_blocked",
+          type: "function",
+          function: {
+            name: "lookupAppointment",
+            arguments: { callerName: "Guessed Name", address: "Guessed Address" },
+          },
+        }],
+      },
+    };
+
+    const response = await POST(requestFor(payload, "expected-secret"));
+    const body = await response.json() as { results: Array<{ result: string }> };
+
+    expect(response.status).toBe(200);
+    expect(body.results[0].result).toBe(
+      "I can't verify you from caller ID — the office will call back."
+    );
+    expect(mocks.lookupAppointment).not.toHaveBeenCalled();
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "biz_123",
+      callerName: "Guessed Name",
+      sourceCallId: "call_vapi_call_blocked",
+    }));
+    expect(mocks.createLead.mock.calls[0][0].callerPhone).toBeUndefined();
+  });
 });

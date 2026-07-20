@@ -78,4 +78,22 @@ removals + rationale (if any) · deviations from spec (if any).
   type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings; `git diff --check` → green.
 - Removals: removed `VAPI_AUTH_BYPASS` behavior because it allowed unauthenticated production side effects.
   No provider or tool-business-logic changes.
->>>>>>> c90685c (T-010: enforce Vapi webhook authentication)
+
+## T-011 — Verified caller identity for appointment lookup/cancel
+- Date: 2026-07-20 · branch: task/p0-authority · commit: this T-011 commit
+- Implemented: lookup and cancellation now derive identity only from Vapi `call.customer.number`, normalize
+  phone formats, retain tenant scoping, ignore legacy model-supplied name/address/phone as authority, and create
+  a lead with no disclosure when caller ID is unavailable.
+- Disclosure/confirmation: lookup returns only numbered service + day/time entries, excludes non-active
+  appointments, and stores a 10-minute server-side candidate set bound to business/call/caller. Cancellation
+  requires explicit confirmation and transactionally revalidates that state plus the live appointment phone
+  before updating; appointment IDs are never returned to the model.
+- Evidence: `npx vitest run --config src/lib/vapi/__tests__/vitest.config.ts` → 3 files / 32 tests passed,
+  including guessing, missing caller ID, number variants, cross-customer, cross-business, prior-call ID replay,
+  multiple appointments, explicit-confirmation, route metadata, and happy paths; `npm run type-check` → green;
+  `npm run lint` → 0 errors / 26 pre-existing warnings; `npm run build` → green; `git diff --check` → green.
+- Test-harness note: this branch predates T-000 and therefore has no `npm test` script; Vitest was installed
+  with `npm install --no-save vitest` and run directly as required, leaving package files unchanged.
+- External deploy actions: NH-1 records the additive Vapi schema parameters; NH-11 records Firestore TTL policy
+  activation. Removals: deleted fuzzy name/address lookup authority, appointment-ID disclosure, and ID-only
+  cancellation authority. No tool was renamed and no unrelated `agentTools.ts` symbol was changed.

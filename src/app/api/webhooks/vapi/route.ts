@@ -287,22 +287,71 @@ async function executeTool(
       }
 
       case "lookupAppointment": {
+        const verifiedCallerPhone = sanitizePhone(callerPhone);
+        if (!verifiedCallerPhone) {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.callerName ?? params.name),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: "normal",
+            notes: "Appointment help requested, but caller ID was unavailable for identity verification.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return { result: "I can't verify you from caller ID — the office will call back." };
+        }
         const result = await lookupAppointment({
           businessId,
-          callerPhone: optionalStr(params.callerPhone ?? params.phone) ?? callerPhone,
-          callerName: optionalStr(params.callerName ?? params.name),
-          address: optionalStr(params.address),
+          callId,
+          verifiedCallerPhone,
         });
-        await logAction(businessId, callId, "checkAvailability", params, { result }, "success");
         return { result };
       }
 
       case "cancelAppointment": {
+        const verifiedCallerPhone = sanitizePhone(callerPhone);
+        if (!verifiedCallerPhone) {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.callerName ?? params.name),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: "normal",
+            notes: "Appointment cancellation requested, but caller ID was unavailable for identity verification.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return { result: "I can't verify you from caller ID — the office will call back." };
+        }
         const appointmentId = optionalStr(params.appointmentId ?? params.appointment_id);
-        if (!appointmentId) return { error: "appointmentId is required to cancel an appointment" };
-        await cancelAppointment({ businessId, appointmentId });
-        await logAction(businessId, callId, "bookAppointment", params, { cancelled: true }, "success");
-        return { result: `Appointment ${appointmentId} has been cancelled. You can now book a new one with the correct date.` };
+        const appointmentNumberRaw = params.appointmentNumber ?? params.appointment_number;
+        const appointmentNumber =
+          typeof appointmentNumberRaw === "number" &&
+          Number.isInteger(appointmentNumberRaw) &&
+          appointmentNumberRaw >= 1
+            ? appointmentNumberRaw
+            : undefined;
+        const cancellation = await cancelAppointment({
+          businessId,
+          callId,
+          verifiedCallerPhone,
+          confirmCancellation:
+            params.confirmCancellation === true || params.confirm === true,
+          appointmentNumber,
+          appointmentId,
+        });
+        const appointmentTime = new Date(cancellation.startTime).toLocaleString("en-US", {
+          timeZone: tz,
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        return {
+          result: `Your ${cancellation.serviceType} appointment on ${appointmentTime} has been cancelled.`,
+        };
       }
 
       case "getCurrentDate": {

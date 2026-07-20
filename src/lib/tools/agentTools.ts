@@ -444,51 +444,90 @@ function escalationEmailHtml(
 
 export interface LookupAppointmentInput {
   businessId: string;
+  callId: string;
+  verifiedCallerPhone?: string;
+  /** Legacy model-supplied fields retained for tool-schema compatibility only. */
   callerPhone?: string;
   callerName?: string;
   address?: string;
 }
 
 export async function lookupAppointment(input: LookupAppointmentInput): Promise<string> {
+  const verifiedPhone = normalizeAppointmentPhone(input.verifiedCallerPhone);
+  if (!verifiedPhone || input.callId.trim().length === 0) {
+    return "I can't verify you from caller ID — the office will call back.";
+  }
+
   const db = getAdminFirestore();
   if (!db) return "Unable to look up appointments right now.";
 
   try {
-    const snap = await db
-      .collection("businesses").doc(input.businessId)
-      .collection("appointments").get();
+    const businessRef = db.collection("businesses").doc(input.businessId);
+    const [snap, timezone] = await Promise.all([
+      businessRef.collection("appointments").get(),
+      getBusinessTimezone(input.businessId),
+    ]);
 
-    if (snap.empty) return "No appointments found for this business.";
+    if (snap.empty) return "No active appointment was found for the verified caller number.";
 
-    const all = snap.docs.map((d) => d.data());
+    const matches = snap.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          appointmentId: doc.id,
+          callerPhone: normalizeAppointmentPhone(data.callerPhone),
+          serviceType:
+            typeof data.serviceType === "string" && data.serviceType.trim()
+              ? data.serviceType.trim()
+              : "service",
+          startTime: appointmentTimeMillis(data.startTime),
+          status: typeof data.status === "string" ? data.status : "unknown",
+        };
+      })
+      .filter(
+        (appointment) =>
+          appointment.callerPhone === verifiedPhone &&
+          (appointment.status === "requested" || appointment.status === "confirmed")
+      )
+      .sort((a, b) => a.startTime - b.startTime)
+      .slice(0, 3);
 
-    // Priority: phone > name > address (each normalized to lowercase)
-    let matches = all;
-    if (input.callerPhone) {
-      const normalized = input.callerPhone.replace(/\D/g, "");
-      const byPhone = all.filter((a) => (a.callerPhone as string)?.replace(/\D/g, "") === normalized);
-      if (byPhone.length > 0) matches = byPhone;
+    if (matches.length === 0) {
+      return "No active appointment was found for the verified caller number.";
     }
-    if (matches === all && input.callerName) {
-      const name = input.callerName.toLowerCase();
-      const byName = all.filter((a) => (a.callerName as string)?.toLowerCase().includes(name));
-      if (byName.length > 0) matches = byName;
-    }
-    if (matches === all && input.address) {
-      const addr = input.address.toLowerCase();
-      const byAddr = all.filter((a) => (a.address as string)?.toLowerCase().includes(addr));
-      if (byAddr.length > 0) matches = byAddr;
-    }
 
-    if (matches === all) return "No matching appointment found for that caller.";
-
-    return matches.slice(0, 3).map((a) => {
-      const t = new Date(a.startTime as number).toLocaleString("en-US", {
-        weekday: "short", month: "short", day: "numeric",
-        hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+    const now = Date.now();
+    await businessRef
+      .collection("vapiAppointmentConfirmations")
+      .doc(encodeURIComponent(input.callId))
+      .set({
+        businessId: input.businessId,
+        callId: input.callId,
+        callerPhoneNormalized: verifiedPhone,
+        status: "pending",
+        candidates: matches.map((appointment) => ({
+          appointmentId: appointment.appointmentId,
+          callerPhoneNormalized: appointment.callerPhone,
+          serviceType: appointment.serviceType,
+          startTime: appointment.startTime,
+        })),
+        createdAt: new Date(now),
+        expiresAt: new Date(now + APPOINTMENT_CONFIRMATION_WINDOW_MS),
       });
-      return `${a.callerName ?? "Unknown"} — ${a.serviceType ?? "service"} at ${a.address ?? "unknown address"} on ${t} (status: ${a.status}, appointmentId: ${a.appointmentId})`;
-    }).join("; ");
+
+    const summaries = matches.map((appointment, index) => {
+      const appointmentTime = new Date(appointment.startTime).toLocaleString("en-US", {
+        weekday: "short", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", timeZone: timezone,
+      });
+      return `Appointment ${index + 1}: ${appointment.serviceType} on ${appointmentTime}`;
+    });
+
+    const confirmationInstruction = matches.length === 1
+      ? "Ask the caller to confirm cancellation, then call cancelAppointment with confirmCancellation=true."
+      : "Ask which appointment number they mean and confirm cancellation, then call cancelAppointment with that appointmentNumber and confirmCancellation=true.";
+
+    return `${summaries.join("; ")}. ${confirmationInstruction}`;
   } catch (err) {
     console.error("lookupAppointment error:", err);
     return "Error looking up appointment.";
@@ -497,22 +536,146 @@ export async function lookupAppointment(input: LookupAppointmentInput): Promise<
 
 export interface CancelAppointmentInput {
   businessId: string;
-  appointmentId: string;
+  callId: string;
+  verifiedCallerPhone?: string;
+  confirmCancellation?: boolean;
+  appointmentNumber?: number;
+  /** Legacy parameter: never authoritative without a matching server-side lookup. */
+  appointmentId?: string;
 }
 
-export async function cancelAppointment(input: CancelAppointmentInput): Promise<{ cancelled: boolean }> {
+export interface CancelAppointmentOutput {
+  cancelled: boolean;
+  serviceType: string;
+  startTime: number;
+}
+
+export async function cancelAppointment(input: CancelAppointmentInput): Promise<CancelAppointmentOutput> {
+  const verifiedPhone = normalizeAppointmentPhone(input.verifiedCallerPhone);
+  if (!verifiedPhone || input.callId.trim().length === 0) {
+    throw new Error("I can't verify you from caller ID — the office will call back.");
+  }
+  if (input.confirmCancellation !== true) {
+    throw new Error("Ask the caller to confirm the cancellation before continuing.");
+  }
+
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
 
-  const ref = db
-    .collection("businesses").doc(input.businessId)
-    .collection("appointments").doc(input.appointmentId);
+  const now = Date.now();
+  const businessRef = db.collection("businesses").doc(input.businessId);
+  const confirmationRef = businessRef
+    .collection("vapiAppointmentConfirmations")
+    .doc(encodeURIComponent(input.callId));
 
-  const snap = await ref.get();
-  if (!snap.exists) throw new Error(`Appointment ${input.appointmentId} not found`);
+  return db.runTransaction(async (transaction) => {
+    const confirmationSnap = await transaction.get(confirmationRef);
+    const confirmation = confirmationSnap.data();
+    const expiresAt = appointmentTimeMillis(confirmation?.expiresAt);
+    if (
+      !confirmationSnap.exists ||
+      confirmation?.status !== "pending" ||
+      confirmation?.businessId !== input.businessId ||
+      confirmation?.callId !== input.callId ||
+      confirmation?.callerPhoneNormalized !== verifiedPhone ||
+      expiresAt <= now
+    ) {
+      throw new Error("No recent verified appointment lookup is available for this call.");
+    }
 
-  await ref.update({ status: "cancelled", updatedAt: Date.now() });
-  return { cancelled: true };
+    const candidates = Array.isArray(confirmation.candidates)
+      ? confirmation.candidates.filter(isCancellationCandidate)
+      : [];
+    let candidate: AppointmentCancellationCandidate | undefined;
+    if (
+      Number.isInteger(input.appointmentNumber) &&
+      (input.appointmentNumber ?? 0) >= 1
+    ) {
+      candidate = candidates[(input.appointmentNumber as number) - 1];
+    } else if (input.appointmentId) {
+      candidate = candidates.find(
+        (item) => item.appointmentId === input.appointmentId
+      );
+    } else if (candidates.length === 1) {
+      candidate = candidates[0];
+    }
+
+    if (!candidate) {
+      throw new Error("Specify the verified appointment number before cancelling.");
+    }
+    if (candidate.callerPhoneNormalized !== verifiedPhone) {
+      throw new Error("The verified appointment is no longer available to cancel.");
+    }
+
+    const appointmentRef = businessRef
+      .collection("appointments")
+      .doc(candidate.appointmentId);
+    const appointmentSnap = await transaction.get(appointmentRef);
+    const appointment = appointmentSnap.data();
+    if (
+      !appointmentSnap.exists ||
+      normalizeAppointmentPhone(appointment?.callerPhone) !== verifiedPhone ||
+      (appointment?.status !== "requested" && appointment?.status !== "confirmed")
+    ) {
+      throw new Error("The verified appointment is no longer available to cancel.");
+    }
+
+    transaction.update(appointmentRef, {
+      status: "cancelled",
+      updatedAt: now,
+    });
+    transaction.update(confirmationRef, {
+      status: "consumed",
+      consumedAt: new Date(now),
+      expiresAt: new Date(now + APPOINTMENT_CONFIRMATION_WINDOW_MS),
+    });
+
+    return {
+      cancelled: true,
+      serviceType: candidate.serviceType,
+      startTime: candidate.startTime,
+    };
+  });
+}
+
+const APPOINTMENT_CONFIRMATION_WINDOW_MS = 10 * 60 * 1000;
+
+interface AppointmentCancellationCandidate {
+  appointmentId: string;
+  callerPhoneNormalized: string;
+  serviceType: string;
+  startTime: number;
+}
+
+function isCancellationCandidate(value: unknown): value is AppointmentCancellationCandidate {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.appointmentId === "string" &&
+    typeof candidate.callerPhoneNormalized === "string" &&
+    typeof candidate.serviceType === "string" &&
+    typeof candidate.startTime === "number"
+  );
+}
+
+function normalizeAppointmentPhone(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 ? digits : undefined;
+}
+
+function appointmentTimeMillis(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value instanceof Date) return value.getTime();
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    "toMillis" in value &&
+    typeof (value as { toMillis?: unknown }).toMillis === "function"
+  ) {
+    return (value as { toMillis: () => number }).toMillis();
+  }
+  return 0;
 }
 
 export interface GetCurrentDateInput {

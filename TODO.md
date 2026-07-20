@@ -20,13 +20,12 @@ Overall implementation: **0%** (planning artifacts complete 2026-07-20).
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
 |---|---|---|---|---|---|
-| Worker A — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | ready — not started |
-| Worker B — Deepseek V4 Pro | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **review** — T-000 (25cea58), T-001 (824c2a4), T-002 (14dc957) |
+| Worker A — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | **merged** (9e4ccfd..) |
+| Worker B — Deepseek V4 Pro | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** (9e4ccfd) |
 
 **Assignment rationale:** P0 authority work (T-010/T-011) needs adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) is well-trodden config breadth — routed to the general-purpose agent.
 
-Integration order: Batch B merges first; Batch A rebases on merged main (package.json belongs to B — A uses
-`npm install --no-save vitest` meanwhile).
+Both batches reviewed and merged locally 2026-07-20. Next eligible work: Phase 2 (T-020/021/022), single owner.
 
 ## Blockers
 
@@ -40,7 +39,7 @@ Integration order: Batch B merges first; Batch A rebases on merged main (package
 
 | ID | Needed | Blocks | Notes |
 |---|---|---|---|
-| NH-1 | Vapi dashboard: set server-URL secret; confirm assistant model/voice/7 tool schemas/retry/recording; remove any bypass config | T-010 deploy | Console-only; CLI cannot read Vapi dashboard |
+| NH-1 | Vapi dashboard: set server-URL secret; confirm assistant model/voice/7 tool schemas/retry/recording; remove any bypass config; extend `cancelAppointment` with optional `confirmCancellation` (boolean) and `appointmentNumber` (integer) parameters without renaming the tool or legacy `appointmentId` | T-010/T-011 deploy | Console-only; CLI cannot read Vapi dashboard |
 | NH-2 | Vercel env: set `VAPI_WEBHOOK_SECRET` (must match NH-1), `CRON_SECRET`, `RESEND_FROM=no-reply@luxordev.com`; **remove `VAPI_AUTH_BYPASS`** | T-010/T-032/T-041 deploy | Integrator can run `vercel env add` after `vercel link` once owner approves values; owner may just say "generate CRON_SECRET yourself" |
 | NH-3 | Resend: verify `luxordev.com` sending domain (SPF/DKIM DNS records); approve sender `no-reply@luxordev.com` | T-041 live verification | DNS access required |
 | NH-4 | Legal/privacy: recording disclosure wording, retention windows, deletion policy, callback consent, emergency-message wording | T-042 sign-off (dev proceeds with 90d defaults) | Owner/legal |
@@ -50,6 +49,7 @@ Integration order: Batch B merges first; Batch A rebases on merged main (package
 | NH-8 | Human click tests: calendar drag→confirm on desktop browser; `/field` QR + hold-to-speak on a real phone | T-030/T-034 acceptance | 10 minutes with the live app |
 | NH-9 | Callback consent policy for pre-existing leads (auto-call grandfathered leads or not) | T-032 backfill | Default: existing leads are NOT auto-called |
 | NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
+| NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
