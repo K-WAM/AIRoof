@@ -95,6 +95,17 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
   (owned by T-000) if genuinely needed.
 - **graphify skill can lag the package** (warning: "skill is from graphify 0.9.12, package is 0.9.16") —
   fix with `graphify install`. Done 2026-07-20; if the warning reappears after a package update, rerun it.
+- **`graphify-out/` is gitignored, so a fresh worktree never has one.** A worker that invokes the
+  `/graphify` skill in a brand-new worktree triggers a full LLM-extraction rebuild of the entire corpus —
+  real token spend, not a cache hit, and easy to trigger repeatedly by accident (once per task, once per
+  lookup) since the skill has no way to know a perfectly good graph already exists one directory up.
+  **Before assigning any worktree, the integrator copies the main worktree's `graphify-out/` into it**
+  (`cp -r "<main-repo>/graphify-out" .`) — it's just files, no git involved, and it makes every
+  `graphify query|explain|path` command work immediately with zero rebuild cost. If a worker finds itself
+  in a worktree without one, it should **ask before rebuilding** — 9 times out of 10 the fix is "copy it
+  from the main worktree," not "generate a new one." For a narrow 1–3 file task, skip graphify entirely —
+  Glob/Grep/Read is enough and a full rebuild has no payoff at that scope. `--update` (incremental,
+  cheap) is fine once a graph is present; a full rebuild from nothing almost never is, mid-task.
 - **Concurrent `npm install` across sibling worktrees can corrupt a node_modules extraction** (seen
   2026-07-20: `firebase/firestore`'s `.d.ts` and dist files went missing in one worktree while a plain
   `npm install` ran there at the same time as another install in a sibling worktree — produced real-looking
