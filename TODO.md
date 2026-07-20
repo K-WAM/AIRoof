@@ -7,25 +7,26 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 
 | Phase | Tasks | Weight | Status | Depends on |
 |---|---|---|---|---|
-| 0 Foundation | T-000 T-001 T-002 | 8% | **assigned** (Batch B) | — |
-| 1 P0 authority | T-010 T-011 | 12% | **assigned** (Batch A) | — (rebase on Batch B at integration) |
-| 2 Shared primitives | T-020 T-021 T-022 | 15% | queued | Phase 0 merged |
+| 0 Foundation | T-000 T-001 T-002 | 8% | **merged** (9e4ccfd) | — |
+| 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
+| 2 Shared primitives | T-020 T-021 T-022 | 15% | **assigned** (Batch C) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 | 20% | queued | Phase 3 partials (per-task deps) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
-Overall implementation: **0%** (planning artifacts complete 2026-07-20).
+Overall implementation: **20%** (Phases 0+1 merged and combined-gate verified on main at `36dde56`, 2026-07-20).
 
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
 |---|---|---|---|---|---|
-| Worker A — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | **merged** (9e4ccfd..) |
-| Worker B — Deepseek V4 Pro | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** (9e4ccfd) |
+| Worker A — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/p0-authority` (deleted, merged) | T-010, T-011 | `src/lib/vapi/verify.ts`; auth/dedupe + lookup/cancel dispatch in `src/app/api/webhooks/vapi/route.ts`; `lookupAppointment`/`cancelAppointment` symbols in `src/lib/tools/agentTools.ts`; `src/lib/vapi/__tests__/**` | **merged** — commits `e0d5699`, `3fdb15f`, merge `36dde56` |
+| Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
+| Worker C — *(unassigned — pick a model)* | `D:\Apps\air-wt-shared-primitives` | `task/shared-primitives` | T-020, T-021, T-022 | `src/lib/config/env.ts` (new), `src/lib/auth/cronGuard.ts` (new), `src/app/api/health/route.ts`; `src/lib/ops/**` (new); `src/lib/schemas/**` (new) | ready — not started |
 
-**Assignment rationale:** P0 authority work (T-010/T-011) needs adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) is well-trodden config breadth — routed to the general-purpose agent.
+**Assignment rationale (A/B):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent. **Batch C** is three independent, non-overlapping primitive modules (config/guard, idempotency ledger, zod schemas) — suits any capable agent; no adversarial edge-case load like Batch A had.
 
-Both batches reviewed and merged locally 2026-07-20. Next eligible work: Phase 2 (T-020/021/022), single owner.
+**Review findings this cycle:** Batch A's own report was accurate and reproduced clean. Batch B's report mischaracterized a real defect as "pre-existing" (see IMPLEMENTATION_LOG.md T-000/T-002 reviewer-correction entry) — 3 type errors in its own new test files, one of which would have broken CI at the exact moment Batch A merged (it asserted `VAPI_AUTH_BYPASS` semantics T-010 removes). Fixed directly as trivial defects, both batches merged clean after a combined 41/41-test, type-check/lint/build-green regression gate on `main` at `36dde56`.
 
 ## Blockers
 
