@@ -33,8 +33,12 @@ Current batch values:
 
 | Batch | WORKTREE_PATH | BRANCH | TASK_IDS |
 |---|---|---|---|
-| A | `D:\Apps\air-wt-p0-authority` | `task/p0-authority` | T-010, T-011 |
-| B | `D:\Apps\air-wt-ci-foundation` | `task/ci-foundation` | T-000, T-001, T-002 |
+| A | *(merged, worktree removed)* | `task/p0-authority` | T-010, T-011 |
+| B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
+| A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
+| B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
+| C | `D:\Apps\air-wt-scheduling-integrity` | `task/scheduling-integrity` | T-030 (merged) → **T-031 next, same worktree** |
+| D | `D:\Apps\air-wt-demo-isolation` | `task/demo-isolation` | T-035 |
 
 ---
 
