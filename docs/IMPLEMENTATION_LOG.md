@@ -98,6 +98,34 @@ removals + rationale (if any) · deviations from spec (if any).
   activation. Removals: deleted fuzzy name/address lookup authority, appointment-ID disclosure, and ID-only
   cancellation authority. No tool was renamed and no unrelated `agentTools.ts` symbol was changed.
 
+## T-020 — Central config/readiness + fail-closed cron guard
+- Date: 2026-07-20 · branch: task/config-guard · commit: `c0eb948` · integration: `b16493e`
+- Created `src/lib/config/env.ts`: typed env getters (`getEnv` returns `string | undefined`,
+  `requireEnv` throws in production, warns in non-production), capability-status helpers
+  (`getCapabilityStatus`, `getCapabilityReport`), empty-string-treated-as-missing, 6 capabilities
+  (openai/deepseek/resend/vapi/firebase/cron) each with required vars.
+- Created `src/lib/auth/cronGuard.ts`: `requireCronAuth(req)` accepts only
+  `Authorization: Bearer <CRON_SECRET>`. Returns 401 on missing/wrong/empty token or non-Bearer
+  scheme, 500 when `CRON_SECRET` is unconfigured. Case-insensitive Bearer prefix and header name.
+- Rewrote `src/app/api/health/route.ts`: uses `getCapabilityReport()` to report per-capability
+  "configured"/"not_configured" status; never includes secret values or key prefixes in output;
+  keeps existing firestore connected/disconnected check; dev without secrets reports unconfigured
+  without crashing.
+- Evidence: `npm run type-check` green · `npm run lint` 0 errors / 26 warnings (baseline unchanged) ·
+  `npm test` 74/74 tests (8 test files) · `npm run build` green.
+- Tests: 16 env tests covering getEnv/requireEnv (prod throw, dev warn), empty-string handling,
+  capability status per-capability and multi-var, getCapabilityReport all/partial/none, secret-value
+  exclusion from report; 11 cron auth tests covering missing secret, missing Authorization,
+  wrong/empty/Basic tokens, case-insensitive Bearer prefix and header name, substring-prefix
+  rejection, happy path. Updated existing health route seed test to match new capabilities shape.
+- Removals: none. This is purely additive; old `services` key in health response replaced by
+  `capabilities` key sourced from env.ts.
+- Reviewer note (integrator, 2026-07-20): this entry was originally drafted on `task/config-guard`
+  but left uncommitted when `b16493e` merged the code into `main`; recovered from the orphaned
+  worktree and committed here rather than lost. Acceptance verified against MASTER_PLAN T-020: 401
+  before any work, health reports accurate readiness with/without vars, no secret values in output —
+  all match.
+
 ## T-021 — Side-effect ledger (idempotency + attempts)
 - Date: 2026-07-20 · branch: task/shared-primitives · commit: this T-021 commit
 - Implemented: tenant-scoped `businesses/{businessId}/operations/{opId}` ledger with transactional
