@@ -1,10 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const resendMocks = vi.hoisted(() => {
+  process.env.RESEND_API_KEY = "test-resend-key";
+  process.env.RESEND_FROM = "Luxor AI <no-reply@luxordev.com>";
+  return { send: vi.fn() };
+});
+
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = { send: resendMocks.send };
+  },
+}));
+
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
   SchedulingConflictError,
   bookAppointment,
   buildAvailableSlots,
+  escalateCall,
   isScheduleWithinBusinessHours,
   scheduleRangesOverlap,
   zonedDateTimeToUtc,
@@ -109,6 +122,20 @@ class FakeTransaction {
     if (this.firestore.documents.has(reference.path)) {
       throw new Error(`Document already exists: ${reference.path}`);
     }
+    this.writes.push(() => this.firestore.documents.set(reference.path, { ...value }));
+  }
+
+  update(reference: FakeDocumentReference, value: StoredDocument) {
+    if (!this.firestore.documents.has(reference.path)) {
+      throw new Error(`Document does not exist: ${reference.path}`);
+    }
+    this.writes.push(() => {
+      const current = this.firestore.documents.get(reference.path) ?? {};
+      this.firestore.documents.set(reference.path, { ...current, ...value });
+    });
+  }
+
+  set(reference: FakeDocumentReference, value: StoredDocument) {
     this.writes.push(() => this.firestore.documents.set(reference.path, { ...value }));
   }
 
@@ -266,5 +293,153 @@ describe("bookAppointment transaction", () => {
         endTime: occupiedStart + 90 * 60 * 1000,
       })
     ).rejects.toMatchObject({ code: "slot_conflict" });
+  });
+});
+
+function configuredEscalationFirestore() {
+  const firestore = new FakeFirestore();
+  firestore.documents.set("businesses/biz-1", {
+    businessName: "Example Co",
+    escalationPhone: "+15555550100",
+    notificationEmail: "dispatch@example.com",
+    timezone: "America/New_York",
+  });
+  vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+  return firestore;
+}
+
+const escalationInput = {
+  businessId: "biz-1",
+  callId: "call-urgent-1",
+  reason: "Caller reported an emergency",
+  callerPhone: "+15555550199",
+  summary: "Immediate assistance requested",
+};
+
+describe("truthful emergency escalation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.RESEND_FROM = "Luxor AI <no-reply@luxordev.com>";
+  });
+
+  it.each(["RESEND_FROM", "notificationEmail", "escalationPhone"] as const)(
+    "returns unconfigured and persists a retryable attempt when %s is missing",
+    async (missingField) => {
+      const firestore = configuredEscalationFirestore();
+      if (missingField === "RESEND_FROM") {
+        delete process.env.RESEND_FROM;
+      } else {
+        const business = firestore.documents.get("businesses/biz-1") ?? {};
+        delete business[missingField];
+        firestore.documents.set("businesses/biz-1", business);
+      }
+
+      const result = await escalateCall(escalationInput);
+
+      expect(result).toMatchObject({ status: "unconfigured", escalated: false });
+      expect(resendMocks.send).not.toHaveBeenCalled();
+      expect(
+        firestore.documents.get(
+          "businesses/biz-1/operations/email:urgent-escalation:call-urgent-1"
+        )
+      ).toMatchObject({
+        state: "failed",
+        attemptCount: 1,
+        lastFailure: {
+          classification: "retryable",
+          code: "configuration_missing",
+        },
+      });
+    }
+  );
+
+  it("reports delivered only from a real provider ID and persists it", async () => {
+    const firestore = configuredEscalationFirestore();
+    resendMocks.send.mockResolvedValue({
+      data: { id: "resend-message-1" },
+      error: null,
+    });
+
+    const result = await escalateCall(escalationInput);
+
+    expect(result).toMatchObject({ status: "delivered", escalated: true });
+    expect(resendMocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "Luxor AI <no-reply@luxordev.com>",
+        to: "dispatch@example.com",
+      }),
+      { idempotencyKey: "email:urgent-escalation:call-urgent-1" }
+    );
+    expect(
+      firestore.documents.get(
+        "businesses/biz-1/operations/email:urgent-escalation:call-urgent-1"
+      )
+    ).toMatchObject({ state: "succeeded", lastProviderId: "resend-message-1" });
+  });
+
+  it("persists provider failure as retryable and succeeds on a safe retry", async () => {
+    const firestore = configuredEscalationFirestore();
+    resendMocks.send
+      .mockResolvedValueOnce({
+        data: null,
+        error: { name: "application_error", message: "provider unavailable" },
+      })
+      .mockResolvedValueOnce({ data: { id: "resend-message-2" }, error: null });
+
+    const failed = await escalateCall(escalationInput);
+    const retried = await escalateCall(escalationInput);
+
+    expect(failed).toMatchObject({ status: "failed", escalated: false });
+    expect(retried).toMatchObject({ status: "delivered", escalated: true });
+    expect(resendMocks.send).toHaveBeenCalledTimes(2);
+    expect(
+      firestore.documents.get(
+        "businesses/biz-1/operations/email:urgent-escalation:call-urgent-1"
+      )
+    ).toMatchObject({
+      state: "succeeded",
+      attemptCount: 2,
+      lastProviderId: "resend-message-2",
+    });
+  });
+
+  it("persists a thrown provider outage as a retryable failure", async () => {
+    const firestore = configuredEscalationFirestore();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    resendMocks.send.mockRejectedValue(new Error("network unavailable"));
+
+    const result = await escalateCall(escalationInput);
+
+    expect(result).toMatchObject({ status: "failed", escalated: false });
+    expect(
+      firestore.documents.get(
+        "businesses/biz-1/operations/email:urgent-escalation:call-urgent-1"
+      )
+    ).toMatchObject({
+      state: "failed",
+      lastFailure: { classification: "retryable", code: "provider_error" },
+    });
+  });
+
+  it("deduplicates simultaneous escalation attempts for the same call", async () => {
+    configuredEscalationFirestore();
+    let resolveDelivery:
+      | ((value: { data: { id: string }; error: null }) => void)
+      | undefined;
+    resendMocks.send.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelivery = resolve;
+      })
+    );
+
+    const first = escalateCall(escalationInput);
+    await vi.waitFor(() => expect(resendMocks.send).toHaveBeenCalledOnce());
+    const duplicate = await escalateCall(escalationInput);
+    resolveDelivery?.({ data: { id: "resend-message-3" }, error: null });
+    const delivered = await first;
+
+    expect(duplicate).toMatchObject({ status: "accepted", escalated: false });
+    expect(delivered).toMatchObject({ status: "delivered", escalated: true });
+    expect(resendMocks.send).toHaveBeenCalledOnce();
   });
 });

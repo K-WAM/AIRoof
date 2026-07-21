@@ -187,3 +187,29 @@ removals + rationale (if any) · deviations from spec (if any).
 - Manual evidence: NH-8 remains the release-gate desktop click test for drag → conflict rollback/error → confirm.
   Drag-drop keyboard alternatives remain deferred as permitted by T-030. Removals: replaced silent mutation
   catches and non-transactional scheduling writes; no Vapi tool name or existing parameter was changed.
+
+## T-031 — Truthful emergency escalation
+- Date: 2026-07-20 · branch: task/scheduling-integrity · commit: this T-031 commit
+- Delivery truth: `escalateCall` now returns `accepted|delivered|failed|unconfigured` while retaining the legacy
+  `escalated` and `escalationTarget` fields. `escalated:true` is emitted only after Resend returns a provider
+  message ID; missing `RESEND_FROM`, notification email, escalation phone, provider rejection, and thrown provider
+  errors all return non-delivered states without a notification or response-time promise.
+- Ledger/retry/dedupe: every escalation derives one stable `email:urgent-escalation:{callId}` T-021 operation,
+  writes ordered attempts with provider IDs or non-PII retryable failure codes, and passes the same operation ID
+  to Resend as its idempotency key. Repeated and simultaneous escalation calls execute one provider effect;
+  retryable failures can safely create a later attempt, while in-flight duplicates return `accepted`.
+- Caller/operator truth: the Vapi reply keeps its existing `{result}` shape. Delivered replies may say email
+  notification succeeded but never promise timing; accepted/failed/unconfigured replies explicitly say delivery
+  is unconfirmed and direct immediate danger to emergency services. Agent-action records correlate by call ID,
+  retain only the operational reason as input, and map delivery status to pending/success/failed. The dashboard
+  reads those member-visible records, deduplicates by call, suppresses later-resolved failures, and displays an
+  accessible urgent banner for pending, failed, or unconfigured notification.
+- Tests: transactional provider mocks cover all three missing configuration fields, provider success with a real
+  message ID, resolved and thrown provider failures, safe retry, and simultaneous-call dedupe. Webhook branch
+  fixtures cover all four statuses, stable response shape, action status, and absence of the former 15-minute
+  callback promise. Evidence: `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings;
+  `npm test` 13 files / 126 tests passed; isolated `npm run build` green; `git diff --check` green.
+- Environment note: initial build attempts overlapped two sibling-worktree `npm ci` processes and stalled before
+  compilation, matching the documented concurrent-install hiccup. Only this worktree's orphan build processes
+  were stopped; after both installs completed, the isolated build compiled in 7.3 seconds. Removals: deleted the
+  unconditional `escalated:true`, swallowed Resend error, and unsupported “notified within 15 minutes” claim.

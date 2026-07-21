@@ -5,6 +5,7 @@ import {
   claimOperation,
   completeOperationAttempt,
   createEmailOperationId,
+  getOperation,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
 import type { Firestore } from "firebase-admin/firestore";
@@ -750,44 +751,209 @@ export interface EscalateCallInput {
   summary?: string;
 }
 
+export type EscalationStatus =
+  | "accepted"
+  | "delivered"
+  | "failed"
+  | "unconfigured";
+
+export interface EscalateCallOutput {
+  status: EscalationStatus;
+  escalated: boolean;
+  escalationTarget: string;
+  operationId: string;
+  callId: string;
+}
+
 export async function escalateCall(
   input: EscalateCallInput
-): Promise<{ escalated: boolean; escalationTarget: string }> {
+): Promise<EscalateCallOutput> {
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
 
   const businessDoc = await db.collection("businesses").doc(input.businessId).get();
   if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
 
-  const businessData = businessDoc.data();
-  const escalationPhone = businessData?.escalationPhone ?? "unknown";
+  const businessData = businessDoc.data() ?? {};
+  const escalationPhone =
+    typeof businessData.escalationPhone === "string" &&
+    businessData.escalationPhone.trim()
+      ? businessData.escalationPhone.trim()
+      : null;
+  const notificationEmail =
+    typeof businessData.notificationEmail === "string" &&
+    businessData.notificationEmail.trim()
+      ? businessData.notificationEmail.trim()
+      : null;
+  const configuredFrom = process.env.RESEND_FROM?.trim() || null;
+  const operationId = createEmailOperationId("urgent-escalation", input.callId);
+  const baseOutput = {
+    escalationTarget: escalationPhone ?? "unconfigured",
+    operationId,
+    callId: input.callId,
+  };
 
-  console.log(`ESCALATION: call ${input.callId} for ${input.businessId} — ${input.reason}`);
-
-  if (resend && businessData?.notificationEmail) {
-    const escalationTime = new Date().toLocaleString("en-US", { timeZone: businessData?.timezone ?? DEFAULT_TZ });
-    const biz: BizBranding = {
-      businessName: businessData.businessName ?? "Your Roofing Company",
-      brandColor: businessData.brandColor ?? "#7f1d1d",
-      logoUrl: businessData.logoUrl ?? null,
-      contactPhone: businessData.contactPhone ?? null,
-      contactEmail: businessData.contactEmail ?? null,
-    };
-    await resend.emails.send({
-      from: FROM,
-      to: businessData.notificationEmail,
-      subject: `URGENT: Call Escalation — ${businessData.businessName ?? input.businessId}`,
-      html: escalationEmailHtml({
-        callerPhone: input.callerPhone ?? "Unknown",
-        reason: input.reason,
-        summary: input.summary ?? "No summary",
-        callId: input.callId,
-        escalationTime,
-      }, biz),
-    }).catch((err) => console.error("Escalation email failed:", err));
+  // No caller details are written to the ledger. The call record remains the
+  // source for PII; the stable call ID is enough to correlate this operation.
+  const claim = await claimOperation(
+    {
+      businessId: input.businessId,
+      opId: operationId,
+      kind: "email",
+      entityRef: { collection: "calls", id: input.callId },
+    },
+    { firestore: db }
+  );
+  if (!claim.claimed && claim.operation.state === "succeeded") {
+    return { ...baseOutput, status: "delivered", escalated: true };
+  }
+  if (!claim.claimed && claim.operation.state === "pending") {
+    return { ...baseOutput, status: "accepted", escalated: false };
+  }
+  if (
+    !claim.claimed &&
+    claim.operation.lastFailure?.classification !== "retryable"
+  ) {
+    return { ...baseOutput, status: "failed", escalated: false };
   }
 
-  return { escalated: true, escalationTarget: escalationPhone };
+  let attempt;
+  try {
+    attempt = await startOperationAttempt(
+      { businessId: input.businessId, opId: operationId },
+      { firestore: db }
+    );
+  } catch (error) {
+    // A simultaneous retry may have started or completed after our claim read.
+    // Re-read the ledger instead of executing a second provider call.
+    const latest = await getOperation(
+      { businessId: input.businessId, opId: operationId },
+      { firestore: db }
+    );
+    if (latest?.state === "succeeded") {
+      return { ...baseOutput, status: "delivered", escalated: true };
+    }
+    if (latest?.state === "pending") {
+      return { ...baseOutput, status: "accepted", escalated: false };
+    }
+    if (latest?.state === "failed") {
+      return {
+        ...baseOutput,
+        status:
+          latest.lastFailure?.code === "configuration_missing"
+            ? "unconfigured"
+            : "failed",
+        escalated: false,
+      };
+    }
+    throw error;
+  }
+
+  if (!resend || !configuredFrom || !notificationEmail || !escalationPhone) {
+    await completeOperationAttempt(
+      {
+        businessId: input.businessId,
+        opId: operationId,
+        attemptId: attempt.attemptId,
+        state: "failed",
+        failure: { classification: "retryable", code: "configuration_missing" },
+      },
+      { firestore: db }
+    );
+    return { ...baseOutput, status: "unconfigured", escalated: false };
+  }
+
+  const escalationTime = new Date().toLocaleString("en-US", {
+    timeZone:
+      typeof businessData.timezone === "string"
+        ? businessData.timezone
+        : DEFAULT_TZ,
+  });
+  const biz: BizBranding = {
+    businessName:
+      typeof businessData.businessName === "string"
+        ? businessData.businessName
+        : "Your Company",
+    brandColor:
+      typeof businessData.brandColor === "string"
+        ? businessData.brandColor
+        : "#7f1d1d",
+    logoUrl: typeof businessData.logoUrl === "string" ? businessData.logoUrl : null,
+    contactPhone:
+      typeof businessData.contactPhone === "string"
+        ? businessData.contactPhone
+        : null,
+    contactEmail:
+      typeof businessData.contactEmail === "string"
+        ? businessData.contactEmail
+        : null,
+  };
+
+  let delivery: Awaited<ReturnType<typeof resend.emails.send>>;
+  try {
+    delivery = await resend.emails.send(
+      {
+        from: configuredFrom,
+        to: notificationEmail,
+        subject: `URGENT: Call Escalation — ${biz.businessName}`,
+        html: escalationEmailHtml(
+          {
+            callerPhone: input.callerPhone ?? "Unknown",
+            reason: input.reason,
+            summary: input.summary ?? "No summary",
+            callId: input.callId,
+            escalationTime,
+          },
+          biz
+        ),
+      },
+      { idempotencyKey: operationId }
+    );
+  } catch {
+    console.error("Escalation delivery failed", {
+      businessId: input.businessId,
+      callId: input.callId,
+    });
+    await completeOperationAttempt(
+      {
+        businessId: input.businessId,
+        opId: operationId,
+        attemptId: attempt.attemptId,
+        state: "failed",
+        failure: { classification: "retryable", code: "provider_error" },
+      },
+      { firestore: db }
+    );
+    return { ...baseOutput, status: "failed", escalated: false };
+  }
+
+  if (delivery.error || !delivery.data?.id) {
+    await completeOperationAttempt(
+      {
+        businessId: input.businessId,
+        opId: operationId,
+        attemptId: attempt.attemptId,
+        state: "failed",
+        failure: { classification: "retryable", code: "provider_rejected" },
+      },
+      { firestore: db }
+    );
+    return { ...baseOutput, status: "failed", escalated: false };
+  }
+
+  // If this ledger completion fails after Resend accepted the idempotent send,
+  // leave the attempt pending for reconciliation; never guess it into "failed".
+  await completeOperationAttempt(
+    {
+      businessId: input.businessId,
+      opId: operationId,
+      attemptId: attempt.attemptId,
+      state: "succeeded",
+      providerId: delivery.data.id,
+    },
+    { firestore: db }
+  );
+  return { ...baseOutput, status: "delivered", escalated: true };
 }
 
 const BASE_URL = "https://ai-roof.vercel.app";
