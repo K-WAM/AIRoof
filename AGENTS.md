@@ -79,7 +79,23 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
 
 - **Windows + two shells**: Bash tool is Git Bash (`/d/Apps/AI Receptionist`); PowerShell is primary. Quote all
   paths — the repo dir contains a space. Don't use PowerShell here-strings in the Bash tool.
-- **Worktrees need their own `npm install`** before any gate runs. First command in a fresh worktree.
+- **Worktrees need `node_modules` before any gate runs, but prefer a junction over a fresh `npm install`.**
+  If no active task touches `package.json`/`package-lock.json` (check TODO.md's owned-scope column — as of
+  2026-07-20 only T-000 owns `package.json`), the integrator should provision a new worktree with
+  `New-Item -ItemType Junction -Path "<worktree>\node_modules" -Target "<main-repo>\node_modules"` instead of
+  `npm install`. This is instant, avoids the shared-npm-cache contention below entirely, and stays correct as
+  long as the lockfile is identical — verify with a quick `npm run type-check` after junctioning. Only fall
+  back to a real `npm install`/`npm ci` when the worktree's lockfile actually differs (rare; would itself be
+  a review flag since package.json is single-owner). If a worker already has a broken/partial `node_modules`
+  from a timed-out install, don't retry the install — delete it and junction instead:
+  `Remove-Item -Recurse -Force node_modules; New-Item -ItemType Junction -Path node_modules -Target "<main-repo>\node_modules"`.
+- **A worker's shell/tool timeout (commonly 120s) is very often shorter than this repo's `npm install`/`npm ci`
+  takes on Windows** (large `node_modules`, antivirus real-time scanning of newly-written files). A command
+  that times out is not necessarily hung — retrying the *same* synchronous foreground install repeatedly can
+  loop forever without ever finishing. If a worker must run a real install (lockfile actually changed), use a
+  background/async run or an explicitly larger timeout, not a retry loop. Don't chase "stuck node process"
+  theories from `Get-Process node` on this machine without checking each process's command line first —
+  unrelated MCP server processes (Playwright MCP, etc.) are normal background noise here and are not npm.
 - **`vercel` CLI is authenticated but the repo is NOT linked** — run
   `vercel link --project prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2 --yes` once per machine before `vercel env ls`.
   `.vercel/` is gitignored; never commit it.
