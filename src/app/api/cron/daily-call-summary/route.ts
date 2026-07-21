@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { BusinessConfig } from "@/types";
+import { requireCronAuth } from "@/lib/auth/cronGuard";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { summarizeTranscript } from "@/lib/ai/deepseekClient";
 
@@ -9,30 +10,11 @@ interface DailySummaryRequest {
   until?: number;
 }
 
-export async function POST(
-  request: NextRequest
-): Promise<
-  NextResponse<
-    | {
-        success: true;
-        businessId: string;
-        processed: number;
-        skipped: number;
-      }
-    | { error: string }
-  >
-> {
+export async function POST(request: NextRequest) {
+  const authError = requireCronAuth(request);
+  if (authError) return authError;
+
   try {
-    const expectedSecret = process.env.CRON_SECRET;
-    if (expectedSecret) {
-      const authHeader = request.headers.get("authorization");
-      const token = authHeader?.replace(/^Bearer\s+/i, "");
-
-      if (token !== expectedSecret) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-    }
-
     const body: DailySummaryRequest = await request.json();
     const { businessId } = body;
 
