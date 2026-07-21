@@ -10,7 +10,7 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 0 Foundation | T-000 T-001 T-002 | 8% | **merged** (9e4ccfd) | — |
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **assigned** (Batch A2 + Batch B2, parallel) | Phase 0 merged ✓ |
-| 3 Boundary applications | T-030…T-035 | 30% | queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
+| 3 Boundary applications | T-030…T-035 | 30% | **T-030 review**; T-031…T-035 queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 | 20% | queued | Phase 3 partials (per-task deps) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
@@ -24,6 +24,7 @@ Overall implementation: **20%** (Phases 0+1 merged and combined-gate verified on
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-shared-primitives` | `task/shared-primitives` | T-021, T-022 | `src/lib/ops/**` (new, incl. `__tests__`), `src/types/ops.ts` (new); `src/lib/schemas/**` (new, incl. adversarial fixtures) | **review** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization commit |
 | Worker B2 — Deepseek V4 Pro | `D:\Apps\air-wt-config-guard` | `task/config-guard` | T-020 | `src/lib/config/env.ts` (new), `src/lib/auth/cronGuard.ts` (new), `src/app/api/health/route.ts` | ready — not started |
+| Worker A3 — Codex | `D:\Apps\air-wt-scheduling-integrity` | `task/scheduling-integrity` | T-030 | Booking/availability symbols in `src/lib/tools/agentTools.ts`; job/appointment scheduling routes; company calendar rollback path + focused tests | **review** — this T-030 commit |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 

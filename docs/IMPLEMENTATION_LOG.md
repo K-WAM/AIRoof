@@ -133,3 +133,29 @@ removals + rationale (if any) · deviations from spec (if any).
 - Combined-tree evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings;
   `npm test` → 8 files / 74 tests passed; `npm run build` → green; `git diff --check` → green.
 - Removals/deviations: none; no route wiring or prompt changes (reserved for T-033).
+
+## T-030 — Scheduling integrity + calendar rollback
+- Date: 2026-07-20 · branch: task/scheduling-integrity · commit: this T-030 commit
+- Requested-time semantics: replaced generated mock openings with business-timezone/business-hours slot
+  calculation against persisted appointments and jobs; booking records stay `requested`/pending and owner copy
+  describes a requested time rather than an automatically confirmed booking.
+- Transactional integrity: booking, appointment move/assignment, and crew assignment now claim tenant-scoped
+  15-minute scheduling locks inside Firestore transactions, re-check legacy appointment/job overlaps by full
+  duration, reject closed/out-of-hours/DST-invalid times, and return actionable 409 conflict responses. Job and
+  appointment conflicts are checked across both scheduling collections for the same crew resource.
+- Notification separation: scheduling commits before crew/customer/owner email attempts. Crew and customer
+  confirmation emails use stable T-021 operation IDs and attempts; delivery failure is returned separately and
+  never rolls back or falsely changes persisted scheduling. Moving a confirmed customer time returns it to
+  `requested` until it is explicitly reconfirmed.
+- Calendar truthfulness: all four optimistic mutations (place/move and unassign/unschedule) retain a precise
+  prior snapshot, restore it on non-2xx or network failure, and show an actionable screen-reader-visible
+  `role="alert"`. Drag times are calculated in the business timezone; jobs land at that day's configured opening,
+  while closed days and nonexistent DST wall times are rejected visibly.
+- Test evidence: transaction mock proves two concurrent same-slot bookings yield exactly one winner and verifies
+  duration overlap rejection. Pure scheduling tests cover occupied slots, closed days, adjacent durations, and
+  DST offset changes. Calendar rollback tests inject 409 and mid-drag network failure and assert the original item
+  is restored. `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 12 files /
+  115 tests passed; `npm run build` green; `git diff --check` green.
+- Manual evidence: NH-8 remains the release-gate desktop click test for drag → conflict rollback/error → confirm.
+  Drag-drop keyboard alternatives remain deferred as permitted by T-030. Removals: replaced silent mutation
+  catches and non-transactional scheduling writes; no Vapi tool name or existing parameter was changed.
