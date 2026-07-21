@@ -97,3 +97,39 @@ removals + rationale (if any) · deviations from spec (if any).
 - External deploy actions: NH-1 records the additive Vapi schema parameters; NH-11 records Firestore TTL policy
   activation. Removals: deleted fuzzy name/address lookup authority, appointment-ID disclosure, and ID-only
   cancellation authority. No tool was renamed and no unrelated `agentTools.ts` symbol was changed.
+
+## T-021 — Side-effect ledger (idempotency + attempts)
+- Date: 2026-07-20 · branch: task/shared-primitives · commit: this T-021 commit
+- Implemented: tenant-scoped `businesses/{businessId}/operations/{opId}` ledger with transactional
+  create-or-decline claims, stable path-safe Vapi/email operation IDs, pending/succeeded/failed states, and
+  PII-resistant entity-reference/provider/failure metadata.
+- Attempts: ordered subrecords support retryable versus terminal failure classification, provider IDs,
+  idempotent completion, single in-flight attempt enforcement, terminal-state protection, and an explicit
+  design contract requiring ambiguous provider outcomes to remain pending for reconciliation.
+- Reconciliation/read helpers: attempt listing plus a bounded tenant-scoped query for pending operations older
+  than a supplied TTL. Transactional mock tests cover 8 concurrent claimers with exactly one winner, retries,
+  terminal failure, PII-shaped failure rejection, attempt listing, provider IDs, and cross-tenant TTL queries.
+- Evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings; `npm test` →
+  7 files / 48 tests passed; `git diff --check` → green.
+- Removals/deviations: none; primitive is additive and has no call-site adoption.
+
+## T-022 — Runtime schema layer for AI and tool I/O
+- Date: 2026-07-20 · branch: task/shared-primitives · implementation commit: b5a16fe · finalization:
+  this T-022 commit
+- Implemented: non-throwing typed Zod parse helpers for all seven unchanged Vapi tool inputs, field-update
+  extraction, summaries, call-outcome and scope classifications, FAQ suggestions, transcripts, and the
+  existing Appointment/Lead/FieldUpdate persistence shapes.
+- Boundary behavior: recursively unwraps nested JSON strings, coerces finite numeric strings, strips unknown
+  keys, rejects empty transcripts and instruction-shaped control content, and returns
+  `{ok:true,data}|{ok:false,issues}`. Failure logs contain generic typed issues plus a redacted/truncated input
+  shape, never the full payload.
+- Adversarial evidence: 21 malformed fixtures cover missing tenant/call fields, invalid ranges/enums,
+  prompt-injection-shaped tool and model output, malformed nested JSON, invalid persistence records, and empty
+  transcripts; all are rejected. Valid fixtures cover all seven tools, nested structured replies, numeric
+  coercion, extra-key stripping, AI outputs, and persistence records.
+- Dependency resolution: integrator commit `d1f6102` adds `zod@^3.23.8` to `package.json` and lockfile. A
+  no-branch-change `git merge-tree --write-tree d1f6102 b5a16fe` integration tree installed Zod 3.25.76 with a
+  clean `npm ci` and had no merge conflicts.
+- Combined-tree evidence: `npm run type-check` → green; `npm run lint` → 0 errors / 26 pre-existing warnings;
+  `npm test` → 8 files / 74 tests passed; `npm run build` → green; `git diff --check` → green.
+- Removals/deviations: none; no route wiring or prompt changes (reserved for T-033).
