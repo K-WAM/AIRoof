@@ -10,16 +10,16 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 0 Foundation | T-000 T-001 T-002 | 8% | **merged** (9e4ccfd) | — |
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
-| 3 Boundary applications | T-030…T-035 | 30% | **T-030 merged**; T-035 in progress (Deepseek, parallel); T-031…T-034 queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
+| 3 Boundary applications | T-030…T-035 | 30% | **T-030 + T-031 merged**; T-035 in progress (Deepseek, parallel); T-032…T-034 queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 | 20% | queued | Phase 3 partials (per-task deps) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
-Overall implementation: **40%** (Phases 0+1+2 fully merged = 35%; Phase 3's 30% weight split evenly across its
-6 tasks (~5% each, no finer per-task weighting recorded) — T-030 merged adds ~5% = **40%**). T-030 independently
-re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings, 115/115 tests green in the
-worktree pre-merge; full-suite `npm test` on main carries 1 pre-existing flake in
-`src/test-utils/example-lib.test.ts` that passes in isolation, fails only under full-suite parallel load —
-unrelated to Phase 2 or T-030 owned files.
+Overall implementation: **45%** (Phases 0+1+2 fully merged = 35%; Phase 3's 30% weight split evenly across its
+6 tasks (~5% each, no finer per-task weighting recorded) — T-030 + T-031 merged adds ~10% = **45%**). Both
+independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings, build green;
+full-suite `npm test` on main carries 1 pre-existing flake in `src/test-utils/example-lib.test.ts` that passes
+in isolation, fails only under full-suite parallel load — unrelated to any Phase 2/3 owned file, reproduced
+identically before this cycle's work began.
 
 ## Active assignments
 
@@ -29,7 +29,7 @@ unrelated to Phase 2 or T-030 owned files.
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-scheduling-integrity` | `task/scheduling-integrity` | T-031 | `escalateCall` in `src/lib/tools/agentTools.ts`; escalation branch in `src/app/api/webhooks/vapi/route.ts`; escalation banner in `src/app/company/dashboard/page.tsx`; focused tests | **review** — this T-031 commit; type-check/lint/126 tests/build green |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-scheduling-integrity` (kept alive for T-032 next) | `task/scheduling-integrity` | T-030, T-031 | `escalateCall`/booking symbols in `src/lib/tools/agentTools.ts`; escalation + booking routes; calendar page; focused tests | **both merged** — T-030 `1919c35`/integration `6785e68`; T-031 `6d25768`/integration (this commit) |
 | Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-demo-isolation` | `task/demo-isolation` | T-035 | `src/app/api/admin/demo-customize/route.ts`, `src/lib/verticals/demoSeed.ts` (isDemo marker), `src/app/admin/demo/page.tsx` (confirm field), seed script marker line | **assigned** — worktree created, no commits yet |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
@@ -41,6 +41,10 @@ unrelated to Phase 2 or T-030 owned files.
 **Assignment rationale (C/D, Phase 3):** T-030 (transactional booking/calendar conflict checks, optimistic-UI rollback, cross-cutting `agentTools.ts` change) needed the same adversarial rigor as Batch A/A2 — routed to Codex, single owner per MASTER_PLAN (`agentTools.ts` merge order forbids concurrent edits: T-011 → T-030 → T-031 → ...). T-035 (demo/prod isolation: allowlist constant, marker check, pre-delete backup, reset lock, explicit confirm field) is contained to 3 files, no crypto/token design, same "fail-closed guard-rail" shape as T-020 — routed to Deepseek. Verified zero file overlap between T-030's and T-035's owned scopes, and both tasks' Deps (T-011/T-021/T-022 for T-030; T-020 for T-035) were already merged, so both could develop in parallel even though MASTER_PLAN's Integration Order lists T-035 as merging *after* T-030/T-031 — that ordering constrains merge sequencing, not development start. T-031/T-032/T-034 stay queued: T-031 must serialize after T-030 on `agentTools.ts` (now unblocked — T-030 merged); T-032 touches `createLead` in the same file (same constraint, also waits on T-031); T-034 modifies the protected `verifyRole.ts` guard and needs new token/crypto design (HMAC, TTL, revocation) — that rigor profile matches Codex, not a second parallel Deepseek task, so it's next in line for Codex's worktree (kept alive, not removed) once T-031 is assigned and either merged or far enough along to free capacity.
 
 **Review outcome (T-030):** APPROVE, merged without rework. Codex's own report (type-check/lint/115 tests/build green, `role="alert"` error states, ledgered notifications, moved-confirmed-appointment reverts to `requested`) was independently reproduced in the worktree before merge: type-check clean, lint 0/26, 115/115 tests. Spot-checked `runTransaction` usage and `role="alert"` presence across all four owned files, and confirmed `checkAvailability`/`bookAppointment` export names are unchanged (Vapi tool contract preserved). No scope expansion, no weakened guards, no unrelated `agentTools.ts` symbols touched. Merged into `main` locally; worktree `D:\Apps\air-wt-scheduling-integrity` kept alive (not removed) since Codex's next task, T-031, serializes on the same `agentTools.ts` file and reuses this branch/worktree.
+
+**Review outcome (T-031):** APPROVE, merged without rework. Independently reproduced in the worktree before merge: type-check clean, lint 0/26, 126/126 tests. Diffed against the true common ancestor (`6785e68`, not `main`'s later tip) to isolate Codex's actual change from doc-drift noise. Spot-checked the ledger claim/attempt flow in `escalateCall`: `escalated:true` is returned only after a real Resend `providerId` is captured (`agentTools.ts` ~L952/956); every other path (`accepted`/`failed`/`unconfigured`) correctly returns `escalated:false`; a duplicate call re-reads the ledger instead of re-sending. Vapi reply shape unchanged, content only. Merged into `main`; no conflicts this time (Codex's own `TODO.md` row edit didn't overlap the integrator's rewritten sections).
+
+**Next for Worker C (Codex):** T-032 — Cron correctness + callback state machine — is now unblocked (`createLead` in `agentTools.ts` may only be edited after T-031 merges, which just happened). Same worktree/branch, next self-contained prompt should point there. T-034 (scoped field tokens, touches protected `verifyRole.ts`) remains queued behind it for the same agent unless the owner wants a third worktree opened in parallel.
 
 ## Blockers
 
