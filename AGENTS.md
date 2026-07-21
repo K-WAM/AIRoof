@@ -21,6 +21,27 @@ Applies to every agent (worker, reviewer, integrator) in this repository. Task s
 (`consolidated_implementation_brief.md`) and MASTER_PLAN are authoritative. Check `git log` only for changes
 after the commit recorded in SESSION_HANDOFF.
 
+## Working-directory discipline (recurring failure — read before your first edit)
+
+A worker has more than once edited files in the **main repo** (`D:\Apps\AI Receptionist`, branch `main`)
+instead of its assigned worktree, because its edit tool resolved an absolute path against the wrong root
+(often the main repo, since that path appears far more often in surrounding context than the worktree path).
+Editing `main` directly is not a scoping slip — it bypasses the entire worktree-isolation safety model this
+plan depends on.
+
+- **Before your very first Edit/Write of the session**, run both of these and confirm they match your
+  assigned WORKTREE_PATH and BRANCH *exactly* — not "close enough," not the main repo:
+  `git rev-parse --show-toplevel` and `git branch --show-current`. If either doesn't match, stop and fix your
+  working directory before touching any file.
+- **Re-verify after any long gap, any tool error, or before your commit** — don't assume the first check
+  still holds. A cheap habit: prefix file paths in your own head with the worktree root every time, never a
+  bare relative path.
+- **If you ever discover you edited the wrong repo:** do not panic-delete. In the wrong location, run
+  `git status --short` to see exactly what changed, `git checkout -- <files>` (or `git stash` if you want a
+  safety copy first) to revert only those files, confirm `git status --short` is clean there, then re-apply
+  the same edits inside the correct worktree. Never run a destructive git command in the main repo without
+  first confirming with `git status`/`git branch --show-current` that you're looking at what you think you are.
+
 ## Protected context (never change without a task that says so)
 
 - `businessId` tenant scoping; default-deny `firestore.rules`; central guards in `src/lib/auth/verifyRole.ts`.

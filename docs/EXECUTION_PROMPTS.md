@@ -15,12 +15,18 @@ Your tasks: <TASK_IDS>
 
 Setup, in order:
 1. cd into the worktree and run `npm install`.
-2. Read AGENTS.md fully — you are bound by it (roles, protected context, definition of done,
-   stuck protocol, known hiccups).
-3. Read your task specs in MASTER_PLAN.md (only your task IDs) and your row in TODO.md.
-4. Implement each task: code + tests, owned files only, one commit per task
-   (`T-0XX: <summary>`), gates green (type-check, lint, test; build once per batch).
-5. Append evidence to docs/IMPLEMENTATION_LOG.md, set your TODO.md row to `review`.
+2. STOP AND VERIFY before any edit: run `git rev-parse --show-toplevel` and `git branch --show-current`.
+   Both must exactly match <WORKTREE_PATH> and <BRANCH> above. If either doesn't match — especially if
+   `--show-toplevel` points at the main repo instead of your worktree — fix your working directory before
+   touching any file. Re-run this check after any long gap or tool error, and again right before your commit.
+   Workers have previously edited the main repo by mistake this way; it silently defeats worktree isolation.
+3. Read AGENTS.md fully — you are bound by it (roles, protected context, definition of done,
+   stuck protocol, known hiccups, and the working-directory-discipline section this maps to).
+4. Read your task specs in MASTER_PLAN.md (only your task IDs) and your row in TODO.md.
+5. Implement each task: code + tests, owned files only, one commit per task
+   (`T-0XX: <summary>`), gates green (type-check, lint, test; build once per batch). Re-run the step-2
+   verification right before this commit.
+6. Append evidence to docs/IMPLEMENTATION_LOG.md, set your TODO.md row to `review`.
 
 Hard rules: never push, merge, touch main, other branches, or files outside your owned scope.
 Never weaken auth, add bypasses, placeholder secrets, or mock fallbacks reachable in production.
@@ -55,6 +61,9 @@ through T-031 (AST-only refresh, 0 LLM tokens; see SESSION_HANDOFF.md for what t
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree.
 
 Work ONLY inside: D:\Apps\air-wt-scheduling-integrity   (branch task/scheduling-integrity)
+BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
+both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
+Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
 This worktree already has a working node_modules from your T-030/T-031 work — do NOT run npm
 install/npm ci. If a gate fails with a real MODULE_NOT_FOUND for a package you didn't touch, stop
 and ask before reinstalling; this repo's installs are slow enough on Windows to blow past a shell
@@ -96,6 +105,10 @@ If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuc
 You are Worker D for the AI Receptionist release plan.
 
 Work ONLY inside: D:\Apps\air-wt-demo-isolation   (branch task/demo-isolation)
+BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
+both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
+This exact mistake has happened before on this task: edits landed in the main repo instead of this
+worktree and had to be discarded (`git checkout --`) and redone here. Re-check before your commit too.
 node_modules is already set up as a directory junction to the main worktree's node_modules
 (package.json is unchanged, so this is safe and instant) — verified working via type-check/lint/test
 already. Do NOT run npm install, npm ci, or delete node_modules — doing so destroys the junction and
