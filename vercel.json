@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/follow-up-calls",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }
