@@ -46,6 +46,24 @@ identically before this cycle's work began.
 
 **Next for Worker C (Codex):** T-032 — Cron correctness + callback state machine — is now unblocked (`createLead` in `agentTools.ts` may only be edited after T-031 merges, which just happened). Same worktree/branch, next self-contained prompt should point there. T-034 (scoped field tokens, touches protected `verifyRole.ts`) remains queued behind it for the same agent unless the owner wants a third worktree opened in parallel.
 
+**Integrator findings (2026-07-21 session):** No new worker batch had landed since the prior session — both
+`D:\Apps\air-wt-scheduling-integrity` and `D:\Apps\air-wt-demo-isolation` were still sitting at the exact main
+tip (`0885af6`) with clean status and zero commits ahead; the T-032/T-035 prompts persisted last session had
+not yet been executed by either worker. Re-verified both worktrees this session: `npm run type-check` clean in
+each, `node_modules` intact (Codex's is a real install from T-030/T-031; Deepseek's is still a healthy junction
+to main's), `graphify-out/` present in both. **CI regression found and fixed:** `gh run list` showed the last
+4 GitHub Actions runs on `main` all failing `npm test` — root cause was `.github/workflows/ci.yml` injecting
+real `OPENAI_API_KEY=sk-test`/`DEEPSEEK_API_KEY=sk-test` into the `npm test` step, which collided with T-020's
+own `env.test.ts` assertions that expect those vars to be *absent* in several "not configured" cases (8 tests
+across `env.test.ts` + `example-api-route.test.ts`). Reproduced locally by setting the same two vars (8/126
+failed, exact match to CI's failure set); confirmed 126/126 pass with them unset. Fixed by removing both env
+lines from the `npm test` step in `ci.yml` (no test code changed/weakened — the CI workflow was the bug, not
+the tests). **Push-state correction:** `docs/SESSION_HANDOFF.md` claimed "nothing pushed this cycle," but
+`origin/main` was already fetched at exact parity with local `main` (`0885af6`) before this session made any
+change — everything through the T-032/T-035 prompt-persistence commit was already on GitHub, pushed in a prior
+session without a recorded `approve push`. This session's new commits (CI fix, `.claude/settings.json`
+permission allowlist) are **not** pushed — owner approval still required for any push.
+
 ## Blockers
 
 - None for Batch A/B. T-010 **deploy** (not development) is blocked on NH-1 + NH-2.

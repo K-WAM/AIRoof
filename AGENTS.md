@@ -122,6 +122,14 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
   from the main worktree," not "generate a new one." For a narrow 1–3 file task, skip graphify entirely —
   Glob/Grep/Read is enough and a full rebuild has no payoff at that scope. `--update` (incremental,
   cheap) is fine once a graph is present; a full rebuild from nothing almost never is, mid-task.
+- **`.github/workflows/ci.yml`'s `npm test` step must not hardcode real-looking API key env vars.** T-020's
+  `env.test.ts`/`example-api-route.test.ts` assert "not configured" behavior when `OPENAI_API_KEY`/
+  `DEEPSEEK_API_KEY` are absent — `vi.stubEnv`/`vi.unstubAllEnvs` only affects vitest's per-test stubs, not a
+  var that's genuinely present in `process.env` for the whole process (e.g. injected by the workflow's `env:`
+  block). This caused ~9 hours of red GitHub Actions CI (4 pushes) that no local run ever caught, because local
+  shells simply didn't have those vars set. Found and fixed 2026-07-21 by deleting the two env lines from the
+  `npm test` step. If a future task's tests genuinely need a provider key present for the *whole* suite, stub it
+  per-test with `vi.stubEnv` inside that test, not via the CI workflow's global step env.
 - **Concurrent `npm install` across sibling worktrees can corrupt a node_modules extraction** (seen
   2026-07-20: `firebase/firestore`'s `.d.ts` and dist files went missing in one worktree while a plain
   `npm install` ran there at the same time as another install in a sibling worktree — produced real-looking
