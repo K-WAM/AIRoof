@@ -49,6 +49,13 @@ interface AgentSnapshot {
   vapiAssistantId?: string;
 }
 
+interface EscalationSnapshot {
+  actionId: string;
+  callId: string;
+  status: "accepted" | "delivered" | "failed" | "unconfigured";
+  createdAt: number;
+}
+
 function isToday(ms: number, tz: string): boolean {
   const dStr = new Date(ms).toLocaleDateString("en-US", { timeZone: tz });
   const nowStr = new Date().toLocaleDateString("en-US", { timeZone: tz });
@@ -72,6 +79,7 @@ export default function CompanyDashboardPage() {
   const [appointments, setAppointments] = useState<ApptSnapshot[]>([]);
   const [jobs, setJobs] = useState<JobSnapshot[]>([]);
   const [agent, setAgent] = useState<AgentSnapshot | null>(null);
+  const [escalationAlerts, setEscalationAlerts] = useState<EscalationSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,7 +90,7 @@ export default function CompanyDashboardPage() {
       try {
         const base = `businesses/${businessId}`;
 
-        const [callCountSnap, leadsSnap, apptsSnap, bizDoc, jobsRes] = await Promise.all([
+        const [callCountSnap, leadsSnap, apptsSnap, bizDoc, jobsRes, actionsSnap] = await Promise.all([
           getCountFromServer(collection(db!, base + "/calls")),
           getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
           getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
@@ -90,6 +98,7 @@ export default function CompanyDashboardPage() {
           hasJobs
             ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] }))
             : Promise.resolve({ jobs: [] }),
+          getDocs(query(collection(db!, base + "/agentActions"), orderBy("createdAt", "desc"), limit(50))),
         ]);
 
         if (bizDoc.exists()) {
@@ -108,6 +117,33 @@ export default function CompanyDashboardPage() {
         setLeads(leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as LeadSnapshot)));
         setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as ApptSnapshot)));
         setJobs((jobsRes.jobs ?? []) as JobSnapshot[]);
+        const latestEscalationByCall = new Map<string, EscalationSnapshot>();
+        for (const actionDoc of actionsSnap.docs) {
+          const action = actionDoc.data();
+          const output = action.output as { status?: unknown } | undefined;
+          if (
+            action.type !== "escalateCall" ||
+            typeof action.callId !== "string" ||
+            (output?.status !== "accepted" &&
+              output?.status !== "delivered" &&
+              output?.status !== "failed" &&
+              output?.status !== "unconfigured") ||
+            latestEscalationByCall.has(action.callId)
+          ) {
+            continue;
+          }
+          latestEscalationByCall.set(action.callId, {
+            actionId: actionDoc.id,
+            callId: action.callId,
+            status: output.status,
+            createdAt: typeof action.createdAt === "number" ? action.createdAt : 0,
+          });
+        }
+        setEscalationAlerts(
+          [...latestEscalationByCall.values()].filter(
+            (item) => item.status !== "delivered"
+          )
+        );
       } catch (err) {
         console.error("Dashboard load failed:", err);
       } finally {
@@ -145,7 +181,7 @@ export default function CompanyDashboardPage() {
       ]
     : [];
 
-  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0;
+  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && escalationAlerts.length === 0;
 
   if (loading) {
     return <PageSkeleton metrics={4} rows={4} />;
@@ -175,6 +211,41 @@ export default function CompanyDashboardPage() {
           <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
         </div>
       </header>
+
+      {escalationAlerts.length > 0 && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: "1px solid #fca5a5",
+            background: "#fef2f2",
+            color: "#991b1b",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <strong>
+              {escalationAlerts.length} urgent escalation
+              {escalationAlerts.length === 1 ? " needs" : "s need"} attention
+            </strong>
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+              Notification {escalationAlerts[0].status === "accepted" ? "is still pending" : "was not delivered"}. Review the call; delivery remains safe to retry.
+            </div>
+          </div>
+          <Link
+            href={`/company/calls${previewSuffix}`}
+            className="button small"
+          >
+            Review calls
+          </Link>
+        </div>
+      )}
 
       <section className="metric-grid" aria-label="Summary">
         {metrics.map((metric) => (

@@ -266,8 +266,36 @@ async function executeTool(
           callerPhone: callerPhone ?? optionalStr(params.callerPhone),
           summary: optionalStr(params.summary),
         });
-        await logAction(businessId, callId, "escalateCall", params, result, "success");
-        return { result: "Call flagged as urgent. The team has been notified and will call back within 15 minutes." };
+        const actionStatus =
+          result.status === "delivered"
+            ? "success"
+            : result.status === "accepted"
+              ? "pending"
+              : "failed";
+        await logAction(
+          businessId,
+          callId,
+          "escalateCall",
+          { reason },
+          result,
+          actionStatus
+        );
+        if (result.status === "delivered") {
+          return {
+            result:
+              "I've flagged this as urgent, and the team was notified by email. I can't promise a response time. If anyone is in immediate danger, call emergency services now.",
+          };
+        }
+        if (result.status === "accepted") {
+          return {
+            result:
+              "I've flagged this as urgent for the team, but I can't confirm notification delivery yet. I can't promise a response time. If anyone is in immediate danger, call emergency services now.",
+          };
+        }
+        return {
+          result:
+            "I've flagged this as urgent, but I couldn't confirm the team was notified. I can't promise a response time. If anyone is in immediate danger, call emergency services now.",
+        };
       }
 
       case "checkAvailability": {
