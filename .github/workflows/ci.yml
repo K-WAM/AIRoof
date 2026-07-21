@@ -33,6 +33,3 @@ jobs:
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-dummy
 
       - run: npm test
-        env:
-          OPENAI_API_KEY: sk-test
-          DEEPSEEK_API_KEY: sk-test
