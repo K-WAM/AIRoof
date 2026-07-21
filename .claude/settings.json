@@ -49,7 +49,22 @@
       "mcp__plugin_playwright_playwright__browser_wait_for",
       "mcp__plugin_playwright_playwright__browser_close",
       "mcp__claude_ai_Vercel__get_project",
-      "mcp__claude_ai_Vercel__list_teams"
+      "mcp__claude_ai_Vercel__list_teams",
+      "Bash(git worktree list)",
+      "Bash(git worktree list *)",
+      "Bash(git -C * status)",
+      "Bash(git -C * status *)",
+      "Bash(git -C * log *)",
+      "Bash(git -C * diff *)",
+      "Bash(git -C * branch *)",
+      "Bash(git -C * worktree list)",
+      "Bash(stripe get *)",
+      "Bash(stripe products list *)",
+      "Bash(npm run test)",
+      "Bash(npm run test *)",
+      "PowerShell(Set-Location *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-ChildItem *)"
     ]
   },
   "hooks": {
