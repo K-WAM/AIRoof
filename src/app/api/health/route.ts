@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
+import { getCapabilityReport } from "@/lib/config/env";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 
 export async function GET() {
   try {
     const db = getAdminFirestore();
+    const capabilities = getCapabilityReport();
 
-    const health = {
+    return NextResponse.json({
       status: "ok",
       timestamp: new Date().toISOString(),
-      services: {
-        firestore: db ? "connected" : "disconnected",
-        openai: process.env.OPENAI_API_KEY ? "configured" : "not_configured",
-        deepseek: process.env.DEEPSEEK_API_KEY ? "configured" : "not_configured",
-      },
-    };
-
-    return NextResponse.json(health);
+      firestore: db ? "connected" : "disconnected",
+      capabilities,
+    });
   } catch (error) {
     console.error("GET /api/health error:", error);
     return NextResponse.json(
@@ -24,7 +21,7 @@ export async function GET() {
         error: "Health check failed",
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
