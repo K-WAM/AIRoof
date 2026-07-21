@@ -105,6 +105,7 @@ const demoBusiness = {
   active: true,
   createdAt: Date.now(),
   updatedAt: Date.now(),
+  isDemo: true,
 };
 
 async function seed() {

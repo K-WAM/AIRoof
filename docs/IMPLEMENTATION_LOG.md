@@ -213,3 +213,19 @@ removals + rationale (if any) ¬∑ deviations from spec (if any).
   compilation, matching the documented concurrent-install hiccup. Only this worktree's orphan build processes
   were stopped; after both installs completed, the isolated build compiled in 7.3 seconds. Removals: deleted the
   unconditional `escalated:true`, swallowed Resend error, and unsupported ‚Äúnotified within 15 minutes‚Äù claim.
+
+## T-035 ó Demo/production isolation guards
+- Date: 2026-07-21 ∑ branch: task/demo-isolation ∑ commit: 8ab0b5c
+- **Allowlist (a):** Added DEMO_BUSINESS_IDS: ReadonlySet<string> = new Set(["demo-roofing"]) code constant with isAllowedDemoBusiness() guard in pplyVertical, returning { ok: false, error: "..." } before any write when LIVE_LINE_BUSINESS_ID is not in the set.
+- **isDemo marker (b):** Added isDemo: true to the seed script (scripts/seed-demo-business.mjs:108). The route now reads existing.data()?.isDemo !== true after the business doc fetch and returns an error before any mutation when the marker is absent or false.
+- **Backup export (c):** Before any collection deletion, all docs from calls, leads, ppointments, crews, jobs are read once into memory, serialized as { id, ...data } per doc, and written to usinesses/demo-roofing/backups/{timestamp}. The backup write gates the delete ó if it fails, no data is deleted. The same in-memory snapshots are then used for the delete batch, avoiding a second read.
+- **Transactional lock (d):** A lock doc at usinesses/demo-roofing/backups/lock is atomically claimed via 
+unTransaction before any backup/delete/re-seed. A locked doc younger than LOCK_TTL_MS (120s) results in an error response. Stale locks are reclaimed. The lock is released in a inally block regardless of success or failure.
+- **Confirm field (e):** The DELETE handler now parses the request body and requires confirm: "RESET". Missing or wrong values return 400. The UI (src/app/admin/demo/page.tsx) replaced the browser confirm() dialog with a modal overlay requiring the user to type "RESET" before the "Yes, reset demo" button enables. The etch call sends { confirm: "RESET" } in the JSON body.
+- **Superadmin gate retained:** The existing erifySuperadmin(request) check at the top of both POST and DELETE handlers is unchanged.
+- **Files changed:** src/app/api/admin/demo-customize/route.ts (full restructure: allowlist, isDemo marker, lock, backup export, finally-block lock release, DELETE body parsing); src/lib/verticals/demoSeed.ts (unchanged ó isDemo is on the seed script's business doc, not in demoSeedFor); scripts/seed-demo-business.mjs (added isDemo: true line); src/app/admin/demo/page.tsx (replaced reset function with typed-confirm modal). New: src/app/api/admin/demo-customize/__tests__/route.test.ts (12 tests: 3 confirm-field, 2 isDemo-marker, 2 transactional-lock, 3 backup export, 1 superadmin gate, 1 full valid POST).
+- **Evidence:** 
+pm run type-check green; 
+pm run lint 0 errors / 26 baseline warnings; 
+pm test 14 files / 138 tests passing (existing 126 + 12 new T-035 tests); 
+pm run build green; git diff --check green. No removals.
