@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { runOptimisticCalendarMutation } from "./optimisticMutation";
 
 interface Appointment {
   appointmentId: string;
@@ -39,20 +40,81 @@ function addDays(d: Date, n: number): Date {
   x.setDate(x.getDate() + n);
   return x;
 }
-function sameDay(aMs: number, b: Date): boolean {
-  const a = new Date(aMs);
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+function dateParts(timestamp: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour"),
+    minute: value("minute"),
+  };
 }
-function dayAt8am(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 0, 0, 0).getTime();
+
+function wallTimeToUtc(
+  day: Date,
+  hour: number,
+  minute: number,
+  timeZone: string
+): number | null {
+  const target = Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), hour, minute);
+  let guess = target;
+  for (let iteration = 0; iteration < 4; iteration++) {
+    const actual = dateParts(guess, timeZone);
+    const actualAsUtc = Date.UTC(
+      actual.year,
+      actual.month - 1,
+      actual.day,
+      actual.hour,
+      actual.minute
+    );
+    const adjustment = target - actualAsUtc;
+    guess += adjustment;
+    if (adjustment === 0) break;
+  }
+  const result = dateParts(guess, timeZone);
+  return result.year === day.getFullYear() &&
+    result.month === day.getMonth() + 1 &&
+    result.day === day.getDate() &&
+    result.hour === hour &&
+    result.minute === minute
+    ? guess
+    : null;
+}
+
+function sameDay(aMs: number, b: Date, timeZone: string): boolean {
+  const a = dateParts(aMs, timeZone);
+  return a.year === b.getFullYear() && a.month === b.getMonth() + 1 && a.day === b.getDate();
+}
+
+function dayAtBusinessOpen(
+  day: Date,
+  businessHours: Record<string, string>,
+  timeZone: string
+): number | null {
+  const weekday = day.toLocaleDateString("en-US", { weekday: "long" });
+  const hours = businessHours[weekday];
+  const match = hours?.match(/^(\d{1,2}):(\d{2})\s*[-–]/);
+  if (!match || hours.trim().toLowerCase() === "closed") return null;
+  return wallTimeToUtc(day, Number(match[1]), Number(match[2]), timeZone);
 }
 /**
  * Move a booking to another day without losing its time of day — a 10:30 cleaning
  * dragged to Thursday is still at 10:30. (Jobs have no time, so they land at 8am.)
  */
-function sameTimeOnDay(existingMs: number, day: Date): number {
-  const t = new Date(existingMs);
-  return new Date(day.getFullYear(), day.getMonth(), day.getDate(), t.getHours(), t.getMinutes(), 0, 0).getTime();
+function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number | null {
+  const time = dateParts(existingMs, timeZone);
+  return wallTimeToUtc(day, time.hour, time.minute, timeZone);
 }
 
 export default function CalendarPage() {
@@ -71,9 +133,11 @@ export default function CalendarPage() {
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
+  const [businessHours, setBusinessHours] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [confirmedAppts, setConfirmedAppts] = useState<Set<string>>(new Set());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -88,10 +152,14 @@ export default function CalendarPage() {
       apptMode
         ? Promise.resolve({ jobs: [] })
         : fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
+      fetch(`/api/company/settings?businessId=${businessId}`)
+        .then((response) => response.json())
+        .catch(() => ({ businessHours: {} })),
     ])
-      .then(([cr, jr]) => {
+      .then(([cr, jr, settings]) => {
         setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
         setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete"));
+        setBusinessHours(settings.businessHours ?? {});
       })
       .finally(() => setLoading(false));
   }, [businessId, modulesReady, apptMode]);
@@ -119,6 +187,7 @@ export default function CalendarPage() {
         );
       } catch {
         setAppts([]);
+        setCalendarError("Appointments could not be loaded. Refresh the calendar and try again.");
       }
     });
   }, [businessId, weekStart]);
@@ -133,38 +202,91 @@ export default function CalendarPage() {
     setTimeout(() => setToast(null), 2500);
   }
 
-  async function placeJob(jobId: string, crewId: string, dayMs: number) {
-    setJobs((prev) => prev.map((j) => (j.jobId === jobId ? { ...j, assignedCrewId: crewId, scheduledStart: dayMs, crewConfirmed: false } : j)));
-    await fetch(`/api/jobs/${jobId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, assignedCrewId: crewId, scheduledStart: dayMs, crewConfirmed: false }),
-    }).catch(() => {});
+  async function placeJob(jobId: string, crewId: string, day: Date) {
+    const previous = jobs.find((job) => job.jobId === jobId);
+    if (!previous) return;
+    const dayMs = dayAtBusinessOpen(day, businessHours, tz);
+    if (dayMs === null) {
+      setCalendarError("That day is closed or has no valid opening time. Choose an open business day.");
+      return;
+    }
+    const duration = previous.scheduledStart && previous.scheduledEnd
+      ? previous.scheduledEnd - previous.scheduledStart
+      : 60 * 60 * 1000;
+    const scheduledEnd = dayMs + Math.max(duration, 1);
+    setCalendarError(null);
+    const result = await runOptimisticCalendarMutation({
+      apply: () => setJobs((current) => current.map((job) =>
+        job.jobId === jobId
+          ? { ...job, assignedCrewId: crewId, scheduledStart: dayMs, scheduledEnd, crewConfirmed: false }
+          : job
+      )),
+      persist: () => fetch(`/api/jobs/${jobId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          crewId,
+          scheduledStart: dayMs,
+          scheduledEnd,
+          crewConfirmed: false,
+          notify: false,
+        }),
+      }),
+      rollback: () => setJobs((current) => current.map((job) =>
+        job.jobId === jobId ? previous : job
+      )),
+      fallbackError: "The assignment could not be saved. The calendar was restored; try again.",
+    });
+    if (!result.ok) setCalendarError(result.error ?? "The assignment could not be saved.");
   }
 
   async function unschedule(jobId: string) {
-    setJobs((prev) => prev.map((j) => (j.jobId === jobId ? { ...j, assignedCrewId: undefined, scheduledStart: undefined, crewConfirmed: false } : j)));
-    await fetch(`/api/jobs/${jobId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, assignedCrewId: null, scheduledStart: null, crewConfirmed: false }),
-    }).catch(() => {});
+    const previous = jobs.find((job) => job.jobId === jobId);
+    if (!previous) return;
+    setCalendarError(null);
+    const result = await runOptimisticCalendarMutation({
+      apply: () => setJobs((current) => current.map((job) =>
+        job.jobId === jobId
+          ? { ...job, assignedCrewId: undefined, scheduledStart: undefined, scheduledEnd: undefined, crewConfirmed: false }
+          : job
+      )),
+      persist: () => fetch(`/api/jobs/${jobId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, crewId: null, notify: false }),
+      }),
+      rollback: () => setJobs((current) => current.map((job) =>
+        job.jobId === jobId ? previous : job
+      )),
+      fallbackError: "The job could not be unscheduled. The calendar was restored; try again.",
+    });
+    if (!result.ok) setCalendarError(result.error ?? "The job could not be unscheduled.");
   }
 
   async function confirmJob(job: Job) {
     if (!job.assignedCrewId || !job.scheduledStart) return;
     setBusyJob(job.jobId);
+    setCalendarError(null);
     try {
       const res = await fetch(`/api/jobs/${job.jobId}/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, crewId: job.assignedCrewId, scheduledStart: job.scheduledStart }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setJobs((prev) => prev.map((j) => (j.jobId === job.jobId ? { ...j, crewConfirmed: true } : j)));
-        flash(data.emailed ? "Crew confirmed & emailed ✓" : "Crew confirmed (no email on file)");
+        if (data.notificationStatus === "failed") {
+          setCalendarError("The assignment is saved, but the crew email failed. Try Confirm again to retry delivery.");
+        } else {
+          flash(data.emailed ? "Crew confirmed & emailed ✓" : "Crew confirmed (no email on file)");
+        }
+      } else {
+        setCalendarError(data.error ?? "The crew could not be confirmed. Try again.");
       }
+    } catch {
+      setCalendarError("The crew could not be confirmed. Check your connection and try again.");
     } finally {
       setBusyJob(null);
     }
@@ -173,39 +295,86 @@ export default function CalendarPage() {
   async function placeAppt(appointmentId: string, crewId: string, day: Date) {
     const appt = appts.find((a) => a.appointmentId === appointmentId);
     if (!appt) return;
-    const startTime = sameTimeOnDay(appt.startTime, day);
-    setAppts((prev) =>
-      prev.map((a) => (a.appointmentId === appointmentId ? { ...a, assignedCrewId: crewId, startTime } : a))
-    );
-    await fetch(`/api/appointments/${appointmentId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
-    }).catch(() => {});
+    const startTime = sameTimeOnDay(appt.startTime, day, tz);
+    if (startTime === null) {
+      setCalendarError("That local time does not exist because of a daylight-saving change. Choose another day.");
+      return;
+    }
+    const wasJustConfirmed = confirmedAppts.has(appointmentId);
+    setCalendarError(null);
+    const result = await runOptimisticCalendarMutation({
+      apply: () => {
+        setAppts((current) => current.map((item) =>
+          item.appointmentId === appointmentId
+            ? {
+                ...item,
+                assignedCrewId: crewId,
+                startTime,
+                ...(startTime !== appt.startTime
+                  ? { status: "requested", pendingConfirmation: true }
+                  : {}),
+              }
+            : item
+        ));
+        if (startTime !== appt.startTime) {
+          setConfirmedAppts((current) => {
+            const next = new Set(current);
+            next.delete(appointmentId);
+            return next;
+          });
+        }
+      },
+      persist: () => fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
+      }),
+      rollback: () => {
+        setAppts((current) => current.map((item) =>
+          item.appointmentId === appointmentId ? appt : item
+        ));
+        if (wasJustConfirmed) {
+          setConfirmedAppts((current) => new Set(current).add(appointmentId));
+        }
+      },
+      fallbackError: "The appointment could not be moved. The calendar was restored; try again.",
+    });
+    if (!result.ok) setCalendarError(result.error ?? "The appointment could not be moved.");
   }
 
   async function unassignAppt(appointmentId: string) {
-    setAppts((prev) =>
-      prev.map((a) => (a.appointmentId === appointmentId ? { ...a, assignedCrewId: undefined } : a))
-    );
-    await fetch(`/api/appointments/${appointmentId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, assignedCrewId: null }),
-    }).catch(() => {});
+    const previous = appts.find((appointment) => appointment.appointmentId === appointmentId);
+    if (!previous) return;
+    setCalendarError(null);
+    const result = await runOptimisticCalendarMutation({
+      apply: () => setAppts((current) => current.map((appointment) =>
+        appointment.appointmentId === appointmentId
+          ? { ...appointment, assignedCrewId: undefined }
+          : appointment
+      )),
+      persist: () => fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, assignedCrewId: null }),
+      }),
+      rollback: () => setAppts((current) => current.map((appointment) =>
+        appointment.appointmentId === appointmentId ? previous : appointment
+      )),
+      fallbackError: "The appointment could not be unassigned. The calendar was restored; try again.",
+    });
+    if (!result.ok) setCalendarError(result.error ?? "The appointment could not be unassigned.");
   }
 
-  // Confirming a booking emails the customer — same endpoint the Dashboard's
-  // after-hours "Confirm & notify" uses.
   async function confirmAppt(appt: Appointment) {
     setBusyJob(appt.appointmentId);
+    setCalendarError(null);
     try {
-      const res = await fetch(`/api/appointments/send-confirmation`, {
-        method: "POST",
+      const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, appointmentId: appt.appointmentId }),
+        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: true }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
         setAppts((prev) =>
           prev.map((a) =>
@@ -215,12 +384,20 @@ export default function CalendarPage() {
           )
         );
         setConfirmedAppts((prev) => new Set(prev).add(appt.appointmentId));
-        flash(
-          data.notifiedCustomer
-            ? `Confirmed & ${vocab.customerNoun.toLowerCase()} emailed ✓`
-            : "Confirmed (no email on file)"
-        );
+        if (data.notificationStatus === "failed") {
+          setCalendarError(`The appointment is confirmed, but the ${vocab.customerNoun.toLowerCase()} email failed. Confirm again to retry delivery.`);
+        } else {
+          flash(
+            data.notifiedCustomer
+              ? `Confirmed & ${vocab.customerNoun.toLowerCase()} emailed ✓`
+              : "Confirmed (no email on file)"
+          );
+        }
+      } else {
+        setCalendarError(data.error ?? "The appointment could not be confirmed. Try again.");
       }
+    } catch {
+      setCalendarError("The appointment could not be confirmed. Check your connection and try again.");
     } finally {
       setBusyJob(null);
     }
@@ -231,8 +408,9 @@ export default function CalendarPage() {
     const over = e.over?.id as string | undefined;
     if (!over) return;
     const [crewId, dayStr] = over.split("|");
-    if (apptMode) placeAppt(id, crewId, new Date(Number(dayStr)));
-    else placeJob(id, crewId, Number(dayStr));
+    const day = new Date(Number(dayStr));
+    if (apptMode) placeAppt(id, crewId, day);
+    else placeJob(id, crewId, day);
   }
 
   if (loading) return <PageSkeleton rows={5} />;
@@ -251,10 +429,16 @@ export default function CalendarPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {toast && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
+          {toast && <span role="status" className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
           <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small">+ Manage {vocab.resourceNounPlural.toLowerCase()}</Link>
         </div>
       </header>
+
+      {calendarError && (
+        <div role="alert" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fef2f2", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
+          {calendarError}
+        </div>
+      )}
 
       {/* Week nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
@@ -319,7 +503,7 @@ export default function CalendarPage() {
               {/* Header row */}
               <div style={{ padding: "12px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700, color: "#64748b" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
-                const isToday = sameDay(Date.now(), d);
+                const isToday = sameDay(Date.now(), d, tz);
                 return (
                   <div key={d.toISOString()} style={{ padding: "12px 8px", borderBottom: "1px solid #e2e8f0", borderLeft: "1px solid #f1f5f9", background: isToday ? "#eff6ff" : "#f8fafc", textAlign: "center" }}>
                     <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{DOW[d.getDay()]}</div>
@@ -335,7 +519,7 @@ export default function CalendarPage() {
                 <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>📅 Bookings</div>
               )}
               {!apptMode && days.map((d) => {
-                const dayAppts = appts.filter((a) => sameDay(a.startTime, d));
+                const dayAppts = appts.filter((a) => sameDay(a.startTime, d, tz));
                 return (
                   <div key={d.toISOString()} style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 56, display: "grid", gap: 4 }}>
                     {dayAppts.map((a) => {
@@ -413,10 +597,10 @@ function CrewRow({
       </div>
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
-          {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d)).map((job) => (
+          {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d, tz)).map((job) => (
             <ScheduledTile key={job.jobId} job={job} crew={crew} onConfirm={onConfirm} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
           ))}
-          {appts.filter((a) => sameDay(a.startTime, d)).map((appt) => (
+          {appts.filter((a) => sameDay(a.startTime, d, tz)).map((appt) => (
             <ScheduledApptTile
               key={appt.appointmentId}
               appt={appt}
@@ -436,7 +620,7 @@ function CrewRow({
 }
 
 function DayCell({ crewId, day, children }: { crewId: string; day: Date; children: React.ReactNode }) {
-  const id = `${crewId}|${dayAt8am(day)}`;
+  const id = `${crewId}|${day.getTime()}`;
   const { setNodeRef, isOver } = useDroppable({ id });
   const isEmpty = !children || (Array.isArray(children) && children.length === 0);
   return (

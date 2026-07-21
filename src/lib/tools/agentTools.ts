@@ -1,6 +1,13 @@
 import type { Appointment, Lead, AgentAction } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { initiateVapiCall } from "@/lib/vapi/vapiClient";
+import {
+  claimOperation,
+  completeOperationAttempt,
+  createEmailOperationId,
+  startOperationAttempt,
+} from "@/lib/ops/ledger";
+import type { Firestore } from "firebase-admin/firestore";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -19,6 +26,351 @@ export interface CheckAvailabilityOutput {
 }
 
 const DEFAULT_TZ = "America/New_York";
+export const SCHEDULE_BUCKET_MS = 15 * 60 * 1000;
+export const DEFAULT_SCHEDULE_DURATION_MS = 60 * 60 * 1000;
+const AVAILABILITY_STEP_MINUTES = 30;
+const AVAILABILITY_SCAN_DAYS = 14;
+
+interface ZonedParts {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  weekday: string;
+}
+
+interface ExistingSchedule {
+  startTime: number;
+  endTime: number;
+  status?: string;
+  assignedCrewId?: string | null;
+}
+
+export type NotificationDeliveryState =
+  | "delivered"
+  | "failed"
+  | "pending"
+  | "unconfigured";
+
+export class SchedulingConflictError extends Error {
+  readonly code:
+    | "invalid_schedule"
+    | "outside_business_hours"
+    | "slot_conflict";
+
+  constructor(
+    code: SchedulingConflictError["code"],
+    message: string
+  ) {
+    super(message);
+    this.name = "SchedulingConflictError";
+    this.code = code;
+  }
+}
+
+function zonedParts(timestamp: number, timeZone: string): ZonedParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    weekday: "long",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value;
+  return {
+    year: Number(value("year")),
+    month: Number(value("month")),
+    day: Number(value("day")),
+    hour: Number(value("hour")),
+    minute: Number(value("minute")),
+    second: Number(value("second")),
+    weekday: value("weekday") ?? "",
+  };
+}
+
+/** Convert a wall-clock time in an IANA timezone to its UTC epoch, including DST. */
+export function zonedDateTimeToUtc(
+  input: Omit<ZonedParts, "second" | "weekday"> & { second?: number },
+  timeZone: string
+): number | null {
+  const targetAsUtc = Date.UTC(
+    input.year,
+    input.month - 1,
+    input.day,
+    input.hour,
+    input.minute,
+    input.second ?? 0
+  );
+  let guess = targetAsUtc;
+  try {
+    for (let iteration = 0; iteration < 4; iteration++) {
+      const actual = zonedParts(guess, timeZone);
+      const actualAsUtc = Date.UTC(
+        actual.year,
+        actual.month - 1,
+        actual.day,
+        actual.hour,
+        actual.minute,
+        actual.second
+      );
+      const adjustment = targetAsUtc - actualAsUtc;
+      guess += adjustment;
+      if (adjustment === 0) break;
+    }
+    const roundTrip = zonedParts(guess, timeZone);
+    if (
+      roundTrip.year !== input.year ||
+      roundTrip.month !== input.month ||
+      roundTrip.day !== input.day ||
+      roundTrip.hour !== input.hour ||
+      roundTrip.minute !== input.minute
+    ) {
+      return null;
+    }
+    return guess;
+  } catch {
+    return null;
+  }
+}
+
+function parseBusinessHours(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, string>;
+}
+
+function parseDayHours(value: string | undefined): { open: number; close: number } | null {
+  if (!value || value.trim().toLowerCase() === "closed") return null;
+  const match = value.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const open = Number(match[1]) * 60 + Number(match[2]);
+  const close = Number(match[3]) * 60 + Number(match[4]);
+  if (open < 0 || close > 24 * 60 || close <= open) return null;
+  return { open, close };
+}
+
+export function scheduleRangesOverlap(
+  leftStart: number,
+  leftEnd: number,
+  rightStart: number,
+  rightEnd: number
+): boolean {
+  return leftStart < rightEnd && leftEnd > rightStart;
+}
+
+export function scheduleResourceKey(resourceId?: string | null): string {
+  return resourceId ? `crew:${resourceId}` : "unassigned";
+}
+
+export function scheduleBucketStarts(startTime: number, endTime: number): number[] {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    throw new SchedulingConflictError(
+      "invalid_schedule",
+      "A valid start and end time are required."
+    );
+  }
+  const first = Math.floor(startTime / SCHEDULE_BUCKET_MS) * SCHEDULE_BUCKET_MS;
+  const buckets: number[] = [];
+  for (let bucket = first; bucket < endTime; bucket += SCHEDULE_BUCKET_MS) {
+    buckets.push(bucket);
+  }
+  return buckets;
+}
+
+export function scheduleLockId(resourceKey: string, bucketStart: number): string {
+  return `${encodeURIComponent(resourceKey)}:${bucketStart}`;
+}
+
+export function isScheduleWithinBusinessHours(
+  startTime: number,
+  endTime: number,
+  businessHours: unknown,
+  timeZone: string
+): boolean {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+    return false;
+  }
+  const hours = parseBusinessHours(businessHours);
+  if (!hours) return false;
+  try {
+    const start = zonedParts(startTime, timeZone);
+    const end = zonedParts(endTime, timeZone);
+    if (start.year !== end.year || start.month !== end.month || start.day !== end.day) {
+      return false;
+    }
+    const dayHours = parseDayHours(hours[start.weekday]);
+    if (!dayHours) return false;
+    const startMinutes = start.hour * 60 + start.minute;
+    const endMinutes = end.hour * 60 + end.minute;
+    return startMinutes >= dayHours.open && endMinutes <= dayHours.close;
+  } catch {
+    return false;
+  }
+}
+
+function addLocalDays(
+  date: Pick<ZonedParts, "year" | "month" | "day">,
+  days: number
+): Pick<ZonedParts, "year" | "month" | "day"> {
+  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function preferredLocalDate(
+  preferredDate: string | undefined,
+  now: Date,
+  timeZone: string
+): Pick<ZonedParts, "year" | "month" | "day"> {
+  const dateOnly = preferredDate?.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnly) {
+    return { year: Number(dateOnly[1]), month: Number(dateOnly[2]), day: Number(dateOnly[3]) };
+  }
+  if (preferredDate) {
+    const parsed = new Date(preferredDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      const local = zonedParts(parsed.getTime(), timeZone);
+      return { year: local.year, month: local.month, day: local.day };
+    }
+  }
+  const localNow = zonedParts(now.getTime(), timeZone);
+  return addLocalDays(localNow, 1);
+}
+
+export function buildAvailableSlots(options: {
+  businessHours: unknown;
+  timeZone: string;
+  existing: ExistingSchedule[];
+  preferredDate?: string;
+  durationMinutes?: number;
+  now?: Date;
+  maxSlots?: number;
+}): Array<{ startTime: string; endTime: string }> {
+  const hours = parseBusinessHours(options.businessHours);
+  if (!hours) return [];
+  const durationMinutes = options.durationMinutes ?? 60;
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0 || durationMinutes > 24 * 60) {
+    return [];
+  }
+  const now = options.now ?? new Date();
+  const firstDate = preferredLocalDate(options.preferredDate, now, options.timeZone);
+  const maxSlots = options.maxSlots ?? 3;
+  const slots: Array<{ startTime: string; endTime: string }> = [];
+
+  for (let offset = 0; offset < AVAILABILITY_SCAN_DAYS && slots.length < maxSlots; offset++) {
+    const date = addLocalDays(firstDate, offset);
+    const noon = zonedDateTimeToUtc({ ...date, hour: 12, minute: 0 }, options.timeZone);
+    if (noon === null) continue;
+    const weekday = zonedParts(noon, options.timeZone).weekday;
+    const dayHours = parseDayHours(hours[weekday]);
+    if (!dayHours) continue;
+
+    for (
+      let minute = dayHours.open;
+      minute + durationMinutes <= dayHours.close && slots.length < maxSlots;
+      minute += AVAILABILITY_STEP_MINUTES
+    ) {
+      const startTime = zonedDateTimeToUtc(
+        { ...date, hour: Math.floor(minute / 60), minute: minute % 60 },
+        options.timeZone
+      );
+      if (startTime === null || startTime <= now.getTime()) continue;
+      const endTime = startTime + durationMinutes * 60 * 1000;
+      const occupied = options.existing.some(
+        (entry) =>
+          entry.status !== "cancelled" &&
+          scheduleRangesOverlap(startTime, endTime, entry.startTime, entry.endTime)
+      );
+      if (!occupied) {
+        slots.push({
+          startTime: new Date(startTime).toISOString(),
+          endTime: new Date(endTime).toISOString(),
+        });
+      }
+    }
+  }
+  return slots;
+}
+
+export async function runLedgeredEmail(options: {
+  firestore: Firestore;
+  businessId: string;
+  messageType: string;
+  entityId: string;
+  entityRef: { collection: string; id: string };
+  send: () => Promise<boolean>;
+}): Promise<NotificationDeliveryState> {
+  const opId = createEmailOperationId(options.messageType, options.entityId);
+  const claim = await claimOperation(
+    {
+      businessId: options.businessId,
+      opId,
+      kind: "email",
+      entityRef: options.entityRef,
+    },
+    { firestore: options.firestore }
+  );
+  if (!claim.claimed && claim.operation.state === "succeeded") return "delivered";
+  if (!claim.claimed && claim.operation.state === "pending") return "pending";
+  if (
+    !claim.claimed &&
+    claim.operation.lastFailure?.classification !== "retryable"
+  ) {
+    return "failed";
+  }
+
+  const attempt = await startOperationAttempt(
+    { businessId: options.businessId, opId },
+    { firestore: options.firestore }
+  );
+  try {
+    const delivered = await options.send();
+    if (!delivered) {
+      await completeOperationAttempt(
+        {
+          businessId: options.businessId,
+          opId,
+          attemptId: attempt.attemptId,
+          state: "failed",
+          failure: { classification: "retryable", code: "delivery_failed" },
+        },
+        { firestore: options.firestore }
+      );
+      return "failed";
+    }
+    await completeOperationAttempt(
+      {
+        businessId: options.businessId,
+        opId,
+        attemptId: attempt.attemptId,
+        state: "succeeded",
+      },
+      { firestore: options.firestore }
+    );
+    return "delivered";
+  } catch {
+    await completeOperationAttempt(
+      {
+        businessId: options.businessId,
+        opId,
+        attemptId: attempt.attemptId,
+        state: "failed",
+        failure: { classification: "retryable", code: "provider_error" },
+      },
+      { firestore: options.firestore }
+    );
+    return "failed";
+  }
+}
 
 // Reads timezone from business Firestore doc. Falls back to Eastern.
 export async function getBusinessTimezone(businessId: string): Promise<string> {
@@ -33,17 +385,6 @@ export async function getBusinessTimezone(businessId: string): Promise<string> {
   }
 }
 
-// Returns a Date representing `hour:00` in the given IANA timezone for the given UTC date.
-// Vercel runs in UTC, so setHours() creates UTC times — this fixes that.
-function tzHourToDate(utcDate: Date, hour: number, tz: string): Date {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
-  const tzPart = fmt.formatToParts(utcDate).find(p => p.type === "timeZoneName")?.value ?? "GMT-5";
-  const m = tzPart.match(/GMT([+-])(\d+)/);
-  const offsetHours = m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -5;
-  const utcHour = hour - offsetHours;
-  return new Date(Date.UTC(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate(), utcHour, 0, 0, 0));
-}
-
 export async function checkAvailability(
   input: CheckAvailabilityInput
 ): Promise<CheckAvailabilityOutput> {
@@ -51,27 +392,56 @@ export async function checkAvailability(
   if (!db) return { available: false, suggestedSlots: [] };
 
   try {
-    const [businessDoc, tz] = await Promise.all([
-      db.collection("businesses").doc(input.businessId).get(),
-      getBusinessTimezone(input.businessId),
-    ]);
+    const businessDoc = await db.collection("businesses").doc(input.businessId).get();
     if (!businessDoc.exists) return { available: false, suggestedSlots: [] };
-
+    const businessData = businessDoc.data() ?? {};
+    const timeZone =
+      typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const now = new Date();
-    const slots: Array<{ startTime: string; endTime: string }> = [];
-    for (let dayOffset = 1; dayOffset <= 3 && slots.length < 3; dayOffset++) {
-      const day = new Date(now);
-      day.setDate(day.getDate() + dayOffset);
-      if (day.getDay() === 0) continue; // skip Sunday
-      const hours = day.getDay() === 6 ? [9, 11] : [9, 13, 15];
-      for (const hour of hours) {
-        const start = tzHourToDate(day, hour, tz);
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
-        slots.push({ startTime: start.toISOString(), endTime: end.toISOString() });
-        if (slots.length >= 3) break;
-      }
-    }
-
+    const scanEnd = now.getTime() + (AVAILABILITY_SCAN_DAYS + 2) * 24 * 60 * 60 * 1000;
+    const [appointmentSnapshot, jobSnapshot] = await Promise.all([
+      db
+        .collection("businesses")
+        .doc(input.businessId)
+        .collection("appointments")
+        .where("startTime", ">=", now.getTime())
+        .where("startTime", "<", scanEnd)
+        .get(),
+      db
+        .collection("businesses")
+        .doc(input.businessId)
+        .collection("jobs")
+        .where("scheduledStart", ">=", now.getTime())
+        .where("scheduledStart", "<", scanEnd)
+        .get(),
+    ]);
+    const existingAppointments = appointmentSnapshot.docs.map((document) => {
+      const data = document.data();
+      return {
+        startTime: Number(data.startTime),
+        endTime: Number(data.endTime),
+        status: typeof data.status === "string" ? data.status : undefined,
+        assignedCrewId:
+          typeof data.assignedCrewId === "string" ? data.assignedCrewId : undefined,
+      };
+    });
+    const existingJobs = jobSnapshot.docs.flatMap((document) => {
+      const data = document.data();
+      return typeof data.scheduledStart === "number" &&
+        typeof data.scheduledEnd === "number"
+        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd }]
+        : [];
+    });
+    const slots = buildAvailableSlots({
+      businessHours: businessData.businessHours,
+      timeZone,
+      // Availability remains advisory (D-1), but never suggests a period already
+      // represented on either scheduling collection.
+      existing: [...existingAppointments, ...existingJobs],
+      preferredDate: input.preferredDate,
+      durationMinutes: input.durationMinutes,
+      now,
+    });
     return { available: slots.length > 0, suggestedSlots: slots };
   } catch (error) {
     console.error("checkAvailability error:", error);
@@ -95,37 +465,32 @@ export interface BookAppointmentInput {
 // True if `now` falls outside the configured business hours for today (in the business tz).
 export function isAfterHoursNow(hours: Record<string, string>, tz: string): boolean {
   try {
-    const now = new Date();
-    const dayName = now.toLocaleDateString("en-US", { timeZone: tz, weekday: "long" });
-    const todayHours = hours[dayName];
-    if (!todayHours || todayHours.toLowerCase() === "closed") return true;
-    const m = todayHours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-    if (!m) return false;
-    const open = parseInt(m[1]) * 60 + parseInt(m[2]);
-    const close = parseInt(m[3]) * 60 + parseInt(m[4]);
-    const local = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-    const cur = local.getHours() * 60 + local.getMinutes();
-    return cur < open || cur >= close;
+    const now = Date.now();
+    return !isScheduleWithinBusinessHours(now, now + 60 * 1000, hours, tz);
   } catch {
-    return false;
+    return true;
   }
 }
 
 export async function bookAppointment(input: BookAppointmentInput): Promise<Appointment> {
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
-
   const businessRef = db.collection("businesses").doc(input.businessId);
-  const businessDoc = await businessRef.get();
-  if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
-
-  const businessData = businessDoc.data();
-
-  // Alice books 24/7. If the call lands outside business hours, mark the appointment
-  // pending so staff confirm it (and notify the customer) in the morning.
-  const pendingConfirmation = isAfterHoursNow(businessData?.businessHours ?? {}, businessData?.timezone ?? DEFAULT_TZ);
-
-  const appointmentId = `apt_${Date.now()}`;
+  const appointmentRef = businessRef.collection("appointments").doc();
+  const appointmentId = appointmentRef.id;
+  const now = Date.now();
+  if (!Number.isFinite(input.startTime) || !Number.isFinite(input.endTime) || input.endTime <= input.startTime) {
+    throw new SchedulingConflictError(
+      "invalid_schedule",
+      "The requested appointment needs a valid start and end time."
+    );
+  }
+  if (input.endTime <= now) {
+    throw new SchedulingConflictError(
+      "invalid_schedule",
+      "The requested appointment must be in the future."
+    );
+  }
   const appointment: Appointment = {
     appointmentId,
     businessId: input.businessId,
@@ -139,42 +504,126 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
     endTime: input.endTime,
     calendarProvider: "mock",
     status: "requested",
-    pendingConfirmation,
+    pendingConfirmation: true,
     sourceCallId: input.sourceCallId,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    createdAt: now,
+    updatedAt: now,
   };
+  const lockBuckets = scheduleBucketStarts(input.startTime, input.endTime);
+  const lockRefs = lockBuckets.map((bucket) =>
+    businessRef
+      .collection("schedulingLocks")
+      .doc(scheduleLockId(scheduleResourceKey(), bucket))
+  );
+  let businessData: Record<string, unknown> = {};
 
-  await businessRef.collection("appointments").doc(appointmentId).set(appointment);
+  await db.runTransaction(async (transaction) => {
+    const businessDoc = await transaction.get(businessRef);
+    if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
+    businessData = businessDoc.data() ?? {};
+    const timeZone =
+      typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
+    if (
+      !isScheduleWithinBusinessHours(
+        input.startTime,
+        input.endTime,
+        businessData.businessHours,
+        timeZone
+      )
+    ) {
+      throw new SchedulingConflictError(
+        "outside_business_hours",
+        "That requested time is outside the business's configured hours."
+      );
+    }
 
-  // Notify business owner
-  if (resend && businessData?.notificationEmail) {
-    const biz_tz: string = businessData?.timezone ?? DEFAULT_TZ;
+    const conflictQuery = businessRef
+      .collection("appointments")
+      .where("startTime", "<", input.endTime);
+    const [lockSnapshots, existingSnapshot] = await Promise.all([
+      Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
+      transaction.get(conflictQuery),
+    ]);
+    const occupiedByLock = lockSnapshots.some((snapshot) => snapshot.exists);
+    const occupiedByLegacyRecord = existingSnapshot.docs.some((document) => {
+      const data = document.data();
+      return (
+        data.status !== "cancelled" &&
+        !data.assignedCrewId &&
+        scheduleRangesOverlap(
+          input.startTime,
+          input.endTime,
+          Number(data.startTime),
+          Number(data.endTime)
+        )
+      );
+    });
+    if (occupiedByLock || occupiedByLegacyRecord) {
+      throw new SchedulingConflictError(
+        "slot_conflict",
+        "That requested time was just taken. Please choose another opening."
+      );
+    }
+
+    for (const [index, lockRef] of lockRefs.entries()) {
+      transaction.create(lockRef, {
+        resourceKey: scheduleResourceKey(),
+        bucketStart: lockBuckets[index],
+        entityType: "appointment",
+        entityId: appointmentId,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        updatedAt: now,
+      });
+    }
+    transaction.create(appointmentRef, appointment);
+  });
+
+  // Persistence is complete before notification. Delivery state lives in T-021,
+  // never on the appointment document, and cannot roll back the requested slot.
+  if (resend && typeof businessData.notificationEmail === "string") {
+    const biz_tz: string =
+      typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const startDate = new Date(input.startTime).toLocaleString("en-US", {
       weekday: "long", month: "long", day: "numeric", year: "numeric",
       hour: "numeric", minute: "2-digit", timeZone: biz_tz,
     });
     const biz: BizBranding = {
-      businessName: businessData.businessName ?? "Your Roofing Company",
-      brandColor: businessData.brandColor ?? null,
-      logoUrl: businessData.logoUrl ?? null,
-      contactPhone: businessData.contactPhone ?? null,
-      contactEmail: businessData.contactEmail ?? null,
-      websiteUrl: businessData.websiteUrl ?? null,
+      businessName:
+        typeof businessData.businessName === "string"
+          ? businessData.businessName
+          : "Your Company",
+      brandColor: typeof businessData.brandColor === "string" ? businessData.brandColor : null,
+      logoUrl: typeof businessData.logoUrl === "string" ? businessData.logoUrl : null,
+      contactPhone:
+        typeof businessData.contactPhone === "string" ? businessData.contactPhone : null,
+      contactEmail:
+        typeof businessData.contactEmail === "string" ? businessData.contactEmail : null,
+      websiteUrl: typeof businessData.websiteUrl === "string" ? businessData.websiteUrl : null,
     };
-    await resend.emails.send({
-      from: FROM,
-      to: businessData.notificationEmail,
-      subject: `New Inspection Booked — ${input.callerName}`,
-      html: bookingEmailHtml({
-        callerName: input.callerName,
-        callerPhone: input.callerPhone,
-        serviceType: input.serviceType ?? "Not specified",
-        startDate,
-        address: input.address ?? "Not provided",
-        callId: input.sourceCallId ?? "N/A",
-      }, biz),
-    }).catch((err) => console.error("Booking email failed:", err));
+    await runLedgeredEmail({
+      firestore: db,
+      businessId: input.businessId,
+      messageType: "owner-booking-request",
+      entityId: appointmentId,
+      entityRef: { collection: "appointments", id: appointmentId },
+      send: async () => {
+        const delivery = await resend.emails.send({
+          from: FROM,
+          to: businessData.notificationEmail as string,
+          subject: `New Appointment Request — ${input.callerName}`,
+          html: bookingEmailHtml({
+            callerName: input.callerName,
+            callerPhone: input.callerPhone,
+            serviceType: input.serviceType ?? "Not specified",
+            startDate,
+            address: input.address ?? "Not provided",
+            callId: input.sourceCallId ?? "N/A",
+          }, biz),
+        });
+        return !delivery.error;
+      },
+    });
   }
 
   return appointment;
@@ -413,13 +862,13 @@ function bookingEmailHtml(
     dataRow("Name", p.callerName),
     dataRow("Phone", p.callerPhone),
     dataRow("Service", p.serviceType),
-    dataRow("Appointment", p.startDate),
+    dataRow("Requested time", p.startDate),
     dataRow("Address", p.address),
   ].join("");
   return emailShell(
-    biz, "New Booking", "#22c55e",
-    "New Inspection Booked",
-    `Your AI receptionist captured and confirmed this appointment automatically.`,
+    biz, "New Request", "#22c55e",
+    "New Appointment Request",
+    `Your AI receptionist captured this requested time. Review and confirm it with the customer.`,
     rows, p.callId
   );
 }
