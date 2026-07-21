@@ -11,15 +11,22 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | **T-030 + T-031 merged**; T-035 in progress (Deepseek, parallel); T-032…T-034 queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 | 20% | queued | Phase 3 partials (per-task deps) |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | queued (T-043/044/045 added 2026-07-21, owner request — see below) | Phase 3 partials (per-task deps); T-043/044/045 depend only on T-020 (already merged) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
 Overall implementation: **45%** (Phases 0+1+2 fully merged = 35%; Phase 3's 30% weight split evenly across its
 6 tasks (~5% each, no finer per-task weighting recorded) — T-030 + T-031 merged adds ~10% = **45%**). Both
 independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings, build green;
-full-suite `npm test` on main carries 1 pre-existing flake in `src/test-utils/example-lib.test.ts` that passes
-in isolation, fails only under full-suite parallel load — unrelated to any Phase 2/3 owned file, reproduced
-identically before this cycle's work began.
+`npm test` **126/126 clean** this session (no flake reproduced this run — see AGENTS.md/SESSION_HANDOFF for the
+prior full-suite-parallel-contention flake note, unrelated to any Phase 2/3 owned file). Also fixed this
+session: GitHub Actions CI itself had been red for ~9 hours/4 pushes on an unrelated CI-workflow bug (env var
+leakage) — see `docs/SESSION_HANDOFF.md`.
+
+**2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
+email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
+original CIB-audit-derived Phase 4 tasks (no security-boundary or auth changes), so they are **not** each
+worth a full 1/6 share of Phase 4's 20% weight; treat the 20% as still dominated by T-040/041/042 until a more
+precise split is needed. Not yet assigned to a worker — queued behind T-032/T-035 (see Next eligible work).
 
 ## Active assignments
 
@@ -87,6 +94,7 @@ permission allowlist) are **not** pushed — owner approval still required for a
 | NH-9 | Callback consent policy for pre-existing leads (auto-call grandfathered leads or not) | T-032 backfill | Default: existing leads are NOT auto-called |
 | NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
+| NH-12 | Decide whether a tenant-removal/deactivation capability should be built at all (no `DELETE` endpoint exists for businesses today — verified 2026-07-21) | T-043 scope | If wanted, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into T-043's email-only scope without owner sign-off |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

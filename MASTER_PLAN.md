@@ -241,6 +241,79 @@ Security/accessibility · Acceptance · Tests · Rollback · Prohibited scope.**
 - **Acceptance (CIB):** retention job deletes/redacts eligible data; audit replay reconstructs who/what/when/result without unnecessary PII; deletion matches documented policy (`docs/RETENTION.md` created here).
 - **Tests:** unit for eligibility + idempotent re-run. **Rollback:** job additive; DELETE change revertible. **Prohibited:** external consent/disclosure wording (NH-4), data-subject request tooling.
 
+### T-043 — Owner-facing tenant-creation email
+- **Objective:** When a business is created via `POST /api/admin/businesses`, send the new owner (`ownerEmail`)
+  one branded `no-reply@luxordev.com` welcome email containing their login email and a working
+  `admin.auth().generatePasswordResetLink()` URL — never a plaintext temp password in an email body or log.
+  Subject line clearly prefixed for inbox filtering (e.g. `[Luxor AI] Your account is ready`). **Evidence:**
+  owner request (2026-07-21 session) — verified today that the POST handler currently returns `tempPassword`
+  in the JSON response for the superadmin to relay manually and sends no email at all; also verified **no
+  tenant-removal/DELETE endpoint exists yet** for businesses (only create + config PUT) — so a "removal"
+  notification has no action to hang off yet; tracked as NH-12, not built speculatively here.
+- **Spec:** owner request. **Deps:** T-020 (capability-status gate for Resend/`RESEND_FROM`).
+- **Owns:** email-dispatch addition in `src/app/api/admin/businesses/route.ts` (POST only); new template in
+  `src/lib/notify.ts` reusing the existing BizBranding HTML shell.
+- **Constraints:** reuse the existing brand shell/pattern already in `notify.ts`; if Resend/`RESEND_FROM`
+  reports `not_configured` (T-020), the API response must say so explicitly, not silently skip and claim
+  success; a send failure must not roll back the Firestore business-creation transaction.
+- **Edge cases:** missing/invalid `ownerEmail` (skip send, note it in the response, don't fail creation);
+  `generatePasswordResetLink` failure (Firebase project not fully configured) surfaces as a warning, not a
+  silent no-op.
+- **Security:** no plaintext password anywhere in an email body, log line, or error message.
+- **Acceptance:** creating a business with a valid `ownerEmail` and Resend configured sends exactly one email
+  containing a working password-reset link; capability-not-configured and missing-owner-email paths are both
+  explicit in the API response, never silently "successful".
+- **Tests:** unit with mocked Resend + mocked `generatePasswordResetLink`. **Rollback:** additive, single call
+  site. **Prohibited:** building a tenant-removal/DELETE endpoint (that's a new destructive capability, not an
+  email addition — needs its own owner-scoped task if wanted, see NH-12).
+
+### T-044 — Self-serve feedback form → connect@luxordev.com
+- **Objective:** A "Send Feedback" entry point (discoverable from company + admin nav, lucide `MessageSquareText`
+  icon) opens a small form (message + optional category; name/email prefilled from the signed-in session) that
+  sends one branded email to `connect@luxordev.com` with a subject clearly prefixed for inbox triage (e.g.
+  `[Feedback] <businessName> — <first ~40 chars of message>`) and the submitter's name/email/businessId in the
+  body so support can reply directly. **Evidence:** owner request (2026-07-21 session) — verified today no
+  "feedback" feature exists anywhere in `src/`.
+- **Spec:** owner request. **Deps:** T-020 (capability gate). No dependency on T-041 — ships now via the same
+  direct-Resend pattern `notify.ts` already uses; migrate the call site onto `src/lib/comms/send.ts` when T-041
+  lands (note left in code + `docs/IMPLEMENTATION_LOG.md`, not blocking).
+- **Owns:** new `src/app/api/feedback/route.ts`; a small shared `FeedbackForm` component + nav entry point
+  (company nav + admin nav); new send function in `src/lib/notify.ts`.
+- **Constraints:** authenticated users only (reuse existing session/role guard pattern — no anonymous public
+  endpoint); rate-limit or single-submit-disable the button to avoid double-send on double-click.
+- **Edge cases:** Resend not configured → form shows a clear "feedback couldn't be sent" error, never a false
+  success toast; empty message rejected client- and server-side.
+- **Security:** no unauthenticated write surface; message body length-capped; no PII beyond name/email/businessId
+  in the email.
+- **Acceptance:** submitting the form from a signed-in company or admin session delivers one email to
+  `connect@luxordev.com` with submitter contact info and a triage-friendly subject; failure path never reports
+  success.
+- **Tests:** unit with mocked Resend; component test for the form's submit/disable/error states.
+- **Rollback:** additive, single new route + component. **Prohibited:** a public/unauthenticated feedback
+  endpoint; a general-purpose support-ticket system.
+
+### T-045 — Icon consistency sweep (lucide-react)
+- **Objective:** Audit every page under `src/app/company/**` and `src/app/admin/**` (25 files; only 9 currently
+  import `lucide-react`) and bring icon usage to one consistent language — add `lucide-react` icons wherever a
+  nav row, button, or section header is missing one or uses something else, matching the pattern already
+  established in `src/app/company/guide/page.tsx` and `company-nav.tsx`. **Evidence:** owner request (2026-07-21
+  session) — verified today: no emoji-as-icon or `react-icons`/`heroicons` usage found (so this is a coverage
+  gap, not a mixed-library cleanup), 16 of 25 pages import zero `lucide-react` icons today.
+- **Spec:** owner request, extends CLAUDE.md's "one teal design system" rule to icons. **Deps:** none (pure
+  frontend, additive-only import changes).
+- **Owns:** icon imports/usages inside existing company/admin page files only — no new components, no layout
+  changes beyond adding an `<Icon />` where one is visibly missing.
+- **Constraints:** no visual redesign, no new icon set, no changing existing icon choices that are already
+  `lucide-react` — this is a coverage pass, not a restyle. Follow `CompanyModule`/`useBusinessModules()` vocab
+  rules for any icon tied to industry-specific nouns.
+- **Edge cases:** none (low-risk, additive UI change) — but must not touch files owned by an in-flight task
+  (check TODO.md's owned-scope column before editing any page another batch is mid-edit on).
+- **Acceptance:** every company/admin page's primary actions/nav rows/section headers use a `lucide-react` icon;
+  `npm run build` unaffected; no visual regression in existing lucide usages (spot-check via Playwright
+  screenshot of 2–3 representative pages before/after).
+- **Tests:** existing gates (type-check/lint/build); no new unit tests required for icon-only changes.
+- **Rollback:** trivial per-file revert. **Prohibited:** redesign, new dependencies, touching non-icon markup.
+
 ---
 
 ## Phase 5 — Release engineering + cleanup
@@ -270,7 +343,8 @@ Security/accessibility · Acceptance · Tests · Rollback · Prohibited scope.**
 
 1. T-000/001/002 (batch B) → 2. T-010/011 (batch A, rebase on B) → 3. T-020, T-021, T-022 →
 4. T-030 → T-031 → {T-032, T-033, T-034, T-035 in any order, parallel} →
-5. T-040 (company → admin), T-041 (after T-031), T-042 (after T-031) → 6. T-050 → T-051 → T-052.
+5. T-040 (company → admin), T-041 (after T-031), T-042 (after T-031), {T-043, T-044, T-045 — parallel with
+   each other and with T-040/041/042, no file overlap, deps only on T-020} → 6. T-050 → T-051 → T-052.
 
 `src/lib/tools/agentTools.ts` merge order (never concurrent): T-011 → T-030 → T-031 → T-032(createLead) → T-041(email lines).
 `src/app/api/webhooks/vapi/route.ts`: T-010 → T-011 → T-031 → T-042.
