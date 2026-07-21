@@ -46,10 +46,16 @@ Updated: 2026-07-20 by integrator (post Phase 2 + T-030 merge).
   session after confirming ancestry (`git merge-base --is-ancestor`) and a clean working tree.
 - **CLI auth (checked 2026-07-20):** gh ✓ · vercel ✓ (repo not linked — see AGENTS.md hiccups) ·
   firebase ✓ · stripe ✓.
-- **Graphify:** `graphify-out/` current as of 1ad9566 (gitignored, per-machine); not yet refreshed against
-  Phase 2/T-030 changes — low priority until T-052 (doc reconciliation) or a future session needs it for
-  `agentTools.ts`/`calendar/page.tsx` navigation. Copied into the new `air-wt-demo-isolation` worktree
-  per the AGENTS.md hiccup note (avoid a from-scratch rebuild).
+- **Graphify:** refreshed 2026-07-20 via `/graphify . --update` — now current through T-031 (908→1193 nodes,
+  +287 new/2 pruned; 863→2105 edges). Doc-file semantic extraction (10 changed .md/.yml files: AGENTS.md,
+  TODO.md, MASTER_PLAN.md, etc.) was dispatched but hung with zero output after 10+ min on a trivial ~1700
+  total lines — killed, not root-caused; code AST extraction (the part that matters for navigating
+  `agentTools.ts`/cron routes/etc.) completed in seconds and cost 0 LLM tokens, so the refresh shipped
+  AST-only. All 108 communities hand-labeled from dominant file/symbol; verified live with
+  `graphify explain "requireCronAuth"` and `graphify explain "createLead"` — both accurate. Copied into
+  both active worktrees (`air-wt-scheduling-integrity`, `air-wt-demo-isolation`). If a future session wants
+  the doc-conceptual layer (MASTER_PLAN.md/AGENTS.md as graph nodes), retry that one subagent chunk alone —
+  don't re-run the full `--update`, the code side is already current.
 - **Known hiccup from this cycle:** `git worktree remove --force` on Windows can time out/hang without
   fully cleaning up (`gitdir file points to non-existent location` left behind) — the directory itself gets
   deleted but the worktree metadata needs a follow-up `git worktree prune`. If a `git worktree remove` call
