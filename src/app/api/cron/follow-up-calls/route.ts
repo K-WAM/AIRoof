@@ -1,100 +1,234 @@
-// Daily cron: fire outbound follow-up calls for leads that haven't been reached.
-// Triggered by Vercel Cron (see vercel.json). Protected by CRON_SECRET.
-//
-// Fires when:
-//   - Lead has no calledBack flag (never reached)
-//   - Business has callbackDelayMinutes configured
-//   - callAttempts < maxCallAttempts (default 3)
-//   - Current time is within callingWindowStart/callingWindowEnd
+// Scheduled follow-up calls for explicitly consented leads whose callback is due.
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireCronAuth } from "@/lib/auth/cronGuard";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import {
+  claimOperation,
+  completeOperationAttempt,
+  startOperationAttempt,
+} from "@/lib/ops/ledger";
 import { initiateVapiCall } from "@/lib/vapi/vapiClient";
 
-export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret") ?? req.nextUrl.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+const DEFAULT_MAX_CALL_ATTEMPTS = 3;
+const DEFAULT_CALLBACK_WINDOW_START = 8;
+const DEFAULT_CALLBACK_WINDOW_END = 20;
+const CALLBACK_RETRY_DELAY_MS = 4 * 60 * 60 * 1000;
+const ELIGIBLE_LEAD_QUERY_LIMIT = 10;
+
+function configuredNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function configuredHour(value: unknown, fallback: number): number {
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 24
+    ? value
+    : fallback;
+}
+
+function hourInTimeZone(now: number, timeZone: string): number {
+  const hourPart = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    hourCycle: "h23",
+  })
+    .formatToParts(new Date(now))
+    .find((part) => part.type === "hour")?.value;
+  return Number(hourPart);
+}
+
+function isWithinCallbackWindow(hour: number, start: number, end: number): boolean {
+  if (!Number.isInteger(hour)) return false;
+  if (start === end) return false;
+  if (start < end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
+}
+
+function callbackOperationId(leadId: string, attemptNumber: number): string {
+  return `callback:${encodeURIComponent(leadId)}:${attemptNumber}`;
+}
+
+export async function GET(request: NextRequest) {
+  const authError = requireCronAuth(request);
+  if (authError) return authError;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
   const now = Date.now();
-  let attempted = 0;
   let skipped = 0;
   const errors: string[] = [];
 
   try {
-    // Load all businesses that have outbound calling configured
-    const bizSnap = await db.collection("businesses").where("vapiAssistantId", "!=", null).get();
+    const businesses = await db
+      .collection("businesses")
+      .where("vapiAssistantId", "!=", null)
+      .get();
 
-    for (const bizDoc of bizSnap.docs) {
-      const biz = bizDoc.data();
-      const businessId = bizDoc.id;
+    for (const businessDocument of businesses.docs) {
+      const business = businessDocument.data();
+      const businessId = businessDocument.id;
 
-      const maxAttempts: number = biz.maxCallAttempts ?? 3;
-      const windowStart: number = biz.callingWindowStart ?? 8;
-      const windowEnd: number = biz.callingWindowEnd ?? 20;
-      const tz: string = biz.timezone ?? "America/New_York";
+      if (!configuredNonNegativeNumber(business.callbackDelayMinutes)) {
+        skipped += 1;
+        continue;
+      }
+      if (!business.vapiAssistantId || !business.vapiPhoneNumberId) {
+        skipped += 1;
+        continue;
+      }
 
-      // Check calling window
-      const localHour = parseInt(
-        new Date(now).toLocaleString("en-US", { timeZone: tz, hour: "numeric", hour12: false })
+      const windowStart = configuredHour(
+        business.callbackWindowStart,
+        DEFAULT_CALLBACK_WINDOW_START
       );
-      if (localHour < windowStart || localHour >= windowEnd) {
-        skipped++;
+      const windowEnd = configuredHour(
+        business.callbackWindowEnd,
+        DEFAULT_CALLBACK_WINDOW_END
+      );
+      const timeZone =
+        typeof business.timezone === "string" && business.timezone.length > 0
+          ? business.timezone
+          : "America/New_York";
+
+      if (!isWithinCallbackWindow(hourInTimeZone(now, timeZone), windowStart, windowEnd)) {
+        skipped += 1;
         continue;
       }
 
-      if (!biz.vapiAssistantId || !biz.vapiPhoneNumberId) {
-        skipped++;
-        continue;
-      }
+      const maxAttempts =
+        typeof business.maxCallAttempts === "number" &&
+        Number.isInteger(business.maxCallAttempts) &&
+        business.maxCallAttempts >= 0
+          ? business.maxCallAttempts
+          : DEFAULT_MAX_CALL_ATTEMPTS;
 
-      // Find leads that need a follow-up call
-      const leadsSnap = await db
-        .collection(`businesses/${businessId}/leads`)
-        .where("calledBack", "!=", true)
-        .limit(10)
+      const eligibleLeads = await businessDocument.ref
+        .collection("leads")
+        .where("callbackState", "==", "pending")
+        .where("callbackConsent", "==", true)
+        .where("callbackDueAt", "<=", now)
+        .orderBy("callbackDueAt", "asc")
+        .limit(ELIGIBLE_LEAD_QUERY_LIMIT)
         .get();
 
-      for (const leadDoc of leadsSnap.docs) {
-        const lead = leadDoc.data();
-        const callAttempts: number = lead.callAttempts ?? 0;
+      for (const leadDocument of eligibleLeads.docs) {
+        const lead = leadDocument.data();
+        const callAttempts =
+          typeof lead.callAttempts === "number" &&
+          Number.isInteger(lead.callAttempts) &&
+          lead.callAttempts >= 0
+            ? lead.callAttempts
+            : 0;
+        const nextAttempt = callAttempts + 1;
 
-        if (callAttempts >= maxAttempts) continue;
-        if (!lead.callerPhone) continue;
+        if (nextAttempt > maxAttempts || typeof lead.callerPhone !== "string") {
+          skipped += 1;
+          continue;
+        }
 
-        // Don't re-attempt within 4 hours of last attempt
-        const lastAttemptAt: number = lead.lastCallAttemptAt ?? 0;
-        if (now - lastAttemptAt < 4 * 60 * 60 * 1000) continue;
+        const opId = callbackOperationId(leadDocument.id, nextAttempt);
+        const claim = await claimOperation(
+          {
+            businessId,
+            opId,
+            kind: "callback.follow_up",
+            entityRef: { collection: "leads", id: leadDocument.id },
+          },
+          { firestore: db, now: new Date(now) }
+        );
+
+        if (!claim.claimed) {
+          skipped += 1;
+          continue;
+        }
+
+        let attempt;
+        try {
+          attempt = await startOperationAttempt(
+            { businessId, opId },
+            { firestore: db, now: new Date(now) }
+          );
+        } catch (error) {
+          errors.push(
+            `${businessId}/${leadDocument.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+          return NextResponse.json({ ok: true, attempted: 0, skipped, errors });
+        }
 
         try {
-          await initiateVapiCall({
-            assistantId: biz.vapiAssistantId,
-            phoneNumberId: biz.vapiPhoneNumberId,
+          const vapiCall = await initiateVapiCall({
+            assistantId: business.vapiAssistantId,
+            phoneNumberId: business.vapiPhoneNumberId,
             customerNumber: lead.callerPhone,
-            metadata: { businessId, leadId: leadDoc.id, type: "follow_up" },
+            metadata: { businessId, leadId: leadDocument.id, type: "follow_up" },
             assistantOverrides: {
-              firstMessage: `Hi, this is ${biz.agentName ?? "your AI receptionist"} calling back from ${biz.businessName}. We missed each other earlier — I'm calling about your roofing inquiry. Is now a good time?`,
+              firstMessage: `Hi, this is ${business.agentName ?? "your AI receptionist"} calling back from ${business.businessName}. We missed each other earlier — I'm calling about your roofing inquiry. Is now a good time?`,
             },
           });
 
-          await leadDoc.ref.update({
-            callAttempts: callAttempts + 1,
-            lastCallAttemptAt: now,
-          });
+          await completeOperationAttempt(
+            {
+              businessId,
+              opId,
+              attemptId: attempt.attemptId,
+              state: "succeeded",
+              providerId: vapiCall.id,
+            },
+            { firestore: db, now: new Date(now) }
+          );
 
-          attempted++;
-        } catch (err) {
-          errors.push(`${businessId}/${leadDoc.id}: ${err instanceof Error ? err.message : String(err)}`);
+          const canonicalCallId = `call_vapi_${vapiCall.id}`;
+          const callbackExhausted = nextAttempt >= maxAttempts;
+          const batch = db.batch();
+          batch.set(
+            businessDocument.ref.collection("calls").doc(canonicalCallId),
+            {
+              callId: canonicalCallId,
+              businessId,
+              callType: "outbound",
+              targetPhone: lead.callerPhone,
+              status: "queued",
+              initiatedByUid: "system",
+              leadId: leadDocument.id,
+              vapiCallId: vapiCall.id,
+              callAttempt: nextAttempt,
+              startedAt: now,
+              createdAt: now,
+              updatedAt: now,
+              messages: [],
+            }
+          );
+          batch.update(leadDocument.ref, {
+            callAttempts: nextAttempt,
+            lastCallAttemptAt: now,
+            callbackState: callbackExhausted ? "none" : "pending",
+            callbackDueAt: callbackExhausted ? null : now + CALLBACK_RETRY_DELAY_MS,
+            updatedAt: now,
+          });
+          await batch.commit();
+
+          return NextResponse.json({ ok: true, attempted: 1, skipped, errors });
+        } catch (error) {
+          // Provider/network ambiguity remains pending in the ledger. A later
+          // reconciliation task must resolve it instead of guessing and duplicating a call.
+          errors.push(
+            `${businessId}/${leadDocument.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+          return NextResponse.json({ ok: true, attempted: 1, skipped, errors });
         }
       }
     }
-  } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, attempted, skipped, errors });
+  return NextResponse.json({ ok: true, attempted: 0, skipped, errors });
 }

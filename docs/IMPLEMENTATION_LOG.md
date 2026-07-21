@@ -213,3 +213,30 @@ removals + rationale (if any) · deviations from spec (if any).
   compilation, matching the documented concurrent-install hiccup. Only this worktree's orphan build processes
   were stopped; after both installs completed, the isolated build compiled in 7.3 seconds. Removals: deleted the
   unconditional `escalated:true`, swallowed Resend error, and unsupported “notified within 15 minutes” claim.
+
+## T-032 — Cron correctness + callback state machine
+- Date: 2026-07-21 · branch: task/scheduling-integrity · commit: this T-032 commit
+- Fail-closed boundary: `follow-up-calls`, `daily-call-summary`, and `faq-suggestions` now call the shared
+  `requireCronAuth` guard before parsing a request, loading Firestore, invoking a model/provider, or writing.
+  Negative route tests cover missing and invalid Bearer tokens for all three handlers with zero side effects.
+- Explicit eligibility: `createLead` persists `callbackState`, `callbackDueAt`, and `callbackConsent` on every
+  new lead. Consent defaults false; missing/invalid delay configuration or an unusable phone produces
+  `callbackState: "none"` and a null due time. The former fire-and-forget Vapi callback was removed so every
+  callback now passes through the consent, due-time, calling-window, attempt-cap, and ledger gates.
+- Atomic execution: the follow-up query contains `callbackState == pending`, `callbackConsent == true`, and
+  `callbackDueAt <= now`; pre-existing leads with absent consent are excluded. Each invocation starts at most one
+  T-021 attempt under a stable per-lead/per-attempt operation ID before calling Vapi. A provider/network ambiguity
+  stays pending for reconciliation rather than risking a duplicate. Successful calls persist the provider ID,
+  canonical call record, lead attempt count, next due time, and terminal `none` state when the cap is reached.
+- Configuration: callback windows now use the canonical `callbackWindowStart`/`callbackWindowEnd` keys;
+  businesses without `callbackDelayMinutes` are skipped. `vercel.json` runs follow-up selection every five
+  minutes; daily-summary and FAQ scheduling remain unchanged pending NH-6.
+- Test evidence: transactional Firestore tests exercise the real T-021 ledger, prove overlapping cron invocations
+  produce one provider call/one attempt, and cover due/consent filters, absent delay, default consent, window and
+  attempt caps, ambiguous provider outcomes, successful summary/FAQ execution, and lead initialization.
+  `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 14 files / 143 tests
+  passed; `npm run build` green;
+  `git diff --check` green.
+- Removals/deviations: removed legacy query-secret/x-cron-secret authentication, absent-field `calledBack`
+  eligibility, wrong `callingWindow*` keys, non-atomic direct provider calls, and create-time callback dispatch.
+  Existing outbound voice text and Vapi tool names were not changed.
