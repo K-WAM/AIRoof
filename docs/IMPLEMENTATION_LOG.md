@@ -372,8 +372,8 @@ removals + rationale (if any) · deviations from spec (if any).
   `Cache-Control`/`Referrer-Policy` headers added on the exchange response beyond what the spec asked for.
   Negative-first tests cover every fail-closed path named in the spec's acceptance criteria. The
   10-minute/one-time-use exchange grant means a printed demo QR is only good for a single scan within 10
-   minutes of the most recent Demo Studio launch — reviewed and accepted as correct given the demo workflow
-   (each pitch re-launches Demo Studio anyway, which mints a fresh grant as a side effect); not a defect.
+  minutes of the most recent Demo Studio launch — reviewed and accepted as correct given the demo workflow
+  (each pitch re-launches Demo Studio anyway, which mints a fresh grant as a side effect); not a defect.
 
 ## T-041 — Unified outbound communications
 - Date: 2026-07-21 · branch: task/unified-comms
@@ -433,3 +433,50 @@ removals + rationale (if any) · deviations from spec (if any).
   signature. Consequential caller updates from an owned refactor, not unauthorized scope creep.
 - Fixed unrelated pre-existing defect while merging: `TODO.md` had a duplicated paragraph (introduced in
   an earlier integrator edit this session, not by this task) — removed the duplicate.
+
+## T-042 — PII retention, deletion, and audit integrity
+- Date: 2026-07-21 · branch: task/pii-retention · commit: 44998fb
+- **Policy:** Added repository-enforced, independently configurable transcript, recording, and tool-I/O
+  windows. All default to a conservative 90 days through `RETENTION_TRANSCRIPTS_DAYS`,
+  `RETENTION_RECORDINGS_DAYS`, and `RETENTION_TOOL_IO_DAYS`; invalid values fail closed. The policy and
+  `docs/RETENTION.md` explicitly keep NH-4 owner/legal sign-off open.
+- **Redaction:** Eligible call transcript fields/derived text and recording URLs, plus old `agentActions`
+  input/output, are deleted with Firestore field transforms. Retained skeletons contain only SHA-256 hashes,
+  serialized byte lengths, field names, and timestamps. The job touches only tenant `calls` and
+  `agentActions`, never invoices. Active calls are skipped.
+- **Resumable cron:** Added `POST /api/cron/retention`, with `requireCronAuth` before every Firestore access,
+  required tenant scope, bounded batches, and opaque call/tool phase cursors. Each document redaction and its
+  audit event commit in one transaction; interrupted/replayed batches converge without restoring data or
+  duplicating successful redaction events.
+- **DELETE semantics:** `/api/calls/[callId]` no longer relabels a call as ended. It transactionally removes
+  call transcript/recording content and call-local identifiers, retains an audit skeleton, preserves
+  operational status/provider metadata, returns `409` for active calls, and is idempotent on repeat.
+- **Audit integrity:** Added readonly event/action/provider-ID types and create-only transaction writes under
+  tenant `auditEvents`. Events carry correlation IDs, actor, subject, provider IDs, timestamp, and factual
+  result without tool PII. Vapi appointment lookup and cancellation now emit correctly distinct
+  `appointment.lookup`/`appointment.cancel` events with Vapi call/tool-call IDs.
+- **Tests/evidence:** 20 new tests (243 total) cover negative cron auth before Firestore, defaults/config
+  validation, independent eligibility, active-call exclusion, privacy-safe hashes, cursor resumption,
+  idempotent reruns, invoice non-interference, DELETE redaction/repeat/denial, append-only overwrite rejection,
+  and Vapi audit labels/provider IDs. `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings;
+  `npm test` 23 files / 243 tests green; `npm run build` green; `git diff --check` green.
+- **Out-of-scope preserved:** no external consent/disclosure wording, data-subject request traversal, provider
+  deletion, invoice deletion, deployment, push, or Vapi tool contract rename was added.
+
+## T-042 — Integrator review
+- Date: 2026-07-22 · integration commit: this merge
+- Independently reproduced in the worktree before merge: type-check/lint clean, 243/243 tests (one transient
+  `verify.test.ts` failure on first run under parallel worktree load — same documented pre-existing flake,
+  clean on immediate re-run), build green.
+- Spot-checked the transactional redaction path in `redactCallDocument`: an active call (`status === "active"`)
+  is denied for `call.delete` (writes a `denied` audit event, no data touched) and silently skipped for
+  routine retention; an already-redacted call returns `unchanged` and logs a `skipped` audit event with
+  `alreadyRedacted: true` rather than reprocessing — confirms the idempotent-rerun acceptance criterion.
+- Confirmed `docs/RETENTION.md` accurately describes the shipped behavior (cross-checked every claim against
+  the actual code) and correctly keeps NH-4 (legal sign-off on retention windows) open rather than asserting
+  the 90-day defaults are an approved policy.
+- Confirmed zero file overlap with T-041 (verified via diff) and zero touches to `docs/IMPLEMENTATION_LOG.md`
+  merge conflicts beyond the expected shared status-row/log entries.
+- This is the strongest-reviewed submission this session: real Firestore transactions (not just a TTL check),
+  SHA-256+byte-length audit skeletons instead of raw content, cursor-based resumable batching, and explicit
+  tests for invoice non-interference and append-only overwrite rejection.
