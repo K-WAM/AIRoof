@@ -50,6 +50,17 @@ scope-expanding into another file. Merged both branches into `main` locally (`gi
 only shared-file conflicts were in `TODO.md`/`IMPLEMENTATION_LOG.md` (both workers' own status-row/log
 updates), resolved by keeping both sides' content, no code conflicts (zero owned-file overlap, as designed).
 
+**Assignment rationale (C/D, next — T-034/T-033):** T-034 (replacing the stable `?key=` field credential
+with signed, short-lived exchange tokens) is the same "protected-guard + new crypto/token design" shape as
+T-021/T-010 — routed to Codex, which has the strongest track record on that rigor profile in this plan; it's
+also the only task touching `verifyRole.ts`, so no serialization conflict exists regardless. T-033 (adopting
+T-022's already-built schemas at the AI trust boundaries + centralizing provider/model selection) is
+mechanical wiring of existing primitives rather than new security design — good Deepseek fit, consistent
+with T-020's routing precedent. Zero file overlap between the two (verified). Both worktrees were retired
+from their fully-merged branches and reassigned in place via `git worktree move` (renamed to match the new
+task) rather than provisioning fresh ones — avoids a redundant `npm install`/junction setup for node_modules,
+which already exists and was re-verified healthy post-rename.
+
 **2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
 email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
 original CIB-audit-derived Phase 4 tasks (no security-boundary or auth changes), so they are **not** each
@@ -64,8 +75,8 @@ precise split is needed. Not yet assigned to a worker — next in line, see Next
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-scheduling-integrity` | `task/scheduling-integrity` | T-030, T-031, T-032 | `escalateCall`/booking/createLead callback symbols in `src/lib/tools/agentTools.ts`; escalation + booking routes; calendar page; `src/app/api/cron/**`; `vercel.json`; focused tests | **merged** — T-030 `1919c35`/integration `6785e68`; T-031 `6d25768`/integration `449a493`; T-032 `58fc531` + review fix `9beb8e2`/integration this commit |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-demo-isolation` | `task/demo-isolation` | T-035 | `src/app/api/admin/demo-customize/route.ts`, `src/lib/verticals/demoSeed.ts` (isDemo marker), `src/app/admin/demo/page.tsx` (confirm field), seed script marker line | **merged** — commit `28a67ff` + review fix `f9052d4`/integration this commit, gates green (type-check/lint/test 138/138/build) |
+| Worker C — Codex Sol 5.6 (extra high) | *(prior)* `D:\Apps\air-wt-scheduling-integrity` on `task/scheduling-integrity` (T-030/T-031/T-032, all merged: `1919c35`/`6785e68`, `6d25768`/`449a493`, `58fc531`+`9beb8e2`) → *(now)* `D:\Apps\air-wt-field-tokens` on new branch `task/field-tokens` | T-034 | `src/lib/auth/verifyRole.ts` (verifyFieldAccess + token exchange); `src/app/field/page.tsx`; `src/app/api/field/exchange/route.ts` (new); QR-link construction in `src/app/admin/demo/page.tsx` + `demo-customize` | **assigned** — worktree renamed/reassigned this session, node_modules + graphify-out carried over, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | *(prior)* `D:\Apps\air-wt-demo-isolation` on `task/demo-isolation` (T-035, merged: `28a67ff`+`f9052d4`) → *(now)* `D:\Apps\air-wt-ai-input-hardening` on new branch `task/ai-input-hardening` | T-033 | `src/lib/ai/deepseekClient.ts`, `src/lib/ai/registry.ts` (new), `src/app/api/jobs/[jobId]/field-audio/route.ts`, `src/app/api/transcribe/route.ts`, `src/app/api/agent/respond/route.ts` | **assigned** — worktree renamed/reassigned this session, node_modules junction + graphify-out carried over, `npm run type-check` verified clean |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 

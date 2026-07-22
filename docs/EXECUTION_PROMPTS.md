@@ -43,102 +43,107 @@ Current batch values:
 | B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
 | A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
 | B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
-| C | `D:\Apps\air-wt-scheduling-integrity` | `task/scheduling-integrity` | T-030 (merged), T-031 (merged) → **T-032 next, same worktree** |
-| D | `D:\Apps\air-wt-demo-isolation` | `task/demo-isolation` | T-035 — not started, worktree ready (node_modules junctioned, graphify-out current) |
+| C | `D:\Apps\air-wt-field-tokens` (was `air-wt-scheduling-integrity`) | `task/field-tokens` | T-030/T-031/T-032 (all merged) → **T-034 next, same worktree, new branch** |
+| D | `D:\Apps\air-wt-ai-input-hardening` (was `air-wt-demo-isolation`) | `task/ai-input-hardening` | T-035 (merged) → **T-033 next, same worktree, new branch** |
 
 ---
 
-## PENDING — next assignments, ready to paste (as of 789d92f, 2026-07-20, 45% complete)
+## PENDING — next assignments, ready to paste (as of `07f0cf1`, 2026-07-21, 55% complete)
 
-Both worktrees are pre-provisioned: node_modules is ready (Codex's own install / Deepseek's junction
-to main's node_modules — do NOT run npm install in either), and graphify-out/ is refreshed and current
-through T-031 (AST-only refresh, 0 LLM tokens; see SESSION_HANDOFF.md for what that means for a future
-`--update`). Use `graphify explain`/`query`/`path` before Glob/Grep sweeps in both.
+Both worktrees were retired from their fully-merged branches and reassigned + renamed this session
+(`git worktree move`) — node_modules and graphify-out carried over untouched and were re-verified healthy
+(`npm run type-check` clean in both) after the rename. graphify-out/ is refreshed and current through the
+T-032/T-035 merge (AST-only refresh again this round — see SESSION_HANDOFF.md). Use `graphify
+explain`/`query`/`path` before Glob/Grep sweeps in both.
 
-### Next for Codex (Worker C) — T-032, same worktree/branch
+### Next for Codex (Worker C) — T-034, same worktree, new branch
 
 ```
-You are Worker C for the AI Receptionist release plan, continuing in your existing worktree.
+You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
+fresh branch — your T-030/T-031/T-032 work is merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-scheduling-integrity   (branch task/scheduling-integrity)
+Work ONLY inside: D:\Apps\air-wt-field-tokens   (branch task/field-tokens)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
-This worktree already has a working node_modules from your T-030/T-031 work — do NOT run npm
-install/npm ci. If a gate fails with a real MODULE_NOT_FOUND for a package you didn't touch, stop
-and ask before reinstalling; this repo's installs are slow enough on Windows to blow past a shell
-timeout, and re-running them has already cost a full session this cycle.
+This worktree already has a working node_modules — do NOT run npm install/npm ci. If a gate fails with
+a real MODULE_NOT_FOUND for a package you didn't touch, stop and ask before reinstalling.
 
-Before grepping around the codebase, use the graphify graph already in your worktree
-(graphify-out/, refreshed and current through your own T-031 merge) — free, already built, saves
-tokens vs. broad Glob/Grep sweeps:
-  graphify explain "createLead"
-  graphify query "how do the cron routes authenticate?"
-  graphify path "requireCronAuth" "createLead"
+Before grepping around the codebase, use the graphify graph already in your worktree:
+  graphify explain "verifyFieldAccess"
+  graphify query "how does the public field QR link authenticate?"
+  graphify path "fieldKey" "verifyFieldAccess"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-032 — Cron correctness + callback state machine (MASTER_PLAN.md, Phase 3).
-Read AGENTS.md fully first if you haven't already this session. Read only the T-032 section of
-MASTER_PLAN.md and your row in TODO.md.
+Your task: T-034 — Scoped field access tokens (MASTER_PLAN.md, Phase 3).
+Read AGENTS.md fully first (this repo now has a mandatory working-directory-discipline section — read
+it, it exists because of the mistake above). Read only the T-034 section of MASTER_PLAN.md and your row
+in TODO.md.
 
-Owns: src/app/api/cron/** (follow-up-calls, daily-call-summary, faq-suggestions); vercel.json;
-createLead callback-state initialization in src/lib/tools/agentTools.ts. Next in the agentTools.ts
-serialization chain (T-011 → T-030 → T-031 → T-032) — safe to proceed, T-031 is merged.
+Owns: src/lib/auth/verifyRole.ts (verifyFieldAccess + new token exchange); src/app/field/page.tsx (token
+bootstrap); src/app/api/field/exchange/route.ts (new); QR-link construction in src/app/admin/demo/page.tsx
+and demo-customize's fieldUrl output. This is the ONLY task touching verifyRole.ts in this plan — no
+serialization conflict with any other in-flight work.
 
-Key acceptance points: all three cron routes use requireCronAuth (401 before any model/provider
-call or write); leads get explicit callbackState: "pending"|"none", callbackDueAt, and a consent
-field at creation; follow-up selection queries only due, consented leads and claims each atomically
-via the T-021 ledger (exactly one attempt per invocation, no duplicates on overlapping cron runs);
-a business without callbackDelayMinutes is skipped, not defaulted; existing leads default to
-consent:false (NH-9 is an owner decision, not yours to override). vercel.json schedule
-names/config get corrected, but scheduling daily-call-summary/faq-suggestions is NH-6 (owner
-decision) — just make them secure/correct when invoked.
+Key acceptance points: keep fieldKey as the mint secret, but exchange it server-side for a signed,
+short-lived token (HMAC via T-020's server secret, TTL ≤ 12h) scoping to the business + optional job;
+QR links carry a one-time/short-TTL exchange URL, not the reusable business-wide key; after bootstrap,
+strip the credential from the URL (history.replaceState + server redirect) so nothing reusable survives
+in browser history/referrers; expired/revoked tokens fail closed; a job-scoped token cannot touch a
+different job. Printed-QR workflow must still work end-to-end (QR → exchange → session) and
+unauthenticated crew phones must still work. Existing demo-roofing printed QRs may break once — log it
+and note the demo playbook needs a pointer, don't silently break the demo without recording it.
+Feature-flag a fallback to the legacy `?key=` for one deploy cycle (removed later in T-051) — do not
+delete the old path outright yet.
 
-One commit (T-032: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main.
-If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
+One commit (T-034: <summary>), gates green (type-check/lint/test; build once), append evidence to
+docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, or change
+session-role auth paths or add a new auth provider. If blocked >20 min: commit WIP, log HELP-NEEDED in
+TODO.md, and give me the stuck-summary block.
 ```
 
-### Next for Deepseek (Worker D) — T-035, ready worktree
+### Next for Deepseek (Worker D) — T-033, same worktree, new branch
 
 ```
-You are Worker D for the AI Receptionist release plan.
+You are Worker D for the AI Receptionist release plan, continuing in your existing worktree (now on a
+fresh branch — your T-035 work is merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-demo-isolation   (branch task/demo-isolation)
+Work ONLY inside: D:\Apps\air-wt-ai-input-hardening   (branch task/ai-input-hardening)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
-This exact mistake has happened before on this task: edits landed in the main repo instead of this
-worktree and had to be discarded (`git checkout --`) and redone here. Re-check before your commit too.
-node_modules is already set up as a directory junction to the main worktree's node_modules
-(package.json is unchanged, so this is safe and instant) — verified working via type-check/lint/test
-already. Do NOT run npm install, npm ci, or delete node_modules — doing so destroys the junction and
-puts you back into a real install, the exact problem that ate a full session here already. If
-something genuinely looks missing, run `npm run type-check` first to confirm before touching
-node_modules at all.
+This exact mistake has happened before on this worktree. Re-check before your commit too.
+node_modules is a directory junction to the main worktree's — do NOT run npm install, npm ci, or delete
+node_modules. If something genuinely looks missing, run `npm run type-check` first to confirm before
+touching node_modules at all.
 
-Before grepping around the codebase, use the graphify graph already in your worktree
-(graphify-out/, refreshed and current) — free, already built, saves tokens vs. broad Glob/Grep:
-  graphify explain "demo-customize"   (or the exact route/function name once you find it)
-  graphify query "how does the demo reset endpoint work?"
+Before grepping around the codebase, use the graphify graph already in your worktree:
+  graphify explain "parseFieldUpdate"
+  graphify query "where do transcription and AI parsing happen and what validates their output?"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-035 — Demo/production isolation guards (MASTER_PLAN.md, Phase 3).
-Read AGENTS.md fully first. Read only the T-035 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-033 — AI input hardening + provider/model routing (MASTER_PLAN.md, Phase 3).
+Read AGENTS.md fully first. Read only the T-033 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/app/api/admin/demo-customize/route.ts; src/lib/verticals/demoSeed.ts (isDemo marker);
-src/app/admin/demo/page.tsx (confirm field); the seed script's marker line. Zero file overlap with
-Codex's T-030/T-031/T-032 work — fully parallel-safe.
+Owns: src/lib/ai/deepseekClient.ts; src/lib/ai/registry.ts (new); src/app/api/jobs/[jobId]/field-audio/
+route.ts; src/app/api/transcribe/route.ts; src/app/api/agent/respond/route.ts. Zero file overlap with
+Codex's T-034 work — fully parallel-safe.
 
-Implement D-2: the destructive reset must (a) hard-refuse any businessId !== 'demo-roofing' via an
-explicit allowlist constant (code, not config), (b) refuse when the target doc lacks an isDemo:true
-marker added by the seed script, (c) take a JSON backup export of deleted collections before delete,
-(d) serialize concurrent resets via a transactional lock doc, (e) require an explicit confirm:"RESET"
-body field sent by the UI. Superadmin gate stays in place.
+Key acceptance points: adopt T-022's zod schemas at these trust boundaries — invalid or low-confidence
+extractions get flagged for user confirmation, never silently persisted; centralize provider/model
+selection in the new registry, honoring DEEPSEEK_MODEL and the persisted backOfficeModel setting instead
+of hardcoded model names; remove any mock/fallback response that could run in production — missing prod
+API keys must fail readiness explicitly (via T-020's config/capability checks), never fabricate a
+plausible-looking summary. Dev/demo may keep a mock ONLY when NODE_ENV !== 'production' and it is clearly
+labeled as a mock in the output. Test against the adversarial edge cases: malformed nested JSON, prompt
+injection inside a transcript, oversized/empty audio, multilingual/noisy input (must hit the low-confidence
+confirm path, not silently guess), provider timeout. Do NOT touch job.parsed's projection ownership
+(src/lib/jobs/projection.ts) — that's out of scope and already correct. Do NOT change the field-correction
+UX, add new providers, or redesign prompts.
 
-One commit (T-035: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main, or
-files outside your owned scope. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and
-give me the stuck-summary block.
+One commit (T-033: <summary>), gates green (type-check/lint/test; build once), append evidence to
+docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main, or files
+outside your owned scope. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the
+stuck-summary block.
 ```
 
 ---
