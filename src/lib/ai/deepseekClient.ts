@@ -1,21 +1,18 @@
-// AI clients for back-office tasks (summaries, classification, FAQ generation, field parsing)
-// parseFieldUpdate uses GPT-4o for accuracy; other functions use DeepSeek as a cheaper option
-
-import OpenAI from "openai";
 import type { ParsedUpdate } from "@/types/jobs";
+import {
+  selectClient,
+  canUseMock,
+  mockLabel,
+  type ModelOverrides,
+} from "@/lib/ai/registry";
+import {
+  parseFieldUpdateOutput,
+  parseSummaryOutput,
+  parseCallOutcomeOutput,
+  parseFaqSuggestionsOutput,
+} from "@/lib/schemas";
 
-// GPT-4o for field update parsing — more accurate structured extraction
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
-
-// DeepSeek for cheaper back-office tasks (summaries, classification)
-const deepseek = process.env.DEEPSEEK_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.DEEPSEEK_API_KEY,
-      baseURL: "https://api.deepseek.com",
-    })
-  : null;
+const isProduction = (): boolean => process.env.NODE_ENV === "production";
 
 export interface SummarizeTranscriptOptions {
   transcript: Array<{ role: string; text: string }>;
@@ -30,7 +27,6 @@ export interface ClassifyOutcomeOptions {
 export interface ParseFieldUpdateOptions {
   rawText: string;
   businessName: string;
-  /** Business vertical (e.g. "roofing", "hvac", "landscaping") — keeps extraction unbiased across industries. */
   industry?: string;
   language?: string;
   jobContext?: {
@@ -39,7 +35,21 @@ export interface ParseFieldUpdateOptions {
     serviceType?: string;
     clientName?: string;
   };
+  modelOverrides?: ModelOverrides;
 }
+
+class ParseFieldUpdateError extends Error {
+  constructor(
+    message: string,
+    public readonly needsConfirmation: boolean = false,
+    public readonly rawText?: string,
+  ) {
+    super(message);
+    this.name = "ParseFieldUpdateError";
+  }
+}
+
+export { ParseFieldUpdateError };
 
 export async function parseFieldUpdate(
   options: ParseFieldUpdateOptions
@@ -52,10 +62,20 @@ export async function parseFieldUpdate(
     invoiceSuggestions: [],
   };
 
-  // Prefer GPT-4o — better at structured extraction from messy voice transcripts
-  const client = openai ?? deepseek;
-  const model = openai ? "gpt-4o" : "deepseek-chat";
-  if (!client) return empty;
+  const { client, selection } = selectClient("parse-field-update", options.modelOverrides);
+
+  if (!client) {
+    if (isProduction()) {
+      throw new ParseFieldUpdateError("parseFieldUpdate: no AI provider configured");
+    }
+    if (canUseMock()) {
+      return {
+        ...empty,
+        issues: [{ description: `${mockLabel("parse-field-update")}AI extraction unavailable — provider not configured.`, severity: "low" }],
+      };
+    }
+    throw new ParseFieldUpdateError("parseFieldUpdate: no AI provider configured");
+  }
 
   const { jobContext } = options;
   const contextBlock = jobContext
@@ -69,14 +89,16 @@ export async function parseFieldUpdate(
         .join("\n")
     : null;
 
-  const res = await client.chat.completions.create({
-    model,
-    temperature: 0.1,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content: `You are a field intelligence analyst for a ${options.industry ?? "field-service"} company. A foreman or crew member submitted a voice or text update from a job site. Extract structured data from natural language — even if casual, abbreviated, accented, multilingual, or quickly spoken.
+  let res;
+  try {
+    res = await client.chat.completions.create({
+      model: selection.model,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `You are a field intelligence analyst for a ${options.industry ?? "field-service"} company. A foreman or crew member submitted a voice or text update from a job site. Extract structured data from natural language — even if casual, abbreviated, accented, multilingual, or quickly spoken.
 
 LABOR RULES (most important for invoicing):
 - Every crew member mentioned = a separate labor entry with their first name as "description".
@@ -115,41 +137,40 @@ Return JSON with exactly these keys:
 - correction: null OR {item: string, newValue: number, field: "materials"|"labor"}
 
 If a section is empty, return []. Never fabricate data not explicitly stated. Never compute totals — the system sums quantities itself.`,
-      },
-      {
-        role: "user",
-        content: [
-          `Business: ${options.businessName}`,
-          contextBlock ? `Job context:\n${contextBlock}` : null,
-          `Language detected: ${options.language ?? "en"}`,
-          ``,
-          `Field update:`,
-          options.rawText,
-        ]
-          .filter((l) => l !== null)
-          .join("\n"),
-      },
-    ],
-  });
-
-  try {
-    const parsed = JSON.parse(res.choices[0].message.content ?? "{}");
-    const c = parsed.correction;
-    const correction =
-      c && typeof c === "object" && typeof c.item === "string" && typeof c.newValue === "number"
-        ? { item: c.item, newValue: c.newValue, field: c.field === "labor" ? "labor" : "materials" as "materials" | "labor" }
-        : undefined;
-    return {
-      timeline: Array.isArray(parsed.timeline) ? parsed.timeline : [],
-      materials: Array.isArray(parsed.materials) ? parsed.materials : [],
-      labor: Array.isArray(parsed.labor) ? parsed.labor : [],
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-      invoiceSuggestions: Array.isArray(parsed.invoiceSuggestions) ? parsed.invoiceSuggestions : [],
-      ...(correction ? { correction } : {}),
-    };
-  } catch {
-    return empty;
+        },
+        {
+          role: "user",
+          content: [
+            `Business: ${options.businessName}`,
+            contextBlock ? `Job context:\n${contextBlock}` : null,
+            `Language detected: ${options.language ?? "en"}`,
+            ``,
+            `Field update:`,
+            options.rawText,
+          ]
+            .filter((l) => l !== null)
+            .join("\n"),
+        },
+      ],
+    });
+  } catch (err) {
+    throw new ParseFieldUpdateError(
+      `parseFieldUpdate: AI provider error — ${err instanceof Error ? err.message : String(err)}`
+    );
   }
+
+  const rawContent = res.choices[0]?.message?.content ?? "{}";
+  const schemaResult = parseFieldUpdateOutput(rawContent);
+
+  if (!schemaResult.ok) {
+    throw new ParseFieldUpdateError(
+      `parseFieldUpdate: schema validation failed — ${schemaResult.issues.map((i) => `${i.path}: ${i.message}`).join("; ")}`,
+      true,
+      options.rawText,
+    );
+  }
+
+  return schemaResult.data;
 }
 
 export interface GenerateFaqSuggestionsOptions {
@@ -161,40 +182,57 @@ export interface GenerateFaqSuggestionsOptions {
 export async function summarizeTranscript(
   options: SummarizeTranscriptOptions
 ): Promise<string> {
-  if (!deepseek) {
-    return "Call summary: Caller inquired about services and preferred appointment timing. Collected phone and address.";
+  const { client } = selectClient("summarize");
+
+  if (!client) {
+    if (isProduction()) {
+      throw new Error("summarizeTranscript: DeepSeek provider not configured");
+    }
+    if (canUseMock()) {
+      return `${mockLabel("summarize")}Call summary: Caller inquired about services and preferred appointment timing. Collected phone and address.`;
+    }
+    throw new Error("summarizeTranscript: DeepSeek provider not configured");
   }
 
   const lines = options.transcript
     .map((m) => `${m.role}: ${m.text}`)
     .join("\n");
 
-  const res = await deepseek.chat.completions.create({
-    model: "deepseek-chat",
-    temperature: 0.2,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a call summarizer for a local service business. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
-      },
-      {
-        role: "user",
-        content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
-      },
-    ],
-  });
+  const { selection } = selectClient("summarize");
 
+  let res;
   try {
-    const parsed = JSON.parse(res.choices[0].message.content ?? "{}");
-    const items = Array.isArray(parsed.actionItems)
-      ? ` Action items: ${parsed.actionItems.join("; ")}`
-      : "";
-    return `${parsed.summary ?? ""}${items}`;
-  } catch {
-    return res.choices[0].message.content ?? "";
+    res = await client.chat.completions.create({
+      model: selection.model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a call summarizer for a local service business. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
+        },
+        {
+          role: "user",
+          content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
+        },
+      ],
+    });
+  } catch (err) {
+    throw new Error(`summarizeTranscript: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  const rawContent = res.choices[0]?.message?.content ?? "{}";
+  const schemaResult = parseSummaryOutput(rawContent);
+
+  if (!schemaResult.ok) {
+    return res.choices[0]?.message?.content ?? "";
+  }
+
+  const items = schemaResult.data.actionItems.length
+    ? ` Action items: ${schemaResult.data.actionItems.join("; ")}`
+    : "";
+  return `${schemaResult.data.summary}${items}`;
 }
 
 export async function classifyCallOutcome(
@@ -203,80 +241,110 @@ export async function classifyCallOutcome(
   outcome: "scheduled" | "escalated" | "lead_captured" | "no_action";
   reason: string;
 }> {
-  if (!deepseek) {
-    return { outcome: "lead_captured", reason: "Caller provided contact info and service interest." };
+  const { client } = selectClient("classify");
+
+  if (!client) {
+    if (isProduction()) {
+      throw new Error("classifyCallOutcome: DeepSeek provider not configured");
+    }
+    if (canUseMock()) {
+      return { outcome: "lead_captured", reason: `${mockLabel("classify")}Caller provided contact info and service interest.` };
+    }
+    throw new Error("classifyCallOutcome: DeepSeek provider not configured");
   }
 
   const lines = options.transcript
     .map((m) => `${m.role}: ${m.text}`)
     .join("\n");
 
-  const res = await deepseek.chat.completions.create({
-    model: "deepseek-chat",
-    temperature: 0.2,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence).',
-      },
-      {
-        role: "user",
-        content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
-      },
-    ],
-  });
+  const { selection } = selectClient("classify");
 
+  let res;
   try {
-    const parsed = JSON.parse(res.choices[0].message.content ?? "{}");
-    const validOutcomes = ["scheduled", "escalated", "lead_captured", "no_action"];
-    return {
-      outcome: validOutcomes.includes(parsed.outcome) ? parsed.outcome : "no_action",
-      reason: parsed.reason ?? "",
-    };
-  } catch {
+    res = await client.chat.completions.create({
+      model: selection.model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence).',
+        },
+        {
+          role: "user",
+          content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
+        },
+      ],
+    });
+  } catch (err) {
+    throw new Error(`classifyCallOutcome: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const rawContent = res.choices[0]?.message?.content ?? "{}";
+  const schemaResult = parseCallOutcomeOutput(rawContent);
+
+  if (!schemaResult.ok) {
     return { outcome: "no_action", reason: "Classification failed." };
   }
+
+  return schemaResult.data;
 }
 
 export async function generateFaqSuggestions(
   options: GenerateFaqSuggestionsOptions
 ): Promise<Array<{ question: string; answer: string }>> {
-  if (!deepseek) {
-    return [
-      {
-        question: "Do you offer emergency services?",
-        answer: "Yes, we can typically respond to emergency calls same-day.",
-      },
-    ];
+  const { client } = selectClient("faq-suggest");
+
+  if (!client) {
+    if (isProduction()) {
+      throw new Error("generateFaqSuggestions: DeepSeek provider not configured");
+    }
+    if (canUseMock()) {
+      return [
+        {
+          question: "Do you offer emergency services?",
+          answer: `${mockLabel("faq-suggest")}Yes, we can typically respond to emergency calls same-day.`,
+        },
+      ];
+    }
+    throw new Error("generateFaqSuggestions: DeepSeek provider not configured");
   }
 
   const existingList = options.existingFaqs
     .map((f) => `Q: ${f.question}`)
     .join("\n");
 
-  const res = await deepseek.chat.completions.create({
-    model: "deepseek-chat",
-    temperature: 0.2,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a local-service-business assistant. Based on the call summary, suggest new FAQ entries not already covered. Return JSON with key: suggestions (array of {question, answer} objects). Max 3 suggestions.",
-      },
-      {
-        role: "user",
-        content: `Business: ${options.businessName}\n\nCall Summary:\n${options.callSummary}\n\nExisting FAQs:\n${existingList}`,
-      },
-    ],
-  });
+  const { selection } = selectClient("faq-suggest");
 
+  let res;
   try {
-    const parsed = JSON.parse(res.choices[0].message.content ?? "{}");
-    return Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
-  } catch {
+    res = await client.chat.completions.create({
+      model: selection.model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a local-service-business assistant. Based on the call summary, suggest new FAQ entries not already covered. Return JSON with key: suggestions (array of {question, answer} objects). Max 3 suggestions.",
+        },
+        {
+          role: "user",
+          content: `Business: ${options.businessName}\n\nCall Summary:\n${options.callSummary}\n\nExisting FAQs:\n${existingList}`,
+        },
+      ],
+    });
+  } catch (err) {
+    throw new Error(`generateFaqSuggestions: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const rawContent = res.choices[0]?.message?.content ?? "{}";
+  const schemaResult = parseFaqSuggestionsOutput(rawContent);
+
+  if (!schemaResult.ok) {
     return [];
   }
+
+  return schemaResult.data.suggestions;
 }

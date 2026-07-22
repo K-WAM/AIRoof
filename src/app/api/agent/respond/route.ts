@@ -5,6 +5,7 @@ import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { classifyMessage, getOffTopicResponse } from "@/lib/ai/scopeClassifier";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { generateAgentResponse } from "@/lib/ai/openaiClient";
+import { selectModel } from "@/lib/ai/registry";
 
 interface RespondRequest {
   businessId: string;
@@ -15,8 +16,6 @@ interface RespondRequest {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<AgentResponse | { error: string }>> {
-  // Back-office testing endpoint (live calls go through the Vapi webhook).
-  // Superadmin-only so it can't be used as a free OpenAI proxy.
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
@@ -24,7 +23,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
     const body: RespondRequest = await request.json();
     const { businessId, callId, callerMessage } = body;
 
-    // Validate required fields
     if (!businessId || !callId || !callerMessage) {
       return NextResponse.json(
         { error: "Missing required fields: businessId, callId, callerMessage" },
@@ -40,7 +38,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
       );
     }
 
-    // Load business config to validate and get constraints
     const businessRef = db.collection("businesses").doc(businessId);
     const businessDoc = await businessRef.get();
     if (!businessDoc.exists) {
@@ -58,7 +55,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
       );
     }
 
-    // DEFENSE LAYER 1: Deterministic scope classification BEFORE model call
     const classification = classifyMessage(callerMessage, businessConfig);
 
     if (!classification.allowedToAnswer) {
@@ -69,7 +65,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
         callId,
       };
 
-      // Log the off-topic message for auditing
       await logCallMessage(db, businessId, callId, {
         role: "caller",
         text: callerMessage,
@@ -77,7 +72,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
         timestamp: Date.now(),
       });
 
-      // Log the off-topic response
       await logCallMessage(db, businessId, callId, {
         role: "agent",
         text: offTopicResponse.text,
@@ -88,16 +82,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
       return NextResponse.json(offTopicResponse);
     }
 
-    // DEFENSE LAYER 2: Build system prompt from business config (constraints)
     const systemPrompt = buildAgentPrompt(businessConfig);
+    const modelSelection = selectModel("agent-respond", {
+      liveModel: businessConfig.liveModel,
+      backOfficeModel: businessConfig.backOfficeModel,
+    });
 
-    // DEFENSE LAYER 3: Call OpenAI with constraints
     const agentText = await generateAgentResponse({
       systemPrompt,
       userMessage: callerMessage,
-      model: businessConfig.liveModel || process.env.OPENAI_MODEL || "gpt-4o-mini",
+      model: modelSelection.model,
       temperature: businessConfig.temperature ?? 0.5,
       maxTokens: businessConfig.maxTokens ?? 150,
+      modelOverrides: {
+        liveModel: businessConfig.liveModel,
+        backOfficeModel: businessConfig.backOfficeModel,
+      },
     });
 
     const agentResponse: AgentResponse = {
@@ -107,7 +107,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<AgentResp
       callId,
     };
 
-    // Log both caller message and agent response
     await logCallMessage(db, businessId, callId, {
       role: "caller",
       text: callerMessage,

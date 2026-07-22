@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
-import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
+import { parseFieldUpdate, ParseFieldUpdateError } from "@/lib/ai/deepseekClient";
 import { buildProjection, resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
+import { isProviderReady } from "@/lib/ai/registry";
 import type { FieldUpdate } from "@/types/jobs";
 
-const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+const ALLOWED_MIME_PREFIXES = ["audio/", "video/"];
+const WHISPER_TIMEOUT_MS = 30_000;
 
-// Whisper accepts a free-text prompt that biases recognition toward expected
-// vocabulary. Feeding it the job's names + trade terms materially improves
-// accuracy on noisy job sites (client names, "squares", "underlayment", etc.).
 function buildWhisperPrompt(jobContext?: { title?: string; address?: string; serviceType?: string; clientName?: string }): string {
   const context = [jobContext?.title, jobContext?.clientName, jobContext?.address, jobContext?.serviceType]
     .filter(Boolean)
@@ -22,6 +21,27 @@ function buildWhisperPrompt(jobContext?: { title?: string; address?: string; ser
     "crew member first names, arrival and departure times, hours worked, and issues found (leak, rot, mold, damaged, cracked).",
     "Corrections sound like: make that 120 not 150, scratch that, I meant.",
   ].join(" ");
+}
+
+function validateAudioInput(audioBase64: string, mimeType?: string): { error?: string } {
+  if (!audioBase64 || audioBase64.length === 0) {
+    return { error: "audioBase64 is empty" };
+  }
+
+  const decodedLen = Math.floor((audioBase64.length * 3) / 4);
+  if (decodedLen > MAX_AUDIO_BYTES) {
+    return { error: `Audio exceeds maximum size of ${MAX_AUDIO_BYTES / (1024 * 1024)}MB` };
+  }
+
+  if (mimeType && !ALLOWED_MIME_PREFIXES.some((prefix) => mimeType.startsWith(prefix))) {
+    return { error: `Unsupported MIME type: ${mimeType}` };
+  }
+
+  return {};
+}
+
+function isTranscriptEmpty(transcript: string): boolean {
+  return !transcript || transcript.trim().length < 3;
 }
 
 async function loadLedger(db: FirebaseFirestore.Firestore, businessId: string, jobId: string): Promise<FieldUpdate[]> {
@@ -64,7 +84,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const updatesCol = db.collection(`businesses/${businessId}/jobs/${jobId}/updates`);
   const now = Date.now();
 
-  // ── Confirm step (correction approved on the device) ──
   if (confirmCorrection && confirmCorrection.targetUpdateId && confirmCorrection.item) {
     const corrId = `cor_${now}`;
     await updatesCol.doc(corrId).set({
@@ -83,40 +102,94 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ success: true, corrected: true, updatedJob: log });
   }
 
-  if (!audioBase64) return NextResponse.json({ error: "audioBase64 required" }, { status: 400 });
-  if (!openai) return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
+  const audioCheck = validateAudioInput(audioBase64, mimeType);
+  if (audioCheck.error) return NextResponse.json({ error: audioCheck.error }, { status: 400 });
 
-  // 1. Transcribe with Whisper — vocabulary-biased toward this job's names + trade terms
+  const openaiReady = isProviderReady("openai");
+  if (!openaiReady) {
+    return NextResponse.json(
+      { error: "OpenAI provider not configured — transcription unavailable" },
+      { status: 503 },
+    );
+  }
+
+  const openai = (await import("openai")).default;
+  const openaiClient = new openai({ apiKey: process.env.OPENAI_API_KEY });
+
   let transcript: string;
   try {
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const ext = (mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
     const audioFile = await toFile(audioBuffer, `audio.${ext}`, { type: mimeType || "audio/webm" });
-    const transcription = await openai.audio.transcriptions.create({
-      model: "whisper-1",
-      file: audioFile,
-      prompt: buildWhisperPrompt(jobContext),
-    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), WHISPER_TIMEOUT_MS);
+
+    const transcription = await openaiClient.audio.transcriptions.create(
+      {
+        model: "whisper-1",
+        file: audioFile,
+        prompt: buildWhisperPrompt(jobContext),
+      },
+      { signal: controller.signal },
+    );
+
+    clearTimeout(timeout);
     transcript = transcription.text.trim();
   } catch (err) {
-    return NextResponse.json({ error: "Transcription failed", details: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json(
+      { error: "Transcription failed", details: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
   }
-  if (!transcript || transcript.length < 3) {
+
+  if (isTranscriptEmpty(transcript)) {
     return NextResponse.json({ success: false, error: "No speech detected", transcript: "" });
   }
 
-  // 2. Parse + correction detection — industry-aware (multi-vertical platform)
   const bizSnap = await db.collection("businesses").doc(businessId).get();
   const biz = bizSnap.data();
-  const parsed = await parseFieldUpdate({
-    rawText: transcript,
-    businessName: biz?.businessName || jobContext?.businessName || "the business",
-    industry: biz?.industry,
-    language: "en",
-    jobContext,
-  });
 
-  // 3. Correction path — propose, don't apply
+  let parsed;
+  try {
+    parsed = await parseFieldUpdate({
+      rawText: transcript,
+      businessName: biz?.businessName || jobContext?.businessName || "the business",
+      industry: biz?.industry,
+      language: "en",
+      jobContext,
+      modelOverrides: biz?.backOfficeModel
+        ? { backOfficeModel: biz.backOfficeModel }
+        : undefined,
+    });
+  } catch (err) {
+    if (err instanceof ParseFieldUpdateError && err.needsConfirmation) {
+      const updateId = `upd_${now}`;
+      await updatesCol.doc(updateId).set({
+        updateId,
+        kind: "normal",
+        rawText: transcript,
+        language: "en",
+        submittedBy: submittedBy || "field-worker",
+        createdAt: now,
+        parseError: err.message,
+      } as FieldUpdate);
+
+      return NextResponse.json({
+        success: true,
+        transcript,
+        needsConfirmation: true,
+        confirmationReason: err.message,
+        changesSummary: "Extraction needs review — raw transcript saved",
+      });
+    }
+
+    return NextResponse.json(
+      { error: "Field update parsing failed", details: err instanceof Error ? err.message : String(err) },
+      { status: 500 },
+    );
+  }
+
   if (parsed.correction && !forceNormal) {
     const ledger = await loadLedger(db, businessId, jobId);
     const resolved = resolveCorrection(ledger, parsed.correction.item, parsed.correction.newValue, parsed.correction.field ?? "materials");
@@ -129,7 +202,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     }
   }
 
-  // 4. Normal path — append entry, recompute projection
   const updateId = `upd_${now}`;
   await updatesCol.doc(updateId).set({
     updateId,
