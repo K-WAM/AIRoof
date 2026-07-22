@@ -1,17 +1,11 @@
-// Notification layer. Email now (Resend); SMS is a documented seam for later
-// (Twilio A2P 10DLC). Keep all outbound messaging behind these helpers so adding
-// SMS is a one-place change.
-
-import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM ?? "Luxor AI <noreply@luxordev.com>";
+import { sendEmail } from "@/lib/comms/send";
+import type { CommSendResult } from "@/lib/comms/send";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-interface Branding {
+export interface Branding {
   businessName: string;
   brandColor?: string | null;
   logoUrl?: string | null;
@@ -40,17 +34,15 @@ function shell(brand: Branding, heading: string, bodyHtml: string): string {
 </body></html>`;
 }
 
-export async function sendCrewAssignment(opts: {
-  to: string;
+export function buildCrewAssignmentEmail(opts: {
   brand: Branding;
   crewName: string;
   jobTitle: string;
   address?: string;
   clientName?: string;
-  when: string;       // formatted date/time
+  when: string;
   scope?: string;
-}): Promise<boolean> {
-  if (!resend) return false;
+}): { subject: string; html: string } {
   const rows = [
     ["Job", opts.jobTitle],
     ["When", opts.when],
@@ -65,19 +57,19 @@ export async function sendCrewAssignment(opts: {
     </table>
     ${opts.scope ? `<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#475569;line-height:1.6">${esc(opts.scope)}</div>` : ""}`;
 
-  await resend.emails.send({ from: FROM, to: opts.to, subject: `New assignment: ${opts.jobTitle} — ${opts.when}`, html: shell(opts.brand, "You've got a new job", body) });
-  return true;
+  return {
+    subject: `New assignment: ${opts.jobTitle} \u2014 ${opts.when}`,
+    html: shell(opts.brand, "You've got a new job", body),
+  };
 }
 
-export async function sendCustomerConfirmation(opts: {
-  to: string;
+export function buildCustomerConfirmationEmail(opts: {
   brand: Branding;
   clientName?: string;
   serviceType?: string;
   when: string;
   address?: string;
-}): Promise<boolean> {
-  if (!resend) return false;
+}): { subject: string; html: string } {
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">Hi ${esc(opts.clientName ?? "there")}, your appointment is confirmed:</p>
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 20px;margin-bottom:16px">
@@ -87,6 +79,38 @@ export async function sendCustomerConfirmation(opts: {
     </div>
     <p style="margin:0;font-size:14px;color:#475569">We'll see you then. Reply to this email if you need to reschedule.</p>`;
 
-  await resend.emails.send({ from: FROM, to: opts.to, subject: `Appointment confirmed — ${opts.when}`, html: shell(opts.brand, "Appointment confirmed", body) });
-  return true;
+  return {
+    subject: `Appointment confirmed \u2014 ${opts.when}`,
+    html: shell(opts.brand, "Appointment confirmed", body),
+  };
+}
+
+export async function sendCrewAssignment(
+  opts: {
+    to: string;
+    brand: Branding;
+    crewName: string;
+    jobTitle: string;
+    address?: string;
+    clientName?: string;
+    when: string;
+    scope?: string;
+  },
+): Promise<CommSendResult> {
+  const { subject, html } = buildCrewAssignmentEmail(opts);
+  return sendEmail({ to: opts.to, subject, html });
+}
+
+export async function sendCustomerConfirmation(
+  opts: {
+    to: string;
+    brand: Branding;
+    clientName?: string;
+    serviceType?: string;
+    when: string;
+    address?: string;
+  },
+): Promise<CommSendResult> {
+  const { subject, html } = buildCustomerConfirmationEmail(opts);
+  return sendEmail({ to: opts.to, subject, html });
 }

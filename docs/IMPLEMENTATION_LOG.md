@@ -372,5 +372,45 @@ removals + rationale (if any) · deviations from spec (if any).
   `Cache-Control`/`Referrer-Policy` headers added on the exchange response beyond what the spec asked for.
   Negative-first tests cover every fail-closed path named in the spec's acceptance criteria. The
   10-minute/one-time-use exchange grant means a printed demo QR is only good for a single scan within 10
-  minutes of the most recent Demo Studio launch — reviewed and accepted as correct given the demo workflow
-  (each pitch re-launches Demo Studio anyway, which mints a fresh grant as a side effect); not a defect.
+   minutes of the most recent Demo Studio launch — reviewed and accepted as correct given the demo workflow
+   (each pitch re-launches Demo Studio anyway, which mints a fresh grant as a side effect); not a defect.
+
+## T-041 — Unified outbound communications
+- Date: 2026-07-21 · branch: task/unified-comms
+- Created `src/lib/comms/send.ts` — single comms service wrapping Resend with:
+  - `sendEmail(opts)` — raw send with capability check (T-020 `getCapabilityStatus("resend")`), typed
+    `CommSendResult` (status: `delivered|failed|unconfigured|no_recipient`), provider message ID on success,
+    and error classification (4xx → terminal, 5xx/429 → retryable, thrown → retryable `provider_error`).
+  - `sendWithLedger(opts)` — full idempotent send integrating T-021 ledger (claim → attempt → complete with
+    provider ID), returning `NotificationDeliveryState`.
+  - `isCommsConfigured()` — delegating to T-020 config for `RESEND_API_KEY` + `RESEND_FROM`.
+  - Single `RESEND_FROM` sender (D-4: `no-reply@luxordev.com`) validated by T-020 — no placeholder fallbacks.
+  - NH-3 (SPF/DKIM) not done → `sendWithLedger` reports `unconfigured` when Resend capability is absent,
+    never silently skips or claims success.
+- 16 unit tests covering: unconfigured, no_recipient, success with providerId, 4xx terminal, 5xx retryable,
+  no-provider-id, thrown error, ledger idempotency (already-succeeded, pending, duplicate claim rejection),
+  successful ledger delivery recording.
+- Refactored `src/lib/notify.ts`: removed direct Resend dependency; extracted pure HTML-construction functions
+  (`buildCrewAssignmentEmail`, `buildCustomerConfirmationEmail`) that return `{subject, html}`; convenience
+  wrappers `sendCrewAssignment`/`sendCustomerConfirmation` delegate to `sendEmail()` and return
+  `CommSendResult` instead of `boolean`.
+- Refactored `runLedgeredEmail` in `agentTools.ts`: now accepts `{to, subject, html}` instead of
+  `send: () => Promise<boolean>`, delegates entirely to `sendWithLedger()` — captures provider ID in ledger.
+- Refactored `escalateCall` in `agentTools.ts`: replaced raw `resend.emails.send()` with `sendEmail()`;
+  removed local `resend`/`FROM`/`configuredFrom` variables; capability check now delegates to
+  `isCommsConfigured()`.
+- Migrated routes (report send, invoice send ×2, send-confirmation): replaced direct `resend.emails.send()`
+  with `sendEmail()` from comms; removed local `Resend` imports and `resend`/`FROM` variables.
+- Updated `assign/route.ts` and `appointment/[appointmentId]/route.ts`: call `buildCrewAssignmentEmail`/
+  `buildCustomerConfirmationEmail` then pass `{to, subject, html}` to refactored `runLedgeredEmail`.
+- HTML templates and email copy kept exactly as-is (no redesign — only sender mechanism changed).
+- Acceptance evidence:
+  - `npm run type-check` — clean
+  - `npm run lint` — 0 errors, 26 warnings (baseline unchanged)
+  - `npm test` — 239/239 passing (223 baseline + 16 new comms tests)
+  - `npm run build` — green
+  - Grep confirmed only 1 remaining `resend.emails.send` call: `src/lib/comms/send.ts` (the centralized
+    service itself)
+  - Removed: 2 `Resend` imports (agentTools.ts top-level, send-confirmation route), 5 sets of local
+    `resend`/`FROM` variables across routes, 1 `configuredFrom` variable in escalateCall, 2 `send` callbacks
+    replaced with `{to, subject, html}` in assign/appointment routes.

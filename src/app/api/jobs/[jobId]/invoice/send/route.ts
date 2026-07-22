@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM ?? "Luxor AI <noreply@luxordev.com>";
+import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 
 interface LaborRow { name: string; arrival: string; departure: string; hours: string; rate: string }
 interface MaterialRow { item: string; quantity: string; unit: string; unitPrice: string }
@@ -17,7 +14,7 @@ function materialTotal(r: MaterialRow) { return (parseFloat(r.quantity) || 0) * 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
 
-  if (!resend) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
+  if (!isCommsConfigured()) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
@@ -163,8 +160,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 </div>
 </body></html>`;
 
-  await resend.emails.send({
-    from: FROM,
+  await sendEmail({
     to,
     subject: `Draft Invoice #${jobId} from ${bizName}`,
     html,
