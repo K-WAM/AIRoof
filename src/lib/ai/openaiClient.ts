@@ -1,11 +1,7 @@
-// OpenAI client for live agent responses
 import OpenAI from "openai";
+import { selectClient, canUseMock, mockLabel, type ModelOverrides } from "@/lib/ai/registry";
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-  : null;
+const isProduction = (): boolean => process.env.NODE_ENV === "production";
 
 export interface ConversationTurn {
   role: "user" | "assistant";
@@ -19,6 +15,7 @@ export interface GenerateResponseOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  modelOverrides?: ModelOverrides;
 }
 
 export async function generateAgentResponse(
@@ -28,15 +25,25 @@ export async function generateAgentResponse(
     systemPrompt,
     userMessage,
     history = [],
-    model = process.env.OPENAI_MODEL || "gpt-4o-mini",
+    model: explicitModel,
     temperature = 0.7,
     maxTokens = 150,
+    modelOverrides,
   } = options;
 
-  if (!openai) {
-    console.warn("OpenAI API key not configured. Returning mock response.");
-    return "I can help you schedule an appointment or leave a message for the team. How can I assist?";
+  const { client, selection } = selectClient("agent-respond", modelOverrides);
+
+  if (!client) {
+    if (isProduction()) {
+      throw new Error("generateAgentResponse: OpenAI provider not configured");
+    }
+    if (canUseMock()) {
+      return `${mockLabel("agent-respond")}I can help you schedule an appointment or leave a message for the team. How can I assist?`;
+    }
+    throw new Error("generateAgentResponse: OpenAI provider not configured");
   }
+
+  const model = explicitModel || selection.model;
 
   try {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -45,7 +52,7 @@ export async function generateAgentResponse(
       { role: "user", content: userMessage },
     ];
 
-    const response = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model,
       messages,
       temperature,
@@ -59,7 +66,6 @@ export async function generateAgentResponse(
 
     return content;
   } catch (error) {
-    console.error("OpenAI API error:", error);
-    return "I encountered a technical issue. Let me take a message for the team.";
+    throw new Error(`generateAgentResponse: AI provider error — ${error instanceof Error ? error.message : String(error)}`);
   }
 }

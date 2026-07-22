@@ -266,3 +266,53 @@ removals + rationale (if any) · deviations from spec (if any).
 - **Files changed:** `src/app/api/admin/demo-customize/route.ts` (full restructure: allowlist, isDemo marker, lock, backup export, finally-block lock release, DELETE body parsing); `src/lib/verticals/demoSeed.ts` (unchanged — isDemo is on the seed script's business doc, not in `demoSeedFor`); `scripts/seed-demo-business.mjs` (added `isDemo: true` line); `src/app/admin/demo/page.tsx` (replaced reset function with typed-confirm modal). New: `src/app/api/admin/demo-customize/__tests__/route.test.ts` (12 tests: 3 confirm-field, 2 isDemo-marker, 2 transactional-lock, 3 backup export, 1 superadmin gate, 1 full valid POST).
 - **Known residual gap (integrator review):** MASTER_PLAN's T-035 acceptance criteria include "concurrent webhook sees consistent state" during a reseed. The transactional lock only serializes concurrent *resets* against each other — it does not stage/swap writes, so a live Vapi webhook call landing mid-reseed could still observe a brief window of partially-deleted/reseeded collections. Fixing this fully would require touching `src/app/api/webhooks/vapi/route.ts`, which is outside T-035's owned scope. Accepted as a documented, demo-only, low-probability residual risk rather than scope-expanding into another file; tracked for a follow-up task if the owner wants it closed.
 - **Evidence:** `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 14 files / 138 tests passing (existing 126 + 12 new T-035 tests); `npm run build` green; `git diff --check` green. No removals.
+
+## T-033 — AI input hardening + provider/model routing
+- Date: 2026-07-21 · branch: task/ai-input-hardening · commit: this T-033 commit
+- **Registry (new):** Created `src/lib/ai/registry.ts` — centralized provider/model selection for 6 AI
+  operations (`parse-field-update`, `summarize`, `classify`, `faq-suggest`, `agent-respond`, `transcribe`).
+  Honors `DEEPSEEK_MODEL` and `OPENAI_MODEL` env overrides plus `BusinessConfig.backOfficeModel` and
+  `liveModel` persisted settings. GPT-prefixed `backOfficeModel` values switch the provider from DeepSeek
+  to OpenAI. `selectClient()` returns the correct client+model tuple; `requireProvider()` throws when
+  unconfigured. `canUseMock()` returns false in production, true otherwise; `mockLabel()` prefixes mock
+  output with `[MOCK-<op>]`.
+- **deepseekClient.ts:** Adopted T-022 zod schemas (`parseFieldUpdateOutput`, `parseSummaryOutput`,
+  `parseCallOutcomeOutput`, `parseFaqSuggestionsOutput`) at every AI output boundary. Replaced manual
+  `Array.isArray`/`typeof` checks + `try { JSON.parse }` with typed `{ok,data}|{ok:false,issues}` parse
+  results. `parseFieldUpdate` now throws `ParseFieldUpdateError` (with `needsConfirmation: true`) when
+  schema validation fails — callers can flag for confirmation instead of silently persisting. All four
+  functions use `selectClient()` from registry instead of hardcoded `"deepseek-chat"`/`"gpt-4o"` model
+  strings. Provider timeouts/errors surface as thrown Errors, never swallowed.
+- **Mock removal:** Removed 5 silent production-possible mock fallbacks across `deepseekClient.ts` and
+  `openaiClient.ts`: `summarizeTranscript` (fake summary string), `classifyCallOutcome` (fake
+  `lead_captured`), `generateFaqSuggestions` (fake FAQ entry), `parseFieldUpdate` (silent empty return),
+  `generateAgentResponse` (fake agent reply). All now throw in production when the provider is
+  unconfigured. Dev/demo (`NODE_ENV !== "production"`) returns clearly-labeled `[MOCK-<op>]` prefixed
+  output.
+- **field-audio/route.ts:** Added audio input validation (10MB size cap, MIME type allowlist
+  `audio/*`/`video/*`, empty check), Whisper timeout via `AbortController` (30s), OpenAI readiness check
+  via `isProviderReady("openai")`. Catches `ParseFieldUpdateError.needsConfirmation` and returns a
+  `needsConfirmation: true` response with raw transcript saved, rather than silently persisting invalid
+  AI output.
+- **transcribe/route.ts:** Added audio input validation (10MB cap, MIME type check, empty check),
+  timeout (30s), OpenAI readiness check via `isProviderReady("openai")`. Returns 504 on timeout, 503 on
+  unconfigured provider.
+- **agent/respond/route.ts:** Uses `selectModel("agent-respond", { liveModel, backOfficeModel })` from
+  registry instead of `businessConfig.liveModel || process.env.OPENAI_MODEL || "gpt-4o-mini"`. Passes
+  `modelOverrides` through to `generateAgentResponse`.
+- **Tests:** 54 new tests (209 total). Registry tests (24): model selection defaults, env overrides,
+  `backOfficeModel`/`liveModel` overrides, GPT-prefix provider switching, `requireProvider` throw paths,
+  `canUseMock` prod/dev behavior, client readiness. AI hardening tests (30): malformed nested JSON
+  rejection, empty AI response rejection, `ParseFieldUpdateError.needsConfirmation` assertion, valid
+  structured output acceptance, prompt injection in AI output rejection, provider-not-configured prod
+  throws vs dev mock returns, provider API error propagation, numeric string coercion, schema-validated
+  output for summarize/classify/faq, raw-content fallback on schema rejection, empty response fallback.
+- **Evidence:** `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test`
+  17 files / 209 tests passed (155 existing + 54 new); `npm run build` green.
+- **Removals:** Removed 5 plausible production mock fallbacks (see above). Removed hardcoded model names
+  `"deepseek-chat"`, `"gpt-4o"`, `"gpt-4o-mini"`, `"whisper-1"` from individual files — all now in
+  registry. Removed unused imports (`selectModel`, `isProviderReady` from deepseekClient;
+  `selectModel` from openaiClient). Removed legacy `const openai/openaiClient/deepseek` top-level
+  instantiation from openaiClient.ts and deepseekClient.ts (now centralized in registry).
+  **Prohibited scope untouched:** `src/lib/jobs/projection.ts`, field-correction UX, Vapi tool names,
+  prompt content (same prompts, only validation added).
