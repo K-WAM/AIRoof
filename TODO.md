@@ -11,13 +11,16 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | **all 6 tasks merged** — Phase complete | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | T-041 + T-042 assigned this round; T-040/T-043/T-044/T-045 queued behind them (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | **T-041 merged**; T-042 in progress (Codex, WIP uncommitted); T-040/T-043/T-044/T-045 queued (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
-Overall implementation: **65%** (Phases 0+1+2+3 fully merged = 35% + 30% = 65%). Phase 3 is now fully closed —
-T-033 and T-034 merged this cycle alongside the already-merged T-030/T-031/T-032/T-035. Independently
-re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings, build green, `npm test`
-**223/223 clean** (155 baseline + 54 T-033 + 14 T-034). GitHub Actions CI was found red for ~9 hours/4 pushes
+Overall implementation: **~68%** (Phases 0+1+2+3 fully merged = 65% + a partial share of Phase 4's 20% for
+T-041 merged — T-040/041/042 are the heavier CIB-derived tasks vs. the lighter owner-requested T-043/044/045,
+so T-041 alone is worth more than a flat 1/6 of 20%; treating it as roughly 4% gives **~69%**, rounded down to
+~68% pending a more precise split). T-033 and T-034 also merged this cycle, fully closing Phase 3 (all 6
+tasks). Independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings,
+build green, `npm test` **239/239 clean** (223 Phase-3-close-out baseline + 16 new T-041 comms tests). GitHub
+Actions CI was found red for ~9 hours/4 pushes
 on an unrelated CI-workflow bug (env var leakage) earlier this session, fixed — see `docs/SESSION_HANDOFF.md`.
 
 **Phase 4 file-overlap note:** T-040 and T-045 both touch the same company/admin page files (broad sweeps) —
@@ -91,6 +94,15 @@ it, delivery records via the already-built T-021 ledger) routed to Deepseek — 
 (T-021's ledger) into a new service, consistent with its T-020/T-033 routing precedent. Zero file overlap
 between the two (verified: T-042 never touches `notify.ts`). Worktrees retired from their fully-merged T-033/
 T-034 branches and reassigned via `git worktree move`.
+
+**Review outcome (T-041):** APPROVE, merged without rework. Independently reproduced in the worktree:
+type-check/lint clean, 239/239 tests, build green. `sendWithLedger`'s idempotency correctly reuses T-021's
+existing `createEmailOperationId` helper (no changes to `ledger.ts` itself — confirmed in scope). Every
+caller of the now-typed `sendCrewAssignment`/`sendCustomerConfirmation` checks `result.status` explicitly
+rather than treating the result as a boolean, so the breaking signature change is safe everywhere. Full
+detail in `docs/IMPLEMENTATION_LOG.md`'s "T-041 — Integrator review" entry. T-042 (Codex) is still in
+progress in its own worktree (uncommitted WIP observed: `docs/RETENTION.md`, `src/lib/audit/`,
+`src/app/api/cron/retention/` — not touched, per worktree-isolation discipline).
 
 **2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
 email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
