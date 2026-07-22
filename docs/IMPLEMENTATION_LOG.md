@@ -215,7 +215,7 @@ removals + rationale (if any) · deviations from spec (if any).
   unconditional `escalated:true`, swallowed Resend error, and unsupported “notified within 15 minutes” claim.
 
 ## T-032 — Cron correctness + callback state machine
-- Date: 2026-07-21 · branch: task/scheduling-integrity · commit: this T-032 commit
+- Date: 2026-07-21 · branch: task/scheduling-integrity · commit: 58fc531 (review fix `9beb8e2`)
 - Fail-closed boundary: `follow-up-calls`, `daily-call-summary`, and `faq-suggestions` now call the shared
   `requireCronAuth` guard before parsing a request, loading Firestore, invoking a model/provider, or writing.
   Negative route tests cover missing and invalid Bearer tokens for all three handlers with zero side effects.
@@ -229,8 +229,8 @@ removals + rationale (if any) · deviations from spec (if any).
   stays pending for reconciliation rather than risking a duplicate. Successful calls persist the provider ID,
   canonical call record, lead attempt count, next due time, and terminal `none` state when the cap is reached.
 - Configuration: callback windows now use the canonical `callbackWindowStart`/`callbackWindowEnd` keys;
-  businesses without `callbackDelayMinutes` are skipped. `vercel.json` runs follow-up selection every five
-  minutes; daily-summary and FAQ scheduling remain unchanged pending NH-6.
+  businesses without `callbackDelayMinutes` are skipped. Daily-summary and FAQ scheduling remain unchanged
+  pending NH-6.
 - Test evidence: transactional Firestore tests exercise the real T-021 ledger, prove overlapping cron invocations
   produce one provider call/one attempt, and cover due/consent filters, absent delay, default consent, window and
   attempt caps, ambiguous provider outcomes, successful summary/FAQ execution, and lead initialization.
@@ -240,3 +240,29 @@ removals + rationale (if any) · deviations from spec (if any).
 - Removals/deviations: removed legacy query-secret/x-cron-secret authentication, absent-field `calledBack`
   eligibility, wrong `callingWindow*` keys, non-atomic direct provider calls, and create-time callback dispatch.
   Existing outbound voice text and Vapi tool names were not changed.
+- **Security note (integrator review):** `daily-call-summary` and `faq-suggestions` previously **failed OPEN**
+  when `CRON_SECRET` was unset (the old `if (expectedSecret) { ...check... }` skipped auth entirely rather than
+  blocking) — a real pre-existing gap, not just a style inconsistency. Now correctly fail-closed via the shared
+  `requireCronAuth` guard, same as `follow-up-calls`.
+- **Consent note (integrator review):** nothing in the Vapi webhook currently passes `callbackConsent: true` to
+  `createLead`, so every lead (new or pre-existing) gets `callbackConsent: false` in practice today — the
+  auto-callback feature is correctly inert (never calls without consent, never duplicates) until a future task
+  wires a real consent signal from the call itself. This is documented behavior, not a defect; worth a follow-up
+  task if timely callbacks are wanted.
+- **Review fix applied:** `vercel.json`'s cron schedule was `*/5 * * * *`. Vercel's Hobby plan hard-limits cron
+  jobs to once per day — that expression **fails at deployment**, not just runs less often (confirmed against
+  Vercel's own docs). Owner has explicitly ruled out a Pro upgrade. Reverted to the pre-existing `0 14 * * *`
+  (daily, 2pm UTC) schedule; the atomic due/consent/claim logic added by this task is unaffected by cadence —
+  it is simply less timely than 5-minute polling would have been.
+
+## T-035 — Demo/production isolation guards
+- Date: 2026-07-21 · branch: task/demo-isolation · commit: 28a67ff
+- **Allowlist (a):** Added `DEMO_BUSINESS_IDS: ReadonlySet<string> = new Set(["demo-roofing"])` code constant with an `isAllowedDemoBusiness()` guard in `applyVertical`, returning `{ ok: false, error: "..." }` before any write when `LIVE_LINE_BUSINESS_ID` is not in the set.
+- **isDemo marker (b):** Added `isDemo: true` to the seed script (`scripts/seed-demo-business.mjs:108`). The route now reads `existing.data()?.isDemo !== true` after the business doc fetch and returns an error before any mutation when the marker is absent or false.
+- **Backup export (c):** Before any collection deletion, all docs from `calls`, `leads`, `appointments`, `crews`, `jobs` are read once into memory, serialized as `{ id, ...data }` per doc, and written to `businesses/demo-roofing/backups/{timestamp}`. The backup write gates the delete — if it fails, no data is deleted. The same in-memory snapshots are then used for the delete batch, avoiding a second read.
+- **Transactional lock (d):** A lock doc at `businesses/demo-roofing/backups/lock` is atomically claimed via `runTransaction` before any backup/delete/re-seed. A locked doc younger than `LOCK_TTL_MS` (120s) results in an error response. Stale locks are reclaimed. The lock is released in a `finally` block regardless of success or failure.
+- **Confirm field (e):** The DELETE handler now parses the request body and requires `confirm: "RESET"`. Missing or wrong values return 400. The UI (`src/app/admin/demo/page.tsx`) replaced the browser `confirm()` dialog with a modal overlay requiring the user to type "RESET" before the "Yes, reset demo" button enables. The fetch call sends `{ confirm: "RESET" }` in the JSON body.
+- **Superadmin gate retained:** The existing `verifySuperadmin(request)` check at the top of both POST and DELETE handlers is unchanged.
+- **Files changed:** `src/app/api/admin/demo-customize/route.ts` (full restructure: allowlist, isDemo marker, lock, backup export, finally-block lock release, DELETE body parsing); `src/lib/verticals/demoSeed.ts` (unchanged — isDemo is on the seed script's business doc, not in `demoSeedFor`); `scripts/seed-demo-business.mjs` (added `isDemo: true` line); `src/app/admin/demo/page.tsx` (replaced reset function with typed-confirm modal). New: `src/app/api/admin/demo-customize/__tests__/route.test.ts` (12 tests: 3 confirm-field, 2 isDemo-marker, 2 transactional-lock, 3 backup export, 1 superadmin gate, 1 full valid POST).
+- **Known residual gap (integrator review):** MASTER_PLAN's T-035 acceptance criteria include "concurrent webhook sees consistent state" during a reseed. The transactional lock only serializes concurrent *resets* against each other — it does not stage/swap writes, so a live Vapi webhook call landing mid-reseed could still observe a brief window of partially-deleted/reseeded collections. Fixing this fully would require touching `src/app/api/webhooks/vapi/route.ts`, which is outside T-035's owned scope. Accepted as a documented, demo-only, low-probability residual risk rather than scope-expanding into another file; tracked for a follow-up task if the owner wants it closed.
+- **Evidence:** `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 14 files / 138 tests passing (existing 126 + 12 new T-035 tests); `npm run build` green; `git diff --check` green. No removals.

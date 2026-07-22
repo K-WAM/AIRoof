@@ -74,6 +74,8 @@ export default function DemoStudioPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copied, setCopied] = useState<"phone" | "script" | "link" | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   const selected = selectedId ? VERTICAL_TEMPLATES[selectedId] : null;
 
@@ -129,20 +131,45 @@ export default function DemoStudioPage() {
     }
   }
 
-  async function resetDemo() {
+  function promptReset() {
     if (!selectedId) return;
-    if (!confirm("Reset this demo to default data? Any personalization will be cleared.")) return;
+    setResetConfirmText("");
+    setShowResetConfirm(true);
+  }
+
+  function cancelReset() {
+    setShowResetConfirm(false);
+    setResetConfirmText("");
+  }
+
+  async function confirmReset() {
+    if (!selectedId) return;
     setBusy("reset");
     try {
-      await fetch(`/api/admin/demo-customize?verticalId=${selectedId}`, { method: "DELETE" });
-      setStep("pick");
-      setSelectedId(null);
-      setCompanyName("");
-      setEmail("");
-      setResult(null);
-      setQrDataUrl("");
+      const res = await fetch("/api/admin/demo-customize", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "RESET" }),
+      });
+      const data = (await res.json()) as ApplyResult;
+      if (res.ok && data.ok) {
+        setStep("pick");
+        setSelectedId(null);
+        setCompanyName("");
+        setEmail("");
+        setResult(null);
+        setQrDataUrl("");
+        setShowResetConfirm(false);
+        setResetConfirmText("");
+      } else {
+        setResult({ error: data.error ?? "Reset failed" });
+        setShowResetConfirm(false);
+        setResetConfirmText("");
+      }
     } catch {
-      // silent — reset is best-effort
+      setResult({ error: "Network error" });
+      setShowResetConfirm(false);
+      setResetConfirmText("");
     } finally {
       setBusy(null);
     }
@@ -419,7 +446,7 @@ export default function DemoStudioPage() {
 
           {/* Reset */}
           <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
-            <button onClick={resetDemo} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
+            <button onClick={promptReset} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
               <RotateCcw size={14} strokeWidth={1.75} />
               {busy === "reset" ? "Resetting…" : "Reset demo"}
             </button>
@@ -427,6 +454,45 @@ export default function DemoStudioPage() {
               Restores {selected.label} demo to default data.
             </span>
           </div>
+
+          {/* Reset confirm dialog */}
+          {showResetConfirm && (
+            <div style={overlayStyle}>
+              <div style={dialogStyle}>
+                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>
+                  Reset demo to default data?
+                </p>
+                <p style={{ margin: "0.5rem 0 0", fontSize: "0.83rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  All current demo data will be backed up and cleared. This cannot be undone.
+                </p>
+                <div style={{ margin: "1rem 0" }}>
+                  <label style={{ ...labelStyle, marginBottom: "0.25rem" }}>
+                    Type <strong>RESET</strong> to confirm
+                  </label>
+                  <input
+                    type="text"
+                    value={resetConfirmText}
+                    onChange={(e) => setResetConfirmText(e.target.value)}
+                    placeholder="RESET"
+                    autoFocus
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={confirmReset}
+                    disabled={resetConfirmText !== "RESET" || !!busy}
+                    style={dangerBtnStyle(resetConfirmText !== "RESET" || !!busy)}
+                  >
+                    {busy === "reset" ? "Resetting…" : "Yes, reset demo"}
+                  </button>
+                  <button onClick={cancelReset} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </>
@@ -614,3 +680,36 @@ const iconBtnStyle: React.CSSProperties = {
   color: "var(--text)",
   textDecoration: "none",
 };
+
+const overlayStyle: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0, 0, 0, 0.45)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 100,
+};
+
+const dialogStyle: React.CSSProperties = {
+  background: "var(--surface)",
+  border: "1px solid var(--border)",
+  borderRadius: 12,
+  boxShadow: "var(--shadow-lg)",
+  padding: "1.5rem",
+  maxWidth: 440,
+  width: "100%",
+};
+
+function dangerBtnStyle(disabled: boolean): React.CSSProperties {
+  return {
+    padding: "0.55rem 1rem",
+    background: disabled ? "#f1f5f9" : "var(--c-danger-bg)",
+    border: `1px solid ${disabled ? "var(--border)" : "var(--c-danger-bd)"}`,
+    color: disabled ? "var(--text-muted)" : "var(--c-danger-fg)",
+    borderRadius: 6,
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontWeight: 600,
+    fontSize: "0.85rem",
+  };
+}
