@@ -11,25 +11,24 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | **all 6 tasks merged** — Phase complete | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | **T-041 merged**; T-042 in progress (Codex, WIP uncommitted); T-040/T-043/T-044/T-045 queued (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | **T-041 + T-042 merged**; T-040 assigned (Codex); T-043 assigned (Deepseek); T-044/T-045 queued (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
-Overall implementation: **~68%** (Phases 0+1+2+3 fully merged = 65% + a partial share of Phase 4's 20% for
-T-041 merged — T-040/041/042 are the heavier CIB-derived tasks vs. the lighter owner-requested T-043/044/045,
-so T-041 alone is worth more than a flat 1/6 of 20%; treating it as roughly 4% gives **~69%**, rounded down to
-~68% pending a more precise split). T-033 and T-034 also merged this cycle, fully closing Phase 3 (all 6
-tasks). Independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings,
-build green, `npm test` **239/239 clean** (223 Phase-3-close-out baseline + 16 new T-041 comms tests). GitHub
-Actions CI was found red for ~9 hours/4 pushes
-on an unrelated CI-workflow bug (env var leakage) earlier this session, fixed — see `docs/SESSION_HANDOFF.md`.
+Overall implementation: **~73%** (Phases 0+1+2+3 fully merged = 65% + a heavier-than-flat share of Phase 4's
+20% for T-041+T-042 merged — T-040/041/042 are the heavier CIB-derived tasks vs. the lighter owner-requested
+T-043/044/045, so 2 of the 3 heavy tasks is worth more than 2/6 of 20%; treating it as roughly 7.8% gives
+**~73%**, an estimate not a precise figure). T-033 and T-034 also merged this cycle, fully closing Phase 3
+(all 6 tasks). Independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline
+warnings, build green, `npm test` **259/259 clean** (223 Phase-3-close-out baseline + 16 T-041 + 20 T-042).
+GitHub Actions CI was found red for ~9 hours/4 pushes on an unrelated CI-workflow bug (env var leakage)
+earlier this session, fixed — see `docs/SESSION_HANDOFF.md`.
 
 **Phase 4 file-overlap note:** T-040 and T-045 both touch the same company/admin page files (broad sweeps) —
 cannot run in parallel. T-041, T-043, and T-044 all touch `src/lib/notify.ts` — cannot run all three in
-parallel either. Only fully non-overlapping pair available right now: **T-041 + T-042**. Assigned this round;
-T-040/T-043/T-044/T-045 queue behind them. Doing T-041 first (rather than T-043/T-044) also avoids a near-term
-`notify.ts` rewrite churn — T-043/T-044 were designed to ship via direct Resend now and migrate onto
-`src/lib/comms/send.ts` once T-041 lands, so sequencing T-041 first means they migrate onto something that
-already exists instead of being rewritten twice.
+parallel either. T-041 + T-042 (zero overlap) went out first and are now both merged. **Round 2:** with
+`notify.ts`/`src/lib/comms` now stable, T-043 (Deepseek) is unblocked; T-040 (Codex) has zero overlap with
+T-043's files (an API route + `notify.ts`, not any page.tsx), so it's the only safe pairing this round —
+T-044 (also touches `notify.ts`) and T-045 (touches the same pages T-040 will) both queue behind this round.
 
 **Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
 worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
@@ -100,9 +99,27 @@ type-check/lint clean, 239/239 tests, build green. `sendWithLedger`'s idempotenc
 existing `createEmailOperationId` helper (no changes to `ledger.ts` itself — confirmed in scope). Every
 caller of the now-typed `sendCrewAssignment`/`sendCustomerConfirmation` checks `result.status` explicitly
 rather than treating the result as a boolean, so the breaking signature change is safe everywhere. Full
-detail in `docs/IMPLEMENTATION_LOG.md`'s "T-041 — Integrator review" entry. T-042 (Codex) is still in
-progress in its own worktree (uncommitted WIP observed: `docs/RETENTION.md`, `src/lib/audit/`,
-`src/app/api/cron/retention/` — not touched, per worktree-isolation discipline).
+detail in `docs/IMPLEMENTATION_LOG.md`'s "T-041 — Integrator review" entry.
+
+**Review outcome (T-042):** APPROVE, merged without rework — the strongest submission of the session.
+Found already committed (`44998fb`) and its worktree clean by the time it was checked, so reviewed
+immediately rather than waiting for an explicit completion report. Independently reproduced: type-check/lint
+clean, 243/243 tests, build green. Real Firestore transactions (not a TTL check) tie redaction to its audit
+event atomically; active calls are denied/skipped, never redacted; an already-redacted call is idempotently
+recognized and logged as `skipped` rather than reprocessed; redacted fields are replaced with SHA-256+
+byte-length skeletons, never retained content; `DELETE /api/calls/[callId]` now performs the real redaction
+CIB-010 asked for instead of just marking a call "ended"; the retention cron is resumable via an opaque
+cursor. `docs/RETENTION.md` cross-checked against the actual code — accurate, and correctly leaves NH-4 open
+rather than asserting the 90-day defaults are an approved legal policy. Full detail in
+`docs/IMPLEMENTATION_LOG.md`'s "T-042 — Integrator review" entry.
+
+**Assignment rationale (round 2 — T-040/T-043):** With T-041/T-042 merged, `notify.ts`/`src/lib/comms` are
+stable, unblocking T-043 (tenant-creation welcome email) — routed to Deepseek, continuing on the comms
+service it just built. T-040 (UI truthfulness — replace silent fetch catches with explicit loading/error/
+empty states, fix invoice save→send sequencing, dirty-form warnings) has zero file overlap with T-043 (an
+API route + `notify.ts`, no page.tsx files) — routed to Codex as the only safe pairing this round; T-044
+(touches `notify.ts`, conflicts with T-043) and T-045 (touches the same pages T-040 will) both queue behind
+this round. Both worktrees retired from their fully-merged branches and reassigned via `git worktree move`.
 
 **2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
 email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
@@ -118,7 +135,7 @@ precise split is needed. Not yet assigned to a worker — next in line, see Next
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | *(prior)* `air-wt-field-tokens` on `task/field-tokens` (T-034, merged: `02232e2`+integration) → *(now)* `D:\Apps\air-wt-pii-retention` on branch `task/pii-retention` | T-042 | `src/lib/audit/**` (new), `src/app/api/cron/retention/route.ts` (new), `src/app/api/calls/[callId]/route.ts` (DELETE), audit-log lines in `src/app/api/webhooks/vapi/route.ts` | **merged** — commit `44998fb`, integration this commit. Gates green (type-check/lint/243 tests/build), see IMPLEMENTATION_LOG.md |
+| Worker C — Codex Sol 5.6 (extra high) | *(prior)* `air-wt-field-tokens` on `task/field-tokens` (T-034, merged: `02232e2`+integration) → *(now)* `D:\Apps\air-wt-pii-retention` on branch `task/pii-retention` (T-042, merged: `44998fb`+integration) → *(now)* `D:\Apps\air-wt-ui-truthfulness` on branch `task/ui-truthfulness` | T-040 | `src/app/company/{dashboard,calls,pipeline,jobs,calendar*,library,settings}/page.tsx`; `src/app/admin/{businesses,usage,invoices,onboarding}/page.tsx`; `src/app/admin/businesses/[businessId]/config/page.tsx` | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
 | Worker D — Deepseek V4 Pro | *(prior)* `air-wt-ai-input-hardening` on `task/ai-input-hardening` (T-033, merged: `93a9d7c`+integration) → *(now)* `D:\Apps\air-wt-unified-comms` on branch `task/unified-comms` (T-041, merged: `f154aa3`+integration) → *(now)* `D:\Apps\air-wt-tenant-email` on branch `task/tenant-email` | T-043 | new email-dispatch in `src/app/api/admin/businesses/route.ts` (POST), new template in `src/lib/notify.ts` | **assigned** — worktree renamed/reassigned this session, node_modules junction + graphify-out carried over, `npm run type-check` verified clean |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.

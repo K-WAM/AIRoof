@@ -43,27 +43,26 @@ Current batch values:
 | B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
 | A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
 | B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
-| C | `D:\Apps\air-wt-pii-retention` (was `air-wt-field-tokens`, was `air-wt-scheduling-integrity`) | `task/pii-retention` | T-030/T-031/T-032/T-034 (all merged) → **T-042 next, same worktree, new branch** |
-| D | `D:\Apps\air-wt-unified-comms` (was `air-wt-ai-input-hardening`, was `air-wt-demo-isolation`) | `task/unified-comms` | T-033/T-035 (merged) → **T-041 next, same worktree, new branch** |
+| C | `D:\Apps\air-wt-ui-truthfulness` (was `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) | `task/ui-truthfulness` | T-030/T-031/T-032/T-034/T-042 (all merged) → **T-040 next, same worktree, new branch** |
+| D | `D:\Apps\air-wt-tenant-email` (was `air-wt-unified-comms`, `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) | `task/tenant-email` | T-033/T-035/T-041 (all merged) → **T-043 next, same worktree, new branch** |
 
 ---
 
-## PENDING — next assignments, ready to paste (as of `d9265b1`, 2026-07-22, 65% complete)
+## PENDING — next assignments, ready to paste (as of `7255b59`, 2026-07-22, ~73% complete)
 
 Both worktrees were retired from their fully-merged branches and reassigned + renamed this session
 (`git worktree move`) — node_modules and graphify-out carried over untouched and were re-verified healthy
 (`npm run type-check` clean in both) after the rename. graphify-out/ is refreshed and current through the
-T-033/T-034 merge (AST-only refresh again this round — see SESSION_HANDOFF.md). Use `graphify
-explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 3 is fully closed** — these are the first
-Phase 4 tasks.
+T-042 merge. Use `graphify explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 3 is fully
+closed; T-041 and T-042 (Phase 4) are both merged** — this is Phase 4's second round.
 
-### Next for Codex (Worker C) — T-042, same worktree, new branch
+### Next for Codex (Worker C) — T-040, same worktree, new branch
 
 ```
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-030/T-031/T-032/T-034 work is all merged and done; Phase 3 is fully closed).
+fresh branch — your T-030/T-031/T-032/T-034/T-042 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-pii-retention   (branch task/pii-retention)
+Work ONLY inside: D:\Apps\air-wt-ui-truthfulness   (branch task/ui-truthfulness)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
@@ -71,42 +70,47 @@ This worktree already has a working node_modules — do NOT run npm install/npm 
 a real MODULE_NOT_FOUND for a package you didn't touch, stop and ask before reinstalling.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "vapiAppointmentConfirmations"
-  graphify query "how are call transcripts and recordings stored, and what does DELETE /api/calls do today?"
+  graphify explain "PageSkeleton"
+  graphify query "which company/admin pages swallow fetch errors silently today?"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-042 — PII retention, deletion, audit integrity (MASTER_PLAN.md, Phase 4).
-Read AGENTS.md fully first. Read only the T-042 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-040 — UI truthfulness + form guards (MASTER_PLAN.md, Phase 4).
+Read AGENTS.md fully first. Read only the T-040 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/lib/audit/** (new); src/app/api/cron/retention/route.ts (new); src/app/api/calls/[callId]/route.ts
-(DELETE only); audit-log lines in src/app/api/webhooks/vapi/route.ts. No file overlap with T-041
-(Deepseek, running in parallel) — verified.
+Owns: src/app/company/{dashboard,calls,pipeline,jobs,calendar*,library,settings}/page.tsx (*calendar:
+error-state only — the rollback logic itself already landed in T-030, don't touch it); src/app/admin/
+{businesses,usage,invoices,onboarding}/page.tsx; src/app/admin/businesses/[businessId]/config/page.tsx.
+No file overlap with T-043 (Deepseek, running in parallel — an API route + notify.ts, no page.tsx) —
+verified.
 
-Key acceptance points: build a retention-policy module with configurable windows (transcripts, recordings,
-tool I/O logs) — use conservative 90-day defaults behind config, flagged for owner sign-off (NH-4 is a
-legal decision, not yours to override). A cron-invoked redaction/deletion job authenticated via T-020's
-requireCronAuth (401 before any read/write, matching the T-032 pattern). Immutable, append-only audit event
-types with correlation IDs and provider IDs; fix the mislabelled lookup/cancel audit logs at
-vapi/route.ts:273,342. DELETE on /api/calls/[callId] must match documented policy: true redaction of
-transcript bodies and recording URLs, but retain an audit skeleton (hashes/lengths only, no PII) — never
-just mark the call ended without actually redacting. Never delete financial records (invoices) via this
-retention job. Retention runs must be resumable/idempotent if interrupted mid-batch; a call still active
-must not be redacted out from under it. Create docs/RETENTION.md documenting the policy as part of this
-task (the spec requires it).
+Key acceptance points: replace every silent `.catch(console.error)`/swallowed-fetch pattern across this
+page list with explicit loading/error/empty states that are visibly distinct — "failed to load" must never
+render as if it were "no data yet". Use the existing `PageSkeleton` component and `.button`/design-token
+system already in the codebase — no new toast library; one small shared error-banner component is allowed
+if you need it, but keep it minimal and reuse it across both the company and admin pages rather than
+building two. Error banners need `role="alert"`; validation errors need proper focus management; never put
+PII in error text. Fix invoice save→send sequencing: saving and sending must be two distinct, explicit
+actions — no send-on-stale-state, and a double-click must not fire two sends. Add required-field/format
+validation (email, phone, client name) on invoice/settings/onboarding/config forms. Add a dirty-form
+navigation warning on the invoice, onboarding, and config forms specifically. Test with an injected fetch
+failure on at least one page of each pattern (list page, invoice flow) to prove it never renders a false
+empty-success state — that's the acceptance criterion, not just visual polish.
 
-One commit (T-042: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, or build
-external consent/disclosure wording (NH-4) or data-subject request tooling — out of scope. If blocked
->20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
+No visual redesign, no pagination, no search (those are explicitly deferred elsewhere — don't add them).
+Gates green (type-check/lint/test; build once), append evidence to docs/IMPLEMENTATION_LOG.md, set your
+TODO.md row to review. This is a big page list — multiple commits are fine (one focused commit per
+route-group or pattern is reasonable, doesn't need to be a single T-040 commit), just keep each commit's
+scope clear. Never push, merge, or touch main. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md,
+and give me the stuck-summary block.
 ```
 
-### Next for Deepseek (Worker D) — T-041, same worktree, new branch
+### Next for Deepseek (Worker D) — T-043, same worktree, new branch
 
 ```
 You are Worker D for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-033/T-035 work is all merged and done; Phase 3 is fully closed).
+fresh branch — your T-033/T-035/T-041 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-unified-comms   (branch task/unified-comms)
+Work ONLY inside: D:\Apps\air-wt-tenant-email   (branch task/tenant-email)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 This exact mistake has happened before on this worktree. Re-check before your commit too.
@@ -115,36 +119,38 @@ node_modules. If something genuinely looks missing, run `npm run type-check` fir
 touching node_modules at all.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "notify.ts"
-  graphify query "where does the app send email today and what sender addresses does it use?"
+  graphify explain "src/app/api/admin/businesses/route.ts"
+  graphify query "how does business/tenant creation work and what does it return to the caller today?"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-041 — Unified outbound communications (MASTER_PLAN.md, Phase 4).
-Read AGENTS.md fully first. Read only the T-041 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-043 — Owner-facing tenant-creation email (MASTER_PLAN.md, Phase 4). This is an owner-requested
+addition (not from the original CIB audit) — see MASTER_PLAN.md's T-043 section for the full spec.
+Read AGENTS.md fully first. Read only the T-043 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/lib/comms/** (new); src/lib/notify.ts; the email-sending lines only in agentTools.ts, the
-send-confirmation route, the assign route, and the report/invoice send routes. No file overlap with T-042
-(Codex, running in parallel) — verified. IMPORTANT: this is the ONLY task touching notify.ts in this
-round — T-043/T-044 (owner-requested tasks queued behind this one) will migrate onto whatever you build
-here, so build src/lib/comms/send.ts as a real, reusable service, not a one-off.
+Owns: email-dispatch addition in src/app/api/admin/businesses/route.ts (POST handler only — do not touch
+the config PUT route or provision-login route); a new template in src/lib/notify.ts. No file overlap with
+T-040 (Codex, running in parallel) — verified.
 
-Key acceptance points: one comms service wrapping Resend with a single RESEND_FROM sender (D-4:
-no-reply@luxordev.com), validated via T-020's config/capability check — if Resend/RESEND_FROM report
-`not_configured`, the service must say so explicitly, never silently skip or claim success. Per-message
-delivery records using T-021's ledger (attempts + provider message ID) so a duplicate send via
-double-click doesn't send twice (idempotent per opId — you already have T-021/T-032's pattern to follow).
-Typed results surfaced to callers: "delivery failed" must be distinguishable from "no email on file" —
-don't collapse both into one generic error. Resend 4xx errors are terminal (don't retry), 5xx are
-retryable. Migrate the existing call sites (notify.ts's two functions, agentTools.ts's branded emails,
-send-confirmation, assign, report/invoice send) onto the new service — keep the existing BizBranding HTML
-templates and email copy exactly as-is, only the sending mechanism/sender-identity logic changes. NH-3
-(SPF/DKIM domain verification) is not yet done — until it is, the service should report `unconfigured` in
-production rather than sending from an unverified domain; that's expected, not a bug to work around.
+IMPORTANT — this spec was written before T-041 existed: use the comms service you just built
+(src/lib/comms/send.ts's sendEmail/sendWithLedger) instead of direct Resend — do NOT reintroduce a raw
+Resend call. Key acceptance points: when a business is created with a valid ownerEmail, send exactly one
+branded no-reply@luxordev.com email containing a working password-reset link — generate it via
+`admin.auth().generatePasswordResetLink()` (firebase-admin, already a dependency, not currently used
+anywhere in the repo — verify that's still true) — never a plaintext password in the email body, a log
+line, or an error message. Subject line clearly prefixed for inbox filtering, e.g. "[Luxor AI] Your account
+is ready". If Resend/RESEND_FROM report not_configured (via the comms service), the API response must say
+so explicitly — never silently skip and claim success. Missing/invalid ownerEmail: skip the send, note it
+in the response, don't fail the business-creation transaction. A send failure must not roll back the
+Firestore business-creation transaction either — creation succeeds even if the welcome email doesn't send.
 
-One commit (T-041: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, redesign the
-email templates/copy, or add SMS. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me
-the stuck-summary block.
+Do NOT build a tenant-removal/DELETE endpoint — that's tracked separately as NH-12 (a new destructive
+capability needing its own scoped task, not bundled into this one). Do NOT touch the existing
+`tempPassword` value returned in the POST response for the superadmin UI — that's separate from the new
+email and out of scope here unless the spec says otherwise.
+
+One commit (T-043: <summary>), gates green (type-check/lint/test; build once), append evidence to
+docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If blocked
+>20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
 
 ---
