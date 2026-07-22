@@ -15,7 +15,7 @@
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifySuperadmin } from "@/lib/auth/verifyRole";
+import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 
@@ -110,9 +110,8 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   const afterHoursGreeting = `Thanks for calling ${opts.companyName}. The office is closed, but I'm ${agentName} — I can take your details and the team will follow up first thing.`;
   const now = Date.now();
 
-  // 0. Ensure the business has a stable field key — the QR link carries it so
-  //    unauthenticated crews/prospects can use the public /field screen. Generated
-  //    once; kept stable across launches so printed QRs stay valid.
+  // 0. Ensure the business has a stable field-key mint secret. It never leaves
+  //    the server; QR links carry only a signed, one-use exchange grant.
   const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
   const existing = await base.get();
 
@@ -251,6 +250,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     });
     await add.commit();
 
+    const fieldGrant = mintFieldExchangeToken(LIVE_LINE_BUSINESS_ID, fieldKey);
     return {
       ok: true,
       firestoreUpdated: true,
@@ -261,8 +261,9 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       businessId: LIVE_LINE_BUSINESS_ID,
       phone: LIVE_LINE_PHONE,
       demoUrl: `https://ai-roof.vercel.app/company/dashboard?preview=${LIVE_LINE_BUSINESS_ID}`,
-      // Secured public field link — the key authorizes the QR flow without a login.
-      fieldUrl: `https://ai-roof.vercel.app/field?businessId=${LIVE_LINE_BUSINESS_ID}&key=${fieldKey}`,
+      // Short-lived exchange URL; the route sets an HttpOnly session then redirects
+      // to /field without leaving a reusable credential in history or referrers.
+      fieldUrl: `https://ai-roof.vercel.app/api/field/exchange?grant=${encodeURIComponent(fieldGrant.token)}`,
     };
   } finally {
     await lockRef.set({ locked: false, completedAt: Date.now() }, { merge: true });

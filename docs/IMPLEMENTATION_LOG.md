@@ -266,3 +266,34 @@ removals + rationale (if any) · deviations from spec (if any).
 - **Files changed:** `src/app/api/admin/demo-customize/route.ts` (full restructure: allowlist, isDemo marker, lock, backup export, finally-block lock release, DELETE body parsing); `src/lib/verticals/demoSeed.ts` (unchanged — isDemo is on the seed script's business doc, not in `demoSeedFor`); `scripts/seed-demo-business.mjs` (added `isDemo: true` line); `src/app/admin/demo/page.tsx` (replaced reset function with typed-confirm modal). New: `src/app/api/admin/demo-customize/__tests__/route.test.ts` (12 tests: 3 confirm-field, 2 isDemo-marker, 2 transactional-lock, 3 backup export, 1 superadmin gate, 1 full valid POST).
 - **Known residual gap (integrator review):** MASTER_PLAN's T-035 acceptance criteria include "concurrent webhook sees consistent state" during a reseed. The transactional lock only serializes concurrent *resets* against each other — it does not stage/swap writes, so a live Vapi webhook call landing mid-reseed could still observe a brief window of partially-deleted/reseeded collections. Fixing this fully would require touching `src/app/api/webhooks/vapi/route.ts`, which is outside T-035's owned scope. Accepted as a documented, demo-only, low-probability residual risk rather than scope-expanding into another file; tracked for a follow-up task if the owner wants it closed.
 - **Evidence:** `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 14 files / 138 tests passing (existing 126 + 12 new T-035 tests); `npm run build` green; `git diff --check` green. No removals.
+
+## T-034 — Scoped field access tokens
+- Date: 2026-07-21 · branch: task/field-tokens · commit: this T-034 commit
+- **Grant/session boundary:** `fieldKey` remains a server-side mint/revocation secret. QR URLs now carry a
+  signed HMAC exchange grant derived from T-020's server-only `CRON_SECRET`, with a 10-minute maximum lifetime
+  and Firestore-transactional one-use claim. Exchange sets a SameSite=Lax, HttpOnly field cookie whose signed
+  lifetime is capped at 12 hours; neither response JSON nor the clean `/field` redirect exposes the session.
+- **Fail-closed scope:** every grant/session includes business scope, an optional job scope, and an HMAC tag of
+  the current business `fieldKey`. Missing signing configuration, malformed/tampered/expired/replayed grants,
+  expired sessions, and rotated/missing `fieldKey` all fail closed. Job-scoped sessions cannot list business jobs
+  or call a different job path; `/field?jobId=...` bootstraps through the single-job endpoint.
+- **Credential cleanup + continuity:** the server exchange sends `Cache-Control: no-store` and
+  `Referrer-Policy: no-referrer`, sets the cookie, and redirects without the grant. The field client removes
+  `key`, `grant`, and `token` via `history.replaceState`, deletes the former localStorage key, and migrates old
+  keys through a body-only POST. `ENABLE_LEGACY_FIELD_KEY_FALLBACK` defaults on for this one deploy cycle and
+  can disable both legacy exchange and direct `?key=`/header access; T-051 removes the fallback.
+- **Audit:** successful grant consumption is atomically recorded with its one-use claim; successful session and
+  temporary legacy access records include business, optional job, actor, token ID, path, timestamp, IP, and user
+  agent in `fieldAccessAuditEvents`.
+- **Demo/printed-QR note:** newly generated Demo Studio field QRs use `/api/field/exchange?grant=...` and work on
+  unauthenticated crew phones through exchange → clean redirect → cookie session. Existing `demo-roofing`
+  printed `?key=` QRs may need one reprint when the fallback is disabled/removed. The Demo Playbook entry at
+  `public/guides/onboarding-guide.html` still describes the legacy URL and needs an owner-scoped pointer/update
+  before T-051; it was not silently rewritten outside T-034's owned files.
+- **Tests/evidence:** negative-first token tests cover missing configuration, malformed/tampered/expired/replayed
+  grants, expired/revoked sessions, business/job boundary violations, legacy-flag disablement, and audit writes;
+  route tests verify clean redirects, no-referrer/no-store headers, and HttpOnly cookie bootstrap; the Demo Studio
+  route test proves the reusable key is absent from `fieldUrl`. `npm run type-check` green; `npm run lint` 0 errors
+  / 26 baseline warnings; focused tests 26/26; full `npm test` 17 files / 169 tests green on unchanged rerun after
+  the documented one-off `example-lib.test.ts` timeout; `npm run build` green; `git diff --check` green. No auth
+  provider, session-role path, or Vapi contract changed; no production path was removed.

@@ -15,8 +15,8 @@ function MicIcon({ size = 32, color = "currentColor" }: { size?: number; color?:
   );
 }
 
-// Remember the QR link's access (businessId + key) so the PWA / a plain
-// revisit of /field keeps working after the first scan.
+// One-deploy migration only: old builds stored the reusable field key here.
+// Successful bootstrap deletes it; signed access now lives only in HttpOnly cookie.
 const ACCESS_STORE = "luxorFieldAccess";
 
 function loadStoredAccess(): { businessId: string; key: string } | null {
@@ -38,11 +38,11 @@ function FieldApp() {
   const prefillJobId = searchParams?.get("jobId") ?? "";
 
   const [businessId, setBusinessId] = useState(urlBusinessId ?? "demo-roofing");
-  const [fieldKey, setFieldKey] = useState(urlKey ?? "");
+  const [bootstrapComplete, setBootstrapComplete] = useState(false);
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
-  const [accessDenied, setAccessDenied] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(searchParams?.get("access") === "denied");
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
   const [workerName, setWorkerName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -56,27 +56,66 @@ function FieldApp() {
   const [savingText, setSavingText] = useState(false);
   const [textProposed, setTextProposed] = useState<ProposedCorrection | null>(null);
 
-  // Resolve access: URL key wins and is persisted; otherwise fall back to the stored one.
+  // New QR links arrive through the server exchange redirect and already have an
+  // HttpOnly cookie. Old ?key= links/localStorage entries get one migration POST.
+  // Strip browser-visible credentials before making any application API request.
   useEffect(() => {
-    if (urlKey && urlBusinessId) {
-      try {
-        localStorage.setItem(ACCESS_STORE, JSON.stringify({ businessId: urlBusinessId, key: urlKey }));
-      } catch {}
+    const cleanUrl = new URL(window.location.href);
+    const hadCredential = ["key", "grant", "token"].some((name) => cleanUrl.searchParams.has(name));
+    for (const name of ["key", "grant", "token"]) cleanUrl.searchParams.delete(name);
+    if (hadCredential) {
+      window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+    }
+
+    const stored = loadStoredAccess();
+    const legacy = urlKey && urlBusinessId
+      ? { businessId: urlBusinessId, key: urlKey }
+      : stored && (!urlBusinessId || stored.businessId === urlBusinessId)
+        ? stored
+        : null;
+    try {
+      localStorage.removeItem(ACCESS_STORE);
+    } catch {}
+
+    if (!legacy) {
+      setBootstrapComplete(true);
       return;
     }
-    const stored = loadStoredAccess();
-    if (stored && (!urlBusinessId || stored.businessId === urlBusinessId)) {
-      setBusinessId(stored.businessId);
-      setFieldKey(stored.key);
-    }
-  }, [urlKey, urlBusinessId]);
 
-  const keySuffix = fieldKey ? `&key=${encodeURIComponent(fieldKey)}` : "";
+    let cancelled = false;
+    fetch("/api/field/exchange", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId: legacy.businessId,
+        key: legacy.key,
+        ...(prefillJobId ? { jobId: prefillJobId } : {}),
+      }),
+    })
+      .then((response) => {
+        if (!cancelled && !response.ok) setAccessDenied(true);
+      })
+      .catch(() => {
+        if (!cancelled) setAccessDenied(true);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusinessId(legacy.businessId);
+          setBootstrapComplete(true);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [prefillJobId, urlBusinessId, urlKey]);
 
   // Load jobs
   useEffect(() => {
+    if (!bootstrapComplete) return;
     setLoadingJobs(true);
-    fetch(`/api/jobs?businessId=${businessId}${keySuffix}`)
+    const jobsUrl = prefillJobId
+      ? `/api/jobs/${encodeURIComponent(prefillJobId)}?businessId=${encodeURIComponent(businessId)}`
+      : `/api/jobs?businessId=${encodeURIComponent(businessId)}`;
+    fetch(jobsUrl)
       .then(async (r) => {
         if (r.status === 401 || r.status === 403) {
           setAccessDenied(true);
@@ -86,21 +125,22 @@ function FieldApp() {
         return r.json();
       })
       .then((d) => {
-        const open = ((d.jobs ?? []) as Job[]).filter((j) => j.status !== "complete");
+        const loaded = d.job ? [d.job as Job] : (d.jobs ?? []) as Job[];
+        const open = loaded.filter((j) => j.status !== "complete");
         setJobs(open);
         if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) setSelectedJobId(prefillJobId);
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [businessId, prefillJobId, keySuffix]);
+  }, [bootstrapComplete, businessId, prefillJobId]);
 
   const refreshRecent = useCallback((jobId: string) => {
     if (!jobId) { setRecentUpdates([]); return; }
-    fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}${keySuffix}`)
+    fetch(`/api/jobs/${encodeURIComponent(jobId)}/updates?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : { updates: [] }))
       .then((d) => setRecentUpdates(((d.updates ?? []) as FieldUpdate[]).reverse().slice(0, 8)))
       .catch(() => {});
-  }, [businessId, keySuffix]);
+  }, [businessId]);
 
   // Load recent updates when job changes
   useEffect(() => {
@@ -134,7 +174,6 @@ function FieldApp() {
     stopRecording,
   } = useFieldAudio(selectedJobId || null, {
     businessId,
-    fieldKey: fieldKey || undefined,
     submittedBy: workerName.trim() || undefined,
     jobContext,
     onSuccess: onVoiceSuccess,
@@ -150,7 +189,6 @@ function FieldApp() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(fieldKey ? { "x-field-key": fieldKey } : {}),
         },
         body: JSON.stringify({ businessId, rawText: text.trim(), submittedBy: workerName.trim() || undefined, jobContext }),
       });
@@ -180,7 +218,6 @@ function FieldApp() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(fieldKey ? { "x-field-key": fieldKey } : {}),
         },
         body: JSON.stringify({ businessId, submittedBy: workerName.trim() || undefined, confirmCorrection: textProposed }),
       });
@@ -352,7 +389,6 @@ function FieldApp() {
           <PhotoCapture
             jobId={selectedJobId || null}
             businessId={businessId}
-            fieldKey={fieldKey || undefined}
             submittedBy={workerName.trim() || undefined}
             disabled={isBusy}
             onUploaded={() => flashSaved("Photo saved")}
