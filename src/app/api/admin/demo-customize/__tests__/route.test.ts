@@ -7,11 +7,13 @@ const superadminUser = { user: { uid: "sa-test", superadmin: true } };
 
 const mocks = vi.hoisted(() => ({
   verifySuperadmin: vi.fn(),
+  mintFieldExchangeToken: vi.fn(),
   firestoreInstance: null as FakeFirestore | null,
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifySuperadmin: mocks.verifySuperadmin,
+  mintFieldExchangeToken: mocks.mintFieldExchangeToken,
 }));
 
 vi.mock("@/lib/firebase/admin", () => ({
@@ -177,6 +179,13 @@ function makeRequest(method: "POST" | "DELETE", body?: Record<string, unknown>):
 describe("demo-customize route", () => {
   beforeEach(() => {
     mocks.verifySuperadmin.mockReset();
+    mocks.mintFieldExchangeToken.mockReset();
+    mocks.mintFieldExchangeToken.mockReturnValue({
+      ok: true,
+      token: "short-lived-exchange-grant",
+      businessId: "demo-roofing",
+      expiresAt: Date.now() + 600_000,
+    });
   });
 
   describe("DELETE confirm field (e)", () => {
@@ -432,6 +441,14 @@ describe("demo-customize route", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.verticalId).toBe("hvac");
+      expect(body.fieldUrl).toBe(
+        "https://ai-roof.vercel.app/api/field/exchange?grant=short-lived-exchange-grant",
+      );
+      expect(body.fieldUrl).not.toContain("key=");
+      expect(mocks.mintFieldExchangeToken).toHaveBeenCalledWith(
+        "demo-roofing",
+        "abcd1234abcd1234abcd1234abcd1234",
+      );
 
       const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
       expect(lockDoc?.locked).toBe(false);

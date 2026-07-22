@@ -83,7 +83,7 @@ export default function DemoStudioPage() {
   useEffect(() => {
     if (!result?.businessId) return;
     const isFieldService = selectedId && hasFieldScreen(selectedId);
-    // fieldUrl carries the per-business field key — required for QR access without a login
+    // fieldUrl is a short-lived server exchange link for unauthenticated crew phones.
     const qrUrl = isFieldService
       ? (result.fieldUrl ?? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`)
       : (result.demoUrl ?? "");

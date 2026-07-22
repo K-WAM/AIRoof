@@ -268,7 +268,7 @@ removals + rationale (if any) · deviations from spec (if any).
 - **Evidence:** `npm run type-check` green; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 14 files / 138 tests passing (existing 126 + 12 new T-035 tests); `npm run build` green; `git diff --check` green. No removals.
 
 ## T-033 — AI input hardening + provider/model routing
-- Date: 2026-07-21 · branch: task/ai-input-hardening · commit: this T-033 commit
+- Date: 2026-07-21 · branch: task/ai-input-hardening · commit: 93a9d7c
 - **Registry (new):** Created `src/lib/ai/registry.ts` — centralized provider/model selection for 6 AI
   operations (`parse-field-update`, `summarize`, `classify`, `faq-suggest`, `agent-respond`, `transcribe`).
   Honors `DEEPSEEK_MODEL` and `OPENAI_MODEL` env overrides plus `BusinessConfig.backOfficeModel` and
@@ -316,3 +316,61 @@ removals + rationale (if any) · deviations from spec (if any).
   instantiation from openaiClient.ts and deepseekClient.ts (now centralized in registry).
   **Prohibited scope untouched:** `src/lib/jobs/projection.ts`, field-correction UX, Vapi tool names,
   prompt content (same prompts, only validation added).
+
+## T-034 — Scoped field access tokens
+- Date: 2026-07-21 · branch: task/field-tokens · commit: 02232e2
+- **Grant/session boundary:** `fieldKey` remains a server-side mint/revocation secret. QR URLs now carry a
+  signed HMAC exchange grant derived from T-020's server-only `CRON_SECRET`, with a 10-minute maximum lifetime
+  and Firestore-transactional one-use claim. Exchange sets a SameSite=Lax, HttpOnly field cookie whose signed
+  lifetime is capped at 12 hours; neither response JSON nor the clean `/field` redirect exposes the session.
+- **Fail-closed scope:** every grant/session includes business scope, an optional job scope, and an HMAC tag of
+  the current business `fieldKey`. Missing signing configuration, malformed/tampered/expired/replayed grants,
+  expired sessions, and rotated/missing `fieldKey` all fail closed. Job-scoped sessions cannot list business jobs
+  or call a different job path; `/field?jobId=...` bootstraps through the single-job endpoint.
+- **Credential cleanup + continuity:** the server exchange sends `Cache-Control: no-store` and
+  `Referrer-Policy: no-referrer`, sets the cookie, and redirects without the grant. The field client removes
+  `key`, `grant`, and `token` via `history.replaceState`, deletes the former localStorage key, and migrates old
+  keys through a body-only POST. `ENABLE_LEGACY_FIELD_KEY_FALLBACK` defaults on for this one deploy cycle and
+  can disable both legacy exchange and direct `?key=`/header access; T-051 removes the fallback.
+- **Audit:** successful grant consumption is atomically recorded with its one-use claim; successful session and
+  temporary legacy access records include business, optional job, actor, token ID, path, timestamp, IP, and user
+  agent in `fieldAccessAuditEvents`.
+- **Demo/printed-QR note:** newly generated Demo Studio field QRs use `/api/field/exchange?grant=...` and work on
+  unauthenticated crew phones through exchange → clean redirect → cookie session. Existing `demo-roofing`
+  printed `?key=` QRs may need one reprint when the fallback is disabled/removed. The Demo Playbook entry at
+  `public/guides/onboarding-guide.html` still describes the legacy URL and needs an owner-scoped pointer/update
+  before T-051; it was not silently rewritten outside T-034's owned files.
+- **Tests/evidence:** negative-first token tests cover missing configuration, malformed/tampered/expired/replayed
+  grants, expired/revoked sessions, business/job boundary violations, legacy-flag disablement, and audit writes;
+  route tests verify clean redirects, no-referrer/no-store headers, and HttpOnly cookie bootstrap; the Demo Studio
+  route test proves the reusable key is absent from `fieldUrl`. `npm run type-check` green; `npm run lint` 0 errors
+  / 26 baseline warnings; focused tests 26/26; full `npm test` 17 files / 169 tests green on unchanged rerun after
+  the documented one-off `example-lib.test.ts` timeout; `npm run build` green; `git diff --check` green. No auth
+  provider, session-role path, or Vapi contract changed; no production path was removed.
+
+## T-033/T-034 — Integrator review (both accepted)
+- Date: 2026-07-21 · integration commits: T-033 merge, T-034 merge (this cycle)
+- Independently re-verified both in their own worktrees before merge: T-033 type-check/lint clean, 209/209
+  tests, build green; T-034 type-check/lint clean, 169/169 tests, build green. Both zero file overlap
+  (confirmed via diff), only shared conflicts were in `TODO.md`/`IMPLEMENTATION_LOG.md` status rows/log
+  entries, resolved keeping both sides.
+- **T-033 findings:** registry correctly centralizes provider/model selection for the operations that
+  actually have a provider *choice* (`agent-respond` routes through `selectClient`); the two Whisper
+  transcription routes (`field-audio`, `/api/transcribe`) call `isProviderReady("openai")` from the
+  registry for the readiness gate but construct their own `OpenAI` client directly rather than via the
+  registry's `getOpenAIClient()` — functionally identical (same env var), just a minor missed
+  code-reuse opportunity, not a defect; not sent back for rework. `generateAgentResponse`'s new
+  throw-on-error behavior only affects the superadmin-only `/api/agent/respond` testing endpoint, not
+  the live Vapi webhook path (verified `generateAgentResponse` has no other call sites) — safe. Adversarial
+  test coverage (malformed JSON, prompt injection, empty/oversized audio, provider errors) matches the
+  spec's edge-case list.
+- **T-034 findings:** genuinely strong security work — HMAC key domain-separated from `CRON_SECRET` (not
+  reused directly), `timingSafeEqual` throughout, one-time-use exchange grants enforced via a Firestore
+  transaction (real replay protection, not just a TTL), revocation tied to the current `fieldKey`'s HMAC
+  tag (rotating the key invalidates every outstanding grant/session with no separate revocation list to
+  maintain), job-scoping enforced by path-matching the request against the token's claims, and
+  `Cache-Control`/`Referrer-Policy` headers added on the exchange response beyond what the spec asked for.
+  Negative-first tests cover every fail-closed path named in the spec's acceptance criteria. The
+  10-minute/one-time-use exchange grant means a printed demo QR is only good for a single scan within 10
+  minutes of the most recent Demo Studio launch — reviewed and accepted as correct given the demo workflow
+  (each pitch re-launches Demo Studio anyway, which mints a fresh grant as a side effect); not a defect.
