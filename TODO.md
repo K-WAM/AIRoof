@@ -10,20 +10,26 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 0 Foundation | T-000 T-001 T-002 | 8% | **merged** (9e4ccfd) | — |
 | 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
-| 3 Boundary applications | T-030…T-035 | 30% | **T-030, T-031, T-032, T-035 merged**; T-033/T-034 queued | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | queued (T-043/044/045 added 2026-07-21, owner request — see below) | Phase 3 partials (per-task deps); T-043/044/045 depend only on T-020 (already merged) |
+| 3 Boundary applications | T-030…T-035 | 30% | **all 6 tasks merged** — Phase complete | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | T-041 + T-042 assigned this round; T-040/T-043/T-044/T-045 queued behind them (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
 
-Overall implementation: **55%** (Phases 0+1+2 fully merged = 35%; Phase 3's 30% weight split evenly across its
-6 tasks (~5% each, no finer per-task weighting recorded) — T-030 + T-031 + T-032 + T-035 merged = 4/6 tasks =
-20% of Phase 3's weight; 35% + 20% = **55%**). Independently re-verified on main
-post-merge: type-check clean, lint 0 errors/26 baseline warnings, build green, `npm test` **143/143 clean**
-(both branches' tests combined on main). A single-run flake was reproduced once in `verify.test.ts` under
-parallel worktree/build load and did not reproduce on 3 immediate re-runs — same documented pre-existing
-full-suite-parallel-contention pattern as before, now confirmed to manifest in more than one test file (not
-only `example-lib.test.ts`), not a T-032/T-035 regression. GitHub Actions CI was also found red for ~9
-hours/4 pushes on an unrelated CI-workflow bug (env var leakage), fixed earlier this session — see
-`docs/SESSION_HANDOFF.md`.
+Overall implementation: **65%** (Phases 0+1+2+3 fully merged = 35% + 30% = 65%). Phase 3 is now fully closed —
+T-033 and T-034 merged this cycle alongside the already-merged T-030/T-031/T-032/T-035. Independently
+re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline warnings, build green, `npm test`
+**223/223 clean** (155 baseline + 54 T-033 + 14 T-034). GitHub Actions CI was found red for ~9 hours/4 pushes
+on an unrelated CI-workflow bug (env var leakage) earlier this session, fixed — see `docs/SESSION_HANDOFF.md`.
+
+**Phase 4 file-overlap note:** T-040 and T-045 both touch the same company/admin page files (broad sweeps) —
+cannot run in parallel. T-041, T-043, and T-044 all touch `src/lib/notify.ts` — cannot run all three in
+parallel either. Only fully non-overlapping pair available right now: **T-041 + T-042**. Assigned this round;
+T-040/T-043/T-044/T-045 queue behind them. Doing T-041 first (rather than T-043/T-044) also avoids a near-term
+`notify.ts` rewrite churn — T-043/T-044 were designed to ship via direct Resend now and migrate onto
+`src/lib/comms/send.ts` once T-041 lands, so sequencing T-041 first means they migrate onto something that
+already exists instead of being rewritten twice.
+
+**Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
+worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
 
 **Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
 worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
@@ -50,16 +56,44 @@ scope-expanding into another file. Merged both branches into `main` locally (`gi
 only shared-file conflicts were in `TODO.md`/`IMPLEMENTATION_LOG.md` (both workers' own status-row/log
 updates), resolved by keeping both sides' content, no code conflicts (zero owned-file overlap, as designed).
 
-**Assignment rationale (C/D, next — T-034/T-033):** T-034 (replacing the stable `?key=` field credential
-with signed, short-lived exchange tokens) is the same "protected-guard + new crypto/token design" shape as
-T-021/T-010 — routed to Codex, which has the strongest track record on that rigor profile in this plan; it's
-also the only task touching `verifyRole.ts`, so no serialization conflict exists regardless. T-033 (adopting
-T-022's already-built schemas at the AI trust boundaries + centralizing provider/model selection) is
-mechanical wiring of existing primitives rather than new security design — good Deepseek fit, consistent
-with T-020's routing precedent. Zero file overlap between the two (verified). Both worktrees were retired
-from their fully-merged branches and reassigned in place via `git worktree move` (renamed to match the new
-task) rather than provisioning fresh ones — avoids a redundant `npm install`/junction setup for node_modules,
-which already exists and was re-verified healthy post-rename.
+**Assignment rationale (C/D, T-034/T-033 — both merged this cycle):** T-034 (replacing the stable `?key=`
+field credential with signed, short-lived exchange tokens) is the same "protected-guard + new crypto/token
+design" shape as T-021/T-010 — routed to Codex, which has the strongest track record on that rigor profile in
+this plan; it's also the only task touching `verifyRole.ts`, so no serialization conflict exists regardless.
+T-033 (adopting T-022's already-built schemas at the AI trust boundaries + centralizing provider/model
+selection) is mechanical wiring of existing primitives rather than new security design — good Deepseek fit,
+consistent with T-020's routing precedent. Zero file overlap between the two (verified). Both worktrees were
+retired from their fully-merged branches and reassigned in place via `git worktree move` (renamed to match
+the new task) rather than provisioning fresh ones.
+
+**Review findings, Phase 3 close-out (T-033, T-034):** Both independently re-verified in their worktrees
+before merge (type-check/lint/build clean; T-033 209/209 tests, T-034 169/169 tests) and again on `main`
+post-merge (223/223 combined). **T-033:** registry correctly centralizes provider/model selection wherever a
+real *choice* exists (`agent-respond` routes through `selectClient`); the two Whisper transcription routes
+call the registry's `isProviderReady("openai")` for the readiness gate but construct their own `OpenAI` client
+directly rather than via `getOpenAIClient()` — functionally identical, a minor missed code-reuse opportunity,
+not sent back for rework. Confirmed `generateAgentResponse`'s new throw-on-error only affects the
+superadmin-only `/api/agent/respond` test endpoint, not the live Vapi webhook (no other call sites). All 4
+production mock fallbacks removed as specified; dev/demo mocks are clearly `[MOCK-<op>]`-labeled and gated to
+non-production. **T-034:** genuinely strong security work — HMAC signing key domain-separated from
+`CRON_SECRET` (not reused directly), `timingSafeEqual` throughout, one-time-use exchange grants enforced via a
+real Firestore transaction (not just a TTL), revocation tied to the current `fieldKey`'s HMAC tag (rotating
+the key invalidates every outstanding grant/session with zero separate revocation-list bookkeeping), and
+`Cache-Control`/`Referrer-Policy` hardening beyond what the spec asked for. Negative-first tests cover every
+fail-closed path in the acceptance criteria. **Full details in `docs/IMPLEMENTATION_LOG.md`'s "T-033/T-034 —
+Integrator review" entry.** Merged both into `main` locally; `TODO.md`/`IMPLEMENTATION_LOG.md` were the only
+conflicts (both workers' own rows/log entries, kept both sides), zero code conflicts as designed.
+
+**Assignment rationale (next — T-042/T-041):** Phase 3 is now fully closed (all 6 tasks merged), unblocking
+all of Phase 4. File-overlap analysis (see note above) leaves only one non-overlapping pair available this
+round: T-042 (PII retention/audit — new `src/lib/audit/**`, retention cron, `calls/[callId]` DELETE semantics,
+audit-log correlation in `vapi/route.ts`) routed to Codex, matching the same correctness/rigor profile as its
+prior work (idempotent retention, append-only audit, careful DELETE semantics). T-041 (unified outbound
+comms — one Resend-wrapping service, migrating existing `notify.ts`/`agentTools.ts` email call sites onto
+it, delivery records via the already-built T-021 ledger) routed to Deepseek — wiring an existing primitive
+(T-021's ledger) into a new service, consistent with its T-020/T-033 routing precedent. Zero file overlap
+between the two (verified: T-042 never touches `notify.ts`). Worktrees retired from their fully-merged T-033/
+T-034 branches and reassigned via `git worktree move`.
 
 **2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
 email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
@@ -75,8 +109,8 @@ precise split is needed. Not yet assigned to a worker — next in line, see Next
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | *(prior)* `D:\Apps\air-wt-scheduling-integrity` on `task/scheduling-integrity` (T-030/T-031/T-032, all merged: `1919c35`/`6785e68`, `6d25768`/`449a493`, `58fc531`+`9beb8e2`) → *(now)* `D:\Apps\air-wt-field-tokens` on branch `task/field-tokens` | T-034 | `src/lib/auth/verifyRole.ts` (verifyFieldAccess + token exchange); `src/app/field/page.tsx`; `src/app/api/field/exchange/route.ts` (new); QR-link construction in `src/app/admin/demo/page.tsx` + `demo-customize` | **merged** — commit `02232e2`, integration this commit. One-use 10m QR grants → 12h HttpOnly scoped session; rotation/replay/expiry/job-scope fail closed; legacy key fallback feature-flagged for one deploy; 169/169 tests + build green |
-| Worker D — Deepseek V4 Pro | *(prior)* `D:\Apps\air-wt-demo-isolation` on `task/demo-isolation` (T-035, merged: `28a67ff`+`f9052d4`) → *(now)* `D:\Apps\air-wt-ai-input-hardening` on branch `task/ai-input-hardening` | T-033 | `src/lib/ai/deepseekClient.ts`, `src/lib/ai/registry.ts` (new), `src/app/api/jobs/[jobId]/field-audio/route.ts`, `src/app/api/transcribe/route.ts`, `src/app/api/agent/respond/route.ts` | **merged** — commit `93a9d7c`, integration this commit. Registry + schema adoption + mock removal + input hardening. 209/209 tests + build green |
+| Worker C — Codex Sol 5.6 (extra high) | *(prior)* `air-wt-field-tokens` on `task/field-tokens` (T-034, merged: `02232e2`+integration) → *(now)* `D:\Apps\air-wt-pii-retention` on branch `task/pii-retention` | T-042 | `src/lib/audit/**` (new), `src/app/api/cron/retention/route.ts` (new), `src/app/api/calls/[callId]/route.ts` (DELETE), audit-log lines in `src/app/api/webhooks/vapi/route.ts` | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | *(prior)* `air-wt-ai-input-hardening` on `task/ai-input-hardening` (T-033, merged: `93a9d7c`+integration) → *(now)* `D:\Apps\air-wt-unified-comms` on branch `task/unified-comms` | T-041 | `src/lib/comms/**` (new), `src/lib/notify.ts`, email call sites in `agentTools.ts`/`send-confirmation`/`assign`/report+invoice send routes | **assigned** — worktree renamed/reassigned this session, node_modules junction + graphify-out carried over, `npm run type-check` verified clean |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
@@ -90,8 +124,8 @@ precise split is needed. Not yet assigned to a worker — next in line, see Next
 
 **Review outcome (T-031):** APPROVE, merged without rework. Independently reproduced in the worktree before merge: type-check clean, lint 0/26, 126/126 tests. Diffed against the true common ancestor (`6785e68`, not `main`'s later tip) to isolate Codex's actual change from doc-drift noise. Spot-checked the ledger claim/attempt flow in `escalateCall`: `escalated:true` is returned only after a real Resend `providerId` is captured (`agentTools.ts` ~L952/956); every other path (`accepted`/`failed`/`unconfigured`) correctly returns `escalated:false`; a duplicate call re-reads the ledger instead of re-sending. Vapi reply shape unchanged, content only. Merged into `main`; no conflicts this time (Codex's own `TODO.md` row edit didn't overlap the integrator's rewritten sections).
 
-**Next for Worker C (Codex):** T-032 merged (see below) — T-033 (AI input hardening) or T-034 (scoped field
-tokens) are next; see "Next eligible work" for routing.
+**Phase 3 closed out:** T-032, T-033, T-034, T-035 all merged this session alongside the earlier T-030/T-031 —
+Phase 3 is fully done. Next: T-041 (Deepseek) + T-042 (Codex), see the assignment rationale above.
 
 **Integrator findings (2026-07-21 session):** No new worker batch had landed since the prior session — both
 `D:\Apps\air-wt-scheduling-integrity` and `D:\Apps\air-wt-demo-isolation` were still sitting at the exact main

@@ -1,88 +1,68 @@
 # SESSION_HANDOFF.md — Current state (compact)
 
-Updated: 2026-07-21 by integrator (reconciliation session, then reviewed/merged T-032 + T-035).
+Updated: 2026-07-21/22 by integrator (reviewed + merged T-032/T-035, then T-033/T-034 — Phase 3 now closed).
 
 - **Repository root:** `D:\Apps\AI Receptionist` (Windows; paths contain a space — quote everything)
-- **Integration branch:** `main`; remote `origin` = github.com/K-WAM/AIRoof. `origin/main` was already at
-  parity with local `main` (`0885af6`) at the start of this session — a prior session had pushed without a
-  recorded `approve push` (docs wrongly said "nothing pushed"; corrected). This session added 9 more commits
-  locally (CI fix, doc reconciliation, T-032/T-035 review+merge, graphify refresh) — **none pushed**; still
-  waiting on explicit `approve push`.
-- **Last verified commit:** `07f0cf1` (T-035 merge, tip as of this session). Combined gate green: type-check
-  clean, lint 0 errors/26 baseline warnings, `npm test` **155/155 passing**, `npm run build` green.
-- **CI finding + fix (this session):** GitHub Actions CI had been red for ~9 hours/4 pushes — root cause was
-  `.github/workflows/ci.yml` injecting real `OPENAI_API_KEY`/`DEEPSEEK_API_KEY` into the `npm test` step,
-  colliding with T-020's own "not configured" test assertions. Fixed by removing those two env lines
-  (commit `832f78e`). Not yet pushed.
-- **Current phase:** Phase 0, 1, 2 merged. Phase 3: **T-030, T-031, T-032, T-035 all merged** (4 of 6 tasks);
-  T-033, T-034 queued. Overall implementation **55%** (35% from Phases 0-2 + 20% from Phase 3's 4/6 tasks at
-  ~5% each — see TODO.md math). Phase 4 gained three owner-requested tasks (T-043/044/045) this session, not
-  yet started.
-- **Active worktrees** (both retired their original branches — fully merged — and were reassigned + renamed
-  for the next task, node_modules/graphify-out carried over untouched):
-  - `D:\Apps\air-wt-field-tokens` (was `air-wt-scheduling-integrity`) · branch `task/field-tokens` · Codex —
-    ready for **T-034** (scoped field access tokens). Real (non-junction) `node_modules`, verified healthy
-    (`npm run type-check` clean) after the directory rename via `git worktree move`.
-  - `D:\Apps\air-wt-ai-input-hardening` (was `air-wt-demo-isolation`) · branch `task/ai-input-hardening` ·
-    Deepseek — ready for **T-033** (AI input hardening + provider/model routing). `node_modules` is a healthy
-    junction to the main worktree's, verified intact after rename.
-- **Completed batches:** Batch A (T-010/T-011), Batch B (T-000/T-001/T-002), Batch A2 (T-021/T-022), Batch B2
-  (T-020), Batch C (T-030 + T-031 + T-032, Codex), Batch D (T-035, Deepseek) — all merged to `main` locally.
-- **Pending reviews:** none — T-032 and T-035 were both reviewed and merged this session (see below).
+- **Integration branch:** `main`; remote `origin` = github.com/K-WAM/AIRoof. Owner said **`approve push`**
+  earlier this session — pushed at `a4d665c`, confirmed green on GitHub Actions CI (`gh run watch`, 2m45s,
+  first clean CI run since the T-020 push). Since then, T-033 and T-034 were reviewed and merged locally —
+  `main` is now 2 commits ahead of `origin/main` again, **not pushed** (no new `approve push` given for these).
+- **Last verified commit:** `d9265b1` (T-034 merge). Combined gate green: type-check clean, lint 0 errors/26
+  baseline warnings, `npm test` **223/223 passing** (155 baseline + 54 T-033 + 14 T-034), `npm run build` green.
+- **Current phase:** Phase 3 (T-030…T-035) is **fully merged — 6 of 6 tasks done.** Overall implementation
+  **65%** (35% from Phases 0-2 + 30% from all of Phase 3). Phase 4 (T-040…T-045, 20% weight) just started:
+  T-041 and T-042 assigned this session; T-040/T-043/T-044/T-045 queued behind them due to file overlap
+  (see below).
+- **Active worktrees** (both retired their finished branches and were renamed/reassigned again, node_modules/
+  graphify-out carried over, health-checked post-rename):
+  - `D:\Apps\air-wt-pii-retention` (was `air-wt-field-tokens`, was `air-wt-scheduling-integrity`) · branch
+    `task/pii-retention` · Codex — ready for **T-042** (PII retention, deletion, audit integrity). Real
+    (non-junction) `node_modules`, verified healthy.
+  - `D:\Apps\air-wt-unified-comms` (was `air-wt-ai-input-hardening`, was `air-wt-demo-isolation`) · branch
+    `task/unified-comms` · Deepseek — ready for **T-041** (unified outbound communications). `node_modules`
+    is a healthy junction to the main worktree's, verified intact after rename.
+- **Completed batches:** Batches A/B/A2/B2 (Phases 0-2), Batch C (T-030/031/032/034, Codex — across two
+  worktree identities as it was renamed each round), Batch D (T-033/035, Deepseek, same renaming pattern) —
+  **all 6 Phase 3 tasks merged to `main`.**
+- **Pending reviews:** none — T-033 and T-034 were both reviewed and merged this session.
 - **Current blockers:** none for dev. T-010 *deploy* (not dev) still blocked on NH-1/NH-2.
-- **Review outcome — T-032 (Codex):** ACCEPT with one review fix. Independently reproduced in the worktree:
-  type-check clean, lint 0/26, 143/143 tests, build green. Confirmed `daily-call-summary`/`faq-suggestions`
-  previously **failed OPEN** when `CRON_SECRET` was unset (real pre-existing security gap) — now correctly
-  fail-closed via the shared `requireCronAuth` guard, same as `follow-up-calls`. `createLead`'s old
-  fire-and-forget immediate-dial path was removed for one ledger-atomic path through the cron.
-  `callbackConsent` defaults false for every lead (new and pre-existing) since nothing in the Vapi webhook
-  passes `callbackConsent: true` yet — the auto-callback feature is correctly inert until a future task wires
-  a real consent signal; documented, not a defect. **Review fix:** `vercel.json`'s `*/5 * * * *` schedule
-  exceeds Vercel Hobby's hard once-per-day cron limit and fails at *deployment* (confirmed against Vercel's
-  docs) — owner has ruled out a Pro upgrade, so reverted to the pre-existing daily `0 14 * * *` schedule.
-- **Review outcome — T-035 (Deepseek):** ACCEPT with two review fixes. Independently reproduced: type-check
-  clean, lint 0/26, 138/138 tests, build green. All five required guards present and correctly ordered
-  (allowlist → isDemo marker → backup-before-delete → transactional lock w/ finally-release → typed RESET
-  confirm on both API and UI, which also fixed a previously-silent error-swallow in the reset button).
-  **Review fixes:** (1) corrected encoding corruption (mangled em-dashes/dropped characters) in the T-035
-  `IMPLEMENTATION_LOG.md` entry — cosmetic only, verified no code files were affected, only the log entry;
-  (2) documented a residual gap — MASTER_PLAN's "concurrent webhook sees consistent state" acceptance
-  criterion isn't fully met (the lock only serializes resets against each other, not against a live webhook
-  read mid-reseed); fully closing it needs `src/app/api/webhooks/vapi/route.ts`, outside T-035's owned scope,
-  so it's accepted as a documented demo-only residual risk rather than scope-expanded.
-- **Worktree/branch discipline incident (this session):** Deepseek edited the **main repo**
-  (`D:\Apps\AI Receptionist`) instead of its assigned worktree partway through T-035 — caught and
-  self-corrected (`git checkout --` on the 3 stray files in main, re-applied in the worktree) before
-  reporting completion; confirmed clean afterward (`git status` empty on `main`, all real changes present in
-  the worktree). Not the first time this has happened. Fix shipped this session: `AGENTS.md` and every
-  template in `docs/EXECUTION_PROMPTS.md` now carry a mandatory `git rev-parse --show-toplevel` +
-  `git branch --show-current` check before a worker's first edit and again before its commit.
-- **Test suite flake, broadened:** a single run showed 1 failure in `verify.test.ts` under parallel
-  worktree/build load; 3 immediate re-runs were clean (138/138, 143/143, 155/155 combined). Same pre-existing
-  full-suite-parallel-contention pattern documented before, now confirmed to surface in more than just
-  `example-lib.test.ts` — not a T-032/T-035 regression.
+- **Review outcome — T-033 (Deepseek), ACCEPT:** Independently reproduced (type-check/lint/build clean,
+  209/209 tests). New `src/lib/ai/registry.ts` centralizes provider/model selection; 4 production mock
+  fallbacks removed (now throw explicitly when unconfigured; dev/demo mock is `[MOCK-<op>]`-labeled and
+  gated to non-production); all AI outputs validated against T-022's zod schemas; `parseFieldUpdate` schema
+  rejection now flags `needsConfirmation` instead of silently persisting. Minor non-blocking nit: the two
+  Whisper transcription routes call the registry's `isProviderReady()` for readiness but construct their own
+  `OpenAI` client rather than via `getOpenAIClient()` — functionally identical, just not fully centralized.
+  Confirmed `generateAgentResponse`'s new throw-on-error only affects the superadmin-only test endpoint, not
+  the live Vapi webhook (no other call sites).
+- **Review outcome — T-034 (Codex), ACCEPT:** Independently reproduced (type-check/lint/build clean,
+  169/169 tests). Strong security work: HMAC signing key domain-separated from `CRON_SECRET` (not reused
+  directly), `timingSafeEqual` throughout, one-time-use exchange grants enforced via a real Firestore
+  transaction (genuine replay protection, not just a TTL), revocation tied to the current `fieldKey`'s HMAC
+  tag (rotating the key invalidates every outstanding grant/session with no separate revocation list),
+  `Cache-Control`/`Referrer-Policy` hardening added beyond spec. Negative-first tests cover every fail-closed
+  path. Full details in `docs/IMPLEMENTATION_LOG.md`'s "T-033/T-034 — Integrator review" entry.
 - **Next eligible work:**
-  1. **T-034** (scoped field access tokens) — Codex, `D:\Apps\air-wt-field-tokens`, branch
-     `task/field-tokens`. Touches protected `verifyRole.ts` guard, needs HMAC/token/TTL design — matches
-     Codex's demonstrated adversarial-rigor track record.
-  2. **T-033** (AI input hardening + provider/model routing) — Deepseek,
-     `D:\Apps\air-wt-ai-input-hardening`, branch `task/ai-input-hardening`. More mechanical wiring of T-022's
-     existing schemas onto trust-boundary routes — good Deepseek fit.
-  3. After T-033/T-034: T-043/T-044/T-045 (owner-requested, Phase 4) are unassigned and dependency-free
-     (only need T-020, already merged) — good candidates for whichever agent frees up first.
+  1. **T-042** (PII retention, deletion, audit integrity) — Codex, `D:\Apps\air-wt-pii-retention`, branch
+     `task/pii-retention`. No file overlap with anything else queued.
+  2. **T-041** (unified outbound communications) — Deepseek, `D:\Apps\air-wt-unified-comms`, branch
+     `task/unified-comms`. Touches `src/lib/notify.ts` — do this before T-043/T-044 (which also touch that
+     file) so they migrate onto the new comms service instead of being written twice.
+  3. After T-041/T-042 merge: T-040 (UI truthfulness — broad company/admin page sweep) and T-045 (icon
+     sweep — also touches those same pages) cannot run in parallel with each other; T-043/T-044 (owner
+     scope addition) can follow once `notify.ts` is stable post-T-041.
 - **CLI auth (checked 2026-07-20, still valid):** gh ✓ · vercel ✓ (repo not linked — see AGENTS.md hiccups) ·
   firebase ✓ · stripe ✓.
-- **Graphify:** refreshed this session via `--update` (AST-only again — doc-file semantic extraction skipped
-  a second time given the documented hang risk from 2026-07-20; only 10 changed code files were re-extracted).
-  908→1193→**1281 nodes**, 863→2105→**2163 edges**, 120 communities (up from 108 — clustering was recomputed,
-  so old community IDs/labels no longer line up; this run shipped with generic "Community N" labels rather
-  than re-hand-labeling all 120, a cosmetic gap, not a functional one). Verified live: `graphify query "how do
-  the cron routes authenticate?"` correctly surfaces `follow-up-calls`, `daily-call-summary`,
-  `faq-suggestions`, and `cronGuard.ts` all connected — the update captured today's T-032/T-035 changes
-  correctly. Copied into both renamed worktrees. A future session that wants clean community labels again
-  should run `--cluster-only` plus manual labeling as a standalone pass, not bundled into a code-changes
-  `--update`.
-- **Known hiccup from a prior cycle:** `git worktree remove --force` on Windows can time out/hang without
-  fully cleaning up — check `git worktree list` for a `prunable` entry and prune it rather than retrying the
-  remove. (Not hit this session — `git worktree move` was used instead, which worked cleanly both times.)
+- **Graphify:** refreshed again this session via `--update` (AST-only, same precedent as before — doc-file
+  semantic extraction still carries the documented hang risk, skipped again). 1281→**1362 nodes**,
+  2163→**2297 edges**, 124 communities. Verified live: `graphify query "how does the field access token
+  exchange work?"` correctly surfaces `verifyRole.ts`'s new `exchangeLegacyFieldKey()`/
+  `FieldTokenExchangeResult` — the update captured T-033/T-034 correctly. Copied into both renamed worktrees.
+  Community labels are still generic ("Community N") from two updates ago — still a cosmetic gap, not
+  functional; a future session wanting clean labels should run `--cluster-only` + manual labeling as its own
+  pass, separate from a code-changes `--update`.
+- **Known hiccups (still current):** CI env-var leakage (fixed, see AGENTS.md); worktree/branch discipline
+  (fixed via mandatory pre-edit check in AGENTS.md + every EXECUTION_PROMPTS.md template); `git worktree
+  remove --force` can hang on Windows — this session used `git worktree move` twice instead, which worked
+  cleanly both times, no removal needed.
 - **New-session reading order:** AGENTS.md → MASTER_PLAN.md (your tasks) → TODO.md → this file.

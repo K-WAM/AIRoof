@@ -43,26 +43,27 @@ Current batch values:
 | B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
 | A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
 | B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
-| C | `D:\Apps\air-wt-field-tokens` (was `air-wt-scheduling-integrity`) | `task/field-tokens` | T-030/T-031/T-032 (all merged) → **T-034 next, same worktree, new branch** |
-| D | `D:\Apps\air-wt-ai-input-hardening` (was `air-wt-demo-isolation`) | `task/ai-input-hardening` | T-035 (merged) → **T-033 next, same worktree, new branch** |
+| C | `D:\Apps\air-wt-pii-retention` (was `air-wt-field-tokens`, was `air-wt-scheduling-integrity`) | `task/pii-retention` | T-030/T-031/T-032/T-034 (all merged) → **T-042 next, same worktree, new branch** |
+| D | `D:\Apps\air-wt-unified-comms` (was `air-wt-ai-input-hardening`, was `air-wt-demo-isolation`) | `task/unified-comms` | T-033/T-035 (merged) → **T-041 next, same worktree, new branch** |
 
 ---
 
-## PENDING — next assignments, ready to paste (as of `07f0cf1`, 2026-07-21, 55% complete)
+## PENDING — next assignments, ready to paste (as of `d9265b1`, 2026-07-22, 65% complete)
 
 Both worktrees were retired from their fully-merged branches and reassigned + renamed this session
 (`git worktree move`) — node_modules and graphify-out carried over untouched and were re-verified healthy
 (`npm run type-check` clean in both) after the rename. graphify-out/ is refreshed and current through the
-T-032/T-035 merge (AST-only refresh again this round — see SESSION_HANDOFF.md). Use `graphify
-explain`/`query`/`path` before Glob/Grep sweeps in both.
+T-033/T-034 merge (AST-only refresh again this round — see SESSION_HANDOFF.md). Use `graphify
+explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 3 is fully closed** — these are the first
+Phase 4 tasks.
 
-### Next for Codex (Worker C) — T-034, same worktree, new branch
+### Next for Codex (Worker C) — T-042, same worktree, new branch
 
 ```
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-030/T-031/T-032 work is merged and done).
+fresh branch — your T-030/T-031/T-032/T-034 work is all merged and done; Phase 3 is fully closed).
 
-Work ONLY inside: D:\Apps\air-wt-field-tokens   (branch task/field-tokens)
+Work ONLY inside: D:\Apps\air-wt-pii-retention   (branch task/pii-retention)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
@@ -70,45 +71,42 @@ This worktree already has a working node_modules — do NOT run npm install/npm 
 a real MODULE_NOT_FOUND for a package you didn't touch, stop and ask before reinstalling.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "verifyFieldAccess"
-  graphify query "how does the public field QR link authenticate?"
-  graphify path "fieldKey" "verifyFieldAccess"
+  graphify explain "vapiAppointmentConfirmations"
+  graphify query "how are call transcripts and recordings stored, and what does DELETE /api/calls do today?"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-034 — Scoped field access tokens (MASTER_PLAN.md, Phase 3).
-Read AGENTS.md fully first (this repo now has a mandatory working-directory-discipline section — read
-it, it exists because of the mistake above). Read only the T-034 section of MASTER_PLAN.md and your row
-in TODO.md.
+Your task: T-042 — PII retention, deletion, audit integrity (MASTER_PLAN.md, Phase 4).
+Read AGENTS.md fully first. Read only the T-042 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/lib/auth/verifyRole.ts (verifyFieldAccess + new token exchange); src/app/field/page.tsx (token
-bootstrap); src/app/api/field/exchange/route.ts (new); QR-link construction in src/app/admin/demo/page.tsx
-and demo-customize's fieldUrl output. This is the ONLY task touching verifyRole.ts in this plan — no
-serialization conflict with any other in-flight work.
+Owns: src/lib/audit/** (new); src/app/api/cron/retention/route.ts (new); src/app/api/calls/[callId]/route.ts
+(DELETE only); audit-log lines in src/app/api/webhooks/vapi/route.ts. No file overlap with T-041
+(Deepseek, running in parallel) — verified.
 
-Key acceptance points: keep fieldKey as the mint secret, but exchange it server-side for a signed,
-short-lived token (HMAC via T-020's server secret, TTL ≤ 12h) scoping to the business + optional job;
-QR links carry a one-time/short-TTL exchange URL, not the reusable business-wide key; after bootstrap,
-strip the credential from the URL (history.replaceState + server redirect) so nothing reusable survives
-in browser history/referrers; expired/revoked tokens fail closed; a job-scoped token cannot touch a
-different job. Printed-QR workflow must still work end-to-end (QR → exchange → session) and
-unauthenticated crew phones must still work. Existing demo-roofing printed QRs may break once — log it
-and note the demo playbook needs a pointer, don't silently break the demo without recording it.
-Feature-flag a fallback to the legacy `?key=` for one deploy cycle (removed later in T-051) — do not
-delete the old path outright yet.
+Key acceptance points: build a retention-policy module with configurable windows (transcripts, recordings,
+tool I/O logs) — use conservative 90-day defaults behind config, flagged for owner sign-off (NH-4 is a
+legal decision, not yours to override). A cron-invoked redaction/deletion job authenticated via T-020's
+requireCronAuth (401 before any read/write, matching the T-032 pattern). Immutable, append-only audit event
+types with correlation IDs and provider IDs; fix the mislabelled lookup/cancel audit logs at
+vapi/route.ts:273,342. DELETE on /api/calls/[callId] must match documented policy: true redaction of
+transcript bodies and recording URLs, but retain an audit skeleton (hashes/lengths only, no PII) — never
+just mark the call ended without actually redacting. Never delete financial records (invoices) via this
+retention job. Retention runs must be resumable/idempotent if interrupted mid-batch; a call still active
+must not be redacted out from under it. Create docs/RETENTION.md documenting the policy as part of this
+task (the spec requires it).
 
-One commit (T-034: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, or change
-session-role auth paths or add a new auth provider. If blocked >20 min: commit WIP, log HELP-NEEDED in
-TODO.md, and give me the stuck-summary block.
+One commit (T-042: <summary>), gates green (type-check/lint/test; build once), append evidence to
+docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, or build
+external consent/disclosure wording (NH-4) or data-subject request tooling — out of scope. If blocked
+>20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
 
-### Next for Deepseek (Worker D) — T-033, same worktree, new branch
+### Next for Deepseek (Worker D) — T-041, same worktree, new branch
 
 ```
 You are Worker D for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-035 work is merged and done).
+fresh branch — your T-033/T-035 work is all merged and done; Phase 3 is fully closed).
 
-Work ONLY inside: D:\Apps\air-wt-ai-input-hardening   (branch task/ai-input-hardening)
+Work ONLY inside: D:\Apps\air-wt-unified-comms   (branch task/unified-comms)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 This exact mistake has happened before on this worktree. Re-check before your commit too.
@@ -117,33 +115,36 @@ node_modules. If something genuinely looks missing, run `npm run type-check` fir
 touching node_modules at all.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "parseFieldUpdate"
-  graphify query "where do transcription and AI parsing happen and what validates their output?"
+  graphify explain "notify.ts"
+  graphify query "where does the app send email today and what sender addresses does it use?"
 Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
 
-Your task: T-033 — AI input hardening + provider/model routing (MASTER_PLAN.md, Phase 3).
-Read AGENTS.md fully first. Read only the T-033 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-041 — Unified outbound communications (MASTER_PLAN.md, Phase 4).
+Read AGENTS.md fully first. Read only the T-041 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/lib/ai/deepseekClient.ts; src/lib/ai/registry.ts (new); src/app/api/jobs/[jobId]/field-audio/
-route.ts; src/app/api/transcribe/route.ts; src/app/api/agent/respond/route.ts. Zero file overlap with
-Codex's T-034 work — fully parallel-safe.
+Owns: src/lib/comms/** (new); src/lib/notify.ts; the email-sending lines only in agentTools.ts, the
+send-confirmation route, the assign route, and the report/invoice send routes. No file overlap with T-042
+(Codex, running in parallel) — verified. IMPORTANT: this is the ONLY task touching notify.ts in this
+round — T-043/T-044 (owner-requested tasks queued behind this one) will migrate onto whatever you build
+here, so build src/lib/comms/send.ts as a real, reusable service, not a one-off.
 
-Key acceptance points: adopt T-022's zod schemas at these trust boundaries — invalid or low-confidence
-extractions get flagged for user confirmation, never silently persisted; centralize provider/model
-selection in the new registry, honoring DEEPSEEK_MODEL and the persisted backOfficeModel setting instead
-of hardcoded model names; remove any mock/fallback response that could run in production — missing prod
-API keys must fail readiness explicitly (via T-020's config/capability checks), never fabricate a
-plausible-looking summary. Dev/demo may keep a mock ONLY when NODE_ENV !== 'production' and it is clearly
-labeled as a mock in the output. Test against the adversarial edge cases: malformed nested JSON, prompt
-injection inside a transcript, oversized/empty audio, multilingual/noisy input (must hit the low-confidence
-confirm path, not silently guess), provider timeout. Do NOT touch job.parsed's projection ownership
-(src/lib/jobs/projection.ts) — that's out of scope and already correct. Do NOT change the field-correction
-UX, add new providers, or redesign prompts.
+Key acceptance points: one comms service wrapping Resend with a single RESEND_FROM sender (D-4:
+no-reply@luxordev.com), validated via T-020's config/capability check — if Resend/RESEND_FROM report
+`not_configured`, the service must say so explicitly, never silently skip or claim success. Per-message
+delivery records using T-021's ledger (attempts + provider message ID) so a duplicate send via
+double-click doesn't send twice (idempotent per opId — you already have T-021/T-032's pattern to follow).
+Typed results surfaced to callers: "delivery failed" must be distinguishable from "no email on file" —
+don't collapse both into one generic error. Resend 4xx errors are terminal (don't retry), 5xx are
+retryable. Migrate the existing call sites (notify.ts's two functions, agentTools.ts's branded emails,
+send-confirmation, assign, report/invoice send) onto the new service — keep the existing BizBranding HTML
+templates and email copy exactly as-is, only the sending mechanism/sender-identity logic changes. NH-3
+(SPF/DKIM domain verification) is not yet done — until it is, the service should report `unconfigured` in
+production rather than sending from an unverified domain; that's expected, not a bug to work around.
 
-One commit (T-033: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main, or files
-outside your owned scope. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the
-stuck-summary block.
+One commit (T-041: <summary>), gates green (type-check/lint/test; build once), append evidence to
+docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, touch main, redesign the
+email templates/copy, or add SMS. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me
+the stuck-summary block.
 ```
 
 ---
