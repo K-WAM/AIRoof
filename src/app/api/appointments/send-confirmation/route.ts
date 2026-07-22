@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCustomerConfirmation } from "@/lib/notify";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/comms/send";
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM ?? "Alice <alice@yourdomain.com>";
 const BASE_URL = "https://ai-roof.vercel.app";
 
 export async function POST(request: NextRequest) {
@@ -54,51 +52,36 @@ export async function POST(request: NextRequest) {
     contactEmail: (biz.contactEmail as string | undefined) ?? null,
   };
 
-  // Best-effort notifications. Confirming the appointment is the primary action and
-  // must succeed even if email isn't configured or the customer left no email.
   let notifiedCustomer = false;
-  if (resend) {
-    // 1. Notify the CUSTOMER — the whole point of "Confirm & notify customer".
-    if (customerEmail) {
-      try {
-        await sendCustomerConfirmation({
-          to: customerEmail,
-          brand,
-          clientName: appt.callerName as string | undefined,
-          serviceType: appt.serviceType as string | undefined,
-          when: apptDate,
-          address: appt.address as string | undefined,
-        });
-        notifiedCustomer = true;
-      } catch (e) {
-        console.error("Customer confirmation email failed:", e);
-      }
-    }
-    // 2. Notify the business (internal record), as before.
-    if (notificationEmail) {
-      try {
-        await resend.emails.send({
-          from: FROM,
-          to: notificationEmail,
-          subject: `Appointment Confirmed — ${appt.callerName ?? "Customer"} · ${apptDate}`,
-          html: confirmationEmailHtml({
-            businessName: brand.businessName,
-            brandColor: brand.brandColor,
-            logoUrl: brand.logoUrl,
-            contactPhone: brand.contactPhone,
-            contactEmail: brand.contactEmail,
-            callerName: (appt.callerName as string) ?? "Valued Customer",
-            callerPhone: (appt.callerPhone as string) ?? "—",
-            serviceType: (appt.serviceType as string) ?? "Appointment",
-            address: (appt.address as string) ?? "Address not provided",
-            apptDate,
-            appointmentId,
-          }),
-        });
-      } catch (e) {
-        console.error("Business confirmation email failed:", e);
-      }
-    }
+  if (customerEmail) {
+    const result = await sendCustomerConfirmation({
+      to: customerEmail,
+      brand,
+      clientName: appt.callerName as string | undefined,
+      serviceType: appt.serviceType as string | undefined,
+      when: apptDate,
+      address: appt.address as string | undefined,
+    });
+    notifiedCustomer = result.status === "delivered";
+  }
+  if (notificationEmail) {
+    await sendEmail({
+      to: notificationEmail,
+      subject: `Appointment Confirmed \u2014 ${appt.callerName ?? "Customer"} \u00b7 ${apptDate}`,
+      html: confirmationEmailHtml({
+        businessName: brand.businessName,
+        brandColor: brand.brandColor,
+        logoUrl: brand.logoUrl,
+        contactPhone: brand.contactPhone,
+        contactEmail: brand.contactEmail,
+        callerName: (appt.callerName as string) ?? "Valued Customer",
+        callerPhone: (appt.callerPhone as string) ?? "\u2014",
+        serviceType: (appt.serviceType as string) ?? "Appointment",
+        address: (appt.address as string) ?? "Address not provided",
+        apptDate,
+        appointmentId,
+      }),
+    });
   }
 
   await db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).update({

@@ -367,8 +367,7 @@ describe("truthful emergency escalation", () => {
       expect.objectContaining({
         from: "Luxor AI <no-reply@luxordev.com>",
         to: "dispatch@example.com",
-      }),
-      { idempotencyKey: "email:urgent-escalation:call-urgent-1" }
+      })
     );
     expect(
       firestore.documents.get(

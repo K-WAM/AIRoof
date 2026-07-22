@@ -8,10 +8,7 @@ import {
   startOperationAttempt,
 } from "@/lib/ops/ledger";
 import type { Firestore } from "firebase-admin/firestore";
-import { Resend } from "resend";
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM ?? "Roofus <roofus@yourdomain.com>";
+import { isCommsConfigured, sendEmail, sendWithLedger } from "@/lib/comms/send";
 
 export interface CheckAvailabilityInput {
   businessId: string;
@@ -307,69 +304,20 @@ export async function runLedgeredEmail(options: {
   messageType: string;
   entityId: string;
   entityRef: { collection: string; id: string };
-  send: () => Promise<boolean>;
+  to: string;
+  subject: string;
+  html: string;
 }): Promise<NotificationDeliveryState> {
-  const opId = createEmailOperationId(options.messageType, options.entityId);
-  const claim = await claimOperation(
-    {
-      businessId: options.businessId,
-      opId,
-      kind: "email",
-      entityRef: options.entityRef,
-    },
-    { firestore: options.firestore }
-  );
-  if (!claim.claimed && claim.operation.state === "succeeded") return "delivered";
-  if (!claim.claimed && claim.operation.state === "pending") return "pending";
-  if (
-    !claim.claimed &&
-    claim.operation.lastFailure?.classification !== "retryable"
-  ) {
-    return "failed";
-  }
-
-  const attempt = await startOperationAttempt(
-    { businessId: options.businessId, opId },
-    { firestore: options.firestore }
-  );
-  try {
-    const delivered = await options.send();
-    if (!delivered) {
-      await completeOperationAttempt(
-        {
-          businessId: options.businessId,
-          opId,
-          attemptId: attempt.attemptId,
-          state: "failed",
-          failure: { classification: "retryable", code: "delivery_failed" },
-        },
-        { firestore: options.firestore }
-      );
-      return "failed";
-    }
-    await completeOperationAttempt(
-      {
-        businessId: options.businessId,
-        opId,
-        attemptId: attempt.attemptId,
-        state: "succeeded",
-      },
-      { firestore: options.firestore }
-    );
-    return "delivered";
-  } catch {
-    await completeOperationAttempt(
-      {
-        businessId: options.businessId,
-        opId,
-        attemptId: attempt.attemptId,
-        state: "failed",
-        failure: { classification: "retryable", code: "provider_error" },
-      },
-      { firestore: options.firestore }
-    );
-    return "failed";
-  }
+  return sendWithLedger({
+    firestore: options.firestore,
+    businessId: options.businessId,
+    to: options.to,
+    subject: options.subject,
+    html: options.html,
+    messageType: options.messageType,
+    entityId: options.entityId,
+    entityRef: options.entityRef,
+  });
 }
 
 // Reads timezone from business Firestore doc. Falls back to Eastern.
@@ -581,7 +529,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
 
   // Persistence is complete before notification. Delivery state lives in T-021,
   // never on the appointment document, and cannot roll back the requested slot.
-  if (resend && typeof businessData.notificationEmail === "string") {
+  if (typeof businessData.notificationEmail === "string") {
     const biz_tz: string =
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const startDate = new Date(input.startTime).toLocaleString("en-US", {
@@ -601,28 +549,24 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
         typeof businessData.contactEmail === "string" ? businessData.contactEmail : null,
       websiteUrl: typeof businessData.websiteUrl === "string" ? businessData.websiteUrl : null,
     };
+    const subject = `New Appointment Request \u2014 ${input.callerName}`;
+    const html = bookingEmailHtml({
+      callerName: input.callerName,
+      callerPhone: input.callerPhone,
+      serviceType: input.serviceType ?? "Not specified",
+      startDate,
+      address: input.address ?? "Not provided",
+      callId: input.sourceCallId ?? "N/A",
+    }, biz);
     await runLedgeredEmail({
       firestore: db,
       businessId: input.businessId,
       messageType: "owner-booking-request",
       entityId: appointmentId,
       entityRef: { collection: "appointments", id: appointmentId },
-      send: async () => {
-        const delivery = await resend.emails.send({
-          from: FROM,
-          to: businessData.notificationEmail as string,
-          subject: `New Appointment Request — ${input.callerName}`,
-          html: bookingEmailHtml({
-            callerName: input.callerName,
-            callerPhone: input.callerPhone,
-            serviceType: input.serviceType ?? "Not specified",
-            startDate,
-            address: input.address ?? "Not provided",
-            callId: input.sourceCallId ?? "N/A",
-          }, biz),
-        });
-        return !delivery.error;
-      },
+      to: businessData.notificationEmail as string,
+      subject,
+      html,
     });
   }
 
@@ -736,7 +680,6 @@ export async function escalateCall(
     businessData.notificationEmail.trim()
       ? businessData.notificationEmail.trim()
       : null;
-  const configuredFrom = process.env.RESEND_FROM?.trim() || null;
   const operationId = createEmailOperationId("urgent-escalation", input.callId);
   const baseOutput = {
     escalationTarget: escalationPhone ?? "unconfigured",
@@ -800,7 +743,7 @@ export async function escalateCall(
     throw error;
   }
 
-  if (!resend || !configuredFrom || !notificationEmail || !escalationPhone) {
+  if (!isCommsConfigured() || !notificationEmail || !escalationPhone) {
     await completeOperationAttempt(
       {
         businessId: input.businessId,
@@ -840,59 +783,46 @@ export async function escalateCall(
         : null,
   };
 
-  let delivery: Awaited<ReturnType<typeof resend.emails.send>>;
-  try {
-    delivery = await resend.emails.send(
-      {
-        from: configuredFrom,
-        to: notificationEmail,
-        subject: `URGENT: Call Escalation — ${biz.businessName}`,
-        html: escalationEmailHtml(
-          {
-            callerPhone: input.callerPhone ?? "Unknown",
-            reason: input.reason,
-            summary: input.summary ?? "No summary",
-            callId: input.callId,
-            escalationTime,
-          },
-          biz
-        ),
-      },
-      { idempotencyKey: operationId }
-    );
-  } catch {
-    console.error("Escalation delivery failed", {
-      businessId: input.businessId,
+  const subject = `URGENT: Call Escalation \u2014 ${biz.businessName}`;
+  const html = escalationEmailHtml(
+    {
+      callerPhone: input.callerPhone ?? "Unknown",
+      reason: input.reason,
+      summary: input.summary ?? "No summary",
       callId: input.callId,
-    });
+      escalationTime,
+    },
+    biz
+  );
+
+  const sendResult = await sendEmail({
+    to: notificationEmail,
+    subject,
+    html,
+  });
+
+  if (sendResult.status !== "delivered") {
     await completeOperationAttempt(
       {
         businessId: input.businessId,
         opId: operationId,
         attemptId: attempt.attemptId,
         state: "failed",
-        failure: { classification: "retryable", code: "provider_error" },
+        failure: {
+          classification: sendResult.failureClassification ?? "retryable",
+          code: sendResult.failureCode ?? "provider_rejected",
+        },
       },
-      { firestore: db }
+      { firestore: db },
     );
-    return { ...baseOutput, status: "failed", escalated: false };
+    return {
+      ...baseOutput,
+      status: sendResult.status === "unconfigured" ? "unconfigured" : "failed",
+      escalated: false,
+    };
   }
 
-  if (delivery.error || !delivery.data?.id) {
-    await completeOperationAttempt(
-      {
-        businessId: input.businessId,
-        opId: operationId,
-        attemptId: attempt.attemptId,
-        state: "failed",
-        failure: { classification: "retryable", code: "provider_rejected" },
-      },
-      { firestore: db }
-    );
-    return { ...baseOutput, status: "failed", escalated: false };
-  }
-
-  // If this ledger completion fails after Resend accepted the idempotent send,
+  // If this ledger completion fails after Resend accepted the send,
   // leave the attempt pending for reconciliation; never guess it into "failed".
   await completeOperationAttempt(
     {
@@ -900,9 +830,9 @@ export async function escalateCall(
       opId: operationId,
       attemptId: attempt.attemptId,
       state: "succeeded",
-      providerId: delivery.data.id,
+      providerId: sendResult.providerId,
     },
-    { firestore: db }
+    { firestore: db },
   );
   return { ...baseOutput, status: "delivered", escalated: true };
 }

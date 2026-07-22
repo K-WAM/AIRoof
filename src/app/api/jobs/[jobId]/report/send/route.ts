@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildProjection } from "@/lib/jobs/projection";
-import { Resend } from "resend";
+import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import type { FieldUpdate } from "@/types/jobs";
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const FROM = process.env.RESEND_FROM ?? "Luxor AI <noreply@luxordev.com>";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -15,7 +12,7 @@ function esc(s: string): string {
 // POST /api/jobs/[jobId]/report/send  body: { businessId, to, reportNotes?, photos?: [{label, fullB64}] }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  if (!resend) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
+  if (!isCommsConfigured()) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
 
   const body = await req.json();
   const { businessId, to, reportNotes, photos } = body as {
@@ -100,6 +97,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 </div>
 </body></html>`;
 
-  await resend.emails.send({ from: FROM, to, subject: `Job Report — ${job.title ?? jobId} from ${bizName}`, html });
+  await sendEmail({ to, subject: `Job Report \u2014 ${job.title ?? jobId} from ${bizName}`, html });
   return NextResponse.json({ ok: true });
 }

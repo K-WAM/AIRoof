@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { sendCrewAssignment } from "@/lib/notify";
+import { buildCrewAssignmentEmail } from "@/lib/notify";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
   isScheduleWithinBusinessHours,
@@ -286,41 +286,43 @@ export async function POST(
       timeZone,
     });
     try {
+      const brand = {
+        businessName:
+          typeof business.businessName === "string"
+            ? business.businessName
+            : "Your Company",
+        brandColor:
+          typeof business.brandColor === "string" ? business.brandColor : undefined,
+        logoUrl: typeof business.logoUrl === "string" ? business.logoUrl : undefined,
+        contactPhone:
+          typeof business.contactPhone === "string"
+            ? business.contactPhone
+            : undefined,
+        contactEmail:
+          typeof business.contactEmail === "string"
+            ? business.contactEmail
+            : undefined,
+      };
+      const { subject, html } = buildCrewAssignmentEmail({
+        brand,
+        crewName: crew.name,
+        jobTitle: typeof job.title === "string" ? job.title : jobId,
+        address: typeof job.address === "string" ? job.address : undefined,
+        clientName:
+          typeof job.clientName === "string" ? job.clientName : undefined,
+        when,
+        scope:
+          typeof job.serviceType === "string" ? job.serviceType : undefined,
+      });
       notificationStatus = await runLedgeredEmail({
         firestore: db,
         businessId,
         messageType: "crew-assignment",
         entityId: `${jobId}:${startTime}`,
         entityRef: { collection: "jobs", id: jobId },
-        send: () =>
-          sendCrewAssignment({
-            to: crew.email!,
-            brand: {
-              businessName:
-                typeof business.businessName === "string"
-                  ? business.businessName
-                  : "Your Company",
-              brandColor:
-                typeof business.brandColor === "string" ? business.brandColor : undefined,
-              logoUrl: typeof business.logoUrl === "string" ? business.logoUrl : undefined,
-              contactPhone:
-                typeof business.contactPhone === "string"
-                  ? business.contactPhone
-                  : undefined,
-              contactEmail:
-                typeof business.contactEmail === "string"
-                  ? business.contactEmail
-                  : undefined,
-            },
-            crewName: crew.name,
-            jobTitle: typeof job.title === "string" ? job.title : jobId,
-            address: typeof job.address === "string" ? job.address : undefined,
-            clientName:
-              typeof job.clientName === "string" ? job.clientName : undefined,
-            when,
-            scope:
-              typeof job.serviceType === "string" ? job.serviceType : undefined,
-          }),
+        to: crew.email!,
+        subject,
+        html,
       });
     } catch (error) {
       console.error("Crew notification ledger failed after assignment persisted:", error);

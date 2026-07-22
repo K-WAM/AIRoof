@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { sendCustomerConfirmation } from "@/lib/notify";
+import { buildCustomerConfirmationEmail } from "@/lib/notify";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
   isScheduleWithinBusinessHours,
@@ -287,49 +287,51 @@ export async function PATCH(
         timeZone,
       });
       try {
+        const brand = {
+          businessName:
+            typeof business.businessName === "string"
+              ? business.businessName
+              : "Your Company",
+          brandColor:
+            typeof business.brandColor === "string"
+              ? business.brandColor
+              : undefined,
+          logoUrl:
+            typeof business.logoUrl === "string" ? business.logoUrl : undefined,
+          contactPhone:
+            typeof business.contactPhone === "string"
+              ? business.contactPhone
+              : undefined,
+          contactEmail:
+            typeof business.contactEmail === "string"
+              ? business.contactEmail
+              : undefined,
+        };
+        const { subject, html } = buildCustomerConfirmationEmail({
+          brand,
+          clientName:
+            typeof appointment.callerName === "string"
+              ? appointment.callerName
+              : undefined,
+          serviceType:
+            typeof appointment.serviceType === "string"
+              ? appointment.serviceType
+              : undefined,
+          when,
+          address:
+            typeof appointment.address === "string"
+              ? appointment.address
+              : undefined,
+        });
         notificationStatus = await runLedgeredEmail({
           firestore: db,
           businessId,
           messageType: "customer-confirmation",
           entityId: `${appointmentId}:${startTime}`,
           entityRef: { collection: "appointments", id: appointmentId },
-          send: () =>
-            sendCustomerConfirmation({
-              to: callerEmail,
-              brand: {
-                businessName:
-                  typeof business.businessName === "string"
-                    ? business.businessName
-                    : "Your Company",
-                brandColor:
-                  typeof business.brandColor === "string"
-                    ? business.brandColor
-                    : undefined,
-                logoUrl:
-                  typeof business.logoUrl === "string" ? business.logoUrl : undefined,
-                contactPhone:
-                  typeof business.contactPhone === "string"
-                    ? business.contactPhone
-                    : undefined,
-                contactEmail:
-                  typeof business.contactEmail === "string"
-                    ? business.contactEmail
-                    : undefined,
-              },
-              clientName:
-                typeof appointment.callerName === "string"
-                  ? appointment.callerName
-                  : undefined,
-              serviceType:
-                typeof appointment.serviceType === "string"
-                  ? appointment.serviceType
-                  : undefined,
-              when,
-              address:
-                typeof appointment.address === "string"
-                  ? appointment.address
-                  : undefined,
-            }),
+          to: callerEmail,
+          subject,
+          html,
         });
       } catch (error) {
         console.error(
