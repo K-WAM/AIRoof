@@ -414,3 +414,22 @@ removals + rationale (if any) · deviations from spec (if any).
   - Removed: 2 `Resend` imports (agentTools.ts top-level, send-confirmation route), 5 sets of local
     `resend`/`FROM` variables across routes, 1 `configuredFrom` variable in escalateCall, 2 `send` callbacks
     replaced with `{to, subject, html}` in assign/appointment routes.
+
+## T-041 — Integrator review
+- Date: 2026-07-22 · integration commit: this merge
+- Independently reproduced in the worktree before merge: type-check/lint clean, 239/239 tests (one
+  transient failure in `verify.test.ts` on the first run under parallel worktree load — same documented
+  pre-existing flake, clean on immediate re-run), build green.
+- `createEmailOperationId` (used by `sendWithLedger`) already existed in `src/lib/ops/ledger.ts` from an
+  earlier task — confirmed T-041 did not touch that file, reused the existing primitive as intended, no
+  scope expansion.
+- Confirmed every caller of the now-typed `sendCrewAssignment`/`sendCustomerConfirmation` (previously
+  `Promise<boolean>`) checks `result.status` explicitly (e.g. `send-confirmation/route.ts`:
+  `notifiedCustomer = result.status === "delivered"`) rather than treating the returned object as a
+  truthy/falsy boolean — the signature change is safe everywhere it's called.
+- `appointments/[appointmentId]/route.ts` and `assign/route.ts` were edited even though MASTER_PLAN's
+  literal file list for T-041 didn't name them — both are pre-existing callers of `runLedgeredEmail`
+  (owned, in-scope) whose call sites necessarily needed updating for its new `{to, subject, html}`
+  signature. Consequential caller updates from an owned refactor, not unauthorized scope creep.
+- Fixed unrelated pre-existing defect while merging: `TODO.md` had a duplicated paragraph (introduced in
+  an earlier integrator edit this session, not by this task) — removed the duplicate.

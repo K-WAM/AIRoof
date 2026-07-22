@@ -30,9 +30,6 @@ already exists instead of being rewritten twice.
 
 **Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
 worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
-
-**Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
-worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
 `main` post-merge. **T-032:** fail-closed `requireCronAuth` now correctly gates `daily-call-summary` and
 `faq-suggestions`, which previously **failed OPEN** or missing/misconfigured — a real pre-existing security
 gap this task fixed, not just an evidence formality. `createLead`'s old fire-and-forget immediate-dial path
@@ -110,7 +107,7 @@ precise split is needed. Not yet assigned to a worker — next in line, see Next
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
 | Worker C — Codex Sol 5.6 (extra high) | *(prior)* `air-wt-field-tokens` on `task/field-tokens` (T-034, merged: `02232e2`+integration) → *(now)* `D:\Apps\air-wt-pii-retention` on branch `task/pii-retention` | T-042 | `src/lib/audit/**` (new), `src/app/api/cron/retention/route.ts` (new), `src/app/api/calls/[callId]/route.ts` (DELETE), audit-log lines in `src/app/api/webhooks/vapi/route.ts` | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-unified-comms` on branch `task/unified-comms` | T-041 | `src/lib/comms/**` (new), `src/lib/notify.ts`, email call sites in `agentTools.ts`/`send-confirmation`/`assign`/report+invoice send routes | **review** — implemented, gates green (type-check/lint/239 tests/build), see IMPLEMENTATION_LOG.md |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-unified-comms` on branch `task/unified-comms` | T-041 | `src/lib/comms/**` (new), `src/lib/notify.ts`, email call sites in `agentTools.ts`/`send-confirmation`/`assign`/report+invoice send routes | **merged** — commit `f154aa3`, integration this commit. Gates green (type-check/lint/239 tests/build), see IMPLEMENTATION_LOG.md |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
