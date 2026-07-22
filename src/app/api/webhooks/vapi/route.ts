@@ -23,6 +23,8 @@ import {
 } from "@/lib/tools/agentTools";
 import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import { appendAuditEvent } from "@/lib/audit";
+import type { AuditProviderIds, AuditResult } from "@/lib/audit";
 import type { BusinessConfig } from "@/types";
 import type {
   VapiWebhookPayload,
@@ -186,7 +188,14 @@ async function handleFunctionCall(
           typeof tc.function.arguments === "string"
             ? safeJsonParse(tc.function.arguments)
             : tc.function.arguments;
-        const out = await executeTool(tc.function.name, params ?? {}, businessId, callId, callerPhone);
+        const out = await executeTool(
+          tc.function.name,
+          params ?? {},
+          businessId,
+          callId,
+          callerPhone,
+          { vapiCallId: message.call.id, vapiToolCallId: tc.id }
+        );
         return { toolCallId: tc.id, ...out };
       })
     );
@@ -200,7 +209,8 @@ async function handleFunctionCall(
       message.functionCall.parameters,
       businessId,
       callId,
-      callerPhone
+      callerPhone,
+      { vapiCallId: message.call.id }
     );
   }
 
@@ -212,7 +222,8 @@ async function executeTool(
   params: Record<string, unknown>,
   businessId: string,
   callId: string,
-  callerPhone?: string
+  callerPhone?: string,
+  providerIds: AuditProviderIds = {}
 ): Promise<VapiToolResult> {
   const tz = await getBusinessTimezone(businessId);
   try {
@@ -327,6 +338,14 @@ async function executeTool(
             sourceCallId: callId,
           });
           await logAction(businessId, callId, "createLead", params, lead, "success");
+          await recordVapiToolAudit(
+            businessId,
+            callId,
+            "appointment.lookup",
+            providerIds,
+            "denied",
+            "caller_unverified"
+          );
           return { result: "I can't verify you from caller ID — the office will call back." };
         }
         const result = await lookupAppointment({
@@ -334,6 +353,20 @@ async function executeTool(
           callId,
           verifiedCallerPhone,
         });
+        const lookupFailed =
+          result.startsWith("Unable") || result.startsWith("Error");
+        await recordVapiToolAudit(
+          businessId,
+          callId,
+          "appointment.lookup",
+          providerIds,
+          lookupFailed ? "failed" : "success",
+          lookupFailed
+            ? "provider_error"
+            : result.startsWith("No active appointment")
+              ? "no_match"
+              : "completed"
+        );
         return { result };
       }
 
@@ -350,6 +383,14 @@ async function executeTool(
             sourceCallId: callId,
           });
           await logAction(businessId, callId, "createLead", params, lead, "success");
+          await recordVapiToolAudit(
+            businessId,
+            callId,
+            "appointment.cancel",
+            providerIds,
+            "denied",
+            "caller_unverified"
+          );
           return { result: "I can't verify you from caller ID — the office will call back." };
         }
         const appointmentId = optionalStr(params.appointmentId ?? params.appointment_id);
@@ -369,6 +410,14 @@ async function executeTool(
           appointmentNumber,
           appointmentId,
         });
+        await recordVapiToolAudit(
+          businessId,
+          callId,
+          "appointment.cancel",
+          providerIds,
+          "success",
+          "cancelled"
+        );
         const appointmentTime = new Date(cancellation.startTime).toLocaleString("en-US", {
           timeZone: tz,
           weekday: "long",
@@ -392,6 +441,16 @@ async function executeTool(
     }
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
+    if (name === "lookupAppointment" || name === "cancelAppointment") {
+      await recordVapiToolAudit(
+        businessId,
+        callId,
+        name === "lookupAppointment" ? "appointment.lookup" : "appointment.cancel",
+        providerIds,
+        "failed",
+        "tool_error"
+      );
+    }
     await logAction(businessId, callId, name, params, { error: String(err) }, "failed");
     return { error: err instanceof Error ? err.message : "Tool execution failed" };
   }
@@ -578,6 +637,32 @@ function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
 function parseUrgency(v: unknown): "low" | "normal" | "urgent" | "unknown" {
   if (v === "low" || v === "normal" || v === "urgent" || v === "unknown") return v;
   return "unknown";
+}
+
+async function recordVapiToolAudit(
+  businessId: string,
+  callId: string,
+  action: "appointment.lookup" | "appointment.cancel",
+  providerIds: AuditProviderIds,
+  result: AuditResult,
+  outcomeCode: string
+): Promise<void> {
+  const db = getAdminFirestore();
+  if (!db) return;
+  try {
+    await appendAuditEvent(db, {
+      businessId,
+      correlationId: callId,
+      action,
+      actor: { type: "provider", id: "vapi" },
+      subject: { type: "call", id: callId },
+      providerIds,
+      result,
+      details: { outcomeCode },
+    });
+  } catch (error) {
+    console.error(`Failed to append ${action} audit event:`, error);
+  }
 }
 
 async function logAction(

@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { getRetentionPolicy, redactCallDocument } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -114,7 +116,7 @@ export async function PUT(
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ callId: string }> }
-): Promise<NextResponse<{ success: boolean } | { error: string }>> {
+): Promise<NextResponse<{ success: boolean; redacted: boolean } | { error: string }>> {
   try {
     const { callId } = await params;
     const { searchParams } = new URL(request.url);
@@ -144,21 +146,39 @@ export async function DELETE(
       .collection("calls")
       .doc(callId);
 
-    const callDoc = await callRef.get();
-    if (!callDoc.exists) {
+    const now = Date.now();
+    const correlationId = `call_delete_${now}_${randomUUID()}`;
+    const outcome = await redactCallDocument(
+      db,
+      businessId,
+      callRef,
+      getRetentionPolicy(),
+      now,
+      {
+        action: "call.delete",
+        actor: { type: "user", id: gate.user.uid },
+        correlationId,
+        eventId: `${correlationId}_call_${callId}`,
+        force: true,
+        includeIdentifiers: true,
+        reason: "user_delete",
+      }
+    );
+
+    if (outcome === "missing") {
       return NextResponse.json(
         { error: `Call ${callId} not found` },
         { status: 404 }
       );
     }
+    if (outcome === "active") {
+      return NextResponse.json(
+        { error: "Active calls cannot be redacted" },
+        { status: 409 }
+      );
+    }
 
-    await callRef.update({
-      status: "ended",
-      endedAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, redacted: outcome === "redacted" });
   } catch (error) {
     console.error("DELETE /api/calls/[callId] error:", error);
     return NextResponse.json(
