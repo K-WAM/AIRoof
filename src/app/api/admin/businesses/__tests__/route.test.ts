@@ -220,8 +220,7 @@ describe("POST /api/admin/businesses — welcome email", () => {
     mockCreateUser.mockResolvedValue(null);
 
     const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
-    const bodyWithoutEmail = { ...validBody };
-    delete bodyWithoutEmail.ownerEmail;
+    const { ownerEmail: _omittedOwnerEmail, ...bodyWithoutEmail } = validBody;
     const request = createRequest(bodyWithoutEmail);
     const response = await freshPost(request);
     const body = await response.json();
