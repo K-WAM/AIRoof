@@ -157,3 +157,45 @@ export async function sendBusinessWelcomeEmail(
   });
   return sendEmail({ to: opts.to, subject, html });
 }
+
+export function buildFeedbackEmail(opts: {
+  businessName: string;
+  submitterName: string;
+  submitterEmail: string;
+  businessId: string;
+  category?: string;
+  message: string;
+}): { subject: string; html: string } {
+  const preview = opts.message.slice(0, 40).replace(/\s+/g, " ").trim();
+  const body = `
+    <p style="margin:0 0 12px;font-size:15px;color:#334155;line-height:1.6">
+      ${opts.category ? `<strong>Category:</strong> ${esc(opts.category)}<br/>` : ""}
+      <strong>From:</strong> ${esc(opts.submitterName)} &lt;${esc(opts.submitterEmail)}&gt;<br/>
+      <strong>Tenant:</strong> ${esc(opts.businessId)}
+    </p>
+    <div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap">${esc(opts.message)}</div>
+    <p style="margin:12px 0 0;font-size:13px;color:#94a3b8">Reply directly to this email to follow up with the submitter.</p>`;
+
+  return {
+    subject: `[Feedback] ${opts.businessName} \u2014 ${preview}`,
+    html: shell(
+      { businessName: "Luxor AI", brandColor: "#1e3a5f" },
+      `Feedback from ${esc(opts.submitterName)}`,
+      body,
+    ),
+  };
+}
+
+export async function sendFeedbackEmail(
+  opts: {
+    businessName: string;
+    submitterName: string;
+    submitterEmail: string;
+    businessId: string;
+    category?: string;
+    message: string;
+  },
+): Promise<CommSendResult> {
+  const { subject, html } = buildFeedbackEmail(opts);
+  return sendEmail({ to: "connect@luxordev.com", subject, html });
+}

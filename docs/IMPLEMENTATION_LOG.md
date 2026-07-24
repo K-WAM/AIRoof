@@ -555,5 +555,45 @@ removals + rationale (if any) · deviations from spec (if any).
   good extraction, not scope creep (both `invoiceFlow.ts` and `loadBusinesses.ts` are new files but only
   contain logic extracted from already-owned pages, needed to satisfy the task's own component-test
   requirement). `PageError` correctly reuses `.button`/panel/design tokens (one-teal system preserved). Merged
-  into `main` (`Integrate T-040`); `TODO.md`/`IMPLEMENTATION_LOG.md` were the only conflicts (both workers' own
-  status-row/log entries, kept both sides), zero code conflicts as designed.
+   into `main` (`Integrate T-040`); `TODO.md`/`IMPLEMENTATION_LOG.md` were the only conflicts (both workers' own
+   status-row/log entries, kept both sides), zero code conflicts as designed.
+
+## T-044 — Self-serve feedback form → connect@luxordev.com
+- Date: 2026-07-23 · branch: task/feedback-form · commit: (pending)
+- **Files created:**
+  - `src/app/api/feedback/route.ts` — POST handler: parses `{businessId, message, category?}`, validates
+    message required + length-capped (max 2000 chars), rejects empty/whitespace-only messages, passes through
+    `verifyAuthAndRole` with roles `[owner, staff, viewer, superadmin]`, calls `sendFeedbackEmail` from
+    `src/lib/notify.ts`, returns 200 on delivered, 503 on unconfigured, 502 on send failure. No anonymous
+    endpoint — authentication cookie required.
+  - `src/app/api/feedback/__tests__/route.test.ts` — 16 tests: success with/without category, missing
+    message/businessId, empty/whitespace-only/too-long message, too-long category, non-JSON body, 401 missing
+    session, 403 wrong role, 503 unconfigured Resend, 502 delivery failure, correct role pass-through, uid
+    fallback when email missing, trimmed whitespace.
+  - `src/components/ui/FeedbackForm.tsx` — Controlled dialog component receiving `open`/`onClose` props; reads
+    user from `useAuth()`, pre-fills sender info, renders message textarea (2000-char cap with counter),
+    optional category dropdown (Bug report/Feature request/Usability/Performance/Documentation/Other), send
+    button with `runSingleFlight`-style ref-based single-flight protection, explicit error/success states
+    using existing `.button` design tokens and `var(--accent)` color. No new dependencies.
+- **Files modified:**
+  - `src/lib/notify.ts` — Added `buildFeedbackEmail()` (subject convention `[Feedback] <businessName> — <first ~40
+    chars>` per T-043's `[Category]` pattern, branded Luxor AI shell, submitter contact + tenant in body) and
+    `sendFeedbackEmail()` (delegates to T-041's `sendEmail`, hardcoded `connect@luxordev.com` recipient).
+  - `src/app/company/company-nav.tsx` — Added `MessageSquareText` icon import + `FeedbackForm` import + trigger
+    button matching existing `<a>` link pattern (`size={16} strokeWidth={1.75}`) + `<FeedbackForm>` mounting.
+  - `src/app/admin/admin-nav.tsx` — Added `MessageSquareText` icon + `FeedbackForm` import + trigger button
+    in Tools section matching `nav-link`/`nav-link-icon` pattern (`size={15} strokeWidth={1.75}`) +
+    `<FeedbackForm>` mounting.
+- Edge cases covered: Resend not configured → 503 explicit error (never false success); empty/whitespace-only
+  message rejected client + server; send button disabled during flight via ref-based lock; message length capped
+  at 2000 chars server + client; category length capped at 100 chars; superadmin allowed alongside regular roles.
+- No unauthenticated endpoint, no general support-ticket system, no new dependencies, no raw Resend call.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 27 warnings (baseline drifted to 27
+  pre-existing — none from T-044 files, confirmed via targeted grep); `npm test` 28 files / 287 tests green
+  (271 baseline + 16 new feedback route tests); `npm run build` green with `/api/feedback` route confirmed in
+  build output.
+- **T-041 migration note:** Currently calls `sendEmail` directly from `sendFeedbackEmail` (same pattern
+  `notify.ts` already uses for `sendCrewAssignment`/`sendCustomerConfirmation`/`sendBusinessWelcomeEmail`).
+  When T-041's `sendWithLedger` is adopted more broadly, migrate this call site onto it for delivery tracking.
+- Co-Authored-By: Claude <noreply@anthropic.com>
+
