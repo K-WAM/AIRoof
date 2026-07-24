@@ -7,29 +7,48 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 
 | Phase | Tasks | Weight | Status | Depends on |
 |---|---|---|---|---|
-| 0 Foundation | T-000 T-001 T-002 | 8% | **merged** (9e4ccfd) | — |
-| 1 P0 authority | T-010 T-011 | 12% | **merged** (36dde56) | — |
-| 2 Shared primitives | T-020 T-021 T-022 | 15% | **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
-| 3 Boundary applications | T-030…T-035 | 30% | **all 6 tasks merged** — Phase complete | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | **T-041 + T-042 merged**; T-040 assigned (Codex); T-043 assigned (Deepseek); T-044/T-045 queued (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
-| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
-| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
+| 0 Foundation | T-000 T-001 T-002 | 8% | ✅ **merged** (9e4ccfd) | — |
+| 1 P0 authority | T-010 T-011 | 12% | ✅ **merged** (36dde56) | — |
+| 2 Shared primitives | T-020 T-021 T-022 | 15% | ✅ **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
+| 3 Boundary applications | T-030…T-035 | 30% | ✅ **all 6 tasks merged** — Phase complete | Phase 1+2 merged ✓ |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | 🟡 **4 of 6 merged** (T-040 T-041 T-042 T-043) — T-044/T-045 assigned, in progress | Phase 3 merged ✓ |
+| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ⬜ queued | Phase 4 merged |
+| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
 
-Overall implementation: **~73%** (Phases 0+1+2+3 fully merged = 65% + a heavier-than-flat share of Phase 4's
-20% for T-041+T-042 merged — T-040/041/042 are the heavier CIB-derived tasks vs. the lighter owner-requested
-T-043/044/045, so 2 of the 3 heavy tasks is worth more than 2/6 of 20%; treating it as roughly 7.8% gives
-**~73%**, an estimate not a precise figure). T-033 and T-034 also merged this cycle, fully closing Phase 3
-(all 6 tasks). Independently re-verified on main post-merge: type-check clean, lint 0 errors/26 baseline
-warnings, build green, `npm test` **259/259 clean** (223 Phase-3-close-out baseline + 16 T-041 + 20 T-042).
-GitHub Actions CI was found red for ~9 hours/4 pushes on an unrelated CI-workflow bug (env var leakage)
-earlier this session, fixed — see `docs/SESSION_HANDOFF.md`.
+### Checklist
 
-**Phase 4 file-overlap note:** T-040 and T-045 both touch the same company/admin page files (broad sweeps) —
-cannot run in parallel. T-041, T-043, and T-044 all touch `src/lib/notify.ts` — cannot run all three in
-parallel either. T-041 + T-042 (zero overlap) went out first and are now both merged. **Round 2:** with
-`notify.ts`/`src/lib/comms` now stable, T-043 (Deepseek) is unblocked; T-040 (Codex) has zero overlap with
-T-043's files (an API route + `notify.ts`, not any page.tsx), so it's the only safe pairing this round —
-T-044 (also touches `notify.ts`) and T-045 (touches the same pages T-040 will) both queue behind this round.
+- [x] Phase 0 — Foundation (T-000, T-001, T-002)
+- [x] Phase 1 — P0 authority (T-010, T-011)
+- [x] Phase 2 — Shared primitives (T-020, T-021, T-022)
+- [x] Phase 3 — Boundary applications (T-030, T-031, T-032, T-033, T-034, T-035)
+- [ ] Phase 4 — Operator truth/comms/privacy (20%)
+  - [x] T-041 — Unified outbound communications
+  - [x] T-042 — PII retention, deletion, audit integrity
+  - [x] T-040 — UI truthfulness + form guards
+  - [x] T-043 — Owner-facing tenant-creation welcome email
+  - [ ] T-044 — Self-serve feedback form → connect@luxordev.com — **assigned, Deepseek, in progress**
+  - [ ] T-045 — Icon consistency sweep (lucide-react) — **assigned, Codex, in progress**
+- [ ] Phase 5 — Release engineering + cleanup (15%) — queued behind Phase 4
+  - [ ] T-050 — Deterministic release suite + merge gating
+  - [ ] T-051 — Evidence-driven cleanup sweep
+  - [ ] T-052 — Documentation reconciliation
+- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — queued behind Phase 5
+  - [ ] T-046 — Demo Studio richness + parity audit
+  - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial
+  - [ ] T-048 — Voice-note field resilience + AI model right-sizing
+  - [ ] T-049 — Outbound email consistency + branding pass
+
+Overall implementation: **~78%** (Phases 0-3 fully merged = 65%; Phase 4 now 4 of 6 tasks merged — all three
+CIB-heavy tasks, T-040/041/042, plus one owner-light task, T-043 — roughly 14–15 of Phase 4's 20% weight;
+T-044/T-045 are the two remaining lighter owner-requested tasks. An estimate, not a precise figure.)
+Independently re-verified on `main` post-merge (this session, commit `3e51cd0`): type-check clean, lint
+0 errors/26 baseline warnings, build green, `npm test` **271/271 clean**.
+
+**Phase 4 file-overlap note (round 3 — current):** T-044 and T-045 both touch `company-nav.tsx`/`admin-nav.tsx`
+in a small way (T-044 adds one new Feedback nav link + icon; T-045 audits every page for missing icons, and
+those two files are cited as already-compliant reference examples so T-045 likely won't need to edit them) —
+flagged in both workers' prompts as a minor shared-file risk, not a functional conflict; proceeding in
+parallel. (Round 2's note, superseded: T-040+T-043 ran in parallel with zero overlap, both now merged.)
 
 **Review findings, Phase 3 batch C/D continuation (T-032, T-035):** Both independently re-verified in their
 worktrees before merge (type-check/lint/build clean; tests green — T-032 143/143, T-035 138/138) and again on
@@ -122,6 +141,41 @@ API route + `notify.ts`, no page.tsx files) — routed to Codex as the only safe
 (touches `notify.ts`, conflicts with T-043) and T-045 (touches the same pages T-040 will) both queue behind
 this round. Both worktrees retired from their fully-merged branches and reassigned via `git worktree move`.
 
+**Review outcome (T-043):** APPROVE, merged with one trivial integrator fix. Independently reproduced in
+the worktree: `npm run type-check` initially failed (`TS2790` — `delete` on a non-optional property in the
+new test file, `route.test.ts:224`; Deepseek's own "type-check green" report predated this) — fixed via a
+destructure-omit pattern instead of `delete` (test-only, zero behavior change), then independently
+reconfirmed clean, lint 0/26, 266/266 tests, build green. One test (`example-lib.test.ts`, unrelated to
+T-043's files) timed out under concurrent load and passed cleanly in isolation and on a full solo rerun —
+flaky, not a regression (Codex's independent T-040 review hit the identical flake in the identical file,
+corroborating). `sendBusinessWelcomeEmail` correctly routes through `src/lib/comms/send.ts` (not raw
+Resend); no plaintext password anywhere; send failure doesn't roll back the Firestore transaction. Full
+detail in `docs/IMPLEMENTATION_LOG.md`'s "T-043" entry.
+
+**Review outcome (T-040):** APPROVE, merged without rework. Independently reproduced in the worktree:
+type-check clean, lint 0/26, 264/264 tests, build green, matching Codex's report exactly. Spot-checked
+`src/app/company/dashboard/page.tsx`: the prior silent `.catch(() => ({ jobs: [] }))` on the jobs fetch (a
+false-empty state — CIB-012's core failure mode) now throws and renders `<PageError role="alert">` instead
+of a misleadingly-empty dashboard. `invoiceFlow.ts`'s `canSendSavedInvoice`/`runSingleFlight`/
+`guardUnsavedInvoiceUnload` cleanly implement save-before-send, single-flight double-click protection, and
+the dirty-form warning as small testable pure functions — a reasonable extraction, not scope creep. Full
+detail in `docs/IMPLEMENTATION_LOG.md`'s "T-040" entry.
+
+Merged both into `main` locally (`Integrate T-043` then `Integrate T-040`); `TODO.md`/`IMPLEMENTATION_LOG.md`
+were the only conflicts (both workers' own status-row/log entries, kept both sides), zero code conflicts as
+designed. Combined gate on `main` after both merges + the trivial fix: type-check clean, lint 0/26,
+**271/271 tests**, build green (commit `3e51cd0`).
+
+**Assignment rationale (round 3 — T-044/T-045):** With T-040 and T-043 both merged, `notify.ts`/
+`src/lib/comms` stay stable and the company/admin page list is now in its truthful-state end state — both
+remaining Phase 4 tasks are unblocked. T-044 (feedback form) routed to Deepseek, continuing the comms-service
+track from T-041/T-043. T-045 (icon sweep) routed to Codex, continuing the broad-page-sweep track from T-040.
+Both worktrees retired from their fully-merged branches and reassigned via `git worktree move`
+(`air-wt-tenant-email` → `air-wt-feedback-form`, `air-wt-ui-truthfulness` → `air-wt-icon-sweep`); node_modules
+and a freshly-copied `graphify-out/` carried over, `npm run type-check` verified clean in both after the
+rename. Small shared-file risk noted (both touch `company-nav.tsx`/`admin-nav.tsx` in a minor way — see file-
+overlap note above) but not blocking; this is the last pair before Phase 5.
+
 **2026-07-21 scope addition:** T-043/T-044/T-045 added to Phase 4 at the owner's request (tenant-creation
 email, feedback form, icon-consistency sweep — see MASTER_PLAN.md). These are smaller/lower-risk than the
 original CIB-audit-derived Phase 4 tasks (no security-boundary or auth changes), so they are **not** each
@@ -150,8 +204,8 @@ worker. Two related owner asks were explicitly decided **against** scoping as ne
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-ui-truthfulness` on branch `task/ui-truthfulness` (T-040, merged: `bfb123c`+integration) | **T-045 (next)** | see T-045 assignment below | **T-040 merged** — commit `bfb123c`; type-check/lint/build/264-test gates independently reproduced clean |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-tenant-email` on branch `task/tenant-email` (T-043, merged: `d095686`+integration) | **T-044 (next)** | see T-044 assignment below | **T-043 merged** — commit `d095686`; integrator found+fixed one trivial test-only `tsc` error (`delete` on non-optional prop), then independently reproduced type-check/lint/build/266-test gates clean |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-icon-sweep` on branch `task/icon-sweep` (prior: T-040, merged `bfb123c`+integration) | T-045 | icon imports/usages in `src/app/company/**`, `src/app/admin/**` page files only | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-043, merged `d095686`+integration) | T-044 | new `src/app/api/feedback/route.ts`; `FeedbackForm` component + one nav entry in `company-nav.tsx`/`admin-nav.tsx`; new send function in `src/lib/notify.ts` | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 

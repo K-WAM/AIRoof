@@ -43,112 +43,113 @@ Current batch values:
 | B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
 | A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
 | B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
-| C | `D:\Apps\air-wt-ui-truthfulness` (was `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) | `task/ui-truthfulness` | T-030/T-031/T-032/T-034/T-042 (all merged) → **T-040 next, same worktree, new branch** |
-| D | `D:\Apps\air-wt-tenant-email` (was `air-wt-unified-comms`, `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) | `task/tenant-email` | T-033/T-035/T-041 (all merged) → **T-043 next, same worktree, new branch** |
+| C | `D:\Apps\air-wt-icon-sweep` (was `air-wt-ui-truthfulness`, `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) | `task/icon-sweep` | T-030/T-031/T-032/T-034/T-042/T-040 (all merged) → **T-045 next, same worktree, new branch** |
+| D | `D:\Apps\air-wt-feedback-form` (was `air-wt-tenant-email`, `air-wt-unified-comms`, `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) | `task/feedback-form` | T-033/T-035/T-041/T-043 (all merged) → **T-044 next, same worktree, new branch** |
 
 ---
 
-## PENDING — next assignments, ready to paste (as of `7255b59`, 2026-07-22, ~73% complete)
+## PENDING — next assignments, ready to paste (as of `3e51cd0`, 2026-07-23, ~78% complete)
 
-Both worktrees were retired from their fully-merged branches and reassigned + renamed this session
+Both worktrees were retired from their fully-merged T-040/T-043 branches and reassigned + renamed this round
 (`git worktree move`) — node_modules and graphify-out carried over untouched and were re-verified healthy
-(`npm run type-check` clean in both) after the rename. graphify-out/ is refreshed and current through the
-T-042 merge. Use `graphify explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 3 is fully
-closed; T-041 and T-042 (Phase 4) are both merged** — this is Phase 4's second round.
+(`npm run type-check` clean in both) after the rename. graphify-out/ is current through this session's merges
+(the doc-only incremental refresh for TODO.md/HANDOFF.md/SESSION_HANDOFF.md/EXECUTION_PROMPTS.md changes did
+not complete — a semantic-extraction subagent hit the 64K output-token cap — low priority since code hasn't
+drifted from the graph, just 4 markdown files; re-run `/graphify . --update` next session if it matters).
+Use `graphify explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 4 is down to T-044/T-045 —
+last two tasks before Phase 5.**
 
-### Next for Codex (Worker C) — T-040, same worktree, new branch
+### Next for Codex (Worker C) — T-045, same worktree, new branch
 
 ```
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-030/T-031/T-032/T-034/T-042 work is all merged and done).
+fresh branch — your T-030/T-031/T-032/T-034/T-042/T-040 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-ui-truthfulness   (branch task/ui-truthfulness)
+Work ONLY inside: D:\Apps\air-wt-icon-sweep   (branch task/icon-sweep)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
-This worktree already has a working node_modules — do NOT run npm install/npm ci. If a gate fails with
-a real MODULE_NOT_FOUND for a package you didn't touch, stop and ask before reinstalling.
+This worktree already has a working node_modules — do NOT run npm install/npm ci.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "PageSkeleton"
-  graphify query "which company/admin pages swallow fetch errors silently today?"
-Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
+  graphify explain "company-nav.tsx"
+  graphify query "which company/admin pages import lucide-react today and which don't?"
+Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh (as of this round's merge).
 
-Your task: T-040 — UI truthfulness + form guards (MASTER_PLAN.md, Phase 4).
-Read AGENTS.md fully first. Read only the T-040 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-045 — Icon consistency sweep (MASTER_PLAN.md, Phase 4).
+Read AGENTS.md fully first. Read only the T-045 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: src/app/company/{dashboard,calls,pipeline,jobs,calendar*,library,settings}/page.tsx (*calendar:
-error-state only — the rollback logic itself already landed in T-030, don't touch it); src/app/admin/
-{businesses,usage,invoices,onboarding}/page.tsx; src/app/admin/businesses/[businessId]/config/page.tsx.
-No file overlap with T-043 (Deepseek, running in parallel — an API route + notify.ts, no page.tsx) —
-verified.
+Owns: icon imports/usages inside existing company/admin page files only (src/app/company/**,
+src/app/admin/**) — no new components, no layout changes beyond adding an `<Icon />` where one is visibly
+missing. `src/app/company/guide/page.tsx` and `company-nav.tsx` are the reference pattern (already
+lucide-react) — you should not need to touch either of those two files since they already comply; if you do
+find something missing in one of them, keep that specific diff minimal, since Worker D (T-044, parallel) is
+adding one new nav link + icon to company-nav.tsx/admin-nav.tsx this same round — small shared-file risk,
+no functional overlap expected.
 
-Key acceptance points: replace every silent `.catch(console.error)`/swallowed-fetch pattern across this
-page list with explicit loading/error/empty states that are visibly distinct — "failed to load" must never
-render as if it were "no data yet". Use the existing `PageSkeleton` component and `.button`/design-token
-system already in the codebase — no new toast library; one small shared error-banner component is allowed
-if you need it, but keep it minimal and reuse it across both the company and admin pages rather than
-building two. Error banners need `role="alert"`; validation errors need proper focus management; never put
-PII in error text. Fix invoice save→send sequencing: saving and sending must be two distinct, explicit
-actions — no send-on-stale-state, and a double-click must not fire two sends. Add required-field/format
-validation (email, phone, client name) on invoice/settings/onboarding/config forms. Add a dirty-form
-navigation warning on the invoice, onboarding, and config forms specifically. Test with an injected fetch
-failure on at least one page of each pattern (list page, invoice flow) to prove it never renders a false
-empty-success state — that's the acceptance criterion, not just visual polish.
+Key acceptance points: every company/admin page's primary actions/nav rows/section headers use a
+lucide-react icon; this is a coverage pass, not a restyle — don't change any icon choice that's already
+lucide-react, don't introduce a new icon set. Respect `useBusinessModules()`/vocab rules for any icon tied to
+an industry-specific noun (job/crew/appointment language varies per vertical — see CLAUDE.md's
+Industry-Applicability Rule). Spot-check 2–3 representative pages with a before/after Playwright screenshot
+to confirm no visual regression in existing icon usage.
 
-No visual redesign, no pagination, no search (those are explicitly deferred elsewhere — don't add them).
-Gates green (type-check/lint/test; build once), append evidence to docs/IMPLEMENTATION_LOG.md, set your
-TODO.md row to review. This is a big page list — multiple commits are fine (one focused commit per
-route-group or pattern is reasonable, doesn't need to be a single T-040 commit), just keep each commit's
-scope clear. Never push, merge, or touch main. If blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md,
-and give me the stuck-summary block.
+No visual redesign, no new dependencies, no touching non-icon markup. Gates green (type-check/lint/test;
+build once — icon-only changes shouldn't need new unit tests, existing gates are the acceptance bar), append
+evidence to docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If
+blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
 
-### Next for Deepseek (Worker D) — T-043, same worktree, new branch
+### Next for Deepseek (Worker D) — T-044, same worktree, new branch
 
 ```
 You are Worker D for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-033/T-035/T-041 work is all merged and done).
+fresh branch — your T-033/T-035/T-041/T-043 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-tenant-email   (branch task/tenant-email)
+Work ONLY inside: D:\Apps\air-wt-feedback-form   (branch task/feedback-form)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 This exact mistake has happened before on this worktree. Re-check before your commit too.
 node_modules is a directory junction to the main worktree's — do NOT run npm install, npm ci, or delete
-node_modules. If something genuinely looks missing, run `npm run type-check` first to confirm before
-touching node_modules at all.
+node_modules.
 
 Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "src/app/api/admin/businesses/route.ts"
-  graphify query "how does business/tenant creation work and what does it return to the caller today?"
-Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh.
+  graphify explain "src/lib/comms/send.ts"
+  graphify query "how does the app send branded emails today and what conventions do T-043's welcome email
+  and T-041's comms service already establish?"
+Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh (as of this round's merge).
 
-Your task: T-043 — Owner-facing tenant-creation email (MASTER_PLAN.md, Phase 4). This is an owner-requested
-addition (not from the original CIB audit) — see MASTER_PLAN.md's T-043 section for the full spec.
-Read AGENTS.md fully first. Read only the T-043 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-044 — Self-serve feedback form → connect@luxordev.com (MASTER_PLAN.md, Phase 4). This is an
+owner-requested addition (not from the original CIB audit) — see MASTER_PLAN.md's T-044 section for the
+full spec. Read AGENTS.md fully first. Read only the T-044 section of MASTER_PLAN.md and your row in
+TODO.md.
 
-Owns: email-dispatch addition in src/app/api/admin/businesses/route.ts (POST handler only — do not touch
-the config PUT route or provision-login route); a new template in src/lib/notify.ts. No file overlap with
-T-040 (Codex, running in parallel) — verified.
+Owns: new src/app/api/feedback/route.ts; a small shared FeedbackForm component + one new nav entry point in
+each of company-nav.tsx and admin-nav.tsx (use the lucide `MessageSquareText` icon, matching the pattern
+those two files already use — don't restyle anything else in them); a new send function in
+src/lib/notify.ts. Small shared-file risk on the two nav files with Worker C (T-045, icon sweep, parallel
+this round) — keep your nav-link diff minimal and additive so it doesn't collide with their pass.
 
-IMPORTANT — this spec was written before T-041 existed: use the comms service you just built
-(src/lib/comms/send.ts's sendEmail/sendWithLedger) instead of direct Resend — do NOT reintroduce a raw
-Resend call. Key acceptance points: when a business is created with a valid ownerEmail, send exactly one
-branded no-reply@luxordev.com email containing a working password-reset link — generate it via
-`admin.auth().generatePasswordResetLink()` (firebase-admin, already a dependency, not currently used
-anywhere in the repo — verify that's still true) — never a plaintext password in the email body, a log
-line, or an error message. Subject line clearly prefixed for inbox filtering, e.g. "[Luxor AI] Your account
-is ready". If Resend/RESEND_FROM report not_configured (via the comms service), the API response must say
-so explicitly — never silently skip and claim success. Missing/invalid ownerEmail: skip the send, note it
-in the response, don't fail the business-creation transaction. A send failure must not roll back the
-Firestore business-creation transaction either — creation succeeds even if the welcome email doesn't send.
+IMPORTANT — this spec was written before T-041 existed: T-041's comms service (src/lib/comms/send.ts) is
+now merged — use its sendEmail (with ledger idempotency) directly, do NOT use a raw/direct Resend call and
+do NOT add an interim workaround for T-041 not existing (it exists now). Follow the same subject-line
+`[Category] ...` convention T-043's welcome email just established (e.g.
+`[Feedback] <businessName> — <first ~40 chars of message>`).
 
-Do NOT build a tenant-removal/DELETE endpoint — that's tracked separately as NH-12 (a new destructive
-capability needing its own scoped task, not bundled into this one). Do NOT touch the existing
-`tempPassword` value returned in the POST response for the superadmin UI — that's separate from the new
-email and out of scope here unless the spec says otherwise.
+Key acceptance points: authenticated users only (reuse the existing session/role guard pattern — no
+anonymous public endpoint); the form is reachable from both company and admin nav; fields are message
+(required, length-capped) + optional category, with name/email/businessId prefilled from the signed-in
+session; submitting delivers exactly one branded email to connect@luxordev.com containing the submitter's
+name/email/businessId so support can reply directly; rate-limit or single-submit-disable the button so a
+double-click can't double-send (T-040's `runSingleFlight` pattern in
+src/app/admin/invoices/invoiceFlow.ts is a good reference for this, though you don't need that exact file).
+If Resend/RESEND_FROM report not_configured, the form must show a clear "feedback couldn't be sent" error —
+never a false success toast. Empty message rejected both client- and server-side.
 
-One commit (T-043: <summary>), gates green (type-check/lint/test; build once), append evidence to
+Do NOT build a public/unauthenticated feedback endpoint or a general-purpose support-ticket system — this is
+scoped to one form, one recipient, one email.
+
+One commit (T-044: <summary>), gates green (type-check/lint/test; build once), append evidence to
 docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If blocked
 >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
