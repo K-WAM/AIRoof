@@ -7,6 +7,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 import { Clock, Headphones } from "lucide-react";
 
 interface CallMessage {
@@ -68,6 +69,7 @@ export default function CompanyCallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
 
   useEffect(() => {
@@ -78,11 +80,19 @@ export default function CompanyCallsPage() {
         setCalls(data);
         if (data.length > 0) setSelected(data[0]);
       })
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
   if (loading) return <PageSkeleton rows={6} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Call history could not be loaded. No call data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   const conversationMessages = (call: Call) =>
     (call.messages ?? []).filter((m) => m.role === "caller" || m.role === "agent");

@@ -9,6 +9,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 import { Phone, Clock } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -94,6 +95,7 @@ export default function PipelinePage() {
   const [apptCalling, setApptCalling] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [toast, setToast] = useState<{ msg: string; tone: "error" | "warn" | "ok" } | null>(null);
 
   function showToast(msg: string, tone: "error" | "warn" | "ok" = "error") {
@@ -114,7 +116,7 @@ export default function PipelinePage() {
         setSelectedLead(chosenLead ?? leadsData[0] ?? null);
         setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
       })
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
@@ -129,8 +131,7 @@ export default function PipelinePage() {
         body: JSON.stringify({ targetPhone: lead.callerPhone, leadId: lead.leadId }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed" }));
-        showToast(`Call failed: ${err.error ?? "Unknown error"}`);
+        showToast("The callback could not be started. Try again.");
       }
     } catch {
       showToast("Network error — could not initiate call.");
@@ -168,6 +169,8 @@ export default function PipelinePage() {
       setAppointments((prev) =>
         prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status } : a))
       );
+    } catch {
+      showToast("The appointment could not be updated. Try again.");
     } finally {
       setApptUpdating(null);
     }
@@ -195,8 +198,7 @@ export default function PipelinePage() {
         body: JSON.stringify({ targetPhone: appt.callerPhone, appointmentId: appt.appointmentId }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed" }));
-        showToast(`Call failed: ${err.error ?? "Unknown error"}`);
+        showToast("The callback could not be started. Try again.");
       }
     } catch {
       showToast("Network error — could not initiate call.");
@@ -256,6 +258,14 @@ export default function PipelinePage() {
   ).length;
 
   if (loading) return <PageSkeleton rows={6} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Leads and appointments could not be loaded. No pipeline data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   function AppointmentCard({ appt, isPast }: { appt: Appointment; isPast?: boolean }) {
     const { day, date, time } = formatApptDate(appt.startTime, tz);

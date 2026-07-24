@@ -480,3 +480,38 @@ removals + rationale (if any) · deviations from spec (if any).
 - This is the strongest-reviewed submission this session: real Firestore transactions (not just a TTL check),
   SHA-256+byte-length audit skeletons instead of raw content, cursor-based resumable batching, and explicit
   tests for invoice non-interference and append-only overwrite rejection.
+
+## T-040 — UI truthfulness + form guards
+- Date: 2026-07-23 · branch: `task/ui-truthfulness` · commit: this commit
+- Added one shared `PageError` component using the existing panel, design-token, and `.button` system. It
+  always renders as `role="alert"` and uses generic, PII-free failure copy.
+- Replaced silent or false-empty initial-load behavior on company dashboard, calls, pipeline, jobs, calendar,
+  library, and settings pages plus admin businesses, usage, invoices, and business config. Every load now
+  keeps the existing `PageSkeleton` while pending, checks response status where applicable, and renders a
+  visibly distinct failure state before any empty-success copy.
+- Calendar scope stayed limited to load truthfulness: crew/job/settings fallbacks no longer convert failed
+  requests to empty arrays. Existing T-030 optimistic rollback helpers and mutation contracts were preserved.
+- Removed swallowed library mutations. Pricing/document changes and resource deletion/color changes now show
+  an alert and restore the prior UI state on persistence failure; job creation and pipeline mutations also
+  report failures explicitly.
+- Invoice save and send are separate actions. Send is disabled until an invoice has a confirmed ID and no
+  unsaved edits, invalid client/recipient emails and missing client names focus the offending field, all
+  response statuses are checked, and a synchronous single-flight guard prevents two sends from a double-click.
+- Added required/format validation for invoice client name/email, settings notification email/contact phone,
+  onboarding business name/owner email/main phone, and config business name/notification email/main phone.
+  Optional contact/escalation email/phone fields are format-checked when present. Validation failures use
+  `role="alert"` status text and either explicit focus or native required/type/pattern focus management.
+- Invoice, onboarding, and config forms register `beforeunload` plus in-app link guards only while dirty and
+  clear their dirty state after a confirmed save/create.
+- Failure-path evidence:
+  - Admin businesses loader test injects HTTP 503 and asserts the discriminated result is `error` with no
+    businesses payload; the shared failure component is asserted to expose `role="alert"`.
+  - Invoice loader test injects a partial HTTP 503 and asserts it cannot become empty success.
+  - Invoice-flow tests cover unsaved/stale/invalid-email send denial, one-send single-flight behavior under
+    concurrent calls, and dirty-invoice unload warning activation.
+- Manual route checklist: confirmed each owned page orders states as skeleton → failure alert → loaded
+  content/empty copy; no page renders its “No … yet” copy from a caught load failure; no new pagination,
+  search, toast dependency, or visual redesign was introduced.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 baseline warnings; `npm test`
+  26 files / 264 tests green (one unrelated harness timeout on the first parallel run, isolated test and full
+  rerun green); `npm run build` green; `git diff --check` green.

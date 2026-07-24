@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 
 interface BizUsage {
   businessId: string;
@@ -17,12 +18,16 @@ interface BizUsage {
 export default function AdminUsagePage() {
   const [rows, setRows] = useState<BizUsage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/usage")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Usage request failed");
+        return r.json();
+      })
       .then((d) => setRows(d.businesses ?? []))
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -32,6 +37,14 @@ export default function AdminUsagePage() {
   );
 
   if (loading) return <PageSkeleton metrics={4} rows={5} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Usage data could not be loaded. No activity totals are being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <>

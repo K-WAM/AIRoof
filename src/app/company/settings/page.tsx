@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -17,6 +18,9 @@ const DEFAULT_HOURS: Record<string, string> = {
   Saturday: "09:00 - 13:00",
   Sunday: "Closed",
 };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
 
 interface Settings {
   timezone: string;
@@ -32,21 +36,35 @@ export default function CompanySettingsPage() {
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const notificationEmailRef = useRef<HTMLInputElement>(null);
+  const contactPhoneRef = useRef<HTMLInputElement>(null);
+  const contactEmailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!businessId) return;
     fetch(`/api/company/settings?businessId=${businessId}`)
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error("Settings request failed");
+        return r.json();
+      })
       .then(d => setSettings(d))
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
   if (loading) return <PageSkeleton rows={5} />;
-  if (!settings) return <div style={{ padding: 32, color: "#b91c1c" }}>Could not load settings.</div>;
+  if (loadError || !settings) {
+    return (
+      <PageError
+        message="Settings could not be loaded. No saved configuration is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   function setHours(day: string, value: string) {
     setSettings(prev => prev ? { ...prev, businessHours: { ...prev.businessHours, [day]: value } } : prev);
@@ -57,7 +75,25 @@ export default function CompanySettingsPage() {
   }
 
   async function save() {
-    if (!businessId) return;
+    if (!businessId || !settings) return;
+    const notificationEmail = settings.notificationEmail.trim();
+    const contactPhone = settings.contactPhone.trim();
+    const contactEmail = settings.contactEmail.trim();
+    if (!notificationEmail || !EMAIL_PATTERN.test(notificationEmail)) {
+      setError("Enter a valid notification email before saving.");
+      notificationEmailRef.current?.focus();
+      return;
+    }
+    if (!contactPhone || !PHONE_PATTERN.test(contactPhone)) {
+      setError("Enter a valid public contact phone before saving.");
+      contactPhoneRef.current?.focus();
+      return;
+    }
+    if (contactEmail && !EMAIL_PATTERN.test(contactEmail)) {
+      setError("Enter a valid public contact email before saving.");
+      contactEmailRef.current?.focus();
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -67,15 +103,14 @@ export default function CompanySettingsPage() {
         body: JSON.stringify({ businessId, ...settings }),
       });
       if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error ?? "Save failed");
+        throw new Error("Settings save failed");
       }
       setSaved(true);
       // Clear timezone cache so next nav picks up new value
       try { sessionStorage.removeItem(`tz_${businessId}`); } catch {}
       setTimeout(() => setSaved(false), 3000);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+    } catch {
+      setError("Settings could not be saved. Review the form and try again.");
     } finally {
       setSaving(false);
     }
@@ -99,7 +134,7 @@ export default function CompanySettingsPage() {
         </div>
       )}
       {error && (
-        <div style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#b91c1c" }}>
+        <div role="alert" style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#b91c1c" }}>
           {error}
         </div>
       )}
@@ -189,7 +224,9 @@ export default function CompanySettingsPage() {
                   <label htmlFor="notifEmail">Notification email</label>
                   <input
                     id="notifEmail"
+                    ref={notificationEmailRef}
                     type="email"
+                    required
                     value={settings.notificationEmail}
                     onChange={e => setSettings(prev => prev ? { ...prev, notificationEmail: e.target.value } : prev)}
                     placeholder="alerts@yourcompany.com"
@@ -200,7 +237,10 @@ export default function CompanySettingsPage() {
                   <label htmlFor="contactPhone">Public contact phone</label>
                   <input
                     id="contactPhone"
+                    ref={contactPhoneRef}
                     type="tel"
+                    required
+                    pattern="\+?[\d\s().-]{7,20}"
                     value={settings.contactPhone}
                     onChange={e => setSettings(prev => prev ? { ...prev, contactPhone: e.target.value } : prev)}
                     placeholder="+1 (305) 555-0100"
@@ -210,6 +250,7 @@ export default function CompanySettingsPage() {
                   <label htmlFor="contactEmail">Public contact email</label>
                   <input
                     id="contactEmail"
+                    ref={contactEmailRef}
                     type="email"
                     value={settings.contactEmail}
                     onChange={e => setSettings(prev => prev ? { ...prev, contactEmail: e.target.value } : prev)}

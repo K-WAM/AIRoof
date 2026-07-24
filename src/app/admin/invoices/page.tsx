@@ -1,38 +1,19 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
-
-interface LineItem {
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-}
-
-interface InvoiceTemplate {
-  templateId: string;
-  name: string;
-  lineItems: LineItem[];
-  notes?: string;
-}
-
-interface LuxorInvoice {
-  invoiceId: string;
-  clientName: string;
-  clientEmail: string;
-  clientAddress?: string;
-  lineItems: LineItem[];
-  notes: string;
-  taxRate: number;
-  subtotal: number;
-  taxAmount: number;
-  total: number;
-  status: "draft" | "sent" | "paid";
-  dueDate: string;
-  createdAt: number;
-  sentAt?: number;
-}
+import { PageError } from "@/components/ui/PageError";
+import {
+  canSendSavedInvoice,
+  guardUnsavedInvoiceUnload,
+  isValidInvoiceEmail,
+  loadInvoicePage,
+  runSingleFlight,
+  UNSAVED_INVOICE_MESSAGE,
+  type InvoiceTemplate,
+  type LineItem,
+  type LuxorInvoice,
+} from "./invoiceFlow";
 
 const STATUS_STYLE: Record<string, React.CSSProperties> = {
   draft:  { fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#f1f5f9", color: "#64748b" },
@@ -52,6 +33,7 @@ export default function AdminInvoicesPage() {
   const [invoices, setInvoices] = useState<LuxorInvoice[]>([]);
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null); // null = new
@@ -74,20 +56,51 @@ export default function AdminInvoicesPage() {
   const [markingPaid, setMarkingPaid] = useState(false);
   const [sendEmail, setSendEmail] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const clientNameRef = useRef<HTMLInputElement>(null);
+  const clientEmailRef = useRef<HTMLInputElement>(null);
+  const sendEmailRef = useRef<HTMLInputElement>(null);
+  const sendInFlight = useRef(false);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   const load = useCallback(async () => {
-    const [inv, tmpl] = await Promise.all([
-      fetch("/api/admin/invoices").then(r => r.json()),
-      fetch("/api/admin/invoice-templates").then(r => r.json()),
-    ]);
-    setInvoices(inv.invoices ?? []);
-    setTemplates(tmpl.templates ?? []);
+    const result = await loadInvoicePage();
+    if (result.status === "error") {
+      setLoadError(true);
+    } else {
+      setInvoices(result.invoices);
+      setTemplates(result.templates);
+      setLoadError(false);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      guardUnsavedInvoiceUnload(event, dirty);
+    };
+    const preventDirtyNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || anchor.target === "_blank") return;
+      if (!window.confirm(UNSAVED_INVOICE_MESSAGE)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", preventDirtyNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", preventDirtyNavigation, true);
+    };
+  }, [dirty]);
 
   // Derived totals
   const subtotal = lineItems.reduce((s, i) => s + i.total, 0);
@@ -104,6 +117,8 @@ export default function AdminInvoicesPage() {
     setTaxRate(inv.taxRate ?? 0);
     setNotes(inv.notes ?? "");
     setSendEmail(inv.clientEmail ?? "");
+    setActionError(null);
+    setDirty(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -115,6 +130,8 @@ export default function AdminInvoicesPage() {
     setLineItems([blankItem()]); setTaxRate(0);
     setNotes("Net 30. Payment due within 30 days of invoice date.");
     setSendEmail("");
+    setActionError(null);
+    setDirty(false);
   }
 
   function applyTemplate(templateId: string) {
@@ -122,6 +139,7 @@ export default function AdminInvoicesPage() {
     if (!tmpl) return;
     setLineItems(tmpl.lineItems?.length ? tmpl.lineItems : [blankItem()]);
     if (tmpl.notes) setNotes(tmpl.notes);
+    setDirty(true);
   }
 
   function updateItem(i: number, field: keyof LineItem, value: string) {
@@ -130,67 +148,137 @@ export default function AdminInvoicesPage() {
       const updated = { ...row, [field]: field === "description" ? value : parseFloat(value) || 0 };
       return calcItem(updated);
     }));
+    setDirty(true);
   }
 
-  function addItem() { setLineItems(r => [...r, blankItem()]); }
-  function removeItem(i: number) { setLineItems(r => r.filter((_, idx) => idx !== i)); }
+  function addItem() {
+    setLineItems(r => [...r, blankItem()]);
+    setDirty(true);
+  }
+  function removeItem(i: number) {
+    setLineItems(r => r.filter((_, idx) => idx !== i));
+    setDirty(true);
+  }
 
-  async function save() {
+  async function save(): Promise<boolean> {
+    if (!clientName.trim()) {
+      setActionError("Enter a client name before saving.");
+      clientNameRef.current?.focus();
+      return false;
+    }
+    if (!isValidInvoiceEmail(clientEmail)) {
+      setActionError("Enter a valid client email before saving.");
+      clientEmailRef.current?.focus();
+      return false;
+    }
     setSaving(true);
+    setActionError(null);
     try {
       const payload = { clientName, clientEmail, clientAddress, dueDate, lineItems, taxRate, notes, subtotal, taxAmount, total };
       if (editingId) {
-        await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const response = await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error("Invoice save failed");
         showToast("Invoice saved.");
       } else {
         const res = await fetch("/api/admin/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error("Invoice creation failed");
         const data = await res.json();
+        if (!data.invoice?.invoiceId) throw new Error("Invoice creation failed");
         setEditingId(data.invoice.invoiceId);
         showToast(`Invoice ${data.invoice.invoiceId} created.`);
       }
+      setDirty(false);
       await load();
-    } finally { setSaving(false); }
+      return true;
+    } catch {
+      setActionError("The invoice could not be saved. Review the form and try again.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function send() {
-    if (!editingId) { await save(); return; }
-    setSending(true);
-    try {
-      await fetch(`/api/admin/invoices/${editingId}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: sendEmail }) });
-      showToast(`Invoice sent to ${sendEmail}.`);
-      await load();
-    } finally { setSending(false); }
+    if (!editingId || dirty) {
+      setActionError("Save the invoice before sending it.");
+      return;
+    }
+    if (!isValidInvoiceEmail(sendEmail)) {
+      setActionError("Enter a valid recipient email before sending.");
+      sendEmailRef.current?.focus();
+      return;
+    }
+    await runSingleFlight(sendInFlight, async () => {
+      setSending(true);
+      setActionError(null);
+      try {
+        const response = await fetch(`/api/admin/invoices/${editingId}/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: sendEmail }) });
+        if (!response.ok) throw new Error("Invoice send failed");
+        showToast(`Invoice sent to ${sendEmail}.`);
+        await load();
+      } catch {
+        setActionError("The saved invoice could not be sent. Try again.");
+      } finally {
+        setSending(false);
+      }
+    });
   }
 
   async function markPaid() {
     if (!editingId) return;
     setMarkingPaid(true);
+    setActionError(null);
     try {
-      await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "paid" }) });
+      const response = await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "paid" }) });
+      if (!response.ok) throw new Error("Invoice update failed");
       showToast("Marked as paid.");
       await load();
-    } finally { setMarkingPaid(false); }
+    } catch {
+      setActionError("The invoice status could not be updated. Try again.");
+    } finally {
+      setMarkingPaid(false);
+    }
   }
 
   async function saveTemplate() {
     if (!templateName.trim()) return;
     setSavingTemplate(true);
+    setActionError(null);
     try {
-      await fetch("/api/admin/invoice-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: templateName.trim(), lineItems, notes }) });
+      const response = await fetch("/api/admin/invoice-templates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: templateName.trim(), lineItems, notes }) });
+      if (!response.ok) throw new Error("Template save failed");
       setTemplateName("");
       showToast(`Template "${templateName}" saved.`);
       await load();
-    } finally { setSavingTemplate(false); }
+    } catch {
+      setActionError("The invoice template could not be saved. Try again.");
+    } finally {
+      setSavingTemplate(false);
+    }
   }
 
   async function deleteTemplate(templateId: string) {
-    await fetch("/api/admin/invoice-templates", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId }) });
-    await load();
+    setActionError(null);
+    try {
+      const response = await fetch("/api/admin/invoice-templates", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ templateId }) });
+      if (!response.ok) throw new Error("Template deletion failed");
+      await load();
+    } catch {
+      setActionError("The invoice template could not be removed. Try again.");
+    }
   }
 
   const currentInvoice = editingId ? invoices.find(i => i.invoiceId === editingId) : null;
 
   if (loading) return <PageSkeleton rows={5} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Invoices could not be loaded. No invoice or template data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <>
@@ -215,6 +303,16 @@ export default function AdminInvoicesPage() {
         <button className="button primary" onClick={newInvoice}>+ New Invoice</button>
       </header>
 
+      {actionError && (
+        <div
+          className="no-print"
+          role="alert"
+          style={{ marginBottom: 16, color: "var(--danger)" }}
+        >
+          {actionError}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
         {/* ── Invoice Editor ── */}
         <div>
@@ -228,19 +326,32 @@ export default function AdminInvoicesPage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div className="field">
                   <label>Client name</label>
-                  <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Apex Roofing" />
+                  <input
+                    ref={clientNameRef}
+                    required
+                    value={clientName}
+                    onChange={e => { setClientName(e.target.value); setDirty(true); }}
+                    placeholder="Apex Roofing"
+                  />
                 </div>
                 <div className="field">
                   <label>Client email</label>
-                  <input type="email" value={clientEmail} onChange={e => { setClientEmail(e.target.value); setSendEmail(e.target.value); }} placeholder="owner@example.com" />
+                  <input
+                    ref={clientEmailRef}
+                    type="email"
+                    required
+                    value={clientEmail}
+                    onChange={e => { setClientEmail(e.target.value); setSendEmail(e.target.value); setDirty(true); }}
+                    placeholder="owner@example.com"
+                  />
                 </div>
                 <div className="field">
                   <label>Address (optional)</label>
-                  <input value={clientAddress} onChange={e => setClientAddress(e.target.value)} placeholder="123 Main St, Miami FL" />
+                  <input value={clientAddress} onChange={e => { setClientAddress(e.target.value); setDirty(true); }} placeholder="123 Main St, Miami FL" />
                 </div>
                 <div className="field">
                   <label>Due date</label>
-                  <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                  <input type="date" required value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true); }} />
                 </div>
               </div>
 
@@ -335,7 +446,7 @@ export default function AdminInvoicesPage() {
                     <tr>
                       <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
                         Tax (
-                        <input value={taxRate} onChange={e => setTaxRate(parseFloat(e.target.value) || 0)} style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px", background: "transparent" }} className="no-print" />
+                        <input value={taxRate} onChange={e => { setTaxRate(parseFloat(e.target.value) || 0); setDirty(true); }} style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px", background: "transparent" }} className="no-print" />
                         <span className="print-only">{taxRate}</span>
                         %)
                       </td>
@@ -353,7 +464,7 @@ export default function AdminInvoicesPage() {
             {/* Notes */}
             <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Notes & Payment Terms</div>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} style={{ width: "100%", fontSize: 13, color: "#475569", border: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, background: "transparent" }} className="no-print" />
+              <textarea value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); }} rows={3} style={{ width: "100%", fontSize: 13, color: "#475569", border: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, background: "transparent" }} className="no-print" />
               <p className="print-only" style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: 0 }}>{notes}</p>
             </div>
 
@@ -364,9 +475,9 @@ export default function AdminInvoicesPage() {
 
           {/* Action bar */}
           <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
-            <button className="button primary" onClick={save} disabled={saving}>{saving ? "Saving…" : editingId ? "Save changes" : "Save invoice"}</button>
-            <input type="email" value={sendEmail} onChange={e => setSendEmail(e.target.value)} placeholder="Send to email…" style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, width: 220 }} />
-            <button className="button" onClick={send} disabled={sending || !sendEmail}>{sending ? "Sending…" : "Send invoice"}</button>
+            <button className="button primary" onClick={save} disabled={saving || sending}>{saving ? "Saving…" : editingId ? "Save changes" : "Save invoice"}</button>
+            <input ref={sendEmailRef} type="email" required value={sendEmail} onChange={e => setSendEmail(e.target.value)} placeholder="Send to email…" style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, width: 220 }} />
+            <button className="button" onClick={send} disabled={sending || saving || !canSendSavedInvoice(editingId, dirty, sendEmail)}>{sending ? "Sending…" : "Send saved invoice"}</button>
             <button className="button" onClick={() => window.print()}>⬇ Download PDF</button>
             {currentInvoice?.status !== "paid" && editingId && (
               <button className="button" onClick={markPaid} disabled={markingPaid} style={{ color: "#166534" }}>{markingPaid ? "…" : "Mark paid"}</button>

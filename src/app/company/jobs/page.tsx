@@ -8,6 +8,7 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -20,6 +21,8 @@ export default function JobsPage() {
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
@@ -35,9 +38,12 @@ export default function JobsPage() {
   useEffect(() => {
     if (!businessId) return;
     fetch(`/api/jobs?businessId=${businessId}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Jobs request failed");
+        return r.json();
+      })
       .then((d) => setJobs(d.jobs ?? []))
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
@@ -49,6 +55,7 @@ export default function JobsPage() {
   async function createJob(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setCreating(true);
+    setActionError(null);
     const fd = new FormData(e.currentTarget);
     try {
       const res = await fetch("/api/jobs", {
@@ -66,13 +73,14 @@ export default function JobsPage() {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.job) {
-        setJobs((prev) => [data.job, ...prev]);
-        setShowForm(false);
-        setJustCreatedId(data.job.jobId);
-        (e.target as HTMLFormElement).reset();
-        setTimeout(() => setJustCreatedId(null), 4000);
-      }
+      if (!res.ok || !data.job) throw new Error("Job creation failed");
+      setJobs((prev) => [data.job, ...prev]);
+      setShowForm(false);
+      setJustCreatedId(data.job.jobId);
+      (e.target as HTMLFormElement).reset();
+      setTimeout(() => setJustCreatedId(null), 4000);
+    } catch {
+      setActionError("The job could not be created. Review the form and try again.");
     } finally {
       setCreating(false);
     }
@@ -85,6 +93,14 @@ export default function JobsPage() {
   }
 
   if (loading) return <PageSkeleton rows={6} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Jobs could not be loaded. No job data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <>
@@ -100,6 +116,12 @@ export default function JobsPage() {
           </button>
         </div>
       </header>
+
+      {actionError && (
+        <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
+          {actionError}
+        </div>
+      )}
 
       {showForm && (
         <section className="panel" style={{ marginBottom: 20 }}>

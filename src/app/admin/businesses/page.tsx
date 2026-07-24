@@ -3,18 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
-
-interface BizRow {
-  businessId: string;
-  businessName: string;
-  industry: string;
-  active: boolean;
-  vapiAssistantId?: string;
-  contactPhone?: string;
-  notificationEmail?: string;
-  serviceArea?: string[];
-  createdAt: number;
-}
+import { PageError } from "@/components/ui/PageError";
+import { loadBusinesses, type BizRow } from "./loadBusinesses";
 
 function timeAgo(ms: number): string {
   const d = Math.floor((Date.now() - ms) / 86400000);
@@ -26,24 +16,31 @@ function timeAgo(ms: number): string {
 export default function AdminBusinessesPage() {
   const [businesses, setBusinesses] = useState<BizRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/businesses")
-      .then((r) => r.json())
-      .then((data) => {
-        const rows = (data.businesses ?? []).map(
-          (b: { business: BizRow }) => b.business
-        );
-        setBusinesses(rows);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    void loadBusinesses().then((result) => {
+      if (result.status === "error") {
+        setLoadError(true);
+      } else {
+        setBusinesses(result.businesses);
+      }
+      setLoading(false);
+    });
   }, []);
 
   const active = businesses.filter((b) => b.active && b.vapiAssistantId);
   const needsSetup = businesses.filter((b) => !b.vapiAssistantId);
 
   if (loading) return <PageSkeleton rows={6} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Businesses could not be loaded. No tenant data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <>

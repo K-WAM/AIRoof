@@ -1,10 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 
 interface BizData {
   businessName: string;
@@ -57,6 +58,9 @@ const readinessChecks = [
   { key: "readyForLaunch", label: "Ready for launch" },
 ];
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+
 export default function AdminBusinessConfigPage({
   params,
 }: {
@@ -66,6 +70,8 @@ export default function AdminBusinessConfigPage({
   const [biz, setBiz] = useState<BizData | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "idle" | "submitting" | "success" | "error";
     message: string;
@@ -77,9 +83,14 @@ export default function AdminBusinessConfigPage({
     message: string;
     tempPassword?: string;
   }>({ type: "idle", message: "" });
+  const loginEmailRef = useRef<HTMLInputElement>(null);
 
   async function provisionLogin() {
-    if (!loginEmail.trim()) return;
+    if (!EMAIL_PATTERN.test(loginEmail.trim())) {
+      setProvisionStatus({ type: "error", message: "Enter a valid owner email." });
+      loginEmailRef.current?.focus();
+      return;
+    }
     setProvisionStatus({ type: "loading", message: "Creating login…" });
     try {
       const res = await fetch(`/api/admin/businesses/${businessId}/provision-login`, {
@@ -88,29 +99,73 @@ export default function AdminBusinessConfigPage({
         body: JSON.stringify({ ownerEmail: loginEmail.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
+      if (!res.ok) throw new Error("Login provisioning failed");
       setProvisionStatus({ type: "success", message: "Login provisioned!", tempPassword: data.tempPassword });
-    } catch (e) {
-      setProvisionStatus({ type: "error", message: e instanceof Error ? e.message : "Failed" });
+    } catch {
+      setProvisionStatus({ type: "error", message: "The client login could not be provisioned. Try again." });
     }
   }
 
   useEffect(() => {
     fetch(`/api/admin/businesses/${businessId}/config`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Config request failed");
+        return r.json();
+      })
       .then((data) => {
         setBiz(data.business ?? null);
         setOnboarding(data.onboarding ?? null);
       })
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
+  useEffect(() => {
+    if (!dirty) return;
+    const message = "You have unsaved configuration changes. Leave this page?";
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = message;
+    };
+    const preventDirtyNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || anchor.target === "_blank") return;
+      if (!window.confirm(message)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", preventDirtyNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", preventDirtyNavigation, true);
+    };
+  }, [dirty]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitStatus({ type: "submitting", message: "Saving config..." });
 
     const formData = new FormData(event.currentTarget);
+    const validationChecks = [
+      { name: "businessName", valid: Boolean(String(formData.get("businessName") || "").trim()), message: "Enter a business name." },
+      { name: "phoneNumber", valid: PHONE_PATTERN.test(String(formData.get("phoneNumber") || "").trim()), message: "Enter a valid main phone number." },
+      { name: "notificationEmail", valid: EMAIL_PATTERN.test(String(formData.get("notificationEmail") || "").trim()), message: "Enter a valid notification email." },
+      { name: "escalationPhone", valid: !String(formData.get("escalationPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("escalationPhone") || "").trim()), message: "Enter a valid escalation phone number." },
+      { name: "contactPhone", valid: !String(formData.get("contactPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("contactPhone") || "").trim()), message: "Enter a valid public contact phone." },
+      { name: "contactEmail", valid: !String(formData.get("contactEmail") || "").trim() || EMAIL_PATTERN.test(String(formData.get("contactEmail") || "").trim()), message: "Enter a valid public contact email." },
+    ];
+    const invalid = validationChecks.find((check) => !check.valid);
+    if (invalid) {
+      setSubmitStatus({ type: "error", message: invalid.message });
+      const field = event.currentTarget.elements.namedItem(invalid.name);
+      if (field instanceof HTMLElement) field.focus();
+      return;
+    }
+    setSubmitStatus({ type: "submitting", message: "Saving config..." });
+
     const activeStatus = String(formData.get("active") || "draft");
 
     const payload = {
@@ -180,16 +235,32 @@ export default function AdminBusinessConfigPage({
       }
 
       setSubmitStatus({ type: "success", message: `Saved config for ${businessId}.` });
-    } catch (error) {
+      setDirty(false);
+    } catch {
       setSubmitStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Failed to save config",
+        message: "The configuration could not be saved. Review the form and try again.",
       });
     }
   }
 
   if (loading) return <PageSkeleton rows={6} />;
-  if (!biz) return <div style={{ padding: 32, color: "#b91c1c" }}>Business not found.</div>;
+  if (loadError) {
+    return (
+      <PageError
+        message="The company configuration could not be loaded. No saved settings are being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
+  if (!biz) {
+    return (
+      <PageError
+        title="Business not found"
+        message="This company configuration is not available."
+      />
+    );
+  }
 
   const serviceAreaStr = Array.isArray(biz.serviceArea)
     ? biz.serviceArea.join(", ")
@@ -208,7 +279,13 @@ export default function AdminBusinessConfigPage({
         <a className="button" href="/admin/businesses">← All companies</a>
       </header>
 
-      <form className="config-grid" onSubmit={handleSubmit}>
+      <form
+        className="config-grid"
+        onSubmit={handleSubmit}
+        onChange={(event) => {
+          if ((event.target as HTMLInputElement).name !== "loginEmail") setDirty(true);
+        }}
+      >
         <div className="section-stack">
 
           {/* ─── Business Profile ─── */}
@@ -220,7 +297,7 @@ export default function AdminBusinessConfigPage({
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="businessName">Business name</label>
-                  <input id="businessName" name="businessName" defaultValue={biz.businessName} />
+                  <input id="businessName" name="businessName" required defaultValue={biz.businessName} />
                 </div>
                 <div className="field">
                   <label htmlFor="industry">Industry template</label>
@@ -425,6 +502,9 @@ export default function AdminBusinessConfigPage({
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
+                  id="loginEmail"
+                  name="loginEmail"
+                  ref={loginEmailRef}
                   type="email"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
@@ -458,7 +538,7 @@ export default function AdminBusinessConfigPage({
                 </div>
               )}
               {provisionStatus.type === "error" && (
-                <p style={{ margin: "8px 0 0", fontSize: 13, color: "#b91c1c" }}>{provisionStatus.message}</p>
+                <p role="alert" style={{ margin: "8px 0 0", fontSize: 13, color: "#b91c1c" }}>{provisionStatus.message}</p>
               )}
             </div>
           </section>
@@ -472,7 +552,7 @@ export default function AdminBusinessConfigPage({
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" defaultValue={biz.phoneNumber ?? ""} />
+                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.phoneNumber ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="calendarProvider">Calendar provider</label>
@@ -484,11 +564,11 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="escalationPhone">Escalation phone</label>
-                  <input id="escalationPhone" name="escalationPhone" defaultValue={biz.escalationPhone ?? ""} />
+                  <input id="escalationPhone" name="escalationPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.escalationPhone ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="notificationEmail">Notification email</label>
-                  <input id="notificationEmail" name="notificationEmail" defaultValue={biz.notificationEmail ?? ""} />
+                  <input id="notificationEmail" name="notificationEmail" type="email" required defaultValue={biz.notificationEmail ?? ""} />
                 </div>
               </div>
             </div>
@@ -507,7 +587,7 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="contactPhone">Contact phone (public)</label>
-                  <input id="contactPhone" name="contactPhone" defaultValue={biz.contactPhone ?? ""} />
+                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.contactPhone ?? ""} />
                 </div>
                 <div className="field full">
                   <label htmlFor="logoUrl">Logo URL (HTTPS)</label>
@@ -515,7 +595,7 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field full">
                   <label htmlFor="contactEmail">Contact email (public)</label>
-                  <input id="contactEmail" name="contactEmail" defaultValue={biz.contactEmail ?? ""} />
+                  <input id="contactEmail" name="contactEmail" type="email" defaultValue={biz.contactEmail ?? ""} />
                 </div>
                 <div className="field full">
                   <label htmlFor="websiteUrl">Website URL</label>
