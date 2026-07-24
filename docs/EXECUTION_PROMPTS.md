@@ -43,116 +43,81 @@ Current batch values:
 | B | *(merged, worktree removed)* | `task/ci-foundation` | T-000, T-001, T-002 |
 | A2 | *(merged, worktree removed)* | `task/shared-primitives` | T-021, T-022 |
 | B2 | *(merged, worktree removed)* | `task/config-guard` | T-020 |
-| C | `D:\Apps\air-wt-icon-sweep` (was `air-wt-ui-truthfulness`, `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) | `task/icon-sweep` | T-030/T-031/T-032/T-034/T-042/T-040 (all merged) → **T-045 next, same worktree, new branch** |
-| D | `D:\Apps\air-wt-feedback-form` (was `air-wt-tenant-email`, `air-wt-unified-comms`, `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) | `task/feedback-form` | T-033/T-035/T-041/T-043 (all merged) → **T-044 next, same worktree, new branch** |
+| C | `D:\Apps\air-wt-release-suite` (was `air-wt-icon-sweep`, `air-wt-ui-truthfulness`, `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) | `task/release-suite` | T-030/T-031/T-032/T-034/T-042/T-040/T-045 (all merged) → **T-050 next, same worktree, new branch** |
+| D | `D:\Apps\air-wt-feedback-form` (was `air-wt-tenant-email`, `air-wt-unified-comms`, `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) | `task/feedback-form` | T-033/T-035/T-041/T-043/T-044 (all merged) → **idle, no parallel-safe task until T-050 merges** |
 
 ---
 
-## PENDING — next assignments, ready to paste (as of `3e51cd0`, 2026-07-23, ~78% complete)
+## PENDING — next assignments, ready to paste (as of `26c0352`, 2026-07-24, ~85% complete)
 
-Both worktrees were retired from their fully-merged T-040/T-043 branches and reassigned + renamed this round
-(`git worktree move`) — node_modules and graphify-out carried over untouched and were re-verified healthy
-(`npm run type-check` clean in both) after the rename. graphify-out/ is current through this session's merges
-(the doc-only incremental refresh for TODO.md/HANDOFF.md/SESSION_HANDOFF.md/EXECUTION_PROMPTS.md changes did
-not complete — a semantic-extraction subagent hit the 64K output-token cap — low priority since code hasn't
-drifted from the graph, just 4 markdown files; re-run `/graphify . --update` next session if it matters).
-Use `graphify explain`/`query`/`path` before Glob/Grep sweeps in both. **Phase 4 is down to T-044/T-045 —
-last two tasks before Phase 5.**
+Phase 4 is fully closed (6/6). Phase 5 (T-050/T-051/T-052) is a **strict serial chain** per MASTER_PLAN's own
+Deps lines (T-051 needs "T-050 green," T-052 needs "Phase 5 others") — only T-050 is assignable this round.
+Worker C's worktree was retired from its fully-merged `task/icon-sweep` branch and reassigned + renamed
+(`git worktree move`) — node_modules and graphify-out carried over, `npm run type-check` verified clean after
+the rename. Worker D has no parallel-safe task this round; `air-wt-feedback-form` stays idle until T-050
+merges and unblocks T-051.
 
-### Next for Codex (Worker C) — T-045, same worktree, new branch
+### Next for Codex (Worker C) — T-050, same worktree, new branch
 
 ```
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-030/T-031/T-032/T-034/T-042/T-040 work is all merged and done).
+fresh branch — your T-030/T-031/T-032/T-034/T-042/T-040/T-045 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-icon-sweep   (branch task/icon-sweep)
+Work ONLY inside: D:\Apps\air-wt-release-suite   (branch task/release-suite)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
 This worktree already has a working node_modules — do NOT run npm install/npm ci.
 
-Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "company-nav.tsx"
-  graphify query "which company/admin pages import lucide-react today and which don't?"
-Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh (as of this round's merge).
+This task is narrow and file-specific enough that graphify is unlikely to pay off — use Glob/Grep directly
+on the file paths below instead of invoking the skill.
 
-Your task: T-045 — Icon consistency sweep (MASTER_PLAN.md, Phase 4).
-Read AGENTS.md fully first. Read only the T-045 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-050 — Deterministic release suite + merge gating (MASTER_PLAN.md, Phase 5, CIB-015).
+Read AGENTS.md fully first. Read only the T-050 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: icon imports/usages inside existing company/admin page files only (src/app/company/**,
-src/app/admin/**) — no new components, no layout changes beyond adding an `<Icon />` where one is visibly
-missing. `src/app/company/guide/page.tsx` and `company-nav.tsx` are the reference pattern (already
-lucide-react) — you should not need to touch either of those two files since they already comply; if you do
-find something missing in one of them, keep that specific diff minimal, since Worker D (T-044, parallel) is
-adding one new nav link + icon to company-nav.tsx/admin-nav.tsx this same round — small shared-file risk,
-no functional overlap expected.
+Owns: new `tests/release/**`; `.github/workflows/ci.yml` (extend, don't replace — it already runs
+type-check/lint/build/`npm test` on push+PR to main via `actions/checkout` + `actions/setup-node`).
 
-Key acceptance points: every company/admin page's primary actions/nav rows/section headers use a
-lucide-react icon; this is a coverage pass, not a restyle — don't change any icon choice that's already
-lucide-react, don't introduce a new icon set. Respect `useBusinessModules()`/vocab rules for any icon tied to
-an industry-specific noun (job/crew/appointment language varies per vertical — see CLAUDE.md's
-Industry-Applicability Rule). Spot-check 2–3 representative pages with a before/after Playwright screenshot
-to confirm no visual regression in existing icon usage.
+**Important existing-file note, checked this session:** `vitest.config.ts`'s `test.include` is currently
+`["src/**/*.test.ts", "src/**/*.test.tsx"]` — a new `tests/release/**` directory will NOT be picked up by
+the existing `npm test` step automatically. `vitest.config.ts` is NOT in your owned scope, so don't edit it
+silently; instead add a distinct CI step (e.g. `npx vitest run tests/release`) to `ci.yml` alongside the
+existing `npm test` step. If you conclude editing `vitest.config.ts`'s include pattern is genuinely the
+better design, stop and flag it as a HELP-NEEDED question rather than silently expanding your owned-file
+scope.
 
-No visual redesign, no new dependencies, no touching non-icon markup. Gates green (type-check/lint/test;
-build once — icon-only changes shouldn't need new unit tests, existing gates are the acceptance bar), append
-evidence to docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If
-blocked >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
-```
+Build a small, deterministic (mocked providers, no live network) route-handler-level suite covering:
+- **Webhook auth/replay** — `src/app/api/webhooks/vapi/route.ts` + `src/lib/vapi/verify.ts`. Existing unit
+  coverage is in `src/lib/vapi/__tests__/` (route-auth, verify, escalation-branch, appointment-identity) —
+  your suite should exercise these at the route-handler level (real request → real handler → asserted
+  response), not duplicate the existing unit tests.
+- **Cron auth** — `src/lib/auth/cronGuard.ts` guards `src/app/api/cron/{daily-call-summary,faq-suggestions,
+  follow-up-calls,retention}/route.ts`. Confirm each route 401s without a valid `CRON_SECRET` bearer token.
+- **Duplicate side effects** — `src/lib/ops/ledger.ts` (T-021's transactional claim/dedupe primitive) backs
+  idempotent sends/bookings; prove a simulated duplicate webhook/cron invocation doesn't double-send or
+  double-book.
+- **Calendar failure rollback** — T-030's transactional booking/conflict-check logic in `agentTools.ts`
+  (`bookAppointment`/`checkAvailability`); prove a failed write doesn't leave a partial/inconsistent state.
+- **Provider-key readiness** — `src/lib/ai/registry.ts`'s `isProviderReady()` gate; prove routes correctly
+  report "not configured" rather than crashing or silently mocking when a provider key is absent.
 
-### Next for Deepseek (Worker D) — T-044, same worktree, new branch
+Mock Firestore/Vapi/Resend/OpenAI/DeepSeek at existing seams (see AGENTS.md's Test expectations section) —
+no live providers in CI, ever. Document your flaky-test quarantine policy (this repo has a known
+concurrent-load timeout pattern in a couple of files — see AGENTS.md's "Known hiccups" — decide/document how
+your new suite avoids or tolerates that class of flake). Also produce the branch-protection setup doc for
+the owner (NH-2 in TODO.md: "require CI green" on `main`) — a short doc section is enough, you cannot change
+GitHub repo settings yourself.
 
-```
-You are Worker D for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-033/T-035/T-041/T-043 work is all merged and done).
+Prohibited: a browser-automation e2e farm (explicitly out of scope, post-MVP — this is route-handler level
+only, not Playwright).
 
-Work ONLY inside: D:\Apps\air-wt-feedback-form   (branch task/feedback-form)
-BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
-both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
-This exact mistake has happened before on this worktree. Re-check before your commit too.
-node_modules is a directory junction to the main worktree's — do NOT run npm install, npm ci, or delete
-node_modules.
-
-Before grepping around the codebase, use the graphify graph already in your worktree:
-  graphify explain "src/lib/comms/send.ts"
-  graphify query "how does the app send branded emails today and what conventions do T-043's welcome email
-  and T-041's comms service already establish?"
-Do NOT run `/graphify` or any rebuild/--update — the graph is already fresh (as of this round's merge).
-
-Your task: T-044 — Self-serve feedback form → connect@luxordev.com (MASTER_PLAN.md, Phase 4). This is an
-owner-requested addition (not from the original CIB audit) — see MASTER_PLAN.md's T-044 section for the
-full spec. Read AGENTS.md fully first. Read only the T-044 section of MASTER_PLAN.md and your row in
-TODO.md.
-
-Owns: new src/app/api/feedback/route.ts; a small shared FeedbackForm component + one new nav entry point in
-each of company-nav.tsx and admin-nav.tsx (use the lucide `MessageSquareText` icon, matching the pattern
-those two files already use — don't restyle anything else in them); a new send function in
-src/lib/notify.ts. Small shared-file risk on the two nav files with Worker C (T-045, icon sweep, parallel
-this round) — keep your nav-link diff minimal and additive so it doesn't collide with their pass.
-
-IMPORTANT — this spec was written before T-041 existed: T-041's comms service (src/lib/comms/send.ts) is
-now merged — use its sendEmail (with ledger idempotency) directly, do NOT use a raw/direct Resend call and
-do NOT add an interim workaround for T-041 not existing (it exists now). Follow the same subject-line
-`[Category] ...` convention T-043's welcome email just established (e.g.
-`[Feedback] <businessName> — <first ~40 chars of message>`).
-
-Key acceptance points: authenticated users only (reuse the existing session/role guard pattern — no
-anonymous public endpoint); the form is reachable from both company and admin nav; fields are message
-(required, length-capped) + optional category, with name/email/businessId prefilled from the signed-in
-session; submitting delivers exactly one branded email to connect@luxordev.com containing the submitter's
-name/email/businessId so support can reply directly; rate-limit or single-submit-disable the button so a
-double-click can't double-send (T-040's `runSingleFlight` pattern in
-src/app/admin/invoices/invoiceFlow.ts is a good reference for this, though you don't need that exact file).
-If Resend/RESEND_FROM report not_configured, the form must show a clear "feedback couldn't be sent" error —
-never a false success toast. Empty message rejected both client- and server-side.
-
-Do NOT build a public/unauthenticated feedback endpoint or a general-purpose support-ticket system — this is
-scoped to one form, one recipient, one email.
-
-One commit (T-044: <summary>), gates green (type-check/lint/test; build once), append evidence to
+One commit (T-050: <summary>), gates green (type-check/lint/test; build once), append evidence to
 docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If blocked
 >20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
+
+Worker D (Deepseek) has no assignment this round — do not provision new work for `air-wt-feedback-form`
+until T-050 merges and unblocks T-051.
 
 ---
 

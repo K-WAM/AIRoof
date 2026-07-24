@@ -1,85 +1,81 @@
 # SESSION_HANDOFF.md — Current state (compact)
 
-Updated: 2026-07-23 by integrator. This session merged T-043 and T-040 (closing Phase 4 to 4/6), scoped a
-new owner-requested Phase 6 (UX & Demo Polish, queued behind Phase 5), and assigned the last Phase 4 pair
-(T-044, T-045).
+Updated: 2026-07-24 by integrator. This session merged T-044 and T-045, closing Phase 4 to 6/6 (complete),
+and assigned the first Phase 5 task (T-050).
 
 - **Repository root:** `D:\Apps\AI Receptionist` (Windows; paths contain a space — quote everything)
 - **Integration branch:** `main`; remote `origin` = github.com/K-WAM/AIRoof. Not pushed this session — no
   `approve push` given. `main` is several commits ahead of `origin/main` (last known-pushed: `a4d665c`).
-- **Last verified commit:** `3e51cd0`. Combined gate green: type-check clean, lint 0 errors/26 baseline
-  warnings, `npm test` **271/271 passing**, `npm run build` green.
-- **Current phase:** Phase 3 fully merged (6/6). **Phase 4 (T-040…T-045, 20% weight): 4 of 6 merged**
-  (T-040, T-041, T-042, T-043) — T-044 and T-045 assigned this round, in progress. **Phase 6 (new, owner-
-  added, not CIB-weighted): T-046–049 scoped in MASTER_PLAN.md, queued behind Phase 5 per owner decision.**
-  Overall implementation **~78%** (see TODO.md for the weighting caveat).
-- **Active worktrees** (both retired their finished branches and were renamed/reassigned again):
-  - `D:\Apps\air-wt-icon-sweep` (was `air-wt-ui-truthfulness`, `air-wt-pii-retention`, `air-wt-field-tokens`,
-    `air-wt-scheduling-integrity`) · branch `task/icon-sweep` · Codex — ready for **T-045** (icon consistency
-    sweep). Real (non-junction) `node_modules`, verified healthy after rename.
+- **Last verified commit:** `26c0352`. Combined gate green: type-check clean, lint 0 errors/27 baseline
+  warnings, `npm test` **288/288 passing**, `npm run build` green.
+- **Current phase:** Phase 4 fully merged (6/6) — **complete**. Phase 5 (T-050/T-051/T-052, 15% weight):
+  T-050 assigned this round; T-051/T-052 blocked on it by MASTER_PLAN's own deliberate serial ordering.
+  Phase 6 (owner-added, not CIB-weighted): T-046–049 scoped in MASTER_PLAN.md, still queued behind Phase 5
+  per owner decision. Overall implementation **~85%** (see TODO.md for the weighting caveat).
+- **Active worktrees:**
+  - `D:\Apps\air-wt-release-suite` (was `air-wt-icon-sweep`, `air-wt-ui-truthfulness`,
+    `air-wt-pii-retention`, `air-wt-field-tokens`, `air-wt-scheduling-integrity`) · branch
+    `task/release-suite` · Codex — ready for **T-050** (deterministic release suite + merge gating).
+    `node_modules` and `graphify-out/` carried over, `npm run type-check` verified clean after rename.
   - `D:\Apps\air-wt-feedback-form` (was `air-wt-tenant-email`, `air-wt-unified-comms`,
-    `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) · branch `task/feedback-form` · Deepseek — ready for
-    **T-044** (feedback form). `node_modules` is a healthy junction, verified intact after rename.
-- **Completed batches:** Batches A/B/A2/B2 (Phases 0-2), Batch C (T-030/031/032/034/042/040, Codex — across
-  several worktree identities as it was renamed each round), Batch D (T-033/035/041/043, Deepseek, same
-  renaming pattern) — Phase 3 fully merged; Phase 4 at 4/6.
+    `air-wt-ai-input-hardening`, `air-wt-demo-isolation`) · branch `task/feedback-form` · Deepseek —
+    **idle**, no parallel-safe task this round (T-051/T-052 both depend on T-050 merging first). Left in
+    place rather than removed; reassign once T-050 is done.
+- **Completed batches:** Batches A/B/A2/B2 (Phases 0-2), Batch C (T-030/031/032/034/042/040/045, Codex —
+  across several worktree identities as it was renamed each round), Batch D (T-033/035/041/043/044,
+  Deepseek, same renaming pattern) — **Phases 0-4 all fully merged.**
 - **Pending reviews:** none — everything reported this session has been reviewed and merged.
 - **Current blockers:** none for dev. T-010 *deploy* (not dev) still blocked on NH-1/NH-2.
-- **Review outcome — T-043 (Deepseek), ACCEPT with one trivial integrator fix:** `sendBusinessWelcomeEmail`
-  correctly routes through `src/lib/comms/send.ts` (not raw Resend); no plaintext password anywhere; send
-  failure doesn't roll back the Firestore transaction. Integrator found `npm run type-check` failing
-  (`TS2790` — `delete` on a non-optional property in the new test file) that predated Deepseek's own "green"
-  report; fixed via a destructure-omit pattern (test-only, zero behavior change) and reconfirmed clean. One
-  unrelated test (`example-lib.test.ts`) timed out under concurrent worktree load and passed cleanly in
-  isolation/solo rerun — flaky, not a regression (corroborated independently by Codex's T-040 review hitting
-  the same flake). Full detail in `docs/IMPLEMENTATION_LOG.md`'s "T-043" entry.
-- **Review outcome — T-040 (Codex), ACCEPT without rework:** the prior silent
-  `.catch(() => ({ jobs: [] }))` on the dashboard's jobs fetch (CIB-012's core false-empty-state failure
-  mode) now throws and renders `<PageError role="alert">` instead. `invoiceFlow.ts`'s
-  `canSendSavedInvoice`/`runSingleFlight`/`guardUnsavedInvoiceUnload` cleanly implement save-before-send,
-  single-flight double-click protection, and the dirty-form warning as small testable pure functions.
-  264/264 tests, type-check/lint/build all clean, matching Codex's own report exactly. Full detail in
-  `docs/IMPLEMENTATION_LOG.md`'s "T-040" entry.
+- **Review outcome — T-045 (Codex), ACCEPT without rework:** high-quality, proportionate icon-only diffs
+  across 16 pages (verified the three largest by hand — `jobs/[jobId]/page.tsx`,
+  `admin/businesses/[businessId]/config/page.tsx`, `company/field/page.tsx`, including a hand-rolled mic
+  `<svg>` replaced by lucide's `Mic`); the "4 redirect-only pages have no lucide import" and "did not touch
+  company-nav.tsx/admin-nav.tsx" claims both independently confirmed via direct inspection. 270/271 tests
+  with the one failure a known concurrent-load flake in an unrelated file (`verify.test.ts`), cleared on
+  isolated rerun. A handful of inline `✓`/`🎉` status-text unicode characters remain outside the task's own
+  nav/button/header scope — cosmetic, non-blocking. Full detail in `docs/IMPLEMENTATION_LOG.md`'s
+  "T-044/T-045 — Integrator review" entry.
+- **Review outcome — T-044 (Deepseek), two real defects found and fixed directly (not sent back):**
+  (1) the feedback email's subject/body used `businessName: businessId` — never looking up the real business
+  name the way every sibling email call site (`send-confirmation/route.ts`, `agentTools.ts`) does, defeating
+  the whole point of a triage-friendly subject; the route's own test had baked this in as expected. Fixed
+  with a Firestore lookup matching the established pattern, falling back to `businessId` only if the doc/
+  field is genuinely missing; added a fallback-path test. (2) `company-nav.tsx`'s new Feedback `<button>` had
+  no CSS class — `.company-nav a` in `globals.css` is scoped to anchor tags only, so the button would have
+  rendered with default browser chrome next to the properly styled nav links (the `admin-nav.tsx` version was
+  fine, it correctly reused `className="nav-link"`). Fixed with a new `.company-nav-trigger` class, not a
+  broad `.company-nav button` selector (which would have leaked styling into `FeedbackForm`'s own modal
+  buttons rendered in the same `<nav>` subtree). One residual gap documented, not blocking: no dedicated
+  `FeedbackForm` component test (spec asked for one; route-level coverage is thorough, UI simple enough to
+  spot-check manually). Re-verified after fixes: type-check clean, lint 0/27, 288/288 tests, build green.
+  Full detail in `docs/IMPLEMENTATION_LOG.md`'s "T-044/T-045 — Integrator review" entry.
 - **Next eligible work:**
-  1. **T-045** (icon consistency sweep) — Codex, `D:\Apps\air-wt-icon-sweep`, branch `task/icon-sweep`.
-  2. **T-044** (feedback form → connect@luxordev.com) — Deepseek, `D:\Apps\air-wt-feedback-form`, branch
-     `task/feedback-form`.
-     Ready-to-paste prompts for both are in `docs/EXECUTION_PROMPTS.md`'s PENDING section. Small shared-file
-     risk noted (both touch `company-nav.tsx`/`admin-nav.tsx` in a minor way) but not blocking.
-  3. After T-044/T-045 merge: **Phase 4 is fully closed** → Phase 5 (T-050 release suite, T-051 cleanup
-     sweep, T-052 doc reconciliation) is next, single-owner sequential per MASTER_PLAN's Integration order.
-  4. **Phase 6 (T-046–049) stays queued** until Phase 5 is fully merged — do not assign early; this was an
-     explicit owner decision 2026-07-23, not a default.
-- **This session's owner-requested scope (2026-07-23):** raised three untracked gaps (Demo Studio
-  parity/richness, navigation/workflow friction, voice-note field resilience) plus an AI-model-cost question
-  and a general UX/branding wishlist. Scoped as Phase 6 (T-046–049) in MASTER_PLAN.md, queued behind Phase 5.
-  Two related asks were explicitly decided **against** building now: public self-serve signup/trial/billing
-  (owner confirmed this meant polishing the existing admin onboarding wizard instead — folded into T-047) and
-  tenant deactivation/removal (NH-12 stays "hold off," closed in TODO.md's NEEDS-HUMAN table). The one
-  concrete AI-model finding — `registry.ts`'s `parse-field-update` is still on full `gpt-4o`, the one
-  unreviewed holdout from T-033's otherwise-complete model-routing pass — is folded into T-048's acceptance
-  criteria (must ship with a before/after accuracy comparison, not a blind flip).
+  1. **T-050** (deterministic release suite + merge gating) — Codex, `D:\Apps\air-wt-release-suite`, branch
+     `task/release-suite`. Ready-to-paste prompt is in `docs/EXECUTION_PROMPTS.md`'s PENDING section.
+  2. **T-051** and **T-052** are NOT assignable yet — MASTER_PLAN's own Deps lines make this a strict serial
+     chain (T-051 needs "T-050 green," T-052 needs "Phase 5 others"). Deepseek has no parallel-safe task
+     until T-050 merges.
+  3. **Phase 6 (T-046–049) stays queued** until Phase 5 is fully merged — explicit owner decision
+     2026-07-23, not a default; do not assign early.
+- **This session's owner-requested scope (2026-07-23, carried forward, unchanged):** Phase 6 (T-046–049)
+  scoped in MASTER_PLAN.md, queued behind Phase 5. Two related asks were explicitly decided **against**
+  building now: public self-serve signup/trial/billing (folded into T-047 as a polish pass on the existing
+  admin onboarding wizard) and tenant deactivation/removal (NH-12 stays "hold off").
 - **CLI auth (checked 2026-07-20, still valid):** gh ✓ · vercel ✓ (repo not linked — see AGENTS.md hiccups) ·
   firebase ✓ · stripe ✓.
-- **Graphify:** copied fresh into both renamed worktrees this session. The graph itself is current through
-  this session's code merges (T-040/T-043); a docs-only incremental update (TODO.md, HANDOFF.md,
-  SESSION_HANDOFF.md, EXECUTION_PROMPTS.md changes) did not complete — the semantic-extraction subagent hit
-  the 64K output-token cap. Low priority (no code drift, just 4 markdown files) — re-run
-  `/graphify . --update` next session if it matters.
-- **Known hiccups (still current):** worktree/branch discipline (fixed via mandatory pre-edit check in
-  AGENTS.md + every EXECUTION_PROMPTS.md template — held for both T-040 and T-043 this round, no recurrence);
-  `git worktree remove --force` can hang on Windows — use `git worktree move` instead (worked cleanly twice
-  more this session). **New this session:** a worker's own uncommitted review-fix in a worktree's working
-  copy is lost on merge if never committed there — the integrator reapplied T-043's trivial `tsc` fix
-  directly on `main` after noticing it had regressed post-merge; going forward, any inline fix made during
-  review must be committed in the worktree (or immediately mirrored onto `main`) before that worktree's
-  branch is considered done. **New this session:** running two worktrees' `npm test`/`npm run build` gates
-  concurrently on this machine produced one flaky timeout each (`example-lib.test.ts`, unrelated to either
-  task) — always confirmed clean on a solo rerun; treat a lone concurrent-run timeout in an unrelated file as
-  a suspect-flake, re-run in isolation before treating it as a regression.
-- **Permissions:** ran `/fewerpermissionprompts` this session — added 11 evidence-backed read-only entries to
-  `.claude/settings.json` (bare `npm test`, `vercel whoami`, `firebase projects:list`/`login:list`,
-  `stripe config --list`, `npx eslint .`, plus `browser_find`/`get_deployment` MCP tools). Deliberately left
-  Playwright's `click`/`fill_form`/`type`/`evaluate` as prompts — those can trigger real app mutations (e.g.
-  an invoice send, the demo reset).
+- **Graphify:** copied fresh into `air-wt-release-suite` this session. T-050's scope (`tests/release/**` +
+  `ci.yml`) is narrow enough that broad graph queries are low-value; the worker was pointed at Glob/Grep for
+  the specific existing route handlers it needs to test instead.
+- **Known hiccups (still current):** worktree/branch discipline (mandatory pre-edit check in AGENTS.md +
+  every EXECUTION_PROMPTS.md template — held again this round, no recurrence); `git worktree remove --force`
+  can hang on Windows — use `git worktree move` instead. A worker's own uncommitted review-fix in a
+  worktree's working copy is lost on merge if never committed there — always commit integrator fixes in the
+  worktree itself before merging (done this round: `eaeb606` in `air-wt-feedback-form` before `Integrate
+  T-044`). Running two worktrees' `npm test`/`npm run build` gates concurrently on this machine reliably
+  produces one flaky timeout in an unrelated file — always confirmed clean on a solo rerun before treating it
+  as a regression (seen again this round: `verify.test.ts` once, `send.test.ts`+`verify.test.ts` once).
+- **Permissions:** `.claude/settings.json` already has the evidence-backed read-only allowlist from a prior
+  `/fewerpermissionprompts` run (bare `npm test`, `vercel whoami`, `firebase projects:list`/`login:list`,
+  `stripe config --list`, `npx eslint .`, plus a couple of MCP tools). Playwright's mutating actions
+  (`click`/`fill_form`/`type`/`evaluate`) are deliberately still gated behind a prompt.
 - **New-session reading order:** AGENTS.md → MASTER_PLAN.md (your tasks) → TODO.md → this file.

@@ -11,8 +11,8 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 1 P0 authority | T-010 T-011 | 12% | ✅ **merged** (36dde56) | — |
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | ✅ **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | ✅ **all 6 tasks merged** — Phase complete | Phase 1+2 merged ✓ |
-| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | 🟡 **4 of 6 merged** (T-040 T-041 T-042 T-043) — T-044/T-045 assigned, in progress | Phase 3 merged ✓ |
-| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ⬜ queued | Phase 4 merged |
+| 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
+| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | 🟡 **T-050 assigned** (T-051/T-052 blocked on it — strict serial chain) | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
 
 ### Checklist
@@ -21,28 +21,27 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 - [x] Phase 1 — P0 authority (T-010, T-011)
 - [x] Phase 2 — Shared primitives (T-020, T-021, T-022)
 - [x] Phase 3 — Boundary applications (T-030, T-031, T-032, T-033, T-034, T-035)
-- [ ] Phase 4 — Operator truth/comms/privacy (20%)
+- [x] Phase 4 — Operator truth/comms/privacy (20%)
   - [x] T-041 — Unified outbound communications
   - [x] T-042 — PII retention, deletion, audit integrity
   - [x] T-040 — UI truthfulness + form guards
   - [x] T-043 — Owner-facing tenant-creation welcome email
-  - [ ] T-044 — Self-serve feedback form → connect@luxordev.com — **assigned, Deepseek, in progress**
-  - [ ] T-045 — Icon consistency sweep (lucide-react) — **assigned, Codex, in progress**
-- [ ] Phase 5 — Release engineering + cleanup (15%) — queued behind Phase 4
-  - [ ] T-050 — Deterministic release suite + merge gating
-  - [ ] T-051 — Evidence-driven cleanup sweep
-  - [ ] T-052 — Documentation reconciliation
+  - [x] T-044 — Self-serve feedback form → connect@luxordev.com
+  - [x] T-045 — Icon consistency sweep (lucide-react)
+- [ ] Phase 5 — Release engineering + cleanup (15%)
+  - [ ] T-050 — Deterministic release suite + merge gating — **assigned, Codex, in progress**
+  - [ ] T-051 — Evidence-driven cleanup sweep — blocked on T-050 (deliberate: tests protect behavior first)
+  - [ ] T-052 — Documentation reconciliation — blocked on T-050 + T-051
 - [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — queued behind Phase 5
   - [ ] T-046 — Demo Studio richness + parity audit
   - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial
   - [ ] T-048 — Voice-note field resilience + AI model right-sizing
   - [ ] T-049 — Outbound email consistency + branding pass
 
-Overall implementation: **~78%** (Phases 0-3 fully merged = 65%; Phase 4 now 4 of 6 tasks merged — all three
-CIB-heavy tasks, T-040/041/042, plus one owner-light task, T-043 — roughly 14–15 of Phase 4's 20% weight;
-T-044/T-045 are the two remaining lighter owner-requested tasks. An estimate, not a precise figure.)
-Independently re-verified on `main` post-merge (this session, commit `3e51cd0`): type-check clean, lint
-0 errors/26 baseline warnings, build green, `npm test` **271/271 clean**.
+Overall implementation: **~85%** (Phases 0-4 fully merged — 8+12+15+30+20 = 85% of CIB-weighted work; Phase 5
+(15%, release engineering + cleanup) just started with T-050 assigned. An estimate, not a precise figure.)
+Independently re-verified on `main` post-merge (this session, commit `26c0352`): type-check clean, lint
+0 errors/27 baseline warnings, build green, `npm test` **288/288 clean**.
 
 **Phase 4 file-overlap note (round 3 — current):** T-044 and T-045 both touch `company-nav.tsx`/`admin-nav.tsx`
 in a small way (T-044 adds one new Feedback nav link + icon; T-045 audits every page for missing icons, and
@@ -196,6 +195,34 @@ worker. Two related owner asks were explicitly decided **against** scoping as ne
   **hold off** rather than building it (which would have been required to give the requested "no-reply email on
   tenant removal" anything to hang off). NH-12's default stands; T-043 ships add-only, as already merged.
 
+**Review outcome (T-044, T-045) — Phase 4 closed out:** T-045 (Codex): APPROVE, merged without rework
+(commit `d8e9c35`) — high-quality, proportionate icon-only diffs (verified the three largest by hand), the
+"4 redirect-only pages" and "no company-nav/admin-nav edits" claims both independently confirmed, one lone
+`verify.test.ts` timeout reproduced as the same known concurrent-load flake and cleared on isolated rerun.
+T-044 (Deepseek): two real defects found and fixed directly rather than sent back (commit `eaeb606`, small/
+unambiguous/matching an existing codebase pattern) — the feedback email's subject used the raw `businessId`
+instead of a real Firestore `businessName` lookup (every sibling email call site does the lookup; the test
+had baked the bug in as expected), and the new `company-nav.tsx` Feedback button had no CSS class so it would
+have rendered as an unstyled default button next to the properly styled nav links. One residual gap
+documented, not blocking: no dedicated `FeedbackForm` component test (spec asked for one; route-level
+coverage is thorough and the UI is simple enough to spot-check manually). Full detail in
+`docs/IMPLEMENTATION_LOG.md`'s "T-044/T-045 — Integrator review" entry. Merged both into `main` locally
+(`Integrate T-045` then `Integrate T-044`); combined gate re-verified on `main`: type-check clean, lint 0/27,
+**288/288 tests**, build green (commit `26c0352`). **Phase 4 is now fully closed, 6/6.**
+
+**Assignment rationale (round 4 — T-050):** Phase 4 closing unblocks Phase 5, but T-050/T-051/T-052 are a
+strict serial chain by MASTER_PLAN's own design, not a parallelizable batch — T-051's Deps line explicitly
+reads "T-050 green (tests protect behavior first — this ordering is deliberate; do not front-run it)", and
+T-052 depends on "Phase 5 others." Phase 6 stays owner-deferred until Phase 5 fully merges (2026-07-23
+decision, restated above). Net effect: only **one** task is actually assignable this round. T-050 (webhook
+auth/replay, cron auth, duplicate-side-effect, calendar-rollback, provider-readiness e2e coverage; extends
+`.github/workflows/ci.yml`) is the same adversarial/edge-case rigor profile as T-010/T-011/T-030/T-034/T-042 —
+routed to Codex, consistent with that precedent. Worker C's fully-merged `air-wt-icon-sweep` worktree was
+renamed to `D:\Apps\air-wt-release-suite` on a fresh branch `task/release-suite` off `main`'s current tip
+(`git worktree move` + `git branch ... main` + checkout); `npm run type-check` reverified clean, `graphify-out/`
+refreshed. Worker D (Deepseek) has **no parallel-safe task this round** — `air-wt-feedback-form` is left in
+place, idle, until T-050 merges and unblocks T-051.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -204,8 +231,8 @@ worker. Two related owner asks were explicitly decided **against** scoping as ne
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/icon-sweep` (merged) | T-045 | icon imports/usages in `src/app/company/**`, `src/app/admin/**` page files only | **merged** — commit `d8e9c35`, integration below |
-| Worker D — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/feedback-form` (merged) | T-044 | new `src/app/api/feedback/route.ts`; `FeedbackForm` component + one nav entry in `company-nav.tsx`/`admin-nav.tsx`; new send function in `src/lib/notify.ts` | **merged** — commit `2733ad0` + review fix `eaeb606`, integration below |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-release-suite` on branch `task/release-suite` (prior: T-045, merged `d8e9c35`+integration) | T-050 | `tests/release/**` (new); `.github/workflows/ci.yml` (extend) | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — no parallel-safe task this round; T-051/T-052 both depend on T-050 merging first (see rationale above) |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
