@@ -480,3 +480,25 @@ removals + rationale (if any) · deviations from spec (if any).
 - This is the strongest-reviewed submission this session: real Firestore transactions (not just a TTL check),
   SHA-256+byte-length audit skeletons instead of raw content, cursor-based resumable batching, and explicit
   tests for invoice non-interference and append-only overwrite rejection.
+
+## T-043 — Owner-facing tenant-creation welcome email
+- Date: 2026-07-23 · branch: task/tenant-email · commit: 4b477ae
+- Added `buildBusinessWelcomeEmail` and `sendBusinessWelcomeEmail` to `src/lib/notify.ts`, reusing the
+  existing `shell()` BizBranding HTML pattern with Luxor AI branding (accent `#1e3a5f`).
+- Modified POST handler in `src/app/api/admin/businesses/route.ts`: after the Firestore transaction
+  commits, generates a password-reset link via `admin.auth().generatePasswordResetLink()` and sends it
+  via the comms service (`sendEmail` from `src/lib/comms/send.ts`) — never direct Resend, never a
+  plaintext temp password in the email body, log line, or error message.
+- Subject: `[Luxor AI] Your <businessName> account is ready` for inbox filtering.
+- Edge cases: missing `ownerEmail` skips send (no `welcomeEmail` field in response); Resend
+  `not_configured` returns `welcomeEmail: { status: "not_configured" }`; send failure does not roll
+  back the Firestore business-creation transaction; `generatePasswordResetLink` failure surfaces as
+  `welcomeEmail: { status: "failed" }` with a warning logged (link URL never exposed).
+- Tests: 7 unit tests in `src/app/api/admin/businesses/__tests__/route.test.ts` covering configured
+  send, unconfigured, missing ownerEmail, reset-link failure, no-rollback on send failure,
+  tempPassword not leaked in welcome context, and reset link not exposed in response.
+- `npm run type-check` green; `npm run lint` 0 errors / 26 warnings (baseline unchanged); `npm run build`
+  green; 7/7 tests passing (2 pre-existing timeout flakes in unrelated `send.test.ts` +
+  `example-lib.test.ts`).
+- Out of scope preserved: no tenant-removal/DELETE endpoint built (NH-12); no changes to existing
+  `tempPassword` return in the POST response for the superadmin UI; no raw Resend call reintroduced.

@@ -10,6 +10,7 @@ import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { sendBusinessWelcomeEmail } from "@/lib/notify";
 
 interface CreateBusinessRequest {
   businessId: string;
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest): Promise<
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string } | { error: string }>> {
+): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string; welcomeEmail?: { status: string; reason?: string } } | { error: string }>> {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
@@ -295,6 +296,51 @@ export async function POST(
       }
     });
 
+    let welcomeEmail: { status: string; reason?: string } | undefined;
+
+    if (body.ownerEmail) {
+      const auth = getAdminAuth();
+      if (auth) {
+        const resetLink = await auth
+          .generatePasswordResetLink(body.ownerEmail)
+          .catch((err: unknown) => {
+            console.warn("Password reset link generation failed:", (err as Error)?.message ?? err);
+            return null;
+          });
+
+        if (resetLink) {
+          try {
+            const result = await sendBusinessWelcomeEmail({
+              to: body.ownerEmail,
+              brandName: businessName,
+              resetLink,
+            });
+
+            if (result.status === "delivered") {
+              welcomeEmail = { status: "sent" };
+            } else if (result.status === "unconfigured") {
+              welcomeEmail = {
+                status: "not_configured",
+                reason: "Resend API key or FROM address not configured",
+              };
+            } else {
+              welcomeEmail = {
+                status: "failed",
+                reason: result.failureCode ?? "unknown",
+              };
+            }
+          } catch (sendErr: unknown) {
+            console.warn("Welcome email send failed:", (sendErr as Error)?.message ?? sendErr);
+            welcomeEmail = { status: "failed", reason: "email send threw an error" };
+          }
+        } else {
+          welcomeEmail = { status: "failed", reason: "Could not generate password reset link" };
+        }
+      } else {
+        welcomeEmail = { status: "skipped", reason: "Firebase Auth not initialized" };
+      }
+    }
+
     return NextResponse.json({
       success: true,
       businessId,
@@ -302,6 +348,7 @@ export async function POST(
         loginEmail: provisionedLogin.email,
         tempPassword: provisionedLogin.tempPassword,
       } : {}),
+      ...(welcomeEmail ? { welcomeEmail } : {}),
     });
   } catch (error) {
     console.error("POST /api/admin/businesses error:", error);
