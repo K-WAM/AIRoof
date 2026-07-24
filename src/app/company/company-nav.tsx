@@ -56,6 +56,7 @@ export function CompanyNav() {
       ))}
       <button
         type="button"
+        className="company-nav-trigger"
         onClick={() => setFeedbackOpen(true)}
         title="Send feedback"
         aria-label="Send feedback"

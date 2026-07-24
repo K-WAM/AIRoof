@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSendFeedbackEmail = vi.hoisted(() => vi.fn());
 const mockVerifyAuthAndRole = vi.hoisted(() => vi.fn());
+const mockGetBusinessDoc = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/notify", () => ({
   sendFeedbackEmail: mockSendFeedbackEmail,
@@ -10,6 +11,14 @@ vi.mock("@/lib/notify", () => ({
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifyAuthAndRole: mockVerifyAuthAndRole,
+}));
+
+vi.mock("@/lib/firebase/admin", () => ({
+  getAdminFirestore: () => ({
+    collection: () => ({
+      doc: () => ({ get: mockGetBusinessDoc }),
+    }),
+  }),
 }));
 
 function createRequest(body: Record<string, unknown>): NextRequest {
@@ -29,6 +38,8 @@ describe("POST /api/feedback", () => {
     vi.resetModules();
     mockSendFeedbackEmail.mockReset();
     mockVerifyAuthAndRole.mockReset();
+    mockGetBusinessDoc.mockReset();
+    mockGetBusinessDoc.mockResolvedValue({ data: () => ({ businessName: "Test Business" }) });
   });
 
   afterEach(() => {
@@ -50,12 +61,28 @@ describe("POST /api/feedback", () => {
     expect(mockSendFeedbackEmail).toHaveBeenCalledTimes(1);
     expect(mockSendFeedbackEmail).toHaveBeenCalledWith(
       expect.objectContaining({
-        businessName: "test-biz",
+        businessName: "Test Business",
         submitterName: "user@test.com",
         submitterEmail: "user@test.com",
         businessId: "test-biz",
         message: validBody.message,
       }),
+    );
+  });
+
+  it("falls back to businessId when the business doc has no businessName", async () => {
+    mockVerifyAuthAndRole.mockResolvedValue({
+      user: { uid: "user-1", email: "user@test.com", superadmin: false, role: "owner", businessId: "test-biz" },
+    });
+    mockGetBusinessDoc.mockResolvedValue({ data: () => undefined });
+    mockSendFeedbackEmail.mockResolvedValue({ status: "delivered", providerId: "msg_1" });
+
+    const { POST } = await import("@/app/api/feedback/route");
+    const response = await POST(createRequest(validBody));
+
+    expect(response.status).toBe(200);
+    expect(mockSendFeedbackEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ businessName: "test-biz" }),
     );
   });
 

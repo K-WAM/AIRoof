@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendFeedbackEmail } from "@/lib/notify";
 
@@ -41,8 +42,12 @@ export async function POST(request: NextRequest) {
   ]);
   if ("error" in auth) return auth.error;
 
+  const db = getAdminFirestore();
+  const bizDoc = await db?.collection("businesses").doc(businessId).get();
+  const businessName = (bizDoc?.data()?.businessName as string | undefined) ?? businessId;
+
   const result = await sendFeedbackEmail({
-    businessName: businessId,
+    businessName,
     submitterName: auth.user.email ?? auth.user.uid,
     submitterEmail: auth.user.email ?? "",
     businessId,
