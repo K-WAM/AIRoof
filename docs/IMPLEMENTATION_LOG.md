@@ -502,3 +502,58 @@ removals + rationale (if any) · deviations from spec (if any).
   `example-lib.test.ts`).
 - Out of scope preserved: no tenant-removal/DELETE endpoint built (NH-12); no changes to existing
   `tempPassword` return in the POST response for the superadmin UI; no raw Resend call reintroduced.
+- **Integrator review — APPROVE, merged with one trivial fix:** independently reproduced in the worktree.
+  `npm run type-check` initially failed (`TS2790`: `delete` on a non-optional property in the new test file,
+  `route.test.ts:224`) — Deepseek's own report of "type-check green" predated this; fixed by switching to a
+  destructure-omit pattern instead of `delete` (test-only, zero behavior change), then independently
+  reconfirmed clean. One test (`example-lib.test.ts`, unrelated to this task's files) timed out on a full
+  concurrent run and passed cleanly in isolation and on a full solo rerun (266/266) — flaky under parallel
+  load, not a regression; Codex's independent T-040 review hit the same flake in the same file, corroborating.
+  `npm run build` green. Merged into `main` (`Integrate T-043`).
+
+## T-040 — UI truthfulness + form guards
+- Date: 2026-07-23 · branch: `task/ui-truthfulness` · commit: this commit
+- Added one shared `PageError` component using the existing panel, design-token, and `.button` system. It
+  always renders as `role="alert"` and uses generic, PII-free failure copy.
+- Replaced silent or false-empty initial-load behavior on company dashboard, calls, pipeline, jobs, calendar,
+  library, and settings pages plus admin businesses, usage, invoices, and business config. Every load now
+  keeps the existing `PageSkeleton` while pending, checks response status where applicable, and renders a
+  visibly distinct failure state before any empty-success copy.
+- Calendar scope stayed limited to load truthfulness: crew/job/settings fallbacks no longer convert failed
+  requests to empty arrays. Existing T-030 optimistic rollback helpers and mutation contracts were preserved.
+- Removed swallowed library mutations. Pricing/document changes and resource deletion/color changes now show
+  an alert and restore the prior UI state on persistence failure; job creation and pipeline mutations also
+  report failures explicitly.
+- Invoice save and send are separate actions. Send is disabled until an invoice has a confirmed ID and no
+  unsaved edits, invalid client/recipient emails and missing client names focus the offending field, all
+  response statuses are checked, and a synchronous single-flight guard prevents two sends from a double-click.
+- Added required/format validation for invoice client name/email, settings notification email/contact phone,
+  onboarding business name/owner email/main phone, and config business name/notification email/main phone.
+  Optional contact/escalation email/phone fields are format-checked when present. Validation failures use
+  `role="alert"` status text and either explicit focus or native required/type/pattern focus management.
+- Invoice, onboarding, and config forms register `beforeunload` plus in-app link guards only while dirty and
+  clear their dirty state after a confirmed save/create.
+- Failure-path evidence:
+  - Admin businesses loader test injects HTTP 503 and asserts the discriminated result is `error` with no
+    businesses payload; the shared failure component is asserted to expose `role="alert"`.
+  - Invoice loader test injects a partial HTTP 503 and asserts it cannot become empty success.
+  - Invoice-flow tests cover unsaved/stale/invalid-email send denial, one-send single-flight behavior under
+    concurrent calls, and dirty-invoice unload warning activation.
+- Manual route checklist: confirmed each owned page orders states as skeleton → failure alert → loaded
+  content/empty copy; no page renders its “No … yet” copy from a caught load failure; no new pagination,
+  search, toast dependency, or visual redesign was introduced.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 baseline warnings; `npm test`
+  26 files / 264 tests green (one unrelated harness timeout on the first parallel run, isolated test and full
+  rerun green); `npm run build` green; `git diff --check` green.
+- **Integrator review — APPROVE, merged without rework:** independently reproduced in the worktree —
+  type-check clean, lint 0/26, 264/264 tests, build green, matching Codex's report exactly. Spot-checked
+  `src/app/company/dashboard/page.tsx`: the prior `.catch(() => ({ jobs: [] }))` on the jobs fetch (a silent
+  false-empty state — CIB-012's core failure mode) now throws and is caught at the top level into
+  `loadError`/`<PageError role="alert">`, never a misleadingly-empty dashboard. `invoiceFlow.ts`'s
+  `canSendSavedInvoice`/`runSingleFlight`/`guardUnsavedInvoiceUnload` cleanly implement save-before-send,
+  single-flight double-click protection, and the dirty-form warning as three small testable pure functions —
+  good extraction, not scope creep (both `invoiceFlow.ts` and `loadBusinesses.ts` are new files but only
+  contain logic extracted from already-owned pages, needed to satisfy the task's own component-test
+  requirement). `PageError` correctly reuses `.button`/panel/design tokens (one-teal system preserved). Merged
+  into `main` (`Integrate T-040`); `TODO.md`/`IMPLEMENTATION_LOG.md` were the only conflicts (both workers' own
+  status-row/log entries, kept both sides), zero code conflicts as designed.

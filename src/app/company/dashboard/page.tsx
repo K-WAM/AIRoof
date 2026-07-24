@@ -10,6 +10,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 import { AlertTriangle, Clock, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
@@ -81,6 +82,7 @@ export default function CompanyDashboardPage() {
   const [agent, setAgent] = useState<AgentSnapshot | null>(null);
   const [escalationAlerts, setEscalationAlerts] = useState<EscalationSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
@@ -96,7 +98,10 @@ export default function CompanyDashboardPage() {
           getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
           getDoc(doc(db!, "businesses", businessId)),
           hasJobs
-            ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] }))
+            ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => {
+                if (!r.ok) throw new Error("Jobs request failed");
+                return r.json();
+              })
             : Promise.resolve({ jobs: [] }),
           getDocs(query(collection(db!, base + "/agentActions"), orderBy("createdAt", "desc"), limit(50))),
         ]);
@@ -144,8 +149,8 @@ export default function CompanyDashboardPage() {
             (item) => item.status !== "delivered"
           )
         );
-      } catch (err) {
-        console.error("Dashboard load failed:", err);
+      } catch {
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
@@ -185,6 +190,14 @@ export default function CompanyDashboardPage() {
 
   if (loading) {
     return <PageSkeleton metrics={4} rows={4} />;
+  }
+  if (loadError) {
+    return (
+      <PageError
+        message="Dashboard data could not be loaded. No activity summary is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
   return (

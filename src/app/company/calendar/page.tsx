@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
 
 interface Appointment {
@@ -135,6 +136,7 @@ export default function CalendarPage() {
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [businessHours, setBusinessHours] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarError, setCalendarError] = useState<string | null>(null);
@@ -148,19 +150,28 @@ export default function CalendarPage() {
     // Wait for the industry so intake tenants never fire a jobs request.
     if (!businessId || !modulesReady) return;
     Promise.all([
-      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ crews: [] })),
+      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Resources request failed");
+        return r.json();
+      }),
       apptMode
         ? Promise.resolve({ jobs: [] })
-        : fetch(`/api/jobs?businessId=${businessId}`).then((r) => r.json()).catch(() => ({ jobs: [] })),
+        : fetch(`/api/jobs?businessId=${businessId}`).then((r) => {
+            if (!r.ok) throw new Error("Jobs request failed");
+            return r.json();
+          }),
       fetch(`/api/company/settings?businessId=${businessId}`)
-        .then((response) => response.json())
-        .catch(() => ({ businessHours: {} })),
+        .then((response) => {
+          if (!response.ok) throw new Error("Settings request failed");
+          return response.json();
+        }),
     ])
       .then(([cr, jr, settings]) => {
         setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
         setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete"));
         setBusinessHours(settings.businessHours ?? {});
       })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId, modulesReady, apptMode]);
 
@@ -414,6 +425,14 @@ export default function CalendarPage() {
   }
 
   if (loading) return <PageSkeleton rows={5} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Calendar resources could not be loaded. No schedule is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   const rangeLabel = `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTHS[days[days.length - 1].getMonth()]} ${days[days.length - 1].getDate()}`;
 

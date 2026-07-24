@@ -6,6 +6,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { PageError } from "@/components/ui/PageError";
 
 type Section = "pricing" | "crews" | "documents";
 
@@ -27,34 +28,59 @@ export default function LibraryPage() {
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!businessId) return;
     Promise.all([
-      fetch(`/api/company/library?businessId=${businessId}`).then((r) => r.json()),
-      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => r.json()),
+      fetch(`/api/company/library?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Library request failed");
+        return r.json();
+      }),
+      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Crews request failed");
+        return r.json();
+      }),
     ])
       .then(([lib, cr]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
       })
-      .catch(console.error)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
 
   async function saveLibrary(next: LibraryPricing) {
+    const previous = library;
     setLibrary(next);
-    await fetch("/api/company/library", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, ...next }),
-    }).catch(() => {});
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaved(false);
+    setActionError(null);
+    try {
+      const response = await fetch("/api/company/library", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, ...next }),
+      });
+      if (!response.ok) throw new Error("Library save failed");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setLibrary(previous);
+      setActionError("The library change could not be saved. The previous data is still in effect.");
+    }
   }
 
   if (loading) return <PageSkeleton rows={5} />;
+  if (loadError) {
+    return (
+      <PageError
+        message="Library data could not be loaded. No pricing, resource, or document data is being shown."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <>
@@ -69,6 +95,12 @@ export default function LibraryPage() {
         </div>
         {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
       </header>
+
+      {actionError && (
+        <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
+          {actionError}
+        </div>
+      )}
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
@@ -99,6 +131,12 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
   const [materials, setMaterials] = useState<LibraryMaterial[]>(library.materials);
   const [laborRates, setLaborRates] = useState<LibraryLaborRate[]>(library.laborRates);
   const [taxRate, setTaxRate] = useState(String(library.defaultTaxRate ?? ""));
+
+  useEffect(() => {
+    setMaterials(library.materials);
+    setLaborRates(library.laborRates);
+    setTaxRate(String(library.defaultTaxRate ?? ""));
+  }, [library]);
 
   function commit(over?: { materials?: LibraryMaterial[]; laborRates?: LibraryLaborRate[] }) {
     const m = over?.materials ?? materials;
@@ -173,44 +211,72 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
   const [phone, setPhone] = useState("");
   const [adding, setAdding] = useState(false);
   const [pickerCrewId, setPickerCrewId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function addCrew() {
     if (!name.trim() || !businessId) return;
     setAdding(true);
-    const res = await fetch("/api/company/crews", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, name, email, phone }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+    setActionError(null);
+    try {
+      const res = await fetch("/api/company/crews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, name, email, phone }),
+      });
+      if (!res.ok) throw new Error("Resource creation failed");
+      const data = await res.json();
+      if (!data.crew) throw new Error("Resource creation failed");
       setCrews([...crews, data.crew]);
       setName(""); setEmail(""); setPhone("");
+    } catch {
+      setActionError(`The ${resource.toLowerCase()} could not be added. Try again.`);
+    } finally {
+      setAdding(false);
     }
-    setAdding(false);
   }
 
   async function removeCrew(crewId: string) {
     const crew = crews.find((c) => c.crewId === crewId);
     if (!confirm(`Remove ${crew?.name ?? `this ${resource.toLowerCase()}`}? They'll disappear from the Calendar.`)) return;
-    setCrews(crews.filter((c) => c.crewId !== crewId));
-    await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" }).catch(() => {});
+    const previous = crews;
+    setCrews(previous.filter((c) => c.crewId !== crewId));
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Resource deletion failed");
+    } catch {
+      setCrews(previous);
+      setActionError(`The ${resource.toLowerCase()} could not be removed. The roster was restored.`);
+    }
   }
 
   async function setCrewColor(crewId: string, color: string) {
-    setCrews(crews.map((c) => (c.crewId === crewId ? { ...c, color } : c)));
+    const previous = crews;
+    setCrews(previous.map((c) => (c.crewId === crewId ? { ...c, color } : c)));
     setPickerCrewId(null);
-    await fetch("/api/company/crews", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, crewId, color }),
-    }).catch(() => {});
+    setActionError(null);
+    try {
+      const response = await fetch("/api/company/crews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, crewId, color }),
+      });
+      if (!response.ok) throw new Error("Resource color update failed");
+    } catch {
+      setCrews(previous);
+      setActionError(`The ${resource.toLowerCase()} color could not be saved. The previous color was restored.`);
+    }
   }
 
   return (
     <section className="panel">
       <div className="panel-header"><h2 className="panel-title">{resources}</h2></div>
       <div className="panel-body">
+        {actionError && (
+          <p role="alert" style={{ color: "var(--danger)", marginTop: 0 }}>
+            {actionError}
+          </p>
+        )}
         <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
           {resources} are the rows on your Calendar — drag {isEnabled("jobs") ? `a ${vocab.jobNoun.toLowerCase()}` : "a booking"} onto one to schedule it.
           {isEnabled("jobs") ? " Email is used for branded assignment notices." : ""} Click a color dot to change its Calendar color.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
@@ -25,6 +25,9 @@ const readinessChecks = [
   "Test calls pending",
 ];
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+
 export default function OnboardingPage() {
   const [submitStatus, setSubmitStatus] = useState<{
     type: "idle" | "submitting" | "success" | "error";
@@ -33,12 +36,55 @@ export default function OnboardingPage() {
     loginEmail?: string;
     tempPassword?: string;
   }>({ type: "idle", message: "" });
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const message = "You have unsaved onboarding changes. Leave this page?";
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = message;
+    };
+    const preventDirtyNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || anchor.target === "_blank") return;
+      if (!window.confirm(message)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", preventDirtyNavigation, true);
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", preventDirtyNavigation, true);
+    };
+  }, [dirty]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitStatus({ type: "submitting", message: "Creating company..." });
 
     const formData = new FormData(event.currentTarget);
+    const validationChecks = [
+      { name: "businessName", valid: Boolean(String(formData.get("businessName") || "").trim()), message: "Enter a business name." },
+      { name: "businessId", valid: Boolean(String(formData.get("businessId") || "").trim()), message: "Enter a business ID." },
+      { name: "ownerEmail", valid: EMAIL_PATTERN.test(String(formData.get("ownerEmail") || "").trim()), message: "Enter a valid owner email." },
+      { name: "phoneNumber", valid: PHONE_PATTERN.test(String(formData.get("phoneNumber") || "").trim()), message: "Enter a valid main phone number." },
+      { name: "notificationEmail", valid: !String(formData.get("notificationEmail") || "").trim() || EMAIL_PATTERN.test(String(formData.get("notificationEmail") || "").trim()), message: "Enter a valid notification email." },
+      { name: "escalationPhone", valid: !String(formData.get("escalationPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("escalationPhone") || "").trim()), message: "Enter a valid escalation phone number." },
+      { name: "contactPhone", valid: !String(formData.get("contactPhone") || "").trim() || PHONE_PATTERN.test(String(formData.get("contactPhone") || "").trim()), message: "Enter a valid contact phone number." },
+    ];
+    const invalid = validationChecks.find((check) => !check.valid);
+    if (invalid) {
+      setSubmitStatus({ type: "error", message: invalid.message });
+      const field = event.currentTarget.elements.namedItem(invalid.name);
+      if (field instanceof HTMLElement) field.focus();
+      return;
+    }
+    setSubmitStatus({ type: "submitting", message: "Creating company..." });
+
     const serviceArea = String(formData.get("serviceArea") || "")
       .split(",")
       .map((area) => area.trim())
@@ -99,10 +145,11 @@ export default function OnboardingPage() {
         loginEmail: result.loginEmail,
         tempPassword: result.tempPassword,
       });
-    } catch (error) {
+      setDirty(false);
+    } catch {
       setSubmitStatus({
         type: "error",
-        message: error instanceof Error ? error.message : "Failed to create company",
+        message: "The company could not be created. Review the form and try again.",
       });
     }
   }
@@ -120,7 +167,7 @@ export default function OnboardingPage() {
         <span className="status-pill">Draft setup</span>
       </header>
 
-      <form className="wizard-grid" onSubmit={handleSubmit}>
+      <form className="wizard-grid" onSubmit={handleSubmit} onChange={() => setDirty(true)}>
         <section className="section-stack">
           <section className="panel" aria-labelledby="profile-title">
             <div className="panel-header">
@@ -132,19 +179,19 @@ export default function OnboardingPage() {
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="businessName">Business name</label>
-                  <input id="businessName" name="businessName" placeholder="Apex Roofing" />
+                  <input id="businessName" name="businessName" required placeholder="Apex Roofing" />
                 </div>
                 <div className="field">
                   <label htmlFor="businessId">Business ID</label>
-                  <input id="businessId" name="businessId" placeholder="apex-roofing" />
+                  <input id="businessId" name="businessId" required placeholder="apex-roofing" />
                 </div>
                 <div className="field">
                   <label htmlFor="ownerEmail">Owner email</label>
-                  <input id="ownerEmail" name="ownerEmail" placeholder="owner@example.com" />
+                  <input id="ownerEmail" name="ownerEmail" type="email" required placeholder="owner@example.com" />
                 </div>
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" placeholder="+1 (604) 555-1234" />
+                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" />
                 </div>
                 <div className="field full">
                   <label htmlFor="serviceArea">Service area</label>
@@ -301,6 +348,8 @@ export default function OnboardingPage() {
                   <input
                     id="escalationPhone"
                     name="escalationPhone"
+                    type="tel"
+                    pattern="\+?[\d\s().-]{7,20}"
                     placeholder="+1 (604) 555-0000"
                   />
                 </div>
@@ -309,6 +358,7 @@ export default function OnboardingPage() {
                   <input
                     id="notificationEmail"
                     name="notificationEmail"
+                    type="email"
                     placeholder="dispatch@example.com"
                   />
                 </div>
@@ -364,7 +414,7 @@ export default function OnboardingPage() {
                 </div>
                 <div className="field">
                   <label htmlFor="contactPhone">Contact phone (shown in emails)</label>
-                  <input id="contactPhone" name="contactPhone" placeholder="+1 (604) 555-1234" />
+                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" />
                 </div>
                 <div className="field full">
                   <label htmlFor="logoUrl">Logo URL (HTTPS, optional)</label>
@@ -395,6 +445,7 @@ export default function OnboardingPage() {
                         Temp password: <strong style={{ fontFamily: "monospace", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>{submitStatus.tempPassword}</strong>
                       </p>
                       <button
+                        type="button"
                         onClick={() => navigator.clipboard.writeText(`Email: ${submitStatus.loginEmail}\nPassword: ${submitStatus.tempPassword}`)}
                         className="button"
                         style={{ fontSize: 12 }}
