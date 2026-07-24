@@ -9,6 +9,7 @@ import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Briefcase, ExternalLink, FilePlus, Plus } from "lucide-react";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -106,13 +107,20 @@ export default function JobsPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Jobs</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Briefcase size={20} strokeWidth={1.75} />
+            Jobs
+          </h1>
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <a className="button" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer">Field view ↗</a>
-          <button className="button primary" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Cancel" : "+ New Job"}
+          <a className="button" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <ExternalLink size={15} strokeWidth={1.75} />
+            Field view
+          </a>
+          <button className="button primary" onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {!showForm && <Plus size={15} strokeWidth={1.75} />}
+            {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
           </button>
         </div>
       </header>
@@ -126,7 +134,10 @@ export default function JobsPage() {
       {showForm && (
         <section className="panel" style={{ marginBottom: 20 }}>
           <div className="panel-header">
-            <h2 className="panel-title">New Job</h2>
+            <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <FilePlus size={16} strokeWidth={1.75} />
+              New {vocab.jobNoun}
+            </h2>
           </div>
           <div className="panel-body">
             <form onSubmit={createJob}>
@@ -158,8 +169,9 @@ export default function JobsPage() {
                 </div>
               </div>
               <div className="button-row" style={{ marginTop: 16 }}>
-                <button className="button primary" type="submit" disabled={creating}>
-                  {creating ? "Creating…" : "Create Job"}
+                <button className="button primary" type="submit" disabled={creating} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <FilePlus size={15} strokeWidth={1.75} />
+                  {creating ? "Creating…" : `Create ${vocab.jobNoun}`}
                 </button>
               </div>
             </form>

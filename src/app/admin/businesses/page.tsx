@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { loadBusinesses, type BizRow } from "./loadBusinesses";
+import { Building2, ExternalLink, Pencil, Plus } from "lucide-react";
 
 function timeAgo(ms: number): string {
   const d = Math.floor((Date.now() - ms) / 86400000);
@@ -46,13 +47,17 @@ export default function AdminBusinessesPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Businesses</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Building2 size={20} strokeWidth={1.75} />
+            Businesses
+          </h1>
           <p className="page-subtitle">
             All tenants on the platform. Click Edit to configure an agent, Preview to see the client view.
           </p>
         </div>
-        <Link href="/admin/onboarding" className="button primary" style={{ alignSelf: "flex-start" }}>
-          + Add Company
+        <Link href="/admin/onboarding" className="button primary" style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Plus size={15} strokeWidth={1.75} />
+          Add Company
         </Link>
       </header>
 
@@ -77,7 +82,10 @@ export default function AdminBusinessesPage() {
 
       <section className="panel" aria-labelledby="biz-list-title">
         <div className="panel-header">
-          <h2 className="panel-title" id="biz-list-title">All Companies</h2>
+          <h2 className="panel-title" id="biz-list-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Building2 size={16} strokeWidth={1.75} />
+            All Companies
+          </h2>
         </div>
         <div className="panel-body" style={{ padding: 0 }}>
           {businesses.length === 0 ? (
@@ -131,8 +139,9 @@ export default function AdminBusinessesPage() {
                       <Link
                         href={`/admin/businesses/${b.businessId}/config`}
                         className="button"
-                        style={{ fontSize: 12, padding: "4px 10px" }}
+                        style={{ fontSize: 12, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
+                        <Pencil size={13} strokeWidth={1.75} />
                         Edit
                       </Link>
                       <a
@@ -140,9 +149,10 @@ export default function AdminBusinessesPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="button"
-                        style={{ fontSize: 12, padding: "4px 10px" }}
+                        style={{ fontSize: 12, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
-                        Preview ↗
+                        <ExternalLink size={13} strokeWidth={1.75} />
+                        Preview
                       </a>
                     </td>
                   </tr>

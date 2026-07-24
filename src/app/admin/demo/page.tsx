@@ -16,6 +16,7 @@ import {
   Phone,
   Eye,
   EyeOff,
+  Rocket,
   RotateCcw,
   type LucideIcon,
 } from "lucide-react";
@@ -285,8 +286,9 @@ export default function DemoStudioPage() {
           )}
 
           <div>
-            <button type="submit" disabled={!!busy} style={primaryBtnStyle(!!busy)}>
-              {busy === "launch" ? "Launching…" : "Launch demo →"}
+            <button type="submit" disabled={!!busy} style={{ ...primaryBtnStyle(!!busy), display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Rocket size={15} strokeWidth={1.75} />
+              {busy === "launch" ? "Launching…" : "Launch demo"}
             </button>
           </div>
         </form>
@@ -482,8 +484,9 @@ export default function DemoStudioPage() {
                   <button
                     onClick={confirmReset}
                     disabled={resetConfirmText !== "RESET" || !!busy}
-                    style={dangerBtnStyle(resetConfirmText !== "RESET" || !!busy)}
+                    style={{ ...dangerBtnStyle(resetConfirmText !== "RESET" || !!busy), display: "inline-flex", alignItems: "center", gap: 6 }}
                   >
+                    <RotateCcw size={14} strokeWidth={1.75} />
                     {busy === "reset" ? "Resetting…" : "Yes, reset demo"}
                   </button>
                   <button onClick={cancelReset} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>

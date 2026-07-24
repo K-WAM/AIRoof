@@ -557,3 +557,28 @@ removals + rationale (if any) · deviations from spec (if any).
   requirement). `PageError` correctly reuses `.button`/panel/design tokens (one-teal system preserved). Merged
   into `main` (`Integrate T-040`); `TODO.md`/`IMPLEMENTATION_LOG.md` were the only conflicts (both workers' own
   status-row/log entries, kept both sides), zero code conflicts as designed.
+
+## T-045 — Icon consistency sweep
+- Date: 2026-07-23 · branch: `task/icon-sweep` · commit: this commit
+- Audited all 21 current `page.tsx` files under `src/app/company/**` and `src/app/admin/**`. The four pages
+  left without a `lucide-react` import are redirect-only routes with no rendered actions, navigation rows,
+  or section headers; `company/guide/page.tsx` was already the reference implementation and did not need a
+  change.
+- Added restrained lucide icons to page titles, primary actions, and panel/section headers across the 16
+  rendered pages that had coverage gaps. Reused existing button/panel styling and inline flex alignment;
+  no component, dependency, navigation, data-flow, or page-layout changes were introduced.
+- Replaced the remaining icon-like emoji, Unicode arrows, and the hand-authored microphone SVG in company
+  field, job-detail, library, invoice, and calendar controls with lucide icons. A targeted repository grep
+  found no remaining `📍`/`📦`/`🕐`/`👷`/`📝`/`📄`/`📅`/`📧`/`🖨`/`🗑`/`✎`/`⤺`/`⬇` icon glyphs in the scoped
+  page files.
+- Preserved every existing lucide choice and all `useBusinessModules()` vocabulary. Dynamic job/resource
+  action labels still use `vocab.jobNoun`, `vocab.resourceNoun`, and plural variants; no industry-specific
+  noun was newly hardcoded.
+- Playwright evidence: captured before/after screenshots for `/admin/businesses`, `/company/jobs`, and
+  `/company/field` under `C:\Users\karee\AppData\Local\Temp\air-t045-screenshots`. All three correctly
+  redirected to the unchanged login screen because no signed Firebase browser session was available.
+  This verifies the protected-route boundary but does not constitute an authenticated visual comparison;
+  reviewer should repeat the three-route spot-check in a signed-in browser.
+- Verification: `git diff --check` clean; `npm run type-check` clean; `npm run lint` 0 errors / 27 repository
+  warnings; `npm test` 27 files / 271 tests green after one existing Vapi smoke-test timeout passed in
+  isolation and on the immediate full rerun; `npm run build` green.

@@ -11,7 +11,7 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
-import { AlertTriangle, Clock, Wrench } from "lucide-react";
+import { AlertTriangle, Bot, Clock, LayoutDashboard, PhoneCall, Settings, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
   leadId: string;
@@ -204,7 +204,10 @@ export default function CompanyDashboardPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Today&apos;s Work</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <LayoutDashboard size={20} strokeWidth={1.75} />
+            Today&apos;s Work
+          </h1>
           <p className="page-subtitle">
             {hasJobs
               ? `Urgent leads, today's appointments, active ${vocab.jobNounPlural.toLowerCase()}, and agent status.`
@@ -254,7 +257,9 @@ export default function CompanyDashboardPage() {
           <Link
             href={`/company/calls${previewSuffix}`}
             className="button small"
+            style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
           >
+            <PhoneCall size={13} strokeWidth={1.75} />
             Review calls
           </Link>
         </div>
@@ -365,8 +370,14 @@ export default function CompanyDashboardPage() {
         {/* Agent Setup panel - unchanged */}
         <aside className="panel" aria-labelledby="agent-title">
           <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 className="panel-title" id="agent-title">Agent Setup</h2>
-            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600 }}>Settings →</Link>
+            <h2 className="panel-title" id="agent-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Bot size={16} strokeWidth={1.75} />
+              Agent Setup
+            </h2>
+            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <Settings size={13} strokeWidth={1.75} />
+              Settings
+            </Link>
           </div>
           <div className="panel-body">
             {agentSettings.length === 0 ? (

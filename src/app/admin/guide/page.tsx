@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BookOpen, Download, ExternalLink } from "lucide-react";
 
 const TABS = [
   {
@@ -37,7 +38,10 @@ export default function AdminGuidePage() {
     <>
       <header className="page-header" style={{ marginBottom: 16 }}>
         <div>
-          <h1 className="page-title">Playbooks</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BookOpen size={20} strokeWidth={1.75} />
+            Playbooks
+          </h1>
           <p className="page-subtitle">{current.description}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -46,8 +50,10 @@ export default function AdminGuidePage() {
               className="button"
               href="/Luxor-AI-Pitch.pptx"
               download="Luxor-AI-Pitch.pptx"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
             >
-              Download PPTX ↓
+              <Download size={15} strokeWidth={1.75} />
+              Download PPTX
             </a>
           )}
           <a
@@ -55,8 +61,10 @@ export default function AdminGuidePage() {
             href={current.src}
             target="_blank"
             rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
-            {active === "pitch" ? "Open → Print as PDF ↗" : "Open full screen ↗"}
+            <ExternalLink size={15} strokeWidth={1.75} />
+            {active === "pitch" ? "Open → Print as PDF" : "Open full screen"}
           </a>
         </div>
       </header>

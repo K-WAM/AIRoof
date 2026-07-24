@@ -6,6 +6,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Bell, Clock3, Globe2, Save, Settings } from "lucide-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -120,10 +121,14 @@ export default function CompanySettingsPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Settings</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Settings size={20} strokeWidth={1.75} />
+            Settings
+          </h1>
           <p className="page-subtitle">Business hours, timezone, and contact details. Changes take effect immediately.</p>
         </div>
-        <button className="button primary" onClick={save} disabled={saving}>
+        <button className="button primary" onClick={save} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Save size={15} strokeWidth={1.75} />
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </header>
@@ -143,7 +148,10 @@ export default function CompanySettingsPage() {
         {/* Business hours */}
         <section className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Business Hours</h2>
+            <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Clock3 size={16} strokeWidth={1.75} />
+              Business Hours
+            </h2>
           </div>
           <div className="panel-body">
             <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
@@ -196,7 +204,10 @@ export default function CompanySettingsPage() {
         <div style={{ display: "grid", gap: 20 }}>
           <section className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">Timezone</h2>
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Globe2 size={16} strokeWidth={1.75} />
+                Timezone
+              </h2>
             </div>
             <div className="panel-body">
               <div className="field">
@@ -216,7 +227,10 @@ export default function CompanySettingsPage() {
 
           <section className="panel">
             <div className="panel-header">
-              <h2 className="panel-title">Notifications &amp; Contact</h2>
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Bell size={16} strokeWidth={1.75} />
+                Notifications &amp; Contact
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">

@@ -8,7 +8,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
-import { Clock, Headphones } from "lucide-react";
+import { Clock, Headphones, History, PhoneCall } from "lucide-react";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -107,7 +107,10 @@ export default function CompanyCallsPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Calls</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <PhoneCall size={20} strokeWidth={1.75} />
+            Calls
+          </h1>
           <p className="page-subtitle">
             Every call Alice answered — full transcript and AI summary.
           </p>
@@ -118,7 +121,10 @@ export default function CompanyCallsPage() {
       <div className="call-workspace">
         <section className="panel" aria-labelledby="call-list-title">
           <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 className="panel-title" id="call-list-title">Call History</h2>
+            <h2 className="panel-title" id="call-list-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <History size={16} strokeWidth={1.75} />
+              Call History
+            </h2>
             <div className="segmented-control" style={{ fontSize: 12 }}>
               {(["all", "inbound", "outbound"] as const).map((f) => (
                 <button key={f} className="segment" type="button" aria-pressed={dirFilter === f} onClick={() => setDirFilter(f)}>
@@ -175,7 +181,10 @@ export default function CompanyCallsPage() {
 
         <section className="panel" aria-labelledby="call-detail-title">
           <div className="panel-header">
-            <h2 className="panel-title" id="call-detail-title">Call Detail</h2>
+            <h2 className="panel-title" id="call-detail-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Headphones size={16} strokeWidth={1.75} />
+              Call Detail
+            </h2>
           </div>
           <div className="panel-body">
             {!selected ? (
