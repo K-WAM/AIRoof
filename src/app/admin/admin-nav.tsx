@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,7 +11,9 @@ import {
   BookMarked,
   QrCode,
   ExternalLink,
+  MessageSquareText,
 } from "lucide-react";
+import { FeedbackForm } from "@/components/ui/FeedbackForm";
 
 const mainLinks = [
   { href: "/admin/businesses", label: "Businesses", Icon: Building2 },
@@ -25,6 +28,7 @@ const toolLinks = [
 
 export function AdminNav() {
   const pathname = usePathname();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
     <nav className="admin-nav" aria-label="Admin navigation">
@@ -55,6 +59,15 @@ export function AdminNav() {
             {label}
           </Link>
         ))}
+        <button
+          type="button"
+          className="nav-link"
+          onClick={() => setFeedbackOpen(true)}
+          aria-label="Send feedback"
+        >
+          <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
+          Feedback
+        </button>
       </div>
       <div className="nav-spacer" />
       <p className="nav-section-label" style={{ marginBottom: 6 }}>Demo (Apex Roofing)</p>
@@ -66,6 +79,7 @@ export function AdminNav() {
         <ExternalLink size={13} strokeWidth={1.75} className="nav-link-icon" />
         Demo: Client view
       </a>
+      <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </nav>
   );
 }

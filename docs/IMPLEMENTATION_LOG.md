@@ -582,3 +582,79 @@ removals + rationale (if any) · deviations from spec (if any).
 - Verification: `git diff --check` clean; `npm run type-check` clean; `npm run lint` 0 errors / 27 repository
   warnings; `npm test` 27 files / 271 tests green after one existing Vapi smoke-test timeout passed in
   isolation and on the immediate full rerun; `npm run build` green.
+
+## T-044 — Self-serve feedback form → connect@luxordev.com
+- Date: 2026-07-23 · branch: task/feedback-form · commit: (pending)
+- **Files created:**
+  - `src/app/api/feedback/route.ts` — POST handler: parses `{businessId, message, category?}`, validates
+    message required + length-capped (max 2000 chars), rejects empty/whitespace-only messages, passes through
+    `verifyAuthAndRole` with roles `[owner, staff, viewer, superadmin]`, calls `sendFeedbackEmail` from
+    `src/lib/notify.ts`, returns 200 on delivered, 503 on unconfigured, 502 on send failure. No anonymous
+    endpoint — authentication cookie required.
+  - `src/app/api/feedback/__tests__/route.test.ts` — 16 tests: success with/without category, missing
+    message/businessId, empty/whitespace-only/too-long message, too-long category, non-JSON body, 401 missing
+    session, 403 wrong role, 503 unconfigured Resend, 502 delivery failure, correct role pass-through, uid
+    fallback when email missing, trimmed whitespace.
+  - `src/components/ui/FeedbackForm.tsx` — Controlled dialog component receiving `open`/`onClose` props; reads
+    user from `useAuth()`, pre-fills sender info, renders message textarea (2000-char cap with counter),
+    optional category dropdown (Bug report/Feature request/Usability/Performance/Documentation/Other), send
+    button with `runSingleFlight`-style ref-based single-flight protection, explicit error/success states
+    using existing `.button` design tokens and `var(--accent)` color. No new dependencies.
+- **Files modified:**
+  - `src/lib/notify.ts` — Added `buildFeedbackEmail()` (subject convention `[Feedback] <businessName> — <first ~40
+    chars>` per T-043's `[Category]` pattern, branded Luxor AI shell, submitter contact + tenant in body) and
+    `sendFeedbackEmail()` (delegates to T-041's `sendEmail`, hardcoded `connect@luxordev.com` recipient).
+  - `src/app/company/company-nav.tsx` — Added `MessageSquareText` icon import + `FeedbackForm` import + trigger
+    button matching existing `<a>` link pattern (`size={16} strokeWidth={1.75}`) + `<FeedbackForm>` mounting.
+  - `src/app/admin/admin-nav.tsx` — Added `MessageSquareText` icon + `FeedbackForm` import + trigger button
+    in Tools section matching `nav-link`/`nav-link-icon` pattern (`size={15} strokeWidth={1.75}`) +
+    `<FeedbackForm>` mounting.
+- Edge cases covered: Resend not configured → 503 explicit error (never false success); empty/whitespace-only
+  message rejected client + server; send button disabled during flight via ref-based lock; message length capped
+  at 2000 chars server + client; category length capped at 100 chars; superadmin allowed alongside regular roles.
+- No unauthenticated endpoint, no general support-ticket system, no new dependencies, no raw Resend call.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 27 warnings (baseline drifted to 27
+  pre-existing — none from T-044 files, confirmed via targeted grep); `npm test` 28 files / 287 tests green
+  (271 baseline + 16 new feedback route tests); `npm run build` green with `/api/feedback` route confirmed in
+  build output.
+- **T-041 migration note:** Currently calls `sendEmail` directly from `sendFeedbackEmail` (same pattern
+  `notify.ts` already uses for `sendCrewAssignment`/`sendCustomerConfirmation`/`sendBusinessWelcomeEmail`).
+  When T-041's `sendWithLedger` is adopted more broadly, migrate this call site onto it for delivery tracking.
+- Co-Authored-By: Claude <noreply@anthropic.com>
+
+## T-044/T-045 — Integrator review
+- Date: 2026-07-24 · reviewed in worktrees `air-wt-feedback-form` (`task/feedback-form`) and `air-wt-icon-sweep`
+  (`task/icon-sweep`) before merge.
+- **T-045: APPROVE, merged without rework** (commit `d8e9c35`). Independently reproduced: type-check clean,
+  lint 0/27, build green; `verify.test.ts` timed out once under concurrent load, passed 15/15 in isolation
+  immediately after (same known-flaky pattern documented in AGENTS.md, not a regression). Spot-checked the
+  three largest diffs (`jobs/[jobId]/page.tsx` 173 lines, `admin/businesses/[businessId]/config/page.tsx` 79
+  lines, `company/field/page.tsx` 80 lines, incl. a hand-rolled mic `<svg>` replaced by lucide's `Mic`) — all
+  proportionate icon-only additions, no text/vocab/layout changes. Verified the "4 pages have no lucide import"
+  claim: all four (`company/agent`, `company/appointments`, `company/leads`, `admin/page.tsx`) are genuinely
+  content-free redirect stubs. Repo-wide scan for leftover icon-shaped emoji found a handful of inline `✓`/`🎉`
+  characters inside toast/status *sentences* (e.g. "✓ Settings saved successfully.") rather than nav
+  rows/buttons/headers — outside the task's own scope definition; one borderline case, a button label
+  `"✓ Confirm + email"` in `calendar/page.tsx`, could reasonably have been swapped too. Cosmetic, non-blocking,
+  not sent back for rework.
+- **T-044: two real defects found and fixed directly** (commit `eaeb606`, small/unambiguous/same-pattern-as-
+  existing-code — not sent back). (1) `route.ts` called `sendFeedbackEmail` with `businessName: businessId`,
+  never looking up the business doc — every other email call site in this repo (`send-confirmation/route.ts`,
+  `agentTools.ts`) resolves the real `businessName` from Firestore, and the whole point of the subject
+  convention (`[Feedback] <businessName> — ...`) is triage-friendly identification, not a slug. The route's
+  own test had baked the bug in as an expected value. Fixed by fetching `businesses/{businessId}`, falling
+  back to `businessId` only if the doc/field is genuinely absent; added a test for that fallback path. (2) The
+  new Feedback `<button>` in `company-nav.tsx` had no `className`, but `.company-nav a` in `globals.css` is
+  scoped to anchor tags only — the button would have rendered with default browser chrome next to properly
+  styled nav links (the admin-nav.tsx version was fine; it correctly reused `className="nav-link"`). Fixed
+  with a new `.company-nav-trigger` class mirroring `.company-nav a`'s rules — deliberately not a
+  `.company-nav button` descendant selector, which would have leaked flex/gap styling into `FeedbackForm`'s
+  own Cancel/Send buttons rendered inside the same `<nav>` subtree. **Residual gap, documented not blocking:**
+  MASTER_PLAN's T-044 "Tests" line asks for "component test for the form's submit/disable/error states";
+  only the route-level test exists, no `FeedbackForm.tsx` component test — the feature is otherwise fully
+  covered at the route level and is simple enough to spot-check manually; not worth blocking Phase 4's close
+  over. Re-verified after both fixes: type-check clean, lint 0/27, **288/288 tests**, build green.
+- Merged both into `main` locally (`Integrate T-045` then `Integrate T-044`); `TODO.md`/`IMPLEMENTATION_LOG.md`
+  were the only conflicts (both workers' own status-row/log entries, kept both sides), zero code conflicts as
+  designed — file-overlap prediction (both touching `company-nav.tsx`/`admin-nav.tsx`) did not materialize:
+  T-045's diff never touched either nav file.

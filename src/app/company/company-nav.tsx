@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -12,9 +13,11 @@ import {
   BookOpen,
   Settings,
   Compass,
+  MessageSquareText,
   type LucideIcon,
 } from "lucide-react";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
+import { FeedbackForm } from "@/components/ui/FeedbackForm";
 
 const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyModule | null }[] = [
   { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard, module: null },
@@ -35,6 +38,7 @@ export function CompanyNav() {
   const suffix = preview ? `?preview=${preview}` : "";
 
   const { isEnabled } = useBusinessModules();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const visibleLinks = LINKS.filter((link) => !link.module || isEnabled(link.module));
 
@@ -50,6 +54,17 @@ export function CompanyNav() {
           {label}
         </Link>
       ))}
+      <button
+        type="button"
+        className="company-nav-trigger"
+        onClick={() => setFeedbackOpen(true)}
+        title="Send feedback"
+        aria-label="Send feedback"
+      >
+        <MessageSquareText size={16} strokeWidth={1.75} />
+        Feedback
+      </button>
+      <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </nav>
   );
 }

@@ -708,7 +708,8 @@ a.panel:hover {
   display: none;
 }
 
-.company-nav a {
+.company-nav a,
+.company-nav-trigger {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -719,9 +720,14 @@ a.panel:hover {
   font-weight: 500;
   transition: background 0.12s, color 0.12s;
   white-space: nowrap;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-.company-nav a:hover {
+.company-nav a:hover,
+.company-nav-trigger:hover {
   background: var(--surface-muted);
   color: var(--text);
 }
