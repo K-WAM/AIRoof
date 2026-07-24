@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Plus, Undo2 } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
@@ -440,7 +440,10 @@ export default function CalendarPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Calendar</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CalendarDays size={20} strokeWidth={1.75} />
+            Calendar
+          </h1>
           <p className="page-subtitle">
             {apptMode
               ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.customerNoun.toLowerCase()}.`
@@ -449,7 +452,10 @@ export default function CalendarPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {toast && <span role="status" className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
-          <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small">+ Manage {vocab.resourceNounPlural.toLowerCase()}</Link>
+          <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Plus size={13} strokeWidth={1.75} />
+            Manage {vocab.resourceNounPlural.toLowerCase()}
+          </Link>
         </div>
       </header>
 
@@ -462,7 +468,10 @@ export default function CalendarPage() {
       {/* Week nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="button small" onClick={() => setWeekStart(startOfWeek(new Date()))}>Today</button>
+          <button className="button small" onClick={() => setWeekStart(startOfWeek(new Date()))} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Clock3 size={13} strokeWidth={1.75} />
+            Today
+          </button>
           <button className="button small" aria-label="Previous week" onClick={() => setWeekStart(addDays(weekStart, -7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronLeft size={16} /></button>
           <button className="button small" aria-label="Next week" onClick={() => setWeekStart(addDays(weekStart, 7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronRight size={16} /></button>
           <strong style={{ fontSize: 15, color: "#0f172a", marginLeft: 6 }}>{rangeLabel}</strong>
@@ -495,7 +504,8 @@ export default function CalendarPage() {
           {/* Needs-a-resource rail */}
           <section className="panel">
             <div className="panel-header">
-              <h2 className="panel-title" style={{ fontSize: 14 }}>
+              <h2 className="panel-title" style={{ fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                <CalendarClock size={15} strokeWidth={1.75} />
                 {apptMode ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
               </h2>
             </div>
@@ -535,7 +545,10 @@ export default function CalendarPage() {
                   the bookings are the draggable cards, so this strip would just
                   duplicate the rows below it. */}
               {!apptMode && (
-                <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>📅 Bookings</div>
+                <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>
+                  <CalendarDays size={14} strokeWidth={1.75} />
+                  Bookings
+                </div>
               )}
               {!apptMode && days.map((d) => {
                 const dayAppts = appts.filter((a) => sameDay(a.startTime, d, tz));
@@ -760,7 +773,9 @@ function ScheduledApptTile({
             Open →
           </Link>
         )}
-        <button onClick={() => onUnassign(appt.appointmentId)} title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>⤺</button>
+        <button onClick={() => onUnassign(appt.appointmentId)} aria-label="Move back to unassigned" title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+          <Undo2 size={13} strokeWidth={1.75} />
+        </button>
       </div>
     </div>
   );
@@ -802,7 +817,9 @@ function ScheduledTile({
         ) : (
           <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "5px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
         )}
-        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer" }}>⤺</button>
+        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+          <Undo2 size={13} strokeWidth={1.75} />
+        </button>
       </div>
     </div>
   );

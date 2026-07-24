@@ -10,7 +10,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
-import { Phone, Clock } from "lucide-react";
+import { CalendarDays, Check, Clock, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
 
@@ -380,7 +380,10 @@ export default function PipelinePage() {
       )}
       <header className="page-header">
         <div>
-          <h1 className="page-title">Pipeline</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Workflow size={20} strokeWidth={1.75} />
+            Pipeline
+          </h1>
           <p className="page-subtitle">Leads captured by Alice and upcoming inspection appointments.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -437,7 +440,10 @@ export default function PipelinePage() {
           <div className="lead-workspace">
             <section className="panel" aria-labelledby="lead-queue-title">
               <div className="panel-header">
-                <h2 className="panel-title" id="lead-queue-title">Follow-up Queue</h2>
+                <h2 className="panel-title" id="lead-queue-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <ListTodo size={16} strokeWidth={1.75} />
+                  Follow-up Queue
+                </h2>
               </div>
               <div className="panel-body">
                 {filteredLeads.length === 0 ? (
@@ -513,7 +519,10 @@ export default function PipelinePage() {
 
             <aside className="panel" aria-labelledby="selected-lead-title">
               <div className="panel-header">
-                <h2 className="panel-title" id="selected-lead-title">Lead Detail</h2>
+                <h2 className="panel-title" id="selected-lead-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <UserRound size={16} strokeWidth={1.75} />
+                  Lead Detail
+                </h2>
               </div>
               <div className="panel-body">
                 {!selectedLead ? (
@@ -559,7 +568,9 @@ export default function PipelinePage() {
                         type="button"
                         disabled={selectedLead.status === "contacted" || leadUpdating}
                         onClick={() => markContacted(selectedLead)}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                       >
+                        <Check size={14} strokeWidth={1.75} />
                         {selectedLead.status === "contacted" ? "Contacted" : "Mark contacted"}
                       </button>
                       {selectedLead.callerPhone && (
@@ -588,7 +599,10 @@ export default function PipelinePage() {
         <>
           <section className="panel" aria-labelledby="upcoming-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="upcoming-title">Upcoming Inspections</h2>
+              <h2 className="panel-title" id="upcoming-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <CalendarDays size={16} strokeWidth={1.75} />
+                Upcoming Inspections
+              </h2>
             </div>
             <div className="panel-body">
               {upcomingAppts.length === 0 ? (
@@ -606,7 +620,10 @@ export default function PipelinePage() {
           {pastAppts.length > 0 && (
             <section className="panel" aria-labelledby="past-title" style={{ marginTop: 20 }}>
               <div className="panel-header">
-                <h2 className="panel-title" id="past-title">Past &amp; Cancelled</h2>
+                <h2 className="panel-title" id="past-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <History size={16} strokeWidth={1.75} />
+                  Past &amp; Cancelled
+                </h2>
               </div>
               <div className="panel-body">
                 <div style={{ display: "grid", gap: 16 }}>

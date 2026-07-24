@@ -4,6 +4,17 @@ import React, { useEffect, useState, useCallback, useRef } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import {
+  CircleDollarSign,
+  Download,
+  FilePlus,
+  LayoutTemplate,
+  Plus,
+  Receipt,
+  Save,
+  Send,
+  Trash2,
+} from "lucide-react";
+import {
   canSendSavedInvoice,
   guardUnsavedInvoiceUnload,
   isValidInvoiceEmail,
@@ -297,10 +308,16 @@ export default function AdminInvoicesPage() {
 
       <header className="page-header no-print">
         <div>
-          <h1 className="page-title">Invoices</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Receipt size={20} strokeWidth={1.75} />
+            Invoices
+          </h1>
           <p className="page-subtitle">Create and send Luxor-branded invoices to client businesses.</p>
         </div>
-        <button className="button primary" onClick={newInvoice}>+ New Invoice</button>
+        <button className="button primary" onClick={newInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Plus size={15} strokeWidth={1.75} />
+          New Invoice
+        </button>
       </header>
 
       {actionError && (
@@ -319,7 +336,10 @@ export default function AdminInvoicesPage() {
           {/* Editor header */}
           <div className="panel no-print" style={{ marginBottom: 20 }}>
             <div className="panel-header">
-              <h2 className="panel-title">{editingId ? `Editing ${editingId}` : "New Invoice"}</h2>
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <FilePlus size={16} strokeWidth={1.75} />
+                {editingId ? `Editing ${editingId}` : "New Invoice"}
+              </h2>
               {currentInvoice && <span style={STATUS_STYLE[currentInvoice.status]}>{currentInvoice.status}</span>}
             </div>
             <div className="panel-body">
@@ -426,13 +446,18 @@ export default function AdminInvoicesPage() {
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>${item.total.toFixed(2)}</td>
                     <td className="no-print" style={{ padding: "8px 4px", textAlign: "center" }}>
-                      <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+                      <button onClick={() => removeItem(i)} aria-label="Remove line item" title="Remove line item" style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", lineHeight: 1, padding: 2 }}>
+                        <Trash2 size={14} strokeWidth={1.75} />
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <button className="no-print" onClick={addItem} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "4px 12px 0" }}>+ Add line item</button>
+            <button className="no-print" onClick={addItem} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: "4px 12px 0", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Plus size={13} strokeWidth={1.75} />
+              Add line item
+            </button>
 
             {/* Totals */}
             <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 16 }}>
@@ -475,19 +500,34 @@ export default function AdminInvoicesPage() {
 
           {/* Action bar */}
           <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", alignItems: "center" }}>
-            <button className="button primary" onClick={save} disabled={saving || sending}>{saving ? "Saving…" : editingId ? "Save changes" : "Save invoice"}</button>
+            <button className="button primary" onClick={save} disabled={saving || sending} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Save size={15} strokeWidth={1.75} />
+              {saving ? "Saving…" : editingId ? "Save changes" : "Save invoice"}
+            </button>
             <input ref={sendEmailRef} type="email" required value={sendEmail} onChange={e => setSendEmail(e.target.value)} placeholder="Send to email…" style={{ padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, width: 220 }} />
-            <button className="button" onClick={send} disabled={sending || saving || !canSendSavedInvoice(editingId, dirty, sendEmail)}>{sending ? "Sending…" : "Send saved invoice"}</button>
-            <button className="button" onClick={() => window.print()}>⬇ Download PDF</button>
+            <button className="button" onClick={send} disabled={sending || saving || !canSendSavedInvoice(editingId, dirty, sendEmail)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Send size={15} strokeWidth={1.75} />
+              {sending ? "Sending…" : "Send saved invoice"}
+            </button>
+            <button className="button" onClick={() => window.print()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Download size={15} strokeWidth={1.75} />
+              Download PDF
+            </button>
             {currentInvoice?.status !== "paid" && editingId && (
-              <button className="button" onClick={markPaid} disabled={markingPaid} style={{ color: "#166534" }}>{markingPaid ? "…" : "Mark paid"}</button>
+              <button className="button" onClick={markPaid} disabled={markingPaid} style={{ color: "#166534", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <CircleDollarSign size={15} strokeWidth={1.75} />
+                {markingPaid ? "…" : "Mark paid"}
+              </button>
             )}
           </div>
 
           {/* Save as template */}
           <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
             <input value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Save as template…" style={{ padding: "7px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 13, width: 200 }} />
-            <button className="button" onClick={saveTemplate} disabled={savingTemplate || !templateName.trim()}>{savingTemplate ? "…" : "Save template"}</button>
+            <button className="button" onClick={saveTemplate} disabled={savingTemplate || !templateName.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <LayoutTemplate size={15} strokeWidth={1.75} />
+              {savingTemplate ? "…" : "Save template"}
+            </button>
           </div>
         </div>
 
@@ -496,7 +536,10 @@ export default function AdminInvoicesPage() {
           {/* Invoice list */}
           <section className="panel no-print">
             <div className="panel-header">
-              <h2 className="panel-title">Invoices ({invoices.length})</h2>
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Receipt size={16} strokeWidth={1.75} />
+                Invoices ({invoices.length})
+              </h2>
             </div>
             <div className="panel-body" style={{ padding: 0 }}>
               {invoices.length === 0 ? (
@@ -525,7 +568,10 @@ export default function AdminInvoicesPage() {
           {templates.length > 0 && (
             <section className="panel no-print">
               <div className="panel-header">
-                <h2 className="panel-title">Templates</h2>
+                <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <LayoutTemplate size={16} strokeWidth={1.75} />
+                  Templates
+                </h2>
               </div>
               <div className="panel-body" style={{ padding: 0 }}>
                 {templates.map(t => (
@@ -533,7 +579,9 @@ export default function AdminInvoicesPage() {
                     <button onClick={() => applyTemplate(t.templateId)} style={{ background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#1e293b", padding: 0, textAlign: "left" }}>
                       {t.name}
                     </button>
-                    <button onClick={() => deleteTemplate(t.templateId)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, padding: 0 }}>×</button>
+                    <button onClick={() => deleteTemplate(t.templateId)} aria-label={`Delete ${t.name} template`} title="Delete template" style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 2 }}>
+                      <Trash2 size={14} strokeWidth={1.75} />
+                    </button>
                   </div>
                 ))}
               </div>

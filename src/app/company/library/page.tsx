@@ -7,6 +7,15 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import {
+  BadgeDollarSign,
+  BookOpen,
+  FileText,
+  Package,
+  Plus,
+  Trash2,
+  Users,
+} from "lucide-react";
 
 type Section = "pricing" | "crews" | "documents";
 
@@ -86,7 +95,10 @@ export default function LibraryPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Library</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BookOpen size={20} strokeWidth={1.75} />
+            Library
+          </h1>
           <p className="page-subtitle">
             {hasPricing
               ? `Pricing, ${vocab.resourceNounPlural.toLowerCase()}, and shared documents. Invoices and reports pull pricing from here automatically.`
@@ -147,7 +159,12 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <section className="panel">
-        <div className="panel-header"><h2 className="panel-title">Material prices</h2></div>
+        <div className="panel-header">
+          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Package size={16} strokeWidth={1.75} />
+            Material prices
+          </h2>
+        </div>
         <div className="panel-body">
           <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>When a field update mentions a material with no price, the invoice auto-fills the unit price from here.</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -160,17 +177,29 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
                   <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} /></td>
                   <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
                   <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
-                  <td style={td}><button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" title="Remove">×</button></td>
+                  <td style={td}>
+                    <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" title="Remove" aria-label={`Remove ${m.name || "material"}`}>
+                      <Trash2 size={14} strokeWidth={1.75} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button type="button" className="button small" onClick={() => setMaterials(a => [...a, { name: "", unit: "", unitPrice: 0 }])}>+ Add material</button>
+          <button type="button" className="button small" onClick={() => setMaterials(a => [...a, { name: "", unit: "", unitPrice: 0 }])} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Plus size={13} strokeWidth={1.75} />
+            Add material
+          </button>
         </div>
       </section>
 
       <section className="panel">
-        <div className="panel-header"><h2 className="panel-title">Labor rates &amp; tax</h2></div>
+        <div className="panel-header">
+          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <BadgeDollarSign size={16} strokeWidth={1.75} />
+            Labor rates &amp; tax
+          </h2>
+        </div>
         <div className="panel-body">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginBottom: 12 }}>
             <thead><tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
@@ -181,12 +210,19 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                   <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} /></td>
                   <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
-                  <td style={td}><button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" title="Remove">×</button></td>
+                  <td style={td}>
+                    <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" title="Remove" aria-label={`Remove ${l.role || "role rate"}`}>
+                      <Trash2 size={14} strokeWidth={1.75} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button type="button" className="button small" onClick={() => setLaborRates(a => [...a, { role: "", rate: 0 }])}>+ Add role rate</button>
+          <button type="button" className="button small" onClick={() => setLaborRates(a => [...a, { role: "", rate: 0 }])} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <Plus size={13} strokeWidth={1.75} />
+            Add role rate
+          </button>
           <div className="field" style={{ marginTop: 16, maxWidth: 200 }}>
             <label>Default tax rate (%)</label>
             <input type="number" min="0" max="30" step="0.01" value={taxRate} onChange={(e) => setTaxRate(e.target.value)} onBlur={() => commit()} placeholder="0" />
@@ -270,7 +306,12 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
 
   return (
     <section className="panel">
-      <div className="panel-header"><h2 className="panel-title">{resources}</h2></div>
+      <div className="panel-header">
+        <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Users size={16} strokeWidth={1.75} />
+          {resources}
+        </h2>
+      </div>
       <div className="panel-body">
         {actionError && (
           <p role="alert" style={{ color: "var(--danger)", marginTop: 0 }}>
@@ -293,7 +334,9 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</div>
               </div>
-              <button onClick={() => removeCrew(c.crewId)} className="icon-del" title="Remove">×</button>
+              <button onClick={() => removeCrew(c.crewId)} className="icon-del" title="Remove" aria-label={`Remove ${c.name}`}>
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
 
               {pickerCrewId === c.crewId && (
                 <>
@@ -322,7 +365,12 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
           <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
           <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
           <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
-          <div className="field"><button className="button primary" onClick={addCrew} disabled={adding || !name.trim()}>{adding ? "Adding…" : `+ Add ${resource.toLowerCase()}`}</button></div>
+          <div className="field">
+            <button className="button primary" onClick={addCrew} disabled={adding || !name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Plus size={15} strokeWidth={1.75} />
+              {adding ? "Adding…" : `Add ${resource.toLowerCase()}`}
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -348,15 +396,22 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
 
   return (
     <section className="panel">
-      <div className="panel-header"><h2 className="panel-title">Shared documents</h2></div>
+      <div className="panel-header">
+        <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <FileText size={16} strokeWidth={1.75} />
+          Shared documents
+        </h2>
+      </div>
       <div className="panel-body">
         <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Link warranties, spec sheets, safety docs, or price lists. Paste a shareable URL (Google Drive, Dropbox, etc.) — keeps everything free and accessible everywhere.</p>
         <div style={{ display: "grid", gap: 8, marginBottom: 18 }}>
           {docs.map((d) => (
             <div key={d.docId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
-              <span style={{ fontSize: 18 }}>📄</span>
+              <FileText size={18} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0 }} />
               <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>{d.name} ↗</a>
-              <button onClick={() => removeDoc(d.docId)} className="icon-del" title="Remove">×</button>
+              <button onClick={() => removeDoc(d.docId)} className="icon-del" title="Remove" aria-label={`Remove ${d.name}`}>
+                <Trash2 size={14} strokeWidth={1.75} />
+              </button>
             </div>
           ))}
           {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}
@@ -364,7 +419,12 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
         <div className="form-grid" style={{ alignItems: "end" }}>
           <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>
           <div className="field"><label>Link (URL)</label><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
-          <div className="field"><button className="button primary" onClick={addLink} disabled={!name.trim() || !url.trim()}>+ Add document</button></div>
+          <div className="field">
+            <button className="button primary" onClick={addLink} disabled={!name.trim() || !url.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Plus size={15} strokeWidth={1.75} />
+              Add document
+            </button>
+          </div>
         </div>
       </div>
     </section>

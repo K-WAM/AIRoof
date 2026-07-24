@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Activity, BarChart3, ExternalLink, Settings } from "lucide-react";
 
 interface BizUsage {
   businessId: string;
@@ -50,7 +51,10 @@ export default function AdminUsagePage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Usage</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BarChart3 size={20} strokeWidth={1.75} />
+            Usage
+          </h1>
           <p className="page-subtitle">Platform-wide activity across all tenants.</p>
         </div>
       </header>
@@ -76,7 +80,10 @@ export default function AdminUsagePage() {
 
       <section className="panel">
         <div className="panel-header">
-          <h2 className="panel-title">Per-Business Activity</h2>
+          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <Activity size={16} strokeWidth={1.75} />
+            Per-Business Activity
+          </h2>
         </div>
         <div className="panel-body" style={{ padding: 0 }}>
           {rows.length === 0 ? (
@@ -116,8 +123,9 @@ export default function AdminUsagePage() {
                       <a
                         href={`/admin/businesses/${r.businessId}/config`}
                         className="button small"
-                        style={{ fontSize: 12 }}
+                        style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
+                        <Settings size={13} strokeWidth={1.75} />
                         Configure
                       </a>
                       <a
@@ -125,9 +133,10 @@ export default function AdminUsagePage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="button small"
-                        style={{ fontSize: 12 }}
+                        style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
-                        Preview ↗
+                        <ExternalLink size={13} strokeWidth={1.75} />
+                        Preview
                       </a>
                     </td>
                   </tr>

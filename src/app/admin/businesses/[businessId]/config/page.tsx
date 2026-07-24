@@ -6,6 +6,22 @@ import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import {
+  ArrowLeft,
+  Bot,
+  Building2,
+  Copy,
+  KeyRound,
+  ListChecks,
+  Palette,
+  PhoneCall,
+  Receipt,
+  Rocket,
+  Route,
+  Save,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 
 interface BizData {
   businessName: string;
@@ -270,13 +286,19 @@ export default function AdminBusinessConfigPage({
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Company Config</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Settings size={20} strokeWidth={1.75} />
+            Company Config
+          </h1>
           <p className="page-subtitle">
             Edit agent settings, voice, routing, and Vapi IDs for{" "}
             <strong>{biz.businessName}</strong> ({businessId}).
           </p>
         </div>
-        <a className="button" href="/admin/businesses">← All companies</a>
+        <a className="button" href="/admin/businesses" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <ArrowLeft size={15} strokeWidth={1.75} />
+          All companies
+        </a>
       </header>
 
       <form
@@ -291,7 +313,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Business Profile ─── */}
           <section className="panel" aria-labelledby="profile-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="profile-config-title">Business Profile</h2>
+              <h2 className="panel-title" id="profile-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Building2 size={16} strokeWidth={1.75} />
+                Business Profile
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
@@ -333,7 +358,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Vapi Integration ─── */}
           <section className="panel" aria-labelledby="vapi-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="vapi-config-title">Vapi Integration</h2>
+              <h2 className="panel-title" id="vapi-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <PhoneCall size={16} strokeWidth={1.75} />
+                Vapi Integration
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
@@ -408,7 +436,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── AI Model and Voice ─── */}
           <section className="panel" aria-labelledby="ai-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="ai-config-title">AI Model and Voice</h2>
+              <h2 className="panel-title" id="ai-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Bot size={16} strokeWidth={1.75} />
+                AI Model and Voice
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
@@ -460,7 +491,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Services and Rules ─── */}
           <section className="panel" aria-labelledby="services-config-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="services-config-title">Services and Rules</h2>
+              <h2 className="panel-title" id="services-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <ListChecks size={16} strokeWidth={1.75} />
+                Services and Rules
+              </h2>
             </div>
             <div className="panel-body">
               <div className="rule-section">
@@ -493,7 +527,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Client Login ─── */}
           <section className="panel" aria-labelledby="login-provision-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="login-provision-title">Client Login</h2>
+              <h2 className="panel-title" id="login-provision-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <KeyRound size={16} strokeWidth={1.75} />
+                Client Login
+              </h2>
             </div>
             <div className="panel-body">
               <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
@@ -516,8 +553,9 @@ export default function AdminBusinessConfigPage({
                   className="button primary"
                   onClick={provisionLogin}
                   disabled={provisionStatus.type === "loading" || !loginEmail.trim()}
-                  style={{ fontSize: 13, whiteSpace: "nowrap" }}
+                  style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5 }}
                 >
+                  <UserPlus size={14} strokeWidth={1.75} />
                   {provisionStatus.type === "loading" ? "Creating…" : "Provision Login"}
                 </button>
               </div>
@@ -530,8 +568,9 @@ export default function AdminBusinessConfigPage({
                     <button
                       type="button"
                       onClick={() => navigator.clipboard.writeText(provisionStatus.tempPassword!)}
-                      style={{ fontSize: 11, padding: "2px 8px", border: "1px solid #86efac", borderRadius: 4, background: "#fff", cursor: "pointer", color: "#15803d" }}
+                      style={{ fontSize: 11, padding: "2px 8px", border: "1px solid #86efac", borderRadius: 4, background: "#fff", cursor: "pointer", color: "#15803d", display: "inline-flex", alignItems: "center", gap: 4 }}
                     >
+                      <Copy size={11} strokeWidth={1.75} />
                       Copy
                     </button>
                   </p>
@@ -546,7 +585,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Routing ─── */}
           <section className="panel" aria-labelledby="routing-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="routing-title">Routing</h2>
+              <h2 className="panel-title" id="routing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Route size={16} strokeWidth={1.75} />
+                Routing
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
@@ -577,7 +619,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Branding ─── */}
           <section className="panel" aria-labelledby="branding-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="branding-title">Branding</h2>
+              <h2 className="panel-title" id="branding-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Palette size={16} strokeWidth={1.75} />
+                Branding
+              </h2>
             </div>
             <div className="panel-body">
               <div className="form-grid">
@@ -608,7 +653,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Job Pricing ─── */}
           <section className="panel" aria-labelledby="pricing-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="pricing-title">Job Pricing</h2>
+              <h2 className="panel-title" id="pricing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Receipt size={16} strokeWidth={1.75} />
+                Job Pricing
+              </h2>
             </div>
             <div className="panel-body">
               <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
@@ -647,7 +695,10 @@ export default function AdminBusinessConfigPage({
           {/* ─── Launch Readiness ─── */}
           <section className="panel" aria-labelledby="readiness-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="readiness-title">Launch Readiness</h2>
+              <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Rocket size={16} strokeWidth={1.75} />
+                Launch Readiness
+              </h2>
             </div>
             <div className="panel-body">
               <div className="readiness-list">
@@ -669,7 +720,9 @@ export default function AdminBusinessConfigPage({
                   className="button primary"
                   type="submit"
                   disabled={submitStatus.type === "submitting"}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
+                  <Save size={15} strokeWidth={1.75} />
                   {submitStatus.type === "submitting" ? "Saving…" : "Save config"}
                 </button>
               </div>

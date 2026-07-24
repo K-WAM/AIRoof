@@ -7,6 +7,21 @@ import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ClipboardList,
+  Clock3,
+  MapPin,
+  Mic,
+  Package,
+  RefreshCw,
+  StickyNote,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 // ─── Job Selector ────────────────────────────────────────────────────────────
 
@@ -48,13 +63,16 @@ function JobSelector({
               <span style={{ color: "#f97316", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
                 {selected.jobId}
               </span>
-              <span style={{ marginLeft: "auto", color: "#64748b", fontSize: 18 }}>
-                {open ? "▲" : "▼"}
-              </span>
+              {open
+                ? <ChevronUp size={18} strokeWidth={1.75} style={{ marginLeft: "auto", color: "#64748b" }} />
+                : <ChevronDown size={18} strokeWidth={1.75} style={{ marginLeft: "auto", color: "#64748b" }} />}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc", marginTop: 4 }}>{selected.title}</div>
             {selected.address && (
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>📍 {selected.address}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <MapPin size={12} strokeWidth={1.75} />
+                {selected.address}
+              </div>
             )}
           </>
         ) : (
@@ -62,7 +80,9 @@ function JobSelector({
             <span style={{ color: "#64748b", fontSize: 15 }}>
               {jobs.length === 0 ? "— No open jobs —" : "Tap to select a job…"}
             </span>
-            <span style={{ color: "#64748b", fontSize: 18 }}>{open ? "▲" : "▼"}</span>
+            {open
+              ? <ChevronUp size={18} strokeWidth={1.75} style={{ color: "#64748b" }} />
+              : <ChevronDown size={18} strokeWidth={1.75} style={{ color: "#64748b" }} />}
           </div>
         )}
       </button>
@@ -195,15 +215,7 @@ function MicButton({
           WebkitUserSelect: "none",
         }}
       >
-        <svg
-          width={48}
-          height={48}
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          style={{ color: isRecording ? "#fff" : "#94a3b8" }}
-        >
-          <path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4zm6 10a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.93V21H9v2h6v-2h-2v-2.07A8 8 0 0 0 20 11h-2z" />
-        </svg>
+        <Mic size={48} strokeWidth={1.75} style={{ color: isRecording ? "#fff" : "#94a3b8" }} />
       </button>
     </div>
   );
@@ -221,10 +233,12 @@ interface JobLogData {
 
 function JobLogSection({
   title,
+  Icon,
   count,
   children,
 }: {
   title: string;
+  Icon: LucideIcon;
   count: number;
   children: React.ReactNode;
 }) {
@@ -247,7 +261,8 @@ function JobLogSection({
           color: "#94a3b8",
         }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon size={13} strokeWidth={1.75} />
           {title}
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -261,7 +276,9 @@ function JobLogSection({
             minWidth: 18,
             textAlign: "center",
           }}>{count}</span>
-          <span style={{ fontSize: 12, color: "#475569" }}>{open ? "▲" : "▼"}</span>
+          {open
+            ? <ChevronUp size={13} strokeWidth={1.75} style={{ color: "#475569" }} />
+            : <ChevronDown size={13} strokeWidth={1.75} style={{ color: "#475569" }} />}
         </div>
       </button>
       {open && (
@@ -312,7 +329,10 @@ function JobLogCard({ data }: { data: JobLogData }) {
         alignItems: "center",
         justifyContent: "space-between",
       }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc" }}>Job Log</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", display: "flex", alignItems: "center", gap: 6 }}>
+          <ClipboardList size={16} strokeWidth={1.75} />
+          Job Log
+        </span>
         {data.totalLaborHours > 0 && (
           <span style={{ fontSize: 12, color: "#f97316", fontWeight: 600 }}>
             {data.totalLaborHours.toFixed(1)}h total
@@ -321,21 +341,21 @@ function JobLogCard({ data }: { data: JobLogData }) {
       </div>
 
       {/* Materials */}
-      <JobLogSection title="📦 Materials" count={data.materials.length}>
+      <JobLogSection title="Materials" Icon={Package} count={data.materials.length}>
         {data.materials.map((m, i) => (
           <LogRow key={i} left={m.name} right={`${m.quantity} ${m.unit}`} />
         ))}
       </JobLogSection>
 
       {/* Timeline */}
-      <JobLogSection title="🕐 Timeline" count={data.timelineEvents.length}>
+      <JobLogSection title="Timeline" Icon={Clock3} count={data.timelineEvents.length}>
         {data.timelineEvents.map((ev, i) => (
           <LogRow key={i} left={ev.notes || ev.eventType} right={ev.time || ""} />
         ))}
       </JobLogSection>
 
       {/* Labor */}
-      <JobLogSection title="👷 Labor" count={data.laborEntries.length}>
+      <JobLogSection title="Labor" Icon={Users} count={data.laborEntries.length}>
         {data.laborEntries.map((e, i) => (
           <div
             key={i}
@@ -370,7 +390,7 @@ function JobLogCard({ data }: { data: JobLogData }) {
       </JobLogSection>
 
       {/* Notes */}
-      <JobLogSection title="📝 Notes" count={data.fieldNotes.length}>
+      <JobLogSection title="Notes" Icon={StickyNote} count={data.fieldNotes.length}>
         {data.fieldNotes.map((n, i) => (
           <div
             key={i}
@@ -521,7 +541,8 @@ function FieldPageContent() {
             marginBottom: 20,
           }}>
             <div>
-              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc" }}>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 7 }}>
+                <ClipboardList size={19} strokeWidth={1.75} />
                 Field Log
               </h1>
               {user && (
@@ -558,13 +579,14 @@ function FieldPageContent() {
                 border: "none",
                 cursor: "pointer",
                 color: "#475569",
-                fontSize: 18,
                 padding: 4,
                 lineHeight: 1,
+                display: "inline-flex",
+                alignItems: "center",
               }}
               title="Refresh"
             >
-              ↻
+              <RefreshCw size={18} strokeWidth={1.75} />
             </button>
           </header>
 
@@ -639,8 +661,14 @@ function FieldPageContent() {
                 Running total becomes <strong style={{ color: "#f8fafc" }}>{proposedCorrection.newTotal}</strong> (was {proposedCorrection.currentTotal}).
               </p>
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={cancelCorrection} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-                <button onClick={confirmCorrection} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#f97316", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Confirm change</button>
+                <button onClick={cancelCorrection} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <X size={15} strokeWidth={1.75} />
+                  Cancel
+                </button>
+                <button onClick={confirmCorrection} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#f97316", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <Check size={15} strokeWidth={1.75} />
+                  Confirm change
+                </button>
               </div>
             </div>
           )}

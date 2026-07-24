@@ -4,6 +4,18 @@ import { useEffect, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import {
+  Building2,
+  ClipboardList,
+  Copy,
+  LayoutTemplate,
+  ListChecks,
+  PhoneCall,
+  Rocket,
+  Route,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 
 const wizardSteps = [
   "Company profile",
@@ -158,7 +170,10 @@ export default function OnboardingPage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title">Company Onboarding</h1>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <UserPlus size={20} strokeWidth={1.75} />
+            Company Onboarding
+          </h1>
           <p className="page-subtitle">
             Create a tenant with guided defaults for industry template, AI plan,
             voice, services, rules, routing, and launch readiness.
@@ -171,7 +186,8 @@ export default function OnboardingPage() {
         <section className="section-stack">
           <section className="panel" aria-labelledby="profile-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="profile-title">
+              <h2 className="panel-title" id="profile-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Building2 size={16} strokeWidth={1.75} />
                 1. Company Profile
               </h2>
             </div>
@@ -215,7 +231,8 @@ export default function OnboardingPage() {
 
           <section className="panel" aria-labelledby="template-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="template-title">
+              <h2 className="panel-title" id="template-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <LayoutTemplate size={16} strokeWidth={1.75} />
                 2. Template and Plan
               </h2>
             </div>
@@ -303,7 +320,8 @@ export default function OnboardingPage() {
 
           <section className="panel" aria-labelledby="defaults-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="defaults-title">
+              <h2 className="panel-title" id="defaults-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <ListChecks size={16} strokeWidth={1.75} />
                 3. Roofing Defaults
               </h2>
             </div>
@@ -337,7 +355,8 @@ export default function OnboardingPage() {
 
           <section className="panel" aria-labelledby="routing-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="routing-title">
+              <h2 className="panel-title" id="routing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Route size={16} strokeWidth={1.75} />
                 4. Rules and Routing
               </h2>
             </div>
@@ -380,7 +399,8 @@ export default function OnboardingPage() {
 
           <section className="panel" aria-labelledby="vapi-onboarding-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="vapi-onboarding-title">
+              <h2 className="panel-title" id="vapi-onboarding-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <PhoneCall size={16} strokeWidth={1.75} />
                 5. Vapi and Branding
               </h2>
             </div>
@@ -426,7 +446,9 @@ export default function OnboardingPage() {
                   className="button primary"
                   type="submit"
                   disabled={submitStatus.type === "submitting"}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
+                  <UserPlus size={15} strokeWidth={1.75} />
                   Create company
                 </button>
               </div>
@@ -448,8 +470,9 @@ export default function OnboardingPage() {
                         type="button"
                         onClick={() => navigator.clipboard.writeText(`Email: ${submitStatus.loginEmail}\nPassword: ${submitStatus.tempPassword}`)}
                         className="button"
-                        style={{ fontSize: 12 }}
+                        style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
                       >
+                        <Copy size={13} strokeWidth={1.75} />
                         Copy credentials
                       </button>
                       <p style={{ margin: "8px 0 0", fontSize: 11, color: "#64748b" }}>Ask the client to change their password after first login.</p>
@@ -460,10 +483,12 @@ export default function OnboardingPage() {
                     </p>
                   )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <a href={`/admin/businesses/${submitStatus.businessId}/config`} className="button primary" style={{ fontSize: 13 }}>
-                      Configure agent →
+                    <a href={`/admin/businesses/${submitStatus.businessId}/config`} className="button primary" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <Settings size={14} strokeWidth={1.75} />
+                      Configure agent
                     </a>
-                    <a href="/admin/businesses" className="button" style={{ fontSize: 13 }}>
+                    <a href="/admin/businesses" className="button" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <Building2 size={14} strokeWidth={1.75} />
                       All companies
                     </a>
                   </div>
@@ -484,7 +509,8 @@ export default function OnboardingPage() {
         <aside className="section-stack">
           <section className="panel" aria-labelledby="steps-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="steps-title">
+              <h2 className="panel-title" id="steps-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <ClipboardList size={16} strokeWidth={1.75} />
                 Setup steps
               </h2>
             </div>
@@ -502,7 +528,8 @@ export default function OnboardingPage() {
 
           <section className="panel" aria-labelledby="readiness-title">
             <div className="panel-header">
-              <h2 className="panel-title" id="readiness-title">
+              <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Rocket size={16} strokeWidth={1.75} />
                 Launch readiness
               </h2>
             </div>
