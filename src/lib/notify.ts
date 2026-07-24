@@ -114,3 +114,46 @@ export async function sendCustomerConfirmation(
   const { subject, html } = buildCustomerConfirmationEmail(opts);
   return sendEmail({ to: opts.to, subject, html });
 }
+
+export function buildBusinessWelcomeEmail(opts: {
+  brandName: string;
+  ownerEmail: string;
+  resetLink: string;
+}): { subject: string; html: string } {
+  const accent = "#1e3a5f";
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">
+      A ${esc(opts.brandName)} account has been created for you on Luxor AI.
+      Your login email is <strong>${esc(opts.ownerEmail)}</strong>.
+    </p>
+    <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6">
+      Click the button below to set your password and get started.
+    </p>
+    <div style="margin:20px 0">
+      <a href="${esc(opts.resetLink)}" style="display:inline-block;background:${accent};color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Set your password</a>
+    </div>
+    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you didn\u2019t request this, you can safely ignore this email.</p>`;
+
+  return {
+    subject: `[Luxor AI] Your ${opts.brandName} account is ready`,
+    html: shell(
+      { businessName: "Luxor AI", brandColor: accent },
+      `Welcome to ${esc(opts.brandName)}`,
+      body,
+    ),
+  };
+}
+
+export async function sendBusinessWelcomeEmail(
+  opts: {
+    to: string;
+    brandName: string;
+    resetLink: string;
+  },
+): Promise<CommSendResult> {
+  const { subject, html } = buildBusinessWelcomeEmail({
+    ...opts,
+    ownerEmail: opts.to,
+  });
+  return sendEmail({ to: opts.to, subject, html });
+}
