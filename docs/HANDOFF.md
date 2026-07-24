@@ -13,8 +13,8 @@ Vapi live end-to-end. Admin panel complete. Field job tracking, voice updates (p
 
 ## What Was Built This Session (2026-05-29)
 
-### Field Log — Base44-style UI + Whisper Audio (full overhaul)
-- **Dark mobile UI**: slate-900 background, orange accents, matches Base44 prototype exactly
+### Field Log — Dark Mobile UI + Whisper Audio (full overhaul)
+- **Dark mobile UI**: slate-900 background, orange accents
 - **Job selector**: tappable card with prominent orange job ID (`J-XXXX`), dropdown overlay, no `<select>`
 - **Hold-to-speak mic**: animated orange pulse rings while recording, status cycles: HOLD TO SPEAK → Listening… → Transcribing… → ✓ Logged
 - **No submit button**: release the button → auto-submit. Zero extra taps for gloved hands.

@@ -339,12 +339,156 @@ Security/accessibility · Acceptance · Tests · Rollback · Prohibited scope.**
 
 ---
 
+## Phase 6 — UX & Demo Polish (queued; starts only after Phase 5 is fully merged)
+
+**Not CIB-derived — owner-requested 2026-07-23.** Lower task numbers than Phase 5 (T-046–049 vs T-050–052) are
+an artifact of sequential ID assignment, **not** execution order — see Integration order below. Owner explicitly
+chose "finish security/compliance backlog first" over parallelizing this with Phase 4/5; do not start any of
+these four before T-050/051/052 are merged. Two owner asks were explicitly decided **against** scoping here:
+public self-serve signup/trial/billing (concierge onboarding stays; see T-047) and tenant deactivation/removal
+(NH-12 stays unbuilt for now — no email-on-removal task without the removal capability itself).
+
+### T-046 — Demo Studio richness + parity audit
+- **Objective:** Make every vertical's seeded demo read as "a business in full swing," and prove the demo never
+  structurally diverges from the live app. Reseed each vertical with ~5–6 resources and ~12–18 jobs/bookings
+  (up from today's 3/3), mixed states (confirmed solid, provisional grey-dashed, 2–3 left unscheduled/unassigned
+  to drag live), real per-industry names (not filler — Roofing: Carlos/Tyler/Storm Response; HVAC: named techs +
+  on-call; Dental: 2–3 dentists + hygienists; etc., per HANDOFF's existing per-vertical list), and a click-through
+  audit confirming `/admin/demo`'s launch leads into the exact same `/company/*`/`/admin/*` pages a real tenant
+  uses — no demo-only mock component anywhere. **Evidence:** `HANDOFF.md`'s own 2026-07-15 backlog entry
+  ("Demo data should look like a business in full swing, not a startup... 1-crew/3-job board showcases nothing")
+  was never turned into a task; confirmed via code read that `/admin/demo` (`src/app/admin/demo/page.tsx`) is a
+  launcher/config panel only — the demo *is* the real app for tenant `demo-roofing` — so parity is structurally
+  sound today and the actual gap is seed richness, not architecture.
+- **Spec:** HANDOFF.md 2026-07-15 Backlog section (richness spec already written there) + owner request
+  2026-07-23 (parity audit). **Deps:** none — touches only demo seed data, not `agentTools.ts` or any Phase 1–5
+  file.
+- **Owns:** `src/lib/verticals/demoSeed.ts` (`RESOURCES` + jobs/appointments builders only); a throwaway
+  (not committed) per-vertical verification script.
+- **Constraints:** don't change `calendarMode`/`vocab`/`disabledModules` semantics (protected, `templates.ts`
+  untouched); keep `jobCounter` advancing past seeded IDs (re-verify the 2026-07-15 collision fix still holds
+  at higher volume); stay within one Firestore batch write per launch (Spark-plan budget — HANDOFF already
+  confirmed ~18×7 verticals is trivial).
+- **Edge/failure cases:** at least one after-hours `pendingConfirmation` booking with an email must survive
+  richer seeding (Dashboard approval demo depends on it); mixed job-status stepper values (inspection/quoted/
+  in_progress/invoiced) so Jobs + Dashboard don't read as one flat list.
+- **Security/accessibility:** n/a — demo data only, no new endpoints or auth changes.
+- **Acceptance:** each of the 7 verticals reseeds via Demo Studio Launch with the target volume/mix above;
+  Playwright walk-through of 3 representative verticals (Dashboard/Calls/Pipeline/Jobs/Calendar/Library/Guide)
+  shows no placeholder/broken/default-empty screen; component-tree spot-check confirms demo-mode pages are the
+  identical components a directly-created tenant renders (not just visually similar).
+- **Tests:** throwaway per-vertical seed script (rows > 0, draggable > 0, states varied — same method as the
+  2026-07-15 session); Playwright smoke pass across 3 verticals recorded in `docs/IMPLEMENTATION_LOG.md`.
+- **Rollback:** additive data changes only; revert the `demoSeed.ts` commit.
+- **Prohibited scope:** no new features; no separate demo environment/project (D-2 default already decided,
+  NH-5); no visual redesign.
+
+### T-047 — Navigation/workflow friction pass + surfaced tutorial
+- **Objective:** Audit click-path friction across roles (owner/staff/superadmin/field-worker) for the most
+  common actions (create job, schedule, send invoice, add crew, view call); surface the existing `/company/guide`
+  tutorial to brand-new users instead of leaving it undiscovered in the nav; convert the admin onboarding wizard
+  into a real stepper (progress indicator, back/next, no orphaned steps) — **polishing the existing
+  admin-driven flow, not building public self-serve signup** (owner decision 2026-07-23: concierge onboarding
+  stays; no public landing/trial/billing flow). **Evidence:** no task audits nav friction today; `/company/guide`
+  (`src/app/company/guide/page.tsx`) already contains a solid industry-aware how-to but nothing nudges a
+  first-time user toward it; the onboarding-wizard-to-stepper item has been open on HANDOFF's backlog since
+  2026-06-28 and never scheduled.
+- **Spec:** owner request 2026-07-23, extends HANDOFF backlog "onboarding wizard → real stepper."
+- **Deps:** none structurally; sequenced after Phase 5 per owner decision, so no worktree overlap risk with
+  T-040/044/045 in practice (those will already be merged).
+- **Owns:** `src/app/company/layout.tsx` (nav), `src/app/company/company-nav.tsx`, `src/app/admin/onboarding/page.tsx`
+  (stepper conversion), a new small first-login nudge component linking to `/company/guide`.
+- **Constraints:** no visual redesign beyond nav/stepper ergonomics (one-teal design system, `.button` variants);
+  `useBusinessModules()`/Industry-Applicability Rule stays the source of truth for nav — do not touch
+  `MODULE_ROUTES` gating logic itself, only ergonomics around it; onboarding wizard keeps its existing submit
+  payload/contract — no backend change.
+- **Edge/failure cases:** mobile hamburger nav (audit it too, don't just add to desktop); a returning user must
+  not see the first-login nudge again (session/localStorage-dismissed); wizard-to-stepper conversion must not
+  silently drop a step.
+- **Security/accessibility:** nav stays role-gated exactly as today; stepper must be keyboard-navigable; must not
+  regress T-040's truthful loading/error states.
+- **Acceptance:** documented click-count audit for the 5 flows above, before/after; new company users see a
+  one-time "start here" nudge pointing at Guide; onboarding wizard reads as a real stepper with an unchanged
+  data contract.
+- **Tests:** Playwright click-path recording for 2–3 representative flows before/after; existing gates
+  (type-check/lint/build).
+- **Rollback:** per-file revert; nudge component is additive/removable.
+- **Prohibited scope:** public self-serve signup, trial provisioning, or billing of any kind (explicitly decided
+  against this session); no backend contract changes to the onboarding POST route.
+
+### T-048 — Voice-note field resilience + AI model right-sizing
+- **Objective:** `useFieldAudio.ts` drops the recorded audio blob on any fetch failure with no retry, forcing a
+  field worker to redo the entire spoken note on a transient network blip — undercutting the "clinical," zero-
+  friction field capture that is the app's stated core differentiator. Add one bounded automatic retry (same
+  blob, one re-POST) before surfacing an honest error — **not** a persistent offline queue, which stays
+  explicitly deferred (`TODO.md` Deferred list). Separately: `registry.ts`'s `parse-field-update` capability is
+  still routed to full `gpt-4o` while every other back-office capability was already right-sized to
+  `gpt-4o-mini`/`deepseek-chat` in T-033 — right-size it only if a fixture-driven accuracy comparison shows no
+  regression. **Evidence:** `src/hooks/useFieldAudio.ts:158-164` — catch block sets `status:"error"` with no
+  retry path, blob is not retained; `src/lib/ai/registry.ts:61` — `"parse-field-update": { provider: "openai",
+  model: "gpt-4o" }`, the one unreviewed holdout from T-033's otherwise-complete model-routing pass.
+- **Spec:** owner request 2026-07-23 ("the real heart of the app"; AI model right-sizing).
+- **Deps:** T-022 (schemas), T-033 (registry) — both already merged.
+- **Owns:** `src/hooks/useFieldAudio.ts` (retry logic only), `src/lib/ai/registry.ts` (the single
+  `parse-field-update` model line), new fixture-driven accuracy-comparison tests.
+- **Constraints:** retry is in-memory/same-session only (no retry across a page reload — that is the deferred
+  offline-queue problem); model swap must ship with a before/after accuracy comparison against
+  `src/lib/schemas/__tests__/fixtures/adversarial.ts` plus real (anonymized) field-note transcripts, never a
+  blind flip; the correction-confirm-card UX and Whisper vocabulary-bias prompt are protected/working — do not
+  touch them.
+- **Edge/failure cases:** the retry itself fails (surface an honest error once, don't loop silently); app
+  backgrounded/reloaded mid-retry (out of scope — do not attempt to solve this, it's the offline-queue problem).
+- **Security/accessibility:** no new attack surface (same authenticated/`fieldKey`-gated endpoint); error states
+  stay screen-reader-visible per T-040's `role="alert"` pattern.
+- **Acceptance:** a simulated network failure during field-audio upload retries once automatically before
+  surfacing an error; the model change (if the fixture comparison shows no accuracy regression) ships with
+  before/after cost + accuracy numbers logged in `docs/IMPLEMENTATION_LOG.md` — if it *does* regress, the model
+  stays on `gpt-4o` and that's a documented finding, not a blocker.
+- **Tests:** unit test for the retry path (mocked fetch: fail-then-succeed, fail-then-fail); fixture comparison
+  script output recorded in the log.
+- **Rollback:** retry logic and model change are two independent, separately revertible commits.
+- **Prohibited scope:** offline queue, multi-language toggle, audio-level/waveform visualization, redesigning
+  the mic UI.
+
+### T-049 — Outbound email consistency + branding pass
+- **Objective:** Standardize outbound email subject lines and system-vs-tenant branding onto one documented
+  convention. **Evidence (confirmed by reading every call site):** `src/lib/notify.ts:61` `"New assignment: X —
+  Y"` vs `:83` `"Appointment confirmed — Y"` vs `src/app/api/appointments/send-confirmation/route.ts:70`
+  `"Appointment Confirmed — X · Y"` (capitalization differs between two near-duplicate emails);
+  `src/app/api/admin/invoices/[invoiceId]/send/route.ts:101` `"Invoice X from Luxor AI"` vs
+  `src/app/api/jobs/[jobId]/invoice/send/route.ts:165` `"Draft Invoice #X from {bizName}"` — no shared
+  inbox-triage prefix, unlike the `[Category] ...` convention T-043/T-044 already establish. Tenant-facing
+  templates already correctly use the tenant's own `logoUrl` (`agentTools.ts:853-859`) — that part is right and
+  must not change; only Luxor-authored system emails (welcome, feedback) should carry the Luxor mark.
+- **Spec:** owner request 2026-07-23 ("titled such that organizing inbox is easy"), extends T-041's unified
+  comms service and the `[Category]` convention T-043/T-044 already use.
+- **Deps:** T-041 (`src/lib/comms/send.ts`), T-043, T-044 — all merged; this task extends their convention, does
+  not invent a new one.
+- **Owns:** subject-line strings only in `src/lib/notify.ts`, `src/app/api/appointments/send-confirmation/route.ts`,
+  `src/app/api/admin/invoices/[invoiceId]/send/route.ts`, `src/app/api/jobs/[jobId]/{invoice,report}/send/route.ts`.
+- **Constraints:** tenant-facing emails keep the tenant's own branding/logo (protected, already correct) — only
+  Luxor-system-email subject/logo conventions change; no email body/template redesign beyond the subject line;
+  no send-logic changes (T-041's delivery-status contract untouched).
+- **Edge/failure cases:** n/a — string-only change on top of an already-tested delivery path.
+- **Security/accessibility:** n/a.
+- **Acceptance:** every outbound email subject follows one documented convention (`[Category] Specific detail`,
+  consistent capitalization/dash style), recorded in a short new `docs/EMAIL-CONVENTIONS.md`; spot-check of all
+  6+ call sites confirms compliance.
+- **Tests:** extend T-041's existing mocked-Resend unit tests with subject-format assertions per call site — do
+  not rewrite them.
+- **Rollback:** trivial per-string revert.
+- **Prohibited scope:** template HTML redesign, new email types, SMS.
+
+---
+
 ## Integration order (integrator-enforced)
 
 1. T-000/001/002 (batch B) → 2. T-010/011 (batch A, rebase on B) → 3. T-020, T-021, T-022 →
 4. T-030 → T-031 → {T-032, T-033, T-034, T-035 in any order, parallel} →
 5. T-040 (company → admin), T-041 (after T-031), T-042 (after T-031), {T-043, T-044, T-045 — parallel with
-   each other and with T-040/041/042, no file overlap, deps only on T-020} → 6. T-050 → T-051 → T-052.
+   each other and with T-040/041/042, no file overlap, deps only on T-020} → 6. T-050 → T-051 → T-052 →
+7. **Phase 6 (T-046, T-047, T-048, T-049 — no file overlap between any pair, all parallel-safe) — starts only
+   after step 6 is fully merged**, per owner decision 2026-07-23.
 
 `src/lib/tools/agentTools.ts` merge order (never concurrent): T-011 → T-030 → T-031 → T-032(createLead) → T-041(email lines).
 `src/app/api/webhooks/vapi/route.ts`: T-010 → T-011 → T-031 → T-042.

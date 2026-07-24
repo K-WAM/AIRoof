@@ -13,6 +13,7 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 3 Boundary applications | T-030…T-035 | 30% | **all 6 tasks merged** — Phase complete | Phase 1+2 merged; see agentTools.ts serialization in MASTER_PLAN §Integration order |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | **T-041 + T-042 merged**; T-040 assigned (Codex); T-043 assigned (Deepseek); T-044/T-045 queued (file-overlap — see below) | Phase 3 merged ✓; T-043/044/045 depend only on T-020 (already merged) |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | queued | Phases 1–4 merged |
+| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
 
 Overall implementation: **~73%** (Phases 0+1+2+3 fully merged = 65% + a heavier-than-flat share of Phase 4's
 20% for T-041+T-042 merged — T-040/041/042 are the heavier CIB-derived tasks vs. the lighter owner-requested
@@ -127,6 +128,20 @@ original CIB-audit-derived Phase 4 tasks (no security-boundary or auth changes),
 worth a full 1/6 share of Phase 4's 20% weight; treat the 20% as still dominated by T-040/041/042 until a more
 precise split is needed. Not yet assigned to a worker — next in line, see Next eligible work below.
 
+**2026-07-23 scope addition — Phase 6 (UX & Demo Polish):** Owner raised three untracked gaps this session —
+Demo Studio parity/richness, navigation/workflow friction, and voice-note field resilience — plus an email
+subject-line consistency gap found while investigating. Scoped as T-046/047/048/049 in MASTER_PLAN.md (full
+task specs there). Owner explicitly chose **"finish the security/compliance backlog first"** over running these
+in parallel with Phase 4/5 — so Phase 6 is documented now but **queued behind Phase 5**, not assigned to a
+worker. Two related owner asks were explicitly decided **against** scoping as new work this session:
+- **Public self-serve signup/trial/billing** ("landing page for subscription, trial") — owner confirmed this
+  meant *polishing the existing admin-driven onboarding wizard* (folded into T-047), not building public
+  signup + Stripe billing. The concierge-onboarding model (no public signup, admin-provisioned tenants) stays
+  as-is; Stripe billing remains post-MVP per CLAUDE.md.
+- **Tenant deactivation/removal** — NH-12 already flagged that no removal endpoint exists. Owner confirmed
+  **hold off** rather than building it (which would have been required to give the requested "no-reply email on
+  tenant removal" anything to hang off). NH-12's default stands; T-043 ships add-only, as already merged.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -201,7 +216,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 | NH-9 | Callback consent policy for pre-existing leads (auto-call grandfathered leads or not) | T-032 backfill | Default: existing leads are NOT auto-called |
 | NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
-| NH-12 | Decide whether a tenant-removal/deactivation capability should be built at all (no `DELETE` endpoint exists for businesses today — verified 2026-07-21) | T-043 scope | If wanted, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into T-043's email-only scope without owner sign-off |
+| NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
