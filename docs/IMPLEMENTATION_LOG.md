@@ -658,3 +658,30 @@ removals + rationale (if any) · deviations from spec (if any).
   were the only conflicts (both workers' own status-row/log entries, kept both sides), zero code conflicts as
   designed — file-overlap prediction (both touching `company-nav.tsx`/`admin-nav.tsx`) did not materialize:
   T-045's diff never touched either nav file.
+
+## T-050 — Deterministic release suite + merge gating
+- Date: 2026-07-25 · branch: `task/release-suite` · commit: this commit
+- Added a dedicated 16-test release gate under `tests/release/**`, invoked with its own config so the owned
+  scope remains intact and the root `vitest.config.ts` include pattern is unchanged. The suite runs files
+  sequentially with retries disabled and mocks provider boundaries; it performs no live network or browser
+  automation.
+- Route-handler acceptance evidence:
+  - Vapi: real `NextRequest` → real webhook `POST`; missing/wrong/unconfigured secrets stop before
+    Firestore or booking work, while a valid booking executes once and the replay returns `{duplicate:true}`.
+  - Cron: all four protected routes (`daily-call-summary`, `faq-suggestions`, `follow-up-calls`, and
+    `retention`) return 401 for missing and wrong Bearer tokens before Firestore or provider work.
+  - Duplicate effects: two distinct webhook deliveries for the same logical escalation traverse the real
+    webhook handler, real `agentTools.escalateCall`, and real operation ledger; mocked Resend is called once
+    and the ledger finishes with one successful attempt.
+  - Calendar rollback: an injected appointment-create failure after scheduling-lock writes are staged leaves
+    neither locks nor an appointment in the transactional Firestore fake.
+  - Provider readiness: `/api/transcribe` and `/api/jobs/[jobId]/field-audio` return explicit 503 “not
+    configured” responses with no OpenAI construction, upload conversion, provider call, or persistence when
+    `OPENAI_API_KEY` is absent.
+- Extended `.github/workflows/ci.yml` rather than replacing it: the existing `npm test` step remains, followed
+  by `npx vitest run --config tests/release/vitest.config.ts`. Added `tests/release/README.md` with the
+  no-retry flaky-test quarantine policy and owner instructions for NH-7 branch protection requiring
+  **CI / gate** on `main`; no GitHub repository setting was changed.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 27 existing warnings; `npm test`
+  28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green; `git diff --check`
+  green. No production code or dependencies changed; no removals.
