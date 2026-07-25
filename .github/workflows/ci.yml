@@ -33,3 +33,6 @@ jobs:
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-dummy
 
       - run: npm test
+
+      - name: Release acceptance suite
+        run: npx vitest run --config tests/release/vitest.config.ts
