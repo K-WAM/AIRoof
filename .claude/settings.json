@@ -74,6 +74,9 @@
       "mcp__claude_ai_Vercel__get_deployment",
       "mcp__vercel__get_deployment",
       "mcp__plugin_playwright_playwright__browser_find",
+      "Bash(git rev-list *)",
+      "Bash(git merge-base *)",
+      "Bash(npx vitest run *)",
       "PowerShell(Set-Location *)",
       "PowerShell(Test-Path *)",
       "PowerShell(Get-ChildItem *)"
