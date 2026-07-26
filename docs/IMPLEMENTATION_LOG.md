@@ -707,3 +707,15 @@ removals + rationale (if any) · deviations from spec (if any).
   `isScheduleWithinBusinessHours()`—no incoming caller, import, route-table entry, or string/dynamic reference.
 - Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
   28 files / 288 tests green.
+
+## T-051 — Deduplicate notification delivery state
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the duplicate four-value `NotificationDeliveryState` union from `src/lib/tools/agentTools.ts`.
+  `src/lib/comms/send.ts` remains the single definition; `agentTools.ts` imports that type for its own return
+  annotation and re-exports it so the two live scheduling routes keep their existing import path.
+- Repo-wide evidence: exact symbol grep found only the two identical definitions, their local return/status
+  annotations, the two route imports, and historical documentation. The follow-up import audit confirmed the
+  routes consume the `agentTools.ts` export, so the type-only re-export was retained as compatibility code;
+  no runtime import, lookup, notification implementation, or route contract changed.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green.

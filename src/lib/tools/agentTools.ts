@@ -8,7 +8,7 @@ import {
   startOperationAttempt,
 } from "@/lib/ops/ledger";
 import type { Firestore } from "firebase-admin/firestore";
-import { isCommsConfigured, sendEmail, sendWithLedger } from "@/lib/comms/send";
+import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 
 export interface CheckAvailabilityInput {
   businessId: string;
@@ -45,11 +45,7 @@ interface ExistingSchedule {
   assignedCrewId?: string | null;
 }
 
-export type NotificationDeliveryState =
-  | "delivered"
-  | "failed"
-  | "pending"
-  | "unconfigured";
+export type { NotificationDeliveryState };
 
 export class SchedulingConflictError extends Error {
   readonly code:
