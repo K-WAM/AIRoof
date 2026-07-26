@@ -58,7 +58,7 @@ export function buildCrewAssignmentEmail(opts: {
     ${opts.scope ? `<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#475569;line-height:1.6">${esc(opts.scope)}</div>` : ""}`;
 
   return {
-    subject: `New assignment: ${opts.jobTitle} \u2014 ${opts.when}`,
+    subject: `[Assignment] ${opts.jobTitle} \u2014 ${opts.when}`,
     html: shell(opts.brand, "You've got a new job", body),
   };
 }
@@ -80,7 +80,7 @@ export function buildCustomerConfirmationEmail(opts: {
     <p style="margin:0;font-size:14px;color:#475569">We'll see you then. Reply to this email if you need to reschedule.</p>`;
 
   return {
-    subject: `Appointment confirmed \u2014 ${opts.when}`,
+    subject: `[Appointment] Confirmed \u2014 ${opts.when}`,
     html: shell(opts.brand, "Appointment confirmed", body),
   };
 }

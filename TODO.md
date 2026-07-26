@@ -32,11 +32,11 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
   - [x] T-050 — Deterministic release suite + merge gating
   - [x] T-051 — Evidence-driven cleanup sweep
   - [x] T-052 — Documentation reconciliation
-- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — assigned this round
-  - [ ] T-046 — Demo Studio richness + parity audit (Deepseek, `air-wt-demo-polish`)
-  - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, `air-wt-ux-resilience`)
-  - [ ] T-048 — Voice-note field resilience + AI model right-sizing (Codex, `air-wt-ux-resilience`)
-  - [ ] T-049 — Outbound email consistency + branding pass (Deepseek, `air-wt-demo-polish`)
+- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — 2/4 merged
+  - [x] T-046 — Demo Studio richness + parity audit (Deepseek, merged)
+  - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, `air-wt-ux-resilience`, review pending)
+  - [ ] T-048 — Voice-note field resilience + AI model right-sizing (Codex, `air-wt-ux-resilience`, review pending)
+  - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
@@ -329,6 +329,18 @@ as `air-wt-demo-polish` on a fresh `task/demo-polish` branch. Both worktrees: `g
 the freshly-updated main-repo graph (1596 nodes, 2466 edges, 171 communities, rebuilt this session),
 `npm run type-check` reverified clean (node_modules junctions intact, no reinstall needed).
 
+**Review outcome (T-046, T-049):** APPROVE, merged without rework. Independently reproduced in the worktree
+before merge: type-check clean, lint 0e/26w, 290/292 tests (2 concurrent-load timeouts —
+`send.test.ts`/`example-lib.test.ts` — reproduced clean on an isolated solo rerun of just those two files).
+Diff scoped exactly as owned: `demoSeed.ts` (richness), 4 route files + `notify.ts` + `agentTools.ts`
+(subject strings only) + new `docs/EMAIL-CONVENTIONS.md`. Spot-checked: `jobCounter` write in
+`demo-customize/route.ts` uses `1000 + seed.jobs.length` — correctly advances to 1014 for the new 14-job
+seed (not hardcoded), so the 2026-07-15 collision fix holds at the higher volume. Appointment mix genuinely
+varies (8 confirmed/assigned, 3 provisional `requested`, 2 unassigned drag targets, 1 after-hours
+`pendingConfirmation` with `callerEmail` preserved) rather than just being padded. `[Category]` convention
+applied consistently across all 8 call sites; tenant `logoUrl`/email bodies/send logic untouched as
+required. `docs/EMAIL-CONVENTIONS.md` matches the actual diff (spot-checked each row against source).
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -337,8 +349,8 @@ the freshly-updated main-repo graph (1596 nodes, 2466 edges, 171 communities, re
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-ux-resilience` on branch `task/ux-resilience` (prior: T-051, merged `fe22fba`+integration) | T-047, T-048 | `src/app/company/layout.tsx`, `src/app/company/company-nav.tsx`, `src/app/admin/onboarding/page.tsx`, new first-login nudge component; `src/hooks/useFieldAudio.ts` (retry only), `src/lib/ai/registry.ts` (parse-field-update line only) | **assigned** — prompt in docs/EXECUTION_PROMPTS.md |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-demo-polish` on branch `task/demo-polish` (prior: T-052, merged `6772fb0`+integration) | T-046, T-049 | `src/lib/verticals/demoSeed.ts` (RESOURCES + jobs/appointments builders); subject-line strings in `notify.ts`/`send-confirmation`/invoice+report send routes; new `docs/EMAIL-CONVENTIONS.md` | **assigned** — prompt in docs/EXECUTION_PROMPTS.md |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-ux-resilience` on branch `task/ux-resilience` (prior: T-051, merged `fe22fba`+integration) | T-047, T-048 | `src/app/company/layout.tsx`, `src/app/company/company-nav.tsx`, `src/app/admin/onboarding/page.tsx`, new first-login nudge component; `src/hooks/useFieldAudio.ts` (retry only), `src/lib/ai/registry.ts` (parse-field-update line only) | **review pending** — commits `222253b`/`816827e`, integrator verification in progress |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-demo-polish` on branch `task/demo-polish` (prior: T-052, merged `6772fb0`+integration) | T-046, T-049 | `src/lib/verticals/demoSeed.ts` (RESOURCES + jobs/appointments); `src/lib/notify.ts`, `src/lib/tools/agentTools.ts`, `src/app/api/appointments/send-confirmation/route.ts`, `src/app/api/admin/invoices/[invoiceId]/send/route.ts`, `src/app/api/jobs/[jobId]/{invoice,report}/send/route.ts` (subject lines only); `docs/EMAIL-CONVENTIONS.md` | **merged** — T-046: 5 resources + 14 jobs / 15 appts per vertical, parity audit clean; T-049: 8 subjects standardized to `[Category]`, 4 new test assertions, EMAIL-CONVENTIONS.md created |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 

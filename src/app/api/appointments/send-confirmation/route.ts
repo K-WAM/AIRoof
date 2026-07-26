@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   if (notificationEmail) {
     await sendEmail({
       to: notificationEmail,
-      subject: `Appointment Confirmed \u2014 ${appt.callerName ?? "Customer"} \u00b7 ${apptDate}`,
+      subject: `[Appointment] Confirmed \u2014 ${appt.callerName ?? "Customer"} \u00b7 ${apptDate}`,
       html: confirmationEmailHtml({
         businessName: brand.businessName,
         brandColor: brand.brandColor,

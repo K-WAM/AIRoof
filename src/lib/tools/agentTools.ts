@@ -535,7 +535,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
         typeof businessData.contactEmail === "string" ? businessData.contactEmail : null,
       websiteUrl: typeof businessData.websiteUrl === "string" ? businessData.websiteUrl : null,
     };
-    const subject = `New Appointment Request \u2014 ${input.callerName}`;
+    const subject = `[Appointment] New Request \u2014 ${input.callerName}`;
     const html = bookingEmailHtml({
       callerName: input.callerName,
       callerPhone: input.callerPhone,
@@ -769,7 +769,7 @@ export async function escalateCall(
         : null,
   };
 
-  const subject = `URGENT: Call Escalation \u2014 ${biz.businessName}`;
+  const subject = `[Escalation] ${biz.businessName}`;
   const html = escalationEmailHtml(
     {
       callerPhone: input.callerPhone ?? "Unknown",

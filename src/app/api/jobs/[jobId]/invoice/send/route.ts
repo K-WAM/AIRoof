@@ -162,7 +162,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   await sendEmail({
     to,
-    subject: `Draft Invoice #${jobId} from ${bizName}`,
+    subject: `[Invoice] Draft #${jobId} from ${bizName}`,
     html,
   });
 
