@@ -810,3 +810,98 @@ removals + rationale (if any) · deviations from spec (if any).
 - `graphify . --update` — incremental update invoked (docs-only scope, no full rebuild warranted).
 
 Co-Authored-By: Claude <noreply@anthropic.com>
+
+## T-046 — Demo Studio richness + parity audit
+
+- **Date:** 2026-07-25 · **Branch:** `task/demo-polish` · **Commit:** `356285b` · **Worker:** Worker D (Deepseek V4 Pro)
+
+### Seed richness
+
+- **Expanded RESOURCES from 3 to 5 per vertical** per the HANDOFF.md roster (2026-07-15 backlog entry):
+  - Roofing: Carlos Crew, Tyler Crew, Storm Response, Gutter Team, Repair Crew
+  - HVAC: Marco R., Denise K., Luis T., Raj P., After-hours On-call
+  - Landscaping: Luis Crew, Ana Crew, Tree & Removal, Design & Install, Irrigation Team
+  - Cleaning: Team A — Rosa, Team B — Nadia, Team C — Gina, Deep Clean Crew, Post-Construction Crew
+  - Dental: Dr. Rivera, Dr. Chen, Dr. Park, Hygiene — Sam, Hygiene — Jess
+  - Property Management: Ace Plumbing, BrightSpark Electric, CoolBreeze HVAC, On-call Manager, Turnover Crew
+  - General Contractors: Dave's Crew, Framing Crew, Finish Carpentry, Drywall Crew, Concrete Crew
+- **Expanded jobs from 3 to 14** for field-service verticals with mixed stepper statuses: 3 inspection, 3 quoted,
+  3 in_progress, 2 invoiced, 2 open, 1 complete — so the Dashboard + Jobs tabs show variety at a glance.
+- **Expanded appointments from 3 to 15** for all verticals: 8 confirmed + assigned (solid), 3 provisional/requested
+  (grey-dashed), 2 unassigned (drag targets), 1 after-hours pendingConfirmation with email (Dana Cole — Dashboard
+  approval demo persists), plus 1 more unassigned.
+- **Expanded CALLERS from 6 to 18, ADDRESSES from 5 to 13** to support the larger dataset without repetition.
+
+### Collision fix re-verified
+
+- jobCounter set to `1000 + seed.jobs.length` (=1014); seeded jobs use `J-1001` through `J-1014`; next real
+  job starts at `J-1015` — no collision possible at higher volume.
+
+### Parity audit
+
+- Code-level audit confirmed **zero** conditionals in `src/app/company/**/page.tsx` or `src/app/admin/**/page.tsx`
+  that check for `demo`/`isDemo` to render a different component. The `/admin/demo` launch button leads to
+  `https://ai-roof.vercel.app/company/dashboard?preview=demo-roofing` — the identical route, layout, and
+  components a real tenant uses. The only difference is which Firestore `businessId` data is loaded, resolved
+  by `useBusinessId()` treating the `?preview=` value as an alias with no special rendering path.
+
+### Verification
+
+- Throwaway per-vertical seed script confirmed all 7 verticals pass: resources ≥ 5, jobs ≥ 12, appointments ≥ 12,
+  unassigned ≥ 1, provisional ≥ 2, pendingConfirmation ≥ 1.
+- `npm run type-check` clean; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 290/292 (2 known
+  concurrent-load flake); `npm run build` green. All 12 existing `demo-customize` route tests pass.
+
+### Prohibited scope untouched
+
+- `calendarMode`/`vocab`/`disabledModules` semantics unchanged (protected, `templates.ts` untouched). No new
+  features, no separate demo environment, no visual redesign.
+
+---
+
+## T-049 — Outbound email consistency + branding pass
+
+- **Date:** 2026-07-25 · **Branch:** `task/demo-polish` · **Commit:** `b7001db` · **Worker:** Worker D (Deepseek V4 Pro)
+
+### Subject-line standardization
+
+Standardized every outbound email subject onto the `[Category] Specific detail` convention, extending the
+`[Category]` pattern T-043 (`[Luxor AI]`) and T-044 (`[Feedback]`) already established.
+
+| File | Before | After |
+|---|---|---|
+| `notify.ts` `buildCrewAssignmentEmail` | `New assignment: <title> — <when>` | `[Assignment] <title> — <when>` |
+| `notify.ts` `buildCustomerConfirmationEmail` | `Appointment confirmed — <when>` | `[Appointment] Confirmed — <when>` |
+| `agentTools.ts` bookAppointment (L538) | `New Appointment Request — <name>` | `[Appointment] New Request — <name>` |
+| `agentTools.ts` escalateCall (L772) | `URGENT: Call Escalation — <biz>` | `[Escalation] <biz>` |
+| `send-confirmation/route.ts` (L70) | `Appointment Confirmed — <name> · <date>` | `[Appointment] Confirmed — <name> · <date>` |
+| `admin/invoices/[invoiceId]/send/route.ts` (L101) | `Invoice <id> from Luxor AI` | `[Invoice] <id> from Luxor AI` |
+| `jobs/[jobId]/invoice/send/route.ts` (L165) | `Draft Invoice #<id> from <biz>` | `[Invoice] Draft #<id> from <biz>` |
+| `jobs/[jobId]/report/send/route.ts` (L100) | `Job Report — <title> from <biz>` | `[Report] <title> from <biz>` |
+
+Already-compliant (unchanged): `buildBusinessWelcomeEmail` (`[Luxor AI]`), `buildFeedbackEmail` (`[Feedback]`).
+
+### Tests
+
+- Extended `src/lib/comms/__tests__/send.test.ts` with 4 subject-format assertions:
+  `buildCrewAssignmentEmail` (`[Assignment]` prefix), `buildCustomerConfirmationEmail` (`[Appointment]` prefix),
+  `buildBusinessWelcomeEmail` (`[Luxor AI]` prefix), `buildFeedbackEmail` (`[Feedback]` prefix). All 4 pass.
+
+### Protected scope untouched
+
+- Tenant-facing `logoUrl` logic (`agentTools.ts:853-859`) — not touched. Luxor-authored system emails already
+  correctly carry the Luxor mark. No email body/template redesign. No send-logic changes (T-041 delivery-status
+  contract untouched).
+
+### Documentation
+
+- Created `docs/EMAIL-CONVENTIONS.md` documenting the full convention, all 10 call sites with file:line
+  references, the 7 category prefixes, and the tenant-branded vs system-email distinction.
+
+### Verification
+
+- `npm run type-check` clean; `npm run lint` 0 errors / 26 baseline warnings; `npm test` 290/292 (2 known
+  concurrent-load flake, confirmed clean in isolation, 4 new subject-format assertions all pass); `npm run build`
+  green.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
