@@ -13,7 +13,7 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 3 Boundary applications | T-030…T-035 | 30% | ✅ **all 6 tasks merged** — Phase complete | Phase 1+2 merged ✓ |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
-| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **now assignable** (Phase 5 fully merged, owner decision 2026-07-23 satisfied) | Phase 5 merged ✓ |
+| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | 🔵 **assigned this round** (T-046/T-049 → Deepseek `air-wt-demo-polish`; T-047/T-048 → Codex `air-wt-ux-resilience`) | Phase 5 merged ✓ |
 
 ### Checklist
 
@@ -32,16 +32,18 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
   - [x] T-050 — Deterministic release suite + merge gating
   - [x] T-051 — Evidence-driven cleanup sweep
   - [x] T-052 — Documentation reconciliation
-- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — now assignable
-  - [ ] T-046 — Demo Studio richness + parity audit
-  - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial
-  - [ ] T-048 — Voice-note field resilience + AI model right-sizing
-  - [ ] T-049 — Outbound email consistency + branding pass
+- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — assigned this round
+  - [ ] T-046 — Demo Studio richness + parity audit (Deepseek, `air-wt-demo-polish`)
+  - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, `air-wt-ux-resilience`)
+  - [ ] T-048 — Voice-note field resilience + AI model right-sizing (Codex, `air-wt-ux-resilience`)
+  - [ ] T-049 — Outbound email consistency + branding pass (Deepseek, `air-wt-demo-polish`)
 
-Overall implementation: **~100% of the CIB-audit-derived scope** (Phases 0-5 all fully merged — the entire
-security/compliance backlog this release plan was scoped to close). Phase 6 (T-046-049, owner-added UX/demo
-polish, not CIB-weighted) is the remaining work before the platform is fully "done" in the broader sense —
-now assignable. An estimate, not a precise figure.
+Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
+all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
+pushed to `origin/main` as of `897bcc5`, 2026-07-25). Phase 6 (T-046-049, owner-added UX/demo polish, not
+CIB-weighted) is additional scope on top of that 100%; weighting it at ~10% of a revised total pie (an
+editorial estimate — MASTER_PLAN explicitly does not assign it a CIB weight) puts **overall platform
+completion at ~91%**, now assigned (see Active assignments). An estimate, not a precise figure.
 Independently re-verified on `main` post-merge (this session, T-052 merge): type-check clean, lint
 0 errors/26 baseline warnings, build unaffected (T-052 touched docs only). `npm test` 288/288 (1 known
 concurrent-load flake in `example-lib.test.ts`, confirmed clean in isolation), release suite **16/16 clean**.
@@ -312,6 +314,21 @@ merge conflict (both sides had independently converged on the same branch-name t
 merged cleanly. **Phase 5 is now fully closed, 3/3 — the entire CIB-audit-derived security/compliance backlog
 this release plan was scoped to close.** Phase 6 (T-046-049, owner-added UX/demo polish) is now assignable.
 
+**Assignment rationale (round 7 — Phase 6 kickoff, T-046/T-047/T-048/T-049):** Phase 5 fully merged and
+pushed to `origin/main` (`897bcc5`) satisfies the 2026-07-23 owner gate — Phase 6 is now assignable. All four
+tasks have zero file overlap with each other (verified against MASTER_PLAN's owns-lists), so both idle
+worktrees each took two tasks this round rather than the usual one, to use the full parallel-safe window.
+T-047 (nav/workflow friction + stepper conversion) continues Codex's broad-page-sweep track from T-040/T-045;
+T-048's fixture-driven accuracy-comparison requirement (ship the model swap only with before/after evidence,
+or explicitly don't ship it) matches the same prove-it-with-evidence discipline Codex used on T-051's
+removal sweep — both routed to Codex, reactivating `air-wt-cleanup-sweep` as `air-wt-ux-resilience` on a
+fresh `task/ux-resilience` branch off `main`'s tip. T-046 (demo seed richness) continues Deepseek's
+`demoSeed.ts` continuity from T-035; T-049 (email subject-line convention) extends the comms/branding track
+Deepseek already owns from T-041/T-043/T-044 — both routed to Deepseek, reactivating `air-wt-feedback-form`
+as `air-wt-demo-polish` on a fresh `task/demo-polish` branch. Both worktrees: `graphify-out/` refreshed from
+the freshly-updated main-repo graph (1596 nodes, 2466 edges, 171 communities, rebuilt this session),
+`npm run type-check` reverified clean (node_modules junctions intact, no reinstall needed).
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -320,8 +337,8 @@ this release plan was scoped to close.** Phase 6 (T-046-049, owner-added UX/demo
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide subtractive cleanup; `docs/IMPLEMENTATION_LOG.md`; own `TODO.md` row | **merged** — 4 evidence-backed removal clusters, integration below |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/doc-reconciliation` (prior: T-044, merged `2733ad0`+integration) | T-052 | `CLAUDE.md`, `HANDOFF.md`, `.env.example`, `public/guides/onboarding-guide.html`; `docs/SESSION_HANDOFF.md` read-only (integrator-owned live file — flag discrepancies, don't edit) | **merged** — all owned docs reconciled against shipped reality, integration below |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-ux-resilience` on branch `task/ux-resilience` (prior: T-051, merged `fe22fba`+integration) | T-047, T-048 | `src/app/company/layout.tsx`, `src/app/company/company-nav.tsx`, `src/app/admin/onboarding/page.tsx`, new first-login nudge component; `src/hooks/useFieldAudio.ts` (retry only), `src/lib/ai/registry.ts` (parse-field-update line only) | **assigned** — prompt in docs/EXECUTION_PROMPTS.md |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-demo-polish` on branch `task/demo-polish` (prior: T-052, merged `6772fb0`+integration) | T-046, T-049 | `src/lib/verticals/demoSeed.ts` (RESOURCES + jobs/appointments builders); subject-line strings in `notify.ts`/`send-confirmation`/invoice+report send routes; new `docs/EMAIL-CONVENTIONS.md` | **assigned** — prompt in docs/EXECUTION_PROMPTS.md |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
