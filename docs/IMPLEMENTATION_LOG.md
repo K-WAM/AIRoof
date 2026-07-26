@@ -719,3 +719,28 @@ removals + rationale (if any) · deviations from spec (if any).
   no runtime import, lookup, notification implementation, or route contract changed.
 - Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
   28 files / 288 tests green.
+
+## T-051 — Remove unused configuration declarations
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the unused `Capability` export from `src/lib/config/env.ts`; the capability registry remains live
+  through `getCapabilityStatus()` and `getCapabilityReport()`.
+- Removed unused `.env.example` declarations for `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and the three
+  Google Calendar OAuth variables. No source or script reads any of them; the lone remaining
+  `TWILIO_AUTH_TOKEN` mention is a historical onboarding instruction to implement a future integration, not a
+  runtime consumer. Removed the stale `.env.example` `VAPI_AUTH_BYPASS` comment because T-010 already removed
+  that behavior; negative tests still set the name deliberately to prove it cannot bypass webhook auth.
+- Repo-wide evidence: exact identifier searches plus a complete scan of static `process.env.X`, indexed
+  `process.env["X"]`, `getEnv("X")`, and `requireEnv("X")` reads found no live reader for any removed
+  declaration. `Capability` appeared only at its declaration. Live model, Firebase, Vapi, Resend, cron, demo
+  seed, and optional `VAPI_BASE_URL` names remain documented.
+- **Retained after evidence review:** the protected T-034 legacy `?key=` path is still consumed by
+  `src/app/field/page.tsx`, posted to `/api/field/exchange`, routed to `exchangeLegacyFieldKey()`, and covered
+  by route/guard tests, so `src/lib/auth/verifyRole.ts` was not touched. Redirect-only `/company/agent`,
+  `/company/appointments`, and `/company/leads` remain compatibility routes because there is no migration
+  evidence for external bookmarks. Four pairs of byte-identical local helpers found by AST hashing are all
+  called; consolidating them would require an additive shared-module refactor, prohibited by this
+  subtractive-only task. Module-import reachability found no orphan component/hook/lib file, and TypeScript
+  with `allowUnreachableCode=false` found no unreachable branch. `CallSession`, `UserBusinessMembership`, and
+  `SuperadminProfile` remain intact as required.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green.
