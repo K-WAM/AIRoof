@@ -21,14 +21,14 @@ import { FeedbackForm } from "@/components/ui/FeedbackForm";
 
 const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyModule | null }[] = [
   { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard, module: null },
+  { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
+  { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
   { path: "/company/calls",     label: "Calls",     Icon: Phone,           module: null },
   { path: "/company/pipeline",  label: "Pipeline",  Icon: Workflow,        module: null },
-  { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
   { path: "/company/field",     label: "Field",     Icon: Mic,             module: "jobs" },
-  { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
   { path: "/company/library",   label: "Library",   Icon: BookOpen,        module: "library" },
-  { path: "/company/settings",  label: "Settings",  Icon: Settings,        module: null },
   { path: "/company/guide",     label: "Guide",     Icon: Compass,         module: null },
+  { path: "/company/settings",  label: "Settings",  Icon: Settings,        module: null },
 ];
 
 export function CompanyNav() {

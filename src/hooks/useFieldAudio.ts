@@ -32,6 +32,35 @@ interface UseFieldAudioOptions {
   onSuccess?: (result: FieldAudioResult) => void;
 }
 
+type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+/**
+ * Re-posts the same in-memory request once when the first upload attempt fails.
+ * The body is a reusable JSON string, so the recorded blob is never re-read or
+ * discarded between attempts. Nothing is persisted across a page reload.
+ */
+export async function postFieldAudioWithRetry(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  fetchImpl: FetchImpl = fetch,
+): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchImpl(input, init);
+      if (response.ok || attempt === 1) return response;
+    } catch (error) {
+      lastError = error;
+      if (attempt === 1) throw error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Field audio upload failed");
+}
+
 export function useFieldAudio(jobId: string | null, options: UseFieldAudioOptions) {
   const [status, setStatus] = useState<FieldAudioStatus>(null);
   const [transcript, setTranscript] = useState("");
@@ -126,19 +155,20 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
           setStatus("transcribing");
 
           try {
-            const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
+            const requestBody = JSON.stringify({
+              businessId: options.businessId,
+              audioBase64: base64,
+              mimeType: mimeTypeRef.current,
+              submittedBy: options.submittedBy,
+              jobContext: options.jobContext,
+            });
+            const res = await postFieldAudioWithRetry(`/api/jobs/${jobId}/field-audio`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 ...(options.fieldKey ? { "x-field-key": options.fieldKey } : {}),
               },
-              body: JSON.stringify({
-                businessId: options.businessId,
-                audioBase64: base64,
-                mimeType: mimeTypeRef.current,
-                submittedBy: options.submittedBy,
-                jobContext: options.jobContext,
-              }),
+              body: requestBody,
             });
 
             const data = await res.json();

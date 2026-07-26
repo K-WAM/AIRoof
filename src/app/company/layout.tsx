@@ -3,11 +3,13 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { Menu, X } from "lucide-react";
+import { Briefcase, CalendarDays, Menu, Phone, Users, X } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
+import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
@@ -73,6 +75,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   if (blockedModule) return null;
 
   const roleLabel = user.superadmin ? "Superadmin" : (user.role ?? "Viewer");
+  const preview = searchParams?.get("preview");
+  const previewSuffix = preview ? `?preview=${preview}` : "";
+  const crewSuffix = preview ? `?preview=${preview}&section=crews` : "?section=crews";
 
   return (
     <div className="company-shell">
@@ -80,6 +85,24 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <div className="company-brand">
           <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
         </div>
+        <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
+          {modulesReady && isEnabled("jobs") && (
+            <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs" title="Jobs">
+              <Briefcase size={18} strokeWidth={1.75} />
+            </Link>
+          )}
+          <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar" title="Calendar">
+            <CalendarDays size={18} strokeWidth={1.75} />
+          </Link>
+          <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls" title="Calls">
+            <Phone size={18} strokeWidth={1.75} />
+          </Link>
+          {modulesReady && isEnabled("library") && (
+            <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster" title="Crew roster">
+              <Users size={18} strokeWidth={1.75} />
+            </Link>
+          )}
+        </nav>
         <button
           type="button"
           className="mobile-menu-btn"
@@ -116,7 +139,15 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <main className="company-main">{children}</main>
+      <main className="company-main">
+        {!user.superadmin && (
+          <FirstLoginGuideNudge
+            userId={user.uid}
+            guideHref={`/company/guide${previewSuffix}`}
+          />
+        )}
+        {children}
+      </main>
     </div>
   );
 }

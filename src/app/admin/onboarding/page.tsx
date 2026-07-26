@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import {
   Building2,
+  Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Copy,
   LayoutTemplate,
@@ -25,6 +28,7 @@ const wizardSteps = [
   "Vapi and branding",
   "Launch readiness",
 ];
+const lastWizardStep = wizardSteps.length - 1;
 
 const roofingTemplate = VERTICAL_TEMPLATES.roofing;
 
@@ -41,6 +45,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
 
 export default function OnboardingPage() {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [furthestStep, setFurthestStep] = useState(0);
   const [submitStatus, setSubmitStatus] = useState<{
     type: "idle" | "submitting" | "success" | "error";
     message: string;
@@ -75,8 +82,42 @@ export default function OnboardingPage() {
     };
   }, [dirty]);
 
+  function moveToStep(step: number) {
+    const nextStep = Math.max(0, Math.min(lastWizardStep, step));
+    setCurrentStep(nextStep);
+    setFurthestStep((current) => Math.max(current, nextStep));
+    window.requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>(`[data-wizard-step="${nextStep}"]`)
+        ?.focus();
+    });
+  }
+
+  function goNext() {
+    const currentPanel = formRef.current?.querySelector<HTMLElement>(
+      `[data-wizard-step="${currentStep}"]`,
+    );
+    const invalidField = Array.from(
+      currentPanel?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        "input, select, textarea",
+      ) ?? [],
+    ).find((field) => !field.checkValidity());
+
+    if (invalidField) {
+      invalidField.reportValidity();
+      invalidField.focus();
+      return;
+    }
+
+    moveToStep(currentStep + 1);
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (currentStep < lastWizardStep) {
+      goNext();
+      return;
+    }
 
     const formData = new FormData(event.currentTarget);
     const validationChecks = [
@@ -92,7 +133,11 @@ export default function OnboardingPage() {
     if (invalid) {
       setSubmitStatus({ type: "error", message: invalid.message });
       const field = event.currentTarget.elements.namedItem(invalid.name);
-      if (field instanceof HTMLElement) field.focus();
+      if (field instanceof HTMLElement) {
+        const step = Number(field.closest<HTMLElement>("[data-wizard-step]")?.dataset.wizardStep);
+        if (Number.isFinite(step)) moveToStep(step);
+        window.requestAnimationFrame(() => field.focus());
+      }
       return;
     }
     setSubmitStatus({ type: "submitting", message: "Creating company..." });
@@ -182,9 +227,21 @@ export default function OnboardingPage() {
         <span className="status-pill">Draft setup</span>
       </header>
 
-      <form className="wizard-grid" onSubmit={handleSubmit} onChange={() => setDirty(true)}>
+      <form
+        ref={formRef}
+        className="wizard-grid"
+        onSubmit={handleSubmit}
+        onChange={() => setDirty(true)}
+        noValidate
+      >
         <section className="section-stack">
-          <section className="panel" aria-labelledby="profile-title">
+          <section
+            className="panel"
+            aria-labelledby="profile-title"
+            data-wizard-step={0}
+            hidden={currentStep !== 0}
+            tabIndex={-1}
+          >
             <div className="panel-header">
               <h2 className="panel-title" id="profile-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Building2 size={16} strokeWidth={1.75} />
@@ -229,7 +286,13 @@ export default function OnboardingPage() {
             </div>
           </section>
 
-          <section className="panel" aria-labelledby="template-title">
+          <section
+            className="panel"
+            aria-labelledby="template-title"
+            data-wizard-step={1}
+            hidden={currentStep !== 1}
+            tabIndex={-1}
+          >
             <div className="panel-header">
               <h2 className="panel-title" id="template-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <LayoutTemplate size={16} strokeWidth={1.75} />
@@ -318,7 +381,13 @@ export default function OnboardingPage() {
             </div>
           </section>
 
-          <section className="panel" aria-labelledby="defaults-title">
+          <section
+            className="panel"
+            aria-labelledby="defaults-title"
+            data-wizard-step={2}
+            hidden={currentStep !== 2}
+            tabIndex={-1}
+          >
             <div className="panel-header">
               <h2 className="panel-title" id="defaults-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <ListChecks size={16} strokeWidth={1.75} />
@@ -353,7 +422,13 @@ export default function OnboardingPage() {
             </div>
           </section>
 
-          <section className="panel" aria-labelledby="routing-title">
+          <section
+            className="panel"
+            aria-labelledby="routing-title"
+            data-wizard-step={3}
+            hidden={currentStep !== 3}
+            tabIndex={-1}
+          >
             <div className="panel-header">
               <h2 className="panel-title" id="routing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Route size={16} strokeWidth={1.75} />
@@ -397,7 +472,13 @@ export default function OnboardingPage() {
             </div>
           </section>
 
-          <section className="panel" aria-labelledby="vapi-onboarding-title">
+          <section
+            className="panel"
+            aria-labelledby="vapi-onboarding-title"
+            data-wizard-step={4}
+            hidden={currentStep !== 4}
+            tabIndex={-1}
+          >
             <div className="panel-header">
               <h2 className="panel-title" id="vapi-onboarding-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <PhoneCall size={16} strokeWidth={1.75} />
@@ -441,6 +522,34 @@ export default function OnboardingPage() {
                   <input id="logoUrl" name="logoUrl" placeholder="https://…/logo.png" />
                 </div>
               </div>
+            </div>
+          </section>
+
+          <section
+            className="panel"
+            aria-labelledby="readiness-title"
+            data-wizard-step={5}
+            hidden={currentStep !== 5}
+            tabIndex={-1}
+          >
+            <div className="panel-header">
+              <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Rocket size={16} strokeWidth={1.75} />
+                6. Launch Readiness
+              </h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ margin: "0 0 14px", color: "var(--text-muted)", fontSize: 13 }}>
+                Review every setup area before creating the inactive tenant. Test calls remain a post-create launch task.
+              </p>
+              <div className="readiness-list">
+                {readinessChecks.map((check, index) => (
+                  <label className="check-row" key={check}>
+                    <input type="checkbox" defaultChecked={index < 3} />
+                    <span>{check}</span>
+                  </label>
+                ))}
+              </div>
               <div className="button-row">
                 <button
                   className="button primary"
@@ -449,61 +558,86 @@ export default function OnboardingPage() {
                   style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                 >
                   <UserPlus size={15} strokeWidth={1.75} />
-                  Create company
+                  {submitStatus.type === "submitting" ? "Creating company…" : "Create company"}
                 </button>
               </div>
-              {submitStatus.type === "success" && submitStatus.businessId ? (
-                <div style={{ marginTop: 16, padding: "16px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
-                  <p style={{ margin: "0 0 10px", fontWeight: 700, color: "#15803d", fontSize: 14 }}>
-                    ✓ Company created — {submitStatus.businessId}
-                  </p>
-                  {submitStatus.loginEmail && submitStatus.tempPassword ? (
-                    <div style={{ margin: "0 0 14px", padding: "12px 14px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6 }}>
-                      <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>Client login credentials (shown once)</p>
-                      <p style={{ margin: "0 0 4px", fontSize: 13, color: "#1e293b" }}>
-                        Email: <strong>{submitStatus.loginEmail}</strong>
-                      </p>
-                      <p style={{ margin: "0 0 8px", fontSize: 13, color: "#1e293b" }}>
-                        Temp password: <strong style={{ fontFamily: "monospace", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>{submitStatus.tempPassword}</strong>
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard.writeText(`Email: ${submitStatus.loginEmail}\nPassword: ${submitStatus.tempPassword}`)}
-                        className="button"
-                        style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
-                      >
-                        <Copy size={13} strokeWidth={1.75} />
-                        Copy credentials
-                      </button>
-                      <p style={{ margin: "8px 0 0", fontSize: 11, color: "#64748b" }}>Ask the client to change their password after first login.</p>
-                    </div>
-                  ) : (
-                    <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534" }}>
-                      No owner email provided — client login not provisioned.
-                    </p>
-                  )}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <a href={`/admin/businesses/${submitStatus.businessId}/config`} className="button primary" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <Settings size={14} strokeWidth={1.75} />
-                      Configure agent
-                    </a>
-                    <a href="/admin/businesses" className="button" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      <Building2 size={14} strokeWidth={1.75} />
-                      All companies
-                    </a>
-                  </div>
-                </div>
-              ) : submitStatus.message ? (
-                <p
-                  className="helper-text"
-                  role={submitStatus.type === "error" ? "alert" : "status"}
-                  style={{ marginTop: 12, color: submitStatus.type === "error" ? "#b91c1c" : undefined }}
-                >
-                  {submitStatus.message}
-                </p>
-              ) : null}
             </div>
           </section>
+
+          <div className="button-row" style={{ justifyContent: "space-between", marginTop: 0 }}>
+            <button
+              className="button"
+              type="button"
+              onClick={() => moveToStep(currentStep - 1)}
+              disabled={currentStep === 0 || submitStatus.type === "submitting"}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            >
+              <ChevronLeft size={15} strokeWidth={1.75} />
+              Back
+            </button>
+            {currentStep < lastWizardStep && (
+              <button
+                className="button primary"
+                type="button"
+                onClick={goNext}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                Next
+                <ChevronRight size={15} strokeWidth={1.75} />
+              </button>
+            )}
+          </div>
+
+          {submitStatus.type === "success" && submitStatus.businessId ? (
+            <div style={{ padding: "16px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
+              <p style={{ margin: "0 0 10px", fontWeight: 700, color: "#15803d", fontSize: 14 }}>
+                ✓ Company created — {submitStatus.businessId}
+              </p>
+              {submitStatus.loginEmail && submitStatus.tempPassword ? (
+                <div style={{ margin: "0 0 14px", padding: "12px 14px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6 }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.05em" }}>Client login credentials (shown once)</p>
+                  <p style={{ margin: "0 0 4px", fontSize: 13, color: "#1e293b" }}>
+                    Email: <strong>{submitStatus.loginEmail}</strong>
+                  </p>
+                  <p style={{ margin: "0 0 8px", fontSize: 13, color: "#1e293b" }}>
+                    Temp password: <strong style={{ fontFamily: "monospace", background: "#f1f5f9", padding: "1px 6px", borderRadius: 4 }}>{submitStatus.tempPassword}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(`Email: ${submitStatus.loginEmail}\nPassword: ${submitStatus.tempPassword}`)}
+                    className="button"
+                    style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}
+                  >
+                    <Copy size={13} strokeWidth={1.75} />
+                    Copy credentials
+                  </button>
+                  <p style={{ margin: "8px 0 0", fontSize: 11, color: "#64748b" }}>Ask the client to change their password after first login.</p>
+                </div>
+              ) : (
+                <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534" }}>
+                  No owner email provided — client login not provisioned.
+                </p>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <a href={`/admin/businesses/${submitStatus.businessId}/config`} className="button primary" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <Settings size={14} strokeWidth={1.75} />
+                  Configure agent
+                </a>
+                <a href="/admin/businesses" className="button" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <Building2 size={14} strokeWidth={1.75} />
+                  All companies
+                </a>
+              </div>
+            </div>
+          ) : submitStatus.message ? (
+            <p
+              className="helper-text"
+              role={submitStatus.type === "error" ? "alert" : "status"}
+              style={{ margin: 0, color: submitStatus.type === "error" ? "#b91c1c" : undefined }}
+            >
+              {submitStatus.message}
+            </p>
+          ) : null}
         </section>
 
         <aside className="section-stack">
@@ -515,33 +649,65 @@ export default function OnboardingPage() {
               </h2>
             </div>
             <div className="panel-body">
+              <p
+                role="status"
+                aria-live="polite"
+                style={{ margin: "0 0 8px", fontSize: 13, fontWeight: 700 }}
+              >
+                Step {currentStep + 1} of {wizardSteps.length}
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Company onboarding progress"
+                aria-valuemin={1}
+                aria-valuemax={wizardSteps.length}
+                aria-valuenow={currentStep + 1}
+                style={{ height: 6, borderRadius: 999, background: "var(--surface-muted)", marginBottom: 18, overflow: "hidden" }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    width: `${((currentStep + 1) / wizardSteps.length) * 100}%`,
+                    height: "100%",
+                    borderRadius: 999,
+                    background: "var(--accent)",
+                    transition: "width 0.18s ease",
+                  }}
+                />
+              </div>
               <ol className="step-list">
                 {wizardSteps.map((step, index) => (
-                  <li key={step}>
-                    <span className="step-number">{index + 1}</span>
-                    <span>{step}</span>
+                  <li
+                    key={step}
+                    style={{ color: index === currentStep ? "var(--text)" : undefined }}
+                  >
+                    <span
+                      className="step-number"
+                      style={index <= currentStep ? { background: "var(--accent)", color: "#fff" } : undefined}
+                    >
+                      {index < currentStep ? <Check size={14} strokeWidth={2} /> : index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => moveToStep(index)}
+                      disabled={index > furthestStep}
+                      aria-current={index === currentStep ? "step" : undefined}
+                      style={{
+                        border: 0,
+                        padding: "4px 0",
+                        background: "transparent",
+                        color: "inherit",
+                        font: "inherit",
+                        fontWeight: index === currentStep ? 700 : 500,
+                        textAlign: "left",
+                        cursor: index <= furthestStep ? "pointer" : "default",
+                      }}
+                    >
+                      {step}
+                    </button>
                   </li>
                 ))}
               </ol>
-            </div>
-          </section>
-
-          <section className="panel" aria-labelledby="readiness-title">
-            <div className="panel-header">
-              <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Rocket size={16} strokeWidth={1.75} />
-                Launch readiness
-              </h2>
-            </div>
-            <div className="panel-body">
-              <div className="readiness-list">
-                {readinessChecks.map((check, index) => (
-                  <label className="check-row" key={check}>
-                    <input type="checkbox" defaultChecked={index < 3} />
-                    <span>{check}</span>
-                  </label>
-                ))}
-              </div>
             </div>
           </section>
         </aside>
