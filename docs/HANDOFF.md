@@ -1,6 +1,6 @@
 # AI Receptionist Platform — Handoff
 
-> **⚠️ SUPERSEDED (2026-07-25)** — This doc is from 2026-05-28, well before the release plan (`MASTER_PLAN.md`) was written. Phases 0–4 are fully merged; see `MASTER_PLAN.md`, `TODO.md`, and `docs/IMPLEMENTATION_LOG.md` for the current shipped state. This file is retained for historical architecture reference only.
+> **⚠️ SUPERSEDED (2026-07-25)** — This doc is from 2026-05-28, well before the release plan (`MASTER_PLAN.md`) was written. Phases 0–5 are fully merged (Phase 5: T-050, T-051, T-052); see `MASTER_PLAN.md`, `TODO.md`, and `docs/IMPLEMENTATION_LOG.md` for the current shipped state. This file is retained for historical architecture reference only.
 
 Date: 2026-05-28 (latest session)
 
