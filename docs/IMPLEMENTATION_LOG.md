@@ -810,3 +810,36 @@ removals + rationale (if any) · deviations from spec (if any).
 - `graphify . --update` — incremental update invoked (docs-only scope, no full rebuild warranted).
 
 Co-Authored-By: Claude <noreply@anthropic.com>
+
+---
+
+## T-048 — Voice-note retry + parse-field-update model comparison
+
+- **Date:** 2026-07-25 · **Branch:** `task/ux-resilience` · **Commit:** this commit
+- Added one bounded, in-memory retry to the recorded-audio upload in `useFieldAudio.ts`. The hook serializes
+  the recorded blob once and reuses the same URL, headers, and JSON body for one automatic re-POST after either
+  a network exception or a non-success HTTP response. A second failure returns to the existing honest
+  `error` state; there is no persistence, background queue, reload recovery, correction-card change, or
+  Whisper-prompt change.
+- Added unit coverage for fail-then-succeed, fail-then-fail, and HTTP-failure-then-success. The assertions
+  prove exactly two calls and byte-for-byte-equivalent request arguments across attempts.
+- Added a fixture-driven comparison gate using four anonymized field-note transcripts already captured in
+  repository documentation/tests, plus all four adversarial `fieldUpdate` output fixtures from
+  `src/lib/schemas/__tests__/fixtures/adversarial.ts`. The scorer detects missing or incorrect extracted facts,
+  and the adversarial corpus remains fail-closed through the production schema parser.
+- **Live model comparison (same production prompt, temperature `0.1`, 2026-07-25):**
+  - `gpt-4o`: **14/15 facts (93.3%)**, 3,363 input + 464 output tokens, measured batch cost **$0.013048**.
+  - `gpt-4o-mini`: **13/15 facts (86.7%)**, 3,363 input + 635 output tokens, measured batch cost
+    **$0.000885** (93.2% less for this run).
+  - Both models missed the fixture's expected medium severity for the stated drip-edge follow-up; mini also
+    downgraded the explicitly rotted roof decking instead of retaining the expected high severity. That is a
+    **6.6 percentage-point regression**, so `src/lib/ai/registry.ts` deliberately remains on `gpt-4o`.
+    The cheaper-model swap was not forced and is recorded as a finding, per acceptance criteria.
+- Cost basis: OpenAI's model pages list standard text-token prices per 1M tokens as `gpt-4o`
+  $2.50 input/$10.00 output and `gpt-4o-mini` $0.15 input/$0.60 output (94% lower unit rates):
+  <https://developers.openai.com/api/docs/models/gpt-4o> and
+  <https://developers.openai.com/api/docs/models/gpt-4o-mini>.
+- Verification: targeted T-048/registry suite **33/33**; `npm run type-check` clean; `npm run lint`
+  0 errors / 26 baseline warnings; isolated rerun of two known timeout-prone unchanged files **18/18**;
+  immediate solo `npm test` **30 files / 294 tests green**. No API key or model output containing credentials
+  was written to source; temporary pulled environment files were removed after the comparison.
