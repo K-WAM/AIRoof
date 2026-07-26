@@ -843,3 +843,49 @@ Co-Authored-By: Claude <noreply@anthropic.com>
   0 errors / 26 baseline warnings; isolated rerun of two known timeout-prone unchanged files **18/18**;
   immediate solo `npm test` **30 files / 294 tests green**. No API key or model output containing credentials
   was written to source; temporary pulled environment files were removed after the comparison.
+
+---
+
+## T-047 — Navigation friction, first-login Guide nudge, and onboarding stepper
+
+- **Date:** 2026-07-25 · **Branch:** `task/ux-resilience` · **Commit:** this commit
+- Reordered the desktop/mobile company nav around common workflows (Dashboard → Jobs → Calendar → Calls)
+  without changing `MODULE_ROUTES`, `useBusinessModules()`, auth logic, or API role gates. Added compact
+  module-gated mobile header shortcuts for Jobs, Calendar, Calls, and the Crew roster; the full hamburger nav
+  remains available and still closes on route changes.
+- Added a one-time `Start here` Guide nudge for non-superadmin company users. It links to `/company/guide`,
+  marks itself seen in `localStorage` using a per-user/versioned key when first presented, can be dismissed,
+  and does not recur on reload or a later login in the same browser. Superadmin preview sessions are excluded.
+- Converted admin onboarding from six simultaneously displayed panels plus a passive list into one connected
+  six-step form: visible `Step N of 6` progress, progressbar semantics, per-step validation, Back/Next,
+  completed-step revisiting, keyboard-native buttons, retained form controls while panels are hidden, and
+  tenant creation only on the final Launch Readiness step. The existing `/api/admin/businesses` URL, POST
+  payload construction, inactive-tenant default, success/error states, dirty-navigation guard, and
+  one-time credential display are unchanged.
+
+### Click-path audit
+
+Counts start from an authenticated company page. A click/tap or drag/drop gesture counts as one interaction;
+typing does not. Management flows apply to owner/staff and superadmin-in-preview; field workers remain on the
+field-key-gated `/field` capture surface and receive no new management navigation.
+
+| Flow | Desktop before → after | Mobile before → after | After path |
+|---|---:|---:|---|
+| Create job | 3 → 3 | **4 → 3** | Jobs shortcut → New job → Create job |
+| Schedule | 3 → 3 | **4 → 3** | Calendar shortcut → drag/drop → Confirm + email |
+| Send invoice | 4 → 4 | **5 → 4** | Jobs shortcut → open job → Generate invoice → Send invoice |
+| Add crew | 3 → 3 | **4 → 2** | Crew roster shortcut → Add crew |
+| View call | 2 → 2 | **3 → 2** | Calls shortcut → select call |
+
+- Added six deterministic tests recording all five before/after paths, asserting no desktop regression and a
+  mobile reduction for every flow, documenting role scope, verifying the per-user Guide storage key, proving
+  all six onboarding panels remain connected, and checking all 23 existing POST-contract form fields remain.
+- **Playwright deviation:** a live local server reached HTTP 200, but the installed browser-control runtime
+  exposed no in-app or Chrome browser backend (`browsers.list()` returned empty), and this repo has no
+  Playwright dependency. Per scope, no dependency was installed and no browser run is claimed. The same 2–3
+  representative paths remain recorded as deterministic click-path fixtures above; an authenticated live
+  Playwright replay is the sole environment-limited verification item for reviewer follow-up.
+- Verification: focused T-047 suite **6/6**; `npm run type-check` clean; `npm run lint` 0 errors /
+  26 baseline warnings; initial full suite had only the documented unchanged `example-lib.test.ts` import
+  timeout, isolated rerun **2/2**, immediate solo `npm test` **32 files / 300 tests green**; final batch
+  `npm run build` green (48 static pages generated, `/admin/onboarding` and company routes included).
