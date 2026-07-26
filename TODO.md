@@ -272,6 +272,19 @@ collection types (`CallSession`/`UserBusinessMembership`/`SuperadminProfile`) al
 only merge conflict (both sides' own status-row edits), resolved keeping both; `IMPLEMENTATION_LOG.md` merged
 cleanly (append-only). T-052 (documentation reconciliation) is now unblocked — Phase 5's last task.
 
+**Assignment rationale (round 6 — T-052):** Phase 5's serial chain is now fully satisfied (T-050 green, then
+T-051 green) — T-052 is the only remaining Phase 5 task and the only assignable task this round; Phase 6
+stays owner-deferred until Phase 5 is fully merged (2026-07-23 decision). T-052 is docs-only reconciliation
+(update `CLAUDE.md`/`HANDOFF.md`/`.env.example`/the onboarding guide to match shipped state, mark superseded
+claims without deleting history) — the same track as T-043/T-044, both of which Deepseek already handled
+cleanly this session — so it's routed to Worker D, reactivating the idle `air-wt-feedback-form` worktree on
+its existing `task/feedback-form` branch (no rename needed; it was never advanced past T-044). One deliberate
+deviation from MASTER_PLAN's literal file list: `docs/SESSION_HANDOFF.md` is marked read-only for this worker
+rather than owned-for-edit, because the integrator already rewrites it every merge round in this session and a
+worker-authored version would either conflict or go stale by the time T-052 is reviewed; the worker should
+flag anything it finds stale there rather than editing it, and the integrator reconciles it as part of the
+final Phase-5-closeout update.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -281,7 +294,7 @@ cleanly (append-only). T-052 (documentation reconciliation) is now unblocked —
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
 | Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide subtractive cleanup; `docs/IMPLEMENTATION_LOG.md`; own `TODO.md` row | **merged** — 4 evidence-backed removal clusters, integration below |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — T-052 (docs-only) is next in line for this worktree now that T-051 is merged |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | T-052 | `CLAUDE.md`, `HANDOFF.md`, `.env.example`, `public/guides/onboarding-guide.html`; `docs/SESSION_HANDOFF.md` read-only (integrator-owned live file — flag discrepancies, don't edit) | **assigned** — worktree already has a working node_modules and graphify-out, no rename needed this round |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
