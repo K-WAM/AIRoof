@@ -48,72 +48,65 @@ Current batch values:
 
 ---
 
-## PENDING — next assignments, ready to paste (as of `26c0352`, 2026-07-24, ~85% complete)
+## PENDING — next assignments, ready to paste (as of `3db8a52`, 2026-07-25, ~90% complete)
 
-Phase 4 is fully closed (6/6). Phase 5 (T-050/T-051/T-052) is a **strict serial chain** per MASTER_PLAN's own
-Deps lines (T-051 needs "T-050 green," T-052 needs "Phase 5 others") — only T-050 is assignable this round.
-Worker C's worktree was retired from its fully-merged `task/icon-sweep` branch and reassigned + renamed
-(`git worktree move`) — node_modules and graphify-out carried over, `npm run type-check` verified clean after
-the rename. Worker D has no parallel-safe task this round; `air-wt-feedback-form` stays idle until T-050
-merges and unblocks T-051.
+Phase 4 is fully closed (6/6). T-050 merged this session (`3a76e88`, integrated `17e1982`) — Phase 5 is now
+1/3 done. T-051 is the only assignable task this round (T-052 still depends on "Phase 5 others," i.e. T-051
+itself). Worker C's worktree was retired from its fully-merged `task/release-suite` branch and reassigned +
+renamed (`git worktree move`) to `D:\Apps\air-wt-cleanup-sweep` on a fresh branch `task/cleanup-sweep` —
+node_modules and graphify-out carried over, `npm run type-check` verified clean after the rename. Worker D has
+no parallel-safe task this round; `air-wt-feedback-form` stays idle until T-051 merges and unblocks T-052
+(docs-only, likely Worker D's next task).
 
-### Next for Codex (Worker C) — T-050, same worktree, new branch
+### Next for Codex (Worker C) — T-051, same worktree, new branch
 
 ```
 You are Worker C for the AI Receptionist release plan, continuing in your existing worktree (now on a
-fresh branch — your T-030/T-031/T-032/T-034/T-042/T-040/T-045 work is all merged and done).
+fresh branch — your T-030/T-031/T-032/T-034/T-042/T-040/T-045/T-050 work is all merged and done).
 
-Work ONLY inside: D:\Apps\air-wt-release-suite   (branch task/release-suite)
+Work ONLY inside: D:\Apps\air-wt-cleanup-sweep   (branch task/cleanup-sweep)
 BEFORE YOUR FIRST EDIT, run `git rev-parse --show-toplevel` and `git branch --show-current` and confirm
 both exactly match the path and branch above — not the main repo (D:\Apps\AI Receptionist, branch main).
 Workers have previously edited the main repo by mistake this way. Re-check before your commit too.
 This worktree already has a working node_modules — do NOT run npm install/npm ci.
 
-This task is narrow and file-specific enough that graphify is unlikely to pay off — use Glob/Grep directly
-on the file paths below instead of invoking the skill.
+This task is genuinely repo-wide, so graphify is likely to pay off for finding dead symbols/dynamic
+references quickly — a `--update` (incremental) refresh is fine if you've made changes since the copy;
+a full rebuild almost never is.
 
-Your task: T-050 — Deterministic release suite + merge gating (MASTER_PLAN.md, Phase 5, CIB-015).
-Read AGENTS.md fully first. Read only the T-050 section of MASTER_PLAN.md and your row in TODO.md.
+Your task: T-051 — Evidence-driven cleanup sweep (MASTER_PLAN.md, Phase 5, CIB cross-cutting §6).
+Read AGENTS.md fully first (its "Cleanup rules" section applies directly to this task). Read only the
+T-051 section of MASTER_PLAN.md and your row in TODO.md.
 
-Owns: new `tests/release/**`; `.github/workflows/ci.yml` (extend, don't replace — it already runs
-type-check/lint/build/`npm test` on push+PR to main via `actions/checkout` + `actions/setup-node`).
+Owns: repo-wide, but land it as small, separate commits per removal cluster — never mix cleanup with any
+functional change.
 
-**Important existing-file note, checked this session:** `vitest.config.ts`'s `test.include` is currently
-`["src/**/*.test.ts", "src/**/*.test.tsx"]` — a new `tests/release/**` directory will NOT be picked up by
-the existing `npm test` step automatically. `vitest.config.ts` is NOT in your owned scope, so don't edit it
-silently; instead add a distinct CI step (e.g. `npx vitest run tests/release`) to `ci.yml` alongside the
-existing `npm test` step. If you conclude editing `vitest.config.ts`'s include pattern is genuinely the
-better design, stop and flag it as a HELP-NEEDED question rather than silently expanding your owned-file
-scope.
+Remove only with evidence, per removal:
+1. Repo-wide grep for every reference (including string/dynamic references — template strings, route
+   tables, `Record<...>` lookups — not just static imports).
+2. `tsc`/lint/build/tests green after the removal, before moving to the next cluster.
+3. A dated entry in `docs/IMPLEMENTATION_LOG.md` naming what was removed and the grep evidence that nothing
+   else referenced it.
 
-Build a small, deterministic (mocked providers, no live network) route-handler-level suite covering:
-- **Webhook auth/replay** — `src/app/api/webhooks/vapi/route.ts` + `src/lib/vapi/verify.ts`. Existing unit
-  coverage is in `src/lib/vapi/__tests__/` (route-auth, verify, escalation-branch, appointment-identity) —
-  your suite should exercise these at the route-handler level (real request → real handler → asserted
-  response), not duplicate the existing unit tests.
-- **Cron auth** — `src/lib/auth/cronGuard.ts` guards `src/app/api/cron/{daily-call-summary,faq-suggestions,
-  follow-up-calls,retention}/route.ts`. Confirm each route 401s without a valid `CRON_SECRET` bearer token.
-- **Duplicate side effects** — `src/lib/ops/ledger.ts` (T-021's transactional claim/dedupe primitive) backs
-  idempotent sends/bookings; prove a simulated duplicate webhook/cron invocation doesn't double-send or
-  double-book.
-- **Calendar failure rollback** — T-030's transactional booking/conflict-check logic in `agentTools.ts`
-  (`bookAppointment`/`checkAvailability`); prove a failed write doesn't leave a partial/inconsistent state.
-- **Provider-key readiness** — `src/lib/ai/registry.ts`'s `isProviderReady()` gate; prove routes correctly
-  report "not configured" rather than crashing or silently mocking when a provider key is absent.
+In scope per CIB §6 and the 2026-07-15 prior sweep's leftover list: dead imports, unreachable branches,
+obsolete components, duplicate helpers, unused env declarations, stale comments, superseded routes,
+redundant notification implementations, and the T-034 legacy `?key=` fallback path (confirm it is genuinely
+dead post-T-034 before touching it — that guard is protected context; if grep shows any live caller, leave
+it and log why instead of removing it).
 
-Mock Firestore/Vapi/Resend/OpenAI/DeepSeek at existing seams (see AGENTS.md's Test expectations section) —
-no live providers in CI, ever. Document your flaky-test quarantine policy (this repo has a known
-concurrent-load timeout pattern in a couple of files — see AGENTS.md's "Known hiccups" — decide/document how
-your new suite avoids or tolerates that class of flake). Also produce the branch-protection setup doc for
-the owner (NH-2 in TODO.md: "require CI green" on `main`) — a short doc section is enough, you cannot change
-GitHub repo settings yourself.
+Hard constraints:
+- Keep every type describing a live Firestore collection (`CallSession`, `UserBusinessMembership`,
+  `SuperadminProfile` — see HANDOFF §8) even if `tsc` currently shows it unreferenced.
+- No speculative refactors, no behavior changes of any kind — this task is subtractive only.
+- Keep any compatibility code that lacks clear migration evidence that it's safe to drop.
+- Removals cannot touch an auth guard (`verifyRole.ts`, cron/webhook auth, field-access checks) without a
+  dedicated review — if you find a guard that looks dead, stop and log it as HELP-NEEDED rather than
+  removing it yourself.
 
-Prohibited: a browser-automation e2e farm (explicitly out of scope, post-MVP — this is route-handler level
-only, not Playwright).
-
-One commit (T-050: <summary>), gates green (type-check/lint/test; build once), append evidence to
-docs/IMPLEMENTATION_LOG.md, set your TODO.md row to review. Never push, merge, or touch main. If blocked
->20 min: commit WIP, log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
+One commit per removal cluster (`T-051: <summary of this cluster>`), gates green after each (type-check/
+lint/test; build once at the end of the batch), append evidence to docs/IMPLEMENTATION_LOG.md per cluster,
+set your TODO.md row to review when done. Never push, merge, or touch main. If blocked >20 min: commit WIP,
+log HELP-NEEDED in TODO.md, and give me the stuck-summary block.
 ```
 
 Worker D (Deepseek) has no assignment this round — do not provision new work for `air-wt-feedback-form`
