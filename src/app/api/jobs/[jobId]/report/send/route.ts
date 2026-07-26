@@ -97,6 +97,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 </div>
 </body></html>`;
 
-  await sendEmail({ to, subject: `Job Report \u2014 ${job.title ?? jobId} from ${bizName}`, html });
+  await sendEmail({ to, subject: `[Report] ${job.title ?? jobId} from ${bizName}`, html });
   return NextResponse.json({ ok: true });
 }

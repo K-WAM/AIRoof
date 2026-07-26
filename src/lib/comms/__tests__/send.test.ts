@@ -296,6 +296,65 @@ describe("sendWithLedger", () => {
   });
 });
 
+describe("subject format convention", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("buildCrewAssignmentEmail uses [Assignment] prefix", async () => {
+    const { buildCrewAssignmentEmail } = await import("@/lib/notify");
+    const result = buildCrewAssignmentEmail({
+      brand: { businessName: "Test Co" },
+      crewName: "Carlos Crew",
+      jobTitle: "Roof repair",
+      when: "Monday, July 28",
+      address: "123 Main St",
+      clientName: "Jordan Blake",
+    });
+    expect(result.subject).toMatch(/^\[Assignment\] /);
+    expect(result.subject).toMatch(/\u2014/);
+  });
+
+  it("buildCustomerConfirmationEmail uses [Appointment] prefix", async () => {
+    const { buildCustomerConfirmationEmail } = await import("@/lib/notify");
+    const result = buildCustomerConfirmationEmail({
+      brand: { businessName: "Test Co" },
+      clientName: "Priya Shah",
+      serviceType: "AC repair",
+      when: "Tuesday, July 29",
+      address: "88 Brickell Ave",
+    });
+    expect(result.subject).toMatch(/^\[Appointment\] Confirmed/);
+  });
+
+  it("buildBusinessWelcomeEmail uses [Luxor AI] prefix", async () => {
+    const { buildBusinessWelcomeEmail } = await import("@/lib/notify");
+    const result = buildBusinessWelcomeEmail({
+      brandName: "Test Co",
+      ownerEmail: "owner@test.com",
+      resetLink: "https://example.com/reset",
+    });
+    expect(result.subject).toMatch(/^\[Luxor AI\] /);
+  });
+
+  it("buildFeedbackEmail uses [Feedback] prefix", async () => {
+    const { buildFeedbackEmail } = await import("@/lib/notify");
+    const result = buildFeedbackEmail({
+      businessName: "Test Co",
+      submitterName: "Jordan",
+      submitterEmail: "jordan@test.com",
+      businessId: "test-123",
+      message: "Great app, needs dark mode.",
+    });
+    expect(result.subject).toMatch(/^\[Feedback\] /);
+  });
+});
+
 describe("isCommsConfigured", () => {
   beforeEach(() => {
     vi.resetModules();
