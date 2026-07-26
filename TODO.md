@@ -12,7 +12,7 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | ✅ **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | ✅ **all 6 tasks merged** — Phase complete | Phase 1+2 merged ✓ |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
-| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | 🟡 **T-050 merged** (`3a76e88`) — T-051 now unblocked, T-052 still blocked on T-051 | Phase 4 merged ✓ |
+| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | 🟡 **T-050+T-051 merged** (2/3) — T-052 now unblocked | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
 
 ### Checklist
@@ -30,19 +30,20 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
   - [x] T-045 — Icon consistency sweep (lucide-react)
 - [ ] Phase 5 — Release engineering + cleanup (15%)
   - [x] T-050 — Deterministic release suite + merge gating
-  - [ ] T-051 — Evidence-driven cleanup sweep — unblocked now that T-050 is green (tests protect behavior first)
-  - [ ] T-052 — Documentation reconciliation — blocked on T-050 + T-051
+  - [x] T-051 — Evidence-driven cleanup sweep
+  - [ ] T-052 — Documentation reconciliation — unblocked now that T-050 + T-051 are both green
 - [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — queued behind Phase 5
   - [ ] T-046 — Demo Studio richness + parity audit
   - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial
   - [ ] T-048 — Voice-note field resilience + AI model right-sizing
   - [ ] T-049 — Outbound email consistency + branding pass
 
-Overall implementation: **~90%** (Phases 0-4 fully merged — 85% of CIB-weighted work — plus T-050, roughly a
-third of Phase 5's 15% weight, now merged. An estimate, not a precise figure.)
-Independently re-verified on `main` post-merge (this session, commit `3a76e88` merge): type-check clean, lint
-0 errors/27 baseline warnings, build green, `npm test` 288/288 (1 known concurrent-load flake in
-`example-lib.test.ts`, confirmed clean in isolation), release suite **16/16 clean**.
+Overall implementation: **~95%** (Phases 0-4 fully merged — 85% of CIB-weighted work — plus T-050 and T-051,
+2/3 of Phase 5's 15% weight, now merged. An estimate, not a precise figure.)
+Independently re-verified on `main` post-merge (this session, T-051 merge): type-check clean, lint
+0 errors/26 baseline warnings (down from 27 — T-051 removed one dead import), build green, `npm test`
+288/288 (1 known concurrent-load flake in `example-lib.test.ts`, confirmed clean in isolation), release
+suite **16/16 clean**.
 
 **Phase 4 file-overlap note (round 3 — current):** T-044 and T-045 both touch `company-nav.tsx`/`admin-nav.tsx`
 in a small way (T-044 adds one new Feedback nav link + icon; T-045 audits every page for missing icons, and
@@ -253,6 +254,24 @@ current tip (`git worktree move` + `git checkout -b`), `graphify-out/` refreshed
 reverified clean. Worker D (Deepseek) stays idle — T-052 is docs-only and depends on T-051 landing first, and
 no other parallel-safe work exists this round.
 
+**Review outcome (T-051):** APPROVE, merged without rework. Independently reproduced in the worktree before
+merge: type-check clean, lint 0/26 (down from 27 — one dead import removed), 288/288 unit tests (one
+`example-lib.test.ts` timeout, the known concurrent-load flake, confirmed clean on isolated rerun), 16/16
+release-suite tests, build green, `git diff --check` clean. Verified each of the 4 removal clusters by hand,
+not just by trusting the self-report: (1) `useSearchParams` was genuinely unused in `company/settings/page.tsx`
+(the page reads tenant context via `useBusinessId()`); (2) `isAfterHoursNow()` in `agentTools.ts` had zero
+callers repo-wide — independently confirmed with a fresh grep across the whole tree, matching the worker's own
+Graphify-based claim exactly; (3) the duplicated `NotificationDeliveryState` union was collapsed to a
+type-only re-export from the canonical `src/lib/comms/send.ts` definition — compile-time only, zero runtime
+effect, and both live route call sites keep their existing import path; (4) the removed `.env.example`
+Twilio/Google-Calendar declarations and the stale post-T-010 `VAPI_AUTH_BYPASS` comment are documentation-only,
+no source or script read any of them. Correctly conservative throughout: the protected T-034 legacy `?key=`
+path was confirmed to have a live caller (`/field` → `/api/field/exchange` → `exchangeLegacyFieldKey()`) and
+left alone, `verifyRole.ts` untouched, redirect-only compatibility routes and the three required Firestore
+collection types (`CallSession`/`UserBusinessMembership`/`SuperadminProfile`) all retained. `TODO.md` was the
+only merge conflict (both sides' own status-row edits), resolved keeping both; `IMPLEMENTATION_LOG.md` merged
+cleanly (append-only). T-052 (documentation reconciliation) is now unblocked — Phase 5's last task.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -261,8 +280,8 @@ no other parallel-safe work exists this round.
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide, small commits per removal cluster | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — T-052 (docs-only) is next in line for this worktree once T-051 merges |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide subtractive cleanup; `docs/IMPLEMENTATION_LOG.md`; own `TODO.md` row | **merged** — 4 evidence-backed removal clusters, integration below |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — T-052 (docs-only) is next in line for this worktree now that T-051 is merged |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 

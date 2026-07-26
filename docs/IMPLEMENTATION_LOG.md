@@ -685,3 +685,62 @@ removals + rationale (if any) · deviations from spec (if any).
 - Verification: `npm run type-check` clean; `npm run lint` 0 errors / 27 existing warnings; `npm test`
   28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green; `git diff --check`
   green. No production code or dependencies changed; no removals.
+
+## T-051 — Remove dead Settings import
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the unused `useSearchParams` import from `src/app/company/settings/page.tsx`; the page already gets
+  its tenant context from `useBusinessId()` and never read search params directly.
+- Repo-wide evidence: `rg -n -F useSearchParams` found the Settings occurrence only at the import while every
+  other importing module also had a call; `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` reported
+  this as the sole unused source symbol. After removal, lint warnings dropped from 27 to 26.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; isolated
+  `src/test-utils/example-lib.test.ts` 2/2 and full `npm test` 28 files / 288 tests green. The first full-suite
+  run had one unrelated timeout in that smoke-test file after its expected auth-mismatch path completed; the
+  isolated rerun and immediate full rerun both passed.
+
+## T-051 — Remove unreferenced after-hours wrapper
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed `isAfterHoursNow()` and its comment from `src/lib/tools/agentTools.ts`. The wrapper was never called;
+  the live scheduling paths continue to call `isScheduleWithinBusinessHours()` directly.
+- Repo-wide evidence: exact symbol grep across tracked and hidden text found only the declaration. Graphify
+  showed a degree-2 node with only its containing file and its outgoing call to
+  `isScheduleWithinBusinessHours()`—no incoming caller, import, route-table entry, or string/dynamic reference.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green.
+
+## T-051 — Deduplicate notification delivery state
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the duplicate four-value `NotificationDeliveryState` union from `src/lib/tools/agentTools.ts`.
+  `src/lib/comms/send.ts` remains the single definition; `agentTools.ts` imports that type for its own return
+  annotation and re-exports it so the two live scheduling routes keep their existing import path.
+- Repo-wide evidence: exact symbol grep found only the two identical definitions, their local return/status
+  annotations, the two route imports, and historical documentation. The follow-up import audit confirmed the
+  routes consume the `agentTools.ts` export, so the type-only re-export was retained as compatibility code;
+  no runtime import, lookup, notification implementation, or route contract changed.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green.
+
+## T-051 — Remove unused configuration declarations
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the unused `Capability` export from `src/lib/config/env.ts`; the capability registry remains live
+  through `getCapabilityStatus()` and `getCapabilityReport()`.
+- Removed unused `.env.example` declarations for `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and the three
+  Google Calendar OAuth variables. No source or script reads any of them; the lone remaining
+  `TWILIO_AUTH_TOKEN` mention is a historical onboarding instruction to implement a future integration, not a
+  runtime consumer. Removed the stale `.env.example` `VAPI_AUTH_BYPASS` comment because T-010 already removed
+  that behavior; negative tests still set the name deliberately to prove it cannot bypass webhook auth.
+- Repo-wide evidence: exact identifier searches plus a complete scan of static `process.env.X`, indexed
+  `process.env["X"]`, `getEnv("X")`, and `requireEnv("X")` reads found no live reader for any removed
+  declaration. `Capability` appeared only at its declaration. Live model, Firebase, Vapi, Resend, cron, demo
+  seed, and optional `VAPI_BASE_URL` names remain documented.
+- **Retained after evidence review:** the protected T-034 legacy `?key=` path is still consumed by
+  `src/app/field/page.tsx`, posted to `/api/field/exchange`, routed to `exchangeLegacyFieldKey()`, and covered
+  by route/guard tests, so `src/lib/auth/verifyRole.ts` was not touched. Redirect-only `/company/agent`,
+  `/company/appointments`, and `/company/leads` remain compatibility routes because there is no migration
+  evidence for external bookmarks. Four pairs of byte-identical local helpers found by AST hashing are all
+  called; consolidating them would require an additive shared-module refactor, prohibited by this
+  subtractive-only task. Module-import reachability found no orphan component/hook/lib file, and TypeScript
+  with `allowUnreachableCode=false` found no unreachable branch. `CallSession`, `UserBusinessMembership`, and
+  `SuperadminProfile` remain intact as required.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green.

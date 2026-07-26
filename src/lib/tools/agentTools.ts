@@ -8,7 +8,7 @@ import {
   startOperationAttempt,
 } from "@/lib/ops/ledger";
 import type { Firestore } from "firebase-admin/firestore";
-import { isCommsConfigured, sendEmail, sendWithLedger } from "@/lib/comms/send";
+import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 
 export interface CheckAvailabilityInput {
   businessId: string;
@@ -45,11 +45,7 @@ interface ExistingSchedule {
   assignedCrewId?: string | null;
 }
 
-export type NotificationDeliveryState =
-  | "delivered"
-  | "failed"
-  | "pending"
-  | "unconfigured";
+export type { NotificationDeliveryState };
 
 export class SchedulingConflictError extends Error {
   readonly code:
@@ -408,16 +404,6 @@ export interface BookAppointmentInput {
   startTime: number;
   endTime: number;
   sourceCallId?: string;
-}
-
-// True if `now` falls outside the configured business hours for today (in the business tz).
-export function isAfterHoursNow(hours: Record<string, string>, tz: string): boolean {
-  try {
-    const now = Date.now();
-    return !isScheduleWithinBusinessHours(now, now + 60 * 1000, hours, tz);
-  } catch {
-    return true;
-  }
 }
 
 export async function bookAppointment(input: BookAppointmentInput): Promise<Appointment> {

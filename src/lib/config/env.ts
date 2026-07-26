@@ -7,8 +7,6 @@ const CAPABILITIES: Record<string, string[]> = {
   cron: ["CRON_SECRET"],
 } as const;
 
-export type Capability = keyof typeof CAPABILITIES;
-
 export type EnvStatus = "configured" | "not_configured";
 
 function isProduction(): boolean {
