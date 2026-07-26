@@ -697,3 +697,13 @@ removals + rationale (if any) · deviations from spec (if any).
   `src/test-utils/example-lib.test.ts` 2/2 and full `npm test` 28 files / 288 tests green. The first full-suite
   run had one unrelated timeout in that smoke-test file after its expected auth-mismatch path completed; the
   isolated rerun and immediate full rerun both passed.
+
+## T-051 — Remove unreferenced after-hours wrapper
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed `isAfterHoursNow()` and its comment from `src/lib/tools/agentTools.ts`. The wrapper was never called;
+  the live scheduling paths continue to call `isScheduleWithinBusinessHours()` directly.
+- Repo-wide evidence: exact symbol grep across tracked and hidden text found only the declaration. Graphify
+  showed a degree-2 node with only its containing file and its outgoing call to
+  `isScheduleWithinBusinessHours()`—no incoming caller, import, route-table entry, or string/dynamic reference.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
+  28 files / 288 tests green.

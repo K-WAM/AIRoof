@@ -410,16 +410,6 @@ export interface BookAppointmentInput {
   sourceCallId?: string;
 }
 
-// True if `now` falls outside the configured business hours for today (in the business tz).
-export function isAfterHoursNow(hours: Record<string, string>, tz: string): boolean {
-  try {
-    const now = Date.now();
-    return !isScheduleWithinBusinessHours(now, now + 60 * 1000, hours, tz);
-  } catch {
-    return true;
-  }
-}
-
 export async function bookAppointment(input: BookAppointmentInput): Promise<Appointment> {
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
