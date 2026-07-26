@@ -685,3 +685,15 @@ removals + rationale (if any) · deviations from spec (if any).
 - Verification: `npm run type-check` clean; `npm run lint` 0 errors / 27 existing warnings; `npm test`
   28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green; `git diff --check`
   green. No production code or dependencies changed; no removals.
+
+## T-051 — Remove dead Settings import
+- Date: 2026-07-25 · branch: `task/cleanup-sweep` · commit: this commit
+- Removed the unused `useSearchParams` import from `src/app/company/settings/page.tsx`; the page already gets
+  its tenant context from `useBusinessId()` and never read search params directly.
+- Repo-wide evidence: `rg -n -F useSearchParams` found the Settings occurrence only at the import while every
+  other importing module also had a call; `npx tsc --noEmit --noUnusedLocals --noUnusedParameters` reported
+  this as the sole unused source symbol. After removal, lint warnings dropped from 27 to 26.
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; isolated
+  `src/test-utils/example-lib.test.ts` 2/2 and full `npm test` 28 files / 288 tests green. The first full-suite
+  run had one unrelated timeout in that smoke-test file after its expected auth-mismatch path completed; the
+  isolated rerun and immediate full rerun both passed.
