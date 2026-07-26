@@ -391,7 +391,7 @@
       </div>
     </div>
     <div class="cover-meta">
-      <div><span>Version</span> 2.0 — June 2026</div>
+        <div><span>Version</span> 2.1 — July 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
@@ -959,7 +959,7 @@
       <div class="step-body">
         <strong>Set the Server URL (Advanced tab)</strong>
         <p><span class="url">https://ai-roof.vercel.app/api/webhooks/vapi</span></p>
-        <p>Leave the secret field blank — <code>VAPI_AUTH_BYPASS=true</code> is active (Vapi doesn't send a secret header in the current UI).</p>
+        <p>Set the webhook secret: generate a strong random string, set it as <code>VAPI_WEBHOOK_SECRET</code> in Vercel, then paste the same value into the <strong>Secret</strong> field in the Vapi dashboard under Advanced → Server URL. The webhook now requires a valid secret — the former <code>VAPI_AUTH_BYPASS</code> workaround was removed (T-010, fail-closed auth).</p>
       </div>
     </li>
     <li>
@@ -1085,7 +1085,7 @@
       <div class="step-num">1</div>
       <div class="step-body">
         <strong>Use the onboarding wizard (automatic)</strong>
-        <p>If you entered the owner email in Phase 3 Step 1, the wizard creates the Firebase Auth account and <code>businessUsers</code> doc automatically. A temporary password is shown once on the success screen — copy it immediately.</p>
+        <p>If you entered the owner email in Phase 3 Step 1, the wizard creates the Firebase Auth account and <code>businessUsers</code> doc automatically. A temporary password and a password-reset welcome email are both generated — the password is shown once on the success screen, and the reset-email is sent to the owner's inbox via no-reply@luxordev.com (T-043).</p>
       </div>
     </li>
     <li>
@@ -1106,7 +1106,7 @@ superadmin: false</code>
       <div class="step-body">
         <strong>Send them their login credentials</strong>
         <p>Portal URL: <span class="url">https://ai-roof.vercel.app/login</span></p>
-        <p>Email: their email | Temp password: from the wizard success screen</p>
+        <p>Email: their email | Temp password: from the wizard success screen (the owner also receives a password-reset welcome email from no-reply@luxordev.com)</p>
       </div>
     </li>
   </ol>
@@ -1182,7 +1182,7 @@ superadmin: false</code>
     <li>Vapi assistant created with correct greeting and system prompt</li>
     <li>All 7 tools added to the assistant in Vapi (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate)</li>
     <li>Webhook URL set: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code></li>
-    <li>Secret field left blank (VAPI_AUTH_BYPASS=true is correct — Vapi sends no secret)</li>
+    <li>Webhook secret configured and matching between Vapi dashboard (Server URL → Secret) and Vercel (<code>VAPI_WEBHOOK_SECRET</code>); the former bypass is removed — webhook requests without a valid secret are rejected (T-010)</li>
     <li>Voice configured (Cartesia Sonic 3.5 "Ariana" or ElevenLabs Flash)</li>
     <li>Deepgram STT configured (nova-3, 300ms endpointing)</li>
     <li>Phone number purchased and assigned to assistant in Vapi</li>

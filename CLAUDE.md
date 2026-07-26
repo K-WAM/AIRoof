@@ -82,7 +82,7 @@ Basis:
 - **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
 - **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
-- Remaining: mobile responsiveness pass; verified RESEND_FROM domain; SMS (Twilio A2P); Google Calendar OAuth.
+- Mobile responsiveness: done (2026-07-04). Remaining: verified RESEND_FROM domain (NH-3 in TODO.md). SMS and Google Calendar OAuth are post-MVP; Twilio integration was superseded by Vapi (T-051 removed Twilio env declarations).
 
 ## Architecture
 
@@ -90,7 +90,7 @@ Basis:
 1. **Scope Classifier** - deterministic pattern matching (OFF-TOPIC patterns, ALLOWED_SERVICE patterns) — rejects off-topic BEFORE OpenAI call
 2. **Prompt Builder** — generates system prompt from BusinessConfig (approved services, FAQs, emergency rules, disallowed topics)
 3. **OpenAI Client** — calls the business-configured live model with constraints; falls back to safe mock if key missing
-4. **Agent Tools** — checkAvailability, bookAppointment, createLead, escalateCall, logAgentAction; all scoped by businessId
+4. **Agent Tools** — Vapi-exposed (7): bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate; all scoped by businessId
 
 ### Data Model (Firestore)
 ```
@@ -133,7 +133,7 @@ Do NOT use `npx ts-node scripts/seed-demo-business.ts` — it fails due to `modu
 | POST /api/admin/demo-customize | Customize demo (prospect name/email) |
 | DELETE /api/admin/demo-customize | Reset demo to Apex Roofing defaults |
 | GET/PUT /api/calls/:callId | Call record management |
-| DELETE /api/calls/:callId | End call without deleting audit trail |
+| DELETE /api/calls/:callId | PII redaction (T-042) — removes transcript/recording, retains audit skeleton |
 | POST /api/tools/execute | Execute tools (checkAvailability, bookAppointment, etc.) |
 
 ## Scope Classifier (Defense Layer)
@@ -171,7 +171,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 3. Configure approved services, FAQs, emergency rules, booking rules, disallowed topics
 4. Map phone number to businessId
 5. Test agent responses (/api/agent/respond, /api/agent/classify)
-6. Deploy to production (Firestore rules, Twilio webhooks, Google Calendar if needed)
+6. Deploy to production (Firestore rules; Twilio superseded by Vapi — T-010/T-051)
 
 **Quick Checklist**: businessId, businessName, approvedServices[], approvedFaqs[], emergencyRules[], bookingRules[], escalationPhone, notificationEmail, calendarProvider
 
@@ -183,7 +183,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/contexts/AuthContext.tsx — Sets/clears __session cookie on auth state change
 - src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (7 tools + outcome tagging + after-hours)
 - src/lib/vapi/types.ts — Vapi payload types
-- src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS active)
+- src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS removed by T-010; now fail-closed; timing-safe compare + Firestore-based replay guard)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
 - src/lib/tools/agentTools.ts — All tools + BizBranding email templates + auto-callback on createLead()
 - src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
@@ -231,7 +231,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/photos/route.ts + [photoId]/route.ts — photo upload/list/blob/toggle/delete
 - src/app/api/jobs/[jobId]/report/send/route.ts — branded report email (Resend), manual Mail gate
 - src/app/api/jobs/[jobId]/assign/route.ts — crew assignment + branded crew email
-- src/lib/notify.ts — sendCrewAssignment / sendCustomerConfirmation (email now, SMS seam later)
+- src/lib/notify.ts — BizBranding email templates (wraps `src/lib/comms/send.ts`, T-041 unified comms service)
 - src/types/library.ts — LibraryPricing/Material/LaborRate/Document, Crew, lookupUnitPrice()
 - src/app/company/library/page.tsx + src/app/api/company/library/route.ts + crews/route.ts — Library (pricing/crews/docs)
 - src/app/company/calendar/page.tsx — Calendar Powerboard (@dnd-kit crew×day drag-drop scheduling)
@@ -288,7 +288,7 @@ Before asking the user to verify anything, use CLI/curl first:
 - **After-hours**: now functional — `assistant-request` injects date/time/after-hours context (confirmed live in the dashboard prompt), and after-hours appts are flagged `pendingConfirmation` for one-click morning confirmation. Customer-email-on-confirm needs a captured customer email (only phone today).
 - **Photos/files on free Spark plan**: base64-in-Firestore (no Firebase Storage). 10 photos/job, ~900KB each. Swap `src/lib/photos/store.ts` to Firebase Storage when a client justifies Blaze.
 - **Google Calendar**: mock availability slots — real per-business OAuth is post-MVP.
-- **SMS**: Requires Twilio A2P 10DLC (~2–4 weeks) — `notify.ts` has the seam; email covers MVP.
+- **SMS**: Post-MVP (deferred). Twilio integration superseded by Vapi; Twilio env declarations removed by T-051. No active SMS seam in source.
 - **RESEND_FROM**: Needs a verified sending domain in Resend for the "From" name to show correctly.
 - **Voice**: Cartesia Sonic 3.5 "Ariana - kind friend" (~250ms latency). For maximum raw human realism, ElevenLabs is the leader (higher latency); see HANDOFF for the tradeoff.
 

@@ -744,3 +744,69 @@ removals + rationale (if any) · deviations from spec (if any).
   `SuperadminProfile` remain intact as required.
 - Verification: `npm run type-check` clean; `npm run lint` 0 errors / 26 existing warnings; `npm test`
   28 files / 288 tests green; release suite 5 files / 16 tests green; `npm run build` green.
+
+---
+
+## T-052 — Documentation reconciliation
+
+- **Date:** 2026-07-25 · **Branch:** `task/doc-reconciliation` · **Worker:** Worker D (Deepseek V4 Pro)
+
+### CLAUDE.md updates
+
+- Updated "Remaining" items (line 85): mobile responsiveness marked done (2026-07-04); SMS/Twilio noted
+  as deferred post-T-051 Twilio-env-removal (no active Twilio integration in source).
+- Architecture layers (line 93): replaced `logAgentAction` (internal audit function, not a Vapi-exposed
+  tool) with the canonical seven-tool list.
+- Core Routes table (line 136): `DELETE /api/calls/:callId` description updated — T-042 changed it from
+  "end call without deleting audit trail" to real PII redaction with audit-skeleton retention.
+- Admin onboarding deploy step (line 174): Twilio webhooks superseded by Vapi (T-010); Google Calendar
+  reference removed (not implemented).
+- Key Files listing (line 186): `verify.ts` description updated — VAPI_AUTH_BYPASS removed by T-010,
+  now fail-closed with timing-safe compare + Firestore-based replay guard.
+- Key Files listing (line 234): `notify.ts` description updated — SMS seam removed by T-041 unified
+  comms service; now a thin BizBranding wrapper around `src/lib/comms/send.ts`.
+- Known Limitations (line 291): SMS entry rewritten — no active SMS seam in source post-T-051 cleanup;
+  Twilio integration is superseded, env declarations removed.
+
+### HANDOFF.md updates
+
+- Root `HANDOFF.md` (line 142): marked VAPI_AUTH_BYPASS posture as superseded by T-010 with a pointer
+  to `src/lib/vapi/verify.ts` (fail-closed webhook auth).
+- `docs/HANDOFF.md`: added superseded notice at top. This doc is from 2026-05-28, pre-release-plan,
+  describing a Twilio/Claude-Haiku architecture that was superseded by Vapi months ago. Retained for
+  historical reference per task rules (never delete history, mark it superseded instead).
+
+### .env.example
+
+- Added `ENABLE_LEGACY_FIELD_KEY_FALLBACK` with a comment. This env var is read by
+  `src/lib/auth/verifyRole.ts:182` (T-034 legacy `?key=` path) and was the only runtime env var
+  missing from `.env.example` when cross-checked against every `process.env.X` read in `src/` and
+  the capabilities map in `src/lib/config/env.ts`.
+- `TWILIO_PHONE_NUMBER=` left in place — T-051 removed `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` but
+  preserved this one (it is referenced by the older `scripts/seed-demo-business.ts` script).
+
+### Onboarding guide (public/guides/onboarding-guide.html)
+
+- Cover page: bumped version from 2.0 to 2.1 (July 2026).
+- Vapi Step 7 (line 962): replaced the `VAPI_AUTH_BYPASS=true` / "leave secret blank" instruction with
+  proper webhook secret configuration (generate a strong random value, set in both Vapi dashboard
+  Server URL → Secret and Vercel `VAPI_WEBHOOK_SECRET`).
+- Go-live checklist (line 1185): replaced "Secret field left blank (VAPI_AUTH_BYPASS=true)" with
+  "Webhook secret configured and matching between Vapi dashboard and Vercel."
+- Phase 4 Step 1 (line 1087): updated to mention the password-reset welcome email sent by T-043
+  (from `no-reply@luxordev.com`) alongside the temp password shown on the wizard success screen.
+- Phase 4 Step 3 (line 1108): updated to reference the password-reset email.
+
+### docs/SESSION_HANDOFF.md (read-only — flag only)
+
+- The file references the branch as `task/feedback-form` (line 21); the actual branch name is
+  `task/doc-reconciliation`. Flagged for integrator reconciliation at merge time.
+- The file still shows T-051 as unmerged ("pending reviews: none — T-050 reviewed and merged") —
+  predates the T-051 merge in this same session cycle. Also flagged for integrator.
+
+### Verification
+
+- `npm run type-check` — clean (docs-only task; no code changed).
+- `graphify . --update` — incremental update invoked (docs-only scope, no full rebuild warranted).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
