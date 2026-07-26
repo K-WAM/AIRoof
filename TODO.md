@@ -242,6 +242,17 @@ flaky-quarantine policy and the NH-7 branch-protection console steps without cha
 `TODO.md`/`IMPLEMENTATION_LOG.md` were the only merge conflicts (both sides' own status rows), resolved keeping
 both. T-051 (evidence-driven cleanup sweep) is now unblocked.
 
+**Assignment rationale (round 5 — T-051):** T-050 merging is the deliberate gate MASTER_PLAN put in front of
+T-051 ("tests protect behavior first — do not front-run it") — now satisfied, so T-051 is the only assignable
+task this round (T-052 still depends on "Phase 5 others," i.e. T-051 too). T-051 is a repo-wide, prove-every-
+removal sweep — the same evidentiary-discipline shape as T-045's icon sweep and T-040's page-truthfulness
+sweep, both of which went to Codex this session and both landed clean — so it's routed to Codex again, single
+owner per MASTER_PLAN's own "single worker" scope note. Worker C's fully-merged `air-wt-release-suite`
+worktree was renamed to `D:\Apps\air-wt-cleanup-sweep` on a fresh branch `task/cleanup-sweep` off `main`'s
+current tip (`git worktree move` + `git checkout -b`), `graphify-out/` refreshed, `npm run type-check`
+reverified clean. Worker D (Deepseek) stays idle — T-052 is docs-only and depends on T-051 landing first, and
+no other parallel-safe work exists this round.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -250,8 +261,8 @@ both. T-051 (evidence-driven cleanup sweep) is now unblocked.
 | Worker B — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/ci-foundation` (deleted, merged) | T-000, T-001, T-002 | `package.json`+lock, `vitest.config.ts`, `.github/**`, `src/test-utils/**`, `.env.example`, `next.config.ts`, cookie lines in `src/contexts/AuthContext.tsx` | **merged** — commits `25cea58`/`824c2a4`/`14dc957`, reviewer fix `d30c58b`, merge `9e4ccfd` |
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
-| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-release-suite` on branch `task/release-suite` (prior: T-045, merged `d8e9c35`+integration) | T-050 | new `tests/release/**`; `.github/workflows/ci.yml` (extend) | **merged** — commit `3a76e88`, integration below |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — no parallel-safe task this round; T-051 now unblocked by T-050's merge (see rationale above) |
+| Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide, small commits per removal cluster | **assigned** — worktree renamed/reassigned this session, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/feedback-form` (prior: T-044, merged `2733ad0`+integration) | — | — | **idle** — T-052 (docs-only) is next in line for this worktree once T-051 merges |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
