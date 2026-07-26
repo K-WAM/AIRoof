@@ -139,7 +139,7 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 - **Prompt is dynamic**: System Prompt = `{{systemPrompt}}`, First Message = `{{greeting}}`, both served by the `assistant-request` webhook from the resolved business's config. Do **not** overwrite those two fields with literal text.
 - **Tenant resolution**: by phone number first, then assistant id (`resolveBusinessId`).
 - **7 tools** (by id): bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate. bookAppointment + createLead now include an optional `email` param.
-- **Keys (3, don't mix up):** **Private key** = `VAPI_API_KEY` (server REST + outbound); **Public key** (browser only); **`VAPI_WEBHOOK_SECRET`** (inbound verification, bypassed via `VAPI_AUTH_BYPASS=true`). `VAPI_API_KEY` + `VAPI_WEBHOOK_SECRET` are **Sensitive** in Vercel (can't be read back via `vercel env pull`).
+- **Keys (3, don't mix up):** **Private key** = `VAPI_API_KEY` (server REST + outbound); **Public key** (browser only); **`VAPI_WEBHOOK_SECRET`** (inbound verification — ⚠️ The `VAPI_AUTH_BYPASS=true` posture described below was removed by T-010 in the release plan; webhook auth is now fail-closed with a timing-safe compare + Firestore replay guard. See `src/lib/vapi/verify.ts`.) `VAPI_API_KEY` + `VAPI_WEBHOOK_SECRET` are **Sensitive** in Vercel (can't be read back via `vercel env pull`).
 - **Voice**: Vapi "Layla" / Cartesia stack, GPT-4o Mini, Deepgram nova-3. ~$0.09/min, ~840 ms. (ElevenLabs = max raw realism at higher latency if you ever want to A/B.)
 
 ## Demo Instructions (universal line)

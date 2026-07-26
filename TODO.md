@@ -12,8 +12,8 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 | 2 Shared primitives | T-020 T-021 T-022 | 15% | ✅ **merged** (`d828fb2`, `b16493e`) | Phase 0 merged ✓ |
 | 3 Boundary applications | T-030…T-035 | 30% | ✅ **all 6 tasks merged** — Phase complete | Phase 1+2 merged ✓ |
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
-| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | 🟡 **T-050+T-051 merged** (2/3) — T-052 now unblocked | Phase 4 merged ✓ |
-| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **queued — do not start before Phase 5 is fully merged** (owner decision 2026-07-23) | Phase 5 merged |
+| 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
+| 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ⬜ **now assignable** (Phase 5 fully merged, owner decision 2026-07-23 satisfied) | Phase 5 merged ✓ |
 
 ### Checklist
 
@@ -28,22 +28,23 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
   - [x] T-043 — Owner-facing tenant-creation welcome email
   - [x] T-044 — Self-serve feedback form → connect@luxordev.com
   - [x] T-045 — Icon consistency sweep (lucide-react)
-- [ ] Phase 5 — Release engineering + cleanup (15%)
+- [x] Phase 5 — Release engineering + cleanup (15%)
   - [x] T-050 — Deterministic release suite + merge gating
   - [x] T-051 — Evidence-driven cleanup sweep
-  - [ ] T-052 — Documentation reconciliation — unblocked now that T-050 + T-051 are both green
-- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — queued behind Phase 5
+  - [x] T-052 — Documentation reconciliation
+- [ ] Phase 6 — UX & Demo Polish (owner-added, not CIB-weighted) — now assignable
   - [ ] T-046 — Demo Studio richness + parity audit
   - [ ] T-047 — Navigation/workflow friction pass + surfaced tutorial
   - [ ] T-048 — Voice-note field resilience + AI model right-sizing
   - [ ] T-049 — Outbound email consistency + branding pass
 
-Overall implementation: **~95%** (Phases 0-4 fully merged — 85% of CIB-weighted work — plus T-050 and T-051,
-2/3 of Phase 5's 15% weight, now merged. An estimate, not a precise figure.)
-Independently re-verified on `main` post-merge (this session, T-051 merge): type-check clean, lint
-0 errors/26 baseline warnings (down from 27 — T-051 removed one dead import), build green, `npm test`
-288/288 (1 known concurrent-load flake in `example-lib.test.ts`, confirmed clean in isolation), release
-suite **16/16 clean**.
+Overall implementation: **~100% of the CIB-audit-derived scope** (Phases 0-5 all fully merged — the entire
+security/compliance backlog this release plan was scoped to close). Phase 6 (T-046-049, owner-added UX/demo
+polish, not CIB-weighted) is the remaining work before the platform is fully "done" in the broader sense —
+now assignable. An estimate, not a precise figure.
+Independently re-verified on `main` post-merge (this session, T-052 merge): type-check clean, lint
+0 errors/26 baseline warnings, build unaffected (T-052 touched docs only). `npm test` 288/288 (1 known
+concurrent-load flake in `example-lib.test.ts`, confirmed clean in isolation), release suite **16/16 clean**.
 
 **Phase 4 file-overlap note (round 3 — current):** T-044 and T-045 both touch `company-nav.tsx`/`admin-nav.tsx`
 in a small way (T-044 adds one new Feedback nav link + icon; T-045 audits every page for missing icons, and
@@ -288,6 +289,29 @@ worker-authored version would either conflict or go stale by the time T-052 is r
 flag anything it finds stale there rather than editing it, and the integrator reconciles it as part of the
 final Phase-5-closeout update.
 
+**Review outcome (T-052) — Phase 5 closed out:** APPROVE, merged with one trivial integrator fix. Verified the
+diff was genuinely docs-only (`.env.example`, `CLAUDE.md`, `HANDOFF.md`, `docs/HANDOFF.md`, the onboarding
+guide, plus `TODO.md`/`IMPLEMENTATION_LOG.md`) — no `src/`/`tests/` files touched. Spot-checked every factual
+claim against the actual code rather than trusting the self-report: `ENABLE_LEGACY_FIELD_KEY_FALLBACK` is a
+real env var read at `verifyRole.ts:182` with the documented default (fallback enabled unless set to
+`"false"`); `isAfterHoursNow` and the seven-Vapi-tool list match current `agentTools.ts`/the webhook route
+exactly (`logAgentAction` correctly dropped — it's an internal function, never Vapi-exposed); `VAPI_AUTH_BYPASS`
+is confirmed absent from `verify.ts` (only appears in tests, proving it's rejected) and `notify.ts` is
+confirmed to now wrap `src/lib/comms/send.ts`. The rewritten onboarding-guide Vapi setup steps and go-live
+checklist are a real, substantive fix — a client operator following the old doc today would misconfigure the
+webhook secret and never notice, since `VAPI_AUTH_BYPASS` no longer exists. Correctly conservative: history
+marked superseded, never deleted (`docs/HANDOFF.md`'s 2026-05-28 snapshot kept intact under a banner). One
+trivial integrator fix applied directly in the worktree before merge: the superseded banner said "Phases 0–4"
+when Phase 5 (T-050–052) is also now fully merged — updated to match. The worker's own flag that
+`docs/SESSION_HANDOFF.md` was stale (branch name, T-051 status) was accurate for the state its branch forked
+from but already fixed on `main` in a later integrator commit the branch never saw — no action needed, and
+correctly left untouched per its read-only instruction rather than edited. One pre-existing integrator
+housekeeping gap fixed in this same round: an earlier TODO.md branch-name correction had been made in the
+working tree but never committed — caught and committed (`f97a5f5`) before this merge. `TODO.md` was the only
+merge conflict (both sides had independently converged on the same branch-name text); `IMPLEMENTATION_LOG.md`
+merged cleanly. **Phase 5 is now fully closed, 3/3 — the entire CIB-audit-derived security/compliance backlog
+this release plan was scoped to close.** Phase 6 (T-046-049, owner-added UX/demo polish) is now assignable.
+
 ## Active assignments
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -297,7 +321,7 @@ final Phase-5-closeout update.
 | Worker A2 — Codex Sol 5.6 (extra high) | *(worktree removed post-merge)* | `task/shared-primitives` (deleted, merged) | T-021, T-022 | `src/lib/ops/**`, `src/types/ops.ts`; `src/lib/schemas/**` | **merged** — T-021 `0ea6f87`; T-022 `b5a16fe` + finalization `5f9a350`; integration `d828fb2`/`b16493e` |
 | Worker B2 — Deepseek V4 Pro | *(worktree removed post-merge)* | `task/config-guard` (deleted, merged) | T-020 | `src/lib/config/env.ts`, `src/lib/auth/cronGuard.ts`, `src/app/api/health/route.ts` | **merged** — commit `c0eb948`; integration `b16493e` |
 | Worker C — Codex Sol 5.6 (extra high) | `D:\Apps\air-wt-cleanup-sweep` on branch `task/cleanup-sweep` (prior: T-050, merged `3a76e88`+integration) | T-051 | repo-wide subtractive cleanup; `docs/IMPLEMENTATION_LOG.md`; own `TODO.md` row | **merged** — 4 evidence-backed removal clusters, integration below |
-| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/doc-reconciliation` (prior: T-044, merged `2733ad0`+integration) | T-052 | `CLAUDE.md`, `HANDOFF.md`, `.env.example`, `public/guides/onboarding-guide.html`; `docs/SESSION_HANDOFF.md` read-only (integrator-owned live file — flag discrepancies, don't edit) | **assigned** — branch was 17 commits stale (still at T-044), recut off `main`'s current tip; `node_modules` junction and `graphify-out/` reused/refreshed, `npm run type-check` verified clean |
+| Worker D — Deepseek V4 Pro | `D:\Apps\air-wt-feedback-form` on branch `task/doc-reconciliation` (prior: T-044, merged `2733ad0`+integration) | T-052 | `CLAUDE.md`, `HANDOFF.md`, `.env.example`, `public/guides/onboarding-guide.html`; `docs/SESSION_HANDOFF.md` read-only (integrator-owned live file — flag discrepancies, don't edit) | **merged** — all owned docs reconciled against shipped reality, integration below |
 
 **Assignment rationale (A/B, Phase 1):** P0 authority work (T-010/T-011) needed adversarial edge-case rigor (replay, timing-safe compare, cross-tenant identity leaks) — routed to the higher-reasoning-effort agent. CI/scaffolding (T-000-002) was well-trodden config breadth — routed to the general-purpose agent.
 
