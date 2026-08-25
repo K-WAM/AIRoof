@@ -1,7 +1,20 @@
 # TODO.md — Live queue
 
 Specs: `MASTER_PLAN.md`. Rules: `AGENTS.md`. State snapshot: `docs/SESSION_HANDOFF.md`.
-Integration branch: `main` (local merges only — **nothing is pushed until owner says `approve push`**).
+Integration branch: `main`. Latest pushed baseline: `cfa6102` (2026-07-25); the 2026-08-23 maintenance
+cleanup is local-only until the owner explicitly requests a commit/push.
+
+## Current snapshot — 2026-08-23
+
+- **Scoped implementation:** 100%. Phases 0–6 are merged and the latest baseline CI passed.
+- **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
+  DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
+- **Local maintenance:** evidence-driven dead-code/dependency cleanup and documentation reconciliation are
+  complete and green on local `main`; no worker branches or pending reviews. The diff is ready for review.
+- **Release sign-off still human-owned:** authenticated Calendar/field/PDF/email smoke, Vapi dashboard review,
+  Resend DNS deliverability, privacy/retention approval, and Firestore TTL configuration. See `NEEDS-HUMAN`.
+- The detailed assignment/review narrative below is retained as historical execution evidence. It is not an
+  active queue.
 
 ## Phase status
 
@@ -41,8 +54,8 @@ Integration branch: `main` (local merges only — **nothing is pushed until owne
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
 pushed to `origin/main` as of `897bcc5`, 2026-07-25). Phase 6 (T-046-049, owner-added UX/demo polish, not
-CIB-weighted) is additional scope on top of that 100% and is now **also fully merged, 4/4** (not yet
-pushed — awaiting `approve push`). Weighting Phase 6 at ~10% of a revised total pie (an editorial estimate —
+CIB-weighted) is additional scope on top of that 100% and is now **also fully merged, pushed, and green in CI**.
+Weighting Phase 6 at ~10% of a revised total pie (an editorial estimate —
 MASTER_PLAN explicitly does not assign it a CIB weight) puts **overall platform completion at ~100% of
 currently-scoped work**. An estimate, not a precise figure.
 Independently re-verified on `main` post-merge (this session, T-052 merge): type-check clean, lint
@@ -357,10 +370,9 @@ backend in the worker's sandbox) is a genuine environment limitation, not a shor
 click-path fixture tests are a reasonable substitute and the gap is honestly flagged rather than a false
 "Playwright verified" claim.
 
-**Phase 6 closed, 4/4 — T-046/047/048/049 all merged.** Not yet pushed to `origin/main` — awaiting
-`approve push`.
+**Phase 6 closed, 4/4 — T-046/T-047/T-048/T-049 all merged and pushed in `cfa6102`.**
 
-## Active assignments
+## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
 |---|---|---|---|---|---|
@@ -413,7 +425,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 ## Blockers
 
-- None for Batch A/B. T-010 **deploy** (not development) is blocked on NH-1 + NH-2.
+- No development blocker. Remaining production sign-offs are listed under `NEEDS-HUMAN`.
 
 ## HELP-NEEDED
 
@@ -423,8 +435,8 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 | ID | Needed | Blocks | Notes |
 |---|---|---|---|
-| NH-1 | Vapi dashboard: set server-URL secret; confirm assistant model/voice/7 tool schemas/retry/recording; remove any bypass config; extend `cancelAppointment` with optional `confirmCancellation` (boolean) and `appointmentNumber` (integer) parameters without renaming the tool or legacy `appointmentId` | T-010/T-011 deploy | Console-only; CLI cannot read Vapi dashboard |
-| NH-2 | Vercel env: set `VAPI_WEBHOOK_SECRET` (must match NH-1), `CRON_SECRET`, `RESEND_FROM=no-reply@luxordev.com`; **remove `VAPI_AUTH_BYPASS`** | T-010/T-032/T-041 deploy | Integrator can run `vercel env add` after `vercel link` once owner approves values; owner may just say "generate CRON_SECRET yourself" |
+| NH-1 | Vapi dashboard: confirm server-URL secret matches production; confirm assistant model/voice/7 tool schemas/retry/recording; remove any obsolete bypass-era console config; confirm `cancelAppointment` includes optional `confirmCancellation` and `appointmentNumber` without renaming legacy fields | Production sign-off | Console-only; the 2026-08-23 health check proves Vapi env configuration exists, not that dashboard values/schemas match |
+| NH-2 | ~~Set Vercel `VAPI_WEBHOOK_SECRET`, `CRON_SECRET`, and `RESEND_FROM`~~ — production health reports Vapi, cron, and Resend configured (2026-08-23); runtime `VAPI_AUTH_BYPASS` behavior is absent | Closed for env presence | Exact secret matching remains part of NH-1; deliverability remains NH-3 |
 | NH-3 | Resend: verify `luxordev.com` sending domain (SPF/DKIM DNS records); approve sender `no-reply@luxordev.com` | T-041 live verification | DNS access required |
 | NH-4 | Legal/privacy: recording disclosure wording, retention windows, deletion policy, callback consent, emergency-message wording | T-042 sign-off (dev proceeds with 90d defaults) | Owner/legal |
 | NH-5 | Product: confirm defaults D-1 (booking = requested time) and D-2 (demo isolation = in-code guards, same project) or override | T-030/T-035 final | Defaults proceed unless overridden |
@@ -438,5 +450,5 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 ## Deferred (from CIB — do not schedule without owner request)
 
-Pagination/search/virtualization; richer demo seed data; field-theme unification; toast component unification
+Pagination/search/virtualization; field-theme unification; toast component unification
 beyond T-040's single banner; offline field queue; operator replay console; SMS; Google Calendar OAuth; Stripe.

@@ -36,7 +36,12 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: (2026-07-15) **Industry-applicability pass** — 7 verticals (added **Cleaning**); every industry keeps a Calendar but the board adapts (`calendarMode: "jobs" | "appointments"` — drag jobs onto crews, or bookings onto providers/vendors); `useBusinessModules()` is the single source for which tabs/vocab a tenant gets; Demo Studio is client-safe (pitch script behind **Presenter notes**); every Demo Studio launch now seeds resources + jobs so the Calendar is never empty; dead code removed; `npm run lint` works for the first time. (2026-07-04) Mobile hamburger nav, skeleton loaders, crew color picker, Demo Playbook "forgot everything" cheat sheet. (2026-07-03) Data-plane locked down — `verifyFieldAccess()`/fieldKey guard all jobs/field APIs, one-tap field voice on public `/field`, industry-aware AI parsing. (2026-06-28) UX overhaul — one teal design language (`.button` variants/`.icon-del`/focus ring/tokens), fewer-clicks nav (Field tab, inline lead actions, play call recordings), pro PDF invoices (`@media print`), new **/company/guide** training tab, Calendar (weekends default + "Manage crews" + renamed from Powerboard), multi-day timeline dates. Multi-vertical Demo Studio + dynamic per-industry agent + universal demo line + admin API auth + after-hours customer-notify before that. See HANDOFF.md. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
+**Status**: (2026-08-23) **Scoped release complete** — Phases 0–6 merged; live health and baseline CI green;
+maintenance cleanup removes obsolete scripts/exports/dependencies and reconciles current docs. Seven verticals,
+adaptive Calendar modes, guarded universal Demo Studio, scoped field access, ledgered communications, retention,
+and the release acceptance suite are shipped. See `TODO.md` for human production sign-offs. **Design-system
+rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline
+button styles.
 
 ## Industry-Applicability Rule (read before touching company UI)
 
@@ -49,7 +54,7 @@ A tenant must only ever see tools that apply to *their* industry — a dental of
 - **Consume via `useBusinessModules()`** (`isEnabled(module)`, `vocab`, `calendarMode`). It fails *open* (unknown industry keeps every tab) and is sessionStorage-cached. Route-gating lives in one place: `MODULE_ROUTES` in `src/app/company/layout.tsx`.
 - **Agent prompt is fully config-driven** (`buildAgentPrompt`) — no industry hardcoding, no per-vertical Vapi assistant. Extra per-industry booking fields (DOB, insurance, unit no.) go in the booking tool's `notes`.
 - **Demo data**: `demoSeedFor()` must seed resources + something draggable for every vertical, or the Calendar demos empty.
-**Estimated Completion**: 98%
+**Estimated Completion**: 100% of currently scoped implementation; production sign-off remains
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
@@ -66,7 +71,8 @@ Multi-tenant phone AI agent answering inbound calls, qualifying leads, booking a
 
 When handing off or answering "what's next", include an estimated completion percentage for the overall platform and a one-step next action. Keep the percentage pragmatic, not overly precise.
 
-Current estimate: **98% complete**.
+Current estimate: **100% of currently scoped implementation**. Do not represent that as completed production
+certification until the `NEEDS-HUMAN` smoke/provider/legal checks in `TODO.md` are closed.
 
 Basis:
 - Full infrastructure live on Vercel; Alice answers calls end-to-end with 7 Vapi tools (confirmed in dashboard: bookAppointment, checkAvailability, createLead, escalateCall, lookupAppointment, cancelAppointment, getCurrentDate).
@@ -78,7 +84,9 @@ Basis:
 - **Calendar Powerboard**: drag jobs onto crew×day cells (@dnd-kit) → grey/provisional → Confirm → branded crew email + color.
 - **After-hours booking**: Alice books 24/7; after-hours appts flagged `pendingConfirmation`, shown grey, one-click "Confirm & notify customer".
 - **Admin API auth ✓**: `verifySuperadmin()` gates all `/api/admin/*` (cookie-based; curl-verified 401 in prod).
-- **Data-plane auth ✓ (2026-07-03)**: `verifyFieldAccess()` (session-or-`fieldKey`) gates all `/api/jobs/*` + `/api/transcribe`; office actions (create/PATCH job, invoice/report/assign/send, photo toggle/delete, send-confirmation, calls) are session-role-gated; agent test endpoints superadmin-only. QR field links carry `&key=<fieldKey>` (minted by a Demo Studio launch or the seed script — one launch needed after deploy).
+- **Data-plane auth ✓**: `verifyFieldAccess()` gates jobs/field APIs with a staff session or a signed, scoped,
+  expiring field grant. QR links exchange the demo mint key once, strip it from the URL, and continue with the
+  scoped token; office mutations remain session-role-gated and agent test endpoints are superadmin-only.
 - **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
 - **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
@@ -89,7 +97,8 @@ Basis:
 ### Layers (Defensive)
 1. **Scope Classifier** - deterministic pattern matching (OFF-TOPIC patterns, ALLOWED_SERVICE patterns) — rejects off-topic BEFORE OpenAI call
 2. **Prompt Builder** — generates system prompt from BusinessConfig (approved services, FAQs, emergency rules, disallowed topics)
-3. **OpenAI Client** — calls the business-configured live model with constraints; falls back to safe mock if key missing
+3. **OpenAI Client** — calls the business-configured live model with constraints; missing production configuration
+   fails explicitly (clearly labeled mocks are development-only)
 4. **Agent Tools** — Vapi-exposed (7): bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate; all scoped by businessId
 
 ### Data Model (Firestore)
@@ -118,8 +127,7 @@ businesses/{businessId}
 **Services**: Inspections, shingle replacement, metal roofing, emergency repairs
 **Service Area**: Miami, Coral Gables, Doral, Hialeah, Kendall, Homestead
 
-Run seed script: `node scripts/seed-demo-business.mjs` (plain ESM — no ts-node needed)
-Do NOT use `npx ts-node scripts/seed-demo-business.ts` — it fails due to `moduleResolution: bundler` in tsconfig (see Lesson 65).
+Run seed script: `node scripts/seed-demo-business.mjs` (plain ESM; the obsolete TypeScript duplicate was removed).
 
 ## Core Routes (Implemented)
 
@@ -185,7 +193,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/vapi/types.ts — Vapi payload types
 - src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS removed by T-010; now fail-closed; timing-safe compare + Firestore-based replay guard)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
-- src/lib/tools/agentTools.ts — All tools + BizBranding email templates + auto-callback on createLead()
+- src/lib/tools/agentTools.ts — Seven Vapi tools, transactional scheduling, callback state, and ledgered escalation
 - src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
 - src/app/api/jobs/[jobId]/route.ts — GET single job + PATCH job status
 - src/app/api/cron/follow-up-calls/route.ts — Daily follow-up cron (vercel.json: 2pm UTC)
@@ -198,8 +206,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/admin/demo/page.tsx — Demo customizer UI + QR code for field demo
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
 - vercel.json — Cron schedule for follow-up-calls
-- scripts/demo-customize.mjs — CLI demo customizer
-- src/app/admin/onboarding/page.tsx — Onboarding wizard (5 steps, includes vapiAssistantId + branding)
+- src/app/admin/onboarding/page.tsx — Six-step onboarding wizard (includes Vapi IDs + branding)
 - src/hooks/useBusinessId.ts — Returns ?preview=businessId for superadmin, user.businessId otherwise
 - src/app/admin/admin-nav.tsx — Sidebar nav with section groups (Platform / Tools)
 - src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
@@ -211,12 +218,12 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/admin/businesses/[businessId]/config/route.ts — GET + PUT config per business
 - src/app/api/appointments/send-confirmation/route.ts — Branded confirmation email via Resend
 - src/app/company/dashboard/page.tsx — Company operations dashboard (uses useBusinessId hook)
-- src/app/company/leads/page.tsx — Company lead queue
+- src/app/company/leads/page.tsx — Compatibility redirect to the unified Pipeline
 - src/app/company/calls/page.tsx — Company call history/transcript (system prompt filtered)
-- src/app/company/appointments/page.tsx — Company inspection schedule + Send Confirmation + Create Job
+- src/app/company/appointments/page.tsx — Compatibility redirect to the unified Pipeline
 - src/app/company/jobs/page.tsx — Job list with status badges + create form
 - src/app/company/jobs/[jobId]/page.tsx — Job detail: 6 tabs (timeline/materials/labor/issues/invoice/report)
-- src/app/field/page.tsx — Public field screen (QR code): Whisper-based voice recording, no auth required
+- src/app/field/page.tsx — Field QR screen: scoped exchange token + Whisper voice recording
 - src/app/company/field/page.tsx — Authenticated field screen: Whisper pipeline, job log display
 - src/app/api/jobs/route.ts — GET list + POST create (atomic J-XXXX short ID via runTransaction)
 - src/app/api/jobs/[jobId]/updates/route.ts — Submit field update + DeepSeek parse
@@ -266,11 +273,13 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Live smoke test the epic** — voice correction (say "make that 120 not 150"), drag a job on the Powerboard + Confirm, snap a field photo, generate+mail a report, add Library pricing → generate invoice.
-2. **Capture customer email** ✓ done — captured at booking; "Confirm & notify customer" emails the customer via `sendCustomerConfirmation` (commit aa0a843). Needs the Vapi `email` tool param (added) + a verified RESEND_FROM domain for deliverability.
-3. **Admin route auth** ✓ done — `verifySuperadmin()` gates all `/api/admin/*` (commit bf7c249).
-4. **Google Calendar** — post-MVP, per-business OAuth (still mock availability slots).
-5. **Stripe billing** + **SMS** (Twilio A2P 10DLC) — later.
+1. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
+   and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
+2. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore
+   TTL policies (NH-1/NH-3/NH-4/NH-11).
+3. **Major dependency upgrades** — evaluate Next.js 16, Firebase 12, and Firebase Admin 14 separately; the
+   2026-08-23 maintenance pass applied all non-breaking audit fixes but intentionally did not force majors.
+4. **Post-MVP** — Google Calendar OAuth, Stripe billing, and SMS.
 
 ## Implementation Phases
 
@@ -284,7 +293,8 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Known Limitations
 
-- **VAPI_AUTH_BYPASS active**: ⚠️ SUPERSEDED (2026-07-20) — the consolidated audit classified this fail-open path as launch-stopping (CIB-001). Task T-010 in MASTER_PLAN.md removes it; Vapi's dashboard-configured server secret header is the supported mechanism (NH-1/NH-2 in TODO.md gate the deploy).
+- **Vapi console verification**: webhook auth is fail-closed and `VAPI_AUTH_BYPASS` has no runtime behavior.
+  The production health endpoint reports Vapi configured; NH-1 still tracks the human dashboard/tool-schema check.
 - **After-hours**: now functional — `assistant-request` injects date/time/after-hours context (confirmed live in the dashboard prompt), and after-hours appts are flagged `pendingConfirmation` for one-click morning confirmation. Customer-email-on-confirm needs a captured customer email (only phone today).
 - **Photos/files on free Spark plan**: base64-in-Firestore (no Firebase Storage). 10 photos/job, ~900KB each. Swap `src/lib/photos/store.ts` to Firebase Storage when a client justifies Blaze.
 - **Google Calendar**: mock availability slots — real per-business OAuth is post-MVP.

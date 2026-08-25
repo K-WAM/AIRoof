@@ -244,3 +244,5 @@ In **businessPhoneNumbers** collection, create document:
 ## Need More Detail?
 
 Full onboarding guide: **[docs/ADMIN-ONBOARDING.md](ADMIN-ONBOARDING.md)**
+> **Historical pre-Vapi guide.** Do not follow the Twilio or Google Calendar steps in this file. Use
+> `public/guides/onboarding-guide.html` and the `/admin/onboarding` wizard for current onboarding.

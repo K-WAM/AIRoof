@@ -75,7 +75,7 @@ export interface SummaryOutput {
   actionItems: string[];
 }
 
-export const summaryOutputSchema: z.ZodType<SummaryOutput, z.ZodTypeDef, unknown> = z.object({
+const summaryOutputSchema: z.ZodType<SummaryOutput, z.ZodTypeDef, unknown> = z.object({
   summary: modelText(4_000),
   actionItems: z.array(modelText(1_000)).max(100),
 });
@@ -85,7 +85,7 @@ export interface CallOutcomeOutput {
   reason: string;
 }
 
-export const callOutcomeOutputSchema: z.ZodType<
+const callOutcomeOutputSchema: z.ZodType<
   CallOutcomeOutput,
   z.ZodTypeDef,
   unknown
@@ -94,7 +94,7 @@ export const callOutcomeOutputSchema: z.ZodType<
   reason: modelText(1_000),
 });
 
-export const scopeClassificationSchema: z.ZodType<
+const scopeClassificationSchema: z.ZodType<
   ScopeClassification,
   z.ZodTypeDef,
   unknown
@@ -114,7 +114,7 @@ export const scopeClassificationSchema: z.ZodType<
   allowedToAnswer: z.boolean(),
 });
 
-export interface FaqSuggestion {
+interface FaqSuggestion {
   question: string;
   answer: string;
 }
@@ -123,7 +123,7 @@ export interface FaqSuggestionsOutput {
   suggestions: FaqSuggestion[];
 }
 
-export const faqSuggestionsOutputSchema: z.ZodType<
+const faqSuggestionsOutputSchema: z.ZodType<
   FaqSuggestionsOutput,
   z.ZodTypeDef,
   unknown
@@ -143,7 +143,7 @@ export interface TranscriptMessage {
   text: string;
 }
 
-export const transcriptSchema: z.ZodType<TranscriptMessage[], z.ZodTypeDef, unknown> = z
+const transcriptSchema: z.ZodType<TranscriptMessage[], z.ZodTypeDef, unknown> = z
   .array(
     z.object({
       role: boundedText(50),

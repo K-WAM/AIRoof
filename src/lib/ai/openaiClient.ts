@@ -3,7 +3,7 @@ import { selectClient, canUseMock, mockLabel, type ModelOverrides } from "@/lib/
 
 const isProduction = (): boolean => process.env.NODE_ENV === "production";
 
-export interface ConversationTurn {
+interface ConversationTurn {
   role: "user" | "assistant";
   content: string;
 }

@@ -1,6 +1,6 @@
 import { z, type ZodIssue, type ZodType } from "zod";
 
-export interface SchemaIssue {
+interface SchemaIssue {
   code: string;
   path: string;
   message: string;
@@ -54,7 +54,7 @@ function stripCodeFence(value: string): string {
   return match ? match[1] : trimmed;
 }
 
-export function unwrapStructuredInput(input: unknown): unknown {
+function unwrapStructuredInput(input: unknown): unknown {
   let current = input;
   for (let depth = 0; depth < MAX_JSON_UNWRAP_DEPTH && typeof current === "string"; depth++) {
     const candidate = stripCodeFence(current);

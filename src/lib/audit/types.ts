@@ -20,7 +20,7 @@ export interface AuditActor {
   readonly id: string;
 }
 
-export interface AuditSubject {
+interface AuditSubject {
   readonly type: "call" | "agent_action" | "appointment";
   readonly id: string;
 }

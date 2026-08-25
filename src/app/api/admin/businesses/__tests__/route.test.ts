@@ -100,14 +100,6 @@ const mockVerifySuperadmin = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/notify", () => ({
   sendBusinessWelcomeEmail: mockSendBusinessWelcome,
-  buildBusinessWelcomeEmail: vi.fn(() => ({
-    subject: "[Luxor AI] Your Test Biz account is ready",
-    html: "<p>mock html</p>",
-  })),
-  buildCrewAssignmentEmail: vi.fn(),
-  buildCustomerConfirmationEmail: vi.fn(),
-  sendCrewAssignment: vi.fn(),
-  sendCustomerConfirmation: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
@@ -220,7 +212,9 @@ describe("POST /api/admin/businesses — welcome email", () => {
     mockCreateUser.mockResolvedValue(null);
 
     const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
-    const { ownerEmail: _omittedOwnerEmail, ...bodyWithoutEmail } = validBody;
+    const bodyWithoutEmail = Object.fromEntries(
+      Object.entries(validBody).filter(([key]) => key !== "ownerEmail"),
+    );
     const request = createRequest(bodyWithoutEmail);
     const response = await freshPost(request);
     const body = await response.json();

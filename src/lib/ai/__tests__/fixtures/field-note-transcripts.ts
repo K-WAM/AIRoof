@@ -1,4 +1,4 @@
-export interface ExpectedFieldFact {
+interface ExpectedFieldFact {
   collection: "timeline" | "materials" | "labor" | "issues" | "correction";
   matchField?: string;
   matchIncludes?: string;

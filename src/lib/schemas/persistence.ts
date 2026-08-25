@@ -17,7 +17,7 @@ const optionalModelText = (maxLength: number) => modelText(maxLength).optional()
 const optionalEmail = z.string().trim().email().max(254).optional();
 const nonNegativeNumber = finiteNumber.pipe(z.number().nonnegative());
 
-export const appointmentRecordSchema: z.ZodType<Appointment, z.ZodTypeDef, unknown> = z
+const appointmentRecordSchema: z.ZodType<Appointment, z.ZodTypeDef, unknown> = z
   .object({
     appointmentId: identifier,
     businessId: identifier,
@@ -43,7 +43,7 @@ export const appointmentRecordSchema: z.ZodType<Appointment, z.ZodTypeDef, unkno
     message: "End time must follow start time",
   });
 
-export const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object({
+const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object({
   leadId: identifier,
   businessId: identifier,
   callerName: optionalModelText(200),
@@ -62,7 +62,7 @@ export const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object
   updatedAt: nonNegativeNumber,
 });
 
-export const fieldUpdateRecordSchema: z.ZodType<
+const fieldUpdateRecordSchema: z.ZodType<
   FieldUpdate,
   z.ZodTypeDef,
   unknown

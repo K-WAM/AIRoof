@@ -31,7 +31,7 @@ export interface LedgerOptions {
   now?: Date;
 }
 
-export class OperationLedgerUnavailableError extends Error {
+class OperationLedgerUnavailableError extends Error {
   constructor() {
     super("Firestore is unavailable for the operation ledger");
     this.name = "OperationLedgerUnavailableError";
@@ -45,7 +45,7 @@ export class InvalidOperationLedgerInputError extends Error {
   }
 }
 
-export class OperationNotFoundError extends Error {
+class OperationNotFoundError extends Error {
   constructor(opId: string) {
     super(`Operation ${opId} was not found`);
     this.name = "OperationNotFoundError";
@@ -59,21 +59,21 @@ export class OperationNotRetryableError extends Error {
   }
 }
 
-export class OperationAttemptInProgressError extends Error {
+class OperationAttemptInProgressError extends Error {
   constructor(opId: string) {
     super(`Operation ${opId} already has an attempt in progress`);
     this.name = "OperationAttemptInProgressError";
   }
 }
 
-export class OperationAttemptNotFoundError extends Error {
+class OperationAttemptNotFoundError extends Error {
   constructor(attemptId: string) {
     super(`Operation attempt ${attemptId} was not found`);
     this.name = "OperationAttemptNotFoundError";
   }
 }
 
-export class OperationAttemptAlreadyCompletedError extends Error {
+class OperationAttemptAlreadyCompletedError extends Error {
   constructor(attemptId: string) {
     super(`Operation attempt ${attemptId} is already completed`);
     this.name = "OperationAttemptAlreadyCompletedError";

@@ -21,7 +21,7 @@ export class FakeDocumentSnapshot {
   }
 }
 
-export class FakeQuery {
+class FakeQuery {
   private readonly filters: QueryFilter[] = [];
 
   constructor(

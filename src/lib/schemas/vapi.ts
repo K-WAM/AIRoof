@@ -23,7 +23,7 @@ const optionalModelText = (maxLength: number) => modelText(maxLength).optional()
 const optionalPhone = modelText(64).optional();
 const optionalEmail = z.string().trim().email().max(254).optional();
 
-export const checkAvailabilityInputSchema: z.ZodType<
+const checkAvailabilityInputSchema: z.ZodType<
   CheckAvailabilityInput,
   z.ZodTypeDef,
   unknown
@@ -34,7 +34,7 @@ export const checkAvailabilityInputSchema: z.ZodType<
   durationMinutes: finiteInteger.pipe(z.number().positive().max(1_440)).optional(),
 });
 
-export const bookAppointmentInputSchema: z.ZodType<
+const bookAppointmentInputSchema: z.ZodType<
   BookAppointmentInput,
   z.ZodTypeDef,
   unknown
@@ -56,7 +56,7 @@ export const bookAppointmentInputSchema: z.ZodType<
     message: "End time must follow start time",
   });
 
-export const createLeadInputSchema: z.ZodType<
+const createLeadInputSchema: z.ZodType<
   CreateLeadInput,
   z.ZodTypeDef,
   unknown
@@ -72,7 +72,7 @@ export const createLeadInputSchema: z.ZodType<
   sourceCallId: boundedText(256).optional(),
 });
 
-export const escalateCallInputSchema: z.ZodType<
+const escalateCallInputSchema: z.ZodType<
   EscalateCallInput,
   z.ZodTypeDef,
   unknown
@@ -84,7 +84,7 @@ export const escalateCallInputSchema: z.ZodType<
   summary: optionalModelText(2_000),
 });
 
-export const lookupAppointmentInputSchema: z.ZodType<
+const lookupAppointmentInputSchema: z.ZodType<
   LookupAppointmentInput,
   z.ZodTypeDef,
   unknown
@@ -97,7 +97,7 @@ export const lookupAppointmentInputSchema: z.ZodType<
   address: optionalModelText(500),
 });
 
-export const cancelAppointmentInputSchema: z.ZodType<
+const cancelAppointmentInputSchema: z.ZodType<
   CancelAppointmentInput,
   z.ZodTypeDef,
   unknown
@@ -110,13 +110,13 @@ export const cancelAppointmentInputSchema: z.ZodType<
   appointmentId: boundedText(256).optional(),
 });
 
-export const getCurrentDateInputSchema: z.ZodType<
+const getCurrentDateInputSchema: z.ZodType<
   GetCurrentDateInput,
   z.ZodTypeDef,
   unknown
 > = z.object({ businessId: identifier });
 
-export const vapiToolInputSchemas = {
+const vapiToolInputSchemas = {
   checkAvailability: checkAvailabilityInputSchema,
   bookAppointment: bookAppointmentInputSchema,
   createLead: createLeadInputSchema,

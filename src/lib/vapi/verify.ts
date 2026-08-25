@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server";
 import type { VapiMessage } from "@/lib/vapi/types";
 
 export const VAPI_REPLAY_WINDOW_MS = 10 * 60 * 1000;
-export const VAPI_REPLAY_COLLECTION = "_vapiWebhookEvents";
+const VAPI_REPLAY_COLLECTION = "_vapiWebhookEvents";
 
 export type VapiReplayClaim = "claimed" | "duplicate" | "invalid";
 

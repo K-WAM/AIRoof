@@ -1,4 +1,4 @@
-export type AdversarialParser =
+type AdversarialParser =
   | "appointment"
   | "callOutcome"
   | "faq"

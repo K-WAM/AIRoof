@@ -10,7 +10,7 @@
 
 import type { JobPhotoMeta } from "@/types/jobs";
 
-export const MAX_PHOTOS_PER_JOB = 10;          // tunable
+const MAX_PHOTOS_PER_JOB = 10;                 // tunable
 export const MAX_FULL_BYTES = 900_000;          // ~900 KB base64 cap (forgiving); under Firestore's 1 MiB doc limit
 
 type DB = FirebaseFirestore.Firestore;

@@ -85,22 +85,6 @@ export function buildCustomerConfirmationEmail(opts: {
   };
 }
 
-export async function sendCrewAssignment(
-  opts: {
-    to: string;
-    brand: Branding;
-    crewName: string;
-    jobTitle: string;
-    address?: string;
-    clientName?: string;
-    when: string;
-    scope?: string;
-  },
-): Promise<CommSendResult> {
-  const { subject, html } = buildCrewAssignmentEmail(opts);
-  return sendEmail({ to: opts.to, subject, html });
-}
-
 export async function sendCustomerConfirmation(
   opts: {
     to: string;

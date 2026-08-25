@@ -93,3 +93,5 @@ Accept `{ verticalId, companyName, notificationEmail, brandColor? }`.
 The core insight is right: a multi-vertical pitch needs zero-friction switching. The current `/admin/demo` works for one vertical but requires manual setup for each prospect. The Demo Studio removes that friction and turns every sales call into a live product demo with real data.
 
 **When to tackle:** After the current roofing demo is fully validated (Call Back working, QR demo reliable, after-hours booking confirmed). Likely Phase 6 or when first non-roofing client is onboarded.
+> **Historical design plan.** The shipped Demo Studio uses one universal `demo-roofing` line and dynamically
+> applies one of seven vertical templates. Per-vertical demo-tenant assumptions below are superseded.

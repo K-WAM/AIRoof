@@ -23,7 +23,7 @@ export interface CheckAvailabilityOutput {
 }
 
 const DEFAULT_TZ = "America/New_York";
-export const SCHEDULE_BUCKET_MS = 15 * 60 * 1000;
+const SCHEDULE_BUCKET_MS = 15 * 60 * 1000;
 export const DEFAULT_SCHEDULE_DURATION_MS = 60 * 60 * 1000;
 const AVAILABILITY_STEP_MINUTES = 30;
 const AVAILABILITY_SCAN_DAYS = 14;
@@ -632,7 +632,7 @@ export interface EscalateCallInput {
   summary?: string;
 }
 
-export type EscalationStatus =
+type EscalationStatus =
   | "accepted"
   | "delivered"
   | "failed"

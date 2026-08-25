@@ -42,7 +42,7 @@ Agent rules:
 
 Routing and integrations:
 
-- Twilio phone mapping.
+- Vapi assistant/phone-number mapping.
 - Calendar provider.
 - OpenAI, DeepSeek, email, and SMS status.
 

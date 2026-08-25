@@ -13,7 +13,7 @@ import type {
   FieldTimelineEvent,
 } from "@/types/jobs";
 
-export function normalizeItem(s: string): string {
+function normalizeItem(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
@@ -111,7 +111,7 @@ export function buildProjection(updatesInput: FieldUpdate[]): ParsedUpdate {
 }
 
 /** Current summed quantity for a material across the ledger (corrections applied). */
-export function materialTotal(updates: FieldUpdate[], item: string): number {
+function materialTotal(updates: FieldUpdate[], item: string): number {
   return toNum(buildProjection(updates).materials.find((m) => normalizeItem(m.item) === normalizeItem(item))?.quantity);
 }
 

@@ -984,3 +984,72 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   26 baseline warnings; initial full suite had only the documented unchanged `example-lib.test.ts` import
   timeout, isolated rerun **2/2**, immediate solo `npm test` **32 files / 300 tests green**; final batch
   `npm run build` green (48 static pages generated, `/admin/onboarding` and company routes included).
+
+---
+
+## 2026-08-23 — Evidence-driven maintenance cleanup and documentation reconciliation
+
+- **Baseline:** fast-forwarded local `main` from `f865c99` to the verified remote tip `cfa6102`. Preserved the
+  owner's existing `.claude/settings.local.json` Playwright permission additions. No commit or push performed.
+- **Static evidence:** repo-wide exact-identifier/script-name searches, strict TypeScript unused/unreachable
+  checks, and `knip` were run before removal. Dynamic Next routes, manual operational scripts, Firestore domain
+  types, and compatibility redirects were reviewed rather than treated as automatically dead.
+
+### Removed files
+
+- `scripts/seed-demo-business.ts` — broken/superseded TypeScript duplicate; active docs and `AGENTS.md` already
+  directed operators to `seed-demo-business.mjs`.
+- `scripts/demo-customize.mjs` — bypassed the guarded universal Demo Studio route and duplicated obsolete
+  direct-Firestore/Vapi customization behavior.
+- `scripts/seed-demo-activity.mjs`, `scripts/seed-demo-clients.mjs`, and the five per-vertical seeders
+  (`seed-demo-dental.mjs`, `seed-demo-general-contractors.mjs`, `seed-demo-hvac.mjs`,
+  `seed-demo-landscaping.mjs`, `seed-demo-property-management.mjs`) — replaced by `demoSeedFor()` and the one
+  `demo-roofing` universal launch/reset route, which now seeds rich calls/leads/appointments/resources/jobs.
+- `scripts/grant-superadmin.mjs` — partial UID-only duplicate of retained `provision-superadmin.mjs`, which also
+  manages the required custom claim.
+- `scripts/cleanup-test-businesses.mjs` — unreferenced one-time destructive script with three hardcoded IDs.
+- `src/lib/vapi/__tests__/vitest.config.ts` — unreferenced nested config; root Vitest discovers the suite.
+
+### Removed code and declarations
+
+- Deleted the uncalled `sendCrewAssignment()` wrapper and stale unrelated module-mock exports. The assignment
+  API uses `buildCrewAssignmentEmail()` with the ledger-backed comms service.
+- Removed unused default exports from both Firebase initialization modules; made `getFirebaseApp()` private.
+- Made internal-only timezone/photo/scheduling/replay constants, job projection helpers, ledger error classes,
+  Zod schema instances, schema utilities, AI/audit/fixture types, and the release fake-query class private.
+  This removes unused public surface without changing runtime logic.
+- Kept live collection/domain types (`CallSession`, `CallMessage`, `UserBusinessMembership`,
+  `SuperadminProfile`, `FieldAuditEntry`, operation state/failure types) despite static-tool reports, per the
+  repository cleanup rule.
+- Removed direct `tailwindcss`, `autoprefixer`, and `postcss` dev dependencies: no config, CSS directive, import,
+  or build consumer exists. Added direct `@eslint/eslintrc` because `eslint.config.mjs` imports it. Retained
+  `pptxgenjs` for the committed pitch-deck generator.
+- Removed stale Twilio/script-only variables from `.env.example` after confirming no runtime or retained script
+  reads them.
+
+### Dependency maintenance
+
+- Applied the non-breaking audit update set, including Next.js `15.5.18 → 15.5.23`, eliminating the critical
+  advisory and reducing the full audit from 30 findings (1 critical/12 high/17 moderate) to 23
+  (0 critical/6 high/17 moderate).
+- Remaining findings require breaking upgrades (Next.js 16, Firebase 12, Firebase Admin 14) or are isolated to
+  the development-only pitch-deck generator. `npm audit fix --force` was deliberately not run.
+
+### Documentation
+
+- Rewrote `docs/README.md`, `docs/TESTING.md`, and `docs/SESSION_HANDOFF.md` as current sources of truth.
+- Reconciled `TODO.md`, root `HANDOFF.md`, `CLAUDE.md`, and `.env.example`; marked the pre-Vapi admin/demo plans
+  historical instead of deleting them.
+- Updated production status using the 2026-08-23 live health check and separated scoped implementation
+  completion from the remaining authenticated/provider/legal sign-offs.
+
+### Verification
+
+- `npm run type-check` clean; strict unused/unreachable compiler clean.
+- `npm run lint`: 0 errors / 24 warnings (down from 26).
+- `npm test`: 32 files / 304 tests green.
+- Release acceptance suite: 5 files / 16 tests green.
+- `npm run build`: green on Next.js 15.5.23; 48 routes generated.
+- Follow-up `knip`: only three documented operational scripts, two explained manual/dynamic dependencies
+  (`pptxgenjs`, `eslint-config-next`), and eight protected/domain types remain.
+- `git diff --check`: clean.

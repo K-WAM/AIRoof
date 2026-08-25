@@ -24,7 +24,7 @@ if (isConfigValid) {
   app = initializeApp(firebaseConfig);
 }
 
-export const getFirebaseApp = () => {
+const getFirebaseApp = () => {
   if (!app) {
     throw new Error(
       "Firebase not configured. Check NEXT_PUBLIC_FIREBASE_* env vars."
@@ -35,5 +35,3 @@ export const getFirebaseApp = () => {
 
 export const auth = isConfigValid ? getAuth(getFirebaseApp()) : null;
 export const db = isConfigValid ? getFirestore(getFirebaseApp()) : null;
-
-export default app;

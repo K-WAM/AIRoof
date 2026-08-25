@@ -27,7 +27,7 @@ export const SUPPORTED_TIMEZONES = [
   { value: "America/St_Johns",    label: "Canada – Newfoundland (St. John's)" },
 ] as const;
 
-export const DEFAULT_TZ = "America/New_York";
+const DEFAULT_TZ = "America/New_York";
 
 export function useBusinessTimezone(): string {
   const businessId = useBusinessId();

@@ -6,7 +6,7 @@ const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta
 
 // `next lint` is deprecated in Next 15 (removed in 16), so lint runs through the
 // ESLint CLI instead. See the "lint" script in package.json.
-export default [
+const config = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
@@ -29,3 +29,5 @@ export default [
     ],
   },
 ];
+
+export default config;

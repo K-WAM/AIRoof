@@ -54,5 +54,3 @@ export async function verifyIdToken(
     return null;
   }
 }
-
-export default adminApp;
