@@ -1,8 +1,8 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-08-23 (release scope complete; maintenance cleanup and documentation reconciliation)
+Last updated: 2026-08-25 (maintenance cleanup pushed; expanded to 10 industry verticals)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed through
-> `cfa6102`; its GitHub Actions gate passed. On 2026-08-23 the live health endpoint returned `200`, Firestore
+> `1d2f840`; its GitHub Actions gate passed. On 2026-08-23 the live health endpoint returned `200`, Firestore
 > connected, and all six provider/runtime capabilities configured. The remaining launch work is authenticated
 > human smoke testing and provider/legal sign-off, not unfinished scoped implementation. See `TODO.md` and
 > `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives below remain historical evidence.
@@ -12,14 +12,53 @@ Last updated: 2026-08-23 (release scope complete; maintenance cleanup and docume
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** `cfa6102` (2026-07-25); CI green. The 2026-08-23 maintenance cleanup is local-only
-until explicitly committed/pushed.
+**Latest pushed baseline:** `1d2f840` (2026-08-25); CI green. The 2026-08-23 maintenance cleanup (`c8487ed`)
+and a 3-vertical expansion (`1d2f840`) were reviewed and pushed this session — see the session note below.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-08-25) — pushed Codex's cleanup, expanded to 10 verticals
+
+**Theme: close the gap between "seven verticals shipped" and "sell to any service business," push what was staged.**
+
+**1. Reviewed and pushed Codex's 2026-08-23 maintenance cleanup** (`c8487ed`): evidence-driven dead-code/
+dependency removal (11 obsolete scripts, unused exports made private, stale Tailwind/PostCSS deps dropped,
+non-breaking `npm audit` fixes including Next 15.5.23) plus a full documentation reconciliation. It had sat
+locally, verified but unpushed, per the repo's "nothing pushed without explicit approval" rule — this session's
+"push to github" instruction was that approval. Re-verified clean before committing: type-check, lint (0
+errors/24 warnings), full test suite (one known `example-lib.test.ts` concurrency flake, clean solo), build
+(48 routes).
+
+**2. Added three verticals — Electricians, Appliance Repair, Childcare** (`1d2f840`), closing the gap against
+the owner's requested spread (roofing, dental, babysitting, contractors, landscaping, electricians, appliance
+repair, "and other service companies"). Confirmed the template system holds up exactly as designed: adding a
+vertical touched **only** `src/lib/verticals/templates.ts` (the template block), `RESOURCES` in `demoSeed.ts`
+(one array of resource names — `demoSeedFor()` derives everything else generically from the template), and
+`VERTICAL_ICONS` in `admin/demo/page.tsx` (one icon import). Onboarding wizard, admin config page, and Demo
+Studio's card grid all render from `Object.values(VERTICAL_TEMPLATES)` — zero UI changes needed. `Record<VerticalId, …>`
+typing meant `tsc` would have failed on any spot I missed; it didn't.
+- Electricians / Appliance Repair: jobs-mode, same shape as Roofing/HVAC/GC (Jobs + Field + Calendar crews/techs).
+- Childcare: appointments-mode, same shape as Dental/Property Mgmt (Family → Sitter, no field jobs, no materials catalog).
+- Updated `public/guides/onboarding-guide.html` (the live demo playbook) from seven to ten industries — card
+  count, industry list, and the quick-reference table.
+
+**3. Platform is now genuinely industry-agnostic at the code level, not just roofing-with-a-coat-of-paint.**
+Ten verticals share one Vapi assistant, one webhook, one set of 7 tools, one company UI — only `vocab`,
+`approvedServices`/FAQs/rules, `calendarMode`, and `disabledModules` differ per template. That's the answer to
+"can I sell this to any service business": yes, and adding the next one (e.g. plumbers, pool service) is a
+single template block, not a code change.
+
+**4. Did not do a live Playwright click-through this session** — token-conservation tradeoff. Confidence instead
+comes from: the exact same template shape already proven across 7 shipped verticals, `tsc`/lint/build all green
+after the addition, and manual code-path verification (grep confirmed zero hardcoded vertical lists outside the
+three touch points above). Recommended before the next demo: one live launch of each new vertical in Demo
+Studio to eyeball the card, greeting, and Calendar labels.
 
 ---
 

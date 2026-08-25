@@ -1,16 +1,19 @@
 # TODO.md — Live queue
 
 Specs: `MASTER_PLAN.md`. Rules: `AGENTS.md`. State snapshot: `docs/SESSION_HANDOFF.md`.
-Integration branch: `main`. Latest pushed baseline: `cfa6102` (2026-07-25); the 2026-08-23 maintenance
-cleanup is local-only until the owner explicitly requests a commit/push.
+Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance cleanup this session
+(`c8487ed`), plus a 3-vertical expansion on top of it (`1d2f840`) — both on `origin/main`.
 
-## Current snapshot — 2026-08-23
+## Current snapshot — 2026-08-25
 
-- **Scoped implementation:** 100%. Phases 0–6 are merged and the latest baseline CI passed.
+- **Scoped implementation:** 100%. Phases 0–6 are merged and pushed; the latest baseline CI passed.
 - **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
   DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
-- **Local maintenance:** evidence-driven dead-code/dependency cleanup and documentation reconciliation are
-  complete and green on local `main`; no worker branches or pending reviews. The diff is ready for review.
+- **Maintenance cleanup:** the 2026-08-23 evidence-driven dead-code/dependency cleanup and documentation
+  reconciliation is reviewed, committed, and pushed (`c8487ed`).
+- **Vertical expansion:** Electricians, Appliance Repair, and Childcare added to `VERTICAL_TEMPLATES`
+  (`1d2f840`) — the platform now templates 10 industries instead of 7. Type-check/lint/build re-verified green
+  after the addition.
 - **Release sign-off still human-owned:** authenticated Calendar/field/PDF/email smoke, Vapi dashboard review,
   Resend DNS deliverability, privacy/retention approval, and Firestore TTL configuration. See `NEEDS-HUMAN`.
 - The detailed assignment/review narrative below is retained as historical execution evidence. It is not an

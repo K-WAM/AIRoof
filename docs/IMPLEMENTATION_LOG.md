@@ -1053,3 +1053,26 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Follow-up `knip`: only three documented operational scripts, two explained manual/dynamic dependencies
   (`pptxgenjs`, `eslint-config-next`), and eight protected/domain types remain.
 - `git diff --check`: clean.
+
+---
+
+## 2026-08-25 — Owner review, push, and 3-vertical expansion
+
+- **Reviewed and committed** the 2026-08-23 maintenance cleanup exactly as left by Codex (`c8487ed`) — the
+  owner's local `.claude/settings.local.json` Playwright permission change was excluded, per the standing rule
+  that it belongs to the owner's tooling and isn't part of the app diff.
+- **Added three verticals** (`1d2f840`) to close the gap against the owner's requested industry spread
+  (roofing, dental, babysitting, contractors, landscaping, electricians, appliance repair, "and other service
+  companies"): `electricians`, `appliance-repair` (jobs-mode, same shape as Roofing/HVAC/GC), and `childcare`
+  (appointments-mode, same shape as Dental/Property Mgmt). Confirmed via `Object.values(VERTICAL_TEMPLATES)`
+  in the onboarding wizard and admin config page that no vertical is ever hardcoded outside
+  `src/lib/verticals/templates.ts` — adding one is a template-block edit, not a UI change. The only other
+  touch points were `RESOURCES` in `demoSeed.ts` (demo seed already derives jobs/calls/leads/appointments
+  generically from the template) and `VERTICAL_ICONS` in `admin/demo/page.tsx`.
+- **Updated `public/guides/onboarding-guide.html`** — industry count and card list (seven → ten), quick-reference
+  table gained three rows, guide version bumped to 2.2.
+- **Verification:** `npm run type-check` clean; `npm run lint` 0 errors / 24 warnings (unchanged baseline);
+  `npm test` 32 files / 304 tests, one known concurrent-load flake in `example-lib.test.ts` (confirmed clean on
+  isolated rerun, matches the documented pattern from the 2026-08-23 entry); `npm run build` green, 48 routes
+  (unchanged route count — no new pages were needed).
+- **Pushed** both commits to `origin/main`.

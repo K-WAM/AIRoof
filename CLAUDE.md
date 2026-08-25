@@ -36,12 +36,13 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: (2026-08-23) **Scoped release complete** — Phases 0–6 merged; live health and baseline CI green;
-maintenance cleanup removes obsolete scripts/exports/dependencies and reconciles current docs. Seven verticals,
-adaptive Calendar modes, guarded universal Demo Studio, scoped field access, ledgered communications, retention,
-and the release acceptance suite are shipped. See `TODO.md` for human production sign-offs. **Design-system
-rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline
-button styles.
+**Status**: (2026-08-25) **Scoped release complete** — Phases 0–6 merged and pushed; live health and baseline CI
+green; maintenance cleanup removes obsolete scripts/exports/dependencies and reconciles current docs. **Ten
+verticals** (Roofing, HVAC, Landscaping, Cleaning, Dental, Property Mgmt, General Contractors, Electricians,
+Appliance Repair, Childcare) — adaptive Calendar modes, guarded universal Demo Studio, scoped field access,
+ledgered communications, retention, and the release acceptance suite are shipped. See `TODO.md` for human
+production sign-offs. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't
+reintroduce `#2563eb` or per-page inline button styles.
 
 ## Industry-Applicability Rule (read before touching company UI)
 

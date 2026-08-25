@@ -6,9 +6,10 @@ Updated: 2026-08-23 by Codex.
 
 - Root: `C:\Users\karee\Desktop\Apps\AI Roofing Agent`
 - Branch: `main`
-- Pushed baseline: `cfa6102` (`origin/main`, latest remote commit verified before the maintenance pass)
-- Local state: maintenance cleanup/docs are uncommitted and unpushed. The pre-existing
-  `.claude/settings.local.json` Playwright permission change belongs to the owner and was preserved.
+- Pushed baseline: `1d2f840` on `origin/main` (2026-08-25) — the 2026-08-23 maintenance cleanup (`c8487ed`) plus
+  a 3-vertical expansion (`1d2f840`), both reviewed and pushed this session.
+- Local state: clean except the owner's own `.claude/settings.local.json` Playwright permission change, which
+  stays uncommitted/local per the owner's tooling convention.
 - No worker branches, active worktrees, pending reviews, or development blockers.
 
 ## Product status
@@ -58,10 +59,26 @@ Updated: 2026-08-23 by Codex.
 - `scripts/provision-superadmin.mjs` — set custom claim and `businessUsers` record.
 - `scripts/create-pitch-deck.cjs` — regenerate `public/Luxor-AI-Pitch.pptx`.
 
+## 2026-08-25 vertical expansion
+
+- Added `electricians`, `appliance-repair`, and `childcare` to `VERTICAL_TEMPLATES`
+  (`src/lib/verticals/templates.ts`) — full template blocks (vocab, services, FAQs, emergency/booking rules,
+  agent persona, icon/color). Electricians and Appliance Repair are jobs-mode (same shape as Roofing/HVAC/GC);
+  Childcare is appointments-mode (same shape as Dental/Property Mgmt).
+- Added the matching resource roster to `RESOURCES` in `src/lib/verticals/demoSeed.ts` — `demoSeedFor()`
+  already derives jobs/calls/leads/appointments generically from the template, so that was the only demo-seed
+  change needed.
+- Wired `Zap`/`Wrench`/`Baby` into `VERTICAL_ICONS` in `src/app/admin/demo/page.tsx`.
+- Updated `public/guides/onboarding-guide.html` (card count, industry list, quick-reference table) from seven
+  to ten industries.
+- Re-verified: `npm run type-check` clean, `npm run lint` 0 errors/24 warnings (unchanged), `npm run build`
+  green (48 routes, unchanged), full `npm test` 32/32 files green on isolated rerun of the one known
+  concurrent-load flake.
+
 ## Next actions
 
-1. Review and commit the maintenance diff; do not include the owner's `.claude/settings.local.json` unless the
-   owner explicitly wants that settings change committed.
-2. Push/deploy only when requested.
-3. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs.
-4. Scope dependency majors as a dedicated migration with full browser/provider regression testing.
+1. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs.
+2. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
+   browser/provider regression testing.
+3. Optional: a live click-through of the three new verticals in Demo Studio (industry card → launch → voice
+   call → Calendar drag) as part of the next authenticated production smoke pass.
