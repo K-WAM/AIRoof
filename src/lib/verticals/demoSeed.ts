@@ -60,6 +60,9 @@ const RESOURCES: Record<VerticalId, string[]> = {
   dental: ["Dr. Rivera", "Dr. Chen", "Dr. Park", "Hygiene — Sam", "Hygiene — Jess"],
   "property-management": ["Ace Plumbing", "BrightSpark Electric", "CoolBreeze HVAC", "On-call Manager", "Turnover Crew"],
   "general-contractors": ["Dave's Crew", "Framing Crew", "Finish Carpentry", "Drywall Crew", "Concrete Crew"],
+  electricians: ["Danny Crew", "Spark Crew", "Panel Team", "Emergency Response", "Wiring Crew"],
+  "appliance-repair": ["Sam T.", "Rita K.", "Miguel P.", "Dana W.", "After-hours On-call"],
+  childcare: ["Jenna M.", "Priya S.", "Marcus T.", "Weekend Team", "After-hours On-call"],
 };
 
 export interface DemoSeed {

@@ -7,7 +7,10 @@ export type VerticalId =
   | "cleaning"
   | "dental"
   | "property-management"
-  | "general-contractors";
+  | "general-contractors"
+  | "electricians"
+  | "appliance-repair"
+  | "childcare";
 
 /**
  * Per-vertical wording for the shared company UI. Every surface that would
@@ -608,6 +611,234 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     sampleCallerScript:
       "Hey [Prospect], a homeowner just called asking for a kitchen remodel quote — your AI captured all the project details, booked a site visit, and sent a confirmation. Sound like something your crew needs?",
     disabledModules: [],
+  },
+
+  electricians: {
+    verticalId: "electricians",
+    label: "Electricians",
+    description: "Wiring, panel upgrades, outlet repairs, and urgent electrical-hazard triage.",
+    calendarMode: "jobs",
+    vocab: {
+      jobNoun: "Job",
+      jobNounPlural: "Jobs",
+      customerNoun: "Customer",
+      customerNounPlural: "Customers",
+      resourceNoun: "Crew",
+      resourceNounPlural: "Crews",
+      voiceExample: "replaced the panel breaker, ran new 12-gauge to the kitchen, Danny worked 8 to 3",
+      jobTitlePlaceholder: "e.g. Panel upgrade — 123 Main St",
+      serviceTypePlaceholder: "Panel upgrade",
+      resourcePlaceholder: "Danny Crew",
+      materialPlaceholder: "12-gauge wire (ft)",
+      documentPlaceholder: "Permit — panel upgrade",
+    },
+    approvedServices: [
+      "Panel upgrades and replacements",
+      "Outlet and switch repairs",
+      "Lighting installation",
+      "EV charger installation",
+      "Whole-home rewiring",
+      "Emergency electrical repairs",
+    ],
+    approvedFaqs: [
+      {
+        question: "Are you licensed and insured?",
+        answer:
+          "Yes, all our electricians are licensed, bonded, and insured. Certification is available on request.",
+      },
+      {
+        question: "Do you offer emergency service?",
+        answer:
+          "Yes, we offer same-day emergency response for active electrical hazards. Call us right away if you smell burning or see sparking.",
+      },
+      {
+        question: "How much does a panel upgrade cost?",
+        answer:
+          "Pricing depends on your panel size and home's electrical load. We'll confirm a quote after a quick site assessment.",
+      },
+    ],
+    emergencyRules: [
+      "If caller reports sparking outlets, burning smell, or exposed wiring: escalate immediately",
+      "If caller reports a total power outage affecting medical equipment: escalate immediately",
+      "If caller mentions smoke or fire risk: advise calling 911 first, then escalate",
+    ],
+    bookingRules: [
+      "Collect address, panel age/brand if known, and issue description before confirming",
+      "Emergency calls get same-day dispatch; standard work requires 24-hour notice",
+      "Confirm whether the home currently has power before scheduling",
+    ],
+    disallowedTopics: [
+      "DIY electrical work involving the panel or wiring",
+      "specific cost guarantees without a site visit",
+      "permit approval timelines",
+    ],
+    agentName: "Jax",
+    agentIdentity: "receptionist",
+    greetingTemplate: "Thanks for calling {businessName}, this is Jax. How can I help?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}. The office is closed, but I'm Jax — I can take your details or flag an electrical emergency right now.",
+    agentTone: "direct, safety-aware, and calm under pressure",
+    icon: "Zap",
+    color: "#a16207",
+    shortLabel: "Electrical",
+    sampleCallerScript:
+      "Hey [Prospect], a customer's breaker keeps tripping at 9pm — your AI captures the details, flags it as urgent, and has a job on your board before you're even up. Want to see it live?",
+    disabledModules: [],
+  },
+
+  "appliance-repair": {
+    verticalId: "appliance-repair",
+    label: "Appliance Repair",
+    description: "Diagnostics, repairs, and parts scheduling for household appliances.",
+    calendarMode: "jobs",
+    vocab: {
+      jobNoun: "Repair",
+      jobNounPlural: "Repairs",
+      customerNoun: "Customer",
+      customerNounPlural: "Customers",
+      resourceNoun: "Tech",
+      resourceNounPlural: "Techs",
+      voiceExample: "replaced the dryer heating element, tested three cycles, Sam was on site 10 to 11:30",
+      jobTitlePlaceholder: "e.g. Fridge not cooling — 123 Main St",
+      serviceTypePlaceholder: "Refrigerator repair",
+      resourcePlaceholder: "Sam T.",
+      materialPlaceholder: "Heating element",
+      documentPlaceholder: "Manufacturer warranty 2026",
+    },
+    approvedServices: [
+      "Refrigerator and freezer repair",
+      "Washer and dryer repair",
+      "Dishwasher repair",
+      "Oven and range repair",
+      "Appliance installation",
+      "Emergency appliance repair",
+    ],
+    approvedFaqs: [
+      {
+        question: "Do you repair all brands?",
+        answer:
+          "Yes, our techs service all major brands including Whirlpool, GE, Samsung, LG, and more. Let us know your model if you have it handy.",
+      },
+      {
+        question: "Do you carry parts on the truck?",
+        answer:
+          "Our techs carry common parts, but some repairs need an ordered part. We'll confirm during diagnosis and schedule a follow-up if needed.",
+      },
+      {
+        question: "How much does a service call cost?",
+        answer:
+          "Diagnosis pricing depends on the appliance and issue. The team can confirm the service call fee before booking.",
+      },
+    ],
+    emergencyRules: [
+      "If caller reports a gas smell near a gas appliance: advise leaving the area and calling the gas company or 911 immediately, then escalate",
+      "If caller reports active water leaking from a washer, dishwasher, or fridge causing flooding: prioritize same-day response",
+      "If caller reports sparking or a burning smell from an appliance: advise unplugging it if safe, then escalate immediately",
+    ],
+    bookingRules: [
+      "Collect appliance type, brand/model if known, and issue description before confirming",
+      "Emergency slots available same-day for flooding or gas concerns; standard repairs require 24-hour notice",
+      "Confirm whether the appliance is still under manufacturer warranty",
+    ],
+    disallowedTopics: [
+      "detailed pricing without a diagnosis",
+      "gas line or gas appliance DIY advice",
+      "warranty legal advice",
+    ],
+    agentName: "Milo",
+    agentIdentity: "receptionist",
+    greetingTemplate: "Thanks for calling {businessName}, this is Milo. How can I help?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}. The office is closed, but I'm Milo — I can take your details or flag an urgent appliance issue right now.",
+    agentTone: "friendly, practical, and reassuring",
+    icon: "Wrench",
+    color: "#475569",
+    shortLabel: "Appliances",
+    sampleCallerScript:
+      "Hey [Prospect], a customer's fridge dies on a Sunday — your AI books the repair, captures the model number, and puts it on your board before Monday morning. Want to hear it?",
+    disabledModules: [],
+  },
+
+  childcare: {
+    verticalId: "childcare",
+    label: "Childcare & Sitters",
+    description: "Sitter bookings, nanny placements, family intake, and safety-first scheduling.",
+    // No field jobs — the Calendar schedules families onto sitters instead.
+    calendarMode: "appointments",
+    vocab: {
+      jobNoun: "Booking",
+      jobNounPlural: "Bookings",
+      customerNoun: "Family",
+      customerNounPlural: "Families",
+      resourceNoun: "Sitter",
+      resourceNounPlural: "Sitters",
+      voiceExample: "",
+      jobTitlePlaceholder: "",
+      serviceTypePlaceholder: "",
+      resourcePlaceholder: "Jenna M.",
+      materialPlaceholder: "",
+      documentPlaceholder: "Background check 2026",
+    },
+    approvedServices: [
+      "Evening and weekend babysitting",
+      "Recurring after-school care",
+      "Date-night sitter bookings",
+      "Overnight and travel care",
+      "Newborn and infant care",
+      "Last-minute sitter requests",
+    ],
+    approvedFaqs: [
+      {
+        question: "Are your sitters background-checked?",
+        answer:
+          "Yes, every sitter completes a background check, CPR/first-aid certification, and an in-person interview before joining our roster.",
+      },
+      {
+        question: "How far in advance do I need to book?",
+        answer:
+          "We recommend 48 hours' notice for standard bookings, but we keep sitters on call for last-minute requests when available.",
+      },
+      {
+        question: "What ages do you care for?",
+        answer:
+          "Our sitters are experienced with infants through school-age children. Let us know your child's age and any special needs so we can match the right sitter.",
+      },
+      {
+        question: "Can I request the same sitter each time?",
+        answer:
+          "Absolutely — just let us know and we'll prioritize booking your preferred sitter when they're available.",
+      },
+    ],
+    emergencyRules: [
+      "If caller reports a child injury or medical emergency in progress: advise calling 911 immediately, then escalate",
+      "If caller needs a same-day sitter due to a family emergency: prioritize and escalate for immediate placement",
+      "If caller reports a safety concern about a sitter or a completed booking: escalate immediately — do not attempt to resolve on the call",
+    ],
+    bookingRules: [
+      "Collect child's age(s), any allergies or medical needs, address, and requested date/time before confirming",
+      "First-time families require an intake call before the first booking is confirmed",
+      "Confirm the parent's contact number and an emergency backup contact before ending the call",
+    ],
+    disallowedTopics: [
+      "medical or medication advice for a child",
+      "discipline or parenting advice",
+      "sitter pay-rate negotiation",
+      "background check details of specific sitters",
+    ],
+    agentName: "Nora",
+    agentIdentity: "receptionist",
+    greetingTemplate: "Thanks for calling {businessName}, this is Nora. How can I help with childcare today?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}. The office is closed, but I'm Nora — I can take your booking request or flag an urgent need right now.",
+    agentTone: "warm, reassuring, and safety-first",
+    icon: "Baby",
+    color: "#c2185b",
+    shortLabel: "Childcare",
+    sampleCallerScript:
+      "Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?",
+    // No field jobs. Calendar schedules families onto sitters; Library keeps the
+    // sitter roster + documents, minus the materials catalog (see "pricing").
+    disabledModules: ["jobs", "pricing"],
   },
 };
 

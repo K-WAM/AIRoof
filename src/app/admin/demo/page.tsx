@@ -10,6 +10,9 @@ import {
   Building,
   Hammer,
   Sparkles,
+  Zap,
+  Wrench,
+  Baby,
   Presentation,
   ExternalLink,
   Copy,
@@ -49,6 +52,9 @@ const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
   dental: Smile,
   "property-management": Building,
   "general-contractors": Hammer,
+  electricians: Zap,
+  "appliance-repair": Wrench,
+  childcare: Baby,
 };
 
 // Field-service verticals get a field QR; others get a dashboard QR. Derived from
