@@ -16,6 +16,13 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   after the addition.
 - **Release sign-off still human-owned:** authenticated Calendar/field/PDF/email smoke, Vapi dashboard review,
   Resend DNS deliverability, privacy/retention approval, and Firestore TTL configuration. See `NEEDS-HUMAN`.
+- **Deploy confirmed:** Vercel auto-deployed `1d2f840`/`3bc97fb` on push via the GitHub integration —
+  production deployment `READY` (verified via the Vercel API, not just an assumption from the push).
+- **Worktree/branch audit (2026-08-25):** `git worktree list`, `git branch -v`, and `git branch -rv` (after a
+  fresh `git fetch --prune`) all confirm zero worktrees and zero branches beyond `main`, locally and on
+  `origin`. The `D:\Apps\air-wt-*` paths in the historical narrative below refer to a drive that doesn't exist
+  on this machine — those worktrees belonged to a different execution environment and left nothing here to
+  clean up.
 - The detailed assignment/review narrative below is retained as historical execution evidence. It is not an
   active queue.
 

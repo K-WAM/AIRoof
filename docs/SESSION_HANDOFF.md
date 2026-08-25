@@ -10,7 +10,10 @@ Updated: 2026-08-23 by Codex.
   a 3-vertical expansion (`1d2f840`), both reviewed and pushed this session.
 - Local state: clean except the owner's own `.claude/settings.local.json` Playwright permission change, which
   stays uncommitted/local per the owner's tooling convention.
-- No worker branches, active worktrees, pending reviews, or development blockers.
+- No worker branches, active worktrees, pending reviews, or development blockers. Re-confirmed 2026-08-25 via
+  `git worktree list` / `git branch -v` / `git branch -rv` (post `fetch --prune`) — main only, everywhere.
+- Vercel production deployment for `3bc97fb` confirmed `READY` via the Vercel API (auto-deployed on push
+  through the GitHub integration; no manual deploy step needed).
 
 ## Product status
 
