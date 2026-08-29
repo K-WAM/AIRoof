@@ -1,19 +1,35 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-08-23 by Codex.
+Updated: 2026-08-27 (Claude) — QoL/multi-vertical audit session, doc-only.
 
 ## Repository
 
-- Root: `C:\Users\karee\Desktop\Apps\AI Roofing Agent`
-- Branch: `main`
-- Pushed baseline: `1d2f840` on `origin/main` (2026-08-25) — the 2026-08-23 maintenance cleanup (`c8487ed`) plus
-  a 3-vertical expansion (`1d2f840`), both reviewed and pushed this session.
-- Local state: clean except the owner's own `.claude/settings.local.json` Playwright permission change, which
-  stays uncommitted/local per the owner's tooling convention.
-- No worker branches, active worktrees, pending reviews, or development blockers. Re-confirmed 2026-08-25 via
-  `git worktree list` / `git branch -v` / `git branch -rv` (post `fetch --prune`) — main only, everywhere.
-- Vercel production deployment for `3bc97fb` confirmed `READY` via the Vercel API (auto-deployed on push
-  through the GitHub integration; no manual deploy step needed).
+- Root: `D:\Apps\AI Receptionist` (this machine).
+- Branch: `main`, plus a new local-only doc branch cut this session for the Phase 7 backlog commit (see below)
+  — not pushed.
+- Pushed baseline: `1d2f840` on `origin/main` (2026-08-25) — unchanged this session; nothing new was pushed.
+- Local state: this session added `MASTER_PLAN.md` (Phase 7), `TODO.md`, and `HANDOFF.md` changes, committed
+  locally on a new branch (not `main` directly, not pushed) per the standing "branch before committing on
+  default branch" / "nothing pushed without explicit approval" rules. No source (`src/`) file was touched — this
+  was an identify-and-answer audit, explicitly no execution.
+- No worker branches, active worktrees, pending reviews, or development blockers otherwise. Last full
+  worktree/branch audit: 2026-08-25 (`git worktree list` / `git branch -v` / `git branch -rv` — main only,
+  everywhere, aside from this session's new doc branch).
+- Vercel production deployment for `3bc97fb` confirmed `READY` via the Vercel API as of 2026-08-23 — unchanged
+  this session (nothing deployed).
+
+## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
+
+Owner requested a broad quality-of-life pass — identify and answer only, no execution: split demo/onboarding
+onto a dedicated hub/URL, tailor the client-facing look per industry, AI-document consistency, Vapi setup
+clarity + a client talk-track, and research on newer voice models + Canadian phone numbers. Findings were
+published as an Artifact ("Luxor Platform Audit") and turned into 8 fully-specced candidate tasks — **Phase 7,
+T-053–T-060** — added to `MASTER_PLAN.md` in the same template every prior phase uses. See `HANDOFF.md`'s
+matching 2026-08-27 session entry for the direct answers (voice models, Canadian numbers) and the full
+findings-to-task mapping. **Phase 7 is queued, not assigned — owner prioritization is the next step**, same
+posture Phase 6 held before 2026-07-23. Project memory (`~/.claude/projects/.../memory/`) was updated to point
+future sessions at the artifact and to retire the now-stale "45% done" release-orchestration memory (that
+backlog closed weeks ago).
 
 ## Product status
 
@@ -80,8 +96,10 @@ Updated: 2026-08-23 by Codex.
 
 ## Next actions
 
-1. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs.
-2. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
+1. **Review and prioritize Phase 7** (`MASTER_PLAN.md`, T-053–T-060, owner-added 2026-08-27) — decide what to
+   greenlight, if anything; nothing in it is assigned or started.
+2. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs.
+3. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
    browser/provider regression testing.
-3. Optional: a live click-through of the three new verticals in Demo Studio (industry card → launch → voice
+4. Optional: a live click-through of the three new verticals in Demo Studio (industry card → launch → voice
    call → Calendar drag) as part of the next authenticated production smoke pass.

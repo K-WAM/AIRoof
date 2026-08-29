@@ -481,6 +481,203 @@ public self-serve signup/trial/billing (concierge onboarding stays; see T-047) a
 
 ---
 
+## Phase 7 — Quality of Life & Multi-Vertical Expansion (owner-added 2026-08-27)
+
+**Not CIB-derived — owner requested an identify-only QoL/expansion audit 2026-08-27; findings published as an
+Artifact (see `docs/SESSION_HANDOFF.md` for the pointer) and turned into the eight tasks below.** No task in
+this phase has been started or assigned to a worker. **Queued — awaiting owner prioritization before any task
+begins**, same posture Phase 6 held before 2026-07-23. Where a task's spec below intentionally stops short of a
+final design decision (e.g. T-056's palette set), that is deliberate — confirm with the owner before
+implementation starts, don't invent the missing decision.
+
+### T-053 — Retire or wire the dead `agentVoice` field
+- **Objective:** Either delete the `agentVoice` UI (two forms currently claim to set the caller-facing voice) or
+  make it real by pushing the value to the Vapi assistant via the Vapi API on save — pick one; do not leave it
+  half-functional. **Evidence:** full-repo grep shows `agentVoice` written by `admin/onboarding/page.tsx:163` and
+  `admin/businesses/[businessId]/config/page.tsx:204,467-473` (two different, mutually inconsistent option sets —
+  one an old Twilio `<Say>` voice-name dropdown, one a freeform field suggesting non-Vapi voice IDs), persisted
+  via `api/admin/businesses/route.ts:212` and `api/admin/businesses/[businessId]/config/route.ts:147`, and read
+  by **nothing downstream** — not `api/webhooks/vapi/route.ts`, not `src/lib/ai/agentPromptBuilder.ts`, not
+  `src/lib/vapi/vapiClient.ts`. The real voice (Cartesia, set directly in the Vapi dashboard) is fully
+  disconnected from this control.
+- **Spec:** 2026-08-27 QoL audit §05.2. **Deps:** none.
+- **Owns:** the voice field in `admin/onboarding/page.tsx` and `admin/businesses/[businessId]/config/page.tsx`;
+  `src/types/index.ts`'s `agentVoice` field (if removed); the two API routes that persist it.
+- **Constraints:** decide remove-vs-wire before implementation starts; if wiring, a Vapi API failure on save must
+  not block saving the rest of the business config; if removing, existing stale Firestore values are harmless
+  and need no migration.
+- **Edge/failure cases:** existing businesses with a stale `agentVoice` value must not error on load either way.
+- **Security/accessibility:** n/a.
+- **Acceptance:** no control on this platform implies a change it cannot make — either editing the field actually
+  changes the caller-facing voice, or the field is gone.
+- **Tests:** unit test proving the chosen behavior (API-call assertion, or absence-of-field assertion).
+- **Rollback:** single revertible commit either direction.
+- **Prohibited scope:** full in-app Vapi provisioning (T-054); no visual redesign beyond the voice field itself.
+
+### T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
+- **Objective:** Replace the hand-copy-paste `vapiAssistantId`/`vapiPhoneNumberId` workflow with real Vapi API
+  calls: create/clone an assistant for a new tenant, and buy or import a phone number — including the Canadian
+  bring-your-own-number path (buy from Twilio or Telnyx, import into Vapi) alongside the existing US flow.
+  **Evidence:** `src/lib/vapi/vapiClient.ts` wraps exactly one Vapi endpoint (outbound `POST /call`);
+  `admin/onboarding/page.tsx:490-511` and `admin/businesses/[businessId]/config/page.tsx:369-387` are raw text
+  inputs with no API call behind them — Vapi's own free number provisioning is US-only by area code (per Vapi
+  docs), so a Canadian number requires this same import mechanism regardless.
+- **Spec:** 2026-08-27 QoL audit §02 + §05.1. **Deps:** T-053 (land the voice-field decision first so this new
+  provisioning UI doesn't carry the dead control forward).
+- **Owns:** `src/lib/vapi/vapiClient.ts` (new assistant/number endpoints), a new server route (e.g.
+  `src/app/api/admin/businesses/[businessId]/vapi/route.ts`), a button-driven provisioning panel in onboarding +
+  config pages (existing text inputs stay as a manual-override fallback).
+- **Constraints:** never rotate/overwrite the live `demo-roofing` assistant from this flow; reuse the existing
+  `VAPI_API_KEY`, no new secret-storage pattern; Canadian import needs a Twilio/Telnyx credential the owner
+  supplies per purchase — build the import call, not a Twilio/Telnyx account-management UI.
+- **Edge/failure cases:** a mid-provisioning Vapi API failure must leave the business record clearly
+  "not provisioned," never half-written; today's manually-entered IDs must keep working unchanged (additive, not
+  a breaking migration).
+- **Security/accessibility:** superadmin-only (existing `verifySuperadmin()` gate); provisioning calls must never
+  leak the Vapi API key to the client.
+- **Acceptance:** a new tenant can get a working Vapi assistant + number (US or Canadian) from the onboarding
+  wizard without a manual dashboard round-trip.
+- **Tests:** mocked-Vapi-API unit tests for create/import success and failure paths.
+- **Rollback:** additive — manual ID fields stay as fallback; revert the new route/button if needed.
+- **Prohibited scope:** assistant prompt/voice design changes (`buildAgentPrompt` stays config-driven, unchanged);
+  no Twilio/Telnyx account-management UI.
+
+### T-055 — Split demo/onboarding into a dedicated hub
+- **Objective:** Move Demo Studio, the onboarding wizard, and the Playbooks/Guide out of the superadmin
+  `/admin/*` shell into their own route group with a dedicated nav shell, reachable from its own domain (e.g.
+  `hub.luxordev.com`) on the same Vercel deployment. Usage, invoices, businesses list, and platform settings stay
+  in `/admin`. **Evidence:** all three currently share `verifySuperadmin()` + `admin-nav.tsx` with internal
+  platform-ops tooling; `src/middleware.ts` is 24 lines gating purely by path prefix against one cookie.
+- **Spec:** 2026-08-27 QoL audit §03. **Deps:** none.
+- **Owns:** new route group (e.g. `src/app/hub/*`, migrated from `src/app/admin/{demo,onboarding}` and the guide),
+  `src/middleware.ts` (new prefix), a new hub nav shell distinct from `admin-nav.tsx`; Vercel domain attachment is
+  an owner action, not code.
+- **Constraints:** keep the same auth gate — re-route/re-skin only, not an auth redesign; every old deep link
+  (`/admin/demo`, `/admin/onboarding`) must redirect, not 404; no functional change to Demo Studio/onboarding
+  itself in this task.
+- **Edge/failure cases:** a bookmarked pre-move URL; the hub's own favicon/branding is in scope here, not invented
+  ad hoc elsewhere.
+- **Security/accessibility:** unchanged from today's superadmin gate.
+- **Acceptance:** Demo Studio + onboarding are reachable at a dedicated hub URL with hub-only nav chrome (no
+  admin usage/invoices sidebar visible); old `/admin/*` URLs redirect there.
+- **Tests:** route test confirming moved pages 200 at the new path and redirect from the old one; middleware test
+  for the new prefix.
+- **Rollback:** mechanical — revert the file moves + middleware line.
+- **Prohibited scope:** visual redesign of Demo Studio/onboarding beyond nav chrome (see T-056); no new auth
+  system.
+
+### T-056 — Per-industry visual families in the company portal
+- **Objective:** Give `useBusinessModules()` a visual "family" token (grouping the 10 verticals into a small
+  number of families — field/dispatch, care/intake, ops/escalation) and thread it into a CSS custom property at
+  the company layout root, so a tenant's portal reflects its family, not one fixed teal for every industry.
+  **Evidence:** each vertical template already carries `icon`/`color`, but they render only in the admin Demo
+  Studio card grid (`admin/demo/page.tsx`) — inside `/company/*`, every industry renders in the same
+  `var(--accent)` teal; `brandColor` only reaches outbound emails (`notify.ts`'s `shell()`) and one accent on the
+  job-detail page.
+- **Spec:** 2026-08-27 QoL audit §04. **Deps:** none.
+- **Owns:** `src/lib/verticals/templates.ts` (add a `family` field per template — additive only, does not touch
+  `disabledModules`/`calendarMode`/vocab semantics), `src/hooks/useBusinessModules.ts` (expose `family`),
+  `src/app/company/layout.tsx` (apply the family's CSS custom property at the root).
+- **Constraints:** **the one-teal design-system rule (CLAUDE.md/AGENTS.md protected context) is about not
+  reintroducing arbitrary per-page inline colors — this task is a small, deliberate, reviewed family-palette set,
+  not a reversal of that rule.** Confirm the final palette values with the owner before implementation; the
+  artifact's 3-family grouping (field/dispatch · care/intake · ops/escalation) is a proposed starting point, not
+  a final palette. Universal tabs/modules stay universal — this changes color/texture only, never what's shown.
+- **Edge/failure cases:** unknown/missing `industry` must fail open to the current default teal, matching
+  `useBusinessModules()`'s existing fail-open behavior.
+- **Security/accessibility:** every family palette must independently clear the same contrast bar the current
+  teal system does.
+- **Acceptance:** two tenants in different families visibly differ in portal accent/texture on the same page; an
+  unrecognized/legacy tenant renders exactly as today.
+- **Tests:** contrast test per family palette; `useBusinessModules()` unit test for the new field.
+- **Rollback:** additive CSS custom property + one new template field; revert cleanly.
+- **Prohibited scope:** full portal redesign; changing `disabledModules`/`calendarMode` semantics; changing the
+  admin Demo Studio's existing per-vertical `color` field.
+
+### T-057 — Post-sale client talk-track content
+- **Objective:** Extend `public/guides/onboarding-guide.html` with a post-sale playbook — what to say handing
+  over a client's login, setting after-hours-behavior expectations before their first real after-hours call,
+  explaining the ROI/pricing story, and what to say if a call goes wrong — and extend the full click-by-click
+  demo walkthrough (today written in depth only for roofing) to the other 9 verticals.
+- **Spec:** 2026-08-27 QoL audit §05.3. **Deps:** none — content only, no code paths.
+- **Owns:** `public/guides/onboarding-guide.html` only.
+- **Constraints:** content/copy work, no functional change; keep the existing "presenter notes hidden by default"
+  pattern for anything client-facing during a live demo.
+- **Edge/failure cases:** n/a. **Security/accessibility:** n/a.
+- **Acceptance:** every vertical has a full click-by-click demo section, not just a one-line pitch script; a new
+  "After the sale" section covers login handoff, after-hours expectations, ROI talk, and what to say when a call
+  goes wrong.
+- **Tests:** manual read-through, rendered in a browser (existing guide-update convention).
+- **Rollback:** single-file content revert.
+- **Prohibited scope:** no code changes; no new guide infrastructure.
+
+### T-058 — AI-authored document layer + server-side PDF generation
+- **Objective:** Add an optional, human-reviewed AI-authored prose summary on top of the already-trusted
+  structured job data (`job.parsed`) — never replacing the deterministic report — and add real server-side PDF
+  generation so reports/invoices can be emailed as a polished document instead of relying on the browser's print
+  dialog. **Evidence:** `jobs/[jobId]/report/route.ts` is deterministic templating over AI-*extracted* data, no
+  AI-authored prose exists anywhere; `package.json` carries no PDF library — "PDF" today means an
+  `@media print` stylesheet and the browser's own Print dialog.
+- **Spec:** 2026-08-27 QoL audit §06. **Deps:** none functionally (soft-sequence after T-053/T-054 so the UI
+  patterns it echoes are settled first).
+- **Owns:** a new AI-summary endpoint (e.g. `src/app/api/jobs/[jobId]/summary/route.ts`), a new PDF-generation
+  module (library TBD — evaluate a lightweight server-safe option before adding a dependency), the report/invoice
+  send UI (offer the AI summary as a reviewable addition only).
+- **Constraints:** **the existing extraction/authoring split is protected** — the AI summary is additive and must
+  be human-reviewed before send, same manual-send-gate principle as today's reports/invoices; the deterministic
+  report stays the source of truth; the LLM never does arithmetic (existing rule, unchanged).
+- **Edge/failure cases:** AI-summary failure must not block sending the existing deterministic report;
+  PDF-generation failure must fall back to the existing print-to-PDF path, not hard-fail the send.
+- **Security/accessibility:** AI summary endpoint gated the same as existing report generation
+  (`verifyAuthAndRole`, owner/staff/superadmin).
+- **Acceptance:** a report/invoice can be generated as a real server-side PDF and emailed directly; an optional
+  AI-written summary paragraph is available, editable, never auto-sent without review.
+- **Tests:** mocked-AI unit tests for the summary endpoint; a PDF-generation smoke test.
+- **Rollback:** both pieces are additive endpoints/UI; revert independently.
+- **Prohibited scope:** replacing deterministic report/invoice generation; changing `job.parsed`/`projection.ts`.
+
+### T-059 — Cleanup: Twilio type debris + archive stale planning docs
+- **Objective:** Remove `twilioPhoneNumber`, `twilioConfigured`, and the `"twilio"` union member from
+  `src/types/index.ts` (always false/unused now that Vapi fully superseded Twilio); move
+  `docs/DEMO-STUDIO-PLAN.md`, `docs/EPIC-PLAN.md`, and `docs/PERFORMANCE-CLEANUP.md` to `docs/archive/` once
+  confirmed superseded; trim `CLAUDE.md`'s status header to a pointer at the canonical docs.
+- **Spec:** 2026-08-27 QoL audit §07. **Deps:** none.
+- **Owns:** `src/types/index.ts` (the three fields/members), the two API routes hardcoding
+  `twilioConfigured: false` (`api/admin/businesses/route.ts`, `api/admin/businesses/[businessId]/config/route.ts`),
+  the three docs (move only), `CLAUDE.md` (header trim only).
+- **Constraints:** follow AGENTS.md's cleanup rule — repo-wide grep before removal, `tsc`/lint/build/tests green
+  after; never remove a type describing a live Firestore collection (these three don't); archive via `git mv`,
+  not delete, to preserve history.
+- **Edge/failure cases:** confirm no dynamic/string reference to the removed fields before deleting (grep, not
+  just `tsc`).
+- **Security/accessibility:** n/a.
+- **Acceptance:** `tsc`/lint/build/tests green after removal; `docs/` no longer has a plan doc that reads as
+  current but isn't; `CLAUDE.md`'s header is a short pointer, not a competing status narrative.
+- **Tests:** existing gates only — this is a cleanup task per AGENTS.md, not new functionality.
+- **Rollback:** trivial per-file revert; archived docs can be moved back.
+- **Prohibited scope:** no functional changes; do not touch `MASTER_PLAN.md`/`TODO.md`/`HANDOFF.md`/
+  `docs/SESSION_HANDOFF.md` (current, not stale).
+
+### T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
+- **Objective:** Run one real call script on Vapi's native "Voices v2" and one on OpenAI's GPT Realtime, side by
+  side against the current Cartesia + GPT-4o-mini + Deepgram nova-3 stack, and record latency/cost/quality
+  findings before any live-line change. **Evidence:** both are now available directly in the Vapi dashboard per
+  Vapi's own docs/blog (see the audit artifact's §01 sources); current stack is ~$0.09/min, ~840ms per
+  `HANDOFF.md`.
+- **Spec:** 2026-08-27 QoL audit §01. **Deps:** none — dashboard-side evaluation, not a code task.
+- **Owns:** no source files; if it proceeds, log findings in `docs/IMPLEMENTATION_LOG.md` or a new
+  `docs/VOICE-EVALUATION.md`.
+- **Constraints:** must not touch the live `demo-roofing` assistant configuration without a documented
+  before/after and an easy revert; natural to pair with NH-1 (Vapi dashboard review) since both need dashboard
+  access.
+- **Edge/failure cases:** n/a. **Security/accessibility:** n/a.
+- **Acceptance:** a short written comparison (latency, cost/min, subjective quality on the same script) exists
+  for all three options; a recommendation is made, not necessarily executed.
+- **Tests:** n/a. **Rollback:** n/a (no code change).
+- **Prohibited scope:** switching the live demo line's voice without owner sign-off; no code changes.
+
+---
+
 ## Integration order (integrator-enforced)
 
 1. T-000/001/002 (batch B) → 2. T-010/011 (batch A, rebase on B) → 3. T-020, T-021, T-022 →
@@ -489,6 +686,10 @@ public self-serve signup/trial/billing (concierge onboarding stays; see T-047) a
    each other and with T-040/041/042, no file overlap, deps only on T-020} → 6. T-050 → T-051 → T-052 →
 7. **Phase 6 (T-046, T-047, T-048, T-049 — no file overlap between any pair, all parallel-safe) — starts only
    after step 6 is fully merged**, per owner decision 2026-07-23.
+8. **Phase 7 (T-053–T-060, owner-added 2026-08-27) — queued, no assigned order yet; owner prioritizes before any
+   task starts.** T-054 depends on T-053 landing first (voice-field decision before the new provisioning UI is
+   built on top of it); T-058 soft-sequences after T-053/T-054. T-055, T-056, T-057, T-059, and T-060 are
+   independent of each other and of every other task in this phase.
 
 `src/lib/tools/agentTools.ts` merge order (never concurrent): T-011 → T-030 → T-031 → T-032(createLead) → T-041(email lines).
 `src/app/api/webhooks/vapi/route.ts`: T-010 → T-011 → T-031 → T-042.

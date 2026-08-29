@@ -37,6 +37,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
+| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
 
 ### Checklist
 
@@ -60,6 +61,15 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 0/8, queued
+  - [ ] T-053 — Retire or wire the dead `agentVoice` field
+  - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
+  - [ ] T-055 — Split demo/onboarding into a dedicated hub
+  - [ ] T-056 — Per-industry visual families in the company portal
+  - [ ] T-057 — Post-sale client talk-track content
+  - [ ] T-058 — AI-authored document layer + server-side PDF generation
+  - [ ] T-059 — Cleanup: Twilio type debris + archive stale planning docs
+  - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
@@ -381,6 +391,29 @@ click-path fixture tests are a reasonable substitute and the gap is honestly fla
 "Playwright verified" claim.
 
 **Phase 6 closed, 4/4 — T-046/T-047/T-048/T-049 all merged and pushed in `cfa6102`.**
+
+**2026-08-27 — Phase 7 added (QoL & Multi-Vertical Expansion), identify-only, nothing executed:** owner asked
+for a broad quality-of-life audit — split the demo/onboarding suite onto a dedicated hub/URL, tailor the
+client-facing look per industry (a few visual families, not 10 one-offs), make AI-assisted document generation
+consistent, make Vapi phone-agent setup clear to the admin (incl. a client talk-track), and research whether
+newer AI receptionist voice models exist and whether Canadian phone numbers are reachable — explicitly
+**identify and answer only, no execution**. Findings were published as an Artifact and turned into 8 candidate
+tasks, T-053–T-060, added to `MASTER_PLAN.md`'s new Phase 7 with full specs (Objective/Evidence/Spec/Deps/
+Owns/Constraints/Edge cases/Security/Acceptance/Tests/Rollback/Prohibited scope, same template as every prior
+phase). **Direct answers, for the record:** (1) newer voice models exist and don't require leaving Vapi —
+Vapi's own "Voices v2" catalog and OpenAI's GPT Realtime (native speech-to-speech) are both live in Vapi's
+dashboard now, same order-of-magnitude cost as the current ~$0.09/min Cartesia/GPT-4o-mini/Deepgram stack; (2)
+Canadian numbers are reachable via import (buy from Twilio/Telnyx, import into Vapi as bring-your-own-number) —
+Vapi's own free numbers are US-only — and it would be a Canadian-area-code VoIP number, not a literal cellular
+SIM, same as the current US number today. Notable findings baked into the new tasks: `BusinessConfig.agentVoice`
+is a dead field (set by two inconsistent form controls, read by nothing that talks to Vapi — T-053); there is
+zero in-app Vapi provisioning today, every tenant's assistant/number ID is hand-copied from the Vapi dashboard
+(T-054); per-vertical `color`/`icon` in `templates.ts` only render in the admin Demo Studio card, never in a
+tenant's actual `/company/*` portal, which is uniformly teal regardless of industry (T-056); three Twilio type
+fields in `src/types/index.ts` are always-false/unused leftovers from the pre-Vapi era (T-059).
+**Phase 7 is queued — no task assigned, no code touched this session, nothing pushed.** Owner reviews the
+artifact and this phase's specs, then prioritizes before any task starts (same posture Phase 6 held before
+2026-07-23). See `docs/SESSION_HANDOFF.md` for the artifact link and `HANDOFF.md`'s matching session entry.
 
 ## Historical assignments (none active)
 

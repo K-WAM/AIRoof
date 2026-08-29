@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-08-25 (maintenance cleanup pushed; expanded to 10 industry verticals)
+Last updated: 2026-08-27 (QoL/multi-vertical audit — Phase 7 backlog added to MASTER_PLAN.md/TODO.md, no code changed)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed through
 > `1d2f840`; its GitHub Actions gate passed. On 2026-08-23 the live health endpoint returned `200`, Firestore
@@ -20,6 +20,65 @@ and a 3-vertical expansion (`1d2f840`) were reviewed and pushed this session —
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-08-27) — QoL & multi-vertical audit, Phase 7 backlog (no code changed)
+
+**Theme: owner asked to identify quality-of-life gaps across the platform and answer two direct research
+questions — explicitly identify-and-answer only, no execution.** Scope: splitting the demo/onboarding suite
+onto its own hub/URL, tailoring the client-facing look per industry, AI-assisted document consistency, Vapi
+setup clarity for the admin (incl. a client talk-track), newer voice-model options, and a path to Canadian
+phone numbers.
+
+**Direct answers:**
+- **Newer AI receptionist voice models exist, and trying them doesn't mean leaving Vapi.** Vapi brokers ~8 TTS
+  providers behind one assistant config. Two real candidates beyond the current Cartesia + GPT-4o-mini +
+  Deepgram nova-3 stack (~$0.09/min, ~840ms): Vapi's own upgraded native catalog ("Voices v2" — more
+  realistic/consistent, cheaper, zero migration risk), and OpenAI's **GPT Realtime**, now live in Vapi's
+  dashboard — native speech-to-speech (skips the transcribe→think→speak relay), with reported gains in latency
+  and turn-taking that matter for short transactional calls (booking, confirming a callback number). Cost lands
+  in the same order of magnitude as today — cheap to A/B (tracked as **T-060**).
+- **Canadian numbers are reachable, as an import, not a purchase.** Vapi's native/free number provisioning is
+  US-only. The path: buy a Canadian local number from Twilio or Telnyx, then import it into Vapi
+  (bring-your-own-number) — `vapiPhoneNumberId` already supports this per-tenant in the data model, only the
+  admin buy/import workflow is unbuilt. Worth flagging before it's promised to a client: it's a Canadian
+  VoIP/DID number (dials like a normal local number), not a literal cellular SIM — same as the current US number
+  today (tracked with the provisioning workflow, **T-054**).
+
+**Findings that became tasks** — full evidence in the published audit artifact and in `MASTER_PLAN.md`'s new
+Phase 7:
+- `BusinessConfig.agentVoice` is a dead field — set by two different, mutually inconsistent form controls
+  (onboarding's old Twilio-style `alice/woman/man` dropdown; the config page's freeform text field), written to
+  Firestore, read by nothing that talks to Vapi. The real voice is set directly in the Vapi dashboard,
+  completely disconnected from this UI (**T-053**).
+- Zero in-app Vapi provisioning exists — `vapiClient.ts` only wraps outbound calls; every real tenant's
+  assistant/number ID is hand-copied from the Vapi dashboard into plain text fields (**T-054**).
+- Demo Studio + onboarding + Vapi config live inside the superadmin `/admin/*` shell, same nav/chrome as
+  internal ops tooling (usage, invoices) — a small `middleware.ts` + extra-domain change, not a rebuild, would
+  give the sell/onboard surface its own front door (**T-055**).
+- Per-vertical `color`/`icon` in `templates.ts` only render in the admin Demo Studio card grid — every tenant's
+  actual `/company/*` portal is uniformly teal regardless of industry; `brandColor` only reaches outbound emails
+  and one job-detail accent today. Proposed fix: a few visual families (field/dispatch, care/intake,
+  ops/escalation), not 10 one-off skins (**T-056**).
+- The sales-pitch talk-track is solid (every vertical has a script; roofing has a full walkthrough) but thin for
+  the other 9 verticals and for anything post-sale — login handoff, after-hours expectations, ROI talk, what to
+  say if a call goes wrong (**T-057**).
+- Email branding is already genuinely unified (one `shell()` template, standardized subjects) — worth keeping as
+  a pattern. Reports/invoices are AI-*extracted* but deterministically templated, not AI-*authored* — a
+  deliberate, good choice worth preserving. Real gaps: no AI-authored prose summary layer, and no server-side
+  PDF generation anywhere (still browser print-to-PDF only) (**T-058**).
+- Three Twilio type fields (`twilioPhoneNumber`, `twilioConfigured`, the `"twilio"` union member) in
+  `src/types/index.ts` are always-false/unused leftovers from the pre-Vapi era; `docs/DEMO-STUDIO-PLAN.md` /
+  `docs/EPIC-PLAN.md` / `docs/PERFORMANCE-CLEANUP.md` read as current plans but describe superseded designs
+  (**T-059**).
+
+**Nothing executed.** No source file changed this session — only `MASTER_PLAN.md` (new Phase 7, T-053–T-060,
+full specs), `TODO.md` (Phase 7 row + checklist + this narrative), and this `HANDOFF.md` entry. Project memory
+was also updated (the old "release orchestration 45% done" note was stale — that backlog closed weeks ago; a
+new memory points future sessions at this audit). **Phase 7 is queued, not assigned** — owner reviews and
+prioritizes before any task starts, same posture Phase 6 held before 2026-07-23. Local commit only, nothing
+pushed (per the standing "nothing pushed without explicit approval" rule).
 
 ---
 
@@ -200,6 +259,9 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 
 ## Pending / Next
 
+- **Phase 7 prioritization (owner-added 2026-08-27):** review the QoL/multi-vertical audit artifact and
+  `MASTER_PLAN.md`'s Phase 7 (T-053–T-060, all currently queued/unassigned) and decide what to greenlight, if
+  anything, before any task starts.
 - **Authenticated production smoke (NH-8):** Calendar drag/confirm for an appointment and a job; field QR +
   hold-to-speak on a real phone; invoice/report print; controlled-inbox delivery.
 - **Provider and policy sign-off:** Vapi dashboard/tool schema (NH-1), Resend DNS (NH-3), privacy/retention wording
