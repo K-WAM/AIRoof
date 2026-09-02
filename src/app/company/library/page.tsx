@@ -7,6 +7,7 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Tooltip } from "@/components/ui/Tooltip";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -178,9 +179,11 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
                   <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
                   <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
                   <td style={td}>
-                    <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" title="Remove" aria-label={`Remove ${m.name || "material"}`}>
-                      <Trash2 size={14} strokeWidth={1.75} />
-                    </button>
+                    <Tooltip content="Remove">
+                      <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" aria-label={`Remove ${m.name || "material"}`}>
+                        <Trash2 size={14} strokeWidth={1.75} />
+                      </button>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}
@@ -211,9 +214,11 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
                   <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} /></td>
                   <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
                   <td style={td}>
-                    <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" title="Remove" aria-label={`Remove ${l.role || "role rate"}`}>
-                      <Trash2 size={14} strokeWidth={1.75} />
-                    </button>
+                    <Tooltip content="Remove">
+                      <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" aria-label={`Remove ${l.role || "role rate"}`}>
+                        <Trash2 size={14} strokeWidth={1.75} />
+                      </button>
+                    </Tooltip>
                   </td>
                 </tr>
               ))}
@@ -334,9 +339,11 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: "#64748b" }}>{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</div>
               </div>
-              <button onClick={() => removeCrew(c.crewId)} className="icon-del" title="Remove" aria-label={`Remove ${c.name}`}>
-                <Trash2 size={14} strokeWidth={1.75} />
-              </button>
+              <Tooltip content="Remove">
+                <button onClick={() => removeCrew(c.crewId)} className="icon-del" aria-label={`Remove ${c.name}`}>
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
+              </Tooltip>
 
               {pickerCrewId === c.crewId && (
                 <>
@@ -409,9 +416,11 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
             <div key={d.docId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
               <FileText size={18} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0 }} />
               <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>{d.name} ↗</a>
-              <button onClick={() => removeDoc(d.docId)} className="icon-del" title="Remove" aria-label={`Remove ${d.name}`}>
-                <Trash2 size={14} strokeWidth={1.75} />
-              </button>
+              <Tooltip content="Remove">
+                <button onClick={() => removeDoc(d.docId)} className="icon-del" aria-label={`Remove ${d.name}`}>
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
+              </Tooltip>
             </div>
           ))}
           {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}

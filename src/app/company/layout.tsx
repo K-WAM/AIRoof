@@ -11,6 +11,7 @@ import { auth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 
@@ -105,31 +106,41 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
             {modulesReady && isEnabled("jobs") && (
-              <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs" title="Jobs">
-                <Briefcase size={18} strokeWidth={1.75} />
-              </Link>
+              <Tooltip content="Jobs">
+                <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs">
+                  <Briefcase size={18} strokeWidth={1.75} />
+                </Link>
+              </Tooltip>
             )}
-            <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar" title="Calendar">
-              <CalendarDays size={18} strokeWidth={1.75} />
-            </Link>
-            <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls" title="Calls">
-              <Phone size={18} strokeWidth={1.75} />
-            </Link>
-            {modulesReady && isEnabled("library") && (
-              <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster" title="Crew roster">
-                <Users size={18} strokeWidth={1.75} />
+            <Tooltip content="Calendar">
+              <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar">
+                <CalendarDays size={18} strokeWidth={1.75} />
               </Link>
+            </Tooltip>
+            <Tooltip content="Calls">
+              <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls">
+                <Phone size={18} strokeWidth={1.75} />
+              </Link>
+            </Tooltip>
+            {modulesReady && isEnabled("library") && (
+              <Tooltip content="Crew roster">
+                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster">
+                  <Users size={18} strokeWidth={1.75} />
+                </Link>
+              </Tooltip>
             )}
           </nav>
-          <button
-            type="button"
-            className="mobile-menu-btn"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            onClick={() => setMobileMenuOpen((v) => !v)}
-          >
-            {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
-          </button>
+          <Tooltip content={mobileMenuOpen ? "Close menu" : "Open menu"}>
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen((v) => !v)}
+            >
+              {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
+            </button>
+          </Tooltip>
         </header>
 
         {mobileMenuOpen && (

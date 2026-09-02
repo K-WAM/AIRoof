@@ -12,6 +12,7 @@ import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
 
 interface Appointment {
@@ -118,7 +119,10 @@ function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number 
   return wallTimeToUtc(day, time.hour, time.minute, timeZone);
 }
 
-export default function CalendarPage() {
+// The heavy part of the Calendar route — everything @dnd-kit-dependent lives here
+// so page.tsx can lazy-load it via next/dynamic (T-068) instead of shipping it in
+// every route's initial bundle. No logic changed in this move, file split only.
+export default function CalendarBoard() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
@@ -472,8 +476,12 @@ export default function CalendarPage() {
             <Clock3 size={13} strokeWidth={1.75} />
             Today
           </button>
-          <button className="button small" aria-label="Previous week" onClick={() => setWeekStart(addDays(weekStart, -7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronLeft size={16} /></button>
-          <button className="button small" aria-label="Next week" onClick={() => setWeekStart(addDays(weekStart, 7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronRight size={16} /></button>
+          <Tooltip content="Previous week">
+            <button className="button small" aria-label="Previous week" onClick={() => setWeekStart(addDays(weekStart, -7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronLeft size={16} /></button>
+          </Tooltip>
+          <Tooltip content="Next week">
+            <button className="button small" aria-label="Next week" onClick={() => setWeekStart(addDays(weekStart, 7))} style={{ display: "flex", alignItems: "center", padding: "6px 10px" }}><ChevronRight size={16} /></button>
+          </Tooltip>
           <strong style={{ fontSize: 15, color: "#0f172a", marginLeft: 6 }}>{rangeLabel}</strong>
         </div>
         <div className="segmented-control" aria-label="Week length" style={{ fontSize: 13 }}>

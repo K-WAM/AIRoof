@@ -1981,6 +1981,53 @@ a.metric:hover {
   background: var(--accent);
 }
 
+/* ── Tooltip (T-066) — sparing hover/focus guidance, icon-only controls only ── */
+
+.tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  padding: 5px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 100;
+}
+
+.tooltip-bubble.tooltip-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-bubble {
+    transition: none;
+  }
+}
+
+/* Touch/no-hover devices never show a tooltip — a tap that also focuses the
+   control must not pop one open with no way to dismiss it by moving the mouse. */
+@media (hover: none) {
+  .tooltip-bubble {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .admin-shell {
     grid-template-columns: 1fr;
