@@ -1,16 +1,20 @@
 // Demo customization — universal live demo line.
 //
 // demo-roofing owns the one live Vapi number + assistant, so it acts as the single
-// "demo line". Each launch RECONFIGURES this business to the chosen vertical and
-// reseeds its sample data, so the one phone number adapts to whatever industry you
-// launched: the agent's greeting + full script are served from this business's
-// config by the webhook's dynamic prompt ({{greeting}} / {{systemPrompt}}).
+// "demo line". Each launch RECONFIGURES this business to the chosen vertical, reseeds
+// its sample data, AND pushes the rendered greeting + system prompt directly onto the
+// Vapi assistant (see updateAssistantPersona) — so the one phone number adapts to
+// whatever industry you launched.
 //
 // POST   { email, companyName, verticalId? }   → launch (verticalId defaults to "roofing")
 // DELETE                                        → reset the line to the roofing default
 //
-// Requires the Vapi assistant's System Prompt = {{systemPrompt}} and First Message
-// = {{greeting}} for the call to adapt (no per-vertical Vapi assistant needed).
+// 2026-09-02 fix: this used to rely on Vapi's assistant-request webhook filling
+// {{systemPrompt}}/{{greeting}} template placeholders on the assistant per call — that
+// only fires when a phone number has NO fixed assistantId, and this one always has,
+// so the templates rendered empty on every real call (confirmed: the call's own
+// assistantOverrides.variableValues contained only carrier/SIP metadata, none of ours).
+// The persona is now pushed directly via the Vapi API on every launch instead.
 
 import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -18,6 +22,9 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
+import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import type { BusinessConfig } from "@/types";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
@@ -146,9 +153,11 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   }
 
   try {
-    // 1. Reconfigure the live-line business to this vertical + prospect. The webhook's
-    //    dynamic prompt reads these fields, so the live call adapts to the industry.
-    await base.update({
+    // 1. Reconfigure the live-line business to this vertical + prospect. This is the
+    //    source of truth the Company portal reads — Vapi is pushed separately below,
+    //    since Vapi's own {{systemPrompt}}/{{greeting}} templates never actually fill
+    //    on a live call (see updateAssistantPersona's doc comment).
+    const configPatch = {
       fieldKey,
       industry: opts.verticalId,
       businessName: opts.companyName,
@@ -165,7 +174,29 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       disallowedTopics: t.disallowedTopics,
       brandColor: t.color,
       updatedAt: now,
-    });
+    };
+    await base.update(configPatch);
+
+    // 1b. Push the rendered persona straight to the live Vapi assistant. Best-effort:
+    //     a Vapi outage here must not roll back the Firestore reconfiguration or block
+    //     the demo data reseed — it only means the live phone call hasn't picked up
+    //     the new persona yet, which is worth surfacing to the operator, not failing on.
+    let vapiUpdated = false;
+    let vapiError: string | undefined;
+    const vapiAssistantId = (existing.data() as BusinessConfig | undefined)?.vapiAssistantId;
+    if (!vapiAssistantId) {
+      vapiError = "No vapiAssistantId on demo-roofing — live line was not updated";
+    } else {
+      try {
+        const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
+        const systemPrompt = buildAgentPrompt(mergedConfig);
+        await updateAssistantPersona({ assistantId: vapiAssistantId, firstMessage: greeting, systemPrompt });
+        vapiUpdated = true;
+      } catch (err) {
+        vapiError = err instanceof Error ? err.message : "Vapi update failed";
+        console.error("demo-customize: Vapi assistant push failed", err);
+      }
+    }
 
     // 2. Backup existing data, then delete and reseed. The backup write must
     //    succeed before any document is deleted — if it fails the whole reset aborts.
@@ -254,6 +285,8 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     return {
       ok: true,
       firestoreUpdated: true,
+      vapiUpdated,
+      ...(vapiError ? { vapiError } : {}),
       verticalId: opts.verticalId,
       label: t.label,
       agentName,

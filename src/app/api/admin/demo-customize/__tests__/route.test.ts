@@ -8,12 +8,17 @@ const superadminUser = { user: { uid: "sa-test", superadmin: true } };
 const mocks = vi.hoisted(() => ({
   verifySuperadmin: vi.fn(),
   mintFieldExchangeToken: vi.fn(),
+  updateAssistantPersona: vi.fn(),
   firestoreInstance: null as FakeFirestore | null,
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifySuperadmin: mocks.verifySuperadmin,
   mintFieldExchangeToken: mocks.mintFieldExchangeToken,
+}));
+
+vi.mock("@/lib/vapi/vapiClient", () => ({
+  updateAssistantPersona: mocks.updateAssistantPersona,
 }));
 
 vi.mock("@/lib/firebase/admin", () => ({
@@ -180,6 +185,7 @@ describe("demo-customize route", () => {
   beforeEach(() => {
     mocks.verifySuperadmin.mockReset();
     mocks.mintFieldExchangeToken.mockReset();
+    mocks.updateAssistantPersona.mockReset();
     mocks.mintFieldExchangeToken.mockReturnValue({
       ok: true,
       token: "short-lived-exchange-grant",
@@ -449,6 +455,117 @@ describe("demo-customize route", () => {
         "demo-roofing",
         "abcd1234abcd1234abcd1234abcd1234",
       );
+
+      const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
+      expect(lockDoc?.locked).toBe(false);
+    });
+  });
+
+  describe("live Vapi persona push", () => {
+    it("pushes the rendered persona to Vapi and reports success when vapiAssistantId is set", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      mocks.updateAssistantPersona.mockResolvedValue(undefined);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+        vapiAssistantId: "assistant-123",
+        approvedServices: [],
+        approvedFaqs: [],
+        emergencyRules: [],
+        bookingRules: [],
+        disallowedTopics: [],
+        businessHours: "Mon-Fri 8-5",
+        serviceArea: "Test Area",
+      });
+      mocks.firestoreInstance = fs;
+
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const req = makeRequest("POST", {
+        email: "test@example.com",
+        companyName: "Test Corp",
+        verticalId: "hvac",
+      });
+
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      expect(body.vapiUpdated).toBe(true);
+      expect(body.vapiError).toBeUndefined();
+
+      expect(mocks.updateAssistantPersona).toHaveBeenCalledTimes(1);
+      const call = mocks.updateAssistantPersona.mock.calls[0][0];
+      expect(call.assistantId).toBe("assistant-123");
+      expect(call.firstMessage).toContain("Test Corp");
+      expect(call.systemPrompt).toContain("Test Corp");
+    });
+
+    it("reports vapiError without failing the request when no vapiAssistantId is on the business doc", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+        // no vapiAssistantId
+      });
+      mocks.firestoreInstance = fs;
+
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const req = makeRequest("POST", {
+        email: "test@example.com",
+        companyName: "Test Corp",
+        verticalId: "hvac",
+      });
+
+      const res = await POST(req);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+      expect(body.firestoreUpdated).toBe(true);
+      expect(body.vapiUpdated).toBe(false);
+      expect(body.vapiError).toContain("vapiAssistantId");
+      expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
+    });
+
+    it("reports vapiError without failing the request when the Vapi API call throws", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      mocks.updateAssistantPersona.mockRejectedValue(new Error("Vapi PATCH /assistant failed (500): boom"));
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+        vapiAssistantId: "assistant-123",
+        approvedServices: [],
+        approvedFaqs: [],
+        emergencyRules: [],
+        bookingRules: [],
+        disallowedTopics: [],
+        businessHours: "Mon-Fri 8-5",
+        serviceArea: "Test Area",
+      });
+      mocks.firestoreInstance = fs;
+
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const req = makeRequest("POST", {
+        email: "test@example.com",
+        companyName: "Test Corp",
+        verticalId: "hvac",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      // The reset itself must still fully succeed — a Vapi outage is surfaced,
+      // not fatal to the Firestore reconfiguration/reseed.
+      expect(body.ok).toBe(true);
+      expect(body.firestoreUpdated).toBe(true);
+      expect(body.vapiUpdated).toBe(false);
+      expect(body.vapiError).toContain("boom");
 
       const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
       expect(lockDoc?.locked).toBe(false);

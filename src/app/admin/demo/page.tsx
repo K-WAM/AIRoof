@@ -447,6 +447,16 @@ export default function DemoStudioPage() {
                   <p style={{ fontSize: "0.83rem", fontStyle: "italic", margin: 0, lineHeight: 1.5 }}>
                     &ldquo;{result.appliedGreeting}&rdquo;
                   </p>
+                  {result.vapiUpdated && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--success)", margin: "0.5rem 0 0" }}>
+                      ✓ Live line updated — the phone will use this persona now.
+                    </p>
+                  )}
+                  {result.vapiError && (
+                    <p style={{ fontSize: "0.75rem", color: "var(--danger)", margin: "0.5rem 0 0" }}>
+                      ⚠ Firestore/company portal updated, but the live phone line was not: {result.vapiError}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
