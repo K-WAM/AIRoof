@@ -73,13 +73,13 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
 - [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 3/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (blocked on owner) → T-061 ✓ → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
   - [ ] T-063 — Rate limiting / abuse throttling on public-facing endpoints
-  - [ ] T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel (blocked — see note below;
-        needs an owner click-through, not code)
+  - [ ] T-064 — Secrets hygiene: mark 7 credential vars `Secret` type in Vercel (owner deferred, 2026-09-02 —
+        not blocked, just skipped for now; see note below for the exact click-through when revisited)
   - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
   - [x] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
   - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
@@ -514,15 +514,25 @@ clean in isolation every time.
 suggested Phase 8 order; T-064 (secrets hygiene) turned out not to be self-executable and T-061 was completed
 in its place.
 
-- **T-064 — blocked, hand-off to owner, not a code task.** The Vercel CLI's `env update --sensitive` requires
-  resending the variable's full value to flip its sensitivity flag (confirmed by probing `vercel env update
-  NODE_ENV production --sensitive` — it fails non-interactively with `missing_value` and asks for `--value`).
-  This session doesn't hold the actual values of `OPENAI_API_KEY`/`DEEPSEEK_API_KEY`/`RESEND_API_KEY`/
-  `CRON_SECRET`/`FIREBASE_SERVICE_ACCOUNT_JSON`/the Twilio vars, and reconstructing them via `vercel env pull`
-  + remove + re-add risks corrupting a live secret (especially the multiline Firebase service-account JSON) if
-  any step fails mid-swap — an outward-facing, hard-to-reverse move, so it was not attempted. The Vercel
-  dashboard's per-variable "Sensitive" toggle does this in place without resending the value; owner asked to
-  flip it there for the 13 non-Vapi server-side vars (see chat). Still queued.
+- **T-064 — investigated, owner deferred (not a code task).** The Vercel CLI's `env update --sensitive`
+  requires resending the variable's full value to flip its type (confirmed by probing `vercel env update
+  NODE_ENV production --sensitive` — it fails non-interactively with `missing_value` and asks for `--value`),
+  and this session doesn't hold the actual secret values, so the CLI path was ruled out (reconstructing via
+  `vercel env pull` + remove + re-add risks corrupting a live secret, especially the multiline Firebase
+  service-account JSON, if any step fails mid-swap). The dashboard turns out to make this trivial and safe
+  though: current Vercel terminology is a **Type: Secret / Config** radio on each variable's edit page (not a
+  "Sensitive" checkbox as this session first assumed), and editing an existing Config var pre-fills its current
+  value — flipping to Secret and saving needs no re-entry, confirmed against the owner's own screenshot of the
+  `ai-roof` project (`VAPI_WEBHOOK_SECRET`/`VAPI_AUTH_BYPASS`/`VAPI_API_KEY` already show the lock icon =
+  Secret type; everything else is Config, viewable/copyable, matching what the owner saw). Narrowed the
+  original "every server-side key" scope to the 7 that are genuine credentials — `OPENAI_API_KEY`,
+  `DEEPSEEK_API_KEY`, `RESEND_API_KEY`, `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `TWILIO_AUTH_TOKEN`,
+  `TWILIO_ACCOUNT_SID` — since Secret is one-way (Vercel: "you can't reveal this value after saving," and a
+  saved Secret can't be changed back to Config), so vars that are Config-shaped by nature (`OPENAI_MODEL`,
+  `DEEPSEEK_MODEL`, `RESEND_FROM`, `NODE_ENV`, `TWILIO_PHONE_NUMBER`, all `NEXT_PUBLIC_*`) were deliberately
+  left alone rather than flipped for no security benefit. Owner explicitly said **skip for now** (2026-09-02)
+  rather than click through the 7 — not blocked, a deferred choice; revisit whenever, same click-through above
+  still applies (per-var: Edit → leave Value as-is → Type: Secret → Save).
 - **T-061 — done.** Switched `src/app/layout.tsx` off the `fonts.googleapis.com` `<link>` (two preconnects +
   one stylesheet request) onto `next/font/google`'s `Inter` (self-hosted at build time, `display: "swap"`,
   exposed as the `--font-inter` CSS variable applied to `<html>`); `globals.css`'s `body` rule now reads
