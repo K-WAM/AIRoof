@@ -25,7 +25,6 @@ export interface BusinessConfig {
   agentIdentity?: string;
   greeting?: string;
   afterHoursGreeting?: string;
-  agentVoice?: string;
   agentTone?: string;
   temperature?: number;
   maxTokens?: number;
@@ -84,7 +83,6 @@ export interface BusinessPhoneNumber {
   businessId: string;
   phoneNumber: string;
   normalizedPhoneNumber: string;
-  twilioPhoneNumber?: string;
   label?: string;
   active: boolean;
   createdAt: number;
@@ -95,13 +93,12 @@ export interface BusinessIntegrationStatus {
   businessId: string;
   openaiConfigured: boolean;
   deepseekConfigured: boolean;
-  twilioConfigured: boolean;
   calendarConfigured: boolean;
   emailConfigured: boolean;
   smsConfigured: boolean;
   lastHealthCheckAt?: number;
   issues: Array<{
-    service: "openai" | "deepseek" | "twilio" | "calendar" | "email" | "sms" | "firestore";
+    service: "openai" | "deepseek" | "calendar" | "email" | "sms" | "firestore";
     severity: "info" | "warning" | "error";
     message: string;
     detectedAt: number;

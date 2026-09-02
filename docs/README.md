@@ -71,9 +71,10 @@ Firestore. See [`TESTING.md`](TESTING.md) for the manual authenticated smoke seq
 
 ## Historical design records
 
-- [`EPIC-PLAN.md`](EPIC-PLAN.md) — completed field operations, Library, Calendar, reporting, and invoice epic.
-- [`DEMO-STUDIO-PLAN.md`](DEMO-STUDIO-PLAN.md) — original multi-vertical design; universal-line routing now
+- [`archive/EPIC-PLAN.md`](archive/EPIC-PLAN.md) — completed field operations, Library, Calendar, reporting, and invoice epic.
+- [`archive/DEMO-STUDIO-PLAN.md`](archive/DEMO-STUDIO-PLAN.md) — original multi-vertical design; universal-line routing now
   supersedes its per-tenant assumptions.
+- [`archive/PERFORMANCE-CLEANUP.md`](archive/PERFORMANCE-CLEANUP.md) — Phase 4 performance cleanup spec (done).
 - [`HANDOFF.md`](HANDOFF.md) — superseded 2026-05 snapshot.
 - [`../consolidated_implementation_brief.md`](../consolidated_implementation_brief.md) — audit that produced the
   completed release plan.

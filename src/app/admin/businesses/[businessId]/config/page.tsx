@@ -37,7 +37,6 @@ interface BizData {
   agentIdentity?: string;
   greeting?: string;
   afterHoursGreeting?: string;
-  agentVoice?: string;
   emergencyRules?: string[];
   bookingRules?: string[];
   timezone?: string;
@@ -201,7 +200,6 @@ export default function AdminBusinessConfigPage({
       agentIdentity: String(formData.get("agentIdentity") || "").trim(),
       greeting: String(formData.get("greeting") || "").trim(),
       afterHoursGreeting: String(formData.get("afterHoursGreeting") || "").trim(),
-      agentVoice: String(formData.get("agentVoice") || "").trim(),
       emergencyRules: String(formData.get("emergencyRules") || "")
         .split("\n")
         .map((rule) => rule.trim())
@@ -462,15 +460,6 @@ export default function AdminBusinessConfigPage({
                     <option value="front desk assistant">Front desk assistant</option>
                     <option value="booking assistant">Booking assistant</option>
                   </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="agentVoice">Voice</label>
-                  <input
-                    id="agentVoice"
-                    name="agentVoice"
-                    placeholder="e.g. eleven_turbo_v2_5 or Polly.Matthew-Generative"
-                    defaultValue={biz.agentVoice ?? ""}
-                  />
                 </div>
                 <div className="field full">
                   <label htmlFor="greeting">Greeting</label>

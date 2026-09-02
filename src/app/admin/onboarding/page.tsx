@@ -160,7 +160,6 @@ export default function OnboardingPage() {
       agentIdentity: String(formData.get("agentIdentity") || "receptionist").trim(),
       greeting: String(formData.get("greeting") || "").trim(),
       afterHoursGreeting: String(formData.get("afterHoursGreeting") || "").trim(),
-      agentVoice: String(formData.get("voice") || "alice"),
       calendarProvider: String(formData.get("calendarProvider") || "mock"),
       escalationPhone: String(formData.get("escalationPhone") || "").trim(),
       notificationEmail: String(formData.get("notificationEmail") || "").trim(),
@@ -331,14 +330,6 @@ export default function OnboardingPage() {
                     <option value="receptionist">Receptionist</option>
                     <option value="front desk assistant">Front desk assistant</option>
                     <option value="booking assistant">Booking assistant</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="voice">Voice</label>
-                  <select id="voice" name="voice" defaultValue="alice">
-                    <option value="alice">Alice - clear and professional</option>
-                    <option value="woman">Woman - clear and direct</option>
-                    <option value="man">Man - clear and direct</option>
                   </select>
                 </div>
                 <div className="field full">

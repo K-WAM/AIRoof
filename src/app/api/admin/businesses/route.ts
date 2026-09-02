@@ -24,7 +24,6 @@ interface CreateBusinessRequest {
   notificationEmail?: string;
   calendarProvider?: BusinessConfig["calendarProvider"];
   planTier?: BusinessConfig["planTier"];
-  agentVoice?: string;
   agentTone?: string;
   liveModel?: string;
   backOfficeModel?: string;
@@ -209,7 +208,6 @@ export async function POST(
       afterHoursGreeting:
         body.afterHoursGreeting ||
         template.afterHoursGreetingTemplate.replace("{businessName}", businessName),
-      agentVoice: body.agentVoice || preset.agentVoice,
       agentTone: body.agentTone || template.agentTone || preset.agentTone,
       temperature: body.temperature ?? preset.temperature,
       maxTokens: body.maxTokens ?? preset.maxTokens,
@@ -245,7 +243,6 @@ export async function POST(
       businessId,
       openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
       deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
-      twilioConfigured: false,
       calendarConfigured: businessConfig.calendarProvider !== "mock",
       emailConfigured: Boolean(body.notificationEmail),
       smsConfigured: Boolean(body.escalationPhone),

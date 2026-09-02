@@ -36,13 +36,9 @@ The file `public/guides/onboarding-guide.html` is the single source of truth for
 - Key stats or ROI numbers used in the pitch
 
 **Project**: AI Receptionist Platform for local service businesses
-**Status**: (2026-08-25) **Scoped release complete** — Phases 0–6 merged and pushed; live health and baseline CI
-green; maintenance cleanup removes obsolete scripts/exports/dependencies and reconciles current docs. **Ten
-verticals** (Roofing, HVAC, Landscaping, Cleaning, Dental, Property Mgmt, General Contractors, Electricians,
-Appliance Repair, Childcare) — adaptive Calendar modes, guarded universal Demo Studio, scoped field access,
-ledgered communications, retention, and the release acceptance suite are shipped. See `TODO.md` for human
-production sign-offs. **Design-system rule:** one teal `var(--accent)` — use `.button` variants/tokens, don't
-reintroduce `#2563eb` or per-page inline button styles.
+**Status**: see `TODO.md`'s "Current snapshot" for release/phase state and `docs/SESSION_HANDOFF.md` for the
+latest session — this file doesn't duplicate that narrative. **Design-system rule:** one teal `var(--accent)` —
+use `.button` variants/tokens, don't reintroduce `#2563eb` or per-page inline button styles.
 
 ## Industry-Applicability Rule (read before touching company UI)
 
@@ -249,9 +245,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
 - scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
-- docs/PERFORMANCE-CLEANUP.md — Phase 4 spec (mostly done)
-- docs/EPIC-PLAN.md — Field Ops + Calendar Powerhouse + Library epic plan (the 7-phase build that's now complete)
-- docs/DEMO-STUDIO-PLAN.md — Multi-vertical Demo Studio plan (Phase 6+)
+- docs/archive/PERFORMANCE-CLEANUP.md — Phase 4 spec (done; archived)
+- docs/archive/EPIC-PLAN.md — Field Ops + Calendar Powerhouse + Library epic plan (the 7-phase build that's now complete; archived)
+- docs/archive/DEMO-STUDIO-PLAN.md — original multi-vertical Demo Studio design; superseded by universal-line routing (archived)
 
 ## Navigation Completeness Rule
 
@@ -289,8 +285,8 @@ Before asking the user to verify anything, use CLI/curl first:
 - Phase 2: Vapi migration + conversation memory + tool use ✓ (live; 7 tools confirmed in dashboard)
 - Phase 3: After-hours logic, call outcome tagging, FAQ suggestions cron ✓
 - Phase 4: Performance cleanup ✓ — outbound auth, public field auth, Whisper, status normalization, single-job endpoint, calendar range filter, timezone caching, dashboard aggregation
-- **Field Ops + Calendar Powerhouse + Library epic ✓ (see docs/EPIC-PLAN.md)** — booking fix; unified/editable/voice-correctable job data; job-site photos; editable report with mail gate; Library (pricing/crews/docs); Calendar Powerboard (drag-drop crews); after-hours booking confirmation. Vapi date injection (`assistant-request` → `{{currentDate}}`/`{{afterHoursContext}}`) wired and confirmed in the dashboard prompt.
-- Post-MVP: Google Calendar OAuth, Stripe billing, SMS escalation, additional verticals (see docs/DEMO-STUDIO-PLAN.md)
+- **Field Ops + Calendar Powerhouse + Library epic ✓ (see docs/archive/EPIC-PLAN.md)** — booking fix; unified/editable/voice-correctable job data; job-site photos; editable report with mail gate; Library (pricing/crews/docs); Calendar Powerboard (drag-drop crews); after-hours booking confirmation. Vapi date injection (`assistant-request` → `{{currentDate}}`/`{{afterHoursContext}}`) wired and confirmed in the dashboard prompt.
+- Post-MVP: Google Calendar OAuth, Stripe billing, SMS escalation, additional verticals (see docs/archive/DEMO-STUDIO-PLAN.md)
 
 ## Known Limitations
 

@@ -31,7 +31,6 @@ interface UpdateBusinessConfigRequest {
   agentIdentity?: string;
   greeting?: string;
   afterHoursGreeting?: string;
-  agentVoice?: string;
   agentTone?: string;
   temperature?: number;
   maxTokens?: number;
@@ -144,7 +143,6 @@ export async function PUT(
         agentIdentity: body.agentIdentity,
         greeting: body.greeting,
         afterHoursGreeting: body.afterHoursGreeting,
-        agentVoice: body.agentVoice || (body.planTier ? preset.agentVoice : undefined),
         agentTone:
           body.agentTone ||
           (body.applyTemplateDefaults ? template.agentTone : undefined) ||
@@ -246,7 +244,6 @@ export async function PUT(
           businessId,
           openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
           deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
-          twilioConfigured: false,
           calendarConfigured: body.calendarProvider !== "mock",
           emailConfigured: Boolean(body.notificationEmail),
           smsConfigured: Boolean(body.escalationPhone),

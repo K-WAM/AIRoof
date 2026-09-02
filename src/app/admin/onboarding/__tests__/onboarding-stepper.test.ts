@@ -17,6 +17,9 @@ describe("admin onboarding stepper", () => {
   });
 
   it("retains every field in the existing onboarding POST contract", () => {
+    // "voice" was deliberately retired (T-053, 2026-09-02): it was a dead field,
+    // written by two mutually-inconsistent form controls across the onboarding/
+    // config pages and read by nothing downstream (not Vapi, not agentPromptBuilder).
     const payloadFields = [
       "businessName",
       "businessId",
@@ -30,7 +33,6 @@ describe("admin onboarding stepper", () => {
       "agentIdentity",
       "greeting",
       "afterHoursGreeting",
-      "voice",
       "calendarProvider",
       "escalationPhone",
       "notificationEmail",
@@ -46,5 +48,14 @@ describe("admin onboarding stepper", () => {
     for (const field of payloadFields) {
       expect(onboardingSource, field).toContain(`name="${field}"`);
     }
+  });
+
+  it("does not reintroduce the retired dead voice form field", () => {
+    // Note: `preset.agentVoice` (the plan-tier comparison table, an unrelated
+    // field on PlanPreset) legitimately still appears in this file — only the
+    // form control and its POST payload key were retired.
+    expect(onboardingSource).not.toContain('name="voice"');
+    expect(onboardingSource).not.toContain('name="agentVoice"');
+    expect(onboardingSource).not.toContain("formData.get(\"voice\")");
   });
 });
