@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
@@ -84,7 +85,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     <div className="company-shell">
       <aside className="company-sidebar">
         <div className="company-brand">
-          <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
+          <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
         </div>
         <div className="company-sidebar-nav">
           <CompanyNav />
@@ -102,7 +103,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       <div className="company-content">
         <header className="company-topbar">
           <div className="company-brand">
-            <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
+            <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
             {modulesReady && isEnabled("jobs") && (

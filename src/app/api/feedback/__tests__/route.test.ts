@@ -285,4 +285,29 @@ describe("POST /api/feedback", () => {
     expect(body.error).toContain("message");
     expect(mockSendFeedbackEmail).not.toHaveBeenCalled();
   });
+
+  it("429s a burst past the per-IP submission budget, then recovers for a different IP", async () => {
+    mockVerifyAuthAndRole.mockResolvedValue({
+      user: { uid: "user-1", email: "user@test.com", superadmin: false, role: "owner", businessId: "test-biz" },
+    });
+    mockSendFeedbackEmail.mockResolvedValue({ status: "delivered", providerId: "msg_1" });
+
+    const { POST } = await import("@/app/api/feedback/route");
+    const fromIp = (ip: string) =>
+      POST(new NextRequest("http://localhost/api/feedback", {
+        method: "POST",
+        headers: { "x-forwarded-for": ip },
+        body: JSON.stringify(validBody),
+      }));
+
+    for (let i = 0; i < 10; i++) {
+      expect((await fromIp("13.13.13.13")).status).toBe(200);
+    }
+    const blocked = await fromIp("13.13.13.13");
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("Retry-After")).toBeTruthy();
+    expect(mockSendFeedbackEmail).toHaveBeenCalledTimes(10); // the 11th never reached it
+
+    expect((await fromIp("14.14.14.14")).status).toBe(200); // a different IP is unaffected
+  });
 });

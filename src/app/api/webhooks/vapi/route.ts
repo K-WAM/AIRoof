@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { checkRateLimit } from "@/lib/auth/rateLimit";
 import { claimVapiWebhookEvent, verifyVapiWebhook } from "@/lib/vapi/verify";
 import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
 import {
@@ -36,6 +37,13 @@ import type {
 } from "@/lib/vapi/types";
 
 export async function POST(request: NextRequest) {
+  // Generous on purpose: one real call can fire many webhook posts (tool
+  // calls, status updates, the end-of-call report), and Vapi's own traffic
+  // for potentially many businesses can share source IPs. This caps pure
+  // flood/brute-force volume, not real concurrent-call bursts.
+  const limited = checkRateLimit(request, { windowMs: 60_000, max: 300, keyPrefix: "vapi-webhook" });
+  if (limited) return limited;
+
   if (!verifyVapiWebhook(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

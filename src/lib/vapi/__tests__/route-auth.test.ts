@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { _resetRateLimitState } from "@/lib/auth/rateLimit";
 
 const mocks = vi.hoisted(() => ({
   bookAppointment: vi.fn(),
@@ -105,6 +106,9 @@ describe("Vapi route authentication and replay boundary", () => {
     delete process.env.VAPI_AUTH_BYPASS;
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // This file's suite shares one module-level rate-limit bucket map (no
+    // vi.resetModules() here) — reset it per test for isolation.
+    _resetRateLimitState();
   });
 
   it.each([
@@ -278,5 +282,28 @@ describe("Vapi route authentication and replay boundary", () => {
       sourceCallId: "call_vapi_call_blocked",
     }));
     expect(mocks.createLead.mock.calls[0][0].callerPhone).toBeUndefined();
+  });
+
+  it("429s a burst past the per-IP webhook budget, independent of auth outcome", async () => {
+    const burstFrom = (ip: string) =>
+      POST(new NextRequest("http://localhost/api/webhooks/vapi", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": ip },
+        body: JSON.stringify(toolPayload),
+      }));
+
+    for (let i = 0; i < 300; i++) {
+      const response = await burstFrom("11.11.11.11");
+      expect(response.status).toBe(401); // under budget — normal unauthenticated rejection
+    }
+
+    const blocked = await burstFrom("11.11.11.11");
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("Retry-After")).toBeTruthy();
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled(); // never got past the budget check
+
+    // A different IP is unaffected by this one's burst.
+    const other = await burstFrom("12.12.12.12");
+    expect(other.status).toBe(401);
   });
 });

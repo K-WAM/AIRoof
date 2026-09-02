@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { checkRateLimit } from "@/lib/auth/rateLimit";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendFeedbackEmail } from "@/lib/notify";
 
 const MAX_MESSAGE_LENGTH = 2000;
 
 export async function POST(request: NextRequest) {
+  // Authenticated, but uncapped per user until now — nobody legitimately
+  // submits feedback more than a few times a minute.
+  const limited = checkRateLimit(request, { windowMs: 60_000, max: 10, keyPrefix: "feedback" });
+  if (limited) return limited;
+
   let body: { businessId?: string; message?: string; category?: string };
   try {
     body = await request.json();

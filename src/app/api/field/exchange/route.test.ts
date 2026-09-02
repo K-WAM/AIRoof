@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { _resetRateLimitState } from "@/lib/auth/rateLimit";
 
 const mocks = vi.hoisted(() => ({
   consume: vi.fn(),
@@ -19,6 +20,10 @@ describe("field token exchange route", () => {
   beforeEach(() => {
     mocks.consume.mockReset();
     mocks.exchangeLegacy.mockReset();
+    // This file's suite shares one module-level rate-limit bucket map (no
+    // vi.resetModules() here) — reset it per test so the burst test below
+    // can't leave later tests starting mid-throttle, and vice versa.
+    _resetRateLimitState();
   });
 
   it("redirects an invalid or missing grant to a credential-free denied URL", async () => {
@@ -92,5 +97,29 @@ describe("field token exchange route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toContain("__field_access=migrated-session-token");
     expect(await response.json()).toMatchObject({ ok: true, businessId: "biz-1" });
+  });
+
+  it("429s a burst past the per-IP exchange budget, then recovers once under it again", async () => {
+    mocks.consume.mockResolvedValue({ ok: false, status: 401, error: "expired" });
+    const burst = () =>
+      GET(new NextRequest("http://localhost/api/field/exchange?grant=x", {
+        headers: { "x-forwarded-for": "9.9.9.9" },
+      }));
+
+    for (let i = 0; i < 30; i++) {
+      const response = await burst();
+      expect(response.status).toBe(303); // under budget — normal denied-grant redirect
+    }
+
+    const blocked = await burst();
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("Retry-After")).toBeTruthy();
+    expect(mocks.consume).toHaveBeenCalledTimes(30); // the 31st never reached route logic
+
+    // A different IP is unaffected by this one's burst.
+    const other = await GET(new NextRequest("http://localhost/api/field/exchange?grant=x", {
+      headers: { "x-forwarded-for": "10.10.10.10" },
+    }));
+    expect(other.status).toBe(303);
   });
 });

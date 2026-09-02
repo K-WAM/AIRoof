@@ -1,6 +1,6 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 5 tasks done,
+Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 7 tasks done,
 1 (T-064) deferred by owner.
 
 ## Repository
@@ -49,6 +49,13 @@ Owner reviewed and said **skip for now** — deferred, not blocked (full click-t
 no directive widening needed. `tsc`/lint/build clean; full test suite 313/315 (2 known concurrent-load flakes,
 isolated rerun clean).
 
+**Continuation:** owner said go ahead with T-069 "and other easy things too" — **T-069** (static logos to
+`next/image`; base64 photo path audited, already correct, no change needed) and **T-063** (new
+`src/lib/auth/rateLimit.ts`, in-memory per-IP budget wired into the 3 public routes, burst tests per route)
+both done. Skipped T-062/T-065/T-067 (each carries real risk or an open dependency — see `TODO.md`) rather than
+self-select further without checking in. `tsc`/lint 0/20/build clean; full suite 324/325 (1 known flake,
+isolated clean); release suite 16/16.
+
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
 Owner requested a broad quality-of-life pass — identify and answer only, no execution: split demo/onboarding
@@ -65,8 +72,8 @@ backlog closed weeks ago).
 ## Product status
 
 - Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work. Phase 7: 2/8
-  done (T-053, T-059). Phase 8: 3/9 done (T-066, T-068, T-061) — added and worked this session; T-064
-  investigated and deferred by owner choice (see continuation entry above).
+  done (T-053, T-059). Phase 8: 5/9 done (T-066, T-068, T-061, T-069, T-063) — added and worked this session;
+  T-064 investigated and deferred by owner choice (see continuation entries above).
 - Live check 2026-09-02, post-fix: phone line confirmed working end-to-end via a live test call (greeting,
   correct persona, tools) after the incident fixes above. `/api/health` returns `200`, Firestore `connected`,
   all six provider/runtime capabilities `configured`.

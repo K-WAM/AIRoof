@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   signInWithPopup,
@@ -81,7 +82,7 @@ export default function LoginPage() {
       <div className="panel" style={{ width: "100%", maxWidth: 380, boxShadow: "var(--shadow-md)" }}>
         <div className="panel-body" style={{ display: "flex", flexDirection: "column", gap: "1.25rem", padding: "32px 28px" }}>
           <div style={{ textAlign: "center" }}>
-            <img src="/logo.png" alt="Luxor AI" style={{ height: 40, width: "auto", margin: "0 auto 14px", display: "block" }} />
+            <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority style={{ height: 40, width: "auto", margin: "0 auto 14px", display: "block" }} />
             <h1 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Luxor Ops</h1>
             <p style={{ color: "var(--text-muted)", marginTop: "0.4rem", fontSize: "0.9rem" }}>
               Sign in to access your dashboard

@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 3/9** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 5/9** | Owner prioritization pending |
 
 ### Checklist
 
@@ -71,13 +71,13 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 3/9
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 5/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 → T-062 → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
-  - [ ] T-063 — Rate limiting / abuse throttling on public-facing endpoints
+  - [x] T-063 — Rate limiting / abuse throttling on public-facing endpoints
   - [ ] T-064 — Secrets hygiene: mark 7 credential vars `Secret` type in Vercel (owner deferred, 2026-09-02 —
         not blocked, just skipped for now; see note below for the exact click-through when revisited)
   - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
@@ -85,7 +85,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
         gated behind two sequential auth round-trips on every load)
   - [x] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
-  - [ ] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
+  - [x] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
@@ -550,6 +550,58 @@ in its place.
   against `/login`/`/company/dashboard`/`/admin/businesses` per the task's own acceptance line — flagging that
   as the one still-open acceptance item, matching this session's honest pattern of flagging environment gaps
   rather than claiming full verification.
+
+**2026-09-02, continuation — T-069 and T-063 done:** owner said go ahead with T-069, "and other easy things
+too." Picked both remaining no-product-decision Phase 8 tasks; skipped T-062 (major `firebase-admin` v14
+migration — explicitly the biggest/riskiest per this phase's own ordering note), T-065 (collides with the
+still-open NH-6 question about how many cron-job slots Hobby actually leaves free — `vercel.json` schedules
+only 1 of 4 existing cron routes today; adding a 5th unscheduled one doesn't resolve that), and T-067 (flagged
+riskiest of the performance trio, touches every page's render path) rather than self-select into higher-risk
+territory without a check-in.
+
+- **T-069 — done.** Scope was narrower than "every `<img>`" once read against the spec's own text: the 4
+  static brand-logo call sites (`login/page.tsx`, `company/layout.tsx` ×2, `admin/layout.tsx`) moved to
+  `next/image` (intrinsic `403×322` read directly from `public/logo.png`'s PNG header, existing CSS
+  height+`width:auto` classes left untouched so display size is unchanged — same pattern Next's own docs use
+  for a responsive logo). The other 9 `<img>` occurrences are out of scope by the spec's own text: 4 are raw
+  HTML strings inside email templates (`notify.ts`, `agentTools.ts`, two `send/route.ts` files) that
+  `next/image` cannot touch at all — not React; the rest (job-photo thumbnail grid, lightbox, printable report,
+  admin QR code) are dynamic base64/remote images, the spec's own "legitimate `next/image` `unoptimized` case."
+  **Photo-path audit (the spec's other half): confirmed, not assumed.** Read `clientResize.ts` — thumbnails are
+  compressed to a 240px edge at quality 0.6; the full image is capped by `MAX_FULL_BYTES` (progressively
+  re-compressed down to a 800px edge if needed) — then read every render call site: the photo grid
+  (`jobs/[jobId]/page.tsx:769`) correctly renders `ph.thumbB64`, never `ph.fullB64`; the lightbox and the
+  printable report correctly use `fullB64` (by design — a full-size zoom and a print-quality document
+  respectively, not a thumbnail). No mis-wired call site found; no code change needed for this half, exactly
+  matching the spec's own "likely no change needed... but confirm with evidence" framing. Verified: `tsc`
+  clean; lint 0 errors/**20** warnings (down from 24 — the 4 removed are exactly the migrated logo sites);
+  `next build` green (`/login`'s First Load JS: 245kB→251kB, the expected one-time `next/image` runtime cost,
+  paid once and shared across every page that now uses it).
+- **T-063 — done.** New `src/lib/auth/rateLimit.ts`: an in-memory, per-serverless-instance fixed-window
+  counter keyed by `x-forwarded-for` (documented as defense-in-depth, not a distributed guarantee, per the
+  task's own edge-case note — matches its "no new paid dependency" constraint). Same `NextResponse | null`
+  guard shape as `requireCronAuth` (a response short-circuits, `null` means proceed) so it drops into a route
+  as one line. Wired into all three specified routes as the very first check, before auth/parsing, so pure
+  flood volume never reaches the rest of the handler regardless of whether it would've authenticated:
+  `webhooks/vapi` (300 req/60s per IP — deliberately generous, since one real call can fire many webhook posts
+  and Vapi's own traffic for potentially many businesses can share source IPs; this caps floods, not real
+  concurrent-call bursts), `field/exchange` (30 req/60s per IP, both GET and POST), `feedback` (10 req/60s per
+  IP). Budgets are reasoned from the business's actual shape (single-tenant demo-scale traffic), not measured
+  from real production volume — flagging that honestly rather than presenting them as evidence-tuned, since no
+  real traffic-volume data exists to tune against. New `src/lib/auth/__tests__/rateLimit.test.ts` covers the
+  primitive directly (under-budget allow, over-budget 429+`Retry-After`, sustained blocking not just the first
+  overage, per-IP isolation, per-route isolation via `keyPrefix`, window reset, the `x-real-ip` fallback). Added
+  one burst test per route to the existing route test files, each confirming a 429 past threshold, an unaffected
+  second IP, and — for the two files with no `vi.resetModules()` between tests (`field/exchange/route.test.ts`,
+  `route-auth.test.ts`) — added a `_resetRateLimitState()` call to their `beforeEach` first, since those files'
+  suites share one module-level bucket map and would otherwise let an earlier test's count bleed into a later
+  one (checked every existing call site across both files first: well under the new budgets, so no pre-existing
+  test broke, but the shared state was a real latent trap for whoever adds the next test there). Verified: `tsc`
+  clean; lint 0/20 (unchanged); full `vitest run` 324/325 (1 known concurrent-load flake in
+  `send.test.ts`, isolated rerun clean); the separate deterministic release suite
+  (`--config tests/release/vitest.config.ts`) 16/16 clean — its two files that exercise the real webhook route
+  handler (`webhook-auth-replay.test.ts`, `duplicate-side-effects.test.ts`) stay well under the new 300/60s
+  budget; `next build` green.
 
 ## Historical assignments (none active)
 

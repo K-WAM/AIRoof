@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 5 self-selected cleanup/perf tasks, T-064 deferred by owner)
+Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 7 self-selected cleanup/perf tasks, T-064 deferred by owner)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed. On
 > 2026-09-02 a live production incident was found and fixed (see below) — the phone line is confirmed working
@@ -91,6 +91,17 @@ re-entry needed), narrowed to the 7 vars that are genuine credentials. Owner rev
 (enforce CSP + self-host fonts) shipped clean: Inter now loads via `next/font/google` instead of a
 `fonts.googleapis.com` `<link>`, and `next.config.ts`'s CSP header is enforced, not Report-Only. Full
 before/after and verification in `TODO.md`'s matching entry.
+
+**Continuation, same session — T-069 and T-063 also done:** owner said go ahead with T-069 "and other easy
+things too." **T-069**: the 4 static brand-logo `<img>` sites moved to `next/image`; the base64 job-photo path
+was audited (not assumed) and confirmed already correct — thumbnail grids use `thumbB64`, the lightbox/printable
+report correctly use `fullB64` — no code change needed there. **T-063**: new `src/lib/auth/rateLimit.ts`
+(in-memory per-IP fixed-window budget, defense-in-depth not a distributed guarantee) wired into
+`webhooks/vapi`/`field/exchange`/`feedback` as the first check in each handler, with burst tests per route.
+Deliberately skipped T-062 (the biggest/riskiest task in the phase by its own ordering note), T-065 (collides
+with NH-6's still-open cron-slot-budget question), and T-067 (riskiest of the performance trio, touches every
+page's render path) rather than self-select into higher-risk work without checking in first. Full detail,
+including the exact rate-limit budgets and why, in `TODO.md`'s matching entry.
 
 ---
 

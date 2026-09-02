@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { AdminNav } from "./admin-nav";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -41,7 +42,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <img src="/logo.png" alt="Luxor AI" className="admin-brand-logo" />
+          <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="admin-brand-logo" />
           <span className="admin-brand-sub">Superadmin</span>
         </div>
         <AdminNav />

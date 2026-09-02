@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/auth/rateLimit";
 import {
   consumeFieldExchangeToken,
   exchangeLegacyFieldKey,
@@ -6,6 +7,11 @@ import {
   FIELD_SESSION_TTL_MS,
   type FieldTokenExchangeResult,
 } from "@/lib/auth/verifyRole";
+
+// A real technician exchanges a grant/key at most a handful of times per
+// visit (a mis-scan, a stale link). This caps brute-forcing the grant/key
+// param, not normal field use.
+const FIELD_EXCHANGE_LIMIT = { windowMs: 60_000, max: 30, keyPrefix: "field-exchange" };
 
 function setNoCredentialHeaders(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store");
@@ -39,6 +45,9 @@ function cleanFieldUrl(request: NextRequest, result?: FieldTokenExchangeResult):
 // New printed/mobile QR flow. The grant is short-lived and one-use; the redirect
 // lands on a clean URL after setting an HttpOnly field session.
 export async function GET(request: NextRequest) {
+  const limited = checkRateLimit(request, FIELD_EXCHANGE_LIMIT);
+  if (limited) return setNoCredentialHeaders(limited);
+
   const grant = request.nextUrl.searchParams.get("grant");
   const result = grant
     ? await consumeFieldExchangeToken(grant, request)
@@ -56,6 +65,9 @@ export async function GET(request: NextRequest) {
 // One-deploy compatibility bootstrap for an old ?key= QR or localStorage entry.
 // The browser POSTs the key in the body only after removing it from its URL.
 export async function POST(request: NextRequest) {
+  const limited = checkRateLimit(request, FIELD_EXCHANGE_LIMIT);
+  if (limited) return setNoCredentialHeaders(limited);
+
   let body: { businessId?: unknown; key?: unknown; jobId?: unknown };
   try {
     body = await request.json();
