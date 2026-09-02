@@ -8,8 +8,11 @@ Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fi
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main` (this session's work landed on `docs/qol-audit-2026-08-27` and `chore/qol-cleanup-2026-09-02`,
   each fast-forward-merged into `main` and pushed — see HANDOFF.md's 2026-09-02 entry for the full commit list).
-- Pushed baseline: see `git log origin/main` — this session pushed twice (once mid-session for the Vapi
-  fixes/UI changes, once at session end for the T-053/059/066/068 batch + these doc updates).
+- Pushed baseline: `origin/main` is at `67a4710` (T-061/T-069/T-063 + doc updates), pushed and confirmed
+  deployed — `vercel ls` showed the new build `Ready` within ~1 min, `/api/health` returns `200` with every
+  provider `configured`, CSP header confirmed enforced (no `-Report-Only`) with no leftover
+  `fonts.googleapis.com` reference on `/login`, and the Vapi webhook still correctly 401s an unauthenticated
+  POST (rate limiter didn't break normal auth flow).
 - Vercel: deployed to production directly via `vercel --prod` mid-session (ahead of the git push, to unblock
   live debugging) and again via the GitHub-integration auto-deploy on each push to `main`.
 - No worker branches, active worktrees, or development blockers otherwise.
