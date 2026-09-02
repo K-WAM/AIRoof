@@ -95,17 +95,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node -e \"process.stdout.write(JSON.stringify({systemMessage:'Session ending — include checklist update; save lessons to memory? Say: remember [fact]. Write a retro? Say: write a retro. Ask before any git push.'}))\"",
-            "timeout": 5
-          }
-        ]
-      }
     ]
   }
 }

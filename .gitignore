@@ -57,3 +57,4 @@ firebase-service-account.json
 .kilo/
 AI agent building book/
 Marketing Tools/
+.env*
