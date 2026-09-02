@@ -586,23 +586,64 @@ a.panel:hover {
 }
 
 .company-shell {
+  display: grid;
+  grid-template-columns: 236px 1fr;
   min-height: 100vh;
   background: var(--background);
 }
 
-.company-topbar {
-  min-height: 64px;
+/* Desktop nav lives in this left sidebar; the topbar below is mobile-only
+   (hamburger + shortcuts), matching the admin shell's left-nav pattern. */
+.company-sidebar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 0 28px;
+  flex-direction: column;
   background: #ffffff;
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 1px 0 var(--border);
+  border-right: 1px solid var(--border);
   position: sticky;
   top: 0;
-  z-index: 10;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.company-sidebar .company-brand {
+  padding: 20px 20px 16px;
+}
+
+.company-sidebar-nav {
+  flex: 1;
+  padding: 4px 12px;
+}
+
+.company-sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.company-sidebar-footer .cmd-trigger {
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-start;
+}
+
+.company-sidebar-footer .topbar-user {
+  flex-wrap: wrap;
+}
+
+.company-sidebar-footer .user-email {
+  max-width: 100%;
+}
+
+.company-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.company-topbar {
+  display: none;
 }
 
 .company-brand {
@@ -615,19 +656,6 @@ a.panel:hover {
   height: 36px;
   width: auto;
   display: block;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.topbar-divider {
-  width: 1px;
-  height: 24px;
-  background: var(--border);
-  margin: 0 16px;
 }
 
 .topbar-user {
@@ -682,8 +710,9 @@ a.panel:hover {
 
 .company-nav {
   display: flex;
+  flex-direction: column;
   gap: 2px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .mobile-menu-btn {
@@ -712,11 +741,11 @@ a.panel:hover {
 .company-nav-trigger {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 9px;
   color: var(--text-muted);
-  padding: 7px 11px;
+  padding: 9px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   transition: background 0.12s, color 0.12s;
   white-space: nowrap;
@@ -724,6 +753,8 @@ a.panel:hover {
   border: none;
   cursor: pointer;
   font-family: inherit;
+  width: 100%;
+  text-align: left;
 }
 
 .company-nav a:hover,
@@ -1968,12 +1999,26 @@ a.metric:hover {
     display: grid;
   }
 
-  .company-topbar {
-    padding: 12px 16px;
+  .company-shell {
+    grid-template-columns: 1fr;
   }
 
-  .topbar-right {
+  .company-sidebar {
     display: none;
+  }
+
+  .company-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .mobile-menu-btn {

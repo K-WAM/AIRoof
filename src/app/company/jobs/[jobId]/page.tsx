@@ -413,7 +413,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           /* Print ONLY the document — strip all app chrome so a PDF reads like a real invoice */
           .no-print { display: none !important; }
           .print-only { display: block !important; }
-          .company-topbar, .company-nav, .admin-sidebar { display: none !important; }
+          .company-topbar, .company-nav, .company-sidebar, .admin-sidebar { display: none !important; }
+          .company-shell, .admin-shell { grid-template-columns: 1fr !important; }
           .company-main, .admin-main { padding: 0 !important; background: #fff !important; }
           body { background: #fff !important; }
           .panel { box-shadow: none; border: none; }

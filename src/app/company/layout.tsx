@@ -81,73 +81,82 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="company-shell">
-      <header className="company-topbar">
+      <aside className="company-sidebar">
         <div className="company-brand">
           <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
         </div>
-        <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
-          {modulesReady && isEnabled("jobs") && (
-            <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs" title="Jobs">
-              <Briefcase size={18} strokeWidth={1.75} />
-            </Link>
-          )}
-          <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar" title="Calendar">
-            <CalendarDays size={18} strokeWidth={1.75} />
-          </Link>
-          <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls" title="Calls">
-            <Phone size={18} strokeWidth={1.75} />
-          </Link>
-          {modulesReady && isEnabled("library") && (
-            <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster" title="Crew roster">
-              <Users size={18} strokeWidth={1.75} />
-            </Link>
-          )}
-        </nav>
-        <button
-          type="button"
-          className="mobile-menu-btn"
-          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={mobileMenuOpen}
-          onClick={() => setMobileMenuOpen((v) => !v)}
-        >
-          {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
-        </button>
-        <div className="topbar-right">
+        <div className="company-sidebar-nav">
           <CompanyNav />
+        </div>
+        <div className="company-sidebar-footer">
           <CommandBar />
-          <div className="topbar-divider" />
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
             <span className="user-email">{user.email}</span>
-            <button className="logout-btn" onClick={handleLogout}>Sign out</button>
           </div>
+          <button className="logout-btn" style={{ width: "100%" }} onClick={handleLogout}>Sign out</button>
         </div>
-      </header>
+      </aside>
 
-      {mobileMenuOpen && (
-        <div className="mobile-nav-sheet">
-          <CompanyNav />
-          <div className="mobile-nav-search">
-            <CommandBar />
+      <div className="company-content">
+        <header className="company-topbar">
+          <div className="company-brand">
+            <img src="/logo.png" alt="Luxor AI" className="company-brand-logo" />
           </div>
-          <div className="mobile-nav-divider" />
-          <div className="mobile-nav-user">
-            <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
-            <span className="user-email">{user.email}</span>
-          </div>
-          <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
-        </div>
-      )}
+          <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
+            {modulesReady && isEnabled("jobs") && (
+              <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs" title="Jobs">
+                <Briefcase size={18} strokeWidth={1.75} />
+              </Link>
+            )}
+            <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar" title="Calendar">
+              <CalendarDays size={18} strokeWidth={1.75} />
+            </Link>
+            <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls" title="Calls">
+              <Phone size={18} strokeWidth={1.75} />
+            </Link>
+            {modulesReady && isEnabled("library") && (
+              <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster" title="Crew roster">
+                <Users size={18} strokeWidth={1.75} />
+              </Link>
+            )}
+          </nav>
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen((v) => !v)}
+          >
+            {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
+          </button>
+        </header>
 
-      <main className="company-main">
-        {!user.superadmin && (
-          <FirstLoginGuideNudge
-            userId={user.uid}
-            guideHref={`/company/guide${previewSuffix}`}
-          />
+        {mobileMenuOpen && (
+          <div className="mobile-nav-sheet">
+            <CompanyNav />
+            <div className="mobile-nav-search">
+              <CommandBar />
+            </div>
+            <div className="mobile-nav-divider" />
+            <div className="mobile-nav-user">
+              <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
+              <span className="user-email">{user.email}</span>
+            </div>
+            <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
+          </div>
         )}
-        {children}
-      </main>
+
+        <main className="company-main">
+          {!user.superadmin && (
+            <FirstLoginGuideNudge
+              userId={user.uid}
+              guideHref={`/company/guide${previewSuffix}`}
+            />
+          )}
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
