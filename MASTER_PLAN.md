@@ -593,6 +593,9 @@ implementation starts, don't invent the missing decision.
 - **Rollback:** additive CSS custom property + one new template field; revert cleanly.
 - **Prohibited scope:** full portal redesign; changing `disabledModules`/`calendarMode` semantics; changing the
   admin Demo Studio's existing per-vertical `color` field.
+- **NEEDS-HUMAN (2026-09-01):** owner is collecting reference apps for visual direction (top field-service/
+  organizing apps, roofing-specific apps) to paste into chat before the family palettes are drafted — don't start
+  the palette pass until those references land.
 
 ### T-057 — Post-sale client talk-track content
 - **Objective:** Extend `public/guides/onboarding-guide.html` with a post-sale playbook — what to say handing
@@ -675,6 +678,236 @@ implementation starts, don't invent the missing decision.
   for all three options; a recommendation is made, not necessarily executed.
 - **Tests:** n/a. **Rollback:** n/a (no code change).
 - **Prohibited scope:** switching the live demo line's voice without owner sign-off; no code changes.
+
+## Phase 8 — Hardening, Performance & Discoverability (owner-added 2026-09-01)
+
+**Not CIB-derived — prompted by this session's Vapi webhook secret incident (found only by manually running
+`vercel logs` after a bug report; nothing automated caught a 100%-failure outage), an owner request for
+tooltip/hover guidance, and an owner request to make every screen load with no perceptible lag. Queued —
+awaiting owner prioritization before any task begins**, same posture Phase 6/7 held before starting.
+
+**Suggested execution order** (not a hard dependency chain — flagging where independent quick wins should go
+first): T-064 (secrets hygiene) and T-061 (CSP + font self-hosting) are small, independent, low-risk — do these
+anytime. T-067–T-069 (the performance trio) are what the owner asked for most recently and have no
+dependencies on each other. T-063 (rate limiting) and T-065 (webhook alerting) are independent. T-062
+(dependency vulnerabilities + CI gate) is the biggest/riskiest — land it after the smaller wins so its new CI
+step is already in place to catch regressions from everything else. T-066 (tooltips) naturally lands last, or
+interleaved with T-054/T-056 if those Phase 7 tasks ship first, so their new icon-only controls get tooltips
+from day one instead of a second pass.
+
+### T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a real load-speed win)
+- **Objective:** Ship `Content-Security-Policy` as an enforced header once its current violations are resolved,
+  instead of `Content-Security-Policy-Report-Only` — and fix the violation by switching Inter to
+  `next/font/google` (self-hosted, same-origin at build time) instead of a `fonts.googleapis.com` `<link>`. This
+  is a two-for-one: it closes the CSP gap *and* removes an external, render-blocking font request from every
+  page's critical path — folded into one task instead of two so the font migration isn't done twice.
+  **Evidence:** `next.config.ts` ships the policy as Report-Only; a live browser check this session showed real
+  violations against it — Google Fonts' stylesheet (`style-src`) and font files (`font-src`) both violate the
+  `'self'`-only policy on `/login` today, currently only logged, never blocked, and that same external request
+  is on the loading path of every single page.
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none.
+- **Owns:** `next.config.ts` (the header); the Inter font-loading strategy (switch to `next/font/google`, which
+  self-hosts and serves same-origin, rather than a `fonts.googleapis.com` `<link>`).
+- **Constraints:** must not break the Inter typeface without an equivalent same-origin fallback; do not widen
+  `unsafe-inline`/`unsafe-eval` to work around a violation — fix the source, or leave that specific tightening as
+  a separate follow-up rather than blocking this task.
+- **Edge/failure cases:** any future third-party embed must be explicitly allowlisted, not silently broken by an
+  enforced policy with no visible error.
+- **Security:** this is the point of the task — meaningfully reduces XSS blast radius platform-wide.
+- **Acceptance:** CSP ships without `-Report-Only`; zero CSP violations in the browser console across a spot
+  check of `/login`, `/company/dashboard`, `/admin/businesses`; no visual regression.
+- **Tests:** extend the existing `src/test-utils/security-headers.test.ts` to assert the header is enforced
+  (no `-Report-Only` suffix) once flipped.
+- **Rollback:** single header-string revert in `next.config.ts`.
+- **Prohibited scope:** no broader CSP-directive redesign beyond fixing today's known font violations.
+
+### T-062 — Dependency-vulnerability remediation + CI gate
+- **Objective:** (a) add an `npm audit` step to CI so new advisories surface automatically; (b) execute the
+  `firebase-admin` v14 migration this unblocks, closing the currently-known findings.
+  **Evidence:** `npm audit --omit=dev` reports **21 vulnerabilities (17 moderate, 4 high)**, all transitive
+  through `firebase-admin`'s use of `@google-cloud/firestore`/`@google-cloud/storage`/`google-gax`/`gaxios`/
+  `teeny-request`, which pull a vulnerable `uuid` (GHSA-w5hq-g745-h8pq, buffer-bounds check). The fix requires
+  `firebase-admin@14.x` — already named in `CLAUDE.md`'s "Next Steps" as a deliberately deferred major, but never
+  formally scoped as a task. `.github/workflows/ci.yml` has no `npm audit` step at all today.
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none for (a); (b) lands after (a) exists.
+- **Owns:** `.github/workflows/ci.yml` (new step); `package.json`/lockfile + every `firebase-admin` call site
+  (`src/lib/firebase/admin.ts` and its consumers) for the v14 bump.
+- **Constraints:** the v14 migration is evaluated for breaking API changes against every Admin SDK call site
+  before merging — not a blind `npm audit fix --force`; the new CI step starts as a soft warning, not a hard
+  gate, until the team commits to zero-tolerance.
+- **Edge/failure cases:** a transient npm-registry/advisory-DB hiccup must not fail CI outright.
+- **Security:** directly closes 21 known, currently-shipping vulnerabilities (4 high).
+- **Acceptance:** CI surfaces new high/critical advisories on every PR; `npm audit` reports zero high/critical
+  after the v14 migration lands.
+- **Tests:** the existing suite is the regression gate for the migration itself.
+- **Rollback:** the CI step is a one-line revert; the v14 migration ships as its own revertible commit.
+- **Prohibited scope:** no unrelated major bumps (Next.js 16, etc. — already explicitly deferred elsewhere).
+
+### T-063 — Rate limiting / abuse throttling on public-facing endpoints
+- **Objective:** Add a per-IP/per-token request budget (429 + `Retry-After` past threshold) to the routes
+  reachable without an authenticated session. **Evidence:** repo-wide grep for rate-limiting logic returns
+  nothing in `src/` — none exists anywhere. Genuinely public entry points: `/api/webhooks/vapi` (guarded by a
+  high-entropy secret, not a request budget), `/api/field/exchange` (one-time signed tokens, but no cap on
+  exchange attempts per IP), `/api/feedback` (authenticated but uncapped per user).
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none.
+- **Owns:** new `src/lib/auth/rateLimit.ts` primitive; wiring into `api/webhooks/vapi/route.ts`,
+  `api/field/exchange/route.ts`, `api/feedback/route.ts`.
+- **Constraints:** must not throttle legitimate Vapi traffic during real concurrent-call bursts — tune the
+  budget from evidence (expected call volume), not a guess; no new paid dependency (Firestore-counter or
+  in-memory-per-instance is fine at current scale).
+- **Edge/failure cases:** a cold serverless instance's in-memory counter resets — document this as
+  defense-in-depth, not a precise guarantee, rather than overselling it.
+- **Security:** reduces brute-force/DoS surface on the only endpoints reachable without an authenticated
+  session.
+- **Acceptance:** a scripted burst past threshold on each of the three routes gets 429s; normal traffic is
+  unaffected.
+- **Tests:** unit tests simulating burst traffic per route.
+- **Rollback:** additive wrapper; remove the wrapper call to revert per-route.
+- **Prohibited scope:** no new paid rate-limiting service (Upstash/Cloudflare) without a separate justification.
+
+### T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel
+- **Objective:** Audit every server-only secret in Vercel's env settings and mark it "Sensitive" (write-only,
+  unreadable even by `vercel env pull`). **Evidence:** this session found `VAPI_API_KEY`/`VAPI_WEBHOOK_SECRET`
+  already marked Sensitive, but `OPENAI_API_KEY` pulled back in plaintext during the same `vercel env pull` —
+  confirming the flag isn't applied consistently across equivalent secrets (`DEEPSEEK_API_KEY`,
+  `RESEND_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `CRON_SECRET` unverified, likely the same gap).
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none — dashboard/CLI-only, no code change.
+- **Owns:** no source files; Vercel project settings only.
+- **Constraints:** `NEXT_PUBLIC_*` vars stay untouched (already public in the client bundle; marking them
+  Sensitive only hurts local dev for no security gain) — only true server secrets are in scope.
+- **Edge/failure cases:** confirm a Sensitive var still accepts `vercel env add` overwrites before rolling out
+  broadly, so a rotation is never blocked by this change.
+- **Security:** closes the exact gap this session used to notice the Vapi mismatch — any secret not marked
+  Sensitive is one `vercel env pull` away from leaking to anyone with read access to the Vercel project.
+- **Acceptance:** `vercel env pull` on production returns empty values for every true secret; `NEXT_PUBLIC_*`
+  vars still pull fine.
+- **Tests:** n/a — operational change, verified by hand.
+- **Rollback:** toggle Sensitive back off if it ever blocks a legitimate workflow.
+- **Prohibited scope:** no key rotation as part of this task — that's incident response (see NH-1); this is
+  the visibility flag only.
+
+### T-065 — Alerting on Vapi webhook auth-failure spikes
+- **Objective:** A lightweight scheduled check that counts recent 401s on the Vapi webhook route and notifies
+  the owner past a threshold. **Evidence:** this session discovered **100% of `/api/webhooks/vapi` calls were
+  failing 401 in production** purely by manually running `vercel logs` after a user's bug report ("she didn't
+  say hello") — nothing automated had caught it. `src/lib/vapi/verify.ts` already logs structured diagnostic
+  data (`console.warn("Vapi webhook auth mismatch", ...)`) on every mismatch; nothing consumes it.
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none.
+- **Owns:** `src/lib/vapi/verify.ts` (increment a counter doc on mismatch), a new
+  `src/app/api/cron/webhook-health/route.ts`, `vercel.json` (new schedule entry).
+- **Constraints:** reuse `src/lib/comms/send.ts` for the alert email (T-041's unified comms service) — no new
+  notification channel; the counter must not grow unbounded (TTL/reset-on-read, matching existing
+  `src/lib/audit` retention patterns).
+- **Edge/failure cases:** a single transient 401 (e.g. a secret rotation in progress) must not fire a false
+  alarm — require sustained failures over a window, not one occurrence.
+- **Security:** must never log or email the actual secret values (`verify.ts` already avoids this — keep it
+  that way).
+- **Acceptance:** a synthetic burst of failed webhook-auth attempts in a test environment triggers exactly one
+  alert, not a flood; a single isolated 401 triggers none.
+- **Tests:** unit test for the threshold/dedup logic.
+- **Rollback:** additive cron + counter; delete both to revert.
+- **Prohibited scope:** no full observability platform (Sentry/Datadog) — that's a bigger, separate decision.
+
+### T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
+- **Objective:** Build one small, consistent Tooltip component (short delay, instant dismiss, keyboard/focus
+  accessible) and apply it **only** where a control's purpose isn't already obvious from a visible label —
+  explicitly not a blanket sweep. **Evidence:** repo-wide grep confirms no `Tooltip` component exists anywhere
+  in `src/`; several icon-only controls (e.g. the sidebar's mobile-shortcut icons in `company/layout.tsx`)
+  already lean on the native `title` attribute, which is inconsistent, slow to appear, and unstylable.
+- **Spec:** owner request, 2026-09-01 ("tooltips where applicable or helpful... not annoying or invasive").
+  **Deps:** none, but natural to land after T-054/T-056 if those ship first, so their new icon-only controls get
+  tooltips from day one.
+- **Owns:** new `src/components/ui/Tooltip.tsx`; targeted application to an explicit, reviewed list of existing
+  icon-only controls (sidebar shortcuts, calendar drag handles, `icon-del` buttons) — not every button on the
+  platform.
+- **Constraints:** **guideline, not a mandate** — a tooltip is for a control whose function isn't already
+  stated in visible text; a labeled button ("Sign out", "+ Manage crews") gets none. ~400-600ms show delay, no
+  tooltip on touch/mobile (hover doesn't exist there — keep `title`/`aria-label` for those), respect
+  `prefers-reduced-motion` for any fade transition.
+- **Edge/failure cases:** a keyboard-focused (not just hovered) element must still reveal its tooltip; the
+  tooltip must never trap focus or block the control underneath.
+- **Security/accessibility:** this *is* an accessibility improvement — use `aria-describedby`, not a styled
+  `div` alone, so screen readers get the same information sighted users do.
+- **Acceptance:** every icon-only control in the reviewed list shows a short, accurate label on hover (desktop)
+  and on keyboard focus; no tooltip appears on a control that already has a visible text label; nothing shows
+  on tap/touch.
+- **Tests:** a component test for the Tooltip primitive (show-on-hover, show-on-focus, delay, dismiss); no
+  per-site tests needed.
+- **Rollback:** the component is additive; each application site's tooltip can be removed independently.
+- **Prohibited scope:** no tooltip-everywhere sweep; no rewrite of existing `title=` usage on non-interactive
+  elements that already works fine; no onboarding/product-tour system (a separate, bigger feature).
+
+### T-067 — Cut the auth-gate latency before any page can render
+- **Objective:** Every route in the app is client-rendered and gated behind `AuthContext`'s `loading` flag,
+  which only clears after two sequential async steps run inside one `onIdTokenChanged` callback — cut this to
+  the minimum and cache the resolved profile so an in-app navigation never re-pays it. **Evidence:** repo-wide
+  check confirms **26/26 pages under `src/app` are `"use client"`** — there is no server-rendered/prefetched
+  path. `src/contexts/AuthContext.tsx:52,66` runs `firebaseUser.getIdToken()` then a Firestore
+  `getDoc(doc(db,'businessUsers', uid))` read, in sequence, before `loading` ever becomes `false` — every full
+  page load shows nothing but "Loading…" until both finish, every time, even when nothing about the user's
+  session has changed since the last page.
+- **Spec:** this session's audit, 2026-09-01 (owner: "make each screen load ultra fast, no lag"). **Deps:**
+  none.
+- **Owns:** `src/contexts/AuthContext.tsx`.
+- **Constraints:** this is a client-side UX cache only — it must never become a security boundary. Every server
+  API route already independently re-verifies the real Firebase ID token (unaffected by this task), so a stale
+  cached profile can only affect what the UI *shows*, never what the backend *allows*.
+- **Edge/failure cases:** a role change (e.g. promoted to owner) must reflect within one token-refresh cycle,
+  not stick forever on a stale cache — invalidate on sign-out/sign-in and on Firebase's own hourly token
+  refresh, matching the pattern `useBusinessModules()` already uses for its own sessionStorage cache.
+- **Security:** no regression — read-path optimization only, per Constraints above.
+- **Acceptance:** navigating between two already-visited company pages in the same tab shows content without a
+  new "Loading…" flash; a fresh sign-in still resolves correctly on first load.
+- **Tests:** unit test for the cache hit/miss/invalidation logic.
+- **Rollback:** revert the caching addition; behavior returns to today's always-fresh read.
+- **Prohibited scope:** no auth-model changes; no relaxing of any server-side verification.
+
+### T-068 — Code-split heavy per-route bundles (starting with Calendar's drag-and-drop)
+- **Objective:** Lazy-load `@dnd-kit`-dependent Calendar UI (and any other route carrying a disproportionate
+  library) via `next/dynamic` with a lightweight loading skeleton, so a route's initial JS payload only pays
+  for what its first paint needs. **Evidence:** this session's `npm run build` shows `/company/calendar`
+  shipping **276kB First Load JS** against a **102kB shared baseline** — the heaviest page in the app — while a
+  repo-wide grep confirms **zero `next/dynamic` calls exist anywhere in `src/`**, so every route-specific
+  library loads eagerly regardless of the route's own critical-path needs. Other pages sitting near/above
+  250kB in the same build output: `/admin/onboarding`, `/admin/businesses/[businessId]/config`,
+  `/company/jobs/[jobId]`.
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none.
+- **Owns:** `src/app/company/calendar/page.tsx` (dynamic-import boundary) first; the three other flagged
+  routes as a follow-up audit within the same task.
+- **Constraints:** no behavior change — drag-and-drop must work identically once loaded; the loading skeleton
+  (reuse the existing `.skeleton` CSS pattern) must not cause layout shift once the real component mounts.
+- **Edge/failure cases:** a slow connection shows the skeleton, never a blank white flash.
+- **Security:** n/a.
+- **Acceptance:** `npm run build`'s First Load JS for `/company/calendar` drops measurably below today's 276kB;
+  no functional regression in drag-and-drop.
+- **Tests:** existing calendar tests continue to pass unchanged (behavior, not implementation, is under test).
+- **Rollback:** revert the dynamic-import wrapper back to a static import.
+- **Prohibited scope:** no calendar feature changes — bundle size only.
+
+### T-069 — Serve static images through `next/image`; verify the base64 photo path is already right-sized
+- **Objective:** Switch static/branding images to `next/image` for automatic sizing/lazy-loading; separately
+  confirm (don't assume) that the existing base64 job-photo compression is tight enough that a thumbnail grid
+  never ships a full-resolution blob. **Evidence:** repo-wide grep finds **zero `next/image` usage** — every
+  image (13 `<img>` occurrences across 9 files, including the `/logo.png` brand mark on login/company/admin) is
+  a plain tag. Separately, `src/lib/photos/store.ts` stores job photos as base64 directly in Firestore
+  documents (the documented free-Spark-plan constraint) — fetched as raw JSON/text, which `next/image` cannot
+  optimize regardless, making this a related but genuinely distinct cost from the static-image gap.
+- **Spec:** this session's audit, 2026-09-01. **Deps:** none.
+- **Owns:** every `<img>` call site for static assets (login, company layout, admin layout brand marks);
+  `src/lib/photos/clientResize.ts` and the photo-grid rendering call sites (audit — likely no change needed if
+  the existing thumb/full caps are already tight, but confirm with evidence, not assumption).
+- **Constraints:** `next/image` needs known dimensions or `fill` mode — verify each call site's layout before
+  switching; a base64 data-URI is a legitimate `next/image` `unoptimized` case (there's no remote/local file for
+  it to re-encode), so the photo half of this task is an audit, not a migration.
+- **Edge/failure cases:** a business with no `logoUrl` set must keep rendering the default Luxor logo unchanged.
+- **Security:** n/a.
+- **Acceptance:** static brand images use `next/image`; the job-photo thumbnail path is confirmed, with
+  evidence, to never ship a full-resolution image where a thumbnail is displayed.
+- **Tests:** visual spot-check for the brand-mark swap; no new automated test needed for a plain `<img>` →
+  `next/image` change.
+- **Rollback:** trivial per-call-site revert.
+- **Prohibited scope:** no photo-storage architecture change (the already-documented Firebase Storage
+  migration is separate, out of scope here).
 
 ---
 

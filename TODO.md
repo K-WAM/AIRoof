@@ -38,6 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
 
 ### Checklist
 
@@ -70,6 +71,20 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [ ] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 0/9, queued
+      **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
+      T-064 → T-061 → {T-067, T-068, T-069} → T-063 → T-065 → T-062 → T-066
+  - [ ] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
+        from two separate findings so the font migration isn't done twice)
+  - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
+  - [ ] T-063 — Rate limiting / abuse throttling on public-facing endpoints
+  - [ ] T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel
+  - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
+  - [ ] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
+  - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
+        gated behind two sequential auth round-trips on every load)
+  - [ ] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
+  - [ ] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
@@ -415,6 +430,36 @@ fields in `src/types/index.ts` are always-false/unused leftovers from the pre-Va
 artifact and this phase's specs, then prioritizes before any task starts (same posture Phase 6 held before
 2026-07-23). See `docs/SESSION_HANDOFF.md` for the artifact link and `HANDOFF.md`'s matching session entry.
 
+**2026-09-01 — Phase 8 added (Hardening & Discoverability), identify-only, nothing executed:** while
+investigating the "no greeting" bug this session (root cause: production Vapi webhook auth was failing 401 on
+every call — see NH-1/HANDOFF), a live evidence pass turned up six further gaps, scoped as T-061–T-066 in
+`MASTER_PLAN.md`'s new Phase 8: CSP shipping Report-Only with real (logged, unblocked) font-loading violations
+on `/login` (T-061); 21 `npm audit` findings (17 moderate, 4 high, all transitive through `firebase-admin`) with
+no CI step catching new ones (T-062); zero rate limiting anywhere in `src/`, including on the genuinely public
+`/api/webhooks/vapi` and `/api/field/exchange` routes (T-063); inconsistent use of Vercel's "Sensitive" env-var
+flag — `VAPI_API_KEY`/`VAPI_WEBHOOK_SECRET` are protected, `OPENAI_API_KEY` pulled back in plaintext during the
+same `vercel env pull` (T-064); no alerting on the exact failure mode that caused this session's bug — the 401
+storm was found only by manually running `vercel logs`, not by anything automated (T-065). The owner also asked
+for hover tooltips/guidance on ambiguous controls, done sparingly — scoped as T-066 (no `Tooltip` component
+exists in the repo today). **Phase 8 is queued — no task assigned, no code touched, nothing pushed.** Owner
+prioritizes before any task starts, same posture as Phase 6/7.
+
+**2026-09-01, same session — Phase 8 extended with a performance pass + one merge:** owner asked "anything we
+can do to make each screen load ultra fast, no lag" and to reorganize the backlog for overlaps. Live evidence
+turned up three more gaps, added as **T-067–T-069**: **all 26 pages under `src/app` are client-rendered**, and
+`AuthContext.tsx` gates every page behind two sequential network round-trips (ID-token refresh + a Firestore
+`businessUsers` read) before anything renders, on every load (T-067); **zero `next/dynamic` code-splitting
+exists anywhere**, so `/company/calendar` ships 276kB First Load JS against a 102kB shared baseline — the
+heaviest page in the app (T-068); **zero `next/image` usage** — every image, including the brand logo, is a
+plain `<img>` tag (T-069). One genuine merge found rather than a new task: T-061's CSP-enforcement fix (Google
+Fonts violates the `'self'`-only policy) and the performance ask solve the same root cause — switching to
+`next/font/google` self-hosts the font, closing the CSP gap *and* removing an external render-blocking request
+from every page — so that font migration is now one task, not two. `MASTER_PLAN.md`'s Phase 8 intro also gained
+a **suggested execution order** (quick/independent wins first, the riskiest dependency migration last) since the
+phase grew from 6 tasks to 9. No other true duplicates found across Phase 7/8's now-15 combined tasks — the
+rest cover genuinely distinct surfaces (voice models, provisioning, visual families, security, discoverability,
+speed) and stay separate by design. Nothing assigned or executed.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -490,6 +535,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 | NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
 | NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
+| NH-13 | Owner to research/paste reference apps (top organizing apps, roofing-specific apps) for visual direction | T-056 (per-industry visual families) | Added 2026-09-01; palette work shouldn't start until references land |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
