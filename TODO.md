@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 3/9** | Owner prioritization pending |
 
 ### Checklist
 
@@ -71,14 +71,15 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 2/9
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 3/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 → T-061 → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
-  - [ ] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
+      T-064 (blocked on owner) → T-061 ✓ → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
+  - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
   - [ ] T-063 — Rate limiting / abuse throttling on public-facing endpoints
-  - [ ] T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel
+  - [ ] T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel (blocked — see note below;
+        needs an owner click-through, not code)
   - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
   - [x] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
   - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
@@ -508,6 +509,37 @@ clean in isolation every time.
   (including devDependencies) rose from 21 to 23 findings (17→17 moderate, 4→6 high) — the two new highs are
   transitively pulled in by `jsdom` itself (image-size/sharp/postcss/undici); `npm audit --omit=dev` (what
   actually ships to production) is unchanged at 21/17/4, since dev dependencies never reach the deployed bundle.
+
+**2026-09-02, continuation — T-061 done, T-064 handed to owner:** owner asked for the next task in the
+suggested Phase 8 order; T-064 (secrets hygiene) turned out not to be self-executable and T-061 was completed
+in its place.
+
+- **T-064 — blocked, hand-off to owner, not a code task.** The Vercel CLI's `env update --sensitive` requires
+  resending the variable's full value to flip its sensitivity flag (confirmed by probing `vercel env update
+  NODE_ENV production --sensitive` — it fails non-interactively with `missing_value` and asks for `--value`).
+  This session doesn't hold the actual values of `OPENAI_API_KEY`/`DEEPSEEK_API_KEY`/`RESEND_API_KEY`/
+  `CRON_SECRET`/`FIREBASE_SERVICE_ACCOUNT_JSON`/the Twilio vars, and reconstructing them via `vercel env pull`
+  + remove + re-add risks corrupting a live secret (especially the multiline Firebase service-account JSON) if
+  any step fails mid-swap — an outward-facing, hard-to-reverse move, so it was not attempted. The Vercel
+  dashboard's per-variable "Sensitive" toggle does this in place without resending the value; owner asked to
+  flip it there for the 13 non-Vapi server-side vars (see chat). Still queued.
+- **T-061 — done.** Switched `src/app/layout.tsx` off the `fonts.googleapis.com` `<link>` (two preconnects +
+  one stylesheet request) onto `next/font/google`'s `Inter` (self-hosted at build time, `display: "swap"`,
+  exposed as the `--font-inter` CSS variable applied to `<html>`); `globals.css`'s `body` rule now reads
+  `font-family: var(--font-inter), system-ui, ...` instead of the literal `'Inter'` string. `next.config.ts`'s
+  CSP header flipped from `Content-Security-Policy-Report-Only` to enforced `Content-Security-Policy` — no
+  directive changes needed since `font-src 'self'`/`style-src 'self' 'unsafe-inline'` already didn't allowlist
+  Google's domains; the violation is gone because the font is same-origin now, not because the policy widened.
+  `src/test-utils/security-headers.test.ts` updated: the old "must NOT be enforced" test now asserts the
+  opposite (no `-Report-Only` header present), plus a new assertion that the enforced policy's `font-src`
+  contains no `fonts.googleapis.com`/`fonts.gstatic.com` reference. Verified: `tsc --noEmit` clean; `eslint`
+  0 errors/24 warnings (pre-existing, none new); full `vitest run` 313/315 (the 2 failures —
+  `example-lib.test.ts` and, this run, `send.test.ts` — are the long-documented concurrent-load timeout flake,
+  both reconfirmed clean on an isolated rerun); `next build` green, no new route-size regressions. No visual
+  regression expected (same Inter family, same weights available); not yet spot-checked in a real browser
+  against `/login`/`/company/dashboard`/`/admin/businesses` per the task's own acceptance line — flagging that
+  as the one still-open acceptance item, matching this session's honest pattern of flagging environment gaps
+  rather than claiming full verification.
 
 ## Historical assignments (none active)
 

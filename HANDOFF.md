@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 4 self-selected cleanup/perf tasks)
+Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 5 self-selected cleanup/perf tasks, T-064 blocked on owner)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed. On
 > 2026-09-02 a live production incident was found and fixed (see below) — the phone line is confirmed working
@@ -81,6 +81,15 @@ specifically (buy the DID from Twilio, import as bring-your-own-number into Vapi
 already-specced path (`docs/archive/DEMO-STUDIO-PLAN.md`'s successor, see MASTER_PLAN.md), just now confirmed
 as the intended provider over Telnyx. No code changed for this; noted here and in project memory so a future
 session building T-054 doesn't have to ask again.
+
+**Continuation, same session — T-061 done, T-064 blocked on owner:** picked up the next two Phase 8 tasks in
+suggested order. **T-064** (mark every server-side Vercel env var Sensitive) turned out not to be safely
+self-executable — the Vercel CLI can only flip that flag by resending the variable's full value, and this
+session doesn't hold the real secret values; handed to the owner as a 2-minute dashboard toggle instead (13
+vars named in `TODO.md`'s matching entry) rather than risk a live secret via a pull/remove/re-add workaround.
+**T-061** (enforce CSP + self-host fonts) shipped clean: Inter now loads via `next/font/google` instead of a
+`fonts.googleapis.com` `<link>`, and `next.config.ts`'s CSP header is enforced, not Report-Only. Full
+before/after and verification in `TODO.md`'s matching entry.
 
 ---
 

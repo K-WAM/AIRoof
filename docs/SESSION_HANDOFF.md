@@ -1,6 +1,7 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 4 tasks done.
+Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 5 tasks done,
+1 (T-064) blocked on owner.
 
 ## Repository
 
@@ -39,6 +40,14 @@ production issues, then a batch of 4 self-selected backlog tasks. Full evidence 
 Owner also confirmed intent to add a Canadian number to Vapi via **Twilio** specifically — already tracked as
 part of T-054's scope (see `MASTER_PLAN.md`), just now provider-confirmed. Not started.
 
+**Continuation, same session:** owner asked for the next task in the suggested Phase 8 order. **T-064**
+(secrets hygiene) is blocked — the Vercel CLI can't flip an existing var's Sensitive flag without resending its
+full value, and this session doesn't hold those secrets; handed to the owner as a dashboard toggle (13 vars, see
+`TODO.md`). **T-061** (enforce CSP + self-host fonts) completed instead: Inter moved off the
+`fonts.googleapis.com` `<link>` onto `next/font/google`; `next.config.ts`'s CSP header flipped from
+`-Report-Only` to enforced, with no directive widening needed. `tsc`/lint/build clean; full test suite 313/315
+(2 known concurrent-load flakes, isolated rerun clean).
+
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
 Owner requested a broad quality-of-life pass — identify and answer only, no execution: split demo/onboarding
@@ -55,7 +64,8 @@ backlog closed weeks ago).
 ## Product status
 
 - Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work. Phase 7: 2/8
-  done (T-053, T-059). Phase 8: 2/9 done (T-066, T-068) — both added and partially worked this session.
+  done (T-053, T-059). Phase 8: 3/9 done (T-066, T-068, T-061) — added and worked this session; T-064 blocked
+  on an owner dashboard action (see continuation entry above).
 - Live check 2026-09-02, post-fix: phone line confirmed working end-to-end via a live test call (greeting,
   correct persona, tools) after the incident fixes above. `/api/health` returns `200`, Firestore `connected`,
   all six provider/runtime capabilities `configured`.

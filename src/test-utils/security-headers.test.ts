@@ -41,16 +41,24 @@ describe("next.config.ts security headers", () => {
     expect(xfo!.value).toBe("SAMEORIGIN");
   });
 
-  it("includes Content-Security-Policy-Report-Only with frame-ancestors 'self'", async () => {
+  it("includes Content-Security-Policy with frame-ancestors 'self'", async () => {
     const allHeaders = await getAllHeaders();
-    const csp = allHeaders.find((h) => h.key === "Content-Security-Policy-Report-Only");
+    const csp = allHeaders.find((h) => h.key === "Content-Security-Policy");
     expect(csp).toBeDefined();
     expect(csp!.value).toContain("frame-ancestors 'self'");
   });
 
-  it("uses Report-Only mode, not enforce mode for CSP", async () => {
+  it("ships CSP in enforce mode, not Report-Only", async () => {
     const allHeaders = await getAllHeaders();
-    const enforce = allHeaders.find((h) => h.key === "Content-Security-Policy");
-    expect(enforce).toBeUndefined();
+    const reportOnly = allHeaders.find((h) => h.key === "Content-Security-Policy-Report-Only");
+    expect(reportOnly).toBeUndefined();
+  });
+
+  it("restricts font-src and style-src to same-origin (Inter is self-hosted via next/font)", async () => {
+    const allHeaders = await getAllHeaders();
+    const csp = allHeaders.find((h) => h.key === "Content-Security-Policy");
+    expect(csp!.value).toContain("font-src 'self'");
+    expect(csp!.value).not.toContain("fonts.googleapis.com");
+    expect(csp!.value).not.toContain("fonts.gstatic.com");
   });
 });
