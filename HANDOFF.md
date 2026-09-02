@@ -1,25 +1,86 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-08-27 (QoL/multi-vertical audit — Phase 7 backlog added to MASTER_PLAN.md/TODO.md, no code changed)
+Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 4 self-selected cleanup/perf tasks)
 
-> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed through
-> `1d2f840`; its GitHub Actions gate passed. On 2026-08-23 the live health endpoint returned `200`, Firestore
-> connected, and all six provider/runtime capabilities configured. The remaining launch work is authenticated
-> human smoke testing and provider/legal sign-off, not unfinished scoped implementation. See `TODO.md` and
-> `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives below remain historical evidence.
+> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed. On
+> 2026-09-02 a live production incident was found and fixed (see below) — the phone line is confirmed working
+> end-to-end again, including for the first time the "one number adapts per vertical" Demo Studio feature. The
+> remaining launch work is authenticated human smoke testing and provider/legal sign-off, not unfinished scoped
+> implementation. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives
+> below remain historical evidence.
 
 ## Current State
 
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** `1d2f840` (2026-08-25); CI green. The 2026-08-23 maintenance cleanup (`c8487ed`)
-and a 3-vertical expansion (`1d2f840`) were reviewed and pushed this session — see the session note below.
+**Latest pushed baseline:** see the 2026-09-02 session entry below for this session's commits; CI green. The
+2026-08-23 maintenance cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pushed in an
+earlier session.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-02) — live incident fix, demo-persona bug fix, Phase 8 backlog, 4 tasks completed
+
+**A user bug report ("no greeting, always have to start the conversation") led to finding and fixing two
+independent live production bugs, then a real architecture bug behind Demo Studio's flagship feature, then a
+self-selected batch of 4 low-risk backlog tasks.**
+
+**Bug 1 — Vapi webhook secret out of sync (100% of calls failing):** `vercel logs` showed every
+`POST /api/webhooks/vapi` returning 401 (`expectedLen: 64` vs a `43`-char received secret) — confirmed via the
+Vapi API that both the assistant and the phone number's `server.headers.x-vapi-secret` were 43 chars, in sync
+with each other but not with Vercel's `VAPI_WEBHOOK_SECRET`. Fixed by generating one fresh 64-char secret and
+applying it to both Vapi resources and Vercel, then redeploying — confirmed via `vercel logs` immediately after
+(200s, not 401s).
+
+**Bug 2 — LLM provider silently broken:** the assistant's `model.provider` had drifted to `cerebras`/
+`llama3.1-8b`, which was returning zero tokens on every call (`endedReason:
+call.in-progress.error-providerfault-cerebras-llm-failed`) — likely a half-finished T-060 voice-model
+experiment (the assistant's voice/transcriber had also already moved to Vapi's native "Voices v2"/Deepgram
+`flux-general-en`, matching T-060's own recommendation, but the LLM leg had no valid credential). Reverted to
+`openai`/`gpt-4o-mini` (the documented known-good config), preserving the existing `toolIds`/system-prompt
+template exactly (Vapi's `PATCH /assistant` replaces the whole `model` object, so those had to be resent, not
+omitted).
+
+**Bug 3 — the actual architecture bug (found once 1+2 were fixed and the greeting was still empty):** Vapi's
+`assistant-request` dynamic-config webhook — the mechanism this whole demo-persona-templating feature depends
+on — only fires when a phone number has **no** fixed `assistantId`. Every number this platform provisions,
+including the shared demo line, has one, so the assistant's `{{systemPrompt}}`/`{{greeting}}` placeholders were
+never filled by a live call and rendered empty — proven by pulling the actual call record's
+`assistantOverrides.variableValues`, which contained only carrier/SIP metadata (`cid`, `account-sid`, etc.),
+none of this platform's custom values. This means **Demo Studio's "one number adapts per vertical" feature has
+had zero effect on real calls since it was built** — it fully reconfigures Firestore, but nothing ever read that
+config into a live call. Fixed properly, not papered over: `demo-customize/route.ts` now renders the real
+`systemPrompt` (the existing `buildAgentPrompt`) and greeting for the selected vertical and pushes them directly
+onto the live Vapi assistant via a new `updateAssistantPersona()` in `vapiClient.ts` (a `PATCH /assistant` that
+reads current `toolIds`/model config first so it can't clobber them) — best-effort, so a Vapi outage never
+blocks the Firestore reconfiguration/reseed (`vapiUpdated`/`vapiError` surfaced in the admin UI, a field that
+existed in the response type unused until now). 3 new tests cover the success/missing-id/API-throws paths.
+Deployed and owner-confirmed working via a live test call after each fix.
+
+**Also this session:** removed a project-level `Stop` hook that printed a fixed message after every turn
+(owner request); renamed the sign-in page to "Luxor Ops"; moved the company portal's nav from a top bar to a
+left sidebar on desktop (mobile unchanged); added **Phase 8** (Hardening, Performance & Discoverability,
+T-061–T-069) to `MASTER_PLAN.md`/`TODO.md` from live evidence gathered mid-session (CSP report-only with real
+violations, 21 `npm audit` findings, zero rate limiting, inconsistent Vercel secret-sensitivity flags, no
+webhook-failure alerting, 26/26 client-rendered pages gated behind two auth round-trips, zero code-splitting —
+Calendar shipped 276kB, zero `next/image` usage); then self-selected and completed 4 of those backlog tasks —
+see `TODO.md`'s 2026-09-02 entry for full detail: **T-053** (retired the dead `agentVoice` field), **T-059**
+(Twilio type debris removed, 3 stale docs archived to `docs/archive/`), **T-068** (Calendar code-split,
+276kB→104kB First Load JS, measured), **T-066** (new `Tooltip` component + applied to a reviewed list of
+icon-only controls — also the repo's first component/DOM test, `@testing-library/react`/jsdom added as dev
+deps, scoped to one file so the other 308 tests are unaffected).
+
+**Owner also flagged (2026-09-02, not yet started):** intends to add a Canadian number to Vapi via **Twilio**
+specifically (buy the DID from Twilio, import as bring-your-own-number into Vapi) — this is exactly **T-054**'s
+already-specced path (`docs/archive/DEMO-STUDIO-PLAN.md`'s successor, see MASTER_PLAN.md), just now confirmed
+as the intended provider over Telnyx. No code changed for this; noted here and in project memory so a future
+session building T-054 doesn't have to ask again.
 
 ---
 

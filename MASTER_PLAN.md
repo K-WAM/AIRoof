@@ -518,18 +518,22 @@ implementation starts, don't invent the missing decision.
 - **Objective:** Replace the hand-copy-paste `vapiAssistantId`/`vapiPhoneNumberId` workflow with real Vapi API
   calls: create/clone an assistant for a new tenant, and buy or import a phone number — including the Canadian
   bring-your-own-number path (buy from Twilio or Telnyx, import into Vapi) alongside the existing US flow.
-  **Evidence:** `src/lib/vapi/vapiClient.ts` wraps exactly one Vapi endpoint (outbound `POST /call`);
-  `admin/onboarding/page.tsx:490-511` and `admin/businesses/[businessId]/config/page.tsx:369-387` are raw text
-  inputs with no API call behind them — Vapi's own free number provisioning is US-only by area code (per Vapi
-  docs), so a Canadian number requires this same import mechanism regardless.
-- **Spec:** 2026-08-27 QoL audit §02 + §05.1. **Deps:** T-053 (land the voice-field decision first so this new
-  provisioning UI doesn't carry the dead control forward).
+  **Evidence:** `src/lib/vapi/vapiClient.ts` wraps exactly one Vapi endpoint (outbound `POST /call`, plus
+  `updateAssistantPersona()` added 2026-09-02 for T-054's sibling demo-persona fix — a second, narrower
+  precedent for real Vapi API calls from this codebase); `admin/onboarding/page.tsx:490-511` and
+  `admin/businesses/[businessId]/config/page.tsx:369-387` are raw text inputs with no API call behind them —
+  Vapi's own free number provisioning is US-only by area code (per Vapi docs), so a Canadian number requires
+  this same import mechanism regardless. **2026-09-02: owner confirmed the intended provider is Twilio**
+  specifically (not Telnyx) — buy the Canadian DID from Twilio, import into Vapi as bring-your-own-number. Not
+  started; noted here so the Canadian-import half of this task doesn't need to re-ask which provider.
+- **Spec:** 2026-08-27 QoL audit §02 + §05.1. **Deps:** ~~T-053~~ — done 2026-09-02 (removed, not wired; no
+  dead voice control for this task to carry forward).
 - **Owns:** `src/lib/vapi/vapiClient.ts` (new assistant/number endpoints), a new server route (e.g.
   `src/app/api/admin/businesses/[businessId]/vapi/route.ts`), a button-driven provisioning panel in onboarding +
   config pages (existing text inputs stay as a manual-override fallback).
 - **Constraints:** never rotate/overwrite the live `demo-roofing` assistant from this flow; reuse the existing
-  `VAPI_API_KEY`, no new secret-storage pattern; Canadian import needs a Twilio/Telnyx credential the owner
-  supplies per purchase — build the import call, not a Twilio/Telnyx account-management UI.
+  `VAPI_API_KEY`, no new secret-storage pattern; Canadian import needs a Twilio credential the owner supplies
+  per purchase — build the import call, not a Twilio account-management UI.
 - **Edge/failure cases:** a mid-provisioning Vapi API failure must leave the business record clearly
   "not provisioned," never half-written; today's manually-entered IDs must keep working unchanged (additive, not
   a breaking migration).

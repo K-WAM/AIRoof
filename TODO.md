@@ -62,28 +62,28 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
-- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 0/8, queued
-  - [ ] T-053 — Retire or wire the dead `agentVoice` field
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 2/8
+  - [x] T-053 — Retire the dead `agentVoice` field (removed, not wired — see 2026-09-02 review note)
   - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
   - [ ] T-055 — Split demo/onboarding into a dedicated hub
   - [ ] T-056 — Per-industry visual families in the company portal
   - [ ] T-057 — Post-sale client talk-track content
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
-  - [ ] T-059 — Cleanup: Twilio type debris + archive stale planning docs
+  - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 0/9, queued
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 2/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 → T-061 → {T-067, T-068, T-069} → T-063 → T-065 → T-062 → T-066
+      T-064 → T-061 → {T-067, T-068 ✓, T-069} → T-063 → T-065 → T-062 → T-066 ✓
   - [ ] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
   - [ ] T-063 — Rate limiting / abuse throttling on public-facing endpoints
   - [ ] T-064 — Secrets hygiene: mark every server-side key Sensitive in Vercel
   - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
-  - [ ] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
+  - [x] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
   - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
         gated behind two sequential auth round-trips on every load)
-  - [ ] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
+  - [x] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
   - [ ] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
@@ -459,6 +459,55 @@ a **suggested execution order** (quick/independent wins first, the riskiest depe
 phase grew from 6 tasks to 9. No other true duplicates found across Phase 7/8's now-15 combined tasks — the
 rest cover genuinely distinct surfaces (voice models, provisioning, visual families, security, discoverability,
 speed) and stay separate by design. Nothing assigned or executed.
+
+**2026-09-02 — T-053, T-059, T-066, T-068 self-selected and completed (owner: "pick the next few tasks you can
+do on your own and do them now"):** four low-risk, fully-scoped tasks picked from the Phase 7/8 backlog —
+explicitly skipped T-054/055/056/058/060 (need real product decisions or carry real cost/risk: buying numbers,
+new domains, a PDF library choice, touching the live demo assistant again) and T-061-065/067/069 (good
+candidates, deferred to keep this batch focused). All four: `tsc`/lint/full test suite/`next build` green;
+the one `example-lib.test.ts` failure each run is the pre-existing documented concurrent-load flake, reconfirmed
+clean in isolation every time.
+
+- **T-053** (remove, not wire — the simpler of the spec's two allowed outcomes; wiring means designing a real
+  voice-picker UI, T-054's territory): removed the two mutually-inconsistent `agentVoice` form controls
+  (onboarding wizard's `alice/woman/man` dropdown, config page's freeform text box), the `BusinessConfig.agentVoice`
+  field, both API routes' persistence of it, and the seed script's stale value. Left `PlanPreset.agentVoice`
+  (planPresets.ts) untouched — a distinct, unrelated field driving plan-tier comparison-table copy, out of this
+  task's owned scope. `onboarding-stepper.test.ts`'s payload-contract test updated (not just relaxed) to drop
+  `"voice"` from the expected field list and gained a companion "does not reintroduce" regression test.
+- **T-059**: removed `twilioPhoneNumber`/`twilioConfigured`/the `"twilio"` union member (`src/types/index.ts` +
+  both API routes hardcoding `twilioConfigured: false`) after a repo-wide grep confirmed zero other references.
+  Archived `DEMO-STUDIO-PLAN.md`/`EPIC-PLAN.md`/`PERFORMANCE-CLEANUP.md` to `docs/archive/` via `git mv`
+  (history preserved), fixed the resulting dangling links in `docs/README.md` and `CLAUDE.md`'s Key Files list,
+  and trimmed `CLAUDE.md`'s `Status:` paragraph to a pointer at `TODO.md`/`docs/SESSION_HANDOFF.md` — the
+  Design-system rule sentence immediately after it was preserved verbatim, not touched.
+- **T-068**: split `company/calendar/page.tsx` into a thin route wrapper + `CalendarBoard.tsx` (all existing
+  logic moved verbatim via `git mv`, zero behavior change) and lazy-loaded the board via `next/dynamic` with
+  `ssr: false` and the existing `PageSkeleton` as the loading state. Measured, not assumed: `/company/calendar`'s
+  First Load JS dropped from **276kB to 104kB** in `next build`'s own output — the dnd-kit dependency chain now
+  loads only once the board actually mounts.
+- **T-066**: new `src/components/ui/Tooltip.tsx` — hover/keyboard-focus trigger with a 500ms show delay and
+  instant hide, `aria-describedby` injected onto the actual trigger element via `cloneElement` (not just a
+  floating styled div), suppressed entirely on touch/no-hover devices via `@media (hover: none)` in
+  `globals.css` rather than JS device-sniffing, and respects `prefers-reduced-motion`. Applied to a reviewed,
+  bounded list only (not a sweep): the company sidebar's mobile-shortcut icons + hamburger toggle, the
+  Calendar's Previous/Next-week chevron buttons, and Library's four icon-only "Remove" (Trash2) buttons —
+  replacing their native `title=` attributes (removed to avoid a double-tooltip) with the new component.
+  Deliberately left the Calendar's drag-handle grip icons alone — those tiles already carry a visible
+  `title="Drag onto a crew + day"` and visible job/customer text, so a second tooltip would be redundant, not
+  helpful, matching the spec's own "guideline, not a mandate" framing.
+  **Infrastructure note:** this is the first component/DOM test in the repo (everything else is logic/route-level,
+  `environment: "node"`) — added `@testing-library/react`/`@testing-library/jest-dom`/`jsdom` as dev
+  dependencies, scoped to jsdom via a per-file `// @vitest-environment jsdom` pragma rather than changing the
+  global environment, so the other 308 tests are provably unaffected (full suite re-run green after). Also
+  needed one `vitest.config.ts` addition (`oxc: { jsx: { runtime: "automatic" } }`) since this Vite version's
+  default oxc transform reads `tsconfig.json`'s `"jsx": "preserve"` (correct for Next's own SWC build) and
+  can't parse `.tsx` test files without an explicit override — test-pipeline-only, doesn't touch `next build`/
+  `tsc`. Six test cases cover show-after-delay, focus parity, instant hide on mouse-leave/blur, a
+  cancelled-before-delay case, and the `aria-describedby` wiring. One tradeoff surfaced honestly: `npm audit`
+  (including devDependencies) rose from 21 to 23 findings (17→17 moderate, 4→6 high) — the two new highs are
+  transitively pulled in by `jsdom` itself (image-size/sharp/postcss/undici); `npm audit --omit=dev` (what
+  actually ships to production) is unchanged at 21/17/4, since dev dependencies never reach the deployed bundle.
 
 ## Historical assignments (none active)
 

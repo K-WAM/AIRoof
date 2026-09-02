@@ -1,22 +1,43 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-08-27 (Claude) — QoL/multi-vertical audit session, doc-only.
+Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 4 tasks done.
 
 ## Repository
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
-- Branch: `main`, plus a new local-only doc branch cut this session for the Phase 7 backlog commit (see below)
-  — not pushed.
-- Pushed baseline: `1d2f840` on `origin/main` (2026-08-25) — unchanged this session; nothing new was pushed.
-- Local state: this session added `MASTER_PLAN.md` (Phase 7), `TODO.md`, and `HANDOFF.md` changes, committed
-  locally on a new branch (not `main` directly, not pushed) per the standing "branch before committing on
-  default branch" / "nothing pushed without explicit approval" rules. No source (`src/`) file was touched — this
-  was an identify-and-answer audit, explicitly no execution.
-- No worker branches, active worktrees, pending reviews, or development blockers otherwise. Last full
-  worktree/branch audit: 2026-08-25 (`git worktree list` / `git branch -v` / `git branch -rv` — main only,
-  everywhere, aside from this session's new doc branch).
-- Vercel production deployment for `3bc97fb` confirmed `READY` via the Vercel API as of 2026-08-23 — unchanged
-  this session (nothing deployed).
+- Branch: `main` (this session's work landed on `docs/qol-audit-2026-08-27` and `chore/qol-cleanup-2026-09-02`,
+  each fast-forward-merged into `main` and pushed — see HANDOFF.md's 2026-09-02 entry for the full commit list).
+- Pushed baseline: see `git log origin/main` — this session pushed twice (once mid-session for the Vapi
+  fixes/UI changes, once at session end for the T-053/059/066/068 batch + these doc updates).
+- Vercel: deployed to production directly via `vercel --prod` mid-session (ahead of the git push, to unblock
+  live debugging) and again via the GitHub-integration auto-deploy on each push to `main`.
+- No worker branches, active worktrees, or development blockers otherwise.
+
+## 2026-09-02 — live incident fix, demo-persona bug fix, Phase 8 backlog, 4 tasks completed
+
+A user bug report ("no greeting, always have to start the conversation") uncovered and fixed three real
+production issues, then a batch of 4 self-selected backlog tasks. Full evidence in `HANDOFF.md`'s matching
+2026-09-02 entry and `TODO.md`'s narrative notes; summary:
+
+1. **Vapi webhook secret was out of sync with Vercel's `VAPI_WEBHOOK_SECRET`** — every call was 401ing. Fixed by
+   rotating one fresh secret onto both Vapi resources and Vercel, then redeploying; confirmed via `vercel logs`.
+2. **The assistant's LLM provider had drifted to a broken `cerebras` config** (0 tokens returned every call).
+   Reverted to `openai`/`gpt-4o-mini`.
+3. **The real bug**: Vapi's `assistant-request` dynamic-config webhook never fires for a phone number with a
+   fixed `assistantId` (every number this platform provisions has one) — so `{{systemPrompt}}`/`{{greeting}}`
+   template placeholders always rendered empty on a live call, and **Demo Studio's "one number adapts per
+   vertical" feature had zero effect on real calls since it was built**. Fixed by having
+   `demo-customize/route.ts` push the rendered persona directly to the live Vapi assistant on every launch
+   (`updateAssistantPersona()` in `vapiClient.ts`) instead of relying on the webhook path.
+4. Also: removed a `Stop` hook printing a fixed message every turn; renamed the sign-in page to "Luxor Ops";
+   moved the company portal nav to a left sidebar; added **Phase 8** (T-061–T-069, hardening/performance/
+   discoverability) to `MASTER_PLAN.md`/`TODO.md`; then self-selected and completed **T-053** (retired dead
+   `agentVoice` field), **T-059** (Twilio type debris removed, 3 docs archived), **T-068** (Calendar
+   code-split, 276kB→104kB measured), **T-066** (new `Tooltip` component + applied to a reviewed control list,
+   first component/DOM test in the repo).
+
+Owner also confirmed intent to add a Canadian number to Vapi via **Twilio** specifically — already tracked as
+part of T-054's scope (see `MASTER_PLAN.md`), just now provider-confirmed. Not started.
 
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
@@ -33,10 +54,15 @@ backlog closed weeks ago).
 
 ## Product status
 
-- Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work.
-- Latest baseline GitHub Actions run passed on `cfa6102`.
-- Live check on 2026-08-23: `/api/health` returned `200`, Firestore `connected`, and OpenAI, DeepSeek, Resend,
-  Vapi, Firebase, and cron all `configured`; `/login` returned `200`.
+- Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work. Phase 7: 2/8
+  done (T-053, T-059). Phase 8: 2/9 done (T-066, T-068) — both added and partially worked this session.
+- Live check 2026-09-02, post-fix: phone line confirmed working end-to-end via a live test call (greeting,
+  correct persona, tools) after the incident fixes above. `/api/health` returns `200`, Firestore `connected`,
+  all six provider/runtime capabilities `configured`.
+- This session's verification: `npx tsc --noEmit` clean, `eslint` clean (only pre-existing `<img>`/no-image
+  warnings), full `npx vitest run` 313/313 real passes each run (the one recurring `example-lib.test.ts`
+  failure is the long-documented concurrent-load flake, reconfirmed clean in isolation every time), `npm run
+  build` green.
 - Production sign-off still requires the authenticated/manual checks in `TODO.md#needs-human`.
 
 ## 2026-08-23 maintenance cleanup
@@ -96,10 +122,16 @@ backlog closed weeks ago).
 
 ## Next actions
 
-1. **Review and prioritize Phase 7** (`MASTER_PLAN.md`, T-053–T-060, owner-added 2026-08-27) — decide what to
-   greenlight, if anything; nothing in it is assigned or started.
-2. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs.
-3. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
-   browser/provider regression testing.
-4. Optional: a live click-through of the three new verticals in Demo Studio (industry card → launch → voice
-   call → Calendar drag) as part of the next authenticated production smoke pass.
+1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–058/060 and
+   T-061–065/067/069) — decide what to greenlight next; nothing remaining is assigned or started.
+2. **NH-13**: owner to paste reference organizing/roofing apps for T-056's per-industry visual palette work.
+3. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs. NH-1's Vapi-dashboard-config-matches-production
+   concern is now substantially addressed by this session's incident fix, but the human dashboard review itself
+   (assistant model/voice/retry/recording settings) is still outstanding.
+4. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
+   browser/provider regression testing — T-062 (Phase 8) now formally tracks the `npm audit` half of this.
+5. **T-054 when picked up**: owner confirmed Twilio (not Telnyx) as the Canadian-number provider — buy the DID
+   from Twilio, import into Vapi as bring-your-own-number.
+6. Optional: a live click-through of the three newest verticals (Electricians, Appliance Repair, Childcare) in
+   Demo Studio — now meaningfully testable end-to-end on a real call, since T-054's sibling fix this session
+   made the Demo Studio → live-call persona push actually work.
