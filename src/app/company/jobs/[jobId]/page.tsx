@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import QRCode from "qrcode";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
 import { lookupUnitPrice } from "@/types/library";
@@ -18,6 +19,7 @@ import {
   Pencil,
   Plus,
   Printer,
+  QrCode,
   Receipt,
   RefreshCw,
   Save,
@@ -52,6 +54,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // No-login field QR: a one-time, ten-minute grant for a crew member who
+  // has no portal account. "Copy field link" above is the authenticated
+  // path — this is the unauthenticated one.
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrFieldUrl, setQrFieldUrl] = useState("");
+  const [qrExpiresAt, setQrExpiresAt] = useState<number | null>(null);
+  const [qrLinkCopied, setQrLinkCopied] = useState(false);
 
   // Photos (Phase 2) — metas loaded lazily when the tab opens; full blobs on lightbox open.
   const [photos, setPhotos] = useState<JobPhotoMeta[]>([]);
@@ -271,6 +284,33 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setReportPhotos(withBlobs.filter(Boolean) as Array<{ label: string; fullB64: string }>);
   }
 
+  async function openFieldQr() {
+    setQrOpen(true);
+    setQrLoading(true);
+    setQrError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/field-qr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not generate a field QR code");
+      const dataUrl = await QRCode.toDataURL(data.fieldUrl as string, {
+        width: 220,
+        margin: 2,
+        color: { dark: "#0f172a", light: "#ffffff" },
+      });
+      setQrDataUrl(dataUrl);
+      setQrFieldUrl(data.fieldUrl as string);
+      setQrExpiresAt(data.expiresAt as number);
+    } catch (err) {
+      setQrError(err instanceof Error ? err.message : "Could not generate a field QR code");
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
   async function saveReportNotes() {
     if (!businessId) return;
     await fetch(`/api/jobs/${jobId}`, {
@@ -452,6 +492,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           }} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <ClipboardCopy size={15} strokeWidth={1.75} />
             {linkCopied ? "Link copied" : "Copy field link"}
+          </button>
+          <button className="button" title="A QR code a crew member can scan with no portal login — expires in 10 minutes" onClick={openFieldQr} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <QrCode size={15} strokeWidth={1.75} />
+            Field QR
           </button>
           <button className="button" onClick={generateReport} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <FileText size={15} strokeWidth={1.75} />
@@ -802,6 +846,48 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           )}
           <p style={{ color: "#fff", fontSize: 14, marginTop: 16, maxWidth: 600, textAlign: "center" }}>{lightbox.label}</p>
           <button onClick={() => setLightbox(null)} style={{ position: "absolute", top: 20, right: 24, background: "none", border: "none", color: "#fff", fontSize: 28, cursor: "pointer" }}>×</button>
+        </div>
+      )}
+
+      {/* Field QR popup */}
+      {qrOpen && (
+        <div onClick={() => setQrOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 320, width: "100%", textAlign: "center", position: "relative" }}>
+            <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}>
+              <X size={18} strokeWidth={1.75} />
+            </button>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Scan to log this job</h2>
+            <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>No portal login needed — hand this to a crew member on-site.</p>
+            {qrLoading ? (
+              <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 8, fontSize: 13, color: "#94a3b8" }}>
+                Generating…
+              </div>
+            ) : qrError ? (
+              <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#fef2f2", borderRadius: 8, fontSize: 13, color: "#b91c1c", padding: 16 }} role="alert">
+                {qrError}
+              </div>
+            ) : (
+              <img src={qrDataUrl} alt="Field access QR code" style={{ width: 220, height: 220, display: "block", margin: "0 auto", borderRadius: 8, border: "1px solid #e2e8f0" }} />
+            )}
+            {qrExpiresAt && !qrLoading && !qrError && (
+              <p style={{ fontSize: 11, color: "#94a3b8", margin: "12px 0 0" }}>
+                Expires {new Date(qrExpiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} — one scan only
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "center" }}>
+              {qrFieldUrl && !qrLoading && (
+                <button className="button" style={{ fontSize: 12 }} onClick={() => {
+                  navigator.clipboard.writeText(qrFieldUrl).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => prompt("Copy this link:", qrFieldUrl));
+                }}>
+                  {qrLinkCopied ? "Link copied" : "Copy link instead"}
+                </button>
+              )}
+              <button className="button" style={{ fontSize: 12 }} onClick={openFieldQr} disabled={qrLoading}>
+                <RefreshCw size={13} strokeWidth={1.75} style={{ marginRight: 4 }} />
+                {qrError ? "Try again" : "New code"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

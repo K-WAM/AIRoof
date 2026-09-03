@@ -59,6 +59,15 @@ both done. Skipped T-062/T-065/T-067 (each carries real risk or an open dependen
 self-select further without checking in. `tsc`/lint 0/20/build clean; full suite 324/325 (1 known flake,
 isolated clean); release suite 16/16.
 
+**Continuation — push/deploy verified, then a real field QR feature:** pushed to `origin/main`, confirmed the
+Vercel production deploy healthy against the live URL (not just the build log). Owner then asked how a call
+becomes a voice-loggable job and whether QR codes could help — traced the real pipeline and found QR access
+already existed in code but only for the superadmin demo line; a real tenant's job page had no unauthenticated
+field-access option. Built `POST /api/jobs/[jobId]/field-qr` + a **Field QR** button/modal on the job detail
+page, reusing the existing signed one-time-grant primitive and the `qrcode` package Demo Studio already used.
+Corrected `field-operations-guide.html`'s walkthrough to match. 9 new tests; `tsc`/lint/build/release-suite all
+clean. Full detail in `TODO.md`.
+
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
 Owner requested a broad quality-of-life pass — identify and answer only, no execution: split demo/onboarding

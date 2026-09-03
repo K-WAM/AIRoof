@@ -603,6 +603,47 @@ territory without a check-in.
   handler (`webhook-auth-replay.test.ts`, `duplicate-side-effects.test.ts`) stay well under the new 300/60s
   budget; `next build` green.
 
+**2026-09-02, continuation — pushed, deployed, and shipped a real per-job field QR (ad-hoc, not in the numbered
+backlog):** owner asked how a call actually becomes a job a crew member can voice-log, and whether QR codes
+could make that easier. Traced the real flow end to end (Alice's call → `bookAppointment`/`createLead` webhook
+tools → office reviews the Pipeline and clicks **Create Job** on a booked appointment, pre-filling the form →
+crew logs updates by voice at `/company/field`, transcribed via Whisper and parsed by DeepSeek into the
+`job.parsed` projection). Found that **QR codes already existed in the codebase but only for the superadmin
+Demo Studio flow** — `mintFieldExchangeToken()` (a signed, one-time, 10-minute grant) had exactly one caller,
+`demo-customize/route.ts`, minting a grant for the shared demo line only. A real tenant's job detail page had
+only "Copy field link," which points at `/company/field` — the *authenticated* path, useless to a subcontractor
+or helper with no portal login. `field-operations-guide.html` had already been describing a QR flow ("scan a
+QR code at the job site") that didn't actually exist for real businesses — an aspirational doc gap, not just a
+missing feature.
+
+Built the real thing rather than just answering the question: new `POST /api/jobs/[jobId]/field-qr`
+(staff/owner/superadmin-gated, lazily provisions the business's `fieldKey` on first use the same way
+demo-customize already does, then calls the existing `mintFieldExchangeToken(businessId, fieldKey, jobId)`) and
+a **Field QR** button + modal on the job detail page, right next to the existing "Copy field link," rendering
+the grant as a scannable code via the `qrcode` package already used by Demo Studio (`QRCode.toDataURL`, same
+options). The modal shows the QR, a plain-link fallback with its own copy button, the actual expiry time, and a
+"New code" regenerate action — since a 10-minute one-time grant is meant for handing off *right now*, not
+printing in advance, and the modal's copy makes that explicit rather than implying a QR is durable. Corrected
+`field-operations-guide.html`'s Job Management walkthrough to describe both real options (Copy field link for
+staff, Field QR for a no-login crew member) instead of the previously-aspirational text.
+
+New `route.test.ts` (9 tests: mints correctly, lazily provisions a missing `fieldKey`, 400 on missing
+businessId/invalid JSON, auth-error passthrough with no grant minted, 404 job/business not found, 503 when
+Firestore or field-token signing is unavailable) using a small self-contained Firestore fake rather than
+importing the demo-customize test's internal fake class across files. Verified: `tsc` clean; lint 0
+errors/**21** warnings (+1 over the T-069 baseline — the new QR `<img>` is a legitimate data-URI case, same
+exception T-069 already established for base64 images); full `vitest run` 332/334 (2 known concurrent-load
+flakes — `example-lib.test.ts`, `send.test.ts` — isolated rerun clean); release suite 16/16; `next build` green
+(`/company/jobs/[jobId]` grew 259kB→269kB, the `qrcode` client bundle, paid only on that one route).
+
+**Push + deploy confirmed working, nothing broken:** `git push origin main` (now at commits `67a4710` through
+this feature's commit), Vercel's GitHub-integration auto-deploy picked it up — `vercel ls` showed the new
+Production build `Ready` within about a minute. Verified against the live URL, not just the build log:
+`/api/health` → `200`, every provider `configured`, Firestore `connected`; the enforced `Content-Security-Policy`
+header (no `-Report-Only`) is live with no leftover `fonts.googleapis.com` reference on `/login`; an
+unauthenticated `POST /api/webhooks/vapi` still correctly 401s (confirms the new rate limiter didn't interfere
+with normal auth).
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |

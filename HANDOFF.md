@@ -103,6 +103,19 @@ with NH-6's still-open cron-slot-budget question), and T-067 (riskiest of the pe
 page's render path) rather than self-select into higher-risk work without checking in first. Full detail,
 including the exact rate-limit budgets and why, in `TODO.md`'s matching entry.
 
+**Continuation — pushed/deployed, plus a real per-job field QR (ad-hoc, not a numbered task):** pushed and
+confirmed the production deploy healthy (`/api/health` 200, CSP enforced live, webhook auth unaffected by the
+new rate limiter). Owner then asked how a call actually becomes a job a crew member can voice-log, and whether
+QR codes could help. Traced the real flow (call → Vapi tools → office clicks **Create Job** on the Pipeline →
+crew voice-logs at `/company/field`, Whisper + DeepSeek parse it into `job.parsed`) and found QR access already
+existed in the code but was wired up only for the superadmin Demo Studio line — a real tenant's job page only
+had "Copy field link," which needs a portal login, useless to an unauthenticated crew member. Built the real
+feature: new `POST /api/jobs/[jobId]/field-qr` (staff-gated, reuses the existing `mintFieldExchangeToken`
+one-time/10-minute grant primitive) plus a **Field QR** button/modal on the job detail page next to "Copy field
+link," rendered with the same `qrcode` package Demo Studio already uses. Corrected
+`field-operations-guide.html`'s walkthrough, which had been describing this QR flow as already real. 9 new
+tests; `tsc`/lint/build/release-suite all clean. Full detail in `TODO.md`'s matching entry.
+
 ---
 
 ## This session (2026-08-27) — QoL & multi-vertical audit, Phase 7 backlog (no code changed)
