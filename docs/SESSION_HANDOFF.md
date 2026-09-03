@@ -66,7 +66,8 @@ already existed in code but only for the superadmin demo line; a real tenant's j
 field-access option. Built `POST /api/jobs/[jobId]/field-qr` + a **Field QR** button/modal on the job detail
 page, reusing the existing signed one-time-grant primitive and the `qrcode` package Demo Studio already used.
 Corrected `field-operations-guide.html`'s walkthrough to match. 9 new tests; `tsc`/lint/build/release-suite all
-clean. Full detail in `TODO.md`.
+clean. Full detail in `TODO.md`. Pushed (`53a0965`) and confirmed deployed: Vercel build `Ready` in ~90s,
+`/api/health` 200, `/login` 200, the new field-qr route correctly 401s unauthenticated, webhook auth unaffected.
 
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
