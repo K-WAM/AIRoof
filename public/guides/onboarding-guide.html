@@ -232,7 +232,7 @@
   .step-num.blue { background: #2563eb; }
   .step-num.green { background: #16a34a; }
   .step-body { flex: 1; }
-  .step-body strong { display: block; margin-bottom: 2px; font-size: 13px; }
+  .step-body > strong { display: block; margin-bottom: 2px; font-size: 13px; }
   .step-body p { margin-bottom: 4px; color: #475569; font-size: 12px; }
 
   /* ── URL / Code Chips ── */
@@ -392,7 +392,7 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.2 — August 2026</div>
+        <div><span>Version</span> 2.3 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
@@ -576,7 +576,7 @@
   </div>
 
   <div class="highlight">
-    <strong>Dental &amp; Property Mgmt are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
+    <strong>Dental, Property Mgmt &amp; Childcare are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
   </div>
 
   <!-- ══ BEFORE THE DEMO ══ -->
@@ -623,7 +623,67 @@
 
   <!-- ══ ROOFING FULL DEMO SCRIPT ══ -->
   <h3>Field Service — Full Live Demo (~15 min)</h3>
-  <p>This is the primary live demo with a real phone call. Most compelling for roofing prospects. Adapt the script for field-service industries once their Vapi assistants are provisioned.</p>
+  <p>This is the primary live demo with a real phone call. The click-by-click flow below is <strong>identical for all seven field-service verticals</strong> — Roofing, HVAC, Landscaping, Cleaning, General Contractors, Electricians, and Appliance Repair — because the agent, the Calendar board, and the field-voice pipeline all read from that industry's config instead of hardcoded roofing text. Roofing is written out in full first as the reference script; run the exact same steps for any other field-service industry by swapping in that row's agent name, opening line, and voice-note script from the table below.</p>
+
+  <h4>Swap table — same steps, seven trades</h4>
+  <div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr><th>Industry</th><th>Agent</th><th>Caller says (step ②)</th><th>Calendar row to drag onto</th><th>Voice-note script (step ③)</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Roofing</strong></td>
+        <td>Alice</td>
+        <td>"I had storm damage last night and need someone to inspect my roof."</td>
+        <td>Carlos Crew / Tyler Crew / Storm Response</td>
+        <td>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours."</td>
+      </tr>
+      <tr>
+        <td><strong>HVAC</strong></td>
+        <td>Claire</td>
+        <td>"My AC just stopped cooling and it's 95 degrees, can someone come today?"</td>
+        <td>Marco R. / Denise K. / Luis T.</td>
+        <td>"Replaced the capacitor, added 2 pounds of R-410A, Marco was on site 9 to 12."</td>
+      </tr>
+      <tr>
+        <td><strong>Landscaping</strong></td>
+        <td>Maya</td>
+        <td>"I need a quote to re-sod my front yard, can someone come look Saturday?"</td>
+        <td>Luis Crew / Ana Crew / Design &amp; Install</td>
+        <td>"Laid 15 pallets of sod, trimmed the hedges, Luis and Ana worked 7 to 2."</td>
+      </tr>
+      <tr>
+        <td><strong>Cleaning</strong></td>
+        <td>Robin</td>
+        <td>"I need a move-out clean this Tuesday, my lease ends Wednesday."</td>
+        <td>Team A — Rosa / Team B — Nadia / Deep Clean Crew</td>
+        <td>"3 hours at the Henderson house, used 2 gallons of floor cleaner, the den carpet is stained."</td>
+      </tr>
+      <tr>
+        <td><strong>General Contractors</strong></td>
+        <td>Rex</td>
+        <td>"I want a quote for a kitchen remodel, when can someone come look?"</td>
+        <td>Dave's Crew / Framing Crew / Drywall Crew</td>
+        <td>"Hung 40 sheets of drywall, framing inspection passed, Dave's crew worked 7 to 3."</td>
+      </tr>
+      <tr>
+        <td><strong>Electricians</strong></td>
+        <td>Jax</td>
+        <td>"My breaker keeps tripping every time I run the microwave, can someone check it?"</td>
+        <td>Danny Crew / Spark Crew / Panel Team</td>
+        <td>"Replaced the panel breaker, ran new 12-gauge to the kitchen, Danny worked 8 to 3."</td>
+      </tr>
+      <tr>
+        <td><strong>Appliance Repair</strong></td>
+        <td>Milo</td>
+        <td>"My dryer isn't heating anymore, can someone take a look this week?"</td>
+        <td>Sam T. / Rita K. / Miguel P.</td>
+        <td>"Replaced the dryer heating element, tested three cycles, Sam was on site 10 to 11:30."</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
 
   <!-- Cheat sheet box -->
   <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:20px 0;page-break-inside:avoid;">
@@ -632,7 +692,7 @@
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Prep (5 min before)</div>
     <ol style="margin:0 0 20px;padding-left:20px;line-height:2.1;font-size:13px;">
       <li>Log in as <strong>connect@luxordev.com</strong> at <strong style="color:#60a5fa">https://ai-roof.vercel.app/login</strong></li>
-      <li>Go to Demo Studio → click their industry (<strong>Roofing · HVAC · Cleaning · Landscaping · GC</strong>) → company name + email → <strong>Launch demo →</strong></li>
+      <li>Go to Demo Studio → click their industry (<strong>Roofing · HVAC · Landscaping · Cleaning · GC · Electricians · Appliance Repair</strong>) → company name + email → <strong>Launch demo →</strong></li>
       <li>Click <strong>"Open Roofing dashboard →"</strong> — keep that tab ready</li>
       <li>Optional: quick test call to confirm the greeting is right</li>
     </ol>
@@ -699,15 +759,15 @@
   <p style="font-style:italic;color:#475569;">"This is the full picture — AI answers the phone 24/7, books the job, your crew updates from the field by voice, and you have a report and invoice without touching a spreadsheet. Setup takes about a week. Want to talk about getting your number on this?"</p>
 
   <!-- ══ DASHBOARD-ONLY DEMO ══ -->
-  <h3>Dental &amp; Property Mgmt — the Intake Demo</h3>
-  <p>Same live number, different story. These businesses have no field crews, so don't pitch Jobs or Field — their pain is <strong>the phone ringing out after hours</strong>. Their nav only shows what's relevant, which is itself worth pointing out.</p>
+  <h3>Dental, Property Mgmt &amp; Childcare — the Intake Demo</h3>
+  <p>Same live number, different story. These three have no field crews, so don't pitch Jobs or Field — their pain is <strong>the phone ringing out after hours</strong>. Their nav only shows what's relevant, which is itself worth pointing out.</p>
 
   <ol class="step-list">
     <li>
       <div class="step-num blue">1</div>
       <div class="step-body">
         <strong>Launch the industry, then hand them the phone</strong>
-        <p>Dial <strong>+1 (754) 283-7658</strong>. Aria (dental) or Val (property mgmt) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> The agent triages, books, or escalates.</p>
+        <p>Dial <strong>+1 (754) 283-7658</strong>. Aria (dental), Val (property mgmt), or Nora (childcare) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> Childcare: say <em>"I need a sitter for Saturday night, my daughter is 4."</em> The agent triages, books, or escalates.</p>
       </div>
     </li>
     <li>
@@ -721,14 +781,14 @@
       <div class="step-num blue">3</div>
       <div class="step-body">
         <strong>Click "Confirm &amp; notify customer"</strong>
-        <p>This is the money moment: a booking taken at 11pm, approved in one click in the morning, and the patient/tenant gets the confirmation email automatically.</p>
+        <p>This is the money moment: a booking taken at 11pm, approved in one click in the morning, and the patient/tenant/family gets the confirmation email automatically.</p>
       </div>
     </li>
     <li>
       <div class="step-num blue">4</div>
       <div class="step-body">
         <strong>Open Calendar → drag the unassigned card onto a row</strong>
-        <p>Dental rows are <strong>Dr. Rivera / Dr. Chen / Hygiene — Sam</strong>. Property Mgmt rows are <strong>Ace Plumbing / BrightSpark Electric / On-call Manager</strong>. Drag the unassigned booking onto whoever's taking it, then <strong>Confirm + email</strong>.</p>
+        <p>Dental rows are <strong>Dr. Rivera / Dr. Chen / Hygiene — Sam</strong>. Property Mgmt rows are <strong>Ace Plumbing / BrightSpark Electric / On-call Manager</strong>. Childcare rows are <strong>Jenna M. / Priya S. / After-hours On-call</strong>. Drag the unassigned booking onto whoever's taking it, then <strong>Confirm + email</strong>.</p>
       </div>
     </li>
     <li>
@@ -783,6 +843,21 @@
       <div class="v-name" style="color:#5a3ea1;">🏢 Property Management — Val</div>
       <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Tenants → Vendors</div>
       <div class="v-script">"Hey [Prospect], your tenant calls at 11pm about a burst pipe — our AI answers, escalates to your on-call, creates a work order, all before you see it in the morning. Want a live demo?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #a16207;">
+      <div class="v-name" style="color:#a16207;">⚡ Electricians — Jax</div>
+      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Jobs → Crews</div>
+      <div class="v-script">"Hey [Prospect], a customer's breaker keeps tripping at 9pm — your AI captures the details, flags it as urgent, and has a job on your board before you're even up. Want to see it live?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #475569;">
+      <div class="v-name" style="color:#475569;">🔧 Appliance Repair — Milo</div>
+      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Repairs → Techs</div>
+      <div class="v-script">"Hey [Prospect], a customer's fridge dies on a Sunday — your AI books the repair, captures the model number, and puts it on your board before Monday morning. Want to hear it?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #c2185b;">
+      <div class="v-name" style="color:#c2185b;">👶 Childcare — Nora</div>
+      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Bookings → Sitters</div>
+      <div class="v-script">"Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?"</div>
     </div>
   </div>
 
@@ -1201,6 +1276,75 @@ superadmin: false</code>
 
   <hr>
 
+  <!-- ── AFTER THE SALE ── -->
+  <h3>After the Sale — Client Talk-Track</h3>
+  <p>Going live is the easy part. What actually earns the renewal is what you say in the first two weeks: handing over the login without making them feel dumped on a tool, setting expectations before their <em>first real</em> after-hours call lands, framing the ROI in their own numbers, and knowing exactly what to say if a call genuinely goes wrong. This section applies to every vertical — swap the industry noun, keep the structure.</p>
+
+  <h4>1. Handing over the login</h4>
+  <p>Do this on a call, not just an email — five minutes live builds more trust than a paragraph they'll skim.</p>
+  <p style="font-style:italic;color:#475569;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">
+    "Here's your login — [portal URL], your email, and the temporary password I just sent. First thing, change that password. Once you're in, <strong>Dashboard</strong> is your home base — it shows today's calls, any bookings still waiting on your approval, and anything that needs your eyes. <strong>Calls</strong> has a transcript of every conversation the AI has, so if you're ever unsure what a caller actually said, it's all there. I'm going to stay on the line while you log in for the first time, just in case anything looks off."
+  </p>
+  <ul class="checklist">
+    <li>Confirm they can log in and land on their own data (not a blank or wrong dashboard)</li>
+    <li>Point out the tabs their industry actually uses — don't walk them through tabs they don't have</li>
+    <li>Confirm they know where notification emails will land (and to check spam once)</li>
+  </ul>
+
+  <h4>2. Setting after-hours expectations — before their first real one</h4>
+  <p>The single biggest source of a client's first bad reaction isn't a bug — it's an after-hours booking they didn't know to expect. Say this <strong>before</strong> it happens, not after:</p>
+  <p style="font-style:italic;color:#475569;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">
+    "One thing that's going to feel new: the AI answers at 11pm too. If someone calls after hours and books, it doesn't go on your calendar automatically — it shows up on your Dashboard as <strong>pending your approval</strong>, greyed out, with everything the caller gave. You'll see it first thing in the morning, click <strong>Confirm &amp; notify customer</strong> once you've looked at it, and the customer gets their confirmation email right then. Nothing is scheduled without you seeing it first."
+  </p>
+  <div class="highlight">
+    <strong>If they ask "what if it's an emergency at 2am?"</strong> — that's the one case that doesn't wait for approval: emergency rules escalate immediately to the phone number they gave us during onboarding (text and/or call), the same way a human answering service would. Confirm that number is correct with them on this call.
+  </div>
+
+  <h4>3. The ROI conversation</h4>
+  <p>Come back to this once they've had a week or two of real data — the Dashboard and Calls tab are the receipts, use them instead of the generic stats from Part 1.</p>
+  <p style="font-style:italic;color:#475569;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">
+    "Pull up your Calls tab with me — you had [X] calls this week, and [Y] of them came in after hours or while you were on a job, meaning a voicemail would've gotten those before. At your average job value, even one or two of those becoming bookings pays for this many times over. That's the number that matters more than any stat I could've quoted you on day one."
+  </p>
+  <p>If they push back on price, reuse the ROI framing from the Key Numbers section above (missed-call rate × close rate × average job value) — but with <em>their own</em> call volume from the Dashboard, not the generic industry figure.</p>
+
+  <h4>4. If a call goes wrong</h4>
+  <p>It will happen eventually — a caller gets frustrated, the AI mishears something, or an emergency gets triaged slower than a human would have. How you respond to the <em>first</em> one sets the tone for how much they trust every call after it.</p>
+  <ol class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Pull the transcript before you respond</strong>
+        <p>Go to <strong>Calls</strong>, find the call, read the full transcript. Don't guess at what happened or take the client's paraphrase at face value — the actual words are right there.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Say what actually happened, plainly</strong>
+        <p style="font-style:italic;color:#475569;">"I pulled the transcript. Here's exactly what the caller said and what the AI did in response — [summarize]. You're right that [the specific thing that went wrong] shouldn't have happened. Here's what I'm doing about it: [fix or workaround]."</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Never claim the AI is infallible</strong>
+        <p>It doesn't build trust to promise zero mistakes — it builds trust to show you take every one seriously and fix the pattern, not just apologize for the instance.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Close the loop</strong>
+        <p>If the fix is a config change (an FAQ answer, an emergency rule, a booking rule), make it and tell them specifically what you changed — "I added a rule so that next time, X happens instead." A visible fix beats a vague reassurance every time.</p>
+      </div>
+    </li>
+  </ol>
+  <div class="warning-box">
+    <strong>What not to do:</strong> don't disable the agent or revert to voicemail as a first response to one bad call — that throws away the 24/7 coverage that's the entire pitch. Fix the specific gap in their config instead.
+  </div>
+
+  <hr>
+
   <!-- ── Go-live Checklist ── -->
   <h3>Go-Live Checklist</h3>
   <ul class="checklist">
@@ -1287,7 +1431,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.0 — June 2026</span>
+    <span>v2.3 — September 2026</span>
   </div>
 
 </div><!-- /page -->

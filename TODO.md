@@ -62,12 +62,12 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
-- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 2/8
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 3/8
   - [x] T-053 — Retire the dead `agentVoice` field (removed, not wired — see 2026-09-02 review note)
   - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
   - [ ] T-055 — Split demo/onboarding into a dedicated hub
   - [ ] T-056 — Per-industry visual families in the company portal
-  - [ ] T-057 — Post-sale client talk-track content
+  - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
@@ -671,6 +671,64 @@ clean; `vitest run src/test-utils/security-headers.test.ts` 7/7 (new test includ
 navigated to `/login`, ran an in-page `fetch` to `identitytoolkit.googleapis.com` with deliberately-bogus
 credentials, and confirmed it reached Google (`400` — a content rejection, not a blocked-network error) with
 zero CSP violations in the console. This is the acceptance check T-061 itself should have run before shipping.
+
+**2026-09-03 — T-057 done (owner: pick the next self-executable task):** content-only, `public/guides/onboarding-guide.html`
+only, per its own owned-scope/prohibited-scope lines — no code touched.
+
+- **Missing pitch cards found and fixed first:** the "Pitch Scripts" vertical-grid had only 7 of the platform's
+  10 industries — Electricians, Appliance Repair, and Childcare (all three added by the 2026-08-25 vertical
+  expansion, `1d2f840`) never got a card. Added all three, sourcing the exact copy already live in
+  `VERTICAL_TEMPLATES[...].sampleCallerScript` (`templates.ts`) rather than writing new pitch lines, so the
+  guide and the in-app Demo Studio presenter-notes script can't drift.
+- **Field-service full demo generalized to all 7 trades, not just roofing:** the "Field Service — Full Live
+  Demo" section only had a real click-by-click walkthrough for roofing; HVAC/Landscaping/Cleaning/GC were only
+  named in passing and Electricians/Appliance Repair weren't mentioned at all. Rather than duplicating the
+  ~700-word roofing script 6 more times (which would fight the doc's own "nothing is hardcoded per industry"
+  point and rot fast), kept roofing as the fully-written reference script and added a swap table — one row per
+  remaining trade with its real agent name, a realistic caller opening line, its actual seeded Calendar-row
+  names (from `demoSeed.ts`'s `RESOURCES` map, not invented), and its real voice-note script (from each
+  template's `vocab.voiceExample`) — so the identical numbered steps are concretely runnable for any of the 7
+  without re-deriving anything. Also fixed the cheat sheet's prep step, which still only listed 5 of the 7
+  field-service verticals.
+- **Intake demo section extended to Childcare:** "Dental & Property Mgmt — the Intake Demo" was missing
+  Childcare entirely despite being structurally identical (no Jobs/Field/pricing tabs, Calendar dispatches to a
+  resource instead of a crew). Renamed the section, added Nora's caller line and the real seeded sitter rows
+  (`Jenna M. / Priya S. / After-hours On-call`), and updated the adjacent "intake businesses" highlight box to
+  name all three instead of two.
+- **New "After the Sale — Client Talk-Track" section** (the spec's other required half): four subsections —
+  handing over the login (a live-call script, not just an email), setting after-hours-approval expectations
+  *before* the client's first real one lands (since that's the top source of an early bad reaction, not a bug),
+  the ROI conversation reframed around the client's own Dashboard/Calls numbers after a week or two of real
+  data instead of the generic industry stats, and a concrete "if a call goes wrong" protocol (pull the real
+  transcript before responding, state plainly what happened, never claim the AI is infallible, close the loop
+  with a specific config fix) — plus a warning box against the instinct to disable the agent after one bad
+  call. Placed right after the Phase 5 go-live success box, before the Go-Live Checklist — a natural "you're
+  live, here's what's next" continuation.
+- **Fixed in passing:** the cover page and the footer disagreed on the guide's own version (`2.2 — August 2026`
+  vs. `v2.0 — June 2026`, a pre-existing drift, not something this task introduced) — bumped both to a matching
+  `2.3 — September 2026` rather than leaving one stale.
+- **Verified in a real browser, not just structurally:** a Node-based tag-balance check confirmed the new markup
+  didn't break the document structure, then the guide was actually rendered (Playwright against a local static
+  server, since `file://` is sandboxed) and screenshotted section by section per `T-057`'s own acceptance line
+  ("manual read-through, rendered in a browser").
+- **Pre-existing rendering bug found and fixed by that browser check, not left flagged-and-open:** `.step-body
+  strong { display: block; ... }` (line ~235) was a *descendant* selector, so it forced **every** `<strong>`
+  anywhere inside a step — not just the step's own bold title — onto its own block-level line. This was already
+  live and broken before this session touched the file: Phase 1's "Configure the model" step
+  (`Provider: **OpenAI** — Model: **gpt-4o-mini** — Temperature: **0.5** — Max tokens: **150**`, one sentence,
+  4 strongs) rendered as four stacked lines instead of one; the pre-existing Dental/Property-Mgmt intake step's
+  crew-row sentence (3 strongs) rendered with each bolded group on its own line and a stray period floating
+  alone beneath it. T-057's own Childcare addition to that same sentence (a 4th strong) is what surfaced it in
+  this session's screenshot — traced it back and confirmed with `git log -p` that the other 3 predate this
+  session. Fixed with a 1-line, obviously-scoped CSS change: `.step-body strong` → `.step-body > strong` (direct
+  child only — the step title *is* a direct child of `.step-body`; everything inside its `<p>` is not), which
+  restores normal inline bold everywhere else in the document without touching any other rule. Re-screenshotted
+  both the newly-fixed intake-demo paragraph and the pre-existing Phase 1 step to confirm — both now render as a
+  single flowing line with normal inline bold, matching the guide's actual intent. This is a same-file CSS fix,
+  not new guide infrastructure or a functional/JS change, so it stays inside T-057's own owned file even though
+  it's a step beyond "content only" — leaving a bug this visible unfixed after finding it live in a real render
+  would repeat the exact mistake T-061's CSP incident already taught this project not to make (see the
+  live-incident note above: "flagging a gap is not the same as the gap being safe to leave open").
 
 ## Historical assignments (none active)
 
