@@ -61,4 +61,17 @@ describe("next.config.ts security headers", () => {
     expect(csp!.value).not.toContain("fonts.googleapis.com");
     expect(csp!.value).not.toContain("fonts.gstatic.com");
   });
+
+  // Regression test for a live incident: an enforced CSP with no connect-src
+  // falls back to default-src 'self', which silently blocks every browser
+  // fetch/XHR the Firebase client SDK makes (Auth's identitytoolkit/
+  // securetoken calls, Firestore reads) — surfaced in prod as
+  // "Firebase: Error (auth/network-request-failed)" on /login.
+  it("allows the browser to reach Firebase Auth/Firestore (connect-src)", async () => {
+    const allHeaders = await getAllHeaders();
+    const csp = allHeaders.find((h) => h.key === "Content-Security-Policy");
+    expect(csp!.value).toContain("connect-src");
+    expect(csp!.value).toMatch(/connect-src[^;]*'self'/);
+    expect(csp!.value).toMatch(/connect-src[^;]*googleapis\.com/);
+  });
 });

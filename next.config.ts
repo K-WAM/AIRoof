@@ -6,6 +6,12 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
+  // Firebase Auth (identitytoolkit/securetoken), Firestore, and Installations
+  // all live under *.googleapis.com — the client SDK calls these directly
+  // from the browser. Without this, connect-src falls back to default-src
+  // 'self' and every fetch/XHR to them is silently blocked (this was a live
+  // incident: "Firebase: Error (auth/network-request-failed)" on /login).
+  "connect-src 'self' https://*.googleapis.com",
   "frame-ancestors 'self'",
   "object-src 'none'",
   "base-uri 'self'",
