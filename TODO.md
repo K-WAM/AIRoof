@@ -551,6 +551,12 @@ in its place.
   as the one still-open acceptance item, matching this session's honest pattern of flagging environment gaps
   rather than claiming full verification.
 
+  **That flagged gap was real, not just a formality — see the live-incident entry below.** The acceptance
+  check this task skipped would have caught the missing `connect-src` directive (a genuinely separate bug from
+  the font migration itself) before it reached production. Lesson: flagging a gap instead of claiming full
+  verification is not the same as the gap being safe to leave open — an enforced CSP change needs the real
+  browser check before shipping, not just noted as still-owed.
+
 **2026-09-02, continuation — T-069 and T-063 done:** owner said go ahead with T-069, "and other easy things
 too." Picked both remaining no-product-decision Phase 8 tasks; skipped T-062 (major `firebase-admin` v14
 migration — explicitly the biggest/riskiest per this phase's own ordering note), T-065 (collides with the
@@ -643,6 +649,28 @@ Production build `Ready` within about a minute. Verified against the live URL, n
 header (no `-Report-Only`) is live with no leftover `fonts.googleapis.com` reference on `/login`; an
 unauthenticated `POST /api/webhooks/vapi` still correctly 401s (confirms the new rate limiter didn't interfere
 with normal auth).
+
+**2026-09-02/03, live incident — T-061's CSP had no `connect-src`, breaking production login:** owner reported
+`Firebase: Error (auth/network-request-failed)` on `/login` shortly after the field-QR deploy above. Root
+cause: T-061's enforced CSP declared `script-src`/`style-src`/`img-src`/`font-src` but never `connect-src` —
+and an unset `connect-src` falls back to `default-src 'self'`, silently blocking every browser `fetch`/XHR the
+Firebase client SDK makes (Auth's `identitytoolkit.googleapis.com`/`securetoken.googleapis.com` calls,
+Firestore reads). This broke **all login** (Google popup and email/password both call through
+`identitytoolkit`) and, separately, every client-side Firestore read still in the app (`AuthContext`'s
+`businessUsers` lookup) — a bigger blast radius than the symptom the owner saw. This is exactly the acceptance
+gap T-061 flagged and left open rather than checking in a real browser (see the correction note on that entry
+above) — a genuine miss, not a hypothetical one.
+
+Fix: `connect-src 'self' https://*.googleapis.com` in `next.config.ts` — one wildcard directive covers Auth,
+Firestore, and Firebase Installations (all `*.googleapis.com`) rather than enumerating three exact hostnames,
+so a future Firebase service (FCM, etc.) doesn't cause a repeat of this incident. Added a regression test to
+`security-headers.test.ts` asserting `connect-src` is present and includes `googleapis.com`, so a future CSP
+edit can't silently drop it again. Verified the fix properly this time, not just the header string: `tsc`
+clean; `vitest run src/test-utils/security-headers.test.ts` 7/7 (new test included); `next build` green; pushed
+(`9a0da8d`) and deployed (Vercel `Ready`); then **drove a real browser against production** (Playwright) —
+navigated to `/login`, ran an in-page `fetch` to `identitytoolkit.googleapis.com` with deliberately-bogus
+credentials, and confirmed it reached Google (`400` — a content rejection, not a blocked-network error) with
+zero CSP violations in the console. This is the acceptance check T-061 itself should have run before shipping.
 
 ## Historical assignments (none active)
 

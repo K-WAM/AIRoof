@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-02 (live incident fix + demo-persona bug fix + Phase 8 backlog + 7 self-selected cleanup/perf tasks, T-064 deferred by owner)
+Last updated: 2026-09-02 (live incident fixes ×2 + demo-persona bug fix + Phase 8 backlog + 7 self-selected cleanup/perf tasks + real field-QR feature, T-064 deferred by owner)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed. On
 > 2026-09-02 a live production incident was found and fixed (see below) — the phone line is confirmed working
@@ -115,6 +115,15 @@ one-time/10-minute grant primitive) plus a **Field QR** button/modal on the job 
 link," rendered with the same `qrcode` package Demo Studio already uses. Corrected
 `field-operations-guide.html`'s walkthrough, which had been describing this QR flow as already real. 9 new
 tests; `tsc`/lint/build/release-suite all clean. Full detail in `TODO.md`'s matching entry.
+
+**Live incident, right after — T-061's CSP had no `connect-src`, breaking production login:** owner reported
+`Firebase: Error (auth/network-request-failed)` on `/login`. Root cause: the enforced CSP never declared
+`connect-src`, which falls back to `default-src 'self'` and silently blocked every browser fetch the Firebase
+client SDK makes (Auth, Firestore) — this is exactly the acceptance gap T-061 itself flagged and left open
+rather than checking in a real browser. Fixed with `connect-src 'self' https://*.googleapis.com`; added a
+regression test; pushed, deployed, and this time actually verified the fix in a real browser (Playwright: an
+in-page `fetch` to `identitytoolkit.googleapis.com` reached Google with zero CSP violations). Full detail in
+`TODO.md`'s matching entry.
 
 ---
 

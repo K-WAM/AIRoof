@@ -69,6 +69,19 @@ Corrected `field-operations-guide.html`'s walkthrough to match. 9 new tests; `ts
 clean. Full detail in `TODO.md`. Pushed (`53a0965`) and confirmed deployed: Vercel build `Ready` in ~90s,
 `/api/health` 200, `/login` 200, the new field-qr route correctly 401s unauthenticated, webhook auth unaffected.
 
+**Live incident, same session — T-061's CSP had no `connect-src`, breaking login in production:** owner reported
+`Firebase: Error (auth/network-request-failed)` on `/login` right after the above deploy. Root cause: the
+enforced CSP (T-061) never declared `connect-src`, so it silently fell back to `default-src 'self'` — blocking
+every browser fetch the Firebase client SDK makes (Auth's `identitytoolkit`/`securetoken` calls, Firestore
+reads). This broke login for everyone and also silently broke every client-side Firestore read
+(`AuthContext`'s `businessUsers` lookup, etc.). Fixed with `connect-src 'self' https://*.googleapis.com`
+(covers Auth, Firestore, and Firebase Installations under one wildcard). Added a regression test to
+`security-headers.test.ts` asserting `connect-src` is present and includes `googleapis.com`. Pushed (`9a0da8d`),
+confirmed deployed, and verified the actual fix — not just the header — with a real browser (Playwright):
+navigated to `/login`, ran an in-page `fetch` to `identitytoolkit.googleapis.com`, and confirmed it reached
+Google (400 on a deliberately-bogus key/credentials, not a CSP-blocked network error) with zero CSP violations
+in the console.
+
 ## 2026-08-27 — QoL & multi-vertical audit (Phase 7 added, no code changed)
 
 Owner requested a broad quality-of-life pass — identify and answer only, no execution: split demo/onboarding
