@@ -730,6 +730,30 @@ only, per its own owned-scope/prohibited-scope lines — no code touched.
   would repeat the exact mistake T-061's CSP incident already taught this project not to make (see the
   live-incident note above: "flagging a gap is not the same as the gap being safe to leave open").
 
+**2026-09-03, continuation — T-062 partially done (CI gate only, owner: "what's the next improvement you can
+knock out right now"):** split T-062 the same way T-061 was split from its CSP/font work — the task bundles two
+unrelated things (a CI check that catches *new* vulnerabilities, and migrating `firebase-admin` to v14, flagged
+in this same phase's own ordering note as "explicitly the biggest/riskiest" item). Did the CI-gate half only;
+the v14 migration stays exactly where the backlog already had it — queued, needs an owner check-in before
+touching a major direct dependency this central (every server-side Firestore call goes through it).
+
+- New `.github/workflows/ci.yml` step: `npm audit --omit=dev --audit-level=critical`, after the release suite.
+  Gates on critical severity only, so it doesn't fail on the pre-existing, already-tracked moderate/high debt
+  (which needs the deferred v14 migration to actually close) — it exists to catch a *future* dependency bump
+  silently introducing a critical-severity hole, which nothing in CI catches today.
+- Verified against a live run, not assumed: `npm audit --omit=dev --json` timed out repeatedly in this
+  session's sandbox against `registry.npmjs.org/-/npm/v1/security/advisories/bulk` specifically (basic `npm
+  ping` succeeded instantly — an environment-local egress quirk, not a registry outage or a repo problem); the
+  same command without `--json` succeeded and reproduced the exact documented baseline — **21 vulnerabilities,
+  17 moderate / 4 high / 0 critical**, all transitive through `firebase-admin@12` — confirming `--audit-level=
+  critical` exits `0` today and won't false-fail CI on merge.
+- Full re-verification: `tsc --noEmit` clean, lint 0 errors/21 warnings (unchanged baseline — this is a
+  workflow-only edit, no source touched), `next build` green with no route-size regressions, `npm test`
+  335/335 (no flake this run).
+- Not done, still open: the `firebase-admin` v14 migration itself (closes the 17 moderate/4 high), and whether
+  GitHub Actions' runners hit the same advisories-endpoint slowness this sandbox did — worth a glance at the
+  first real CI run against this new step before trusting it long-term.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |

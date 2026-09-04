@@ -36,3 +36,11 @@ jobs:
 
       - name: Release acceptance suite
         run: npx vitest run --config tests/release/vitest.config.ts
+
+      - name: Dependency vulnerability gate (critical only)
+        # Baseline as of 2026-09-02 (T-063 session): 21 prod-dep findings, 17 moderate / 4 high / 0
+        # critical, all transitive through firebase-admin@12 (see TODO.md T-062). Gating on
+        # --audit-level=critical catches a newly introduced critical-severity vuln without blocking
+        # merges on that pre-existing, already-tracked moderate/high debt — closing it needs the
+        # firebase-admin v14 migration, deliberately deferred as its own separate, riskier task.
+        run: npm audit --omit=dev --audit-level=critical
