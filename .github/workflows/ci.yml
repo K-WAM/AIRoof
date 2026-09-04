@@ -7,10 +7,7 @@ on:
     branches: [main]
 
 env:
-  # firebase-admin@14 requires Node >=22 (confirmed via `npm view firebase-admin@14.3.0 engines`).
-  # Matches Vercel production's Node.js Version project setting (24.x) exactly, not just the floor,
-  # so CI can't pass on a Node major prod doesn't actually run.
-  NODE_VERSION: "24"
+  NODE_VERSION: "20"
 
 jobs:
   gate:
@@ -41,8 +38,9 @@ jobs:
         run: npx vitest run --config tests/release/vitest.config.ts
 
       - name: Dependency vulnerability gate (critical only)
-        # firebase-admin was bumped 12->14 (2026-09-03, T-062) specifically to close the 17
-        # moderate/4 high findings this gate deliberately didn't block on when it was first added.
-        # Kept at --audit-level=critical rather than tightened further — it exists to catch a
-        # *future* regression, not to become a second copy of `npm audit`'s own full output.
+        # Baseline as of 2026-09-02 (T-063 session): 21 prod-dep findings, 17 moderate / 4 high / 0
+        # critical, all transitive through firebase-admin@12 (see TODO.md T-062). Gating on
+        # --audit-level=critical catches a newly introduced critical-severity vuln without blocking
+        # merges on that pre-existing, already-tracked moderate/high debt — closing it needs the
+        # firebase-admin v14 migration, deliberately deferred as its own separate, riskier task.
         run: npm audit --omit=dev --audit-level=critical
