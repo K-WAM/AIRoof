@@ -26,6 +26,7 @@ All outbound emails from the platform follow a single documented convention:
 | `[Escalation]` | `[Escalation] <business name>` | `[Escalation] Apex Roofing South Florida` |
 | `[Feedback]` | `[Feedback] <business> — <preview>` | `[Feedback] Apex Roofing — Dashboard loads slowly on mobile` |
 | `[Luxor AI]` | `[Luxor AI] Your <business> account is ready` | `[Luxor AI] Your Apex Roofing account is ready` |
+| `[Alert]` | `[Alert] <what> — <count> since last check` | `[Alert] Vapi webhook auth failures — 12 since last check` |
 
 ## Call sites
 
@@ -41,6 +42,7 @@ All outbound emails from the platform follow a single documented convention:
 | `src/app/api/jobs/[jobId]/invoice/send/route.ts` | `[Invoice] Draft #<jobId> from <name>` | Tenant |
 | `src/app/api/admin/invoices/[invoiceId]/send/route.ts` | `[Invoice] <invoiceId> from Luxor AI` | Admin |
 | `src/app/api/jobs/[jobId]/report/send/route.ts` | `[Report] <title> from <name>` | Tenant |
+| `src/lib/notify.ts` `buildWebhookHealthAlertEmail` | `[Alert] Vapi webhook auth failures — <count> since last check` | System |
 
 ## Tenant-branded vs system emails
 
@@ -51,4 +53,5 @@ All outbound emails from the platform follow a single documented convention:
 ## History
 
 - Adopted 2026-07-25 (T-049). Extends the `[Category]` pattern established by T-043 (`[Luxor AI]`) and T-044 (`[Feedback]`).
+- `[Alert]` added 2026-09-03 (T-065) for the new webhook auth-failure alert — an internal, Luxor-authored system email like `[Feedback]`/`[Luxor AI]`, sent to `connect@luxordev.com`.
 - Prior subjects were ad-hoc: `New assignment: ...`, `Appointment confirmed — ...`, `Invoice ... from ...`, `Job Report — ...`, `New Appointment Request — ...`, `URGENT: Call Escalation — ...`.

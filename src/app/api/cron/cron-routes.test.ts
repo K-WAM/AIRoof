@@ -1,3 +1,4 @@
+import { Timestamp } from "firebase-admin/firestore";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -5,6 +6,7 @@ const providerMocks = vi.hoisted(() => ({
   generateFaqSuggestions: vi.fn(),
   getAdminFirestore: vi.fn(),
   initiateVapiCall: vi.fn(),
+  sendWebhookHealthAlert: vi.fn(),
   summarizeTranscript: vi.fn(),
 }));
 
@@ -18,10 +20,14 @@ vi.mock("@/lib/ai/deepseekClient", () => ({
   generateFaqSuggestions: providerMocks.generateFaqSuggestions,
   summarizeTranscript: providerMocks.summarizeTranscript,
 }));
+vi.mock("@/lib/notify", () => ({
+  sendWebhookHealthAlert: providerMocks.sendWebhookHealthAlert,
+}));
 
 import { POST as summarizeCalls } from "@/app/api/cron/daily-call-summary/route";
 import { POST as suggestFaqs } from "@/app/api/cron/faq-suggestions/route";
 import { GET as followUpCalls } from "@/app/api/cron/follow-up-calls/route";
+import { GET as webhookHealth } from "@/app/api/cron/webhook-health/route";
 import { createLead } from "@/lib/tools/agentTools";
 
 type StoredDocument = Record<string, unknown>;
@@ -323,6 +329,11 @@ describe("cron authentication boundary", () => {
           cronRequest("/api/cron/faq-suggestions", "POST", secret, { businessId: "biz-1" })
         ),
     },
+    {
+      name: "webhook health",
+      invoke: (secret?: string) =>
+        webhookHealth(cronRequest("/api/cron/webhook-health", "GET", secret)),
+    },
   ];
 
   it.each(routes)("rejects a missing Bearer token before side effects: $name", async ({ invoke }) => {
@@ -333,6 +344,7 @@ describe("cron authentication boundary", () => {
     expect(providerMocks.initiateVapiCall).not.toHaveBeenCalled();
     expect(providerMocks.summarizeTranscript).not.toHaveBeenCalled();
     expect(providerMocks.generateFaqSuggestions).not.toHaveBeenCalled();
+    expect(providerMocks.sendWebhookHealthAlert).not.toHaveBeenCalled();
   });
 
   it.each(routes)("rejects an invalid Bearer token before side effects: $name", async ({ invoke }) => {
@@ -343,6 +355,7 @@ describe("cron authentication boundary", () => {
     expect(providerMocks.initiateVapiCall).not.toHaveBeenCalled();
     expect(providerMocks.summarizeTranscript).not.toHaveBeenCalled();
     expect(providerMocks.generateFaqSuggestions).not.toHaveBeenCalled();
+    expect(providerMocks.sendWebhookHealthAlert).not.toHaveBeenCalled();
   });
 });
 
@@ -637,5 +650,90 @@ describe("authenticated summary and FAQ jobs", () => {
     expect(
       firestore.documents.get("businesses/biz-1/faqSuggestions/faq_suggestions_1784656800000")
     ).toMatchObject({ status: "pending_review", sourceCallCount: 1 });
+  });
+});
+
+describe("webhook health alerting (T-065)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.CRON_SECRET = CRON_SECRET;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function seedAuthFailureCounter(firestore: FakeFirestore, count: number, lastFailureAt = NOW) {
+    firestore.documents.set("_vapiWebhookHealth/authFailureCounter", {
+      count,
+      lastFailureAt: Timestamp.fromMillis(lastFailureAt),
+    });
+  }
+
+  it("does not alert on a single transient 401 and resets the window", async () => {
+    const firestore = new FakeFirestore();
+    seedAuthFailureCounter(firestore, 1);
+    providerMocks.getAdminFirestore.mockReturnValue(firestore as never);
+
+    const response = await webhookHealth(
+      cronRequest("/api/cron/webhook-health", "GET", CRON_SECRET)
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ alerted: false, count: 1 });
+    expect(providerMocks.sendWebhookHealthAlert).not.toHaveBeenCalled();
+    expect(firestore.documents.get("_vapiWebhookHealth/authFailureCounter")).toMatchObject({
+      count: 0,
+    });
+  });
+
+  it("sends exactly one alert for a sustained burst, then resets the window", async () => {
+    const firestore = new FakeFirestore();
+    seedAuthFailureCounter(firestore, 12, NOW - 5_000);
+    providerMocks.getAdminFirestore.mockReturnValue(firestore as never);
+    providerMocks.sendWebhookHealthAlert.mockResolvedValue({ status: "delivered" });
+
+    const response = await webhookHealth(
+      cronRequest("/api/cron/webhook-health", "GET", CRON_SECRET)
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      alerted: true,
+      count: 12,
+      emailStatus: "delivered",
+    });
+    expect(providerMocks.sendWebhookHealthAlert).toHaveBeenCalledOnce();
+    expect(providerMocks.sendWebhookHealthAlert).toHaveBeenCalledWith({
+      count: 12,
+      lastFailureAt: NOW - 5_000,
+    });
+    expect(firestore.documents.get("_vapiWebhookHealth/authFailureCounter")).toMatchObject({
+      count: 0,
+    });
+  });
+
+  it("reports the window with no counter doc at all as zero and sends nothing", async () => {
+    const firestore = new FakeFirestore();
+    providerMocks.getAdminFirestore.mockReturnValue(firestore as never);
+
+    const response = await webhookHealth(
+      cronRequest("/api/cron/webhook-health", "GET", CRON_SECRET)
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ alerted: false, count: 0 });
+    expect(providerMocks.sendWebhookHealthAlert).not.toHaveBeenCalled();
+  });
+
+  it("500s when Firestore is unavailable, without touching the alert channel", async () => {
+    providerMocks.getAdminFirestore.mockReturnValue(null);
+
+    const response = await webhookHealth(
+      cronRequest("/api/cron/webhook-health", "GET", CRON_SECRET)
+    );
+
+    expect(response.status).toBe(500);
+    expect(providerMocks.sendWebhookHealthAlert).not.toHaveBeenCalled();
   });
 });

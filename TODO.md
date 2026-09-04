@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 5/9** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 6/9** | Owner prioritization pending |
 
 ### Checklist
 
@@ -73,14 +73,14 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
 - [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 5/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 → T-062 → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
   - [x] T-063 — Rate limiting / abuse throttling on public-facing endpoints
   - [ ] T-064 — Secrets hygiene: mark 7 credential vars `Secret` type in Vercel (owner deferred, 2026-09-02 —
         not blocked, just skipped for now; see note below for the exact click-through when revisited)
-  - [ ] T-065 — Alerting on Vapi webhook auth-failure spikes
+  - [x] T-065 — Alerting on Vapi webhook auth-failure spikes
   - [x] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
   - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
         gated behind two sequential auth round-trips on every load)
@@ -754,6 +754,59 @@ touching a major direct dependency this central (every server-side Firestore cal
   GitHub Actions' runners hit the same advisories-endpoint slowness this sandbox did — worth a glance at the
   first real CI run against this new step before trusting it long-term.
 
+**2026-09-03, continuation — T-065 done (owner: "go ahead with next"):** the task this session's own T-062
+entry flagged as blocked on NH-6's "how many cron-job slots does Hobby actually leave free" question — resolved
+that question first rather than guessing: fetched Vercel's own current docs
+(`/docs/cron-jobs/usage-and-pricing`), which state Hobby allows **100 cron jobs per project** on **all** plans,
+identically to Pro/Enterprise — only the *minimum interval* is Hobby-restricted (once/day, the limit this
+session already hit and worked around for `follow-up-calls` back in Phase 3). The "how many slots" framing in
+NH-6/T-062 was a misreading of the earlier once-daily-frequency finding as a job-count limit too; it was never
+actually a count constraint. NH-6 (unrelated FAQ/summary-cron scheduling question) stays open, but T-065's own
+blocker is fully resolved — a 5th cron entry needs no plan change and no owner tradeoff.
+
+- **New counter, owned by `verify.ts` per the spec's own scope line:** `recordVapiAuthFailure()` — a
+  best-effort, try/caught `FieldValue.increment(1)` write to a new `_vapiWebhookHealth/authFailureCounter` doc
+  (same internal-collection naming convention as the existing `_vapiWebhookEvents` replay-claim store; covered
+  by `firestore.rules`' existing default-deny catch-all, no new rule needed). Called from
+  `src/app/api/webhooks/vapi/route.ts`'s existing 401 branch, awaited (not fire-and-forget — `next/server`'s
+  `after()` isn't used anywhere else in this repo and its behavior when a route handler is invoked directly in a
+  test, as every existing webhook test does, wasn't worth the risk to verify for one Firestore write's worth of
+  latency saved). A Firestore hiccup here is caught and logged, never turns a clean 401 into a 500 — the auth
+  decision itself is completely unaffected either way.
+- **New `src/lib/vapi/webhookHealth.ts`** (a small addition beyond the spec's literal two-file owns-list, needed
+  to make the threshold/window logic unit-testable on its own): `shouldAlertForAuthFailures(count, threshold)`
+  (pure), `AUTH_FAILURE_ALERT_THRESHOLD = 5` (sustained failures, not one occurrence — matches the spec's own
+  "a single transient 401 must not fire a false alarm" edge case), and `readAndResetAuthFailureWindow(db)` —
+  reads the counter accumulated since the previous check and resets it to zero unconditionally, so state stays
+  bounded (reset-on-read, the spec's own second allowed option, alongside TTL) rather than growing an
+  ever-larger event log.
+- **New `src/app/api/cron/webhook-health/route.ts`** (cron-secret-gated via the existing `requireCronAuth`):
+  reads+resets the window, and only if the count clears the threshold, sends exactly one alert email via a new
+  `sendWebhookHealthAlert()` in `src/lib/notify.ts` (reuses `src/lib/comms/send.ts`, no new notification
+  channel, per the spec's own constraint) to `connect@luxordev.com` — same target as the existing feedback
+  email. New `[Alert]` category added to `docs/EMAIL-CONVENTIONS.md`, consistent with the existing
+  `[Category]` convention. Scheduled in `vercel.json` at `30 13 * * *` (daily, an hour before the existing
+  `follow-up-calls` job, arbitrary but distinct).
+- **Test-suite ripple, handled deliberately rather than loosened:** three existing tests asserted
+  `getAdminFirestore` was *never* called on a 401 (`src/lib/vapi/__tests__/route-auth.test.ts`'s
+  zero-side-effects case, its 429-burst case, and `tests/release/webhook-auth-replay.test.ts`'s two 401 cases)
+  — a real invariant this task's own new behavior legitimately changes. Updated each to assert the new call
+  count precisely (once per 401, zero for a request that never reaches the auth check at all, e.g. the
+  429-blocked or the rate-limited case) rather than deleting or weakening the assertion; the *booking*-work
+  assertions (`bookAppointment`/`createLead`/etc. never called) are untouched and still enforced. 17 new tests
+  added: `src/lib/vapi/__tests__/webhookHealth.test.ts` (counter increment/no-op/swallowed-failure, threshold
+  boundaries, window read+reset) and a new "webhook health alerting" block in
+  `src/app/api/cron/webhook-health/route.ts`'s coverage inside the existing `src/app/api/cron/cron-routes.test.ts`
+  (reusing its existing `FakeFirestore` and cron-auth-boundary `it.each` pattern rather than duplicating it) —
+  single transient failure → no alert + window reset, sustained burst → exactly one alert + reset, no counter
+  doc at all → zero/no alert, Firestore unavailable → 500 without touching the alert channel.
+- Verified: `tsc --noEmit` clean; lint 0 errors/21 warnings (unchanged baseline); full `vitest run` 350/352 (the
+  2 failures — `example-lib.test.ts`'s `verifyVapiWebhook` smoke test and `send.test.ts`'s `sendEmail`
+  unconfigured test — are the long-documented concurrent-load timeout flake, both reconfirmed clean on an
+  isolated rerun); release suite 16/16 (both updated 401 cases pass); `next build` green, new
+  `/api/cron/webhook-health` route at the shared 103kB baseline (a server route, no client bundle cost).
+- Not pushed yet — batched with T-062's push decision per the owner's own instruction this round.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -822,7 +875,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 | NH-3 | Resend: verify `luxordev.com` sending domain (SPF/DKIM DNS records); approve sender `no-reply@luxordev.com` | T-041 live verification | DNS access required |
 | NH-4 | Legal/privacy: recording disclosure wording, retention windows, deletion policy, callback consent, emergency-message wording | T-042 sign-off (dev proceeds with 90d defaults) | Owner/legal |
 | NH-5 | Product: confirm defaults D-1 (booking = requested time) and D-2 (demo isolation = in-code guards, same project) or override | T-030/T-035 final | Defaults proceed unless overridden |
-| NH-6 | Decide whether `daily-call-summary` + `faq-suggestions` get scheduled in `vercel.json` | T-032 scope edge | Routes get secured either way |
+| NH-6 | Decide whether `daily-call-summary` + `faq-suggestions` get scheduled in `vercel.json` | T-032 scope edge | Routes get secured either way. The "how many cron slots does Hobby leave free" sub-question is resolved (2026-09-03, T-065): Vercel's own docs confirm **100 cron jobs/project on every plan**, Hobby only caps *frequency* at once/day — slot count was never actually the constraint, so this is now purely a scheduling-cadence decision, not a capacity one |
 | NH-7 | GitHub branch protection on `main` (require CI green) | T-050 completion | Integrator has `gh` ready: needs owner OK to change repo settings |
 | NH-8 | Human click tests: calendar drag→confirm on desktop browser; `/field` QR + hold-to-speak on a real phone | T-030/T-034 acceptance | 10 minutes with the live app |
 | NH-9 | Callback consent policy for pre-existing leads (auto-call grandfathered leads or not) | T-032 backfill | Default: existing leads are NOT auto-called |

@@ -3,12 +3,20 @@
 // or a custom HTTP header).
 
 import { createHash } from "node:crypto";
-import { Timestamp, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import type { NextRequest } from "next/server";
+import { getAdminFirestore } from "@/lib/firebase/admin";
 import type { VapiMessage } from "@/lib/vapi/types";
 
 export const VAPI_REPLAY_WINDOW_MS = 10 * 60 * 1000;
 const VAPI_REPLAY_COLLECTION = "_vapiWebhookEvents";
+
+// T-065: a scheduled check (src/lib/vapi/webhookHealth.ts +
+// src/app/api/cron/webhook-health/route.ts) reads this counter and alerts
+// past a threshold. Kept here, next to the auth check itself, per the task's
+// own owned-scope.
+export const VAPI_WEBHOOK_HEALTH_COLLECTION = "_vapiWebhookHealth";
+export const VAPI_AUTH_FAILURE_COUNTER_DOC = "authFailureCounter";
 
 export type VapiReplayClaim = "claimed" | "duplicate" | "invalid";
 
@@ -59,6 +67,26 @@ export function verifyVapiWebhook(request: NextRequest): boolean {
   });
 
   return false;
+}
+
+// Best-effort observability only — never blocks or fails the actual 401
+// decision. A Firestore hiccup here must never turn a clean auth rejection
+// into a 500 (matches this file's own "log diagnostics, never the secret"
+// posture), so every failure is caught and swallowed, not propagated.
+export async function recordVapiAuthFailure(now = Date.now()): Promise<void> {
+  try {
+    const db = getAdminFirestore();
+    if (!db) return;
+    await db
+      .collection(VAPI_WEBHOOK_HEALTH_COLLECTION)
+      .doc(VAPI_AUTH_FAILURE_COUNTER_DOC)
+      .set(
+        { count: FieldValue.increment(1), lastFailureAt: Timestamp.fromMillis(now) },
+        { merge: true }
+      );
+  } catch (error) {
+    console.error("Failed to record Vapi webhook auth-failure counter", error);
+  }
 }
 
 export function getVapiEventIdentity(message: VapiMessage): string | null {

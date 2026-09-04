@@ -100,12 +100,15 @@ describe("release boundary: Vapi authentication and replay", () => {
   it.each([
     ["missing signature", undefined],
     ["wrong signature", "not-the-secret"],
-  ])("rejects %s before Firestore or booking work", async (_name, secret) => {
+  ])("rejects %s before any booking Firestore work", async (_name, secret) => {
     const response = await POST(webhookRequest(secret));
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
-    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+    // T-065: getAdminFirestore is now legitimately called once here — best-effort
+    // recording of the webhook-health auth-failure counter (this mock returns
+    // undefined, so the write itself is skipped). No booking work happens either way.
+    expect(mocks.getAdminFirestore).toHaveBeenCalledTimes(1);
     expect(mocks.bookAppointment).not.toHaveBeenCalled();
   });
 
@@ -115,7 +118,7 @@ describe("release boundary: Vapi authentication and replay", () => {
     const response = await POST(webhookRequest(SECRET));
 
     expect(response.status).toBe(401);
-    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+    expect(mocks.getAdminFirestore).toHaveBeenCalledTimes(1);
     expect(mocks.bookAppointment).not.toHaveBeenCalled();
   });
 

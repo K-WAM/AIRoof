@@ -183,3 +183,41 @@ export async function sendFeedbackEmail(
   const { subject, html } = buildFeedbackEmail(opts);
   return sendEmail({ to: "connect@luxordev.com", subject, html });
 }
+
+function buildWebhookHealthAlertEmail(opts: {
+  count: number;
+  lastFailureAt: number | null;
+}): { subject: string; html: string } {
+  const when = opts.lastFailureAt
+    ? new Date(opts.lastFailureAt).toISOString()
+    : "unknown";
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">
+      The Vapi webhook (<code>/api/webhooks/vapi</code>) has rejected
+      <strong>${opts.count}</strong> requests for bad authentication since the
+      last check.
+    </p>
+    <div style="background:#fef2f2;border-radius:8px;padding:14px 16px;font-size:14px;color:#7f1d1d;line-height:1.6">
+      Last failure: ${esc(when)}<br/>
+      If this is unexpected, confirm the Server URL Secret in the Vapi
+      dashboard still matches <code>VAPI_WEBHOOK_SECRET</code> in Vercel —
+      a mismatch here silently fails every call.
+    </div>`;
+
+  return {
+    subject: `[Alert] Vapi webhook auth failures — ${opts.count} since last check`,
+    html: shell(
+      { businessName: "Luxor AI", brandColor: "#b91c1c" },
+      "Webhook auth-failure spike",
+      body,
+    ),
+  };
+}
+
+export async function sendWebhookHealthAlert(opts: {
+  count: number;
+  lastFailureAt: number | null;
+}): Promise<CommSendResult> {
+  const { subject, html } = buildWebhookHealthAlertEmail(opts);
+  return sendEmail({ to: "connect@luxordev.com", subject, html });
+}

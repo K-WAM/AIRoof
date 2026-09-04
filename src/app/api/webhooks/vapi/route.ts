@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
-import { claimVapiWebhookEvent, verifyVapiWebhook } from "@/lib/vapi/verify";
+import { claimVapiWebhookEvent, recordVapiAuthFailure, verifyVapiWebhook } from "@/lib/vapi/verify";
 import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
 import {
   bookAppointment,
@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   if (!verifyVapiWebhook(request)) {
+    // T-065: best-effort counter for the scheduled webhook-health check —
+    // never blocks or fails this response either way.
+    await recordVapiAuthFailure();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

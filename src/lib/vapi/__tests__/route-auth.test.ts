@@ -116,7 +116,7 @@ describe("Vapi route authentication and replay boundary", () => {
     ["missing configuration", "expected-secret", undefined],
     ["wrong secret", "wrong-secret", "expected-secret"],
     ["altered secret", "expected-secreu", "expected-secret"],
-  ])("returns 401 with zero side effects for %s requests", async (_case, header, configured) => {
+  ])("returns 401 with zero booking side effects for %s requests", async (_case, header, configured) => {
     if (configured) process.env.VAPI_WEBHOOK_SECRET = configured;
     else delete process.env.VAPI_WEBHOOK_SECRET;
 
@@ -124,7 +124,11 @@ describe("Vapi route authentication and replay boundary", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Unauthorized" });
-    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+    // T-065: getAdminFirestore is now legitimately called once here — best-effort
+    // recording of the webhook-health auth-failure counter (this mock returns
+    // undefined, so the write itself is skipped; see webhookHealth.test.ts for
+    // the increment behavior). No *booking* Firestore work happens either way.
+    expect(mocks.getAdminFirestore).toHaveBeenCalledTimes(1);
     expect(mocks.findBusinessByVapiAssistantId).not.toHaveBeenCalled();
     expect(mocks.findBusinessByVapiPhoneNumberId).not.toHaveBeenCalled();
     expect(mocks.bookAppointment).not.toHaveBeenCalled();
@@ -297,10 +301,17 @@ describe("Vapi route authentication and replay boundary", () => {
       expect(response.status).toBe(401); // under budget — normal unauthenticated rejection
     }
 
+    // Each of the 300 401s above legitimately called getAdminFirestore once
+    // (T-065's best-effort auth-failure counter) — snapshot that count so the
+    // real assertion below is about the 429'd request specifically, not the
+    // burst that preceded it.
+    const callsBeforeBlockedRequest = mocks.getAdminFirestore.mock.calls.length;
+
     const blocked = await burstFrom("11.11.11.11");
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("Retry-After")).toBeTruthy();
-    expect(mocks.getAdminFirestore).not.toHaveBeenCalled(); // never got past the budget check
+    // Never got past the budget check, so no auth-failure counter write either.
+    expect(mocks.getAdminFirestore).toHaveBeenCalledTimes(callsBeforeBlockedRequest);
 
     // A different IP is unaffected by this one's burst.
     const other = await burstFrom("12.12.12.12");
