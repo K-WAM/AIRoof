@@ -76,7 +76,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
       T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
-  - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
+  - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14) — CI-gate half
+        done (`27b8556`); firebase-admin v14 half attempted 2026-09-04, broke production (`ERR_REQUIRE_ESM` via
+        `jwks-rsa`/`jose`), reverted — blocked on an upstream fix, see the live-incident entry below
   - [x] T-063 — Rate limiting / abuse throttling on public-facing endpoints
   - [ ] T-064 — Secrets hygiene: mark 7 credential vars `Secret` type in Vercel (owner deferred, 2026-09-02 —
         not blocked, just skipped for now; see note below for the exact click-through when revisited)
@@ -805,7 +807,57 @@ blocker is fully resolved — a 5th cron entry needs no plan change and no owner
   unconfigured test — are the long-documented concurrent-load timeout flake, both reconfirmed clean on an
   isolated rerun); release suite 16/16 (both updated 401 cases pass); `next build` green, new
   `/api/cron/webhook-health` route at the shared 103kB baseline (a server route, no client bundle cost).
-- Not pushed yet — batched with T-062's push decision per the owner's own instruction this round.
+- Pushed and deployed clean (`fbaf541`) — confirmed via `/api/health` and the webhook 401 path in production.
+
+**2026-09-04, live incident — T-062's second half attempted, broke production, reverted within minutes:**
+owner said "yeah go ahead" to both pushing the above and starting the `firebase-admin` v14 migration. The
+migration itself (`6bef37b`) was thoroughly verified *locally* — `tsc`/lint/352 tests/release suite/`next build`
+all green, `npm audit` confirmed the target findings gone — and pushed. **`next build` succeeding was not
+sufficient evidence; this is the mistake, stated plainly.** Production `/api/health` started 500ing immediately
+after deploy. `vercel logs` on the new deployment showed the real cause instantly:
+
+```
+Error: require() of ES Module /var/task/node_modules/jose/dist/webapi/index.js from
+/var/task/node_modules/jwks-rsa/src/utils.js not supported.
+```
+
+**Root cause:** `firebase-admin@14.3.0` depends on `jwks-rsa@4.1.0` (used by its Auth module for JWKS-based
+token verification — on the critical path for every login, not an edge feature), which depends on `jose@^6.1.3`
+— and `jose` went pure-ESM (`"type": "module"`, no CJS export) starting at v6. This is a **known, currently
+open upstream issue**, not a mistake specific to this migration:
+[auth0/node-jwks-rsa#493](https://github.com/auth0/node-jwks-rsa/issues/493). Node 24 (what CI/Vercel were
+bumped to for this migration) does support synchronous `require(esm)` interop as of `>=23.0.0`, which is why
+this never surfaced in local testing or `next build` — but it did not activate inside Vercel's actual
+serverless runtime for this route, and the crash happens at *module load*, not when any auth function is
+called, so it took down every route touching `@/lib/firebase/admin` at once (essentially everything —
+Firestore reads, login, all API routes), not just Auth-specific paths.
+
+**Immediate response:** `vercel rollback` was attempted first and correctly **blocked by the permission
+classifier** — a good guard, not worked around. Fixed forward instead, the same way every other change this
+session shipped: `git revert --no-edit 6bef37b` (clean revert, all 8 files including the doc updates), pushed
+(`bf10381`). Verified production restored properly, not just re-deployed: `/api/health` → `200`/`"connected"`,
+an unauthenticated `POST /api/webhooks/vapi` → `401` (T-065's changes, deployed in the same push cycle as the
+firebase-admin work, stayed live and correct throughout — only the firebase-admin commit was reverted), `/login`
+→ `200`. Total production impact window: the time between the `6bef37b` deploy going `Ready` and the `bf10381`
+revert deploy going `Ready` — on the order of minutes, not hours.
+
+**Why no safe retry today:** researched whether a scoped fix exists before writing this up, rather than
+guessing. `firebase-admin@14.3.0` and `jwks-rsa@4.1.0` are both already the latest available versions of each —
+no upstream patch to update to. Downgrading `jwks-rsa` to a pre-jose-v6 release (3.2.2, on `jose@^4.15.4`) was
+considered and rejected: unlike the T-062 `uuid` override earlier this session (a leaf dependency this app never
+calls into), `jwks-rsa` sits directly on the token-verification path `firebase-admin@14.3.0`'s own Auth code was
+built and tested against — forcing an older major two levels down risks a **silent** API mismatch on a security
+boundary instead of the loud crash this incident actually was, which is a strictly worse failure mode. Revisit
+only when either `jwks-rsa` ships a `require(esm)`-safe release (or drops the hard `jose` dependency), or a
+dedicated session specifically tests Vercel's serverless `require(esm)` behavior in isolation before touching
+`main` again — not as a five-minute follow-up to this incident.
+
+**State reverted, not carried forward:** `firebase-admin` is back at `^12.0.0`, `.github/workflows/ci.yml`'s
+`NODE_VERSION` back at `"20"`, the three legacy-namespace files back to `import * as admin from "firebase-admin"`,
+`package.json`'s `uuid` override removed, `CLAUDE.md`'s Next Steps line reverted to its pre-migration wording.
+T-062 checklist entry and the Phase 8 progress count (6/9) both correctly reverted along with the code — the
+CI-gate half from earlier this session (`27b8556`) is still merged and live; only the `firebase-admin` v14 half
+is undone. **T-062 stays open, blocked, not "done."**
 
 ## Historical assignments (none active)
 
