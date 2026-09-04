@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 6/9** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 7/9** | Owner prioritization pending |
 
 ### Checklist
 
@@ -73,10 +73,10 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
 - [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 5/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 ✓ → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
-  - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
+  - [x] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14)
   - [x] T-063 — Rate limiting / abuse throttling on public-facing endpoints
   - [ ] T-064 — Secrets hygiene: mark 7 credential vars `Secret` type in Vercel (owner deferred, 2026-09-02 —
         not blocked, just skipped for now; see note below for the exact click-through when revisited)
@@ -753,6 +753,11 @@ touching a major direct dependency this central (every server-side Firestore cal
 - Not done, still open: the `firebase-admin` v14 migration itself (closes the 17 moderate/4 high), and whether
   GitHub Actions' runners hit the same advisories-endpoint slowness this sandbox did — worth a glance at the
   first real CI run against this new step before trusting it long-term.
+- **Correction (see the v14-migration entry below, same day):** "all transitive through `firebase-admin@12`"
+  above restates the original T-062/Phase-8 spec's own characterization, which turned out to be imprecise —
+  only the 17 moderate findings were actually via `firebase-admin`; the 4 high findings (`postcss`/`sharp` via
+  `next`, `undici` via the client `firebase` SDK) never were. Not corrected retroactively above per this file's
+  own "mark superseded, don't delete" convention; the migration entry below has the accurate breakdown.
 
 **2026-09-03, continuation — T-065 done (owner: "go ahead with next"):** the task this session's own T-062
 entry flagged as blocked on NH-6's "how many cron-job slots does Hobby actually leave free" question — resolved
@@ -805,7 +810,71 @@ blocker is fully resolved — a 5th cron entry needs no plan change and no owner
   unconfigured test — are the long-documented concurrent-load timeout flake, both reconfirmed clean on an
   isolated rerun); release suite 16/16 (both updated 401 cases pass); `next build` green, new
   `/api/cron/webhook-health` route at the shared 103kB baseline (a server route, no client bundle cost).
-- Not pushed yet — batched with T-062's push decision per the owner's own instruction this round.
+- Pushed alongside the T-062 CI-gate commit once the owner confirmed both (`git push origin main`, see below).
+
+**2026-09-03, continuation — T-062's second half done: `firebase-admin` v12→v14.3.0 (owner: "yeah go ahead" to
+both the push and starting this half):** the actual migration this phase's own ordering note called "explicitly
+the biggest/riskiest" item, and this session's own earlier T-062 entry deliberately deferred pending an owner
+check-in. Researched the real breaking-change surface first rather than guessing at risk: `npm view
+firebase-admin@14.3.0 engines` confirms **Node >=22** (up from v12's `>=14`; v13 was still `>=18` — the jump to
+22 happens exactly at v14), and Firebase's own release notes name one code-level breaking change relevant to
+this repo: *"Removed legacy namespace support. To import Admin SDK APIs you should use the ES module entry
+points."* A repo-wide grep confirmed that pattern (`import * as admin from "firebase-admin"` / `import admin
+from "firebase-admin"`, then `admin.initializeApp`/`admin.credential.cert`/`admin.firestore(app)`/`admin.auth(app)`)
+existed in exactly three files — everywhere else in `src/` already used the modular `firebase-admin/firestore`
+imports (`Timestamp`/`FieldValue`/`FieldPath`) that T-065 and others had already been using — so the whole
+code-level migration surface was small and precisely bounded before a single line changed.
+
+- **Node version:** Vercel production was already on `nodeVersion: "24.x"` (confirmed via the Vercel MCP
+  `get_project` call, not assumed) — no prod-side change needed. `.github/workflows/ci.yml`'s `NODE_VERSION`
+  bumped `"20"` → `"24"` (matching prod exactly, not just clearing the `>=22` floor, so CI can't pass on a Node
+  major prod doesn't actually run). Local dev was already on Node 24.18.0. Deliberately left `package.json`
+  without a new `engines` field — Vercel's dashboard Node-version setting already correctly showed 24.x, and an
+  `engines.node` range's exact interaction with that setting wasn't worth the risk of an unintended override for
+  a purely documentary addition.
+- **Legacy-namespace migration, all 3 files:** `src/lib/firebase/admin.ts` (the shared init module — the one
+  place `getAdminAuth`/`getAdminFirestore`/`verifyIdToken` live), `scripts/seed-demo-business.mjs`,
+  `scripts/provision-superadmin.mjs` — all switched to `initializeApp`/`cert` from `firebase-admin/app`,
+  `getFirestore` from `firebase-admin/firestore`, `getAuth` from `firebase-admin/auth`. Behavior-identical, API
+  shape unchanged (`getFirestore(app).settings({ignoreUndefinedProperties:true})` is the same call the old
+  `admin.firestore(adminApp).settings(...)` made, just reached through the modular entry point).
+- **Test-risk was lower than it looked:** `src/test-utils/setup.ts` globally mocks `@/lib/firebase/admin`'s
+  `getAdminFirestore` for every test file by default (`vi.mock(..., () => ({ getAdminFirestore: vi.fn(() =>
+  null) }))`), and every test file that touches Firestore explicitly re-mocks it with its own fake — so no test
+  in this suite has ever exercised the real, unmocked Admin SDK. `tsc --noEmit` (which does resolve real
+  `firebase-admin` `.d.ts` files regardless of mocking) was therefore the real correctness check for the
+  rewrite and for the other v14 breaking change that could plausibly hit this repo — "Decoupled `CreateRequest`
+  and `UpdateRequest` interfaces" — which affects `auth.createUser(...)` (used in
+  `admin/businesses/route.ts` and `admin/businesses/[businessId]/provision-login/route.ts`) and
+  `auth.updateUser(...)` (the same provision-login route). Came back clean with zero errors on the first
+  attempt — no type-level fallout from either change.
+- **`npm audit` improvement, verified precisely rather than eyeballing the summary line:** the Firestore-side
+  vulnerable chain (`@google-cloud/firestore` → `google-gax` → `uuid`) is gone outright post-v14 — confirmed via
+  `npm ls @google-cloud/firestore` showing a clean `8.7.1` with no flagged sub-chain. One narrower moderate
+  chain remained: `@google-cloud/storage@7.22.0` (a firebase-admin dependency this app has never called — no
+  Storage usage anywhere, base64-in-Firestore per this file's own Known Limitations) still pulled
+  `gaxios`/`teeny-request` → `uuid@9.0.1`, both declaring `uuid: ^9.x` — so plain `npm audit fix` couldn't
+  bump it without going through `--force` (which offered to *downgrade* `firebase-admin` to `10.3.0`, the
+  resolver's only in-range path — obviously not taken). `npm ls uuid --all` confirmed `uuid` appears **nowhere
+  else** in the entire dependency tree, so a package.json `"overrides": {"uuid": "^11.1.1"}` is precisely scoped
+  in practice even though the syntax is tree-wide — and since the only consumer is a Storage submodule this app
+  never invokes, the already-low risk of an unforced override outside its declared semver range is closer to
+  zero than usual. Added it, reinstalled, and reconfirmed clean: `tsc`/lint/`next build`/full `vitest run`
+  (352/352, no flake this run at all) all green again, no behavior difference anywhere `uuid` could reach.
+- **Final, precise `npm audit --omit=dev` result (JSON-parsed, not eyeballed):** **13 vulnerabilities (9
+  moderate, 4 high, 0 critical)** — down from 21 — and **zero of them trace to `firebase-admin` any more**. The
+  remaining 9 moderate are all `@firebase/*` (`auth`, `firestore`, `functions`, `storage`, their `-compat`
+  variants, and `firebase` itself) via the **client** SDK's `undici` dependency — a `firebase` v11+ bump, not a
+  `firebase-admin` concern. The remaining 4 high are `next`/`postcss`/`sharp`/`undici` — `postcss`/`sharp` need
+  `next@16`, and `undici` here is the same client-SDK chain as the moderates. Both are pre-existing, already
+  independently-flagged deferred majors (see `CLAUDE.md`'s Next Steps — updated this session to reflect
+  `firebase-admin` v14 as done and name the two that remain), not part of this task's scope and not started.
+- Verified end to end after the override, one final pass: `tsc --noEmit` clean; lint 0 errors/21 warnings
+  (unchanged); full `vitest run` **352/352** (zero flakes this run); release suite 16/16; `next build` green, no
+  route-size regressions anywhere.
+- `CLAUDE.md`'s Next Steps #3 updated to record `firebase-admin` v14 as done and name the two still-deferred
+  majors (`next@16`, client `firebase@11+`) precisely, instead of the prior vaguer three-item list.
+- Pushed alongside the rest of this session's work per the owner's "yeah go ahead."
 
 ## Historical assignments (none active)
 

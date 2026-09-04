@@ -1,7 +1,8 @@
 // Plain ESM seed script — no TypeScript, no path aliases
 // Run with: node scripts/seed-demo-business.mjs
 
-import admin from "firebase-admin";
+import { cert, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -10,8 +11,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const serviceAccountPath = join(__dirname, "..", "firebase-service-account.json");
 const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, "utf-8"));
 
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
+const app = initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore(app);
 
 const demoBusiness = {
   businessId: "demo-roofing",

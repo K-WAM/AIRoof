@@ -1,7 +1,15 @@
 // Firebase Admin SDK initialization (server-side only)
-import * as admin from "firebase-admin";
+//
+// Modular entry points (firebase-admin/app, /auth, /firestore) — the
+// `import * as admin from "firebase-admin"` legacy-namespace style was
+// removed outright in firebase-admin v14 ("Removed legacy namespace
+// support. To import Admin SDK APIs you should use the ES module entry
+// points."), so this is the only supported form now, not a style choice.
+import { cert, initializeApp, type App } from "firebase-admin/app";
+import { getAuth, type DecodedIdToken } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 
-let adminApp: admin.app.App | null = null;
+let adminApp: App | null = null;
 
 function initializeAdmin() {
   if (adminApp) return adminApp;
@@ -17,13 +25,13 @@ function initializeAdmin() {
 
   try {
     const serviceAccount = JSON.parse(serviceAccountJson);
-    adminApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    adminApp = initializeApp({
+      credential: cert(serviceAccount),
     });
     // Drop undefined fields instead of throwing on .set()/.update().
     // Must run once, before any Firestore operation. Prevents the entire class of
     // "Cannot use 'undefined' as a Firestore value" errors (e.g. optional appointment notes).
-    admin.firestore(adminApp).settings({ ignoreUndefinedProperties: true });
+    getFirestore(adminApp).settings({ ignoreUndefinedProperties: true });
     return adminApp;
   } catch (error) {
     console.error("Failed to initialize Firebase Admin:", error);
@@ -33,18 +41,18 @@ function initializeAdmin() {
 
 export const getAdminAuth = () => {
   const app = initializeAdmin();
-  return app ? admin.auth(app) : null;
+  return app ? getAuth(app) : null;
 };
 
 export const getAdminFirestore = () => {
   const app = initializeAdmin();
-  return app ? admin.firestore(app) : null;
+  return app ? getFirestore(app) : null;
 };
 
 // Verify Firebase ID token (server-side)
 export async function verifyIdToken(
   idToken: string
-): Promise<admin.auth.DecodedIdToken | null> {
+): Promise<DecodedIdToken | null> {
   try {
     const auth = getAdminAuth();
     if (!auth) return null;

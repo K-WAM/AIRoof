@@ -277,8 +277,10 @@ Before asking the user to verify anything, use CLI/curl first:
    and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
 2. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore
    TTL policies (NH-1/NH-3/NH-4/NH-11).
-3. **Major dependency upgrades** — evaluate Next.js 16, Firebase 12, and Firebase Admin 14 separately; the
-   2026-08-23 maintenance pass applied all non-breaking audit fixes but intentionally did not force majors.
+3. **Major dependency upgrades still deferred** — Next.js 16 (closes `postcss`/`sharp` high-severity findings)
+   and the client `firebase` SDK v11+ (closes `undici`-related moderate findings, all under `@firebase/*`) — the
+   2026-08-23 maintenance pass applied all non-breaking audit fixes but intentionally didn't force majors.
+   **`firebase-admin` v14 is done** (2026-09-03, T-062): 0 remaining vulnerabilities tied to it — see TODO.md.
 4. **Post-MVP** — Google Calendar OAuth, Stripe billing, and SMS.
 
 ## Implementation Phases
