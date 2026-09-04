@@ -1,21 +1,46 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-02 (Claude) — live incident fix, demo-persona architecture fix, Phase 8 backlog, 7 tasks done,
-1 (T-064) deferred by owner.
+Updated: 2026-09-04 (Claude) — T-057 guide content, T-062 CI audit-gate done + firebase-admin v14 attempted and
+reverted (live incident), T-065 webhook-health alerting done.
 
 ## Repository
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
-- Branch: `main` (this session's work landed on `docs/qol-audit-2026-08-27` and `chore/qol-cleanup-2026-09-02`,
-  each fast-forward-merged into `main` and pushed — see HANDOFF.md's 2026-09-02 entry for the full commit list).
-- Pushed baseline: `origin/main` is at `67a4710` (T-061/T-069/T-063 + doc updates), pushed and confirmed
-  deployed — `vercel ls` showed the new build `Ready` within ~1 min, `/api/health` returns `200` with every
-  provider `configured`, CSP header confirmed enforced (no `-Report-Only`) with no leftover
-  `fonts.googleapis.com` reference on `/login`, and the Vapi webhook still correctly 401s an unauthenticated
-  POST (rate limiter didn't break normal auth flow).
-- Vercel: deployed to production directly via `vercel --prod` mid-session (ahead of the git push, to unblock
-  live debugging) and again via the GitHub-integration auto-deploy on each push to `main`.
+- Branch: `main` (all work this session pushed directly to `main`, no worker branches).
+- Pushed baseline: `origin/main` is at `f638087` (2026-09-04) — see the 2026-09-03/04 entry below for the full
+  commit list, including one reverted commit. Production confirmed healthy post-revert: `/api/health` →
+  `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
+- Vercel: deployed via the GitHub-integration auto-deploy on each push to `main` throughout.
 - No worker branches, active worktrees, or development blockers otherwise.
+
+## 2026-09-03/04 — guide content, CI audit gate, webhook alerting, one reverted live incident
+
+Owner asked for the next self-executable improvement, then kept greenlighting further self-selected work.
+
+- **T-057** (2026-09-03): content-only pass on `public/guides/onboarding-guide.html` — added the 3 missing
+  vertical pitch cards, generalized the field-service full-demo walkthrough to all 7 trades via a swap table,
+  extended the intake-demo section to Childcare, added an "After the Sale — Client Talk-Track" section, and
+  fixed a pre-existing CSS bug (`.step-body strong` descendant selector) found while browser-verifying the
+  render.
+- **T-062, CI-gate half** (`27b8556`): `npm audit --omit=dev --audit-level=critical` added to CI — passes today
+  (0 criticals), catches a future critical-severity regression.
+- **T-065** (`fbaf541`): sustained Vapi webhook auth-failure alerting — a best-effort counter on every 401, a
+  new daily cron reading/resetting that window, one `[Alert]` email past a 5-failure threshold. Resolved the
+  shared T-062/T-065 blocker along the way: Vercel Hobby allows 100 cron jobs/project (only frequency is
+  capped), so NH-6's "cron slot budget" concern was never actually a constraint.
+- **T-062, firebase-admin v14 half — attempted, broke production, reverted.** Migrated `firebase-admin`
+  v12→v14.3.0 (`6bef37b`); fully green locally (tsc/lint/352 tests/release suite/build), but production
+  `/api/health` and every Firestore/Auth route started 500ing within about a minute of deploy
+  (`ERR_REQUIRE_ESM`: `firebase-admin@14`'s Auth module depends on `jwks-rsa@4.1.0` → `jose@^6.1.3`, and `jose`
+  went pure-ESM at v6 — a known open upstream issue, [auth0/node-jwks-rsa#493](https://github.com/auth0/node-jwks-rsa/issues/493)).
+  `vercel rollback` was attempted and correctly blocked by the permission classifier; fixed forward via
+  `git revert --no-edit 6bef37b` (`bf10381`), verified restored properly, not just re-deployed. No safe retry
+  today — both `firebase-admin` and `jwks-rsa` are already at their latest releases, and downgrading `jwks-rsa`
+  risks a silent API mismatch on the token-verification path. **T-062 stays open**; only its CI-gate half is
+  done. Full incident detail in `TODO.md` and `HANDOFF.md`'s matching entries.
+
+Verified end state: `tsc` clean, lint 0/21, full `vitest run` 352/352 (local `node_modules` re-synced to the
+reverted lockfile, confirmed `firebase-admin@12.7.0`), release suite 16/16, production health confirmed live.
 
 ## 2026-09-02 — live incident fix, demo-persona bug fix, Phase 8 backlog, 4 tasks completed
 
@@ -97,9 +122,10 @@ backlog closed weeks ago).
 
 ## Product status
 
-- Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work. Phase 7: 2/8
-  done (T-053, T-059). Phase 8: 5/9 done (T-066, T-068, T-061, T-069, T-063) — added and worked this session;
-  T-064 investigated and deferred by owner choice (see continuation entries above).
+- Phases 0–6 are fully merged: 100% of the currently scoped audited release and UX/demo work. Phase 7: 3/8
+  done (T-053, T-057, T-059). Phase 8: 6/9 done (T-061, T-063, T-065, T-066, T-068, T-069) — T-062 is half done
+  (CI audit gate merged; the firebase-admin v14 half was attempted 2026-09-04 and reverted after a brief
+  production incident, see above — stays open); T-064 deferred by owner choice; T-067 not started.
 - Live check 2026-09-02, post-fix: phone line confirmed working end-to-end via a live test call (greeting,
   correct persona, tools) after the incident fixes above. `/api/health` returns `200`, Firestore `connected`,
   all six provider/runtime capabilities `configured`.
@@ -166,14 +192,17 @@ backlog closed weeks ago).
 
 ## Next actions
 
-1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–058/060 and
-   T-061–065/067/069) — decide what to greenlight next; nothing remaining is assigned or started.
+1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–056/058/060 and
+   T-062 firebase-admin half/T-067) — decide what to greenlight next; nothing remaining is assigned or started.
 2. **NH-13**: owner to paste reference organizing/roofing apps for T-056's per-industry visual palette work.
 3. Complete NH-1/NH-3/NH-4/NH-8/NH-11 production sign-offs. NH-1's Vapi-dashboard-config-matches-production
    concern is now substantially addressed by this session's incident fix, but the human dashboard review itself
    (assistant model/voice/retry/recording settings) is still outstanding.
-4. Scope dependency majors (Next.js 16, Firebase 12, Firebase Admin 14) as a dedicated migration with full
-   browser/provider regression testing — T-062 (Phase 8) now formally tracks the `npm audit` half of this.
+4. **Dependency majors**: Next.js 16 (`postcss`/`sharp` findings) and the client `firebase` SDK v11+ (`undici`
+   findings) still need dedicated migration work with full browser/provider regression testing. `firebase-admin`
+   v14 was attempted 2026-09-04 and reverted after breaking production (`ERR_REQUIRE_ESM`, a known open upstream
+   `jwks-rsa`/`jose` issue) — do not retry without an upstream fix or dedicated Vercel-runtime `require(esm)`
+   testing; see the 2026-09-03/04 entry above.
 5. **T-054 when picked up**: owner confirmed Twilio (not Telnyx) as the Canadian-number provider — buy the DID
    from Twilio, import into Vapi as bring-your-own-number.
 6. Optional: a live click-through of the three newest verticals (Electricians, Appliance Repair, Childcare) in

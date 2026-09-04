@@ -1,21 +1,22 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-02 (live incident fixes ×2 + demo-persona bug fix + Phase 8 backlog + 7 self-selected cleanup/perf tasks + real field-QR feature, T-064 deferred by owner)
+Last updated: 2026-09-04 (T-057 guide content, T-062 CI audit-gate + attempted-and-reverted firebase-admin v14
+live incident, T-065 webhook-health alerting — see the 2026-09-03/04 session entry below)
 
-> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed. On
-> 2026-09-02 a live production incident was found and fixed (see below) — the phone line is confirmed working
-> end-to-end again, including for the first time the "one number adapts per vertical" Demo Studio feature. The
-> remaining launch work is authenticated human smoke testing and provider/legal sign-off, not unfinished scoped
-> implementation. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives
-> below remain historical evidence.
+> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
+> Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
+> incident revert (see below). The remaining launch work is authenticated human smoke testing and provider/legal
+> sign-off, not unfinished scoped implementation. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live
+> state. The dated session narratives below remain historical evidence.
 
 ## Current State
 
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** see the 2026-09-02 session entry below for this session's commits; CI green. The
-2026-08-23 maintenance cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pushed in an
-earlier session.
+**Latest pushed baseline:** `origin/main` at `f638087` (2026-09-04) — see the 2026-09-03/04 session entry below
+for the full commit list, including one reverted commit (a firebase-admin v14 migration that broke production
+for a few minutes; fixed forward via `git revert`, documented as a live incident). The 2026-08-23 maintenance
+cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pushed in an earlier session.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
@@ -24,6 +25,63 @@ earlier session.
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
 
 ---
+
+## This session (2026-09-03/04) — guide content, CI audit gate, webhook alerting, one reverted live incident
+
+Owner asked "what's the next improvement you can knock out right now" and then kept greenlighting self-selected
+work from the Phase 7/8 backlog. Four pieces of work, three landed clean, one reverted after a brief production
+outage.
+
+**T-057 (2026-09-03) — post-sale talk-track + full per-vertical demo walkthroughs:** content-only pass on
+`public/guides/onboarding-guide.html`. Added the 3 missing pitch cards (Electricians/Appliance Repair/Childcare
+— present in `VERTICAL_TEMPLATES` since the 2026-08-25 expansion but never added to the guide), generalized the
+Field Service full-demo walkthrough from roofing-only to a swap table covering all 7 field-service verticals,
+extended the intake-demo section to Childcare, and added a new "After the Sale — Client Talk-Track" section
+(login handoff script, after-hours-approval expectations, ROI reframing, a bad-call protocol). Found and fixed
+a pre-existing CSS bug while browser-verifying the render (`.step-body strong` was a descendant selector,
+forcing every bold span inside a step onto its own line, not just the step title) — narrowed to `>` (direct
+child only). Full detail in `TODO.md`.
+
+**T-062, CI-gate half — `npm audit --omit=dev --audit-level=critical` added to `.github/workflows/ci.yml`**
+(commit `27b8556`). Gates on critical severity only, so it passes today (0 criticals) without blocking on the
+pre-existing moderate/high debt, while catching a *future* dependency bump that introduces a critical hole —
+a gap nothing in CI caught before.
+
+**T-065 — alerting on sustained Vapi webhook auth-failure spikes** (commit `fbaf541`). Nothing automated caught
+the 2026-09-02 "100% of calls failing 401" incident except a manual `vercel logs` check after a bug report; this
+closes that gap. `verify.ts`'s failed-auth branch best-effort increments a Firestore counter (never blocks the
+401 itself); a new daily cron (`/api/cron/webhook-health`) reads and resets that window, and sends exactly one
+`[Alert]` email once sustained failures (≥5, not one transient blip) cross the threshold. Along the way,
+resolved T-062/T-065's shared blocker (NH-6's "how many cron slots does Hobby leave free" question) by pulling
+Vercel's current docs directly: Hobby allows **100 cron jobs/project**, identical to every other plan — only
+frequency is capped at once/day. It was never actually a count constraint.
+
+**T-062, firebase-admin v14 half — attempted, broke production, reverted (live incident, 2026-09-04).** Full
+local verification (`tsc`/lint/352 tests/release suite/`next build`, all green; `npm audit` confirmed the target
+findings closed) was not sufficient evidence — pushing the migration (`6bef37b`) took production down within
+about a minute of deploy. `vercel logs` showed the real cause instantly:
+`require() of ES Module .../jose/dist/webapi/index.js from .../jwks-rsa/src/utils.js not supported`
+(`ERR_REQUIRE_ESM`). Root cause: `firebase-admin@14.3.0`'s Auth module hard-depends on `jwks-rsa@4.1.0`, which
+depends on `jose@^6.1.3` — and `jose` went pure-ESM at v6. This is a known, currently open upstream issue
+([auth0/node-jwks-rsa#493](https://github.com/auth0/node-jwks-rsa/issues/493)), not something local testing (or
+even `next build`) could have caught — Node 24 does support `require(esm)` interop in principle, but it didn't
+activate inside Vercel's serverless runtime for this route, and the crash happens at module load, so it took
+down every Firestore/Auth-touching route at once, not just login.
+
+`vercel rollback` was attempted first and correctly **blocked by the permission classifier** — not worked
+around. Fixed forward instead: `git revert --no-edit 6bef37b`, pushed (`bf10381`), verified restored properly
+(not just re-deployed) — `/api/health` → `200`/`"connected"`, unauthenticated webhook POST → `401`, `/login` →
+`200`. Total production impact window was on the order of minutes. No safe retry today: both `firebase-admin`
+and `jwks-rsa` are already at their latest releases (no patch to update to), and downgrading `jwks-rsa` to a
+pre-jose-v6 release risks a *silent* API mismatch on the token-verification path rather than the loud crash this
+incident actually was — worse, not better. Revisit only with an upstream fix or dedicated Vercel-runtime
+`require(esm)` testing, not as a quick follow-up. Full incident writeup, including the researched dead ends, in
+`TODO.md`'s matching entry. **T-062 stays open** — the CI-gate half is merged and live; the firebase-admin v14
+half is fully reverted (back to `^12.0.0`, CI back to Node 20, the three legacy-namespace files unchanged).
+
+Verified end state: `tsc` clean, lint 0 errors/21 warnings, full `vitest run` 352/352 (local `node_modules`
+re-synced to the reverted lockfile via a fresh `npm install`, confirmed `firebase-admin@12.7.0`), release suite
+16/16, production `/api/health` confirmed healthy as of this write-up.
 
 ## This session (2026-09-02) — live incident fix, demo-persona bug fix, Phase 8 backlog, 4 tasks completed
 
@@ -372,8 +430,11 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
   (NH-4), and Firestore TTL policies (NH-11).
 - **Maintenance backlog:** unify the public/authenticated field-screen visuals; add sticky save bars where useful;
   decide whether intake calendars need a true chair/provider × hour view.
-- **Dependency majors:** the 2026-08-23 pass applied non-breaking security updates. Next.js 16, Firebase 12,
-  Firebase Admin 14, and the pitch-deck generator require separate migration work rather than `audit --force`.
+- **Dependency majors:** Next.js 16 (`postcss`/`sharp` findings) and the client `firebase` SDK v11+ (`undici`
+  findings, all `@firebase/*`) still need separate migration work. **`firebase-admin` v14 was attempted
+  2026-09-04 and reverted** after breaking production (`ERR_REQUIRE_ESM` via `jwks-rsa`→`jose`, a known open
+  upstream issue) — do not retry without an upstream fix or dedicated Vercel-runtime testing; see the
+  2026-09-03/04 session entry above.
 - **Post-MVP:** Google Calendar per-business OAuth, Stripe billing, SMS, and additional live phone numbers.
 
 ## Key Files (added/changed this session)
