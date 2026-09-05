@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import QRCode from "qrcode";
 import {
   HardHat,
   Wind,
@@ -95,9 +94,21 @@ export default function DemoStudioPage() {
       ? (result.fieldUrl ?? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`)
       : (result.demoUrl ?? "");
     if (!qrUrl) return;
-    QRCode.toDataURL(qrUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
-      .then(setQrDataUrl)
+    // Dynamic import, not a static top-level one, so `qrcode` only enters
+    // this page's bundle once a launch actually produces a URL to encode —
+    // same code-splitting principle T-068 applied to Calendar's dnd-kit.
+    let cancelled = false;
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(qrUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
+      )
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl);
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [result?.businessId, result?.demoUrl, result?.fieldUrl, selectedId]);
 
   function pickVertical(id: VerticalId) {

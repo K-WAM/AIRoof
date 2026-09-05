@@ -27,6 +27,15 @@ flakes, confirmed clean isolated)/release suite 16/16/`next build` all green. Ne
 `src/lib/auth/__tests__/profileCache.test.ts`. Full detail in `TODO.md`'s and `HANDOFF.md`'s matching entries.
 Phase 8 is now 7/9. **Not pushed** — local commit only.
 
+**Continuation, same session:** closed a real gap left in T-068's own "done" scope — its spec flagged
+`/admin/onboarding`, `/admin/businesses/[businessId]/config`, and `/company/jobs/[jobId]` as a follow-up audit
+beyond Calendar, but only Calendar was ever split. `/company/jobs/[jobId]` and `/admin/demo` both had `qrcode`
+statically imported despite only using it inside a click-triggered handler / result-gated effect — moved both
+to a dynamic `import("qrcode")` at the call site. Measured: `/company/jobs/[jobId]` 269kB→261kB, `/admin/demo`
+down to 118kB. The other two flagged routes carry no accidental library bloat (just page code + all-10-
+verticals template data) — flagged as a follow-up, not attempted. `tsc`/lint(0/21)/`vitest run` 359/359/release
+suite 16/16/`next build` all green. Also local commit only.
+
 ## 2026-09-03/04 — guide content, CI audit gate, webhook alerting, one reverted live incident
 
 Owner asked for the next self-executable improvement, then kept greenlighting further self-selected work.

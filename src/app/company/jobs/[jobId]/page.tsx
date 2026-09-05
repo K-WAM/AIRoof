@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
-import QRCode from "qrcode";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
 import { lookupUnitPrice } from "@/types/library";
@@ -296,6 +295,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not generate a field QR code");
+      // Dynamic import (not a static top-level one) so `qrcode` only enters
+      // this route's bundle once a staff member actually opens the QR modal
+      // — same code-splitting principle T-068 applied to Calendar's dnd-kit.
+      const { default: QRCode } = await import("qrcode");
       const dataUrl = await QRCode.toDataURL(data.fieldUrl as string, {
         width: 220,
         margin: 2,

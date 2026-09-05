@@ -62,6 +62,21 @@ remain.
 **Not pushed** — committed locally only, per this repo's standing "nothing pushed without explicit approval"
 rule.
 
+**Continuation, same session — closed a real gap in T-068's own scope:** T-068's spec named three more heavy
+routes as a "follow-up audit" beyond Calendar (`/admin/onboarding`, `/admin/businesses/[businessId]/config`,
+`/company/jobs/[jobId]`), but only Calendar was ever actually split — a fresh grep confirmed `next/dynamic`
+still appears nowhere else. Found the real, fixable piece of it: `/company/jobs/[jobId]` and `/admin/demo` both
+statically imported the `qrcode` library at the top of the file even though it's only used inside a
+click-triggered handler or a result-gated effect — moved both to a dynamic `import("qrcode")` at the call site
+(a library-level split, not a `next/dynamic` component boundary, since it's a plain function call). Measured:
+`/company/jobs/[jobId]` **269kB → 261kB**, `/admin/demo` down to **118kB**. The other two flagged routes
+(`/admin/onboarding`, `/admin/businesses/[businessId]/config`) genuinely need their own page code + all-10-
+verticals template data — no accidental library bloat to remove there, so left as a flagged follow-up rather
+than rushing a riskier wizard/form refactor. Zero behavior change (same `QRCode.toDataURL` call and options);
+added an explicit `cancelled` guard on the admin/demo effect since the async import can now resolve after a
+newer effect run has already fired. Verified: `tsc` clean, lint 0/21, `vitest run` 359/359 clean, release suite
+16/16, `next build` green. Also committed locally, not pushed.
+
 ---
 
 ## This session (2026-09-03/04) — guide content, CI audit gate, webhook alerting, one reverted live incident

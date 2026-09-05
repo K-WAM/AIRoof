@@ -898,6 +898,33 @@ decision — T-067 was the one genuinely no-human-input, load-time-improving tas
   timing pass would be stronger evidence; flagging as a nice-to-have follow-up, not a gap that blocks calling
   this done (same honesty standard as T-061's flagged-but-real gap above).
 
+**2026-09-05, continuation — closed a real gap in T-068's own "done" scope (owner: "go on to the next
+improvement you can do, proceed"):** T-068's spec explicitly named three more heavy routes as "a follow-up
+audit within the same task" beyond Calendar — `/admin/onboarding`, `/admin/businesses/[businessId]/config`,
+`/company/jobs/[jobId]` — but the 2026-09-02 completion only ever touched Calendar; a fresh grep confirmed
+`next/dynamic` still appears nowhere outside `company/calendar/`. Rather than re-open the riskier three-route
+work with no check-in, looked for what was actually making them heavy: `/company/jobs/[jobId]` and `/admin/demo`
+both had a static top-level `import QRCode from "qrcode"` (used only inside a click-triggered `openFieldQr()`/
+a result-gated `useEffect`, never on first paint), so the ~20kB `qrcode` module was shipping in every visitor's
+initial bundle whether or not they ever opened the QR flow. Same class of bug T-068 fixed for `@dnd-kit`, one
+tier down — a library-level split (`await import("qrcode")` at the call site) rather than a `next/dynamic`
+component boundary, since `QRCode.toDataURL` is a plain function call, not a component to mount.
+
+- **Measured, not assumed:** `next build`'s own output — `/company/jobs/[jobId]` First Load JS **269kB → 261kB**;
+  `/admin/demo` **(not previously flagged, but also carried the same import)** dropped to **118kB**, close to the
+  103kB shared baseline. `/admin/onboarding` (260kB) and `/admin/businesses/[businessId]/config` (261kB) are
+  untouched by this fix — they import no `qrcode`; their weight is genuinely the wizard/config page code and
+  `VERTICAL_TEMPLATES`/`PLAN_PRESETS` data (37.8kB/1.3kB source respectively) needed to render all 10 verticals,
+  not an accidentally-eager third-party library. Splitting those further would mean lazy-loading individual
+  wizard steps or config sections behind `next/dynamic` — a materially more invasive refactor of stateful,
+  multi-step forms, not a mechanical import-site change — so left as a flagged follow-up rather than rushed.
+- **Zero behavior change:** same `QRCode.toDataURL(...)` call, same options, same await; only *when* the module
+  loads changed. Admin demo's effect gained an explicit `cancelled` guard around the now-async import chain (the
+  effect can re-fire — vertical change, new launch — before a slow import resolves; without the guard a stale
+  response could `setQrDataUrl` after a newer one already landed).
+- **Verified:** `tsc` clean; lint 0/21 (unchanged); full `vitest run` **359/359 clean this run** (no flake); release
+  suite 16/16; `next build` green.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
