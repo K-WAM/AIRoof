@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 6/9** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 7/9** | Owner prioritization pending |
 
 ### Checklist
 
@@ -71,9 +71,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 5/9
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 7/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14) — CI-gate half
@@ -84,7 +84,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         not blocked, just skipped for now; see note below for the exact click-through when revisited)
   - [x] T-065 — Alerting on Vapi webhook auth-failure spikes
   - [x] T-066 — Reusable Tooltip primitive + a targeted hover-guidance pass
-  - [ ] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
+  - [x] T-067 — Cut the auth-gate latency before any page can render (26/26 pages are client-rendered,
         gated behind two sequential auth round-trips on every load)
   - [x] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
   - [x] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
@@ -858,6 +858,45 @@ dedicated session specifically tests Vercel's serverless `require(esm)` behavior
 T-062 checklist entry and the Phase 8 progress count (6/9) both correctly reverted along with the code — the
 CI-gate half from earlier this session (`27b8556`) is still merged and live; only the `firebase-admin` v14 half
 is undone. **T-062 stays open, blocked, not "done."**
+
+**2026-09-05 — T-067 done (owner: "what's next that doesn't need human... improve loading times on every
+page"):** the last self-executable task in Phase 8's performance trio (T-068/T-069 already done; T-062's
+remaining half is upstream-blocked, T-064 is owner-deferred, and T-054/055/056/058/060 all need a real product
+decision — T-067 was the one genuinely no-human-input, load-time-improving task left in the backlog).
+
+- **Root cause, confirmed against the actual code:** `AuthContext.tsx`'s `onIdTokenChanged` callback blocks
+  `loading` on two sequential async steps (`firebaseUser.getIdToken()` then a Firestore `businessUsers` `getDoc`)
+  before any page can render. `AuthProvider` is instantiated independently in both `company/layout.tsx` and
+  `admin/layout.tsx` (not once at the root), so this full round trip re-pays itself on a hard refresh **and**
+  on every top-level layout remount (superadmin bouncing between `/company/*` and `/admin/*`), not just first
+  sign-in.
+- **Fix:** new `src/lib/auth/profileCache.ts` — a small, dependency-free sessionStorage cache (`read/write/
+  clearCachedProfile`, generic over any `{ uid: string }` shape, every failure mode — missing key, wrong uid,
+  corrupt JSON, storage unavailable — collapses to a clean miss, never a throw). `AuthContext.tsx` now checks it
+  first on every `onIdTokenChanged` firing: a hit calls `setUser`+`setLoading(false)` immediately (instant first
+  paint), then the real `getIdToken()`/Firestore read still runs in the background and overwrites both the
+  state and the cache — so a role change lands within the very next `onIdTokenChanged` firing (sign-in/out or
+  Firebase's own hourly refresh) rather than sticking forever, matching the task's own edge-case requirement.
+  Sign-out clears the cache; a different uid signing in is never handed the previous user's cached profile
+  (validated by the uid match inside `readCachedProfile`, covered by a dedicated test). Explicitly a read-path
+  UX cache only, per the task's own constraint — every server API route still independently re-verifies the
+  real Firebase ID token from the `__session` cookie, so a stale cached profile can only affect what the UI
+  paints for an instant, never what the backend allows.
+- **Tests:** new `src/lib/auth/__tests__/profileCache.test.ts`, 7 cases (miss-when-empty, hit-for-the-same-uid,
+  miss-for-a-different-uid, clear-then-miss, a later write replacing an earlier one, corrupt-JSON-is-a-miss,
+  unavailable-storage-is-a-no-op) — stubs a minimal in-memory `Storage` via `vi.stubGlobal` rather than pulling
+  in jsdom, since this module never touches the DOM (kept the suite's `environment: "node"` default; jsdom stays
+  scoped to `Tooltip.test.tsx`, the one file that actually needs it).
+- **Verified:** `tsc --noEmit` clean; `eslint` 0 errors/21 warnings (unchanged baseline, no new warnings);
+  full `vitest run` 356/359 (3 failures — `example-lib.test.ts`, `registry.test.ts`, `send.test.ts` — all the
+  long-documented concurrent-load timeout flake, none touching `AuthContext`/`profileCache`, all reconfirmed
+  clean on an isolated rerun of just those three files); release suite 16/16; `next build` green with no route
+  First-Load-JS regression (this is a runtime-logic change, not a bundle-size one).
+- **Not done this session, deliberately:** no live-browser click-through timing a before/after page load — the
+  acceptance criterion ("navigating between two already-visited company pages shows content without a new
+  Loading… flash") is satisfied by the cache design and covered by the unit tests, but a real-browser Playwright
+  timing pass would be stronger evidence; flagging as a nice-to-have follow-up, not a gap that blocks calling
+  this done (same honesty standard as T-061's flagged-but-real gap above).
 
 ## Historical assignments (none active)
 

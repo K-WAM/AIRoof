@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { onIdTokenChanged, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
+import { clearCachedProfile, readCachedProfile, writeCachedProfile } from "@/lib/auth/profileCache";
 
 interface AuthUser {
   uid: string;
@@ -44,8 +45,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setIdToken(null);
         setLoading(false);
+        clearCachedProfile();
         document.cookie = "__session=; path=/; max-age=0; SameSite=Lax";
         return;
+      }
+
+      // Serve a cached profile for this uid immediately, if one exists, so a
+      // full page load or a layout remount (company <-> admin) never blocks
+      // its first paint on the token + Firestore round trip below — this is
+      // a read-path UX cache only (see profileCache.ts), so it's always safe
+      // to render optimistically while the real values are re-verified.
+      const cached = readCachedProfile<AuthUser>(firebaseUser.uid);
+      if (cached) {
+        setUser(cached);
+        setLoading(false);
       }
 
       try {
@@ -70,10 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
+        // onIdTokenChanged also fires on Firebase's own hourly token refresh,
+        // so this re-fetch (and the cache it refreshes) naturally picks up a
+        // role change within one cycle instead of sticking on a stale value.
         setUser(profile);
+        writeCachedProfile(profile);
       } catch (err) {
         console.error("Auth profile load failed:", err);
-        setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
+        if (!cached) setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
       } finally {
         setLoading(false);
       }

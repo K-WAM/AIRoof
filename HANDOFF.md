@@ -1,6 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-04 (T-057 guide content, T-062 CI audit-gate + attempted-and-reverted firebase-admin v14
-live incident, T-065 webhook-health alerting — see the 2026-09-03/04 session entry below)
+Last updated: 2026-09-05 (T-067 auth-gate latency fix — see the session entry below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -23,6 +22,45 @@ cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pus
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-05) — T-067: cut the auth-gate latency on every page load
+
+Owner asked what's next that doesn't need human input, specifically to improve loading times on every page.
+Of Phase 8's remaining backlog, T-067 was the only fully self-executable, load-time-improving task left —
+T-068/T-069 (the other two performance tasks) were already done; T-062's remaining half is blocked on an
+upstream `jose`/`jwks-rsa` fix; T-064 is owner-deferred; T-054/055/056/058/060 all need a real product decision
+(buying numbers, new domains, a PDF library choice, touching the live demo assistant).
+
+**Root cause:** every one of the app's 26 client-rendered pages sits behind `AuthContext`'s `loading` flag,
+which only clears after `onIdTokenChanged` runs `firebaseUser.getIdToken()` then a Firestore `businessUsers`
+read, in sequence. `AuthProvider` is mounted independently in both `company/layout.tsx` and `admin/layout.tsx`
+(not once at the app root), so this full round trip re-pays itself on a hard refresh *and* every time a
+superadmin crosses between `/company/*` and `/admin/*` — not just on first sign-in.
+
+**Fix:** new `src/lib/auth/profileCache.ts` — a small sessionStorage cache for the resolved profile, keyed and
+validated by uid (every failure mode — miss, wrong user, corrupt JSON, storage unavailable — is a clean miss,
+never a throw). `AuthContext.tsx` now renders a cache hit immediately (`setLoading(false)` right away) while
+the real token+Firestore read still happens in the background and overwrites both state and cache — so a role
+change lands on the very next `onIdTokenChanged` firing (sign-in/out or Firebase's own hourly refresh) instead
+of sticking on stale data forever. Deliberately a read-path UX cache only: every server API route still
+independently re-verifies the real Firebase ID token from the `__session` cookie, so this can only affect what
+the UI paints for an instant, never what the backend allows.
+
+**Verified:** `tsc` clean; lint 0 errors/21 warnings (unchanged); full `vitest run` 356/359 (3 failures are the
+long-documented concurrent-load timeout flake — `example-lib.test.ts`/`registry.test.ts`/`send.test.ts`, none
+touching the changed files, all clean on an isolated rerun); release suite 16/16; `next build` green, no
+First-Load-JS regression (a runtime-logic change, not a bundle-size one). New test:
+`src/lib/auth/__tests__/profileCache.test.ts` (7 cases, stubs a minimal `Storage` via `vi.stubGlobal` rather
+than pulling in jsdom, since the module never touches the DOM). Not done this session: a live-browser timing
+pass — the cache design and unit tests satisfy the acceptance criterion, but a real before/after Playwright
+timing check would be stronger evidence; flagged as a follow-up, not a blocking gap. Full detail in `TODO.md`'s
+matching 2026-09-05 entry. **Phase 8 is now 7/9** — only T-062's blocked half and the owner-deferred T-064
+remain.
+
+**Not pushed** — committed locally only, per this repo's standing "nothing pushed without explicit approval"
+rule.
 
 ---
 

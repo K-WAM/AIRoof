@@ -1,17 +1,31 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-04 (Claude) — T-057 guide content, T-062 CI audit-gate done + firebase-admin v14 attempted and
-reverted (live incident), T-065 webhook-health alerting done.
+Updated: 2026-09-05 (Claude) — T-067 (auth-gate latency) done, committed locally, not yet pushed.
 
 ## Repository
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
-- Branch: `main` (all work this session pushed directly to `main`, no worker branches).
-- Pushed baseline: `origin/main` is at `f638087` (2026-09-04) — see the 2026-09-03/04 entry below for the full
-  commit list, including one reverted commit. Production confirmed healthy post-revert: `/api/health` →
-  `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
-- Vercel: deployed via the GitHub-integration auto-deploy on each push to `main` throughout.
+- Branch: `main`.
+- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — this session's T-067 commit is local only,
+  per the standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last
+  push: `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
+- Vercel: deployed via the GitHub-integration auto-deploy on each push to `main`.
 - No worker branches, active worktrees, or development blockers otherwise.
+
+## 2026-09-05 — T-067: cut the auth-gate latency on every page load
+
+Owner asked for the next self-executable improvement, specifically to speed up page loads. T-067 was the only
+remaining Phase 8 task that was both fully self-executable and load-time-related (T-068/T-069 already done;
+T-062's other half is upstream-blocked; T-064 is owner-deferred; T-054/055/056/058/060 all need a product
+decision). New `src/lib/auth/profileCache.ts` lets `AuthContext.tsx` render a cached, uid-validated profile
+immediately on mount while the real Firebase-token + Firestore read still happens in the background and
+refreshes both state and cache — cuts the two-sequential-async-step blocking wait that gated every one of the
+app's 26 client-rendered pages behind a "Loading…" screen on every hard refresh and every company↔admin layout
+remount. Read-path UX cache only — every server route still independently re-verifies the real ID token, so
+this can't affect what the backend allows. `tsc`/lint(0/21)/`vitest run` 356/359 (3 pre-existing concurrent-load
+flakes, confirmed clean isolated)/release suite 16/16/`next build` all green. New test:
+`src/lib/auth/__tests__/profileCache.test.ts`. Full detail in `TODO.md`'s and `HANDOFF.md`'s matching entries.
+Phase 8 is now 7/9. **Not pushed** — local commit only.
 
 ## 2026-09-03/04 — guide content, CI audit gate, webhook alerting, one reverted live incident
 
