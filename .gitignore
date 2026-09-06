@@ -24,6 +24,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# operational script artifacts — never meant for version control
+vapi-assistant-backup-*.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

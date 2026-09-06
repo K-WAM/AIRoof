@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // One-off operational script — NOT part of the app's runtime.
 //
-// Switches the live Vapi assistant to the most natural-sounding config
-// currently available on the platform (researched 2026-09-05):
+// Switches the live Vapi assistant's model + voice to the most natural-
+// sounding option currently available on the platform (researched
+// 2026-09-05):
 //   - model: OpenAI's gpt-realtime-2025-08-28 (native speech-to-speech —
 //     no separate STT -> text -> TTS pipeline, so prosody/emotion survive
 //     instead of being flattened to text and resynthesized; Vapi's own docs
@@ -10,13 +11,19 @@
 //   - voice: "cedar" (OpenAI's own recommendation for a warm, conversational
 //     tone — the alternative, "marin", is tuned for clarity/structured
 //     communication, a worse fit for a friendly receptionist persona)
-//   - stopSpeakingPlan tuned so a caller's brief "yeah"/"okay" doesn't cut
-//     the agent off mid-sentence (numWords: 2 filters short acknowledgments)
-//   - backgroundSound: "office" for subtle ambient realism
+//
+// Deliberately does NOT touch startSpeakingPlan/stopSpeakingPlan/
+// backgroundSound — a --dry-run against the real live config (2026-09-05)
+// showed these are already hand-tuned (waitSeconds: 0.1, numWords: 2,
+// backgroundSound: "office") and snappier than any generic default this
+// script could suggest; overwriting them would have been a regression.
+// Also corrects two stale doc claims found the same way: the live voice was
+// already Vapi's own "Vapi Voices v2" (Savannah), not Cartesia, and the
+// transcriber was already Deepgram Flux, not nova-3.
 //
 // Preserves the assistant's existing tools (toolIds) and system prompt
-// (messages) exactly as-is — this script only touches voice-engine/timing
-// config, never the booking logic or persona text. Vapi's PATCH replaces
+// (messages) exactly as-is — this script only touches the model/voice
+// engine, never the booking logic or persona text. Vapi's PATCH replaces
 // the whole `model` object per-request (confirmed by this repo's existing
 // updateAssistantPersona()), so this reads the assistant first and resends
 // its current toolIds/messages unchanged, same pattern.
@@ -68,6 +75,14 @@ async function main() {
   await fs.writeFile(backupFile, JSON.stringify(current, null, 2), "utf8");
   console.log(`Full pre-change assistant config saved to ${backupFile} (for rollback).`);
 
+  // Model + voice only. The live assistant's startSpeakingPlan (waitSeconds:
+  // 0.1), stopSpeakingPlan (numWords: 2), and backgroundSound ("office") are
+  // already hand-tuned and snappier than any textbook default this script
+  // could suggest — confirmed via a --dry-run against the real config before
+  // this was written. Touching them would have been a regression, not an
+  // improvement, so they're deliberately left out of this PATCH (omitted
+  // fields are left untouched, matching this repo's existing
+  // updateAssistantPersona() PATCH semantics).
   const patchBody = {
     model: {
       provider: "openai",
@@ -79,15 +94,6 @@ async function main() {
       provider: "openai",
       voiceId: "cedar",
     },
-    stopSpeakingPlan: {
-      numWords: 2,
-      voiceSeconds: 0.2,
-      backoffSeconds: 1,
-    },
-    startSpeakingPlan: {
-      waitSeconds: 0.4,
-    },
-    backgroundSound: "office",
   };
 
   console.log(dryRun ? "Would PATCH with:" : "Applying PATCH with:", JSON.stringify(patchBody, null, 2));
