@@ -40,6 +40,36 @@
   --c-neutral-bg: #f1f5f9; --c-neutral-fg: #64748b; --c-neutral-bd: #e2e8f0;
 }
 
+/*
+ * Per-industry visual families (T-056) — a reviewed 3-palette set, not a
+ * reversal of the one-teal design-system rule: every `.button`/border/focus
+ * usage still reads `var(--accent)`, only the value changes per family, and
+ * only inside the company portal (`.company-shell[data-portal-family]`,
+ * applied in src/app/company/layout.tsx from useBusinessModules().family).
+ * "field" (roofing/HVAC/landscaping/cleaning/GC/electricians/appliance
+ * repair) is the default teal above, so it has no override block here.
+ * Unknown/unresolved industry renders with that same default — fails open,
+ * same as every other useBusinessModules() consumer.
+ * Each accent clears >=4.5:1 contrast against white (verified in
+ * src/lib/verticals/__tests__/family-palette.test.ts) so white button text
+ * and `color: var(--accent)` text both stay readable.
+ */
+.company-shell[data-portal-family="care"] {
+  /* Dental + childcare: calm, clinical blue. */
+  --accent: #0e6fa7;
+  --accent-dark: #0b5a84;
+  --accent-soft: rgba(14, 111, 167, 0.1);
+  --ring: 0 0 0 3px rgba(14, 111, 167, 0.35);
+}
+
+.company-shell[data-portal-family="ops"] {
+  /* Property management: structured, authoritative violet. */
+  --accent: #5a3ea1;
+  --accent-dark: #472f80;
+  --accent-soft: rgba(90, 62, 161, 0.1);
+  --ring: 0 0 0 3px rgba(90, 62, 161, 0.35);
+}
+
 /* Visible keyboard focus everywhere (mouse clicks stay clean) */
 a:focus-visible,
 button:focus-visible,

@@ -48,12 +48,25 @@ export interface VerticalVocab {
  */
 export type CalendarMode = "jobs" | "appointments";
 
+/**
+ * Groups the 10 verticals into a small, reviewed set of company-portal accent
+ * palettes (T-056) — not a per-industry one-off. A dentist and a childcare
+ * sitter service both read as calm/clinical ("care"); the 7 on-site trades
+ * share one confident field color ("field"); property management stands alone
+ * as the escalation-heavy dispatcher ("ops"). Palette values live in
+ * globals.css under `.company-shell[data-portal-family="..."]`; this field
+ * only says which one a template belongs to.
+ */
+export type VisualFamily = "field" | "care" | "ops";
+
 export interface VerticalTemplate {
   verticalId: VerticalId;
   label: string;
   description: string;
   vocab: VerticalVocab;
   calendarMode: CalendarMode;
+  /** Company-portal accent family (T-056) — see `VisualFamily`. */
+  family: VisualFamily;
   approvedServices: BusinessConfig["approvedServices"];
   approvedFaqs: BusinessConfig["approvedFaqs"];
   emergencyRules: BusinessConfig["emergencyRules"];
@@ -84,6 +97,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "Roofing",
     description: "Inspections, repairs, estimates, leaks, and storm-response triage.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Job",
       jobNounPlural: "Jobs",
@@ -166,6 +180,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "HVAC",
     description: "Heating, cooling, maintenance, and urgent comfort/safety calls.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Service call",
       jobNounPlural: "Service calls",
@@ -239,6 +254,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "Landscaping",
     description: "Seasonal maintenance, estimates, cleanup, and recurring service requests.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Job",
       jobNounPlural: "Jobs",
@@ -311,6 +327,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "Cleaning",
     description: "Recurring housekeeping, deep cleans, move-outs, and post-construction jobs.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Clean",
       jobNounPlural: "Cleans",
@@ -391,6 +408,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     description: "Appointments, patient intake, office FAQs, and urgent dental triage.",
     // No field jobs — the Calendar schedules patients onto providers instead.
     calendarMode: "appointments",
+    family: "care",
     vocab: {
       jobNoun: "Appointment",
       jobNounPlural: "Appointments",
@@ -468,6 +486,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     description: "Tenant maintenance, owner inquiries, after-hours escalation, and work orders.",
     // No field jobs — the Calendar dispatches requests onto vendors/on-call staff.
     calendarMode: "appointments",
+    family: "ops",
     vocab: {
       jobNoun: "Work order",
       jobNounPlural: "Work orders",
@@ -544,6 +563,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "General Contractors",
     description: "Project estimates, remodels, build-outs, and job site coordination.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Project",
       jobNounPlural: "Projects",
@@ -618,6 +638,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "Electricians",
     description: "Wiring, panel upgrades, outlet repairs, and urgent electrical-hazard triage.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Job",
       jobNounPlural: "Jobs",
@@ -691,6 +712,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     label: "Appliance Repair",
     description: "Diagnostics, repairs, and parts scheduling for household appliances.",
     calendarMode: "jobs",
+    family: "field",
     vocab: {
       jobNoun: "Repair",
       jobNounPlural: "Repairs",
@@ -765,6 +787,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     description: "Sitter bookings, nanny placements, family intake, and safety-first scheduling.",
     // No field jobs — the Calendar schedules families onto sitters instead.
     calendarMode: "appointments",
+    family: "care",
     vocab: {
       jobNoun: "Booking",
       jobNounPlural: "Bookings",

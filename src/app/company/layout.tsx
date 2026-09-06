@@ -31,7 +31,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { ready: modulesReady, isEnabled } = useBusinessModules();
+  const { ready: modulesReady, isEnabled, family } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
@@ -82,7 +82,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const crewSuffix = preview ? `?preview=${preview}&section=crews` : "?section=crews";
 
   return (
-    <div className="company-shell">
+    <div className="company-shell" data-portal-family={family ?? undefined}>
       <aside className="company-sidebar">
         <div className="company-brand">
           <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
