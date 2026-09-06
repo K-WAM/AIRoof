@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Toggle } from "@/components/ui/Toggle";
 import { TeamPanel } from "./TeamPanel";
 import { Bell, Clock3, Globe2, Save, Settings } from "lucide-react";
 
@@ -171,14 +172,10 @@ export default function CompanySettingsPage() {
                 return (
                   <div key={day} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
                     <span style={{ width: 90, fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{day}</span>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "#64748b" }}>
-                      <input
-                        type="checkbox"
-                        checked={isClosed}
-                        onChange={e => toggleClosed(day, e.target.checked)}
-                      />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#64748b" }}>
+                      <Toggle checked={isClosed} onChange={(next) => toggleClosed(day, next)} label={`${day} closed`} size="sm" />
                       Closed
-                    </label>
+                    </div>
                     {!isClosed && (
                       <>
                         <input

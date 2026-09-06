@@ -8,6 +8,8 @@ import { lookupUnitPrice } from "@/types/library";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
+import { PageSkeleton } from "@/components/ui/PageSkeleton";
+import { Toggle } from "@/components/ui/Toggle";
 import {
   ArrowLeft,
   Briefcase,
@@ -439,12 +441,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     { id: "report", label: "Report" },
   ] as const;
 
-  if (loading) return (
-    <div style={{ padding: 40, textAlign: "center" }}>
-      <div style={{ fontSize: 13, color: "#64748b" }}>Loading job…</div>
+  if (loading) return <PageSkeleton rows={6} />;
+  if (!job) return (
+    <div style={{ padding: 32 }}>
+      <p style={{ color: "#b91c1c", fontSize: 14, margin: "0 0 12px" }}>Job not found.</p>
+      <a href={`/company/jobs${previewSuffix}`} className="button secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <ArrowLeft size={14} strokeWidth={1.75} />
+        Back to Jobs
+      </a>
     </div>
   );
-  if (!job) return <div style={{ padding: 32, color: "#b91c1c" }}>Job not found.</div>;
 
   const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const due = new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -821,10 +827,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       <div style={{ padding: "8px 10px" }}>
                         <p style={{ margin: "0 0 6px", fontSize: 12, color: "#334155", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{ph.label}</p>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#475569", cursor: "pointer" }}>
-                            <input type="checkbox" checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} />
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#475569" }}>
+                            <Toggle checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} label={`Include ${ph.label} in report`} size="sm" />
                             In report
-                          </label>
+                          </div>
                           <button onClick={() => { if (confirm("Delete this photo?")) deletePhoto(ph); }} title="Delete" aria-label={`Delete ${ph.label}`} className="icon-del">
                             <Trash2 size={15} strokeWidth={1.75} />
                           </button>

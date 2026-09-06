@@ -1,6 +1,15 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude) — T-072/T-073/T-074 done, same session, continuing straight off T-071: (1) fixed
+Updated: 2026-09-06 (Claude), continued — T-075 (Phase 9, first slice) done: a new reusable `Toggle` switch
+component applied to two persisted binary settings (Settings business-hours "Closed", job-detail photo "In
+report"), `company/jobs/[jobId]` brought onto the standard `PageSkeleton` loading pattern (it was the one major
+detail page still on a bare loading `<div>`), and its "Job not found" state fixed from a genuine dead end (no
+way back) to a "Back to Jobs" link. First slice of an open-ended UI/UX modernization pass, not full "every page"
+coverage — see `TODO.md`'s T-075 entry for the audit findings and the candidate next-slice list. `tsc`/lint(0/21)
+clean, `vitest run` 386/389 (3 pre-existing concurrent-load flakes, clean in isolation), release suite 16/16,
+`next build` green with no bundle-size regression. Committed locally, not pushed.
+
+Previous: 2026-09-06 (Claude) — T-072/T-073/T-074 done, same session, continuing straight off T-071: (1) fixed
 the Calendar→Pipeline appointment link (deep-link + a "Needs Confirmation" bucket that no longer strands
 overdue-but-unconfirmed bookings without a Confirm button), reordered the company nav into workflow order, and
 moved Calendar's last client-side Firestore read server-side; (2) built self-service team management — an
@@ -27,8 +36,8 @@ Local commit only at the time — see the Repository section below for current p
   T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070.
   Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from
   the push); production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook
-  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, and T-074 (this session) are local-only** — not yet
-  approved for push.
+  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, T-074, and T-075 (this session) are local-only** —
+  not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -441,6 +450,10 @@ backlog closed weeks ago).
 
 ## Next actions
 
+0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075 entry for the full list:
+   a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status filters as
+   the option count grows, and a `PageSkeleton` pass on the pages that don't yet use it (most are redirects or
+   static content that don't need one — the remainder is a short list, not a rediscovery task).
 1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–056/058/060 and
    T-062 firebase-admin half/T-067) — decide what to greenlight next; nothing remaining is assigned or started.
 2. **NH-13**: owner to paste reference organizing/roofing apps for T-056's per-industry visual palette work.

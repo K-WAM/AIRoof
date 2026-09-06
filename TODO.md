@@ -39,6 +39,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
+| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 1 slice done** | Open-ended, self-selected per slice |
 
 ### Checklist
 
@@ -197,6 +198,48 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         `route.test.ts` (`businessUsers/{uid}.active === true` after business creation) so this can't silently
         regress again. This was very likely why "we may already have it" needed checking in T-073 — a freshly
         onboarded client's login may not have actually worked end-to-end before now.
+- [ ] Phase 9 — UI/UX Modernization Pass (owner-added, 2026-09-06) — open-ended, self-selected per slice
+  - [x] T-075 — First slice: reusable `Toggle` switch + two real applications, job-detail page brought onto
+        the standard loading skeleton, one dead-end navigation fix (owner: "proceed with next items, reducing
+        loading times when possible and improving navigation and clarity / modern design on every page...
+        ensuring workflows are smooth and well ordered end to end, making use of buttons, drop downs, toggles,
+        where applicable" — 2026-09-06). Audited first rather than guessing: grepped every `page.tsx` (24) for
+        loading-state patterns, checkbox/select usage, and dead-end states. Findings: `PageSkeleton` was already
+        adopted on 12/24 pages (T-067-era work); the two full-page checklists (onboarding wizard, business-config
+        readiness) and one form modifier (config page's "reapply template defaults") are correctly native
+        checkboxes (a checklist/consent-list is the right control there, not a toggle candidate) — left alone;
+        the `#2563eb` hits CLAUDE.md's design-system rule warns about turned out to be crew color-swatch data
+        values (`demoSeed.ts`/`crews/route.ts`/`library/page.tsx`), not button styling — verified before
+        "fixing" a non-issue.
+        Two real gaps found and fixed: (1) `company/jobs/[jobId]/page.tsx` — the single busiest detail page in
+        the app — was the one major page still on a bare `<div>Loading job…</div>` instead of the `PageSkeleton`
+        every sibling page already uses, and its "Job not found" state was a genuine dead end (no link back to
+        the Jobs list at all); (2) two persisted binary settings (Settings → per-day business-hours "Closed",
+        Job detail → per-photo "In report") were native checkboxes where a switch reads as more intentional and
+        matches "toggles where applicable." Built `src/components/ui/Toggle.tsx` — a `role="switch"` button
+        (not a restyled checkbox input, for full keyboard/AT semantics), `aria-checked`/`aria-label`, respects
+        `prefers-reduced-motion`, and explicitly re-declares `border-radius` on its own `:focus-visible` state
+        (the global `button:focus-visible { border-radius: inherit }` rule would otherwise square off a pill
+        shape) — applied to both spots; `company/jobs/[jobId]/page.tsx`'s loading branch now returns
+        `<PageSkeleton rows={6} />` matching the convention every other detail-shaped page uses; its not-found
+        branch gained a "Back to Jobs" link reusing the page's existing `previewSuffix` (so an admin-preview
+        session doesn't lose its preview context on the bounce-back).
+        **Scope note, stated plainly:** this is a first slice, not full "every page" coverage — the ask is
+        broad enough that hand-editing all 24 pages' visual design in one pass would be both slower to verify
+        and riskier than proportionate, incremental slices. Candidate next slices (unscoped, no task numbers
+        assigned yet, pick order open): a consistent page-header/breadcrumb pattern for nested detail pages
+        beyond Jobs (e.g. `admin/businesses/[businessId]/config`, already has a back-link — audit the rest);
+        a review of button vs. dropdown vs. toggle choice on the Pipeline/Calls status filters (currently
+        button rows — fine at the current option count, worth a second look if more statuses are added); a
+        loading-skeleton pass on the 12 pages not yet on `PageSkeleton` (several are redirects/static content
+        that never show a loading state at all and don't need one — the remainder is a short, concrete list a
+        future slice can audit directly rather than re-deriving from scratch). Verified: `tsc` clean; lint
+        0 errors/21 warnings (unchanged pre-existing baseline); `vitest run` 386/389 (3 pre-existing
+        concurrent-load timeout flakes — `registry.test.ts`, `send.test.ts`, `example-lib.test.ts` — reconfirmed
+        clean on an isolated rerun of just those three files, same long-documented pattern as every prior
+        session); release suite 16/16; `next build` green with no First Load JS regression on either touched
+        route (`/company/jobs/[jobId]` 121kB, `/company/settings` 111kB — both unchanged from their T-070
+        baselines). Committed locally; not pushed (not asked to this session).
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
