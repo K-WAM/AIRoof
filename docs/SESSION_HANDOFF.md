@@ -1,20 +1,45 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-05 (Claude) — T-056 (per-industry visual families) + a token-conservation pass done, in the
-working tree; T-067/T-068-follow-up committed locally from earlier this session. Nothing pushed.
+Updated: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
+Vapi-API-side change, not a code deploy). T-056 + token-conservation pass also done this session, all 5 commits
+local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus this doc round). Nothing pushed.
 
 ## Repository
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — this session's T-067/T-068-follow-up
-  commits are local only, and this session's T-056 + token-conservation work isn't committed yet either, per the
-  standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last push:
+- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — every commit from this session (T-067,
+  the T-068 qrcode follow-up, T-056, the token-conservation pass, and the Vapi voice script) is local only, per
+  the standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last push:
   `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
+- **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
+  deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
+  `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
+  already undocumented — see the 2026-09-05 T-060 entry below). Rollback snapshot saved outside the repo
+  (session scratchpad), not in git.
 - Vercel: deployed via the GitHub-integration auto-deploy on each push to `main`.
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-05, continued further — T-060: live assistant switched to GPT Realtime + cedar
+
+Owner asked for Vapi set to "the currently most human sounding timing, personality, models, responses... find
+out what it is and set it that way." Full detail in `TODO.md`'s and `HANDOFF.md`'s matching entries — summary:
+
+- **Found this file (and `MASTER_PLAN.md`/`CLAUDE.md`) were already stale** about the live stack: a `--dry-run`
+  against the real assistant (before touching anything) showed it was already on Vapi's own "Vapi Voices v2"
+  (`Savannah`) + Deepgram Flux, not Cartesia + nova-3 as documented. Corrected `CLAUDE.md`/`MASTER_PLAN.md`.
+- **Shipped:** OpenAI's `gpt-realtime-2025-08-28` (native speech-to-speech) + `cedar` voice — researched live as
+  Vapi's current most human-sounding option. Tool-calling and end-of-call transcripts confirmed unaffected;
+  verified live afterward (7 `toolIds` + system prompt round-tripped untouched).
+- **A dry-run caught a real regression first**: the initial plan also overwrote `startSpeakingPlan`/
+  `stopSpeakingPlan`/`backgroundSound` with generic documented defaults, which would have made the already-tuned
+  live line (`waitSeconds: 0.1`, `numWords: 2`) measurably *slower*. Removed before applying anything for real.
+- **Cost:** ~$0.15–0.30+/min all-in, up from ~$0.09–0.14/min — an explicit owner quality-over-cost call for the
+  customer-facing voice specifically.
+- **Not done:** an actual test call — the only real verification of "does it sound human." Rollback is a
+  one-command re-PATCH from the saved snapshot.
 
 ## 2026-09-05, continued — T-056 (per-industry visual families) + a token-conservation pass
 

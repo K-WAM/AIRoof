@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-05 (T-056 per-industry visual families + a token-conservation pass — see below)
+Last updated: 2026-09-05 (T-060 — live assistant switched to GPT Realtime + cedar — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -25,7 +25,51 @@ cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pus
 
 ---
 
-## This session (2026-09-05, continued) — T-056: per-industry visual families + a token-conservation pass
+## This session (2026-09-05, continued further) — T-060: live assistant switched to GPT Realtime + cedar
+
+Owner: "on vapi, can you set it to the currently most human sounding timing, personality, models, responses...
+find out what it is and set it that way. the best, real human sounding." Researched Vapi's actual current
+catalog live (web search, not memory — this moves fast) rather than assuming, and this immediately surfaced a
+real problem: **this file's own "Vapi Architecture (current)" section, `MASTER_PLAN.md`, and `CLAUDE.md` all
+described the live stack as Cartesia + GPT-4o-mini + Deepgram nova-3 — already wrong.** A `--dry-run` against the
+real live assistant (before touching anything) showed it was actually **Vapi's own "Vapi Voices v2"** (voice
+`Savannah`) + **Deepgram Flux** + `gpt-4o-mini` — someone had already migrated the voice/transcriber at some
+point without updating any doc that described it. Corrected in `CLAUDE.md`'s Tech Stack/Known-Limitations lines
+and `MASTER_PLAN.md`'s T-060 spec; this section (below) is left as historical narrative rather than rewritten,
+per this file's own "dated session narratives below remain historical evidence" convention.
+
+**What shipped:** OpenAI's **GPT Realtime** (`gpt-realtime-2025-08-28`) — a native speech-to-speech model, no
+separate STT→text→TTS stage flattening prosody to text and back — with the **`cedar`** voice (OpenAI's own pick
+for a warm, conversational tone; the alternative, `marin`, suits clarity/structured speech better, a worse fit
+for a receptionist). Confirmed via Vapi's docs that tool-calling and end-of-call transcripts are unaffected —
+verified live afterward: all 7 `toolIds` and the system prompt round-tripped untouched.
+
+**A dry-run caught a real regression before it shipped.** The first draft of the config also set
+`startSpeakingPlan`/`stopSpeakingPlan`/`backgroundSound` to generic documented defaults. Running `--dry-run`
+against the actual live assistant showed those were **already hand-tuned snappier** than the defaults this task
+was about to apply (`waitSeconds: 0.1` vs. a proposed `0.4`; `numWords: 2` already filtering "yeah"/"okay"
+backchannel) — the "textbook best practice" would have made the live line measurably slower, the opposite of the
+ask. Pulled those fields out of the patch entirely; the final change touches only `model` and `voice`.
+
+**Credential handling:** needed `VAPI_API_KEY`. This session's Bash permission guard correctly blocked an
+automatic `vercel env pull --environment production` — that pulls *every* production secret to get one value, a
+broader blast radius than the task needed (exactly what T-064's Secret-type hardening exists to prevent). Owner
+chose to paste the key directly; saved to the gitignored `.env.local`, never printed in any command text, never
+committed. A stray `.env.vapi-temp` from an earlier, unsuccessful self-service attempt (containing every
+production secret in plaintext) was found and deleted during cleanup.
+
+**Cost, stated plainly:** roughly **$0.15–0.30+/min all-in**, up from **~$0.09–0.14/min** — GPT Realtime bills
+$0.06–0.11/min for the model alone before Vapi's platform fee. An explicit owner call on quality over cost for
+the customer-facing voice specifically — distinct from this same session's earlier token-conservation pass on
+invisible back-office AI calls, where the two priorities don't actually conflict (one is what the caller hears,
+the other never reaches them).
+
+New script: `scripts/set-vapi-human-voice.mjs` (`--dry-run` supported, writes a full rollback snapshot before
+patching). Full detail, including the exact before/after config, in `TODO.md`'s matching entry. **Not done: an
+actual human placing a real call and listening** — that's the only real test of "does it sound human," and
+nothing above can substitute for it. One re-PATCH from the saved snapshot rolls it back if it doesn't land well.
+
+## Earlier this session (2026-09-05) — T-056: per-industry visual families + a token-conservation pass
 
 Owner: "proceed with the next todo improvement items, load time reduction and token conservation are
 fiduciary... I do want the [roofers] to feel it is for them, and the dentists to feel it is for them, etc." This

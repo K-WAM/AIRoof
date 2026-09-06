@@ -37,7 +37,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
-| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 4/8** | Owner prioritization pending |
+| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 7/9** | Owner prioritization pending |
 
 ### Checklist
@@ -62,7 +62,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
-- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 4/8
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 5/8
   - [x] T-053 — Retire the dead `agentVoice` field (removed, not wired — see 2026-09-02 review note)
   - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
   - [ ] T-055 — Split demo/onboarding into a dedicated hub
@@ -70,7 +70,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
-  - [ ] T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
+  - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (done 2026-09-05, see note below)
 - [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 7/9
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
       T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
@@ -982,6 +982,69 @@ new (non-numbered) token/cost audit matching the owner's other stated priority.
 - **Left for the owner:** `example image irrigation.png` is still sitting untracked in the repo root — it was
   useful as a one-time visual reference, not an asset the app itself needs, so it wasn't added to git or moved
   into `public/`. Delete it, or say if it should be kept somewhere for future reference.
+
+**2026-09-05, continuation — T-060: switched the live line to GPT Realtime (owner: "set it to the currently most
+human sounding timing, personality, models, responses... find out what it is and set it that way. the best,
+real human sounding"):** researched Vapi's current (Sept 2026) options live rather than trusting this repo's own
+docs, applied the change, and caught a real regression before it shipped.
+
+- **Corrected a stale assumption before touching anything.** `HANDOFF.md`/`MASTER_PLAN.md`/`CLAUDE.md` all
+  described the live stack as Cartesia + GPT-4o-mini + Deepgram nova-3. A `--dry-run` against the actual live
+  assistant (see below) showed that was already wrong: the real config was **Vapi's own "Vapi Voices v2"** (voice
+  `Savannah`, speed 1.15) + **Deepgram Flux** (`flux-general-en`, with `eotThreshold`/`eotTimeoutMs`/
+  `smartFormat` already tuned) + `gpt-4o-mini` — someone had already migrated the voice/transcriber at some point
+  without updating any of the three docs that described it. Fixed all three (see below).
+- **Research (live web search, not memory — Vapi's catalog changes fast):** the most human-sounding option
+  Vapi currently offers is OpenAI's **GPT Realtime** (`gpt-realtime-2025-08-28`) — a native speech-to-speech
+  model, meaning no separate STT→text→TTS pipeline stage where prosody/emotion get flattened to text and
+  resynthesized. Confirmed via Vapi's own docs that (a) function/tool-calling works identically — no risk to the
+  7 booking tools, (b) Vapi still generates a full end-of-call transcript regardless of which model handles the
+  live conversation (our summarize/classify/audit pipeline is unaffected), (c) `cedar` is OpenAI's own
+  recommendation for a warm, conversational tone (the alternative, `marin`, is tuned for clarity/structured
+  speech — worse fit for a receptionist).
+- **Built `scripts/set-vapi-human-voice.mjs`** (committed) — GETs the current assistant, saves a full JSON
+  backup for instant rollback, PATCHes, then re-GETs to verify the change round-tripped. Supports `--dry-run`.
+- **The dry-run caught a real mistake before it shipped.** The script's first draft also set
+  `startSpeakingPlan`/`stopSpeakingPlan`/`backgroundSound` to generic documented defaults (`waitSeconds: 0.4`,
+  etc.). Running `--dry-run` against the real live config showed these were **already hand-tuned snappier**
+  (`waitSeconds: 0.1`, `numWords: 2` already filtering backchannel like "yeah"/"okay", `backgroundSound: "office"`
+  already set) — applying the "textbook" values would have made the live line measurably *slower* to respond,
+  the opposite of what was asked. Removed those fields from the patch entirely before applying anything for real;
+  final PATCH touches only `model` and `voice`.
+- **Applied and verified live:** `model.provider: "openai"`, `model.model: "gpt-realtime-2025-08-28"`,
+  `voice: {provider: "openai", voiceId: "cedar"}`. Confirmed via a clean post-change GET: all 7 `toolIds` intact,
+  system prompt/`firstMessage` untouched (owned separately by `updateAssistantPersona`/`demo-customize`),
+  `startSpeakingPlan`/`stopSpeakingPlan`/`backgroundSound` unchanged from their already-tuned values.
+- **Credential handling:** `VAPI_API_KEY` was needed to run this. This session's Bash permission classifier
+  correctly blocked an automatic `vercel env pull --environment production` (that command pulls *every*
+  production secret, not just this one — a legitimately broader action than the task needed, and exactly the
+  blast radius T-064's Secret-type hardening exists to limit). Owner chose to paste the key directly rather than
+  pull-and-relay it themselves; saved to the gitignored `.env.local` for reuse, never printed in any command
+  text (read from the file into the shell inline), never committed. Cleaned up afterward: the two redundant
+  dry-run backup snapshots and a stray `.env.vapi-temp` (created by an earlier, unsuccessful attempt at the
+  self-service pull-and-source flow, containing every production secret in plaintext) were deleted; the one real
+  before-change snapshot was moved outside the repo to the session scratchpad rather than left in the repo root.
+  Added `vapi-assistant-backup-*.json` to `.gitignore` so a future run of this script can't accidentally get
+  committed.
+- **Cost, stated plainly:** materially more expensive — roughly **$0.15–0.30+/min all-in** vs. the prior
+  **~$0.09–0.14/min**, since GPT Realtime bills $0.06–0.11/min for the model alone before Vapi's platform fee.
+  Owner explicitly prioritized call quality over cost for this specific decision (the customer-facing voice is
+  the product), distinct from this same session's earlier token-conservation pass on invisible back-office AI
+  calls (field-note parsing, summaries) — no tension between the two: one is what the caller hears, the other
+  never reaches them.
+- **Docs corrected:** `CLAUDE.md`'s Tech Stack line and Known Limitations "Voice" bullet, `MASTER_PLAN.md`'s
+  T-060 spec (marked done, original stale "current stack" claim struck through and corrected in place).
+  `HANDOFF.md`'s old "Vapi Architecture (current)" section (further down, describing Cartesia/nova-3 and the
+  now-confirmed-dead `assistant-request` prompt-injection path) was left as historical narrative rather than
+  rewritten — that section already sits below this file's own "dated session narratives below remain historical
+  evidence" banner, so a fresh, correct entry was added above it instead of editing history in place.
+- **Not done, and it's the one thing that actually matters here:** an actual human placing a real call and
+  listening. Nothing above can verify "does it sound human" — that's a judgment call only a live test call
+  answers. Rollback is one re-PATCH away from the saved snapshot if it doesn't land well.
+- **Verification of everything else this session touched:** `tsc`/lint/tests/build were not re-run for this
+  specific change since it's a pure external-API operation (Vapi's live assistant config) — zero lines of
+  application source changed, only a new standalone script + `.gitignore` + docs. The three commits from this
+  session's earlier T-056/token-conservation work were already independently verified green before this.
 
 ## Historical assignments (none active)
 

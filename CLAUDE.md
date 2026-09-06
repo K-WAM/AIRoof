@@ -52,7 +52,7 @@ A tenant must only ever see tools that apply to *their* industry — a dental of
 - **Agent prompt is fully config-driven** (`buildAgentPrompt`) — no industry hardcoding, no per-vertical Vapi assistant. Extra per-industry booking fields (DOB, insurance, unit no.) go in the booking tool's `notes`.
 - **Demo data**: `demoSeedFor()` must seed resources + something draggable for every vertical, or the Calendar demos empty.
 **Estimated Completion**: 100% of currently scoped implementation; production sign-off remains
-**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI, DeepSeek, Vapi (Cartesia voice), Resend, @dnd-kit, Vercel
+**Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI (incl. GPT Realtime for the live voice), DeepSeek, Vapi, Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
 **Vercel URL**: https://ai-roof.vercel.app
@@ -300,7 +300,7 @@ Before asking the user to verify anything, use CLI/curl first:
 - **Google Calendar**: mock availability slots — real per-business OAuth is post-MVP.
 - **SMS**: Post-MVP (deferred). Twilio integration superseded by Vapi; Twilio env declarations removed by T-051. No active SMS seam in source.
 - **RESEND_FROM**: Needs a verified sending domain in Resend for the "From" name to show correctly.
-- **Voice**: Cartesia Sonic 3.5 "Ariana - kind friend" (~250ms latency). For maximum raw human realism, ElevenLabs is the leader (higher latency); see HANDOFF for the tradeoff.
+- **Voice (2026-09-05)**: OpenAI `gpt-realtime-2025-08-28` (native speech-to-speech) + the `cedar` voice — switched from a cascaded Vapi-Voices-v2/Deepgram-Flux/GPT-4o-mini pipeline for maximum prosody/naturalness. Turn-timing (`startSpeakingPlan`/`stopSpeakingPlan`/`backgroundSound`) was left untouched — it was already hand-tuned snappier than any generic default. See `TODO.md`'s 2026-09-05 entry for the full before/after and rollback snapshot location. Cost is materially higher (~$0.15–0.30+/min all-in vs. the prior ~$0.09–0.14/min) — an explicit owner tradeoff for call quality, not an oversight.
 
 ## Contact
 

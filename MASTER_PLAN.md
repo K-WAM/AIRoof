@@ -670,12 +670,34 @@ implementation starts, don't invent the missing decision.
 - **Prohibited scope:** no functional changes; do not touch `MASTER_PLAN.md`/`TODO.md`/`HANDOFF.md`/
   `docs/SESSION_HANDOFF.md` (current, not stale).
 
-### T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack)
-- **Objective:** Run one real call script on Vapi's native "Voices v2" and one on OpenAI's GPT Realtime, side by
-  side against the current Cartesia + GPT-4o-mini + Deepgram nova-3 stack, and record latency/cost/quality
-  findings before any live-line change. **Evidence:** both are now available directly in the Vapi dashboard per
-  Vapi's own docs/blog (see the audit artifact's §01 sources); current stack is ~$0.09/min, ~840ms per
-  `HANDOFF.md`.
+### T-060 — Voice-model A/B evaluation (Vapi Voices v2 / GPT Realtime vs current stack) ✅ done (2026-09-05)
+- **What actually shipped, 2026-09-05 (owner: "set it to the most human sounding... find out what it is and set
+  it that way"):** research superseded the planned side-by-side A/B — GPT Realtime's native speech-to-speech
+  architecture (no STT→text→TTS round-trip flattening prosody) is unambiguously the more human-sounding option
+  over a second cascaded pipeline, so the live assistant was switched directly rather than run as a 3-way bake-off.
+  **Correcting this spec's own stale "current stack" claim**, discovered via a real `--dry-run` against the live
+  assistant before touching it: the assistant was already on **Vapi's own "Vapi Voices v2"** (voice `Savannah`,
+  speed 1.15) + **Deepgram Flux** (`flux-general-en`) + `gpt-4o-mini` — not Cartesia + Deepgram nova-3 as this doc
+  and `HANDOFF.md` claimed. Someone had already migrated the voice/transcriber without updating either doc.
+  **New live config:** `model.provider: "openai"`, `model.model: "gpt-realtime-2025-08-28"`, `voice: {provider:
+  "openai", voiceId: "cedar"}`. Confirmed via Vapi's own docs that tool-calling and end-of-call transcripts both
+  still work unchanged under Realtime — verified live afterward: `toolIds` (all 7 tools) and the system prompt
+  round-tripped untouched. **Deliberately did not touch `startSpeakingPlan`/`stopSpeakingPlan`/`backgroundSound`**
+  — the same `--dry-run` showed they were already hand-tuned snappier (`waitSeconds: 0.1`, `numWords: 2`) than any
+  generic "best practice" value this task would have proposed; overwriting them would have been a regression, not
+  an improvement, caught before it shipped. **Cost tradeoff, stated plainly:** materially more expensive
+  (~$0.15–0.30+/min all-in vs. the prior ~$0.09–0.14/min) — an explicit owner call on quality over cost for the
+  customer-facing voice specifically (distinct from the same session's earlier token-conservation pass on
+  invisible back-office AI calls, where cost efficiency doesn't trade against anything the caller perceives).
+  Full before-config snapshot saved outside the repo for instant rollback (see `TODO.md`'s matching entry).
+  **Still needed, not done by this task:** a real live test call to confirm it actually sounds better — that's a
+  human judgment call, not something verifiable by API. One-off script: `scripts/set-vapi-human-voice.mjs`.
+- **Original objective (superseded by the above):** Run one real call script on Vapi's native "Voices v2" and one
+  on OpenAI's GPT Realtime, side by side against the current Cartesia + GPT-4o-mini + Deepgram nova-3 stack, and
+  record latency/cost/quality findings before any live-line change. **Evidence:** both are now available directly
+  in the Vapi dashboard per Vapi's own docs/blog (see the audit artifact's §01 sources); current stack is
+  ~$0.09/min, ~840ms per `HANDOFF.md`. *(This "current stack" description was already stale by 2026-09-05 — see
+  above.)*
 - **Spec:** 2026-08-27 QoL audit §01. **Deps:** none — dashboard-side evaluation, not a code task.
 - **Owns:** no source files; if it proceeds, log findings in `docs/IMPLEMENTATION_LOG.md` or a new
   `docs/VOICE-EVALUATION.md`.
