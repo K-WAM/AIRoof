@@ -12,12 +12,15 @@ Last updated: 2026-09-06 (T-070 — lazy-loaded Firebase Auth/Firestore off ever
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** `origin/main` at `f638087` (2026-09-04) — see the 2026-09-03/04 session entry below
-for the full commit list, including one reverted commit (a firebase-admin v14 migration that broke production
-for a few minutes; fixed forward via `git revert`, documented as a live incident). The 2026-08-23 maintenance
-cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pushed in an earlier session.
-Everything since (T-067, the T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script,
-and now T-070) is local commits only, per the standing "nothing pushed without explicit approval" rule.
+**Latest pushed baseline:** `origin/main` at `6691480` (2026-09-06, owner approved this push) — `git rev-parse
+main` and `origin/main` match, nothing local-only remains. That range includes T-067, the T-068 qrcode
+follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070 (this session).
+Vercel's GitHub auto-deploy picked it up (`vercel ls`/`vercel inspect` confirmed the resulting deployment
+reached Ready); `/api/health` → `200`/`"connected"`, `/login` → `200`, unauthenticated webhook `POST` → `401`
+re-verified against production after the deploy. See the 2026-09-03/04 session entry below for the older
+history, including one reverted commit (a firebase-admin v14 migration that broke production for a few minutes;
+fixed forward via `git revert`, documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`)
+and a 3-vertical expansion (`1d2f840`) were reviewed and pushed earlier still.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
@@ -64,8 +67,9 @@ test; a test-isolation artifact of the added async-ness, not a product bug. `nex
 via the route table. Smoke-tested against a local production server (`next start`) with Playwright: `/login`
 renders clean and its email/password submit correctly reaches the (locally-unconfigured, so expectedly
 short-circuited) Firebase code path with no crash or console error beyond a pre-existing missing-favicon 404;
-`/company/dashboard` redirects to `/login?next=...` as expected for a logged-out session. **Not pushed** — local
-commit only, per the standing rule.
+`/company/dashboard` redirects to `/login?next=...` as expected for a logged-out session. **Pushed and live** —
+owner approved the push this session; `origin/main` now matches `main` (`6691480`), Vercel's auto-deploy reached
+Ready, and `/api/health`/`/login`/the webhook 401 were all re-verified against production post-deploy.
 
 Also reviewed (not modified): `example image irrigation.png` (untracked, repo root, the owner's T-056 reference
 screenshot) came up for a nav-design opinion this session — feedback given on the external screenshot itself,

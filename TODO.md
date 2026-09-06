@@ -106,7 +106,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         hops meant a dangling promise from one test could bleed a mock call into the next; not a product bug),
         `next build` green. Smoke-tested with a local prod server + Playwright: `/login` renders and its
         email/password submit correctly reaches the (locally unconfigured) Firebase code path with no crash;
-        `/company/dashboard` redirects to `/login?next=...` as expected. Not pushed — local commit only.
+        `/company/dashboard` redirects to `/login?next=...` as expected. **Pushed and live** (2026-09-06, owner
+        approved) — `origin/main` now matches `main` (`6691480`); Vercel's auto-deploy reached Ready and
+        production was re-verified healthy (`/api/health`, `/login`, webhook 401) post-deploy.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

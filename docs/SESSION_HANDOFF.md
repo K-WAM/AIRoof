@@ -2,7 +2,8 @@
 
 Updated: 2026-09-06 (Claude) — T-070 done: lazy-loaded the Firebase Auth/Firestore SDK off every authenticated
 page's critical path (owner: nav feedback agreed, then "reduce loading times on every page... still laggy").
-Roughly halves First Load JS on every page that was 248-261kB (now 109-122kB). Local commit only, not pushed.
+Roughly halves First Load JS on every page that was 248-261kB (now 109-122kB). Owner approved the push —
+`origin/main` now matches `main`; Vercel auto-deployed and production was re-verified healthy post-deploy.
 
 Previous: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
 Vapi-API-side change, not a code deploy). T-056 + token-conservation pass also done this session, all 5 commits
@@ -12,10 +13,12 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — every commit since (T-067, the T-068
-  qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, and now T-070) is local only, per
-  the standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last push:
-  `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
+- Pushed baseline: `origin/main` is now at `6691480` (2026-09-06, owner approved this push) — `main` and
+  `origin/main` match exactly, nothing local-only remains. That push carried T-067, the T-068 qrcode follow-up,
+  T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070 (this session). Vercel's
+  GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from the push);
+  production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` →
+  `401`, `/login` → `200`.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -62,7 +65,8 @@ shipped. Investigated rather than assuming those were exhausted.
   table above. Smoke-tested with a local production server (`next start`) + Playwright: `/login` renders clean,
   submitting the email/password form correctly reaches the (locally-unconfigured, so expectedly short-circuited)
   Firebase code path with no crash or console error beyond a pre-existing missing-favicon 404; `/company/dashboard`
-  redirects to `/login?next=...` as expected for a logged-out session. Not pushed — local commit only.
+  redirects to `/login?next=...` as expected for a logged-out session. **Pushed and live** — owner approved
+  the push; Vercel auto-deployed to Ready, production re-verified healthy post-deploy.
 - **Also touched:** `example image irrigation.png` (untracked, repo root) — the owner's T-056 reference
   screenshot — was reviewed again this session for a nav-design opinion but not modified; still untracked,
   per the standing "delete or relocate on request" note (no request made).
@@ -127,7 +131,7 @@ remount. Read-path UX cache only — every server route still independently re-v
 this can't affect what the backend allows. `tsc`/lint(0/21)/`vitest run` 356/359 (3 pre-existing concurrent-load
 flakes, confirmed clean isolated)/release suite 16/16/`next build` all green. New test:
 `src/lib/auth/__tests__/profileCache.test.ts`. Full detail in `TODO.md`'s and `HANDOFF.md`'s matching entries.
-Phase 8 is now 7/9. **Not pushed** — local commit only.
+Phase 8 is now 7/9. Pushed 2026-09-06 as part of the T-070 push (see that entry above).
 
 **Continuation, same session:** closed a real gap left in T-068's own "done" scope — its spec flagged
 `/admin/onboarding`, `/admin/businesses/[businessId]/config`, and `/company/jobs/[jobId]` as a follow-up audit
@@ -136,7 +140,7 @@ statically imported despite only using it inside a click-triggered handler / res
 to a dynamic `import("qrcode")` at the call site. Measured: `/company/jobs/[jobId]` 269kB→261kB, `/admin/demo`
 down to 118kB. The other two flagged routes carry no accidental library bloat (just page code + all-10-
 verticals template data) — flagged as a follow-up, not attempted. `tsc`/lint(0/21)/`vitest run` 359/359/release
-suite 16/16/`next build` all green. Also local commit only.
+suite 16/16/`next build` all green. Also pushed 2026-09-06 as part of the T-070 push.
 
 ## 2026-09-03/04 — guide content, CI audit gate, webhook alerting, one reverted live incident
 
