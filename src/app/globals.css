@@ -642,6 +642,9 @@ a.panel:hover {
 .company-sidebar-nav {
   flex: 1;
   padding: 4px 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .company-sidebar-footer {
@@ -741,8 +744,22 @@ a.panel:hover {
 .company-nav {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  align-items: stretch;
+}
+
+.company-nav-primary,
+.company-nav-secondary {
+  display: flex;
+  flex-direction: column;
   gap: 2px;
   align-items: stretch;
+}
+
+.company-nav-secondary {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .mobile-menu-btn {

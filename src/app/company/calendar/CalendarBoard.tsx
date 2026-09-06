@@ -181,31 +181,32 @@ export default function CalendarBoard() {
 
   // Appointments for the visible window. In jobs mode they're a read-only
   // "Bookings" strip; in appointments mode they're the draggable cards.
+  // T-072 (round-trip time): server-side admin-SDK read replacing a direct
+  // client Firestore query — same fix already applied to Dashboard/Calls/
+  // Pipeline/CommandBar (T-071); this was the last page still paying
+  // browser->Firestore connection setup on every week change.
   useEffect(() => {
     if (!businessId) return;
     const startMs = weekStart.getTime();
     const endMs = addDays(weekStart, 7).getTime();
-    import("firebase/firestore").then(async ({ collection, getDocs, query, where, orderBy }) => {
-      const { getFirebaseDb } = await import("@/lib/firebase/client");
-      const db = await getFirebaseDb();
-      if (!db) return;
-      try {
-        const snap = await getDocs(query(
-          collection(db, "businesses", businessId, "appointments"),
-          where("startTime", ">=", startMs),
-          where("startTime", "<=", endMs),
-          orderBy("startTime", "asc"),
-        ));
-        setAppts(
-          snap.docs
-            .map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment))
-            .filter((a) => a.status !== "cancelled")
-        );
-      } catch {
+    let cancelled = false;
+    fetch(`/api/businesses/${businessId}/appointments?from=${startMs}&to=${endMs}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Appointments request failed");
+        return r.json();
+      })
+      .then((data: { appointments: Appointment[] }) => {
+        if (cancelled) return;
+        setAppts((data.appointments ?? []).filter((a) => a.status !== "cancelled"));
+      })
+      .catch(() => {
+        if (cancelled) return;
         setAppts([]);
         setCalendarError("Appointments could not be loaded. Refresh the calendar and try again.");
-      }
-    });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [businessId, weekStart]);
 
   // The rail holds whatever still needs a resource: jobs with no crew/day,

@@ -77,6 +77,7 @@ export default function PipelinePage() {
 
   const urgencyParam = searchParams?.get("urgency");
   const leadParam = searchParams?.get("lead");
+  const apptParam = searchParams?.get("appt");
   const initialTab: Tab = searchParams?.get("tab") === "appointments" ? "appointments" : "leads";
   const [tab, setTab] = useState<Tab>(initialTab);
 
@@ -122,6 +123,16 @@ export default function PipelinePage() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+
+  // Deep link from Calendar's "Bookings" strip (?tab=appointments&appt=<id>) —
+  // scroll straight to the clicked appointment instead of leaving the user to
+  // hunt for it by name, which is what made an unrelated same-named past/
+  // cancelled appointment look like the wrong page had loaded.
+  useEffect(() => {
+    if (!apptParam || tab !== "appointments" || loading) return;
+    const el = document.getElementById(`appt-${apptParam}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [apptParam, tab, loading, appointments]);
 
   // --- Lead actions ---
   async function callBackLead(lead: Lead) {
@@ -258,11 +269,21 @@ export default function PipelinePage() {
   });
 
   const newLeadsCount = leads.filter((l) => l.status === "new").length;
-  const upcomingAppts = appointments.filter((a) => a.startTime > Date.now() && a.status !== "cancelled");
-  const pastAppts = appointments.filter((a) => a.startTime <= Date.now() || a.status === "cancelled");
-  const pendingCount = appointments.filter(
+  // Needs Confirmation is pulled out ahead of the time-based split: a
+  // pending after-hours booking can't lose its Confirm button just because
+  // its slot time has already passed (that used to bury it, unconfirmable,
+  // under "Past & Cancelled" — see the Calendar deep-link fix above).
+  const needsConfirmation = appointments.filter(
     (a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled"
-  ).length;
+  );
+  const needsConfirmationIds = new Set(needsConfirmation.map((a) => a.appointmentId));
+  const upcomingAppts = appointments.filter(
+    (a) => !needsConfirmationIds.has(a.appointmentId) && a.startTime > Date.now() && a.status !== "cancelled"
+  );
+  const pastAppts = appointments.filter(
+    (a) => !needsConfirmationIds.has(a.appointmentId) && (a.startTime <= Date.now() || a.status === "cancelled")
+  );
+  const pendingCount = needsConfirmation.length;
 
   if (loading) return <PageSkeleton rows={6} />;
   if (loadError) {
@@ -280,13 +301,16 @@ export default function PipelinePage() {
     const justConfirmed = confirmedSet.has(appt.appointmentId);
     const isConfirmed = appt.status === "confirmed" || justConfirmed;
     const isPending = !!appt.pendingConfirmation && !isConfirmed && appt.status !== "cancelled";
+    const isTarget = !!apptParam && apptParam === appt.appointmentId;
 
     return (
       <article
+        id={`appt-${appt.appointmentId}`}
         className="appt-card"
         style={{
           opacity: isPast ? 0.75 : 1,
           ...(isPending ? { borderLeft: "4px solid #f59e0b", background: "#fffdf7" } : {}),
+          ...(isTarget ? { boxShadow: "0 0 0 3px var(--accent)" } : {}),
         }}
       >
         <div className="appt-date-block">
@@ -604,6 +628,24 @@ export default function PipelinePage() {
 
       {tab === "appointments" && (
         <>
+          {needsConfirmation.length > 0 && (
+            <section className="panel" aria-labelledby="needs-confirmation-title" style={{ marginBottom: 20 }}>
+              <div className="panel-header">
+                <h2 className="panel-title" id="needs-confirmation-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Clock size={16} strokeWidth={1.75} />
+                  Needs Confirmation
+                </h2>
+              </div>
+              <div className="panel-body">
+                <div style={{ display: "grid", gap: 16 }}>
+                  {needsConfirmation.map((appt) => (
+                    <AppointmentCard key={appt.appointmentId} appt={appt} isPast={false} />
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
           <section className="panel" aria-labelledby="upcoming-title">
             <div className="panel-header">
               <h2 className="panel-title" id="upcoming-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
