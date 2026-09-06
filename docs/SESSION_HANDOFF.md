@@ -1,14 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude) — T-071 done: moved Dashboard/Calls/Pipeline/CommandBar's Firestore reads
+Updated: 2026-09-06 (Claude) — T-072/T-073/T-074 done, same session, continuing straight off T-071: (1) fixed
+the Calendar→Pipeline appointment link (deep-link + a "Needs Confirmation" bucket that no longer strands
+overdue-but-unconfirmed bookings without a Confirm button), reordered the company nav into workflow order, and
+moved Calendar's last client-side Firestore read server-side; (2) built self-service team management — an
+owner can add teammates by email and assign Owner/Staff/Viewer with no superadmin involved, the feature the
+owner asked for with "we may already have it" (audited: we didn't); (3) found and fixed a real bug while
+building (2) — the onboarding wizard's business-creation endpoint wrote owner `businessUsers` docs without
+`active: true`, which every `verifyAuthAndRole` check requires, so a freshly wizard-onboarded owner could log
+in but got 403 from nearly every company-portal API. Full detail in the dated sections below. `tsc`/lint/build
+clean throughout; `vitest run` 388/389 (one more instance of the pre-existing parallel-load timeout flake,
+clean in isolation, different file each time it's shown up — confirmed environmental, not a real failure).
+Committed locally — not pushed (owner did not ask to push this session).
+
+Previous: 2026-09-06 (Claude) — T-071 done: moved Dashboard/Calls/Pipeline/CommandBar's Firestore reads
 server-side (4 new admin-SDK endpoints) to cut round-trip time — the thing T-070 explicitly flagged as the next
 lag source once bundle weight was fixed (owner: "do the round-trip time thing to reduce page lag"). Also fixed
 a real pre-existing bug found along the way: CommandBar's lead search has 404'd silently since it was built.
-Local commit only — not pushed yet, unlike T-070 (see that entry below for its own now-pushed status).
-
-Previous: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
-Vapi-API-side change, not a code deploy). T-056 + token-conservation pass also done this session, all 5 commits
-local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus this doc round). Nothing pushed.
+Local commit only at the time — see the Repository section below for current push status.
 
 ## Repository
 
@@ -18,7 +27,8 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
   T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070.
   Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from
   the push); production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook
-  `POST` → `401`, `/login` → `200`. **T-071 (this session) is local-only** — not yet approved for push.
+  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, and T-074 (this session) are local-only** — not yet
+  approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -28,6 +38,80 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06, continued — T-072/T-073/T-074: Calendar/Pipeline/nav fixes, self-service team management, an
+active-flag regression fix
+
+Owner reported two concrete bugs and one open question in one message: (1) clicking an unconfirmed appointment
+on Calendar lands on Pipeline but "that name of the person i clicked is in past an[d] canceled, so i cant
+confirm it"; (2) nav tabs aren't in logical order and Settings/Feedback shouldn't be mixed in with the rest;
+(3) "we want a way to if we get a client company, they can add emails, assign roles, etc for their company...
+smooth, easy, minimal click setup. we may already have it." Then, in the same session, a follow-up asked to
+verify everything syncs, ship the team feature (auditing first since "we may already have it" wasn't certain),
+keep cutting load time, audit navigation completeness, and commit.
+
+**T-072 — Calendar/Pipeline/nav.** The appointment link itself was already correct
+(`/company/pipeline?tab=appointments&appt=<id>`, real per-appointment id) — Pipeline just never read the `appt`
+param, so there was no way to tell which card a click meant. Worse: Pipeline split appointments into
+Upcoming/Past purely by `startTime`, so an unconfirmed after-hours booking whose slot time had already passed
+lost its Confirm/Cancel buttons the moment it fell into "Past & Cancelled" — genuinely, not just confusingly,
+unconfirmable. Fixed both in `src/app/company/pipeline/page.tsx`: scroll-to-and-highlight the exact `appt` id,
+and a new "Needs Confirmation" section (pending + not cancelled, regardless of elapsed time) rendered with
+`isPast={false}` so its action buttons always show. Nav: `company-nav.tsx` reordered to Dashboard → Pipeline →
+Calls → Calendar → Jobs → Field → Library → Guide for every vertical (module filtering still hides what a
+tenant's industry doesn't use), with Settings + Feedback split into a `.company-nav-secondary` group pinned to
+the sidebar bottom via `margin-top: auto` behind a divider. Perf: Calendar's week-appointments fetch was the
+last direct client→Firestore read T-070/T-071 hadn't reached; extended
+`GET /api/businesses/[businessId]/appointments` with an optional `from`/`to` range (same field as the
+`orderBy`, so no new index) and pointed `CalendarBoard` at it — closes out the same round-trip-time fix as
+T-071 for the one page it had skipped.
+
+**T-073 — self-service team management.** Audited before building, per the owner's own "we may already have
+it": found nothing self-service. The only existing path,
+`POST /api/admin/businesses/[businessId]/provision-login`, is superadmin-only, hardcodes `role: "owner"`, one
+login per business, and returns a plaintext temp password for the superadmin to relay by hand. Built
+`GET/POST /api/company/team` + `PATCH /api/company/team/[uid]`, gated `["owner", "superadmin"]`. Invite creates
+(or reuses) the Firebase Auth user, writes an `active: true` `businessUsers` doc, and emails a branded
+password-reset link — reusing the `generatePasswordResetLink` pattern T-043 established, via a new
+`sendTeamInviteEmail` in `notify.ts` branded to the business rather than to Luxor. Three guards: refuses an
+email carrying the `superadmin` custom claim; refuses an email already active on a *different* business (one
+Firestore identity = one tenant, matching how `businessUsers` docs are keyed); and `PATCH` refuses any role
+change or deactivation that would leave a business with zero active owners. UI is a `TeamPanel` folded into
+`/company/settings` (visible only to `role === "owner"` or superadmin) rather than a new nav tab — it's account
+administration, not a workflow the nav reorder above was organizing. New `src/types/team.ts` for the shared
+`TeamRole`/`TeamMember` shapes. 14 new tests in `src/app/api/company/team/__tests__/route.test.ts` (a
+fake-Firestore harness matching the existing `cron-routes.test.ts` pattern) covering invite, both cross-tenant
+guards, and both last-owner-lockout guards. Also updated `public/guides/onboarding-guide.html` (Phase 4, the
+go-live checklist, and the "handing over the login" script) so whoever's onboarding a client tells them they
+can add their own team from Settings → Team — and, while already editing that file, fixed unrelated stale
+voice-stack steps it still described (Cartesia Sonic 3.5 / ElevenLabs Flash / Deepgram nova-3, the pipeline
+T-060 replaced on 2026-09-05) to the actual live `gpt-realtime-2025-08-28` + `cedar` config; the guide had never
+been updated for that switch.
+
+**T-074 — active-flag regression, found while building T-073.** `POST /api/admin/businesses` — the onboarding
+wizard's business-creation endpoint, the normal way a new client gets provisioned — wrote the owner's
+`businessUsers` doc without `active: true`. Every `verifyAuthAndRole` check requires
+`.where("active", "==", true)`; without it, a wizard-onboarded owner's login succeeds (Firebase Auth is fine,
+`__session` cookie sets) but then 403s on every session-gated API call — which, after T-071/T-072, is most of
+the company portal (jobs, appointments, leads, calendar, settings, and now team). The only way this ever
+actually worked was a superadmin separately clicking "Provision Login" on the business's config page afterward
+— a second, different code path that has always set `active: true` correctly. Added the missing field; added a
+regression test in `src/app/api/admin/businesses/__tests__/route.test.ts` asserting
+`businessUsers/{uid}.active === true` after business creation. This is very likely why "we may already have
+it" needed checking rather than assuming — a freshly wizard-onboarded client's own login may not have actually
+worked end-to-end before this fix.
+
+**Navigation-completeness audit (T-072 ask):** every `page.tsx` under `src/app/company` and `src/app/admin` is
+either linked from its nav (`company-nav.tsx`/`admin-nav.tsx`), reachable via an in-page button
+(`/admin/onboarding` from "+ New business" on `/admin/businesses`; `/admin/businesses/[id]/config` from that
+list's Edit button), or a documented compatibility redirect (`/company/agent`, `/company/appointments`,
+`/company/leads` — all pre-existing, all still correctly redirecting). Nothing unreachable found.
+
+**Verified (all three tasks together):** `tsc` clean; lint 0 errors/21 warnings (all pre-existing); `next build`
+green with `/api/company/team` and `/api/company/team/[uid]` in the route table; `vitest run` 388/389 — the one
+failure is the same pre-existing parallel-load timeout flake as T-071 documented (a different file each full-run
+attempt, always clean in isolation — confirmed again this session on two different files). Committed locally;
+not pushed (not asked to this session).
 
 ## 2026-09-06, continued — T-071: cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar
 

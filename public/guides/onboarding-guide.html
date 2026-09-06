@@ -1036,26 +1036,12 @@
     <li>
       <div class="step-num">4</div>
       <div class="step-body">
-        <strong>Configure the model</strong>
-        <p>Provider: <strong>OpenAI</strong> — Model: <strong>gpt-4o-mini</strong> — Temperature: <strong>0.5</strong> — Max tokens: <strong>150</strong></p>
+        <strong>Configure the model (native speech-to-speech)</strong>
+        <p>Provider: <strong>OpenAI</strong> — Model: <strong>gpt-realtime-2025-08-28</strong> — Voice: <strong>cedar</strong>. This is a single unified speech-to-speech model — there's no separate TTS/STT provider to pick (as of the 2026-09-05 switch, T-060). It costs more per minute than the old cascaded Cartesia/Deepgram/GPT-4o-mini stack, but reads far more natural on a phone call — an explicit quality tradeoff, not an oversight. Leave <code>startSpeakingPlan</code>/<code>stopSpeakingPlan</code>/background sound at the assistant's existing tuned defaults.</p>
       </div>
     </li>
     <li>
       <div class="step-num">5</div>
-      <div class="step-body">
-        <strong>Configure voice (TTS)</strong>
-        <p>Provider: <strong>Cartesia</strong> — Voice: <strong>Sonic 3.5 "Ariana - kind friend"</strong> (~250ms latency, excellent for phone). Alternatively: <strong>ElevenLabs</strong> Flash for maximum voice realism at slightly higher latency.</p>
-      </div>
-    </li>
-    <li>
-      <div class="step-num">6</div>
-      <div class="step-body">
-        <strong>Configure transcription (STT)</strong>
-        <p>Provider: <strong>Deepgram</strong> — Model: <strong>nova-3</strong> — Endpointing: <strong>300ms</strong></p>
-      </div>
-    </li>
-    <li>
-      <div class="step-num">7</div>
       <div class="step-body">
         <strong>Set the Server URL (Advanced tab)</strong>
         <p><span class="url">https://ai-roof.vercel.app/api/webhooks/vapi</span></p>
@@ -1063,7 +1049,7 @@
       </div>
     </li>
     <li>
-      <div class="step-num">8</div>
+      <div class="step-num">6</div>
       <div class="step-body">
         <strong>Add all 7 tools</strong>
         <p>Go to the <strong>Tools tab</strong> → <strong>+ Add Tool</strong> and add each (they already exist in your Vapi account — search and select):</p>
@@ -1071,7 +1057,7 @@
       </div>
     </li>
     <li>
-      <div class="step-num">9</div>
+      <div class="step-num">7</div>
       <div class="step-body">
         <strong>Save and copy the Assistant ID</strong>
         <p>After saving, the assistant ID appears in the URL bar and assistant settings. Looks like: <code>9267a84a-0f4f-416b-a328-1dc539f5265e</code></p>
@@ -1209,6 +1195,13 @@ superadmin: false</code>
         <p>Email: their email | Temp password: from the wizard success screen (the owner also receives a password-reset welcome email from no-reply@luxordev.com)</p>
       </div>
     </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Tell them they can add their own team — you don't have to</strong>
+        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff by email with one click, assigning Owner / Staff / Viewer as they go. Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Superadmins can do the same thing on a client's behalf via <code>?preview=</code>.</p>
+      </div>
+    </li>
   </ol>
 
   <hr>
@@ -1258,7 +1251,7 @@ superadmin: false</code>
       <div class="step-num">6</div>
       <div class="step-body">
         <strong>Test client login</strong>
-        <p>Log in with client credentials. ✓ Dashboard shows their data &nbsp; ✓ No other businesses visible &nbsp; ✓ Nav shows only relevant tabs for their industry</p>
+        <p>Log in with client credentials. ✓ Dashboard shows their data &nbsp; ✓ No other businesses visible &nbsp; ✓ Nav shows only relevant tabs for their industry &nbsp; ✓ Settings → Team is visible (owner role) and can send a test invite</p>
       </div>
     </li>
     <li>
@@ -1289,6 +1282,7 @@ superadmin: false</code>
     <li>Confirm they can log in and land on their own data (not a blank or wrong dashboard)</li>
     <li>Point out the tabs their industry actually uses — don't walk them through tabs they don't have</li>
     <li>Confirm they know where notification emails will land (and to check spam once)</li>
+    <li>Mention Settings → Team if they have staff to add — they don't need you for that</li>
   </ul>
 
   <h4>2. Setting after-hours expectations — before their first real one</h4>
@@ -1352,8 +1346,7 @@ superadmin: false</code>
     <li>All 7 tools added to the assistant in Vapi (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate)</li>
     <li>Webhook URL set: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code></li>
     <li>Webhook secret configured and matching between Vapi dashboard (Server URL → Secret) and Vercel (<code>VAPI_WEBHOOK_SECRET</code>); the former bypass is removed — webhook requests without a valid secret are rejected (T-010)</li>
-    <li>Voice configured (Cartesia Sonic 3.5 "Ariana" or ElevenLabs Flash)</li>
-    <li>Deepgram STT configured (nova-3, 300ms endpointing)</li>
+    <li>Model + voice configured (OpenAI gpt-realtime-2025-08-28, voice: cedar — native speech-to-speech, no separate STT/TTS provider)</li>
     <li>Phone number purchased and assigned to assistant in Vapi</li>
     <li>Call forwarding tested (if using existing number)</li>
     <li>Business created in portal at /admin/onboarding — correct industry selected</li>
@@ -1362,6 +1355,7 @@ superadmin: false</code>
     <li>Brand color, logo URL, contact phone saved in portal</li>
     <li>Notification email and escalation phone configured</li>
     <li>Client login provisioned (auto via wizard, or manually via Firebase Console)</li>
+    <li>Client told they can add their own team from Settings → Team (Owner role, no superadmin needed)</li>
     <li>Test appointment booked via live call — appears in portal</li>
     <li>Notification email confirmed received</li>
     <li>Escalation test passed</li>

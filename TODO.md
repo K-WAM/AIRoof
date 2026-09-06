@@ -38,7 +38,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
-| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 7/9** | Owner prioritization pending |
+| 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 
 ### Checklist
 
@@ -71,9 +71,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (done 2026-09-05, see note below)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 9/11
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 12/14
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ → T-071 ✓ (2026-09-06)
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ → T-071 ✓ → T-072 ✓ → T-073 ✓ → T-074 ✓ (2026-09-06)
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14) — CI-gate half
@@ -136,6 +136,67 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         admin SDK instead of the client SDK). This is a latency fix, not a bundle-size one, so it won't move the
         route-size table — the win is round-trip time, which local tooling can't measure without production
         traffic; worth an owner glance at real page-load timing after it ships.
+  - [x] T-072 — Calendar → Pipeline appointment deep-link fix + nav reorder + Calendar's last client Firestore
+        read moved server-side (owner: "in calendar when i click an unconfirmed appointment, it takes me to
+        pipeline, but that name of the person i clicked is in past an[d] canceled, so i cant confirm it" + "nav
+        bar tabs should be in logical order... settings should be separate... reduce load time" — 2026-09-06).
+        Root cause of the appointment bug: the Calendar "Bookings" strip already linked to
+        `/company/pipeline?tab=appointments&appt=<id>` with the right id, but Pipeline never read the `appt`
+        param — so there was no way to tell which card the click meant — *and* Pipeline bucketed appointments
+        into Upcoming/Past purely by `startTime`, so a still-unconfirmed after-hours booking whose slot time had
+        already passed lost its Confirm/Cancel buttons entirely once it fell into "Past & Cancelled" — genuinely
+        unconfirmable from that page, not just confusing. Fixed both: Pipeline now scrolls to and highlights the
+        exact `appt`-id card, and pending/unconfirmed appointments are pulled into their own always-actionable
+        "Needs Confirmation" section regardless of whether the slot time has passed. Nav: reordered
+        `company-nav.tsx` to Dashboard → Pipeline → Calls → Calendar → Jobs → Field → Library → Guide (same
+        order for every vertical; per-industry `module` filtering still hides what doesn't apply), and split
+        Settings + Feedback into their own group pinned to the bottom of the sidebar with a divider
+        (`.company-nav-secondary`, `margin-top: auto`) instead of sitting in the workflow list. Perf: Calendar
+        was the one page T-070/T-071 hadn't reached — it still ran a direct browser→Firestore query for the
+        visible week's appointments on every week change. Extended
+        `GET /api/businesses/[businessId]/appointments` with an optional `from`/`to` range (same field for the
+        range and the `orderBy`, so no new composite index) and pointed `CalendarBoard` at it instead — same
+        round-trip-time fix as T-071, closing out that page. Verified: `tsc` clean; lint 0/21 (unchanged);
+        `vitest run` 374/374 (two full-suite-only timeout flakes seen along the way, both confirmed pre-existing
+        parallel-load contention — pass cleanly in isolation, unrelated files each time); `next build` green.
+  - [x] T-073 — Self-service team management: a business owner can add teammates by email and assign a role
+        with no superadmin involved (owner: "we want a way to if we get a client company, they can add emails,
+        assign roles, etc for their company... smooth, easy, minimal click... we may already have it" —
+        2026-09-06). Audited first: no such feature existed. The only prior path was superadmin-only
+        (`/api/admin/businesses/[businessId]/provision-login`), hardcoded to `role: "owner"`, one login per
+        business, temp password returned as plaintext for the superadmin to relay by hand — not client
+        self-service and not multi-user. Built `GET/POST /api/company/team` + `PATCH
+        /api/company/team/[uid]`, gated to `["owner", "superadmin"]` via the existing `verifyAuthAndRole`.
+        Invite flow creates (or reuses) the Firebase Auth user, writes an `active: true` `businessUsers` doc,
+        and emails a branded password-reset link (`generatePasswordResetLink` + a new `sendTeamInviteEmail` in
+        `notify.ts`, same shape as T-043's welcome email but branded to the *business*, not Luxor) — no temp
+        password to relay by hand, no second step. Guards: refuses to invite an email that carries the
+        `superadmin` custom claim; refuses an email already active on a *different* business (one Firestore
+        identity = one tenant); always keeps at least one active owner on a business (`PATCH` blocks a role
+        change or deactivation that would leave zero active owners) so nobody can lock every future login out.
+        UI is a new `TeamPanel` folded into `/company/settings` (not a new nav tab — Settings is where an owner
+        already looks for account administration), visible only when `role === "owner"` or superadmin. New
+        `src/types/team.ts` for the shared `TeamRole`/`TeamMember` shapes. 14 new route tests (fake-Firestore
+        harness matching the existing cron-routes.test.ts pattern) covering the invite/guard/last-owner-lockout
+        paths. Updated `public/guides/onboarding-guide.html` (Phase 4 + go-live checklist + the "handing over the
+        login" script) to tell whoever's onboarding a client that the client can self-serve their own team from
+        here on — plus fixed unrelated stale voice-stack steps in the same file while in there (Cartesia/
+        ElevenLabs/Deepgram nova-3 → the actual live `gpt-realtime-2025-08-28` + `cedar` config from T-060,
+        which the guide had never been updated for). Verified: `tsc` clean; lint 0/21; `vitest run` 388/389 (one
+        more pre-existing parallel-load flake, clean in isolation); `next build` green with both new routes in
+        the table.
+  - [x] T-074 — Fixed a real bug found while building T-073: `POST /api/admin/businesses` (the onboarding
+        wizard's business-creation endpoint — the primary way a new client gets provisioned) wrote the owner's
+        `businessUsers` doc without `active: true`. Every `verifyAuthAndRole` check requires
+        `.where("active", "==", true)`, so a business onboarded through the wizard would let its owner log in
+        (Firebase Auth succeeds, `__session` cookie sets) but then get 403 Forbidden from *every* session-gated
+        API — which, after T-071/T-072, is now most of the company portal (jobs, appointments, leads, calendar,
+        settings, team). The only way it ever worked was a superadmin separately clicking "Provision Login" on
+        the business's config page afterward, which has always set `active: true` correctly (a second, different
+        code path). Added the missing field; added a regression test asserting it in
+        `route.test.ts` (`businessUsers/{uid}.active === true` after business creation) so this can't silently
+        regress again. This was very likely why "we may already have it" needed checking in T-073 — a freshly
+        onboarded client's login may not have actually worked end-to-end before now.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
