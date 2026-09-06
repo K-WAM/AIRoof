@@ -71,9 +71,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (done 2026-09-05, see note below)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 8/10
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 9/11
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ (2026-09-06)
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ → T-071 ✓ (2026-09-06)
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14) — CI-gate half
@@ -109,6 +109,33 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         `/company/dashboard` redirects to `/login?next=...` as expected. **Pushed and live** (2026-09-06, owner
         approved) — `origin/main` now matches `main` (`6691480`); Vercel's auto-deploy reached Ready and
         production was re-verified healthy (`/api/health`, `/login`, webhook 401) post-deploy.
+  - [x] T-071 — Cut Firestore round-trip time on the pages T-070 flagged as the next lag source (owner: "do the
+        round-trip time thing to reduce page lag" — 2026-09-06). T-070 fixed bundle weight, not query latency; a
+        direct client Firestore read pays its own connection setup + security-rule evaluation on whatever
+        network the browser is on, once per collection, and Dashboard alone ran 6 of those in parallel on every
+        visit. Added 4 new admin-SDK-backed endpoints — `GET /api/businesses/[businessId]/{leads,appointments,
+        calls,agent-actions}` (session-role-gated via `verifyAuthAndRole`, same pattern as `/api/jobs`) — so
+        those reads become one fast same-origin HTTP round trip each, resolved server-to-Firestore (datacenter
+        to datacenter, no client-side rule evaluation) instead of browser-to-Firestore. `calls` supports
+        `?countOnly=1` (aggregation query, no documents transferred) for Dashboard's "Total calls" tile.
+        Extended the existing `/api/businesses/[businessId]/agent-config` response with 4 fields
+        (`agentName`/`escalationPhone`/`active`/`vapiAssistantId`) instead of adding a 5th endpoint, so
+        Dashboard's business-doc read reuses it. Rewired Dashboard, Calls, Pipeline (initial load only — its
+        `markContacted`/`updateApptStatus` mutations are unchanged, out of scope for a *load-time* fix), and
+        CommandBar to fetch these instead of querying Firestore client-side; CommandBar's `getFirebaseDb` import
+        is now gone entirely (the command palette touches no client Firestore at all). **Bonus find:** CommandBar
+        has called `/api/businesses/${businessId}/leads` since it was built, but that route never existed until
+        this task — its lead search has silently 404'd (swallowed by a `.catch(() => null)`) this whole time;
+        now fixed as a side effect. Verified: `tsc` clean; lint 0/21 (unchanged); `vitest run` 373/374 (the one
+        failure is the pre-existing documented `example-lib.test.ts` concurrent-load flake, confirmed clean
+        re-run in isolation — unrelated to this change); `next build` green, 4 new routes appear in the route
+        table. Smoke-tested the new endpoints against a local prod server: all 5 correctly return 401
+        Unauthenticated with no session cookie (couldn't verify the authenticated happy path locally — this
+        sandbox has no real Firebase credentials — but every query is a verbatim move of the exact
+        collection/orderBy/limit the client already ran successfully in production, just executed with the
+        admin SDK instead of the client SDK). This is a latency fix, not a bundle-size one, so it won't move the
+        route-size table — the win is round-trip time, which local tooling can't measure without production
+        traffic; worth an owner glance at real page-load timing after it ships.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

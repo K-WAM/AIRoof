@@ -1,9 +1,10 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude) — T-070 done: lazy-loaded the Firebase Auth/Firestore SDK off every authenticated
-page's critical path (owner: nav feedback agreed, then "reduce loading times on every page... still laggy").
-Roughly halves First Load JS on every page that was 248-261kB (now 109-122kB). Owner approved the push —
-`origin/main` now matches `main`; Vercel auto-deployed and production was re-verified healthy post-deploy.
+Updated: 2026-09-06 (Claude) — T-071 done: moved Dashboard/Calls/Pipeline/CommandBar's Firestore reads
+server-side (4 new admin-SDK endpoints) to cut round-trip time — the thing T-070 explicitly flagged as the next
+lag source once bundle weight was fixed (owner: "do the round-trip time thing to reduce page lag"). Also fixed
+a real pre-existing bug found along the way: CommandBar's lead search has 404'd silently since it was built.
+Local commit only — not pushed yet, unlike T-070 (see that entry below for its own now-pushed status).
 
 Previous: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
 Vapi-API-side change, not a code deploy). T-056 + token-conservation pass also done this session, all 5 commits
@@ -13,12 +14,11 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is now at `6691480` (2026-09-06, owner approved this push) — `main` and
-  `origin/main` match exactly, nothing local-only remains. That push carried T-067, the T-068 qrcode follow-up,
-  T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070 (this session). Vercel's
-  GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from the push);
-  production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` →
-  `401`, `/login` → `200`.
+- Pushed baseline: `origin/main` is at `6691480` (2026-09-06, owner approved that push) — it carried T-067, the
+  T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070.
+  Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from
+  the push); production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook
+  `POST` → `401`, `/login` → `200`. **T-071 (this session) is local-only** — not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -28,6 +28,42 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06, continued — T-071: cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar
+
+Direct continuation of T-070 below: that entry closed with an explicit caveat — "this is a first-load/hydration
+weight fix, not a query-latency one; if pages still feel slow, look at per-query round-trip time next." Owner:
+"do the round-trip time thing to reduce page lag."
+
+- **What "round-trip time" means here:** even after T-070 made the Firestore SDK load lazily, the actual client
+  Firestore *queries* Dashboard/Calls/Pipeline/CommandBar ran still went browser → Firestore directly — paying
+  connection setup + client-side security-rule evaluation on top of the query itself, on whatever network the
+  user's browser is on. Dashboard alone ran 6 of these in parallel on every single visit (no caching).
+- **Fix:** added 4 new endpoints under `/api/businesses/[businessId]/` — `leads`, `appointments` (both take
+  `?limit=`/`?order=`), `calls` (`?countOnly=1` for a cheap aggregation-only count), `agent-actions` — all
+  admin-SDK reads gated by `verifyAuthAndRole(..., ["owner","staff","viewer","superadmin"])`, the same
+  session-role pattern already used by `/api/jobs` and `/api/company/library`'s PUT. Extended the existing
+  `/api/businesses/[businessId]/agent-config` response with 4 more fields instead of adding a 5th endpoint, so
+  Dashboard's business-doc read reuses it. Rewired Dashboard, Calls, Pipeline (initial load only — its
+  `markContacted`/`updateApptStatus` writes are untouched, out of scope for a load-*time* fix), and CommandBar
+  to fetch these instead of querying Firestore client-side. CommandBar no longer touches the client Firestore
+  SDK at all.
+- **Bonus find:** CommandBar has called `fetch(/api/businesses/${businessId}/leads)` since it was built, but
+  that route never existed until this task — every command-palette lead search has silently 404'd (swallowed by
+  a `.catch(() => null)`) this whole time. Fixed as a side effect of building the endpoint it was already
+  calling.
+- **Verified:** `tsc` clean; lint 0/21 (unchanged); `vitest run` 373/374 — the one failure is the
+  pre-existing, already-documented `example-lib.test.ts` concurrent-load flake, re-confirmed clean in isolation,
+  unrelated to this change; `next build` green with the 4 new routes in the table. Smoke-tested against a local
+  prod server: all 5 endpoints correctly return `401 Unauthenticated` with no session cookie. Could not verify
+  the authenticated happy path locally (no real Firebase credentials in this sandbox) — mitigated by every new
+  query being a verbatim move of the exact collection/orderBy/limit the client already ran successfully in
+  production, just executed with the admin SDK instead of the client SDK, rather than new query logic.
+- **Honest limit:** this is a latency fix, not a bundle-size one — it won't show up in `next build`'s route
+  table the way T-070 did, and local tooling can't measure real round-trip time without production traffic.
+  Worth an owner glance at actual page-load timing (e.g. browser DevTools Network tab on the live Dashboard)
+  after this ships, to confirm it's felt.
+- **Not pushed** — local commit only, pending the same explicit approval T-070 got.
 
 ## 2026-09-06 — T-070: lazy-load Firebase Auth/Firestore off every page's critical path
 

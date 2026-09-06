@@ -51,6 +51,12 @@ export async function GET(
       disallowedTopics: businessConfig.disallowedTopics,
       emergencyRules: businessConfig.emergencyRules,
       bookingRules: businessConfig.bookingRules,
+      // T-071: added so the company Dashboard can read its "Agent Setup" panel
+      // from this one server-side call instead of a client-side Firestore getDoc.
+      agentName: businessConfig.agentName,
+      escalationPhone: businessConfig.escalationPhone,
+      active: businessConfig.active,
+      vapiAssistantId: businessConfig.vapiAssistantId,
     };
 
     return NextResponse.json(publicConfig);

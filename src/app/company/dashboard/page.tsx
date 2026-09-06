@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getFirebaseDb } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -89,45 +88,54 @@ export default function CompanyDashboardPage() {
 
     async function load() {
       try {
-        const db = await getFirebaseDb();
-        if (!db) throw new Error("Firestore not configured");
-        const { collection, getDocs, query, orderBy, limit, doc, getDoc, getCountFromServer } =
-          await import("firebase/firestore");
-        const base = `businesses/${businessId}`;
-
-        const [callCountSnap, leadsSnap, apptsSnap, bizDoc, jobsRes, actionsSnap] = await Promise.all([
-          getCountFromServer(collection(db, base + "/calls")),
-          getDocs(query(collection(db, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
-          getDocs(query(collection(db, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
-          getDoc(doc(db, "businesses", businessId)),
-          hasJobs
-            ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => {
-                if (!r.ok) throw new Error("Jobs request failed");
-                return r.json();
-              })
-            : Promise.resolve({ jobs: [] }),
-          getDocs(query(collection(db, base + "/agentActions"), orderBy("createdAt", "desc"), limit(50))),
+        // T-071: server-side reads instead of direct client Firestore queries —
+        // one HTTP round trip per collection to our own API (fast, same-origin)
+        // instead of the browser opening its own connection to Firestore for
+        // each read (connection setup + security-rule evaluation on top of the
+        // query itself, over whatever network the browser is on).
+        const base = `/api/businesses/${businessId}`;
+        const [callCountRes, leadsRes, apptsRes, bizRes, jobsRes, actionsRes] = await Promise.all([
+          fetch(`${base}/calls?countOnly=1`),
+          fetch(`${base}/leads?limit=20`),
+          fetch(`${base}/appointments?limit=200&order=asc`),
+          fetch(`${base}/agent-config`),
+          hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
+          fetch(`${base}/agent-actions?limit=50`),
         ]);
 
-        if (bizDoc.exists()) {
-          const d = bizDoc.data()!;
+        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
+          throw new Error("Dashboard data request failed");
+        }
+
+        const [callCountData, leadsData, apptsData, jobsData, actionsData] = await Promise.all([
+          callCountRes.json(),
+          leadsRes.json(),
+          apptsRes.json(),
+          jobsRes ? jobsRes.json() : Promise.resolve({ jobs: [] }),
+          actionsRes.json(),
+        ]);
+
+        // Matches the old bizDoc.exists() check — a missing business doc
+        // (pathological, but possible) leaves the Agent Setup panel empty
+        // instead of failing the whole dashboard load.
+        if (bizRes.ok) {
+          const d = await bizRes.json();
           setAgent({
-            agentName: d["agentName"],
-            escalationPhone: d["escalationPhone"],
-            approvedServices: d["approvedServices"],
-            approvedFaqs: d["approvedFaqs"],
-            active: d["active"],
-            vapiAssistantId: d["vapiAssistantId"],
+            agentName: d.agentName,
+            escalationPhone: d.escalationPhone,
+            approvedServices: d.approvedServices,
+            approvedFaqs: d.approvedFaqs,
+            active: d.active,
+            vapiAssistantId: d.vapiAssistantId,
           });
         }
 
-        setCallCount(callCountSnap.data().count);
-        setLeads(leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as LeadSnapshot)));
-        setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as ApptSnapshot)));
-        setJobs((jobsRes.jobs ?? []) as JobSnapshot[]);
+        setCallCount(callCountData.count);
+        setLeads((leadsData.leads ?? []) as LeadSnapshot[]);
+        setAppointments((apptsData.appointments ?? []) as ApptSnapshot[]);
+        setJobs((jobsData.jobs ?? []) as JobSnapshot[]);
         const latestEscalationByCall = new Map<string, EscalationSnapshot>();
-        for (const actionDoc of actionsSnap.docs) {
-          const action = actionDoc.data();
+        for (const action of (actionsData.actions ?? []) as Array<Record<string, unknown>>) {
           const output = action.output as { status?: unknown } | undefined;
           if (
             action.type !== "escalateCall" ||
@@ -141,7 +149,7 @@ export default function CompanyDashboardPage() {
             continue;
           }
           latestEscalationByCall.set(action.callId, {
-            actionId: actionDoc.id,
+            actionId: action.actionId as string,
             callId: action.callId,
             status: output.status,
             createdAt: typeof action.createdAt === "number" ? action.createdAt : 0,

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -73,19 +72,20 @@ export default function CompanyCallsPage() {
 
   useEffect(() => {
     if (!businessId) return;
-    (async () => {
-      const db = await getFirebaseDb();
-      if (!db) { setLoadError(true); setLoading(false); return; }
-      const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
-      getDocs(query(collection(db, `businesses/${businessId}/calls`), orderBy("startedAt", "desc")))
-        .then((snap) => {
-          const data = snap.docs.map((d) => ({ callId: d.id, ...d.data() } as Call));
-          setCalls(data);
-          if (data.length > 0) setSelected(data[0]);
-        })
-        .catch(() => setLoadError(true))
-        .finally(() => setLoading(false));
-    })();
+    // T-071: server-side admin-SDK read instead of a direct client Firestore
+    // query — see the leads route for the full round-trip-time rationale.
+    fetch(`/api/businesses/${businessId}/calls`)
+      .then((r) => {
+        if (!r.ok) throw new Error("Calls request failed");
+        return r.json();
+      })
+      .then(({ calls }: { calls: Call[] }) => {
+        const data = calls ?? [];
+        setCalls(data);
+        if (data.length > 0) setSelected(data[0]);
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, [businessId]);
 
   if (loading) return <PageSkeleton rows={6} />;

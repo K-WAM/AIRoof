@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Result {
@@ -50,17 +49,12 @@ export function CommandBar() {
 
   async function fetchData() {
     try {
-      const db = await getFirebaseDb();
-      const [leadsRes, jobsRes, apptsSnap] = await Promise.all([
+      // T-071: all three sources are now plain server-side API reads — no
+      // client Firestore SDK involved in the command palette at all anymore.
+      const [leadsRes, jobsRes, apptsRes] = await Promise.all([
         fetch(`/api/businesses/${businessId}/leads`).catch(() => null),
         fetch(`/api/jobs?businessId=${businessId}`).catch(() => null),
-        db
-          ? import("firebase/firestore")
-              .then(({ collection, getDocs, query, orderBy }) =>
-                getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "desc")))
-              )
-              .catch(() => null)
-          : Promise.resolve(null),
+        fetch(`/api/businesses/${businessId}/appointments?order=desc`).catch(() => null),
       ]);
       const results: Result[] = [];
 
@@ -77,15 +71,15 @@ export function CommandBar() {
         }
       }
 
-      if (apptsSnap) {
-        for (const docSnap of apptsSnap.docs) {
-          const a = docSnap.data() as Record<string, unknown>;
+      if (apptsRes?.ok) {
+        const { appointments = [] } = await apptsRes.json().catch(() => ({}));
+        for (const a of appointments) {
           results.push({
             type: "appt",
-            id: docSnap.id,
-            name: (a.callerName as string) ?? (a.callerPhone as string) ?? "Unknown caller",
-            sub: (a.serviceType as string) ?? (a.address as string) ?? "",
-            href: pipelineHref("appointments", "appt", docSnap.id),
+            id: a.appointmentId,
+            name: a.callerName ?? a.callerPhone ?? "Unknown caller",
+            sub: a.serviceType ?? a.address ?? "",
+            href: pipelineHref("appointments", "appt", a.appointmentId),
           });
         }
       }

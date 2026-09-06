@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-06 (T-070 — lazy-loaded Firebase Auth/Firestore off every page's critical path — see below)
+Last updated: 2026-09-06 (T-071 — cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -12,15 +12,15 @@ Last updated: 2026-09-06 (T-070 — lazy-loaded Firebase Auth/Firestore off ever
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** `origin/main` at `6691480` (2026-09-06, owner approved this push) — `git rev-parse
-main` and `origin/main` match, nothing local-only remains. That range includes T-067, the T-068 qrcode
-follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070 (this session).
-Vercel's GitHub auto-deploy picked it up (`vercel ls`/`vercel inspect` confirmed the resulting deployment
+**Latest pushed baseline:** `origin/main` at `6691480` (2026-09-06, owner approved that push) — it includes
+T-067, the T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and
+T-070. Vercel's GitHub auto-deploy picked it up (`vercel ls`/`vercel inspect` confirmed the resulting deployment
 reached Ready); `/api/health` → `200`/`"connected"`, `/login` → `200`, unauthenticated webhook `POST` → `401`
-re-verified against production after the deploy. See the 2026-09-03/04 session entry below for the older
-history, including one reverted commit (a firebase-admin v14 migration that broke production for a few minutes;
-fixed forward via `git revert`, documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`)
-and a 3-vertical expansion (`1d2f840`) were reviewed and pushed earlier still.
+re-verified against production after the deploy. **T-071 (this session) is local-only, not yet approved for
+push.** See the 2026-09-03/04 session entry below for the older history, including one reverted commit (a
+firebase-admin v14 migration that broke production for a few minutes; fixed forward via `git revert`,
+documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) and a 3-vertical expansion
+(`1d2f840`) were reviewed and pushed earlier still.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
@@ -30,7 +30,47 @@ and a 3-vertical expansion (`1d2f840`) were reviewed and pushed earlier still.
 
 ---
 
-## This session (2026-09-06) — T-070: lazy-loaded Firebase Auth/Firestore off every page's critical path
+## This session (2026-09-06, continued) — T-071: cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar
+
+Direct continuation of T-070 below, which closed with an explicit caveat: "this is a first-load/hydration
+weight fix, not a query-latency one; if pages still feel slow, look at per-query round-trip time next." Owner:
+"do the round-trip time thing to reduce page lag."
+
+**What was actually slow:** T-070 made the Firestore SDK load lazily, but the queries Dashboard/Calls/Pipeline/
+CommandBar ran still went browser → Firestore directly, paying connection setup and client-side security-rule
+evaluation on top of the query itself, on whatever network the user's browser happened to be on. Dashboard
+alone ran 6 of these in parallel on every single visit, with no caching.
+
+**Fix:** added 4 new endpoints under `/api/businesses/[businessId]/` — `leads`, `appointments` (both accept
+`?limit=`/`?order=`), `calls` (`?countOnly=1` triggers a cheap aggregation-only count instead of transferring
+documents), and `agent-actions` — all backed by the admin SDK and gated by
+`verifyAuthAndRole(..., ["owner","staff","viewer","superadmin"])`, the same session-role pattern `/api/jobs`
+and `/api/company/library`'s PUT already use. Extended the existing `agent-config` endpoint with 4 more fields
+rather than standing up a 5th route, so Dashboard's business-doc read reuses it. Rewired Dashboard, Calls,
+Pipeline (initial load only — `markContacted`/`updateApptStatus` writes are untouched, out of scope for a
+load-*time* fix), and CommandBar to fetch these instead of querying Firestore client-side. CommandBar no
+longer touches the client Firestore SDK at all.
+
+**Bonus find:** CommandBar has called `fetch(/api/businesses/${businessId}/leads)` since it was built, but
+that route never existed until this task — every command-palette lead search has silently 404'd (swallowed by
+a `.catch(() => null)`) this whole time. Fixed as a side effect of building the endpoint it was already calling.
+
+**Verified:** `tsc` clean; lint 0/21 (unchanged); `vitest run` 373/374 — the one failure is the pre-existing,
+already-documented `example-lib.test.ts` concurrent-load flake, re-confirmed clean in isolation and unrelated
+to this change; `next build` green with the 4 new routes in the table. Smoke-tested against a local production
+server: all 5 endpoints correctly return `401 Unauthenticated` with no session cookie. Could not verify the
+authenticated happy path locally — no real Firebase credentials in this sandbox — mitigated by every new query
+being a verbatim move of the exact collection/orderBy/limit the client already ran successfully in production,
+not new query logic.
+
+**Honest limit:** this is a latency fix, not a bundle-size one — it won't show up in `next build`'s route-size
+table the way T-070 did, and local tooling can't measure real round-trip time without production traffic.
+Worth an owner glance at actual page-load timing (DevTools Network tab on the live Dashboard) after this ships,
+to confirm it's felt. **Not pushed** — local commit only, pending the same explicit approval T-070 got.
+
+---
+
+## Earlier (2026-09-06) — T-070: lazy-loaded Firebase Auth/Firestore off every page's critical path
 
 Owner: "do whatever is next too, reduce loading times on every page as you go, still laggy" — after T-067/
 T-068/T-069 had already shipped. Rather than assume those closed the topic, re-measured with `next build`'s own

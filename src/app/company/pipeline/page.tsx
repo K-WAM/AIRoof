@@ -104,24 +104,23 @@ export default function PipelinePage() {
 
   useEffect(() => {
     if (!businessId) return;
-    (async () => {
-      const db = await getFirebaseDb();
-      if (!db) { setLoadError(true); setLoading(false); return; }
-      const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
-      Promise.all([
-        getDocs(query(collection(db, `businesses/${businessId}/leads`), orderBy("createdAt", "desc"))),
-        getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "asc"))),
-      ])
-        .then(([leadsSnap, apptsSnap]) => {
-          const leadsData = leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as Lead));
-          setLeads(leadsData);
-          const chosenLead = leadParam ? leadsData.find((l) => l.leadId === leadParam) : undefined;
-          setSelectedLead(chosenLead ?? leadsData[0] ?? null);
-          setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
-        })
-        .catch(() => setLoadError(true))
-        .finally(() => setLoading(false));
-    })();
+    // T-071: server-side admin-SDK reads instead of direct client Firestore
+    // queries — see the leads route for the full round-trip-time rationale.
+    const base = `/api/businesses/${businessId}`;
+    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
+      .then(async ([leadsRes, apptsRes]) => {
+        if (!leadsRes.ok || !apptsRes.ok) throw new Error("Pipeline data request failed");
+        const [{ leads: leadsData }, { appointments: apptsData }] = await Promise.all([
+          leadsRes.json(),
+          apptsRes.json(),
+        ]) as [{ leads: Lead[] }, { appointments: Appointment[] }];
+        setLeads(leadsData ?? []);
+        const chosenLead = leadParam ? leadsData?.find((l) => l.leadId === leadParam) : undefined;
+        setSelectedLead(chosenLead ?? leadsData?.[0] ?? null);
+        setAppointments(apptsData ?? []);
+      })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, [businessId]);
 
   // --- Lead actions ---
