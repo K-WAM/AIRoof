@@ -186,7 +186,8 @@ export default function CalendarBoard() {
     const startMs = weekStart.getTime();
     const endMs = addDays(weekStart, 7).getTime();
     import("firebase/firestore").then(async ({ collection, getDocs, query, where, orderBy }) => {
-      const { db } = await import("@/lib/firebase/client");
+      const { getFirebaseDb } = await import("@/lib/firebase/client");
+      const db = await getFirebaseDb();
       if (!db) return;
       try {
         const snap = await getDocs(query(

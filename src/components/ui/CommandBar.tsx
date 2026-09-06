@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { collection, getDocs, query as fsQuery, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Result {
@@ -51,13 +50,16 @@ export function CommandBar() {
 
   async function fetchData() {
     try {
+      const db = await getFirebaseDb();
       const [leadsRes, jobsRes, apptsSnap] = await Promise.all([
         fetch(`/api/businesses/${businessId}/leads`).catch(() => null),
         fetch(`/api/jobs?businessId=${businessId}`).catch(() => null),
         db
-          ? getDocs(
-              fsQuery(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "desc"))
-            ).catch(() => null)
+          ? import("firebase/firestore")
+              .then(({ collection, getDocs, query, orderBy }) =>
+                getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "desc")))
+              )
+              .catch(() => null)
           : Promise.resolve(null),
       ]);
       const results: Result[] = [];

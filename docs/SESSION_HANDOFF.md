@@ -1,6 +1,10 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
+Updated: 2026-09-06 (Claude) — T-070 done: lazy-loaded the Firebase Auth/Firestore SDK off every authenticated
+page's critical path (owner: nav feedback agreed, then "reduce loading times on every page... still laggy").
+Roughly halves First Load JS on every page that was 248-261kB (now 109-122kB). Local commit only, not pushed.
+
+Previous: 2026-09-05 (Claude) — T-060 done: live Vapi assistant switched to GPT Realtime + cedar (a live
 Vapi-API-side change, not a code deploy). T-056 + token-conservation pass also done this session, all 5 commits
 local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus this doc round). Nothing pushed.
 
@@ -8,8 +12,8 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — every commit from this session (T-067,
-  the T-068 qrcode follow-up, T-056, the token-conservation pass, and the Vapi voice script) is local only, per
+- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — every commit since (T-067, the T-068
+  qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, and now T-070) is local only, per
   the standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last push:
   `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
@@ -21,6 +25,47 @@ local only (2 T-056/token-conservation code+docs, 1 script, 1 script fix, plus t
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06 — T-070: lazy-load Firebase Auth/Firestore off every page's critical path
+
+Owner agreed with a nav-design aside (demote a marketing link out of primary nav, fold a thin "Wallet" item into
+account settings — feedback on an external reference screenshot, not this codebase) and then: "do whatever is
+next too, reduce loading times on every page as you go, still laggy" — despite T-067/T-068/T-069 already
+shipped. Investigated rather than assuming those were exhausted.
+
+- **Root cause, found via `next build`'s route table:** every heavy company/admin/login page (dashboard, calls,
+  jobs, jobs/[id], field, guide, library, pipeline, settings, login, admin/onboarding, admin businesses/[id]
+  config) sat at 248-261kB First Load JS, while Calendar sat at 104kB. Diffed `.next/app-build-manifest.json`
+  between a heavy page and Calendar and string-searched the differing chunks — confirmed they were entirely
+  `firebase/auth` + `firebase/firestore`. Traced it to `src/lib/firebase/client.ts`: a plain module doing
+  top-level `initializeApp`/`getAuth`/`getFirestore`, statically imported (directly or via `AuthContext`/
+  `CommandBar`) by every authenticated layout and several pages. Calendar was the one page already exempt,
+  because `CalendarBoard.tsx` (T-068) already dynamically imports both `firebase/firestore` and this module
+  inline — that existing precedent is what made the pattern obviously correct to extend everywhere else.
+- **Fix:** rewrote `client.ts` to export `getFirebaseAuth()`/`getFirebaseDb()` — memoized async accessors. App
+  init itself still kicks off at module-evaluation time (not gated behind a call) so the SDK chunk starts
+  fetching in parallel with hydration instead of only after some effect runs. Updated every call site (12
+  files: `AuthContext`, `company/layout.tsx`, `admin/layout.tsx`, `login/page.tsx`, `CommandBar`,
+  `useBusinessModules`, `useBusinessTimezone`, `CalendarBoard`, and the dashboard/calls/pipeline pages' own
+  direct Firestore reads) to `await` the accessor and dynamically `import("firebase/auth")` /
+  `import("firebase/firestore")` at the point of use — same pattern as T-068's dnd-kit/qrcode split, just
+  applied to the SDK that every authenticated page was paying for.
+- **Result:** every previously-heavy page dropped from 248-261kB to 109-122kB First Load JS — roughly halved,
+  converging on Calendar's ~104kB baseline. This is a first-load/hydration-speed fix (smaller JS to download,
+  parse, and execute before a page's own code runs); it doesn't change how fast Firestore itself answers a
+  query, so if "still laggy" persists after this, the next place to look is per-query latency (e.g., the
+  dashboard's `getCountFromServer` + four parallel Firestore reads), not bundle size.
+- **Verified:** `tsc` clean; lint 0/21 (unchanged baseline); `vitest run` 374/374 — one test
+  (`useBusinessModules.test.ts`) needed a microtask-flush in `afterEach` because the new async hops meant a
+  dangling promise from the "hasn't resolved yet" case could bleed a mock call count into the next test; not a
+  product bug, a test-isolation artifact of the new `await`s. `next build` green, sizes confirmed via the route
+  table above. Smoke-tested with a local production server (`next start`) + Playwright: `/login` renders clean,
+  submitting the email/password form correctly reaches the (locally-unconfigured, so expectedly short-circuited)
+  Firebase code path with no crash or console error beyond a pre-existing missing-favicon 404; `/company/dashboard`
+  redirects to `/login?next=...` as expected for a logged-out session. Not pushed — local commit only.
+- **Also touched:** `example image irrigation.png` (untracked, repo root) — the owner's T-056 reference
+  screenshot — was reviewed again this session for a nav-design opinion but not modified; still untracked,
+  per the standing "delete or relocate on request" note (no request made).
 
 ## 2026-09-05, continued further — T-060: live assistant switched to GPT Realtime + cedar
 

@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -73,15 +72,20 @@ export default function CompanyCallsPage() {
   const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
 
   useEffect(() => {
-    if (!db || !businessId) return;
-    getDocs(query(collection(db, `businesses/${businessId}/calls`), orderBy("startedAt", "desc")))
-      .then((snap) => {
-        const data = snap.docs.map((d) => ({ callId: d.id, ...d.data() } as Call));
-        setCalls(data);
-        if (data.length > 0) setSelected(data[0]);
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+    if (!businessId) return;
+    (async () => {
+      const db = await getFirebaseDb();
+      if (!db) { setLoadError(true); setLoading(false); return; }
+      const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
+      getDocs(query(collection(db, `businesses/${businessId}/calls`), orderBy("startedAt", "desc")))
+        .then((snap) => {
+          const data = snap.docs.map((d) => ({ callId: d.id, ...d.data() } as Call));
+          setCalls(data);
+          if (data.length > 0) setSelected(data[0]);
+        })
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false));
+    })();
   }, [businessId]);
 
   if (loading) return <PageSkeleton rows={6} />;

@@ -16,7 +16,7 @@ vi.mock("@/hooks/useBusinessId", () => ({
 }));
 
 vi.mock("@/lib/firebase/client", () => ({
-  db: {},
+  getFirebaseDb: () => Promise.resolve({}),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -32,7 +32,13 @@ describe("useBusinessModules — family (T-056)", () => {
     mocks.useBusinessId.mockReturnValue("biz-1");
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // The hook now resolves `db`/`firebase/firestore` via dynamic import (T-070),
+    // adding a couple of microtask hops before an in-flight fetch reaches its
+    // getDoc() call. Flush one macrotask so a dangling promise from a test like
+    // "hasn't resolved yet" (which never resolves getDoc) still lands *before*
+    // clearAllMocks(), instead of bleeding its call count into the next test.
+    await new Promise((r) => setTimeout(r, 0));
     cleanup();
     vi.clearAllMocks();
   });

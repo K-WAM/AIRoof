@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -104,20 +103,25 @@ export default function PipelinePage() {
   }
 
   useEffect(() => {
-    if (!db || !businessId) return;
-    Promise.all([
-      getDocs(query(collection(db, `businesses/${businessId}/leads`), orderBy("createdAt", "desc"))),
-      getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "asc"))),
-    ])
-      .then(([leadsSnap, apptsSnap]) => {
-        const leadsData = leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as Lead));
-        setLeads(leadsData);
-        const chosenLead = leadParam ? leadsData.find((l) => l.leadId === leadParam) : undefined;
-        setSelectedLead(chosenLead ?? leadsData[0] ?? null);
-        setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
-      })
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
+    if (!businessId) return;
+    (async () => {
+      const db = await getFirebaseDb();
+      if (!db) { setLoadError(true); setLoading(false); return; }
+      const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
+      Promise.all([
+        getDocs(query(collection(db, `businesses/${businessId}/leads`), orderBy("createdAt", "desc"))),
+        getDocs(query(collection(db, `businesses/${businessId}/appointments`), orderBy("startTime", "asc"))),
+      ])
+        .then(([leadsSnap, apptsSnap]) => {
+          const leadsData = leadsSnap.docs.map((d) => ({ leadId: d.id, ...d.data() } as Lead));
+          setLeads(leadsData);
+          const chosenLead = leadParam ? leadsData.find((l) => l.leadId === leadParam) : undefined;
+          setSelectedLead(chosenLead ?? leadsData[0] ?? null);
+          setAppointments(apptsSnap.docs.map((d) => ({ appointmentId: d.id, ...d.data() } as Appointment)));
+        })
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false));
+    })();
   }, [businessId]);
 
   // --- Lead actions ---
@@ -141,9 +145,11 @@ export default function PipelinePage() {
   }
 
   async function markContacted(lead: Lead) {
-    if (!db) return;
     setLeadUpdating(true);
     try {
+      const db = await getFirebaseDb();
+      if (!db) return;
+      const { doc, updateDoc } = await import("firebase/firestore");
       await updateDoc(doc(db, `businesses/${businessId}/leads`, lead.leadId), {
         status: "contacted",
         updatedAt: Date.now(),
@@ -160,9 +166,11 @@ export default function PipelinePage() {
 
   // --- Appointment actions ---
   async function updateApptStatus(appt: Appointment, status: string) {
-    if (!db) return;
     setApptUpdating(appt.appointmentId);
     try {
+      const db = await getFirebaseDb();
+      if (!db) return;
+      const { doc, updateDoc } = await import("firebase/firestore");
       await updateDoc(doc(db, `businesses/${businessId}/appointments`, appt.appointmentId), {
         status, updatedAt: Date.now(),
       });

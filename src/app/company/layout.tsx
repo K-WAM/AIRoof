@@ -6,9 +6,8 @@ import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { signOut } from "firebase/auth";
 import { Briefcase, CalendarDays, Menu, Phone, Users, X } from "lucide-react";
-import { auth } from "@/lib/firebase/client";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
@@ -59,7 +58,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   async function handleLogout() {
-    if (auth) await signOut(auth);
+    const auth = await getFirebaseAuth();
+    if (auth) {
+      const { signOut } = await import("firebase/auth");
+      await signOut(auth);
+    }
     document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
     router.replace("/login");
   }

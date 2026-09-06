@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import {
   VERTICAL_TEMPLATES,
@@ -44,7 +43,7 @@ export function useBusinessModules(): BusinessModules {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!db || !businessId) return;
+    if (!businessId) return;
     let cancelled = false;
 
     const cacheKey = `industry_${businessId}`;
@@ -59,23 +58,31 @@ export function useBusinessModules(): BusinessModules {
       /* sessionStorage unavailable (SSR) */
     }
 
-    getDoc(doc(db, "businesses", businessId))
-      .then((snap) => {
-        if (cancelled) return;
-        const value = snap.data()?.industry;
-        if (typeof value === "string" && value in VERTICAL_TEMPLATES) {
-          setIndustry(value as VerticalId);
-          try {
-            sessionStorage.setItem(cacheKey, value);
-          } catch {
-            /* ignore */
-          }
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
+    (async () => {
+      const db = await getFirebaseDb();
+      if (!db) {
         if (!cancelled) setReady(true);
-      });
+        return;
+      }
+      const { doc, getDoc } = await import("firebase/firestore");
+      getDoc(doc(db, "businesses", businessId))
+        .then((snap) => {
+          if (cancelled) return;
+          const value = snap.data()?.industry;
+          if (typeof value === "string" && value in VERTICAL_TEMPLATES) {
+            setIndustry(value as VerticalId);
+            try {
+              sessionStorage.setItem(cacheKey, value);
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setReady(true);
+        });
+    })();
 
     return () => {
       cancelled = true;

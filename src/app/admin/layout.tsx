@@ -31,8 +31,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   if (!user || (!user.superadmin && user.role !== "superadmin")) return null;
 
   async function handleLogout() {
-    const { auth } = await import("@/lib/firebase/client");
-    const { signOut } = await import("firebase/auth");
+    const { getFirebaseAuth } = await import("@/lib/firebase/client");
+    const [auth, { signOut }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
     if (auth) await signOut(auth);
     document.cookie = "__session=; path=/; max-age=0; SameSite=Strict";
     router.replace("/login");

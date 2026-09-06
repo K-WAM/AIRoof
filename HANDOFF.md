@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-05 (T-060 — live assistant switched to GPT Realtime + cedar — see below)
+Last updated: 2026-09-06 (T-070 — lazy-loaded Firebase Auth/Firestore off every page's critical path — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -16,6 +16,8 @@ on the human-owned checks in `TODO.md#needs-human`.
 for the full commit list, including one reverted commit (a firebase-admin v14 migration that broke production
 for a few minutes; fixed forward via `git revert`, documented as a live incident). The 2026-08-23 maintenance
 cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pushed in an earlier session.
+Everything since (T-067, the T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script,
+and now T-070) is local commits only, per the standing "nothing pushed without explicit approval" rule.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
@@ -25,7 +27,53 @@ cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pus
 
 ---
 
-## This session (2026-09-05, continued further) — T-060: live assistant switched to GPT Realtime + cedar
+## This session (2026-09-06) — T-070: lazy-loaded Firebase Auth/Firestore off every page's critical path
+
+Owner: "do whatever is next too, reduce loading times on every page as you go, still laggy" — after T-067/
+T-068/T-069 had already shipped. Rather than assume those closed the topic, re-measured with `next build`'s own
+route table: every heavy company/admin/login page (dashboard, calls, jobs, jobs/[id], field, guide, library,
+pipeline, settings, login, admin/onboarding, admin businesses/[id] config) was 248-261kB First Load JS, while
+Calendar sat at 104kB. Diffing `.next/app-build-manifest.json` between a heavy page and Calendar and
+string-searching the differing chunks identified the whole gap as `firebase/auth` + `firebase/firestore`.
+
+**Root cause:** `src/lib/firebase/client.ts` did top-level `initializeApp`/`getAuth`/`getFirestore` — a plain
+module statically imported (directly, or via `AuthContext`/`CommandBar`) by every authenticated layout and
+several pages, bundling the ~150kB (gzipped) SDK into each of their first-load JS whether or not the page needed
+it before the user interacted with anything. Calendar was the one page already exempt: `CalendarBoard.tsx`
+(T-068) already dynamically imports both `firebase/firestore` and this module inline — that existing precedent
+is what made extending the pattern everywhere else the obvious fix rather than a novel one.
+
+**Fix:** rewrote `client.ts` to export `getFirebaseAuth()`/`getFirebaseDb()` — memoized async accessors backed
+by dynamic `import()`. App init itself still starts at module-evaluation time (not gated behind a call) so the
+SDK chunk begins fetching in parallel with hydration rather than only after some effect happens to run.
+Updated all 12 call sites — `AuthContext`, `company/layout.tsx`, `admin/layout.tsx`, `login/page.tsx`,
+`CommandBar`, `useBusinessModules`, `useBusinessTimezone`, `CalendarBoard` (its own `db` destructure broke and
+needed the same accessor swap), and the dashboard/calls/pipeline pages' direct Firestore reads — to `await` the
+accessor and dynamically `import("firebase/auth")`/`import("firebase/firestore")` at the point of use.
+
+**Result:** every previously-heavy page dropped from 248-261kB to 109-122kB First Load JS — roughly halved,
+converging on Calendar's ~104kB baseline. This is specifically a first-load/hydration-speed fix (less JS to
+download, parse, and execute before a page's own code runs); it does not change Firestore query latency itself,
+so if perceived lag persists after this ships, the next place to look is per-query round-trip time (e.g. the
+dashboard's `getCountFromServer` plus four parallel reads on mount), not bundle size.
+
+**Verified:** `tsc` clean; lint 0/21 (unchanged); `vitest run` 374/374 — one test
+(`useBusinessModules.test.ts`) needed a microtask-flush added to its `afterEach`, because the new `await` hops
+meant a promise left dangling by the "hasn't resolved yet" test case could now bleed a mock call into the next
+test; a test-isolation artifact of the added async-ness, not a product bug. `next build` green, sizes confirmed
+via the route table. Smoke-tested against a local production server (`next start`) with Playwright: `/login`
+renders clean and its email/password submit correctly reaches the (locally-unconfigured, so expectedly
+short-circuited) Firebase code path with no crash or console error beyond a pre-existing missing-favicon 404;
+`/company/dashboard` redirects to `/login?next=...` as expected for a logged-out session. **Not pushed** — local
+commit only, per the standing rule.
+
+Also reviewed (not modified): `example image irrigation.png` (untracked, repo root, the owner's T-056 reference
+screenshot) came up for a nav-design opinion this session — feedback given on the external screenshot itself,
+nothing in this codebase to change from it. Still untracked; delete or relocate on request.
+
+---
+
+## Earlier (2026-09-05, continued further) — T-060: live assistant switched to GPT Realtime + cedar
 
 Owner: "on vapi, can you set it to the currently most human sounding timing, personality, models, responses...
 find out what it is and set it that way. the best, real human sounding." Researched Vapi's actual current

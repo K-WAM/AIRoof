@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { collection, getDocs, query, orderBy, limit, doc, getDoc, getCountFromServer } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -86,24 +85,28 @@ export default function CompanyDashboardPage() {
 
   useEffect(() => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
-    if (!db || !businessId || !modulesReady) return;
+    if (!businessId || !modulesReady) return;
 
     async function load() {
       try {
+        const db = await getFirebaseDb();
+        if (!db) throw new Error("Firestore not configured");
+        const { collection, getDocs, query, orderBy, limit, doc, getDoc, getCountFromServer } =
+          await import("firebase/firestore");
         const base = `businesses/${businessId}`;
 
         const [callCountSnap, leadsSnap, apptsSnap, bizDoc, jobsRes, actionsSnap] = await Promise.all([
-          getCountFromServer(collection(db!, base + "/calls")),
-          getDocs(query(collection(db!, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
-          getDocs(query(collection(db!, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
-          getDoc(doc(db!, "businesses", businessId)),
+          getCountFromServer(collection(db, base + "/calls")),
+          getDocs(query(collection(db, base + "/leads"), orderBy("createdAt", "desc"), limit(20))),
+          getDocs(query(collection(db, base + "/appointments"), orderBy("startTime", "asc"), limit(200))),
+          getDoc(doc(db, "businesses", businessId)),
           hasJobs
             ? fetch(`/api/jobs?businessId=${businessId}`).then((r) => {
                 if (!r.ok) throw new Error("Jobs request failed");
                 return r.json();
               })
             : Promise.resolve({ jobs: [] }),
-          getDocs(query(collection(db!, base + "/agentActions"), orderBy("createdAt", "desc"), limit(50))),
+          getDocs(query(collection(db, base + "/agentActions"), orderBy("createdAt", "desc"), limit(50))),
         ]);
 
         if (bizDoc.exists()) {

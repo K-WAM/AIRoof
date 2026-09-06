@@ -3,12 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  GoogleAuthProvider,
-} from "firebase/auth";
-import { auth } from "@/lib/firebase/client";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,10 +21,14 @@ export default function LoginPage() {
   }
 
   async function handleGoogle() {
-    if (!auth) { setError("Firebase not configured."); return; }
     setLoading(true);
     setError(null);
     try {
+      const [auth, { signInWithPopup, GoogleAuthProvider }] = await Promise.all([
+        getFirebaseAuth(),
+        import("firebase/auth"),
+      ]);
+      if (!auth) { setError("Firebase not configured."); return; }
       await signInWithPopup(auth, new GoogleAuthProvider());
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace(postLoginDest());
@@ -47,11 +46,15 @@ export default function LoginPage() {
 
   async function handleEmailAuth(e: React.FormEvent) {
     e.preventDefault();
-    if (!auth) { setError("Firebase not configured."); return; }
     if (!email || !password) { setError("Enter email and password."); return; }
     setLoading(true);
     setError(null);
     try {
+      const [auth, { signInWithEmailAndPassword }] = await Promise.all([
+        getFirebaseAuth(),
+        import("firebase/auth"),
+      ]);
+      if (!auth) { setError("Firebase not configured."); return; }
       await signInWithEmailAndPassword(auth, email, password);
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace(postLoginDest());

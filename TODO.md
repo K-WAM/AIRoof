@@ -71,9 +71,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
   - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (done 2026-09-05, see note below)
-- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 7/9
+- [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 8/10
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
-      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓
+      T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ (2026-09-06)
   - [x] T-061 — Enforce Content-Security-Policy + self-host fonts (security *and* a load-speed win — merged
         from two separate findings so the font migration isn't done twice)
   - [ ] T-062 — Dependency-vulnerability remediation + CI gate (`npm audit`, firebase-admin v14) — CI-gate half
@@ -88,6 +88,25 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         gated behind two sequential auth round-trips on every load)
   - [x] T-068 — Code-split heavy per-route bundles (Calendar's dnd-kit ships 276kB vs. a 102kB baseline)
   - [x] T-069 — Serve static images through `next/image`; verify the base64 photo path is right-sized
+  - [x] T-070 — Lazy-load the Firebase Auth/Firestore SDK off every page's critical path (owner continuation,
+        "still laggy" — 2026-09-06). `src/lib/firebase/client.ts`'s static `initializeApp`/`getAuth`/
+        `getFirestore` were pulled into every authenticated page's first-load JS via `AuthContext`/`CommandBar`/
+        `company/layout.tsx` (used by literally every `/company/*` and `/admin/*` route) plus direct
+        `firebase/firestore` imports in dashboard/calls/pipeline — Calendar was the one page already exempt
+        (T-068 already had it dynamically importing Firestore, which is what led to finding this). Converted
+        `client.ts` to `getFirebaseAuth()`/`getFirebaseDb()` memoized async accessors (app init itself still
+        starts at module-evaluation time so the SDK chunk fetches in parallel with hydration, not after);
+        updated all 12 call sites (`AuthContext`, `company/layout.tsx`, `admin/layout.tsx`, `login`,
+        `CommandBar`, `useBusinessModules`, `useBusinessTimezone`, `CalendarBoard`, dashboard/calls/pipeline
+        pages) to `await` them and dynamically `import("firebase/auth")`/`import("firebase/firestore")` at each
+        call site. **Result:** every page that was 248-261kB First Load JS (dashboard, calls, jobs, jobs/[id],
+        field, guide, library, pipeline, settings, login, admin/onboarding, admin businesses/[id]/config) is now
+        109-122kB — roughly halved, converging on Calendar's existing ~104kB baseline. `tsc` clean, lint 0/21
+        (unchanged), `vitest run` 374/374 (one test needed a microtask-flush fix in `afterEach` — the new async
+        hops meant a dangling promise from one test could bleed a mock call into the next; not a product bug),
+        `next build` green. Smoke-tested with a local prod server + Playwright: `/login` renders and its
+        email/password submit correctly reaches the (locally unconfigured) Firebase code path with no crash;
+        `/company/dashboard` redirects to `/login?next=...` as expected. Not pushed — local commit only.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
