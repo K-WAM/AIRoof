@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-05 (T-067 auth-gate latency fix — see the session entry below)
+Last updated: 2026-09-05 (T-056 per-industry visual families + a token-conservation pass — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -25,7 +25,47 @@ cleanup (`c8487ed`) and a 3-vertical expansion (`1d2f840`) were reviewed and pus
 
 ---
 
-## This session (2026-09-05) — T-067: cut the auth-gate latency on every page load
+## This session (2026-09-05, continued) — T-056: per-industry visual families + a token-conservation pass
+
+Owner: "proceed with the next todo improvement items, load time reduction and token conservation are
+fiduciary... I do want the [roofers] to feel it is for them, and the dentists to feel it is for them, etc." This
+cleared NH-13 — the owner dropped a client-portal reference screenshot (`example image irrigation.png`, repo
+root, untracked, not an app asset) showing a branded sidebar-nav portal with one confident accent color — so
+T-056 became self-executable, and a new non-numbered cost audit matched the owner's other stated priority.
+
+**T-056:** `family: "field" | "care" | "ops"` added to every `VerticalTemplate` (`src/lib/verticals/templates.ts`),
+grouped per the original audit's own proposal — field (7 on-site trades, unchanged teal), care (dental +
+childcare, calm blue `#0e6fa7`), ops (property management alone, its existing admin-card violet `#5a3ea1`
+promoted to a family accent for continuity). `useBusinessModules()` exposes it; `company/layout.tsx` sets
+`data-portal-family` on `.company-shell`; `globals.css` overrides `--accent`/`--accent-dark`/`--accent-soft`/
+`--ring` only inside that scoped selector, so every existing `var(--accent)` usage app-wide just picks up the
+new value — no rewrite, no reversal of the one-teal design rule. Every accent verified ≥4.5:1 against white by
+a test that reads the real `globals.css` file (can't silently drift from what ships). Admin Demo Studio's own
+per-vertical `color` field is untouched (prohibited scope). Honest flag: the exact hex choices are this
+session's own call from the reference + existing in-repo colors, not a live confirmation loop with the owner —
+reasonable under "proceed," but a quick visual glance is still worth it before treating the palette as final.
+
+**Token conservation:** traced the highest-volume path first — the live call. Confirmed it already sends a
+fully static persona to Vapi (`demo-customize/route.ts` → `updateAssistantPersona`, the 2026-09-02 fix), so
+there's no per-call dynamic content on our side to reorder for cache efficiency; the old runtime-aware prompt
+branch in the webhook is confirmed dead code (2026-09-02's own finding that `assistant-request` never fires for
+a fixed-`assistantId` number). The real, actionable gap: none of the four DeepSeek/OpenAI back-office calls in
+`src/lib/ai/deepseekClient.ts` set `max_tokens`, relying only on prompt instructions to bound output length with
+no hard ceiling against a stuck/repeating completion. Added defensive caps (1000/300/200/600, generous above
+every real output in the existing test fixtures) — a cost/latency ceiling, not a quality change. Deliberately
+did not revisit `parse-field-update`'s `gpt-4o` choice: T-048 already ran that exact fixture comparison and
+rejected the `gpt-4o-mini` downgrade on accuracy grounds (6.6-point regression) — re-opening it without new
+evidence would be re-litigating a settled call, not "proceeding."
+
+**Verified:** `tsc` clean, lint 0 errors/21 warnings (unchanged), full `vitest run` 374/374 clean this run,
+release suite 16/16, `next build` green (route sizes unchanged — no new dependency, CSS/type/server-only
+changes). New tests: `src/lib/verticals/__tests__/family-palette.test.ts`,
+`src/hooks/__tests__/useBusinessModules.test.ts` (first test for this hook), 4 new cases in
+`src/lib/ai/__tests__/ai-hardening.test.ts`. **Not committed** — sitting in the working tree pending the owner
+seeing this summary, alongside the two already-local T-067/T-068-follow-up commits from earlier this session.
+Full detail in `TODO.md`'s matching entry. **Phase 7 is now 4/8.**
+
+## Earlier this session (2026-09-05) — T-067: cut the auth-gate latency on every page load
 
 Owner asked what's next that doesn't need human input, specifically to improve loading times on every page.
 Of Phase 8's remaining backlog, T-067 was the only fully self-executable, load-time-improving task left —

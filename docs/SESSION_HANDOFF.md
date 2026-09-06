@@ -1,16 +1,48 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-05 (Claude) — T-067 (auth-gate latency) done, committed locally, not yet pushed.
+Updated: 2026-09-05 (Claude) — T-056 (per-industry visual families) + a token-conservation pass done, in the
+working tree; T-067/T-068-follow-up committed locally from earlier this session. Nothing pushed.
 
 ## Repository
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — this session's T-067 commit is local only,
-  per the standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last
-  push: `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
+- Pushed baseline: `origin/main` is still at `f638087` (2026-09-04) — this session's T-067/T-068-follow-up
+  commits are local only, and this session's T-056 + token-conservation work isn't committed yet either, per the
+  standing "nothing pushed without explicit approval" rule. Production confirmed healthy as of the last push:
+  `/api/health` → `200`/`"connected"`, unauthenticated webhook `POST` → `401`, `/login` → `200`.
 - Vercel: deployed via the GitHub-integration auto-deploy on each push to `main`.
 - No worker branches, active worktrees, or development blockers otherwise.
+- Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
+  screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-05, continued — T-056 (per-industry visual families) + a token-conservation pass
+
+Owner: "proceed with the next todo improvement items, load time reduction and token conservation are
+fiduciary... I do want the [roofers] to feel it is for them, and the dentists to feel it is for them." This
+cleared NH-13 (owner dropped a reference client-portal screenshot) and matched the owner's other stated
+priority with a new, non-numbered cost audit. Full detail (palette values, contrast numbers, file list) is in
+`TODO.md`'s matching 2026-09-05 entry — summary:
+
+- **T-056:** `family: "field" | "care" | "ops"` added to every `VerticalTemplate`; `useBusinessModules()` exposes
+  it; `company/layout.tsx` sets it as `data-portal-family` on `.company-shell`; `globals.css` overrides
+  `--accent`/`--accent-dark`/`--accent-soft`/`--ring` only inside that scoped selector (field keeps today's
+  teal — 7 verticals unaffected; care = dental+childcare; ops = property management alone, reusing its existing
+  admin-card violet). Every accent ≥4.5:1 against white, verified by reading the actual `globals.css` in a new
+  test rather than a duplicated constant. Admin Demo Studio's own per-vertical `color` field is untouched
+  (prohibited scope). Palette values are this session's own call from the reference + existing in-repo colors,
+  not a live confirmation round-trip — worth a quick owner glance, not a blocker.
+- **Token conservation:** live-call path already sends a fully static persona to Vapi (no per-call runtime
+  content to reorder — confirmed the old runtime-aware prompt branch is dead code, per the 2026-09-02 finding
+  that `assistant-request` never fires for a fixed-`assistantId` number). The real gap: none of the four
+  DeepSeek/OpenAI back-office calls (`parseFieldUpdate`/`summarizeTranscript`/`classifyCallOutcome`/
+  `generateFaqSuggestions`) capped `max_tokens` — added defensive ceilings (1000/300/200/600) as a cost/latency
+  bound, not a quality change. Deliberately left `parse-field-update`'s `gpt-4o` model choice alone — T-048
+  already tested and rejected that downgrade on accuracy grounds; not re-litigating without new evidence.
+- **Verified:** `tsc` clean, lint 0/21 (unchanged), full `vitest run` 374/374 clean this run, release suite
+  16/16, `next build` green (route sizes unchanged — CSS/type/server-side-only changes). New tests:
+  `src/lib/verticals/__tests__/family-palette.test.ts`, `src/hooks/__tests__/useBusinessModules.test.ts` (first
+  test for this hook), 4 new cases in `src/lib/ai/__tests__/ai-hardening.test.ts`.
 
 ## 2026-09-05 — T-067: cut the auth-gate latency on every page load
 

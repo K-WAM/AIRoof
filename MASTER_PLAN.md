@@ -570,7 +570,7 @@ implementation starts, don't invent the missing decision.
 - **Prohibited scope:** visual redesign of Demo Studio/onboarding beyond nav chrome (see T-056); no new auth
   system.
 
-### T-056 — Per-industry visual families in the company portal
+### T-056 — Per-industry visual families in the company portal ✅ done (2026-09-05)
 - **Objective:** Give `useBusinessModules()` a visual "family" token (grouping the 10 verticals into a small
   number of families — field/dispatch, care/intake, ops/escalation) and thread it into a CSS custom property at
   the company layout root, so a tenant's portal reflects its family, not one fixed teal for every industry.
@@ -597,9 +597,14 @@ implementation starts, don't invent the missing decision.
 - **Rollback:** additive CSS custom property + one new template field; revert cleanly.
 - **Prohibited scope:** full portal redesign; changing `disabledModules`/`calendarMode` semantics; changing the
   admin Demo Studio's existing per-vertical `color` field.
-- **NEEDS-HUMAN (2026-09-01):** owner is collecting reference apps for visual direction (top field-service/
-  organizing apps, roofing-specific apps) to paste into chat before the family palettes are drafted — don't start
-  the palette pass until those references land.
+- **NEEDS-HUMAN (2026-09-01), closed 2026-09-05:** owner dropped a reference screenshot (a branded client
+  portal — sidebar nav, one confident accent color, card layout); shipped using it as direction. **Shipped
+  palette:** field = today's teal (unchanged, 7 verticals), care = `#0e6fa7` (dental + childcare), ops =
+  `#5a3ea1` (property management, reusing its existing admin-card color). All three ≥4.5:1 contrast against
+  white (test: `src/lib/verticals/__tests__/family-palette.test.ts`). This was this session's own color call
+  under a "proceed" instruction, not a live back-and-forth on exact hex values — a quick visual glance at a
+  `care`/`ops` tenant portal is still worth an owner sign-off, just not a blocker on shipping. See
+  `TODO.md`'s 2026-09-05 entry for full detail.
 
 ### T-057 — Post-sale client talk-track content
 - **Objective:** Extend `public/guides/onboarding-guide.html` with a post-sale playbook — what to say handing

@@ -37,7 +37,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
-| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **queued — specs written, not assigned** | Owner prioritization pending |
+| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 4/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-069 | not CIB-weighted | 🕓 **in progress — 7/9** | Owner prioritization pending |
 
 ### Checklist
@@ -62,11 +62,11 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
-- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 3/8
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 4/8
   - [x] T-053 — Retire the dead `agentVoice` field (removed, not wired — see 2026-09-02 review note)
   - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
   - [ ] T-055 — Split demo/onboarding into a dedicated hub
-  - [ ] T-056 — Per-industry visual families in the company portal
+  - [x] T-056 — Per-industry visual families in the company portal (done 2026-09-05, see note below)
   - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
@@ -925,6 +925,64 @@ component boundary, since `QRCode.toDataURL` is a plain function call, not a com
 - **Verified:** `tsc` clean; lint 0/21 (unchanged); full `vitest run` **359/359 clean this run** (no flake); release
   suite 16/16; `next build` green.
 
+**2026-09-05, continuation — T-056 (per-industry visual families) + a token-conservation pass (owner: "proceed
+with the next todo improvement items, load time reduction and token conservation are fiduciary... I do want the
+[roofers] to feel it is for them, and the dentists to feel it is for them"):** NH-13's blocker cleared this
+session — the owner dropped a reference screenshot (`example image irrigation.png`, repo root) of a branded
+client portal (sidebar nav, one confident accent color, card-based layout) — so T-056 was picked up alongside a
+new (non-numbered) token/cost audit matching the owner's other stated priority.
+
+- **T-056 — done.** Added `family: "field" | "care" | "ops"` to every `VerticalTemplate`
+  (`src/lib/verticals/templates.ts`) grouping the 10 verticals per the original 2026-08-27 audit's own proposal:
+  **field** (roofing, HVAC, landscaping, cleaning, GC, electricians, appliance repair — 7 on-site trades, keeps
+  today's teal unchanged) · **care** (dental + childcare — calm clinical blue) · **ops** (property management
+  alone — structured violet, reusing its existing admin-card color for continuity rather than inventing a new
+  one). `useBusinessModules()` exposes `family` (null/fail-open for an unresolved or unrecognized industry, same
+  pattern as every other field on that hook). `company/layout.tsx` applies it as `data-portal-family` on
+  `.company-shell`; `globals.css` overrides `--accent`/`--accent-dark`/`--accent-soft`/`--ring` only inside that
+  scoped attribute selector — every existing `.button`/border/focus rule still reads `var(--accent)` unchanged,
+  so this is additive, not a rewrite of the one-teal rule (per the spec's own carve-out). **Not a reversal of the
+  admin Demo Studio's per-vertical `color` field** — that stays untouched, exactly as prohibited-scope requires.
+  Palette choice is this session's own call, not a live round-trip confirmation with the owner on exact hex
+  values — reasonable given "proceed" plus the dropped reference, but flagging honestly: a 30-second visual
+  glance at a `care` and an `ops` tenant portal side-by-side is still worth doing before calling the palette
+  itself final. Every accent independently verified ≥4.5:1 contrast against white (computed from the *actual*
+  `globals.css`, not a duplicated constant, so the test can't silently drift from what ships) — `care` 5.45:1,
+  `ops` 7.95:1, `field` (unchanged teal) 5.48:1. New tests: `src/lib/verticals/__tests__/family-palette.test.ts`
+  (contrast + grouping), `src/hooks/__tests__/useBusinessModules.test.ts` (first test for this hook — resolve,
+  fail-open, sessionStorage-cache-hit paths, mocking Firestore/`useBusinessId`). Zero bundle-size impact (`next
+  build` unchanged) — CSS custom-property + one enum field, no new dependency.
+- **Token-conservation pass — done, narrower than a full audit.** Traced the live-call path first since that's
+  the highest-volume LLM usage: confirmed `demo-customize/route.ts` pushes a **static** persona to the Vapi
+  assistant (`updateAssistantPersona`, the 2026-09-02 fix) with no `runtime` context passed to
+  `buildAgentPrompt()` — so the live line's system prompt is already maximally stable call-to-call (good for
+  whatever prompt caching Vapi's own backend does; nothing to reorder on our side since we don't construct
+  per-turn requests for the live call at all, Vapi does). The `assistant-request` webhook branch that *does*
+  build a runtime-aware prompt is confirmed dead code for every real tenant (2026-09-02's own finding: it never
+  fires for a fixed-`assistantId` number, which is every number this platform provisions) — left alone rather
+  than removed opportunistically, since deleting it is unrelated cleanup, not a cost or speed change, and out of
+  this pass's scope. The actual finding: **none of the four DeepSeek/OpenAI back-office completions calls
+  (`parseFieldUpdate`, `summarizeTranscript`, `classifyCallOutcome`, `generateFaqSuggestions` in
+  `src/lib/ai/deepseekClient.ts`) set `max_tokens`** — relying entirely on `response_format: json_object` plus
+  prompt instructions ("2 sentences max", "max 3 suggestions") to bound output, with no hard ceiling if a
+  completion gets stuck repeating. Added defensive `max_tokens` per operation (1000/300/200/600, sized generously
+  above every real-world output seen in the existing test fixtures) — this is a cost/latency ceiling, not a
+  quality lever: normal outputs sit well under every cap, so nothing about extraction accuracy changes. Explicitly
+  did **not** revisit `parse-field-update`'s `gpt-4o` model choice — T-048 already ran that exact comparison
+  (gpt-4o-mini regressed 6.6 points on a fixture-based accuracy test) and deliberately didn't ship the downgrade;
+  re-opening that without new evidence would be re-litigating a decision already made, not "proceeding." 4 new
+  test cases in `src/lib/ai/__tests__/ai-hardening.test.ts`, one per function, each capturing the real params
+  passed to the mocked `chat.completions.create` and asserting the cap.
+- **Verified (both pieces together):** `tsc --noEmit` clean; `eslint` 0 errors/21 warnings (unchanged, no new
+  warnings); full `vitest run` 374/374 clean this run (the one recurring `example-lib.test.ts` timeout didn't even
+  reproduce this pass); release suite 16/16; `next build` green, route sizes unchanged. **Not committed yet** —
+  sitting in the working tree alongside the two already-local-only T-067/T-068-follow-up commits from earlier
+  this session, per the standing "nothing pushed without explicit approval" rule (and commits themselves weren't
+  made pending the owner seeing this summary first).
+- **Left for the owner:** `example image irrigation.png` is still sitting untracked in the repo root — it was
+  useful as a one-time visual reference, not an asset the app itself needs, so it wasn't added to git or moved
+  into `public/`. Delete it, or say if it should be kept somewhere for future reference.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -1000,7 +1058,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 | NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
 | NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
-| NH-13 | Owner to research/paste reference apps (top organizing apps, roofing-specific apps) for visual direction | T-056 (per-industry visual families) | Added 2026-09-01; palette work shouldn't start until references land |
+| NH-13 | ~~Owner to research/paste reference apps for visual direction~~ — **Closed 2026-09-05:** owner dropped a client-portal screenshot (`example image irrigation.png`, repo root, untracked — not moved into the app) showing a branded sidebar-nav portal with one confident accent color; T-056 shipped using it as direction. | T-056 (per-industry visual families) | Added 2026-09-01; see T-056's 2026-09-05 note for the palette actually shipped and the quick sign-off still worth doing |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
