@@ -142,6 +142,55 @@ export async function sendBusinessWelcomeEmail(
   return sendEmail({ to: opts.to, subject, html });
 }
 
+const TEAM_ROLE_LABEL: Record<"owner" | "staff" | "viewer", string> = {
+  owner: "Owner",
+  staff: "Staff",
+  viewer: "Viewer",
+};
+
+export function buildTeamInviteEmail(opts: {
+  brand: Branding;
+  inviteeEmail: string;
+  role: "owner" | "staff" | "viewer";
+  resetLink: string;
+}): { subject: string; html: string } {
+  const roleLabel = TEAM_ROLE_LABEL[opts.role];
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">
+      You've been added to <strong>${esc(opts.brand.businessName)}</strong> on Luxor AI as a <strong>${esc(roleLabel)}</strong>.
+      Your login email is <strong>${esc(opts.inviteeEmail)}</strong>.
+    </p>
+    <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6">
+      Click the button below to set your password and get started.
+    </p>
+    <div style="margin:20px 0">
+      <a href="${esc(opts.resetLink)}" style="display:inline-block;background:${opts.brand.brandColor || "#1e3a5f"};color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Set your password</a>
+    </div>
+    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren’t expecting this, you can safely ignore this email.</p>`;
+
+  return {
+    subject: `[Luxor AI] You've been added to ${opts.brand.businessName}`,
+    html: shell(opts.brand, `Welcome to ${esc(opts.brand.businessName)}`, body),
+  };
+}
+
+export async function sendTeamInviteEmail(
+  opts: {
+    to: string;
+    brand: Branding;
+    role: "owner" | "staff" | "viewer";
+    resetLink: string;
+  },
+): Promise<CommSendResult> {
+  const { subject, html } = buildTeamInviteEmail({
+    brand: opts.brand,
+    inviteeEmail: opts.to,
+    role: opts.role,
+    resetLink: opts.resetLink,
+  });
+  return sendEmail({ to: opts.to, subject, html });
+}
+
 export function buildFeedbackEmail(opts: {
   businessName: string;
   submitterName: string;

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useAuth } from "@/contexts/AuthContext";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { TeamPanel } from "./TeamPanel";
 import { Bell, Clock3, Globe2, Save, Settings } from "lucide-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -33,6 +35,8 @@ interface Settings {
 
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
+  const canManageTeam = user?.role === "owner" || !!user?.superadmin;
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -280,6 +284,8 @@ export default function CompanySettingsPage() {
           </div>
         </div>
       </div>
+
+      {canManageTeam && <TeamPanel businessId={businessId} />}
     </>
   );
 }
