@@ -94,6 +94,11 @@ export async function parseFieldUpdate(
     res = await client.chat.completions.create({
       model: selection.model,
       temperature: 0.1,
+      // Defensive cost/latency ceiling, not a quality lever (T-048 already
+      // evaluated and rejected a model downgrade for this operation on
+      // accuracy grounds — this caps the rare stuck/repeating-generation
+      // blast radius, since a real extraction never needs this many tokens).
+      max_tokens: 1000,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -205,6 +210,7 @@ export async function summarizeTranscript(
     res = await client.chat.completions.create({
       model: selection.model,
       temperature: 0.2,
+      max_tokens: 300, // "2 sentences max" — a defensive ceiling, not a quality lever
       response_format: { type: "json_object" },
       messages: [
         {
@@ -264,6 +270,7 @@ export async function classifyCallOutcome(
     res = await client.chat.completions.create({
       model: selection.model,
       temperature: 0.2,
+      max_tokens: 200, // "1 sentence" reason — a defensive ceiling, not a quality lever
       response_format: { type: "json_object" },
       messages: [
         {
@@ -322,6 +329,7 @@ export async function generateFaqSuggestions(
     res = await client.chat.completions.create({
       model: selection.model,
       temperature: 0.2,
+      max_tokens: 600, // "Max 3 suggestions" — a defensive ceiling, not a quality lever
       response_format: { type: "json_object" },
       messages: [
         {

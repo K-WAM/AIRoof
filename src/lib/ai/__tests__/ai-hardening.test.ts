@@ -151,6 +151,23 @@ describe("deepseekClient — adversarial hardening", () => {
       ).rejects.toThrow("AI provider error");
     });
 
+    it("caps output tokens defensively (token-conservation follow-up)", async () => {
+      vi.stubEnv("OPENAI_API_KEY", "sk-test");
+      let capturedParams: Record<string, unknown> | undefined;
+      vi.doMock("openai", () => ({
+        default: buildMockOpenAI((params) => {
+          capturedParams = params;
+          return {
+            choices: [{ message: { content: JSON.stringify({ timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [], correction: null }) } }],
+          };
+        }),
+      }));
+
+      const { parseFieldUpdate } = await import("@/lib/ai/deepseekClient");
+      await parseFieldUpdate({ rawText: "hello", businessName: "Test" });
+      expect(capturedParams).toMatchObject({ max_tokens: 1000 });
+    });
+
     it("coerces numeric strings in AI output", async () => {
       vi.stubEnv("OPENAI_API_KEY", "sk-test");
       const numericStringOutput = {
@@ -230,6 +247,21 @@ describe("deepseekClient — adversarial hardening", () => {
         summarizeTranscript({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" }),
       ).rejects.toThrow("AI provider error");
     });
+
+    it("caps output tokens defensively (token-conservation follow-up)", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test");
+      let capturedParams: Record<string, unknown> | undefined;
+      vi.doMock("openai", () => ({
+        default: buildMockOpenAI((params) => {
+          capturedParams = params;
+          return { choices: [{ message: { content: '{"summary": "ok", "actionItems": []}' } }] };
+        }),
+      }));
+
+      const { summarizeTranscript } = await import("@/lib/ai/deepseekClient");
+      await summarizeTranscript({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" });
+      expect(capturedParams).toMatchObject({ max_tokens: 300 });
+    });
   });
 
   describe("classifyCallOutcome", () => {
@@ -275,6 +307,21 @@ describe("deepseekClient — adversarial hardening", () => {
       const result = await classifyCallOutcome({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" });
       expect(result.outcome).toBe("no_action");
     });
+
+    it("caps output tokens defensively (token-conservation follow-up)", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test");
+      let capturedParams: Record<string, unknown> | undefined;
+      vi.doMock("openai", () => ({
+        default: buildMockOpenAI((params) => {
+          capturedParams = params;
+          return { choices: [{ message: { content: '{"outcome": "no_action", "reason": "ok"}' } }] };
+        }),
+      }));
+
+      const { classifyCallOutcome } = await import("@/lib/ai/deepseekClient");
+      await classifyCallOutcome({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" });
+      expect(capturedParams).toMatchObject({ max_tokens: 200 });
+    });
   });
 
   describe("generateFaqSuggestions", () => {
@@ -319,6 +366,21 @@ describe("deepseekClient — adversarial hardening", () => {
       await expect(
         generateFaqSuggestions({ callSummary: "test", businessName: "Test", existingFaqs: [] }),
       ).rejects.toThrow("AI provider error");
+    });
+
+    it("caps output tokens defensively (token-conservation follow-up)", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test");
+      let capturedParams: Record<string, unknown> | undefined;
+      vi.doMock("openai", () => ({
+        default: buildMockOpenAI((params) => {
+          capturedParams = params;
+          return { choices: [{ message: { content: '{"suggestions": []}' } }] };
+        }),
+      }));
+
+      const { generateFaqSuggestions } = await import("@/lib/ai/deepseekClient");
+      await generateFaqSuggestions({ callSummary: "test", businessName: "Test", existingFaqs: [] });
+      expect(capturedParams).toMatchObject({ max_tokens: 600 });
     });
   });
 });
