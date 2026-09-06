@@ -289,6 +289,14 @@ export async function POST(
           email: provisionedLogin.email,
           businessId,
           role: "owner",
+          // Bug found this session: this doc was missing `active`, which every
+          // verifyAuthAndRole() check requires (`.where("active", "==", true)`).
+          // A business created through the onboarding wizard could log in but
+          // got 403s from every session-gated API — the owner login only
+          // "worked" once a superadmin separately hit Provision Login on the
+          // config page, which has always set this field correctly.
+          active: true,
+          createdAt: now,
         });
       }
     });

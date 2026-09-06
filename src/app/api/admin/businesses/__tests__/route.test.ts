@@ -110,6 +110,10 @@ function createFakeFirestore(): FakeFirestore {
   return new FakeFirestore();
 }
 
+// Captured so a test can inspect what actually landed in Firestore, not just
+// the API response — the "active" regression below only shows up there.
+let lastFirestore: FakeFirestore | undefined;
+
 function createFakeAuth() {
   return {
     createUser: mockCreateUser,
@@ -141,9 +145,13 @@ describe("POST /api/admin/businesses — welcome email", () => {
     mockVerifySuperadmin.mockReset();
 
     const auth = createFakeAuth();
+    lastFirestore = undefined;
     vi.doMock("@/lib/firebase/admin", () => ({
       getAdminAuth: vi.fn(() => auth),
-      getAdminFirestore: vi.fn(() => createFakeFirestore()),
+      getAdminFirestore: vi.fn(() => {
+        lastFirestore = createFakeFirestore();
+        return lastFirestore;
+      }),
     }));
 
     mockVerifySuperadmin.mockResolvedValue({ uid: "admin-1" });
@@ -328,5 +336,21 @@ describe("POST /api/admin/businesses — welcome email", () => {
 
     expect(json).not.toContain("SECRET_CODE");
     expect(json).not.toContain("resetPassword");
+  });
+
+  it("marks the provisioned owner's businessUsers doc active (regression: a missing `active` field 403'd every session-gated API call for wizard-onboarded owners)", async () => {
+    mockCreateUser.mockResolvedValue({ uid: "user-active-check", email: "owner@luxordev.com" });
+    mockGeneratePasswordResetLink.mockResolvedValue("https://luxor-dev.firebaseapp.com/__/auth/action?mode=resetPassword");
+    mockSendBusinessWelcome.mockResolvedValue({ status: "delivered", providerId: "msg_abc" });
+
+    const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
+    const response = await freshPost(createRequest(validBody));
+    expect(response.status).toBe(200);
+
+    const stored = lastFirestore?.documents.get("businessUsers/user-active-check");
+    expect(stored).toBeDefined();
+    expect(stored?.active).toBe(true);
+    expect(stored?.role).toBe("owner");
+    expect(stored?.businessId).toBe("test-biz");
   });
 });
