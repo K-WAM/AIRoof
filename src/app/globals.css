@@ -2276,3 +2276,162 @@ a.metric:hover {
     transition: none;
   }
 }
+
+/* ── Modal (generic shell — T-076 quick-add slice) ─────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 15vh 16px 16px;
+  overflow-y: auto;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md), 0 20px 60px rgba(0,0,0,0.16);
+  margin-bottom: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 16px;
+  flex: 1;
+}
+
+.modal-close,
+.modal-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.modal-close:hover,
+.modal-back:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 18px;
+}
+
+/* ── Quick add (global "+") ─────────────────────────────────────────────── */
+
+.quickadd-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.quickadd-trigger:hover {
+  background: var(--accent-dark);
+}
+
+.company-sidebar-footer .quickadd-trigger {
+  width: 100%;
+  justify-content: center;
+}
+
+.quickadd-menu {
+  display: grid;
+  gap: 8px;
+}
+
+.quickadd-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.quickadd-menu-item:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.quickadd-success p {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ── Blocked action ("add X first" prompt) ───────────────────────────────── */
+
+.blocked-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--warning);
+  background: #fffbeb;
+  border: 1px dashed #fcd34d;
+  border-radius: var(--r-lg);
+}
+
+.blocked-action-icon {
+  color: var(--warning);
+}
+
+.blocked-action-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  max-width: 420px;
+}
+
+@media (max-width: 900px) {
+  .mobile-nav-search .quickadd-trigger {
+    width: 100%;
+    height: 42px;
+    margin-bottom: 8px;
+  }
+}

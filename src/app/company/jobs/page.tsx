@@ -10,6 +10,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Briefcase, ExternalLink, FilePlus, Plus } from "lucide-react";
+import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -36,7 +37,7 @@ export default function JobsPage() {
   const prefillServiceType = searchParams?.get("serviceType") ?? "";
   const prefillApptId = searchParams?.get("appointmentId") ?? "";
 
-  useEffect(() => {
+  function fetchJobs() {
     if (!businessId) return;
     fetch(`/api/jobs?businessId=${businessId}`)
       .then((r) => {
@@ -46,7 +47,12 @@ export default function JobsPage() {
       .then((d) => setJobs(d.jobs ?? []))
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [businessId]);
+  }
+
+  useEffect(fetchJobs, [businessId]);
+
+  // Picks up a job created via the global quick-add while sitting on this page.
+  useQuickAddRefresh("job", fetchJobs);
 
   // Auto-open form when navigated from appointments "Create Job" button
   useEffect(() => {

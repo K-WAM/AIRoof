@@ -13,6 +13,9 @@ import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { BlockedAction } from "@/components/ui/BlockedAction";
+import { useQuickAdd } from "@/contexts/QuickAddContext";
+import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
 
 interface Appointment {
@@ -126,6 +129,7 @@ export default function CalendarBoard() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
+  const { open: openQuickAdd } = useQuickAdd();
   // Field service drags jobs onto crews; intake drags bookings onto providers/vendors.
   const apptMode = calendarMode === "appointments";
   const searchParams = useSearchParams();
@@ -178,6 +182,17 @@ export default function CalendarBoard() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId, modulesReady, apptMode]);
+
+  // A crew added via the global quick-add (e.g. from the BlockedAction card
+  // below) doesn't come from this page's own form — refetch in place instead
+  // of requiring a reload to see it show up as a schedulable row.
+  useQuickAddRefresh("crew", () => {
+    if (!businessId) return;
+    fetch(`/api/company/crews?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((cr) => setCrews((cr.crews ?? []).filter((c: Crew) => c.active)))
+      .catch(() => {});
+  });
 
   // Appointments for the visible window. In jobs mode they're a read-only
   // "Bookings" strip; in appointments mode they're the draggable cards.
@@ -581,11 +596,12 @@ export default function CalendarBoard() {
 
               {/* Crew rows */}
               {crews.length === 0 ? (
-                <div style={{ gridColumn: `1 / -1`, padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-                  No {vocab.resourceNounPlural.toLowerCase()} yet.{" "}
-                  <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} style={{ color: "var(--accent)" }}>
-                    Add {vocab.resourceNounPlural.toLowerCase()} in the Library →
-                  </Link>
+                <div style={{ gridColumn: `1 / -1`, padding: 24 }}>
+                  <BlockedAction
+                    message={`No ${vocab.resourceNounPlural.toLowerCase()} yet — add one to start scheduling on the Calendar.`}
+                    actionLabel={`+ Add ${vocab.resourceNoun.toLowerCase()}`}
+                    onAction={() => openQuickAdd("crew")}
+                  />
                 </div>
               ) : (
                 crews.map((crew) => (

@@ -1,6 +1,21 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude), continued — T-075 (Phase 9, first slice) done: a new reusable `Toggle` switch
+Updated: 2026-09-06 (Claude), continued — T-076 (Phase 9, second slice) done: a global quick-add ("+") reachable
+from every company page, plus a reusable "add X first" blocked-workflow card, converted onto Calendar's
+empty-crew state as the flagship example. Owner: "in modern apps, its nice to be able to click + ... like in
+airbnb, i can do a lot from almost any page ... tool tips if the workflow is blocked ... a popup card that says
+'add X first' ... use your best judgement ... like modern airbnb ... update todos and docs." Built a reusable
+`Modal` primitive, a `QuickAddProvider`/`useQuickAdd()` context (picker + jump-straight-to-one-form), a
+`QuickAddButton` in the sidebar/mobile nav, and `BlockedAction`; the three quick-add forms (Job/Crew/Teammate)
+POST to the exact same endpoints their home pages already use — no duplicated business logic — and are gated by
+the same module/role rules those pages already enforce. A small event bus lets Jobs/Library/Team/Calendar
+refresh their own list when something of their kind is created from elsewhere. Manual Appointment creation was
+deliberately left out of v1 (no staff-facing booking flow exists today to extract — building one is a separate
+product decision); full detail, including that scope call, in `TODO.md`'s T-076 entry. `tsc`/lint(0/21) clean,
+`vitest run` 409/409 (2 pre-existing concurrent-load flakes, clean in isolation), release suite 16/16, `next
+build` green with no First Load JS regression on any touched route. Committed locally, not pushed.
+
+Previous: 2026-09-06 (Claude), continued — T-075 (Phase 9, first slice) done: a new reusable `Toggle` switch
 component applied to two persisted binary settings (Settings business-hours "Closed", job-detail photo "In
 report"), `company/jobs/[jobId]` brought onto the standard `PageSkeleton` loading pattern (it was the one major
 detail page still on a bare loading `<div>`), and its "Job not found" state fixed from a genuine dead end (no
@@ -36,8 +51,8 @@ Local commit only at the time — see the Repository section below for current p
   T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070.
   Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from
   the push); production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook
-  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, T-074, and T-075 (this session) are local-only** —
-  not yet approved for push.
+  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, T-074, T-075, and T-076 (this session) are
+  local-only** — not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -47,6 +62,71 @@ Local commit only at the time — see the Repository section below for current p
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06, continued — T-076: global quick-add ("+") + a blocked-workflow "add X first" pattern
+
+Direct continuation of T-075 below, same open-ended Phase 9 modernization pass. Owner, across two messages: (1)
+"in modern apps, its nice to be able to click + or like easy ways to add things with a large +, like modern
+apps, so like + Crew or + appointment, etc, as logical, which opens up the same form to fill but available from
+different pages, just to make things easy for navigation ... like in airbnb, i can do a lot from almost any
+page, and it will link me to the right place from there, i dont have to backtrack ... Also tool tips if the
+workflow is blocked or not followed, there should be a popup card that says 'add X first in order to process
+Y', with a button that opens the form to add X"; (2), after being asked to confirm scope: "use your best
+judgement on a pick, for seamless, intuitive, easy use, like modern airbnb app ... update todos and docs."
+
+**Audit first.** No global create affordance existed anywhere: `CommandBar.tsx`'s `Cmd+K` is search-only, and
+each "add" flow (Job, Crew/resource, Teammate) was a full inline form hand-rolled on its own page with no shared
+component. The exact "blocked workflow" case the owner described was already shipped, and already a dead end:
+Calendar's empty-crew state read "No crews yet. Add crews in the Library →" — a plain link bouncing the user off
+Calendar to go find the Library page and guess their way to the Crews tab, with no way back to where they were.
+
+**Built:**
+- `src/components/ui/Modal.tsx` — a generic reusable modal shell (backdrop, Escape/click-outside to close,
+  `role="dialog"`). Every ad hoc `position:fixed;inset:0` popup already in this app (Field QR, the job-photo
+  lightbox) predates this and can migrate to it opportunistically — not rewritten as part of this task.
+- `src/contexts/QuickAddContext.tsx` — a `QuickAddProvider`/`useQuickAdd()` context mounted once in
+  `company/layout.tsx`. `openMenu()` shows the picker (Job / Crew / Teammate, filtered to what the tenant's
+  industry and the signed-in user's role allow); `open(kind)` jumps straight to one form, skipping the picker —
+  what a `BlockedAction` card calls so "add a crew first" resolves in place. Each of the three forms is a new,
+  deliberately small component that POSTs to the *exact same* endpoint its home page already uses (`/api/jobs`,
+  `/api/company/crews`, `/api/company/team`) — no business logic duplicated, no validation drift risk. Gating
+  mirrors each home page exactly: "+ New Job" only when `isEnabled("jobs")` (a dental tenant never sees it),
+  "Invite teammate" only for `role === "owner"` or superadmin (matches `TeamPanel`'s existing gate); Crew/
+  resource is always offered since every industry's Calendar needs one.
+- `src/components/ui/QuickAddButton.tsx` — the "+" trigger, rendered in the sidebar footer (desktop), the
+  mobile topbar (icon variant, wrapped in the existing `Tooltip`), and the mobile nav sheet — reachable from
+  every company page, not just its own.
+- `src/components/ui/BlockedAction.tsx` — the generic "add X first" card: a message, an icon, and a button that
+  calls the caller's own `onAction` — decoupled from quick-add specifically so it's reusable for any future
+  blocked-workflow prompt, not just this one.
+- `src/lib/events/quickAdd.ts` — a small `window`-CustomEvent pub/sub (`emitQuickAddCreated`/
+  `useQuickAddRefresh`) so Jobs/Library/Team/Calendar refetch their own list when something of their kind is
+  created from *anywhere*, including the global "+" on a different page — without lifting state through the
+  whole company shell just so a modal that can open from any page can tell one specific page to refresh.
+
+**Flagship conversion:** Calendar's empty-crew dead-end link is now a `BlockedAction` card whose button calls
+`openQuickAdd("crew")` directly — the Crew form opens in place over the Calendar board, submitting it refetches
+Calendar's crew rows via the event bus, and the board becomes immediately schedulable with zero navigation away
+from where the user started.
+
+**Scope call (owner: "use your best judgement"):** v1 covers Job + Crew/resource + Teammate — all mechanical
+extraction of already-existing create-flows onto a new reachable-from-anywhere surface, zero new backend logic.
+Manual **Appointment** creation was deliberately left out: there is no staff-facing "add appointment" flow at
+all today (appointments are voice-booked by Alice only), so including it would mean designing a net-new booking
+flow (slot/conflict handling, provider assignment) rather than just surfacing an existing form — flagged as a
+candidate follow-up that needs its own product decision, not attempted here. Only one `BlockedAction` conversion
+was done (Calendar's crew-empty state, the concrete case the owner's ask was modeled on); a further audit for
+other blocked-workflow dead ends elsewhere in the app is a candidate next slice, not assumed exhaustive here.
+
+**Verified:** `tsc` clean; lint 0 errors/21 warnings (unchanged baseline); new tests — `Modal.test.tsx` (7),
+`BlockedAction.test.tsx` (2), `quickAdd.test.tsx` (5, the event bus + `useQuickAddRefresh`),
+`QuickAddContext.test.tsx` (6: module/role gating of the picker, the Crew create-and-succeed round trip against
+a mocked `fetch`, back-to-menu navigation, Escape-to-close) — `vitest run` 409/409 with these included (2
+pre-existing concurrent-load flakes, `example-lib.test.ts` and `send.test.ts`, reconfirmed clean on an isolated
+rerun of just those two files, the same long-documented pattern as every prior session); release suite 16/16;
+`next build` green with no First Load JS regression on any touched route (Calendar still 104kB, Jobs 118kB,
+Library 119kB, Settings 111kB — the shared quick-add code adds negligibly to the company shell's baseline).
+Committed locally; not pushed (not asked to this session).
 
 ## 2026-09-06, continued — T-072/T-073/T-074: Calendar/Pipeline/nav fixes, self-service team management, an
 active-flag regression fix
@@ -450,10 +530,13 @@ backlog closed weeks ago).
 
 ## Next actions
 
-0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075 entry for the full list:
-   a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status filters as
-   the option count grows, and a `PageSkeleton` pass on the pages that don't yet use it (most are redirects or
-   static content that don't need one — the remainder is a short list, not a rediscovery task).
+0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075/T-076 entries for the full
+   list: a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status
+   filters as the option count grows, a `PageSkeleton` pass on the pages that don't yet use it (most are
+   redirects or static content that don't need one), a further audit for other blocked-workflow dead ends
+   beyond Calendar's crew-empty state (T-076 converted only that one), and — the one that needs an owner product
+   decision rather than a self-executable pick — whether to build a net-new manual "add appointment" flow so it
+   can join Job/Crew/Teammate in the quick-add picker (today appointments are voice-booked by Alice only).
 1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–056/058/060 and
    T-062 firebase-admin half/T-067) — decide what to greenlight next; nothing remaining is assigned or started.
 2. **NH-13**: owner to paste reference organizing/roofing apps for T-056's per-industry visual palette work.

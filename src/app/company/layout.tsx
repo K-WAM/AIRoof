@@ -11,8 +11,10 @@ import { getFirebaseAuth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
+import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { QuickAddProvider } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 
 // Routes that only exist for industries using that module. Hiding the nav tab
@@ -85,6 +87,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const crewSuffix = preview ? `?preview=${preview}&section=crews` : "?section=crews";
 
   return (
+    <QuickAddProvider>
     <div className="company-shell" data-portal-family={family ?? undefined}>
       <aside className="company-sidebar">
         <div className="company-brand">
@@ -94,6 +97,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <CompanyNav />
         </div>
         <div className="company-sidebar-footer">
+          <QuickAddButton />
           <CommandBar />
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
@@ -109,6 +113,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
             <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
           </div>
           <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
+            <QuickAddButton variant="icon" />
             {modulesReady && isEnabled("jobs") && (
               <Tooltip content="Jobs">
                 <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs">
@@ -151,6 +156,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <div className="mobile-nav-sheet">
             <CompanyNav />
             <div className="mobile-nav-search">
+              <QuickAddButton />
               <CommandBar />
             </div>
             <div className="mobile-nav-divider" />
@@ -173,6 +179,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </QuickAddProvider>
   );
 }
 

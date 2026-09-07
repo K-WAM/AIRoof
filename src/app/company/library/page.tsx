@@ -8,6 +8,7 @@ import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -61,6 +62,15 @@ export default function LibraryPage() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+
+  // Picks up a resource added via the global quick-add while sitting on this page.
+  useQuickAddRefresh("crew", () => {
+    if (!businessId) return;
+    fetch(`/api/company/crews?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((cr) => setCrews(cr.crews ?? []))
+      .catch(() => {});
+  });
 
   async function saveLibrary(next: LibraryPricing) {
     const previous = library;

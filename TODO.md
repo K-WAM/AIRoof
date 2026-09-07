@@ -39,7 +39,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
-| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 1 slice done** | Open-ended, self-selected per slice |
+| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 2 slices done** | Open-ended, self-selected per slice |
 
 ### Checklist
 
@@ -240,6 +240,55 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         session); release suite 16/16; `next build` green with no First Load JS regression on either touched
         route (`/company/jobs/[jobId]` 121kB, `/company/settings` 111kB — both unchanged from their T-070
         baselines). Committed locally; not pushed (not asked to this session).
+  - [x] T-076 — Global quick-add ("+") plus an "add X first" blocked-workflow pattern (owner: "in modern apps,
+        its nice to be able to click + ... which opens up the same form to fill but available from different
+        pages ... like in airbnb, i can do a lot from almost any page, and it will link me to the right place
+        ... tool tips if the workflow is blocked ... a popup card that says 'add X first in order to process Y',
+        with a button that opens the form to add X" then "use your best judgement ... like modern airbnb ...
+        update todos and docs" — 2026-09-06, continuing straight off T-075). Audited first: no global create
+        affordance existed anywhere — `CommandBar.tsx`'s `Cmd+K` is search-only, and each "add" (Job, Crew/
+        resource, Teammate) was a full inline form hand-rolled on its own page with no shared component. Found
+        the exact "blocked workflow" case described, already shipped and already a dead end: Calendar's
+        empty-crew state read "No crews yet. Add crews in the Library ->" — a plain link that bounces the user
+        off Calendar to go find the Library page and guess their way to the Crews tab, with no way back to
+        where they were.
+        Built a reusable `Modal` primitive (`src/components/ui/Modal.tsx` - backdrop, Escape/click-outside to
+        close, `role="dialog"`; every prior ad hoc `position:fixed;inset:0` popup in this app, e.g. Field QR,
+        predates this and can migrate to it opportunistically, not as a forced rewrite this task); a
+        `QuickAddProvider`/`useQuickAdd()` context (`src/contexts/QuickAddContext.tsx`) mounted once in
+        `company/layout.tsx`, exposing `openMenu()` (the picker) and `open(kind)` (jump straight to one form -
+        what a blocked-workflow card calls); a `QuickAddButton` (`src/components/ui/QuickAddButton.tsx`) in the
+        sidebar footer (desktop), the mobile topbar (icon variant), and the mobile nav sheet - reachable from
+        every company page, not just its own; and `BlockedAction` (`src/components/ui/BlockedAction.tsx`), the
+        generic "add X first" card. The three quick-add forms (Job/Crew/Teammate) are new, deliberately small
+        components that POST to the exact same endpoints their home pages already use (`/api/jobs`,
+        `/api/company/crews`, `/api/company/team`) - no business logic duplicated, no validation drift risk.
+        Menu items are gated exactly like their home pages already are: "+ New Job" only when
+        `isEnabled("jobs")` (a dental tenant never sees it), "Invite teammate" only for `role === "owner"` or
+        superadmin (matches `TeamPanel`'s existing gate); Crew/resource is always offered - every industry's
+        Calendar needs one. A small event bus (`src/lib/events/quickAdd.ts`, `useQuickAddRefresh`) lets Jobs/
+        Library/Team/Calendar refetch their own list when something of their kind is created from anywhere
+        (including the global "+" on a different page), without lifting state through the whole company shell.
+        Flagship conversion: Calendar's empty-crew dead-end link is now a `BlockedAction` card whose button
+        calls `openQuickAdd("crew")` directly - the Crew form opens in place, submitting it refetches Calendar's
+        crew rows via the event bus, and the board is immediately schedulable with zero navigation.
+        Scope note, stated plainly (an own-best-judgement pick per the owner's explicit "use your best
+        judgement"): v1 covers Job + Crew/resource + Teammate, all mechanical extraction of existing
+        create-flows onto a new reachable-from-anywhere surface. Manual Appointment creation was deliberately
+        left out - there is no staff-facing "add appointment" flow at all today (appointments are voice-booked
+        by Alice only), so including it would mean designing a net-new booking flow (slot/conflict handling,
+        provider assignment), not just surfacing an existing form; flagged as a candidate follow-up needing its
+        own product decision, not attempted here. Only one `BlockedAction` conversion was done (Calendar's
+        crew-empty state, the concrete case the owner's ask was modeled on) - a further audit for other blocked-
+        workflow dead ends is a candidate next slice, not assumed exhaustive here. Verified: `tsc` clean; lint
+        0 errors/21 warnings (unchanged baseline); new tests - `Modal.test.tsx` (7), `BlockedAction.test.tsx`
+        (2), `quickAdd.test.tsx` (5, the event bus + `useQuickAddRefresh`), `QuickAddContext.test.tsx` (6,
+        module/role gating, the Crew create-and-succeed round trip against a mocked `fetch`, back-to-menu,
+        Escape-to-close) - `vitest run` 409/409 with these included (2 pre-existing concurrent-load flakes,
+        `example-lib.test.ts` and `send.test.ts`, reconfirmed clean on an isolated rerun of just those two
+        files, the same long-documented pattern as every prior session); release suite 16/16; `next build`
+        green, no First Load JS regression on any touched route (Calendar still 104kB, Jobs 118kB, Library
+        119kB, Settings 111kB). Committed locally; not pushed (not asked to this session).
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

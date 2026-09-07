@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Mail, Trash2, UserPlus, Users } from "lucide-react";
 import type { TeamMember, TeamRole } from "@/types/team";
+import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 
 const ROLES: TeamRole[] = ["owner", "staff", "viewer"];
 const ROLE_LABEL: Record<TeamRole, string> = { owner: "Owner", staff: "Staff", viewer: "Viewer" };
@@ -52,6 +53,9 @@ export function TeamPanel({ businessId }: { businessId: string }) {
     loadTeam();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
+
+  // Picks up a teammate invited via the global quick-add while sitting on this page.
+  useQuickAddRefresh("teammate", loadTeam);
 
   async function invite(e: FormEvent) {
     e.preventDefault();
