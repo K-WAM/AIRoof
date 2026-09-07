@@ -13,7 +13,9 @@ refresh their own list when something of their kind is created from elsewhere. M
 deliberately left out of v1 (no staff-facing booking flow exists today to extract — building one is a separate
 product decision); full detail, including that scope call, in `TODO.md`'s T-076 entry. `tsc`/lint(0/21) clean,
 `vitest run` 409/409 (2 pre-existing concurrent-load flakes, clean in isolation), release suite 16/16, `next
-build` green with no First Load JS regression on any touched route. Committed locally, not pushed.
+build` green with no First Load JS regression on any touched route. **Pushed and live** (2026-09-06, owner
+approved) — this push also carried T-071 through T-075, previously local-only; see the Repository section
+below. Vercel's auto-deploy reached Ready and production was re-verified healthy post-deploy.
 
 Previous: 2026-09-06 (Claude), continued — T-075 (Phase 9, first slice) done: a new reusable `Toggle` switch
 component applied to two persisted binary settings (Settings business-hours "Closed", job-detail photo "In
@@ -22,7 +24,7 @@ detail page still on a bare loading `<div>`), and its "Job not found" state fixe
 way back) to a "Back to Jobs" link. First slice of an open-ended UI/UX modernization pass, not full "every page"
 coverage — see `TODO.md`'s T-075 entry for the audit findings and the candidate next-slice list. `tsc`/lint(0/21)
 clean, `vitest run` 386/389 (3 pre-existing concurrent-load flakes, clean in isolation), release suite 16/16,
-`next build` green with no bundle-size regression. Committed locally, not pushed.
+`next build` green with no bundle-size regression. Pushed as part of the T-076 push above (2026-09-06).
 
 Previous: 2026-09-06 (Claude) — T-072/T-073/T-074 done, same session, continuing straight off T-071: (1) fixed
 the Calendar→Pipeline appointment link (deep-link + a "Needs Confirmation" bucket that no longer strands
@@ -35,7 +37,7 @@ building (2) — the onboarding wizard's business-creation endpoint wrote owner 
 in but got 403 from nearly every company-portal API. Full detail in the dated sections below. `tsc`/lint/build
 clean throughout; `vitest run` 388/389 (one more instance of the pre-existing parallel-load timeout flake,
 clean in isolation, different file each time it's shown up — confirmed environmental, not a real failure).
-Committed locally — not pushed (owner did not ask to push this session).
+Pushed as part of the T-076 push above (2026-09-06).
 
 Previous: 2026-09-06 (Claude) — T-071 done: moved Dashboard/Calls/Pipeline/CommandBar's Firestore reads
 server-side (4 new admin-SDK endpoints) to cut round-trip time — the thing T-070 explicitly flagged as the next
@@ -47,12 +49,12 @@ Local commit only at the time — see the Repository section below for current p
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is at `6691480` (2026-09-06, owner approved that push) — it carried T-067, the
-  T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and T-070.
-  Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel ls`/`vercel inspect`, not just assumed from
-  the push); production re-verified post-deploy: `/api/health` → `200`/`"connected"`, unauthenticated webhook
-  `POST` → `401`, `/login` → `200`. **T-071, T-072, T-073, T-074, T-075, and T-076 (this session) are
-  local-only** — not yet approved for push.
+- Pushed baseline: `origin/main` is at `d381907` (2026-09-06, owner approved this push) — it carried T-071
+  through T-076 in one push (all six had been sitting local-only across this session; the owner approved
+  pushing once T-076 was ready rather than one push per task). Vercel's GitHub auto-deploy reached Ready
+  (confirmed via `vercel ls`, not just assumed from the push); production re-verified post-deploy:
+  `/api/health` → `200`/`"connected"` with all six provider/runtime capabilities `configured`, unauthenticated
+  webhook `POST` → `401`, `/login` → `200`.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -126,7 +128,9 @@ pre-existing concurrent-load flakes, `example-lib.test.ts` and `send.test.ts`, r
 rerun of just those two files, the same long-documented pattern as every prior session); release suite 16/16;
 `next build` green with no First Load JS regression on any touched route (Calendar still 104kB, Jobs 118kB,
 Library 119kB, Settings 111kB — the shared quick-add code adds negligibly to the company shell's baseline).
-Committed locally; not pushed (not asked to this session).
+**Pushed and live** (2026-09-06, owner approved) — `origin/main` now at `d381907`, which also carried T-071
+through T-075 (previously local-only); see the Repository section above. Vercel's auto-deploy reached Ready and
+production was re-verified healthy post-deploy (`/api/health`, `/login`, webhook 401).
 
 ## 2026-09-06, continued — T-072/T-073/T-074: Calendar/Pipeline/nav fixes, self-service team management, an
 active-flag regression fix
@@ -199,8 +203,8 @@ list's Edit button), or a documented compatibility redirect (`/company/agent`, `
 **Verified (all three tasks together):** `tsc` clean; lint 0 errors/21 warnings (all pre-existing); `next build`
 green with `/api/company/team` and `/api/company/team/[uid]` in the route table; `vitest run` 388/389 — the one
 failure is the same pre-existing parallel-load timeout flake as T-071 documented (a different file each full-run
-attempt, always clean in isolation — confirmed again this session on two different files). Committed locally;
-not pushed (not asked to this session).
+attempt, always clean in isolation — confirmed again this session on two different files). Pushed as part of
+the T-076 push above (2026-09-06).
 
 ## 2026-09-06, continued — T-071: cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar
 
@@ -236,7 +240,7 @@ weight fix, not a query-latency one; if pages still feel slow, look at per-query
   table the way T-070 did, and local tooling can't measure real round-trip time without production traffic.
   Worth an owner glance at actual page-load timing (e.g. browser DevTools Network tab on the live Dashboard)
   after this ships, to confirm it's felt.
-- **Not pushed** — local commit only, pending the same explicit approval T-070 got.
+- **Pushed** as part of the T-076 push (2026-09-06) — see the Repository section above.
 
 ## 2026-09-06 — T-070: lazy-load Firebase Auth/Firestore off every page's critical path
 

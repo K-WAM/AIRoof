@@ -239,7 +239,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         clean on an isolated rerun of just those three files, same long-documented pattern as every prior
         session); release suite 16/16; `next build` green with no First Load JS regression on either touched
         route (`/company/jobs/[jobId]` 121kB, `/company/settings` 111kB — both unchanged from their T-070
-        baselines). Committed locally; not pushed (not asked to this session).
+        baselines). **Pushed and live** as part of the T-076 push below (2026-09-06) — see that entry.
   - [x] T-076 — Global quick-add ("+") plus an "add X first" blocked-workflow pattern (owner: "in modern apps,
         its nice to be able to click + ... which opens up the same form to fill but available from different
         pages ... like in airbnb, i can do a lot from almost any page, and it will link me to the right place
@@ -288,7 +288,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         `example-lib.test.ts` and `send.test.ts`, reconfirmed clean on an isolated rerun of just those two
         files, the same long-documented pattern as every prior session); release suite 16/16; `next build`
         green, no First Load JS regression on any touched route (Calendar still 104kB, Jobs 118kB, Library
-        119kB, Settings 111kB). Committed locally; not pushed (not asked to this session).
+        119kB, Settings 111kB). **Pushed and live** (2026-09-06, owner approved) — `origin/main` now at
+        `d381907`, which also carried T-071 through T-075 (previously local-only); Vercel's auto-deploy reached
+        Ready and production was re-verified healthy post-deploy (`/api/health`, `/login`, webhook 401).
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
