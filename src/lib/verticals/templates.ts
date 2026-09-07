@@ -10,7 +10,8 @@ export type VerticalId =
   | "general-contractors"
   | "electricians"
   | "appliance-repair"
-  | "childcare";
+  | "childcare"
+  | "junk-removal";
 
 /**
  * Per-vertical wording for the shared company UI. Every surface that would
@@ -862,6 +863,86 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     // No field jobs. Calendar schedules families onto sitters; Library keeps the
     // sitter roster + documents, minus the materials catalog (see "pricing").
     disabledModules: ["jobs", "pricing"],
+  },
+
+  "junk-removal": {
+    verticalId: "junk-removal",
+    label: "Junk & Trash Removal",
+    description: "Same-day pickups, property cleanouts, and hauling — single items to full-house jobs.",
+    calendarMode: "jobs",
+    family: "field",
+    vocab: {
+      jobNoun: "Pickup",
+      jobNounPlural: "Pickups",
+      customerNoun: "Customer",
+      customerNounPlural: "Customers",
+      resourceNoun: "Crew",
+      resourceNounPlural: "Crews",
+      voiceExample: "hauled a couch and 4 bags, dumped at the transfer station, Luis worked 9 to 1",
+      jobTitlePlaceholder: "e.g. Garage cleanout — 123 Main St",
+      serviceTypePlaceholder: "Furniture removal",
+      resourcePlaceholder: "Truck 2 Crew",
+      materialPlaceholder: "Disposal fee (per load)",
+      documentPlaceholder: "Dump receipt 2026",
+    },
+    approvedServices: [
+      "Single-item and furniture pickup",
+      "Full property, garage, and estate cleanouts",
+      "Eviction and foreclosure cleanouts",
+      "Construction and renovation debris removal",
+      "Appliance and e-waste removal",
+      "Yard waste and hot tub removal",
+    ],
+    approvedFaqs: [
+      {
+        question: "Do you take everything?",
+        answer:
+          "We take most household items, furniture, and debris. We can't take hazardous materials like paint, chemicals, or asbestos — let us know what you have and we'll confirm.",
+      },
+      {
+        question: "How is pricing determined?",
+        answer:
+          "Pricing is based on how much space your items take up in the truck. We can give a rough estimate over the phone and confirm the exact price on-site before we start.",
+      },
+      {
+        question: "Do I need to be there?",
+        answer:
+          "Not necessarily — if the items are accessible and payment is arranged ahead of time, we can often handle the pickup without you present.",
+      },
+      {
+        question: "How fast can you come?",
+        answer: "We typically offer same-day or next-day pickup, depending on the day's route and truck availability.",
+      },
+    ],
+    emergencyRules: [
+      "If caller mentions hazardous materials (chemicals, paint, asbestos, biohazard): do not commit to a price or pickup — flag for manual review",
+      "If caller describes a hoarding situation: handle with extra sensitivity and escalate to a team member for a compassionate follow-up call",
+      "If caller has a time-sensitive move-out, eviction, or closing deadline: prioritize same-day or next-day scheduling if available",
+    ],
+    bookingRules: [
+      "Collect a rough description of volume (e.g. \"a few bags\" vs. \"a full garage\") before confirming",
+      "Collect address, access notes (stairs, gate code, parking, elevator), and a preferred time window",
+      "Same-day and next-day slots depend on live route availability — never promise a slot without checking",
+      "Give a price range only after volume is described; the exact price is confirmed on-site before starting",
+    ],
+    disallowedTopics: [
+      "exact pricing without a description of volume",
+      "hazardous material disposal guarantees",
+      "legal advice on eviction or estate matters",
+      "donation tax-deduction valuations",
+    ],
+    agentName: "Dusty",
+    agentIdentity: "receptionist",
+    greetingTemplate: "Thanks for calling {businessName}, this is Dusty. How can I help?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}. The office is closed, but I'm Dusty — I can get your pickup details and have the team confirm first thing.",
+    agentTone: "upbeat, practical, and no-nonsense",
+    icon: "Trash2",
+    color: "#c2410c",
+    shortLabel: "Junk Removal",
+    sampleCallerScript:
+      "Hey [Prospect], a customer calls needing a same-day garage cleanout — your AI gets the item list, confirms a pickup window, and books the truck, all before you've finished your coffee. Want to hear it live?",
+    disabledModules: [],
   },
 };
 

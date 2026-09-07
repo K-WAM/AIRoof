@@ -12,6 +12,7 @@ import {
   Zap,
   Wrench,
   Baby,
+  Trash2,
   Presentation,
   ExternalLink,
   Copy,
@@ -54,6 +55,7 @@ const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
   electricians: Zap,
   "appliance-repair": Wrench,
   childcare: Baby,
+  "junk-removal": Trash2,
 };
 
 // Field-service verticals get a field QR; others get a dashboard QR. Derived from

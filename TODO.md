@@ -39,7 +39,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
-| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 3 slices done** | Open-ended, self-selected per slice |
+| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
 
 ### Checklist
 
@@ -358,6 +358,63 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         unchanged). **Pushed and live** (2026-09-06, owner approved) — `origin/main` now at `9eda6ad`; Vercel's
         auto-deploy reached Ready and production was re-verified healthy post-deploy, including both newly
         auth-gated endpoints confirmed 401 unauthenticated against production.
+  - [x] T-078 — New vertical: Junk & Trash Removal + a Calendar readability/"what's draggable" pass (owner:
+        "one of the client types should be junk / trash removal... The calendar is tricky to tailor, so like for
+        roofers, crews make sense, but for dog walkers, different, and for dentists, etc. really put thought
+        into what is draggable in the calendar, also make sure its clear and that work assigned has associated
+        times visible, and that the calendar is large enough to show easily readable, modern view" —
+        2026-09-06/07, continuing straight off T-077). Two parts.
+        **Part 1 — Junk & Trash Removal, the 11th vertical.** Full `VerticalTemplate` block in
+        `src/lib/verticals/templates.ts`: jobs-mode, `family: "field"` (a truck-crew field-service trade, same
+        bucket as roofing/HVAC/GC), vocab (`jobNoun: "Pickup"`, `resourceNoun: "Crew"`), realistic FAQs (what
+        they don't take — hazardous materials, asbestos — pricing-by-volume, same/next-day availability),
+        emergency rules tuned to the trade (hazmat gets flagged for manual review rather than booked, hoarding
+        situations get compassionate escalation, eviction/move-out deadlines get same-day priority), agent
+        "Dusty", icon `Trash2`, color `#c2410c` (distinct from all 10 existing palette values, verified by
+        reading the actual list rather than guessing). Added `"junk-removal"` to the `VerticalId` union, which —
+        exactly as CLAUDE.md's design promises — made `tsc` fail on every `Record<VerticalId, …>` consumer until
+        handled: `VERTICAL_ICONS` in `admin/demo/page.tsx` (added `Trash2`) and `RESOURCES` in
+        `verticals/demoSeed.ts` (added 5 truck-crew demo names). One test needed a manual fix `tsc` couldn't
+        catch — `family-palette.test.ts` hardcoded `expect(byFamily.field).toHaveLength(7)`, now 8. Updated
+        `public/guides/onboarding-guide.html` throughout (card count "ten" → "eleven" in 4 places, the Demo
+        Studio industry list, the field-service summary table, the "swap table" walkthrough rows, and the
+        colored vertical-card grid) — the same reconciliation pass CLAUDE.md's 2026-08-25 3-vertical-expansion
+        entry describes doing, just for one vertical instead of three. Confirmed via grep that no other file
+        hardcodes a per-industry list outside these already-updated spots.
+        **Part 2 — Calendar: draggable-content audit + a real "times visible" gap fix + sizing/legibility pass.**
+        Audited what's actually draggable today before assuming a redesign was needed: `calendarMode` (jobs vs.
+        appointments) plus `vocab.resourceNoun` already differentiate "roofers drag jobs onto Crews" from
+        "dentists drag bookings onto Providers" from "childcare drags bookings onto Sitters" — the dog-walker/
+        dentist distinction the owner described is the same jobs-vs-appointments split the platform already
+        has, so the fix here was making the cards themselves clearer and fixing what they were missing, not
+        building a third calendar mode.
+        Found a real, concrete gap in "times visible": a scheduled job's tile (`ScheduledTile`, the jobs-mode
+        crew×day card) showed only the job ID and title — no time at all — even though `job.scheduledStart`/
+        `scheduledEnd` are real fields already set the moment a job is dropped onto a crew+day (business-open
+        time by default). The appointments-mode equivalent (`ScheduledApptTile`) already showed its time; jobs
+        mode was the one silently missing it. Fixed: `ScheduledTile` now shows a start–end time range, sourced
+        from the same `job.scheduledStart`/`scheduledEnd` that already existed — no new data, just surfaced
+        what was already there. Also added the appointment's `serviceType` as a second line on
+        `ScheduledApptTile` (previously showed only time + caller name) so a placed booking reads as clearly as
+        a placed job.
+        Sizing/legibility: bumped the crew×day grid's column widths (140px→168px resource column,
+        150px→190px min day columns, 700px→900px grid floor), day-cell minimum height (64px→116px — the old
+        height was tight enough that a two-line title plus a confirm button could feel cramped), the unscheduled/
+        unassigned rail's width (220px→260px) and scroll height (560px→680px), and tile/label font sizes
+        throughout (11-12px→12-13px body text, larger day-of-month numerals rendered as a filled accent circle
+        on "today" — the same visual convention Google/Apple Calendar use). Every number is a deliberate,
+        reviewed increase, not a blanket scale — chosen to comfortably fit the now-larger tile content (time +
+        title + id/footer + action row) without wasting space.
+        Verified: `tsc` clean (the `Record<VerticalId,…>` exhaustiveness check did real work here — it's the
+        reason both required consumer files were caught immediately rather than discovered later); lint 0
+        errors/21 warnings (unchanged baseline); `vitest run` 424/424 (3 pre-existing concurrent-load flakes —
+        `send.test.ts`, `example-lib.test.ts`, `registry.test.ts` — reconfirmed clean on an isolated rerun);
+        release suite 16/16; `next build` green (`/company/calendar`'s own route entry is unchanged at 104kB
+        since `CalendarBoard` is code-split per T-068 — the size growth is invisible to the route table by
+        design). Could not do a live authenticated visual check in this sandbox (no real Firebase credentials,
+        the same standing limitation documented throughout this session) — verified by careful review of the
+        grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live Calendar
+        after this ships to confirm it reads as intended.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

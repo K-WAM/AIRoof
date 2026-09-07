@@ -525,7 +525,7 @@ export default function CalendarBoard() {
       </div>
 
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
           {/* Needs-a-resource rail */}
           <section className="panel">
             <div className="panel-header">
@@ -534,7 +534,7 @@ export default function CalendarBoard() {
                 {apptMode ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
               </h2>
             </div>
-            <div className="panel-body" style={{ display: "grid", gap: 8, maxHeight: 560, overflowY: "auto" }}>
+            <div className="panel-body" style={{ display: "grid", gap: 10, maxHeight: 680, overflowY: "auto" }}>
               {apptMode ? (
                 unassignedAppts.length === 0 ? (
                   <p style={{ fontSize: 13, color: "#94a3b8" }}>
@@ -552,16 +552,25 @@ export default function CalendarBoard() {
           </section>
 
           {/* Crew × day grid */}
-          <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff" }}>
-            <div style={{ display: "grid", gridTemplateColumns: `140px repeat(${days.length}, minmax(150px, 1fr))`, minWidth: 700 }}>
+          <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff" }}>
+            <div style={{ display: "grid", gridTemplateColumns: `168px repeat(${days.length}, minmax(190px, 1fr))`, minWidth: 900 }}>
               {/* Header row */}
-              <div style={{ padding: "12px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 700, color: "#64748b" }}>{vocab.resourceNoun}</div>
+              <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
                 const isToday = sameDay(Date.now(), d, tz);
                 return (
-                  <div key={d.toISOString()} style={{ padding: "12px 8px", borderBottom: "1px solid #e2e8f0", borderLeft: "1px solid #f1f5f9", background: isToday ? "#eff6ff" : "#f8fafc", textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{DOW[d.getDay()]}</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: isToday ? "var(--accent)" : "#0f172a" }}>{d.getDate()}</div>
+                  <div key={d.toISOString()} style={{ padding: "10px 8px", borderBottom: "1px solid #e2e8f0", borderLeft: "1px solid #f1f5f9", background: isToday ? "#eff6ff" : "#f8fafc", textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{DOW[d.getDay()]}</div>
+                    <div
+                      style={{
+                        fontSize: 19, fontWeight: 700, color: isToday ? "#fff" : "#0f172a",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: 32, height: 32, borderRadius: "50%", marginTop: 2,
+                        background: isToday ? "var(--accent)" : "transparent",
+                      }}
+                    >
+                      {d.getDate()}
+                    </div>
                   </div>
                 );
               })}
@@ -570,22 +579,22 @@ export default function CalendarBoard() {
                   the bookings are the draggable cards, so this strip would just
                   duplicate the rows below it. */}
               {!apptMode && (
-                <div style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0369a1" }}>
-                  <CalendarDays size={14} strokeWidth={1.75} />
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "#0369a1" }}>
+                  <CalendarDays size={15} strokeWidth={1.75} />
                   Bookings
                 </div>
               )}
               {!apptMode && days.map((d) => {
                 const dayAppts = appts.filter((a) => sameDay(a.startTime, d, tz));
                 return (
-                  <div key={d.toISOString()} style={{ padding: "8px 6px", borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 56, display: "grid", gap: 4 }}>
+                  <div key={d.toISOString()} style={{ padding: "8px 8px", borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 64, display: "grid", gap: 4, alignContent: "start" }}>
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
                         <Link key={a.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${a.appointmentId}`} style={{ textDecoration: "none" }}>
-                          <div style={{ fontSize: 11, padding: "3px 6px", borderRadius: 6, background: pending ? "#f1f5f9" : "#dbeafe", color: pending ? "#64748b" : "#1d4ed8", border: pending ? "1px dashed #cbd5e1" : "none", lineHeight: 1.3 }}>
+                          <div style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, background: pending ? "#f1f5f9" : "#dbeafe", color: pending ? "#64748b" : "#1d4ed8", border: pending ? "1px dashed #cbd5e1" : "none", lineHeight: 1.35 }}>
                             {new Date(a.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} {a.callerName ?? "Appt"}
-                            {pending && <span style={{ display: "block", fontSize: 9, fontWeight: 700 }}>UNCONFIRMED</span>}
+                            {pending && <span style={{ display: "block", fontSize: 10, fontWeight: 700 }}>UNCONFIRMED</span>}
                           </div>
                         </Link>
                       );
@@ -649,14 +658,14 @@ function CrewRow({
 }) {
   return (
     <>
-      <div style={{ padding: "12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ width: 12, height: 12, borderRadius: "50%", background: crew.color, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{crew.name}</span>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 9 }}>
+        <span style={{ width: 13, height: 13, borderRadius: "50%", background: crew.color, flexShrink: 0, boxShadow: `0 0 0 3px ${crew.color}22` }} />
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", lineHeight: 1.3 }}>{crew.name}</span>
       </div>
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
           {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d, tz)).map((job) => (
-            <ScheduledTile key={job.jobId} job={job} crew={crew} onConfirm={onConfirm} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
+            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
           ))}
           {appts.filter((a) => sameDay(a.startTime, d, tz)).map((appt) => (
             <ScheduledApptTile
@@ -682,10 +691,10 @@ function DayCell({ crewId, day, children }: { crewId: string; day: Date; childre
   const { setNodeRef, isOver } = useDroppable({ id });
   const isEmpty = !children || (Array.isArray(children) && children.length === 0);
   return (
-    <div ref={setNodeRef} style={{ padding: 6, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 64, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 6 : 0, transition: "background 0.12s", display: "grid", gap: 4, alignContent: "start" }}>
+    <div ref={setNodeRef} style={{ padding: 8, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 116, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 8 : 0, transition: "background 0.12s", display: "grid", gap: 6, alignContent: "start" }}>
       {children}
       {isEmpty && (
-        <span style={{ fontSize: 10, color: isOver ? "var(--accent)" : "#cbd5e1", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
+        <span style={{ fontSize: 12, color: isOver ? "var(--accent)" : "#cbd5e1", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
           {isOver ? "Drop to schedule" : "+"}
         </span>
       )}
@@ -703,17 +712,17 @@ function JobTile({ job }: { job: Job; crew?: Crew }) {
       {...attributes}
       title="Drag onto a crew + day"
       style={{
-        padding: "8px 10px 8px 6px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0",
+        padding: "10px 12px 10px 8px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0",
         cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: "none", display: "flex", gap: 6, alignItems: "flex-start",
+        touchAction: "none", display: "flex", gap: 7, alignItems: "flex-start",
       }}
     >
-      <GripVertical size={14} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      <GripVertical size={15} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: "#1e293b" }}>{job.jobId}</div>
-        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{job.title}</div>
-        {job.address && <div style={{ fontSize: 11, color: "#94a3b8" }}>{job.address}</div>}
+        <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.35, fontWeight: 600 }}>{job.title}</div>
+        {job.address && <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
+        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "#cbd5e1", marginTop: 3 }}>{job.jobId}</div>
       </div>
     </div>
   );
@@ -730,23 +739,23 @@ function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
       {...attributes}
       title="Drag onto a row + day to assign"
       style={{
-        padding: "8px 10px 8px 6px", borderRadius: 8, background: "#fff", border: "1px solid #e2e8f0",
+        padding: "10px 12px 10px 8px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0",
         cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: "none", display: "flex", gap: 6, alignItems: "flex-start",
+        touchAction: "none", display: "flex", gap: 7, alignItems: "flex-start",
       }}
     >
-      <GripVertical size={14} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      <GripVertical size={15} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
           {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
           {" · "}
           {new Date(appt.startTime).toLocaleDateString("en-US", { weekday: "short", timeZone: tz })}
         </div>
-        <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.3 }}>{appt.callerName ?? "Booking"}</div>
-        {appt.serviceType && <div style={{ fontSize: 11, color: "#94a3b8" }}>{appt.serviceType}</div>}
+        <div style={{ fontSize: 12.5, color: "#334155", lineHeight: 1.35, marginTop: 1 }}>{appt.callerName ?? "Booking"}</div>
+        {appt.serviceType && <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 1 }}>{appt.serviceType}</div>}
         {pending && (
-          <div style={{ fontSize: 9, fontWeight: 700, color: "#b45309", marginTop: 2 }}>UNCONFIRMED</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#b45309", marginTop: 3 }}>UNCONFIRMED</div>
         )}
       </div>
     </div>
@@ -772,35 +781,41 @@ function ScheduledApptTile({
     <div
       ref={setNodeRef}
       style={{
-        borderRadius: 8, overflow: "hidden",
+        borderRadius: 10, overflow: "hidden",
         border: confirmed ? `1px solid ${crew.color}` : "1px dashed #94a3b8",
         background: confirmed ? `${crew.color}14` : "#f8fafc",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "6px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 5, alignItems: "flex-start" }}>
-        <GripVertical size={12} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 1, opacity: 0.8 }} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
+      <div {...listeners} {...attributes} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
+        <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
             {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
           </div>
-          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+          <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {appt.callerName ?? "Booking"}
           </div>
+          {appt.serviceType && (
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {appt.serviceType}
+            </div>
+          )}
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         {!confirmed ? (
-          <button onClick={() => onConfirm(appt)} disabled={busy} title="Emails the customer their confirmed time" style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
+          <button onClick={() => onConfirm(appt)} disabled={busy} title="Emails the customer their confirmed time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
             {busy ? "Sending…" : "✓ Confirm + email"}
           </button>
         ) : (
-          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "5px", textAlign: "center", color: crew.color, textDecoration: "none" }}>
+          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>
             Open →
           </Link>
         )}
-        <button onClick={() => onUnassign(appt.appointmentId)} aria-label="Move back to unassigned" title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
-          <Undo2 size={13} strokeWidth={1.75} />
+        <button onClick={() => onUnassign(appt.appointmentId)} aria-label="Move back to unassigned" title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+          <Undo2 size={14} strokeWidth={1.75} />
         </button>
       </div>
     </div>
@@ -809,10 +824,11 @@ function ScheduledApptTile({
 
 // ── Scheduled tile (in a crew×day cell) — grey until confirmed, then crew color ──
 function ScheduledTile({
-  job, crew, onConfirm, onUnschedule, busy, previewSuffix,
+  job, crew, tz, onConfirm, onUnschedule, busy, previewSuffix,
 }: {
   job: Job;
   crew: Crew;
+  tz: string;
   onConfirm: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
   busy: boolean;
@@ -820,31 +836,39 @@ function ScheduledTile({
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId });
   const confirmed = !!job.crewConfirmed;
+  const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
   return (
     <div
       ref={setNodeRef}
       style={{
-        borderRadius: 8, overflow: "hidden",
+        borderRadius: 10, overflow: "hidden",
         border: confirmed ? `1px solid ${crew.color}` : "1px dashed #94a3b8",
         background: confirmed ? `${crew.color}14` : "#f8fafc",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "6px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 5, alignItems: "flex-start" }}>
-        <GripVertical size={12} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 1, opacity: 0.8 }} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, fontFamily: "monospace", color: confirmed ? crew.color : "#64748b" }}>{job.jobId}</div>
-          <div style={{ fontSize: 11, color: "#334155", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
+      <div {...listeners} {...attributes} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
+        <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {job.scheduledStart && (
+            <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
+              {fmtTime(job.scheduledStart)}
+              {job.scheduledEnd && job.scheduledEnd !== job.scheduledStart ? `–${fmtTime(job.scheduledEnd)}` : ""}
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "#94a3b8", marginTop: 2 }}>{job.jobId}</div>
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         {!confirmed ? (
-          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails this crew their assignment and locks the schedule" style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email"}</button>
+          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails this crew their assignment and locks the schedule" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email"}</button>
         ) : (
-          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 10, fontWeight: 700, padding: "5px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
+          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
         )}
-        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 11, padding: "4px 8px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
-          <Undo2 size={13} strokeWidth={1.75} />
+        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+          <Undo2 size={14} strokeWidth={1.75} />
         </button>
       </div>
     </div>

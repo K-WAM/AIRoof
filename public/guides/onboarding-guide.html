@@ -408,7 +408,7 @@
   <div id="part-1" class="section-cover">
     <div class="section-num">Part 1 of 2</div>
     <h2>Demo Playbook</h2>
-    <p>Run a live demo for any industry. One phone number, ten industries, ~60 seconds of setup.</p>
+    <p>Run a live demo for any industry. One phone number, eleven industries, ~60 seconds of setup.</p>
   </div>
 
   <!-- ══ THE WHOLE DEMO — click by click ══ -->
@@ -418,7 +418,7 @@
     <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:2.0;color:#1e293b;">
       <li>Go to <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> → sign in as <strong>connect@luxordev.com</strong></li>
       <li>Left nav → <strong>Demo Studio</strong></li>
-      <li>Click their <strong>industry card</strong> (10 of them)</li>
+      <li>Click their <strong>industry card</strong> (11 of them)</li>
       <li>Type their <strong>company name</strong> + <strong>email</strong> → click <strong>Launch demo →</strong></li>
       <li>Hand them your phone → dial <strong style="color:#1d4ed8">+1 (754) 283-7658</strong>. The agent answers as <em>their</em> company. <strong>Works for every industry.</strong></li>
       <li>Click <strong>Open [Industry] dashboard →</strong> → show <strong>Dashboard</strong> (the after-hours booking waiting for approval) → <strong>Calendar</strong> (drag a card onto a row)</li>
@@ -435,7 +435,7 @@
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Choose an industry</div>
     <p style="font-size:13px;margin:0 0 16px;line-height:1.8;">
       <strong style="color:#60a5fa">ai-roof.vercel.app/admin/demo</strong><br>
-      Ten cards: <strong>Roofing · HVAC · Landscaping · Cleaning · Dental · Property Mgmt · General Contractors · Electricians · Appliance Repair · Childcare</strong><br>
+      Eleven cards: <strong>Roofing · HVAC · Landscaping · Cleaning · Dental · Property Mgmt · General Contractors · Electricians · Appliance Repair · Childcare · Junk Removal</strong><br>
       Click one → it highlights.
     </p>
 
@@ -474,7 +474,7 @@
 
   <!-- ══ VERTICAL QUICK REFERENCE ══ -->
   <h3>Industry Quick Reference</h3>
-  <p><strong>Every industry is callable on the same number and every industry has a Calendar.</strong> The agent builds its script live from each business's config (industry, services, FAQs, greeting), so one assistant serves all ten. What actually differs is which tabs the client sees and what the Calendar schedules — shown below.</p>
+  <p><strong>Every industry is callable on the same number and every industry has a Calendar.</strong> The agent builds its script live from each business's config (industry, services, FAQs, greeting), so one assistant serves all eleven. What actually differs is which tabs the client sees and what the Calendar schedules — shown below.</p>
 
   <table>
     <thead>
@@ -568,6 +568,14 @@
         <td>— (dashboard QR)</td>
         <td>Jobs, Field, Library&nbsp;pricing</td>
       </tr>
+      <tr>
+        <td><strong>Junk Removal</strong></td>
+        <td>Dusty</td>
+        <td class="td-good">✓ same number</td>
+        <td>Pickups → Crews</td>
+        <td class="td-good">✓</td>
+        <td>—</td>
+      </tr>
     </tbody>
   </table>
 
@@ -595,7 +603,7 @@
       <div class="step-num blue">2</div>
       <div class="step-body">
         <strong>Open Demo Studio</strong>
-        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span>. You'll see ten industry cards. Do not enter anything yet.</p>
+        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span>. You'll see eleven industry cards. Do not enter anything yet.</p>
       </div>
     </li>
     <li>
@@ -623,9 +631,9 @@
 
   <!-- ══ ROOFING FULL DEMO SCRIPT ══ -->
   <h3>Field Service — Full Live Demo (~15 min)</h3>
-  <p>This is the primary live demo with a real phone call. The click-by-click flow below is <strong>identical for all seven field-service verticals</strong> — Roofing, HVAC, Landscaping, Cleaning, General Contractors, Electricians, and Appliance Repair — because the agent, the Calendar board, and the field-voice pipeline all read from that industry's config instead of hardcoded roofing text. Roofing is written out in full first as the reference script; run the exact same steps for any other field-service industry by swapping in that row's agent name, opening line, and voice-note script from the table below.</p>
+  <p>This is the primary live demo with a real phone call. The click-by-click flow below is <strong>identical for all eight field-service verticals</strong> — Roofing, HVAC, Landscaping, Cleaning, General Contractors, Electricians, Appliance Repair, and Junk Removal — because the agent, the Calendar board, and the field-voice pipeline all read from that industry's config instead of hardcoded roofing text. Roofing is written out in full first as the reference script; run the exact same steps for any other field-service industry by swapping in that row's agent name, opening line, and voice-note script from the table below.</p>
 
-  <h4>Swap table — same steps, seven trades</h4>
+  <h4>Swap table — same steps, eight trades</h4>
   <div style="overflow-x:auto;">
   <table>
     <thead>
@@ -681,6 +689,13 @@
         <td>Sam T. / Rita K. / Miguel P.</td>
         <td>"Replaced the dryer heating element, tested three cycles, Sam was on site 10 to 11:30."</td>
       </tr>
+      <tr>
+        <td><strong>Junk Removal</strong></td>
+        <td>Dusty</td>
+        <td>"I need my garage cleaned out, can someone come this week?"</td>
+        <td>Truck 1 Crew / Truck 2 Crew / Cleanout Crew</td>
+        <td>"Hauled a couch and 4 bags, dumped at the transfer station, Luis worked 9 to 1."</td>
+      </tr>
     </tbody>
   </table>
   </div>
@@ -692,7 +707,7 @@
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Prep (5 min before)</div>
     <ol style="margin:0 0 20px;padding-left:20px;line-height:2.1;font-size:13px;">
       <li>Log in as <strong>connect@luxordev.com</strong> at <strong style="color:#60a5fa">https://ai-roof.vercel.app/login</strong></li>
-      <li>Go to Demo Studio → click their industry (<strong>Roofing · HVAC · Landscaping · Cleaning · GC · Electricians · Appliance Repair</strong>) → company name + email → <strong>Launch demo →</strong></li>
+      <li>Go to Demo Studio → click their industry (<strong>Roofing · HVAC · Landscaping · Cleaning · GC · Electricians · Appliance Repair · Junk Removal</strong>) → company name + email → <strong>Launch demo →</strong></li>
       <li>Click <strong>"Open Roofing dashboard →"</strong> — keep that tab ready</li>
       <li>Optional: quick test call to confirm the greeting is right</li>
     </ol>
@@ -858,6 +873,11 @@
       <div class="v-name" style="color:#c2185b;">👶 Childcare — Nora</div>
       <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Bookings → Sitters</div>
       <div class="v-script">"Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?"</div>
+    </div>
+    <div class="vertical-card" style="border-left:4px solid #c2410c;">
+      <div class="v-name" style="color:#c2410c;">🗑️ Junk Removal — Dusty</div>
+      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Pickups → Crews</div>
+      <div class="v-script">"Hey [Prospect], a customer calls needing a same-day garage cleanout — your AI gets the item list, confirms a pickup window, and books the truck, all before you've finished your coffee. Want to hear it live?"</div>
     </div>
   </div>
 

@@ -71,6 +71,6 @@ describe("T-056 per-industry visual families", () => {
     );
     expect(byFamily.care.sort()).toEqual(["childcare", "dental"]);
     expect(byFamily.ops).toEqual(["property-management"]);
-    expect(byFamily.field).toHaveLength(7);
+    expect(byFamily.field).toHaveLength(8);
   });
 });

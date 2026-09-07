@@ -1,6 +1,19 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude), continued — T-077 (Phase 9, third slice) done: audited the invoice/materials/
+Updated: 2026-09-06/07 (Claude), continued — T-078 (Phase 9, fourth slice) done: added Junk & Trash Removal as
+the platform's 11th vertical (jobs-mode, agent "Dusty", full FAQ/emergency/booking rule set — tsc's
+`Record<VerticalId,…>` exhaustiveness check caught both required consumers, `VERTICAL_ICONS` and demoSeed's
+`RESOURCES`, immediately), plus a Calendar readability pass. Audited "what's draggable" first: the jobs-vs-
+appointments split plus per-vertical `vocab.resourceNoun` already gives roofers Crews, dentists Providers,
+childcare Sitters — the distinction the owner described already exists, so the real fix was the cards
+themselves. Found a genuine gap: scheduled job tiles showed no time at all (the appointments-mode equivalent
+already did) even though `scheduledStart`/`scheduledEnd` were already being set — fixed by surfacing data that
+already existed, not adding new state. Enlarged the whole grid (column widths, day-cell height, rail width,
+fonts) for the "large enough to be easily readable, modern view" ask. Full detail in `TODO.md`'s T-078 entry.
+`tsc`/lint(0/21) clean, `vitest run` 424/424 (3 pre-existing concurrent-load flakes, clean in isolation),
+release suite 16/16, `next build` green.
+
+Previous: 2026-09-06 (Claude), continued — T-077 (Phase 9, third slice) done: audited the invoice/materials/
 Library "handshake" the owner asked about and fixed what was actually silently broken, plus added the
 requested educational tooltips. Two real gaps, not just missing UI polish: (1) unpriced material rows on the
 Invoice tab looked identical to a real $0.00 — now flagged with a tooltip explaining why + a one-click "+ Add
@@ -66,7 +79,7 @@ Local commit only at the time — see the Repository section below for current p
   `vercel ls`); production re-verified post-deploy: `/api/health` → `200`/`"connected"` with all six provider/
   runtime capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and the two
   newly auth-gated endpoints (`/api/company/crews`, `/api/company/library`) both confirmed `401` unauthenticated
-  against production.
+  against production. **T-078 (this session) is local-only** — not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -76,6 +89,63 @@ Local commit only at the time — see the Repository section below for current p
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06/07, continued — T-078: Junk & Trash Removal vertical + Calendar readability pass
+
+Direct continuation of T-077, same session. Owner: "one of the client types should be junk / trash removal.
+that's a big potential one. the calendar is tricky to tailor, so like for roffers, crews make sense, but for
+dog walkers, different, and for dentists, etc. really put thought into what is draggable in the calendar, also
+make sure its clear and that work assigned has associated times visible, and that the calendar is large enough
+to show easily readable, modern view."
+
+**Part 1 — Junk & Trash Removal, the 11th vertical.** Added a full `VerticalTemplate` block to
+`src/lib/verticals/templates.ts`: jobs-mode, `family: "field"`, vocab (`jobNoun: "Pickup"`,
+`resourceNoun: "Crew"`), realistic FAQs (what they don't take — hazmat, asbestos — pricing by volume,
+same/next-day availability), trade-tuned emergency rules (hazardous materials get flagged for manual review
+rather than auto-booked; hoarding situations get a compassionate escalation; eviction/move-out deadlines get
+same-day priority), agent "Dusty", icon `Trash2`, color `#c2410c` — checked against all 10 existing palette
+values first so it's genuinely distinct, not just picked. Adding `"junk-removal"` to the `VerticalId` union did
+exactly what CLAUDE.md's design promise says it should: `tsc` immediately failed on every
+`Record<VerticalId, …>` consumer until handled — `VERTICAL_ICONS` in `admin/demo/page.tsx` and `RESOURCES` in
+`verticals/demoSeed.ts` (5 truck-crew demo names: Truck 1/2 Crew, Cleanout Crew, Heavy Haul Team, Same-Day
+Crew). One thing `tsc` couldn't catch: `family-palette.test.ts` hardcoded
+`expect(byFamily.field).toHaveLength(7)` — now 8, since junk removal joins the "field" family. Updated
+`public/guides/onboarding-guide.html` throughout — card count ("ten"→"eleven" in 4 places), the Demo Studio
+industry list, the field-service summary table, the "swap table" walkthrough (added a Junk Removal row with a
+realistic caller line and voice-note script), and the colored vertical-card pitch grid — the same reconciliation
+CLAUDE.md's 2026-08-25 3-vertical-expansion entry describes, just for one vertical. Grepped for any other
+hardcoded per-industry list outside these spots — found none.
+
+**Part 2 — Calendar: draggable-content audit + a real gap fix + sizing/legibility.** Audited what's actually
+draggable before assuming a redesign was needed: `calendarMode` (jobs vs. appointments) plus each vertical's
+`vocab.resourceNoun` already differentiate "roofers drag jobs onto Crews" from "dentists drag bookings onto
+Providers" from "childcare drags bookings onto Sitters" — the roofer/dog-walker/dentist distinction the owner
+described is the same jobs-vs-appointments split the platform already has. So the actual fix was making the
+cards clearer and fixing what they were missing, not building a third calendar mode.
+
+Found a real, concrete gap in "times visible": `ScheduledTile` (the jobs-mode crew×day card) showed only the
+job ID and title — no time — even though `job.scheduledStart`/`scheduledEnd` were already real fields, set the
+moment a job is dropped onto a crew+day. The appointments-mode equivalent (`ScheduledApptTile`) already showed
+its time; jobs mode was the one silently missing it. Fixed by surfacing data that already existed (a
+start–end range), not adding anything new. Also added the appointment's `serviceType` as a second line on
+`ScheduledApptTile` so a placed booking reads as clearly as a placed job.
+
+Sizing/legibility, all deliberate reviewed increases sized to the now-larger tile content (time + title +
+id/footer + action row), not a blanket scale: crew×day grid column widths (140px→168px resource column,
+150px→190px min day columns, 700px→900px grid floor), day-cell minimum height (64px→116px), the unscheduled/
+unassigned rail (220px→260px wide, 560px→680px scroll height), and tile/label font sizes (11-12px→12-13px body
+text). Today's date now renders as a filled accent circle — the same convention Google/Apple Calendar use —
+instead of just a colored number.
+
+**Verified:** `tsc` clean (the `Record<VerticalId,…>` exhaustiveness check caught both required consumers
+immediately, exactly as designed); lint 0 errors/21 warnings (unchanged baseline); `vitest run` 424/424 (3
+pre-existing concurrent-load flakes — `send.test.ts`, `example-lib.test.ts`, `registry.test.ts` — reconfirmed
+clean on an isolated rerun); release suite 16/16; `next build` green (`/company/calendar`'s route entry is
+unchanged at 104kB since `CalendarBoard` is code-split per T-068 — size growth there is invisible to the route
+table by design). **Honest limit:** could not do a live authenticated visual check in this sandbox (no real
+Firebase credentials, the same standing limitation documented throughout this session) — verified by careful
+review of the grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live
+Calendar after this ships to confirm it reads as intended. Committed locally; push pending owner confirmation.
 
 ## 2026-09-06, continued — T-077: invoice/materials/Library handshake audit + educational tooltips
 
@@ -602,13 +672,16 @@ backlog closed weeks ago).
 
 ## Next actions
 
-0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075/T-076/T-077 entries for the
-   full list: a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status
-   filters as the option count grows, a `PageSkeleton` pass on the pages that don't yet use it, a further audit
-   for other blocked-workflow dead ends beyond Calendar's crew-empty state and the Invoice tab's material/labor
-   rows, and — the one that needs an owner product decision rather than a self-executable pick — whether to
-   build a net-new manual "add appointment" flow so it can join Job/Crew/Material/Teammate in the quick-add
+0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075/T-076/T-077/T-078 entries for
+   the full list: a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls
+   status filters as the option count grows, a `PageSkeleton` pass on the pages that don't yet use it, a further
+   audit for other blocked-workflow dead ends beyond Calendar's crew-empty state and the Invoice tab's material/
+   labor rows, and — the one that needs an owner product decision rather than a self-executable pick — whether
+   to build a net-new manual "add appointment" flow so it can join Job/Crew/Material/Teammate in the quick-add
    picker (today appointments are voice-booked by Alice only).
+0c. **T-078's Calendar changes need a live visual glance** — sizing/font increases were verified by reviewing
+    the grid arithmetic, not a screenshot (no real Firebase credentials in this sandbox to log in and see it
+    rendered). Worth a quick owner look at the live Calendar (any vertical) after this ships.
 0b. **Dead code flagged, not removed:** `POST /api/jobs/[jobId]/invoice` (`api/jobs/[jobId]/invoice/route.ts`)
     has zero callers anywhere in the app — the real invoice-generation logic is entirely client-side in
     `company/jobs/[jobId]/page.tsx`. Left in place pending an owner decision on whether to delete it or wire it
