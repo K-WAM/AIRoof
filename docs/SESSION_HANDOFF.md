@@ -61,12 +61,12 @@ Local commit only at the time — see the Repository section below for current p
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is at `d381907` (2026-09-06, owner approved this push) — it carried T-071
-  through T-076 in one push (all six had been sitting local-only across this session; the owner approved
-  pushing once T-076 was ready rather than one push per task). Vercel's GitHub auto-deploy reached Ready
-  (confirmed via `vercel ls`, not just assumed from the push); production re-verified post-deploy:
-  `/api/health` → `200`/`"connected"` with all six provider/runtime capabilities `configured`, unauthenticated
-  webhook `POST` → `401`, `/login` → `200`. **T-077 (this session) is local-only** — not yet approved for push.
+- Pushed baseline: `origin/main` is at `9eda6ad` (2026-09-06, owner approved this push) — it carried T-077 on
+  top of the earlier T-071–T-076 push (`d381907`). Vercel's GitHub auto-deploy reached Ready (confirmed via
+  `vercel ls`); production re-verified post-deploy: `/api/health` → `200`/`"connected"` with all six provider/
+  runtime capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and the two
+  newly auth-gated endpoints (`/api/company/crews`, `/api/company/library`) both confirmed `401` unauthenticated
+  against production.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -128,7 +128,10 @@ independently of jobs by the `pricing` module, the read-then-append-then-PUT rou
 directly the way a blocked-workflow card would) — `vitest run` 424/424 with these included (3 pre-existing
 concurrent-load flakes — `example-lib.test.ts`, `send.test.ts`, `registry.test.ts` — reconfirmed clean on an
 isolated rerun); release suite 16/16; `next build` green (`/company/jobs/[jobId]` 121kB → 135kB, the one route
-with real new logic; every other route unchanged). Committed locally; push pending owner confirmation.
+with real new logic; every other route unchanged). **Pushed and live** (2026-09-06, owner approved) —
+`origin/main` now at `9eda6ad`; Vercel's auto-deploy reached Ready and production was re-verified healthy
+post-deploy (`/api/health`, `/login`, webhook 401) — including the two newly-gated endpoints, both confirmed
+`401` unauthenticated in production.
 
 ## 2026-09-06, continued — T-076: global quick-add ("+") + a blocked-workflow "add X first" pattern
 

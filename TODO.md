@@ -355,7 +355,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         concurrent-load flakes - `example-lib.test.ts`, `send.test.ts`, `registry.test.ts` - reconfirmed clean
         on an isolated rerun of just those three files); release suite 16/16; `next build` green
         (`/company/jobs/[jobId]` 121kB -> 135kB, the one route with real new logic; every other route
-        unchanged).
+        unchanged). **Pushed and live** (2026-09-06, owner approved) — `origin/main` now at `9eda6ad`; Vercel's
+        auto-deploy reached Ready and production was re-verified healthy post-deploy, including both newly
+        auth-gated endpoints confirmed 401 unauthenticated against production.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
