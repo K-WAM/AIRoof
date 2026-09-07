@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { Suspense, useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import {
@@ -40,7 +41,10 @@ function calcItem(item: LineItem): LineItem {
   return { ...item, total: item.quantity * item.unitPrice };
 }
 
-export default function AdminInvoicesPage() {
+function AdminInvoicesPageInner() {
+  const searchParams = useSearchParams();
+  const prefillBusinessId = searchParams?.get("businessId") ?? null;
+
   const [invoices, setInvoices] = useState<LuxorInvoice[]>([]);
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +52,7 @@ export default function AdminInvoicesPage() {
 
   // Form state
   const [editingId, setEditingId] = useState<string | null>(null); // null = new
+  const [businessId, setBusinessId] = useState<string | null>(null); // links to a platform client, if any
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientAddress, setClientAddress] = useState("");
@@ -90,6 +95,26 @@ export default function AdminInvoicesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Arrived from a client's "Generate invoice" link — prefill from that
+  // client's record and link the new invoice to it, without disturbing the
+  // free-text walk-up-client flow that still works with no businessId.
+  useEffect(() => {
+    if (!prefillBusinessId || editingId) return;
+    fetch(`/api/admin/businesses/${prefillBusinessId}/config`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        const biz = data?.business;
+        if (!biz) return;
+        setBusinessId(prefillBusinessId);
+        setClientName(biz.businessName ?? "");
+        setClientEmail(biz.notificationEmail ?? biz.contactEmail ?? "");
+        setClientAddress(biz.address ?? "");
+        setSendEmail(biz.notificationEmail ?? biz.contactEmail ?? "");
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillBusinessId]);
+
   useEffect(() => {
     if (!dirty) return;
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -120,6 +145,7 @@ export default function AdminInvoicesPage() {
 
   function loadInvoice(inv: LuxorInvoice) {
     setEditingId(inv.invoiceId);
+    setBusinessId(inv.businessId ?? null);
     setClientName(inv.clientName ?? "");
     setClientEmail(inv.clientEmail ?? "");
     setClientAddress(inv.clientAddress ?? "");
@@ -135,6 +161,7 @@ export default function AdminInvoicesPage() {
 
   function newInvoice() {
     setEditingId(null);
+    setBusinessId(null);
     setClientName(""); setClientEmail(""); setClientAddress("");
     const d = new Date(); d.setDate(d.getDate() + 30);
     setDueDate(d.toISOString().split("T")[0]);
@@ -185,7 +212,7 @@ export default function AdminInvoicesPage() {
     setSaving(true);
     setActionError(null);
     try {
-      const payload = { clientName, clientEmail, clientAddress, dueDate, lineItems, taxRate, notes, subtotal, taxAmount, total };
+      const payload = { businessId: businessId ?? undefined, clientName, clientEmail, clientAddress, dueDate, lineItems, taxRate, notes, subtotal, taxAmount, total };
       if (editingId) {
         const response = await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         if (!response.ok) throw new Error("Invoice save failed");
@@ -590,6 +617,14 @@ export default function AdminInvoicesPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function AdminInvoicesPage() {
+  return (
+    <Suspense fallback={<PageSkeleton rows={5} />}>
+      <AdminInvoicesPageInner />
+    </Suspense>
   );
 }
 

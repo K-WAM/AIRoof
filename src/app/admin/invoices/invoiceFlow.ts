@@ -14,6 +14,10 @@ export interface InvoiceTemplate {
 
 export interface LuxorInvoice {
   invoiceId: string;
+  // Links this invoice to a platform client so it shows up from their config
+  // page's "Generate invoice" link. Optional — walk-up invoices for a
+  // non-tenant client keep working exactly as before.
+  businessId?: string;
   clientName: string;
   clientEmail: string;
   clientAddress?: string;

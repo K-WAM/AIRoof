@@ -38,7 +38,7 @@ project, place the service-account file at `firebase-service-account.json` and r
 node scripts/seed-demo-business.mjs
 ```
 
-Use `/admin/demo` for normal demo personalization/reset. Do not mutate demo Firestore with ad-hoc scripts;
+Use `/hub/demo` for normal demo personalization/reset. Do not mutate demo Firestore with ad-hoc scripts;
 the route is guarded by the superadmin check, demo allowlist/marker, backup, reset lock, and typed confirmation.
 
 ## Production smoke test

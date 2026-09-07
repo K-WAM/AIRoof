@@ -19,6 +19,21 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // T-055: Demo Studio, the onboarding wizard, and Playbooks moved from
+  // /admin/* to their own /hub/* route group. Old deep links (bookmarks,
+  // this file's own history) must redirect, never 404 — temporary (307), not
+  // permanent, since these are internal admin tool URLs, not public/SEO'd
+  // pages, and the move could still be revisited.
+  async redirects() {
+    return [
+      { source: "/admin/demo", destination: "/hub/demo", permanent: false },
+      { source: "/admin/demo/:path*", destination: "/hub/demo/:path*", permanent: false },
+      { source: "/admin/onboarding", destination: "/hub/onboarding", permanent: false },
+      { source: "/admin/onboarding/:path*", destination: "/hub/onboarding/:path*", permanent: false },
+      { source: "/admin/guide", destination: "/hub/guide", permanent: false },
+      { source: "/admin/guide/:path*", destination: "/hub/guide/:path*", permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

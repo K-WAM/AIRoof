@@ -623,4 +623,4 @@ If a business needs custom behavior not in the platform:
 4. For code: plan Feature Request for next phase
 5. Provide ETA to business owner
 > **Historical pre-Vapi guide.** Do not follow the Twilio, generated `onboard-business.ts`, or Google Calendar
-> steps in this file. Use `public/guides/onboarding-guide.html` and `/admin/onboarding` for current onboarding.
+> steps in this file. Use `public/guides/onboarding-guide.html` and `/hub/onboarding` for current onboarding.

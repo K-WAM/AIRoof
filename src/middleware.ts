@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 //   1. Layout redirects (client-side, immediate)
 //   2. Firestore security rules (server-side, authoritative)
 // This middleware layer stops casual URL manipulation before React loads.
-const PROTECTED_PREFIXES = ["/admin", "/company"];
+const PROTECTED_PREFIXES = ["/admin", "/company", "/hub"];
 const LOGIN_URL = "/login";
 
 export function middleware(request: NextRequest) {
@@ -24,5 +24,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/company/:path*"],
+  matcher: ["/admin/:path*", "/company/:path*", "/hub/:path*"],
 };

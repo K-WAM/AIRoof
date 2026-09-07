@@ -4,8 +4,14 @@ Specs: `MASTER_PLAN.md`. Rules: `AGENTS.md`. State snapshot: `docs/SESSION_HANDO
 Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance cleanup this session
 (`c8487ed`), plus a 3-vertical expansion on top of it (`1d2f840`) — both on `origin/main`.
 
-## Current snapshot — 2026-08-25
+## Current snapshot — 2026-09-07
 
+- **T-079 (Client Management, Phase 10) + T-055 (Hub split, Phase 7), both done, not pushed:** superadmin
+  "+ Client" quick-create, seat-capped team invites with CSV bulk import, a dashboard-only subscription
+  pause/resume, and recurring-invoice drafting (T-079) — see the Phase 10 checklist entry below. Then, same
+  session, Demo Studio/onboarding/Playbooks moved from `/admin/*` to a new `/hub/*` route group with old links
+  redirecting (T-055) — see its entry in the Phase 7 checklist below. `tsc`/lint/build all green; `vitest run`
+  450/450 (up from the pre-session 428). Awaiting owner review before commit/push.
 - **Scoped implementation:** 100%. Phases 0–6 are merged and pushed; the latest baseline CI passed.
 - **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
   DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
@@ -37,9 +43,10 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 4 Operator truth/comms/privacy | T-040 T-041 T-042 T-043 T-044 T-045 | 20% | ✅ **all 6 tasks merged** — Phase complete | Phase 3 merged ✓ |
 | 5 Release + cleanup + docs | T-050 T-051 T-052 | 15% | ✅ **all 3 tasks merged** — Phase complete | Phase 4 merged ✓ |
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
-| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
+| 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 6/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
+| 10 Client Management (owner-added, 2026-09-07) | T-079 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
 
 ### Checklist
 
@@ -63,10 +70,32 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-047 — Navigation/workflow friction pass + surfaced tutorial (Codex, merged)
   - [x] T-048 — Voice-note field resilience + AI model right-sizing (Codex, merged)
   - [x] T-049 — Outbound email consistency + branding pass (Deepseek, merged)
-- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 5/8
+- [ ] Phase 7 — QoL & Multi-Vertical Expansion (owner-added, from the 2026-08-27 audit) — 6/8
   - [x] T-053 — Retire the dead `agentVoice` field (removed, not wired — see 2026-09-02 review note)
   - [ ] T-054 — In-app Vapi provisioning (assistant + number, incl. Canadian import)
-  - [ ] T-055 — Split demo/onboarding into a dedicated hub
+  - [x] T-055 — Split demo/onboarding into a dedicated hub (done 2026-09-07). Owner picked this off a 3-option
+        menu of the phase's remaining tasks (T-054/T-055/T-058) since each genuinely needed a call — T-055 was
+        the fully self-contained one, no external credential or library choice required. Demo Studio, the
+        onboarding wizard, and Playbooks/Guide moved from `/admin/{demo,onboarding,guide}` to their own
+        `/hub/*` route group (`git mv`, history preserved); Businesses/Usage/Invoices stay under `/admin`. New
+        `src/app/hub/layout.tsx` reuses the exact same superadmin gate and `.admin-shell`/`.admin-nav` CSS as
+        `AdminShell` — re-route/re-skin, not a redesign or new auth system, per the spec's constraint. New
+        `src/app/hub/hub-nav.tsx` carries the three moved pages plus the "Demo (Apex Roofing)" quick-view
+        shortcuts (moved out of `admin-nav.tsx`, which now only has Clients/Usage/Invoices/Feedback + one
+        "Open Hub →" link back). `src/middleware.ts` gates `/hub` exactly like `/admin`/`/company`. Old links
+        redirect via a new `next.config.ts` `redirects()` (307/temporary, bare path + `:path*` sub-paths) —
+        confirmed live in a real build's `routes-manifest.json`, not just configured on paper. Updated every
+        doc where the old path was current instruction, not historical narrative: `CLAUDE.md`,
+        `docs/ADMIN-ONBOARDING.md`, `docs/ADMIN-QUICK-START.md`, `docs/TESTING.md`, `docs/README.md`, all 6
+        literal URLs in `public/guides/onboarding-guide.html`. Deliberately left `docs/HANDOFF.md` alone — it's
+        already stale in unrelated ways (a 4-tab Playbooks page, a 5-step wizard, neither true today), so it's
+        historical, not current. No Next e2e harness exists in this repo, so new `middleware.test.ts` +
+        `next-config-redirects.test.ts` stand in for the spec's "route test" ask — full detail, including
+        exactly what each covers, in `MASTER_PLAN.md`'s T-055 entry. Verified: `tsc` clean (after clearing a
+        stale `.next/types` cache left by the pre-move build — a cache artifact, not a real error), lint 0/21
+        (unchanged baseline), `vitest run` 450/450 (up from 442, +8 new; same 3 pre-existing concurrent-load
+        flakes reconfirmed clean in isolation), `next build` green with `/hub/*` present and `/admin/{demo,
+        onboarding,guide}` correctly absent (moved, not duplicated). Not pushed — same standing policy.
   - [x] T-056 — Per-industry visual families in the company portal (done 2026-09-05, see note below)
   - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
@@ -415,6 +444,50 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         the same standing limitation documented throughout this session) — verified by careful review of the
         grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live Calendar
         after this ships to confirm it reads as intended.
+
+- [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 1/1
+  - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
+        Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
+        like a new client tab where I click + client account... they get one license, and they can +users
+        manually... or they can upload a csv... I can set them up on a monthly recurring invoice, and I can
+        pause their subscription for non payment... superadmin of a company can only see their company"). Almost
+        entirely linking/extending existing plumbing rather than new subsystems — see the approved plan for the
+        full design. Confirmed with owner up front: pausing a subscription locks the client's web dashboard
+        only, never the phone agent (Vapi/agentTools untouched).
+        **New:** `+ Client` quick-create modal (`admin/businesses/NewClientModal.tsx`) posting to the existing
+        `POST /api/admin/businesses`, now also accepting `address`/`employeeCount`/`seatLimit`; a new
+        `subscriptionStatus`/`pausedAt`/`pausedReason`/`billing{planName,monthlyAmount,billingDayOfMonth,
+        nextInvoiceDate,autoInvoice}` shape on `BusinessConfig`; a superadmin-gated pause/resume endpoint
+        (`FieldValue.delete()` used for pausedAt/pausedReason on resume — plain `undefined` would've been
+        silently stripped by the Admin SDK's `ignoreUndefinedProperties`, not cleared); a shared
+        `inviteTeamMember()` helper (`src/lib/team/invite.ts`) extracted from `POST /api/company/team` so a new
+        CSV bulk-invite endpoint (`POST /api/company/team/bulk`, capped 200 rows) reuses the identical
+        find-or-create-Auth-user/email-invite logic instead of duplicating it; seat-limit enforcement (default
+        5, uniform for owner and superadmin alike — raising it is one Config-page field, not a bypass); a
+        dependency-free CSV `email,role` parser + preview/results UI added to the existing `TeamPanel.tsx`
+        (mounted a second time, unmodified, directly on the admin Config page — zero new backend code needed
+        since its API routes already accepted the `superadmin` role); a paused-dashboard gate reusing
+        `useBusinessModules()`'s existing single Firestore read (industry + subscriptionStatus cached together
+        now) and `company/layout.tsx`'s existing `blockedModule` short-circuit pattern — superadmin (incl.
+        `?preview=`) always bypasses; `LuxorInvoice` gained an optional `businessId` link, `/admin/invoices`
+        prefills from a `?businessId=` deep link (wrapped in `Suspense` per Next's `useSearchParams` requirement
+        — `admin/layout.tsx` has no ancestor Suspense boundary, unlike `/company/*`); a shared
+        `nextLuxorInvoiceNumber()` helper (`src/lib/billing/invoiceNumber.ts`) extracted so a new daily
+        `/api/cron/recurring-invoices` cron and the existing manual invoice POST draw from one counter; the
+        cron **drafts only, never auto-sends** (owner still reviews and clicks Send) and only acts on clients
+        with `billing.autoInvoice` explicitly on.
+        Verified: `tsc` clean; lint 0 errors/21 warnings (unchanged baseline); `vitest run` 442/442 (up from
+        428 — 14 new tests: seat-limit rejection + fallback-to-default, CSV bulk-import per-row outcomes
+        including the seat-limit-mid-batch case, the pause/resume route's audit-event + `FieldValue.delete()`
+        semantics, `nextLuxorInvoiceNumber` monotonicity, and `useBusinessModules`'s new `subscriptionStatus`
+        resolution/caching — including a fix for a pre-existing test that seeded the old bare-string cache
+        format, now migrated to the new `{industry, subscriptionStatus}` JSON shape with a dedicated
+        legacy-cache fallback test added); `next build` green, all new routes present in the route table.
+        `public/guides/onboarding-guide.html` updated in the same pass (fast-path callout before Phase 1, CSV/
+        seat-limit notes in Phase 4, a new "Phase 6 — Ongoing Account Management" section, two new
+        troubleshooting rows, version bumped to 2.4) — the resolved NH-6 note above already confirms Vercel
+        allows 100 cron jobs/project with only a once-daily frequency cap on Hobby, so the new cron needed no
+        further capacity check. Not pushed — owner approval required, per this file's standing policy.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

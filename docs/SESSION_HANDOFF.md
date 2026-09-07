@@ -1,6 +1,38 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06/07 (Claude), continued — T-078 (Phase 9, fourth slice) done: added Junk & Trash Removal as
+Updated: 2026-09-07 (Claude), continued — T-055 (Phase 7) done, not pushed: split Demo Studio, the onboarding
+wizard, and Playbooks out of `/admin/*` into a new `/hub/*` route group (Businesses/Usage/Invoices stay in
+`/admin`). Owner picked this off a 3-option menu of Phase 7's remaining tasks (T-054/T-055/T-058) — each
+genuinely needed a call, and T-055 was the one with no external dependency (no live Twilio credential, no PDF-
+library choice). Moved the three page directories via `git mv` (history preserved); new `src/app/hub/layout.tsx`
++ `hub-nav.tsx` reuse the exact same superadmin gate and CSS as `/admin` — re-route/re-skin, not a redesign, per
+the spec. `src/middleware.ts` now gates `/hub` too; old links 307-redirect via a new `next.config.ts`
+`redirects()` (confirmed live in a real build's `routes-manifest.json`). Updated every doc where the old path
+was current instruction (`CLAUDE.md`, `docs/ADMIN-ONBOARDING.md`, `docs/ADMIN-QUICK-START.md`,
+`docs/TESTING.md`, `docs/README.md`, the onboarding guide's 6 literal URLs) — left `docs/HANDOFF.md` alone since
+it's already stale in unrelated ways (historical, not current). No Next e2e harness exists here, so a new
+`middleware.test.ts` + `next-config-redirects.test.ts` stand in for the spec's route test. Full detail in
+`TODO.md`'s T-055 entry (nested under Phase 7) and `MASTER_PLAN.md`'s T-055 spec. `tsc` clean (after clearing a
+stale `.next/types` cache from the pre-move build), lint 0/21, `vitest run` 450/450 (up from 442, +8 new; same
+3 pre-existing concurrent-load flakes reconfirmed clean in isolation), `next build` green. Not pushed.
+
+Previous: 2026-09-07 (Claude) — T-079 (Phase 10, new) done, not pushed: superadmin client management — a
+"+ Client" quick-create modal, seat-capped team invites with CSV bulk import, recurring Luxor invoice
+drafting, and a subscription pause/resume that locks a client's dashboard only (owner confirmed up front:
+never the phone agent). Owner: "add a really smooth way for me set up new clients... + client account...
+they get one license, and they can +users manually... or they can upload a csv... monthly recurring
+invoice... pause their subscription for non payment... superadmin of a company can only see their company."
+Almost entirely linking/extending existing plumbing (business creation, `TeamPanel`, Luxor invoices,
+`useBusinessModules`'s existing Firestore read) rather than new subsystems — a shared `inviteTeamMember()`
+helper now backs both the single-invite and new bulk-CSV routes, and a shared `nextLuxorInvoiceNumber()`
+helper backs both the manual invoice editor and the new daily recurring-invoices cron (drafts only, never
+auto-sends). Full detail, including the `FieldValue.delete()` vs. plain-`undefined` gotcha found while
+building the pause/resume route, in `TODO.md`'s T-079 entry. Also updated `public/guides/onboarding-guide.html`
+(fast-path callout, CSV/seat-limit notes, new "Phase 6 — Ongoing Account Management" section, two
+troubleshooting rows, v2.4) in the same pass. `tsc`/lint(0/21) clean, `vitest run` 442/442 (up from 428, all
+new), `next build` green with every new route present. Not pushed — awaiting owner review.
+
+Previous: 2026-09-06/07 (Claude), continued — T-078 (Phase 9, fourth slice) done: added Junk & Trash Removal as
 the platform's 11th vertical (jobs-mode, agent "Dusty", full FAQ/emergency/booking rule set — tsc's
 `Record<VerticalId,…>` exhaustiveness check caught both required consumers, `VERTICAL_ICONS` and demoSeed's
 `RESOURCES`, immediately), plus a Calendar readability pass. Audited "what's draggable" first: the jobs-vs-
@@ -79,7 +111,7 @@ Local commit only at the time — see the Repository section below for current p
   `vercel ls`); production re-verified post-deploy: `/api/health` → `200`/`"connected"` with all six provider/
   runtime capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and the two
   newly auth-gated endpoints (`/api/company/crews`, `/api/company/library`) both confirmed `401` unauthenticated
-  against production. **T-078 (this session) is local-only** — not yet approved for push.
+  against production. **T-078, T-079, and T-055 (all local-only) are not yet approved for push.**
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -89,6 +121,58 @@ Local commit only at the time — see the Repository section below for current p
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-07 — T-079: superadmin client management (Phase 10, new)
+
+New session, new phase — not a continuation of Phase 9's UI-modernization slices. Owner: "add a really smooth
+way for me set up new clients, like a new client tab where I click + client account, and a form pops up for me
+to input the info required of the business... use existing tools where possible since we already have
+invoicing... one license, and they can +users manually by filling out a form and submitting per user, or they
+can upload a csv... set them up on a monthly recurring invoice, and I can pause their subscription for non
+payment... superadmin of a company can only see their company." Investigated first and found most of the
+plumbing already existed (business creation, `TeamPanel`, Luxor invoices, tenant-isolation rules) — planned and
+built this as linking/extending those, not new subsystems. Confirmed one product decision with the owner before
+building: pausing a subscription locks the client's dashboard only, never the phone agent.
+
+**Client creation:** a `+ Client` quick-create modal (`admin/businesses/NewClientModal.tsx`) posting to the
+existing `POST /api/admin/businesses`, now also accepting `address`/`employeeCount`/`seatLimit`. Faster than
+the full 6-step `/admin/onboarding` wizard (still available as "Advanced setup") because it leaves every
+agent-specific field on its existing template/plan-preset default.
+
+**Team & seats:** extracted the single-invite logic (find-or-create Auth user, upsert `businessUsers`, email a
+branded reset link) out of `POST /api/company/team` into a shared `inviteTeamMember()` helper
+(`src/lib/team/invite.ts`), so a new `POST /api/company/team/bulk` (CSV import, capped 200 rows/request) reuses
+it instead of duplicating it. Added a `seatLimit` field (default 5) enforced uniformly for owner and superadmin
+alike. `TeamPanel.tsx` (already shared between the company Settings page and, new this session, mounted a
+second time unmodified on the admin Config page) gained a dependency-free CSV `email,role` parser with a
+preview/results table.
+
+**Subscription pause + billing:** a superadmin-gated `POST /api/admin/businesses/[id]/subscription` route
+flips `subscriptionStatus` between `active`/`paused`. Found and fixed a real gotcha while building it: the
+Admin SDK's `ignoreUndefinedProperties` (see CLAUDE.md) silently *strips* a plain `undefined` field from a
+write instead of clearing it, so "resume" has to use `FieldValue.delete()` to actually clear `pausedAt`/
+`pausedReason` — a plain `undefined` would have left stale data behind. The pause itself is enforced by
+extending `useBusinessModules()`'s existing single Firestore read (industry + `subscriptionStatus` now cached
+together) and reusing `company/layout.tsx`'s existing `blockedModule` short-circuit pattern for a full-page
+"Account paused" screen — superadmin (including `?preview=`) always bypasses. `LuxorInvoice` gained an optional
+`businessId` link; `/admin/invoices` prefills from a `?businessId=` deep link off the Config page's new
+"Generate invoice" button (wrapped in `Suspense` — `admin/layout.tsx`, unlike `/company/*`, has no ancestor
+Suspense boundary for `useSearchParams`). A shared `nextLuxorInvoiceNumber()` helper
+(`src/lib/billing/invoiceNumber.ts`) now backs both the manual invoice editor and a new daily
+`/api/cron/recurring-invoices` cron, which **drafts only, never auto-sends** — the owner still reviews and
+clicks Send — and only acts on clients with `billing.autoInvoice` explicitly opted in.
+
+Also updated `public/guides/onboarding-guide.html` (fast-path callout before Phase 1, CSV/seat-limit notes in
+Phase 4, a new "Phase 6 — Ongoing Account Management" section, two new troubleshooting rows, version → 2.4).
+
+**Verified:** `tsc` clean; lint 0 errors/21 warnings (unchanged baseline); `vitest run` 442/442, up from 428 —
+14 new tests covering seat-limit rejection/fallback, CSV bulk-import per-row outcomes (including hitting the
+seat limit mid-batch), the pause/resume route's audit-event + `FieldValue.delete()` behavior,
+`nextLuxorInvoiceNumber` monotonicity, and `useBusinessModules`'s new `subscriptionStatus` resolution/caching
+(including migrating one pre-existing test off the old bare-string sessionStorage cache format, with a
+dedicated legacy-cache-fallback test added so that migration doesn't silently regress); `next build` green,
+every new route present in the route table. Full detail in `TODO.md`'s T-079 entry. **Not pushed** — awaiting
+owner review, per this file's standing policy on commits/pushes.
 
 ## 2026-09-06/07, continued — T-078: Junk & Trash Removal vertical + Calendar readability pass
 

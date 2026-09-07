@@ -48,6 +48,13 @@ interface UpdateBusinessConfigRequest {
   contactPhone?: string;
   contactEmail?: string;
   websiteUrl?: string;
+  // Client-account / CRM fields (subscriptionStatus/pausedAt/pausedReason are
+  // deliberately not editable here — they go through the dedicated
+  // /subscription route so every pause/resume is audited)
+  address?: string;
+  employeeCount?: number;
+  seatLimit?: number;
+  billing?: BusinessConfig["billing"];
   applyTemplateDefaults?: boolean;
   onboarding?: Partial<BusinessOnboardingStatus>;
   actorUid?: string;
@@ -163,6 +170,11 @@ export async function PUT(
         contactPhone: body.contactPhone,
         contactEmail: body.contactEmail,
         websiteUrl: body.websiteUrl,
+        // Client-account / CRM fields
+        address: body.address,
+        employeeCount: body.employeeCount,
+        seatLimit: body.seatLimit,
+        billing: body.billing,
         updatedAt: now,
       };
 

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const onboardingSource = readFileSync(
-  resolve(process.cwd(), "src/app/admin/onboarding/page.tsx"),
+  resolve(process.cwd(), "src/app/hub/onboarding/page.tsx"),
   "utf8",
 );
 

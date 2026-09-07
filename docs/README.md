@@ -53,7 +53,7 @@ node scripts/provision-superadmin.mjs
 node scripts/create-pitch-deck.cjs
 ```
 
-Demo launches and resets should normally go through `/admin/demo`, whose server route applies the allowlist,
+Demo launches and resets should normally go through `/hub/demo`, whose server route applies the allowlist,
 demo marker, backup, reset lock, and explicit confirmation guard.
 
 ## Quality gate

@@ -6,15 +6,20 @@ import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { TeamPanel } from "@/app/company/settings/TeamPanel";
 import {
   ArrowLeft,
   Bot,
   Building2,
   Copy,
+  CreditCard,
+  FileText,
   KeyRound,
   ListChecks,
+  Pause,
   Palette,
   PhoneCall,
+  Play,
   Receipt,
   Rocket,
   Route,
@@ -53,6 +58,20 @@ interface BizData {
   websiteUrl?: string;
   laborRate?: { defaultHourlyRate?: number };
   defaultTaxRate?: number;
+  // Client-account / CRM fields
+  address?: string;
+  employeeCount?: number;
+  seatLimit?: number;
+  subscriptionStatus?: "active" | "paused" | "trial";
+  pausedAt?: number;
+  pausedReason?: string;
+  billing?: {
+    planName?: string;
+    monthlyAmount?: number;
+    billingDayOfMonth?: number;
+    nextInvoiceDate?: number;
+    autoInvoice?: boolean;
+  };
 }
 
 interface OnboardingData {
@@ -99,6 +118,33 @@ export default function AdminBusinessConfigPage({
     tempPassword?: string;
   }>({ type: "idle", message: "" });
   const loginEmailRef = useRef<HTMLInputElement>(null);
+
+  const [subscriptionBusy, setSubscriptionBusy] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+
+  async function toggleSubscription(action: "pause" | "resume") {
+    if (action === "pause" && !confirm(
+      "Pause this client's dashboard access? Their web portal will show an \"account paused\" screen until " +
+      "resumed. This never affects Alice — inbound calls keep being answered."
+    )) return;
+
+    setSubscriptionBusy(true);
+    setSubscriptionError(null);
+    try {
+      const res = await fetch(`/api/admin/businesses/${businessId}/subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, actorEmail: "connect@luxordev.com" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not update subscription status.");
+      setBiz((prev) => (prev ? { ...prev, subscriptionStatus: data.subscriptionStatus } : prev));
+    } catch (err) {
+      setSubscriptionError(err instanceof Error ? err.message : "Could not update subscription status.");
+    } finally {
+      setSubscriptionBusy(false);
+    }
+  }
 
   async function provisionLogin() {
     if (!EMAIL_PATTERN.test(loginEmail.trim())) {
@@ -229,6 +275,16 @@ export default function AdminBusinessConfigPage({
       defaultTaxRate: formData.get("defaultTaxRate") !== ""
         ? Number(formData.get("defaultTaxRate"))
         : undefined,
+      // Client-account / CRM fields
+      address: String(formData.get("address") || "").trim(),
+      employeeCount: formData.get("employeeCount") !== "" ? Number(formData.get("employeeCount")) : undefined,
+      seatLimit: formData.get("seatLimit") !== "" ? Number(formData.get("seatLimit")) : undefined,
+      billing: {
+        planName: String(formData.get("billingPlanName") || "").trim() || undefined,
+        monthlyAmount: formData.get("billingMonthlyAmount") !== "" ? Number(formData.get("billingMonthlyAmount")) : undefined,
+        billingDayOfMonth: formData.get("billingDayOfMonth") !== "" ? Number(formData.get("billingDayOfMonth")) : undefined,
+        autoInvoice: formData.get("billingAutoInvoice") === "on",
+      },
       applyTemplateDefaults: formData.get("applyTemplateDefaults") === "on",
       onboarding: Object.fromEntries(
         readinessChecks.map((check) => [check.key, formData.get(check.key) === "on"])
@@ -348,6 +404,28 @@ export default function AdminBusinessConfigPage({
                       <option key={tz.value} value={tz.value}>{tz.label}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Client Account ─── */}
+          <section className="panel" aria-labelledby="client-account-title">
+            <div className="panel-header">
+              <h2 className="panel-title" id="client-account-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <FileText size={16} strokeWidth={1.75} />
+                Client Account
+              </h2>
+            </div>
+            <div className="panel-body">
+              <div className="form-grid">
+                <div className="field full">
+                  <label htmlFor="address">Address</label>
+                  <input id="address" name="address" defaultValue={biz.address ?? ""} placeholder="123 Main St, Miami, FL" />
+                </div>
+                <div className="field">
+                  <label htmlFor="employeeCount">Employees</label>
+                  <input id="employeeCount" name="employeeCount" type="number" min="0" defaultValue={biz.employeeCount ?? ""} placeholder="8" />
                 </div>
               </div>
             </div>
@@ -570,6 +648,76 @@ export default function AdminBusinessConfigPage({
               )}
             </div>
           </section>
+
+          {/* ─── Subscription & Billing ─── */}
+          <section className="panel" aria-labelledby="subscription-title">
+            <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h2 className="panel-title" id="subscription-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <CreditCard size={16} strokeWidth={1.75} />
+                Subscription & Billing
+              </h2>
+              <span className={biz.subscriptionStatus === "paused" ? "tag urgent" : "tag success"}>
+                {biz.subscriptionStatus === "paused" ? "Paused" : biz.subscriptionStatus === "trial" ? "Trial" : "Active"}
+              </span>
+            </div>
+            <div className="panel-body">
+              {biz.subscriptionStatus === "paused" && (
+                <p style={{ margin: "0 0 12px", fontSize: 12, color: "#b91c1c" }}>
+                  Dashboard access is paused{biz.pausedReason ? ` — ${biz.pausedReason}` : ""}. Alice keeps
+                  answering calls; only the client&apos;s web portal is locked.
+                </p>
+              )}
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="seatLimit">Seat limit</label>
+                  <input id="seatLimit" name="seatLimit" type="number" min="1" defaultValue={biz.seatLimit ?? 5} />
+                </div>
+                <div className="field">
+                  <label htmlFor="billingPlanName">Plan name</label>
+                  <input id="billingPlanName" name="billingPlanName" defaultValue={biz.billing?.planName ?? ""} placeholder="Standard" />
+                </div>
+                <div className="field">
+                  <label htmlFor="billingMonthlyAmount">Monthly amount ($)</label>
+                  <input id="billingMonthlyAmount" name="billingMonthlyAmount" type="number" min="0" step="0.01" defaultValue={biz.billing?.monthlyAmount ?? ""} placeholder="299" />
+                </div>
+                <div className="field">
+                  <label htmlFor="billingDayOfMonth">Billing day</label>
+                  <input id="billingDayOfMonth" name="billingDayOfMonth" type="number" min="1" max="28" defaultValue={biz.billing?.billingDayOfMonth ?? ""} placeholder="1" />
+                </div>
+                <label className="check-row">
+                  <input name="billingAutoInvoice" type="checkbox" defaultChecked={biz.billing?.autoInvoice ?? false} />
+                  <span>Auto-draft a monthly invoice (never auto-sent — you still review and send it)</span>
+                </label>
+              </div>
+              <p style={{ fontSize: 12, color: "#94a3b8", margin: "12px 0 14px" }}>
+                Seat limit and billing fields save with the rest of this form. Pause/Resume below take effect
+                immediately.
+              </p>
+              {subscriptionError && (
+                <p role="alert" style={{ margin: "0 0 12px", fontSize: 13, color: "#b91c1c" }}>{subscriptionError}</p>
+              )}
+              <div className="button-row" style={{ marginTop: 0 }}>
+                {biz.subscriptionStatus === "paused" ? (
+                  <button type="button" className="button primary" disabled={subscriptionBusy} onClick={() => toggleSubscription("resume")} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Play size={14} strokeWidth={1.75} />
+                    {subscriptionBusy ? "…" : "Resume access"}
+                  </button>
+                ) : (
+                  <button type="button" className="button" disabled={subscriptionBusy} onClick={() => toggleSubscription("pause")} style={{ color: "#b91c1c", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Pause size={14} strokeWidth={1.75} />
+                    {subscriptionBusy ? "…" : "Pause access"}
+                  </button>
+                )}
+                <a href={`/admin/invoices?businessId=${businessId}`} className="button" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <Receipt size={14} strokeWidth={1.75} />
+                  Generate invoice
+                </a>
+              </div>
+            </div>
+          </section>
+
+          {/* ─── Team ─── */}
+          <TeamPanel businessId={businessId} />
 
           {/* ─── Routing ─── */}
           <section className="panel" aria-labelledby="routing-title">

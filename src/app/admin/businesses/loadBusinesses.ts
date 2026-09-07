@@ -8,6 +8,7 @@ export interface BizRow {
   notificationEmail?: string;
   serviceArea?: string[];
   createdAt: number;
+  subscriptionStatus?: "active" | "paused" | "trial";
 }
 
 export type BusinessesLoadResult =

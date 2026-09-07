@@ -25,7 +25,7 @@
 **Interpreter note:** graphify is installed as a **uv tool**, so its Python is `C:/Users/karee/AppData/Roaming/uv/tools/graphifyy/Scripts/python.exe` — a bare `python -c "import graphify"` fails. The skill writes this path to `graphify-out/.graphify_python`.
 
 ## Onboarding & Demo Guide
-The file `public/guides/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. It is served live at `/guides/onboarding-guide.html` and embedded in the superadmin portal at `/admin/guide`. Open it in a browser and print → Save as PDF to generate the PDF version.
+The file `public/guides/onboarding-guide.html` is the single source of truth for the demo playbook and client onboarding walkthrough. It is served live at `/guides/onboarding-guide.html` and embedded in the superadmin portal at `/hub/guide` (moved from `/admin/guide`, T-055 — old links redirect). Open it in a browser and print → Save as PDF to generate the PDF version.
 
 **Update the guide when any of these change:**
 - Demo phone number, portal URL, or superadmin login
@@ -200,15 +200,17 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/admin/invoice-templates/route.ts — GET/POST/DELETE invoice templates
 - src/app/admin/invoices/page.tsx — Luxor invoice editor (line items, templates, send, PDF)
 - src/app/api/calls/outbound/route.ts — Staff-authenticated outbound call initiation (POST)
-- src/app/admin/demo/page.tsx — Demo customizer UI + QR code for field demo
+- src/app/hub/demo/page.tsx — Demo customizer UI + QR code for field demo (moved from /admin/demo, T-055)
 - src/app/api/admin/demo-customize/route.ts — Demo POST/DELETE endpoint
 - vercel.json — Cron schedule for follow-up-calls
-- src/app/admin/onboarding/page.tsx — Six-step onboarding wizard (includes Vapi IDs + branding)
+- src/app/hub/onboarding/page.tsx — Six-step onboarding wizard, incl. Vapi IDs + branding (moved from /admin/onboarding, T-055)
 - src/hooks/useBusinessId.ts — Returns ?preview=businessId for superadmin, user.businessId otherwise
-- src/app/admin/admin-nav.tsx — Sidebar nav with section groups (Platform / Tools)
+- src/app/admin/admin-nav.tsx — Sidebar nav: Clients/Usage/Invoices + a link to the Hub
+- src/app/hub/hub-nav.tsx — Hub's own sidebar nav: Demo Studio/Onboarding/Playbooks (T-055)
+- src/app/hub/layout.tsx — Hub shell, same superadmin gate as /admin (T-055)
 - src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
 - src/app/api/admin/usage/route.ts — Firestore count aggregation per business
-- src/app/admin/guide/page.tsx — Playbooks — 3 tabs: Demo Playbook / Client Onboarding / Field Operations
+- src/app/hub/guide/page.tsx — Playbooks — 3 tabs: Demo Playbook / Client Onboarding / Field Operations (moved from /admin/guide, T-055)
 - src/app/admin/businesses/page.tsx — Live business list + Edit + Preview ↗ buttons
 - src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (Vapi IDs, branding, rules, timezone)
 - src/app/api/admin/businesses/route.ts — GET list + POST create business

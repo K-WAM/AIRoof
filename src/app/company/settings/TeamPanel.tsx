@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { Mail, Trash2, UserPlus, Users } from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { FileUp, Mail, Trash2, UserPlus, Users } from "lucide-react";
 import type { TeamMember, TeamRole } from "@/types/team";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 
@@ -13,11 +13,40 @@ const ROLE_HINT: Record<TeamRole, string> = {
   viewer: "Read-only access to everything",
 };
 
+interface CsvRow {
+  email: string;
+  role: TeamRole;
+}
+
+type CsvRowResult =
+  | { email: string; status: "invited"; role: TeamRole }
+  | { email: string; status: "already_member" | "conflict" | "invalid" | "seat_limit"; reason: string };
+
+/** Dependency-free `email,role` CSV parser — good enough for a two-column
+ * import (no quoted-field/embedded-comma support). Skips a header row if the
+ * first cell looks like "email". Blank lines are ignored. */
+function parseTeamCsv(text: string): CsvRow[] {
+  return text
+    .split(/\r\n|\n|\r/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^email\s*,/i.test(line))
+    .map((line) => {
+      const [emailRaw, roleRaw] = line.split(",");
+      const email = (emailRaw ?? "").trim();
+      const roleCandidate = (roleRaw ?? "").trim().toLowerCase();
+      const role: TeamRole = (ROLES as string[]).includes(roleCandidate) ? (roleCandidate as TeamRole) : "staff";
+      return { email, role };
+    })
+    .filter((row) => row.email.length > 0);
+}
+
 // Owner-only self-service team management (add teammates by email, assign a
 // role, remove access) — the minimal-click alternative to a superadmin
 // hand-relaying a temp password for every new hire.
 export function TeamPanel({ businessId }: { businessId: string }) {
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [seatLimit, setSeatLimit] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -27,6 +56,15 @@ export function TeamPanel({ businessId }: { businessId: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; tone: "ok" | "error" } | null>(null);
+
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [csvResults, setCsvResults] = useState<CsvRowResult[] | null>(null);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeCount = members.filter((m) => m.active).length;
+  const atSeatLimit = seatLimit !== null && activeCount >= seatLimit;
 
   function flash(msg: string, tone: "ok" | "error" = "ok") {
     setToast({ msg, tone });
@@ -41,8 +79,9 @@ export function TeamPanel({ businessId }: { businessId: string }) {
         if (!r.ok) throw new Error("Team request failed");
         return r.json();
       })
-      .then((d: { members: TeamMember[] }) => {
+      .then((d: { members: TeamMember[]; seatLimit?: number }) => {
         setMembers(d.members ?? []);
+        setSeatLimit(typeof d.seatLimit === "number" ? d.seatLimit : null);
         setLoadError(false);
       })
       .catch(() => setLoadError(true))
@@ -93,6 +132,57 @@ export function TeamPanel({ businessId }: { businessId: string }) {
     }
   }
 
+  function handleCsvFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvError(null);
+    setCsvResults(null);
+    file.text().then((text) => {
+      const rows = parseTeamCsv(text);
+      if (rows.length === 0) {
+        setCsvError("No email addresses found. Expect one \"email,role\" pair per line (role is optional).");
+        setCsvRows([]);
+        return;
+      }
+      setCsvRows(rows);
+    });
+  }
+
+  async function importCsv() {
+    if (csvRows.length === 0) return;
+    setCsvImporting(true);
+    setCsvError(null);
+    try {
+      const res = await fetch("/api/company/team/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, rows: csvRows }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setCsvError(data.error ?? "The CSV import failed.");
+        return;
+      }
+      setCsvResults(data.results ?? []);
+      setCsvRows([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      loadTeam();
+      const invited = (data.results ?? []).filter((r: CsvRowResult) => r.status === "invited").length;
+      flash(`Imported ${invited} of ${data.results?.length ?? 0} row(s).`);
+    } catch {
+      setCsvError("Network error — the CSV import failed.");
+    } finally {
+      setCsvImporting(false);
+    }
+  }
+
+  function cancelCsv() {
+    setCsvRows([]);
+    setCsvResults(null);
+    setCsvError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function changeRole(member: TeamMember, role: TeamRole) {
     setBusyUid(member.uid);
     try {
@@ -140,26 +230,53 @@ export function TeamPanel({ businessId }: { businessId: string }) {
 
   return (
     <section className="panel" style={{ marginTop: 20 }}>
-      <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Users size={16} strokeWidth={1.75} />
           Team
+          {seatLimit !== null && (
+            <span style={{ fontSize: 12, fontWeight: 500, color: atSeatLimit ? "#b91c1c" : "#94a3b8" }}>
+              &nbsp;· {activeCount} / {seatLimit} seats used
+            </span>
+          )}
         </h2>
-        <button
-          className="button small"
-          type="button"
-          onClick={() => setInviteOpen((v) => !v)}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-        >
-          <UserPlus size={14} strokeWidth={1.75} />
-          {inviteOpen ? "Cancel" : "Add teammate"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="button ghost small"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={atSeatLimit}
+            title={atSeatLimit ? "Seat limit reached" : "Import teammates from a CSV file (email,role per line)"}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <FileUp size={14} strokeWidth={1.75} />
+            Import CSV
+          </button>
+          <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={handleCsvFile} hidden />
+          <button
+            className="button small"
+            type="button"
+            onClick={() => setInviteOpen((v) => !v)}
+            disabled={atSeatLimit}
+            title={atSeatLimit ? "Seat limit reached" : undefined}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <UserPlus size={14} strokeWidth={1.75} />
+            {inviteOpen ? "Cancel" : "Add teammate"}
+          </button>
+        </div>
       </div>
       <div className="panel-body">
         <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
-          Add anyone on your team by email and assign what they can do. They get one email with a link to set
-          their own password — no passwords to relay by hand.
+          Add anyone on your team by email and assign what they can do — one at a time, or import a CSV
+          (columns: <code>email,role</code>; role defaults to staff). They each get one email with a link to
+          set their own password — no passwords to relay by hand.
         </p>
+        {atSeatLimit && (
+          <p role="status" style={{ margin: "0 0 16px", fontSize: 12, color: "#b91c1c" }}>
+            Seat limit reached ({activeCount}/{seatLimit}). Raise the seat limit in Client Config to add more.
+          </p>
+        )}
 
         {toast && (
           <div
@@ -209,6 +326,53 @@ export function TeamPanel({ businessId }: { businessId: string }) {
               <p role="alert" style={{ width: "100%", margin: 0, fontSize: 12, color: "#b91c1c" }}>{formError}</p>
             )}
           </form>
+        )}
+
+        {csvError && (
+          <p role="alert" style={{ margin: "0 0 14px", fontSize: 12, color: "#b91c1c" }}>{csvError}</p>
+        )}
+
+        {csvRows.length > 0 && (
+          <div style={{ marginBottom: 18, padding: 14, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700 }}>
+              {csvRows.length} row{csvRows.length === 1 ? "" : "s"} ready to import
+            </p>
+            <div style={{ display: "grid", gap: 4, marginBottom: 12, maxHeight: 180, overflowY: "auto" }}>
+              {csvRows.map((row, i) => (
+                <div key={`${row.email}-${i}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#475569" }}>
+                  <span>{row.email}</span>
+                  <span style={{ color: "#94a3b8" }}>{ROLE_LABEL[row.role]}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="button primary small" type="button" onClick={importCsv} disabled={csvImporting}>
+                {csvImporting ? "Importing…" : `Import ${csvRows.length} teammate${csvRows.length === 1 ? "" : "s"}`}
+              </button>
+              <button className="button ghost small" type="button" onClick={cancelCsv} disabled={csvImporting}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {csvResults && (
+          <div style={{ marginBottom: 18, padding: 14, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 700 }}>Import results</p>
+            <div style={{ display: "grid", gap: 4, maxHeight: 220, overflowY: "auto" }}>
+              {csvResults.map((r, i) => (
+                <div key={`${r.email}-${i}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ color: "#334155" }}>{r.email}</span>
+                  <span style={{ color: r.status === "invited" ? "#15803d" : "#b91c1c" }}>
+                    {r.status === "invited" ? `Invited (${ROLE_LABEL[r.role]})` : r.reason}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button className="button ghost small" type="button" onClick={() => setCsvResults(null)} style={{ marginTop: 10 }}>
+              Dismiss
+            </button>
+          </div>
         )}
 
         {loading ? (

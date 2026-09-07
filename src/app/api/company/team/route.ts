@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { sendTeamInviteEmail, type Branding } from "@/lib/notify";
 import { TEAM_ROLES, type TeamRole } from "@/types/team";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function generateTempPassword(): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
+import { countActiveTeamMembers, inviteTeamMember, DEFAULT_SEAT_LIMIT } from "@/lib/team/invite";
 
 interface TeamMemberDoc {
   uid: string;
@@ -20,7 +13,7 @@ interface TeamMemberDoc {
   createdAt?: number;
 }
 
-// GET /api/company/team?businessId=xxx — list the business's team.
+// GET /api/company/team?businessId=xxx — list the business's team + its seat limit.
 // Owner/superadmin only: this is account administration, not day-to-day work.
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
@@ -32,8 +25,12 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const snap = await db.collection("businessUsers").where("businessId", "==", businessId).get();
-  const members = snap.docs
+  const [teamSnap, bizSnap] = await Promise.all([
+    db.collection("businessUsers").where("businessId", "==", businessId).get(),
+    db.collection("businesses").doc(businessId).get(),
+  ]);
+
+  const members = teamSnap.docs
     .map((d) => {
       const data = d.data() as Partial<TeamMemberDoc>;
       return {
@@ -46,7 +43,9 @@ export async function GET(req: NextRequest) {
     })
     .sort((a, b) => a.createdAt - b.createdAt);
 
-  return NextResponse.json({ members });
+  const seatLimit = (bizSnap.data()?.seatLimit as number | undefined) ?? DEFAULT_SEAT_LIMIT;
+
+  return NextResponse.json({ members, seatLimit });
 }
 
 // POST /api/company/team  body: { businessId, email, role }
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
   const { businessId, email, role } = body as { businessId?: string; email?: string; role?: string };
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
-  if (!email || typeof email !== "string" || !EMAIL_PATTERN.test(email)) {
+  if (!email || typeof email !== "string") {
     return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
   }
   if (!role || !TEAM_ROLES.includes(role as TeamRole)) {
@@ -76,89 +75,32 @@ export async function POST(req: NextRequest) {
   if (!bizSnap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
   const business = bizSnap.data()!;
 
-  const normalizedEmail = email.trim().toLowerCase();
-
-  let uid: string;
-  let existingUser: Awaited<ReturnType<typeof auth.getUserByEmail>> | null;
-  try {
-    existingUser = await auth.getUserByEmail(normalizedEmail);
-  } catch {
-    existingUser = null;
+  const seatLimit = (business.seatLimit as number | undefined) ?? DEFAULT_SEAT_LIMIT;
+  const activeCount = await countActiveTeamMembers(db, businessId);
+  if (activeCount >= seatLimit) {
+    return NextResponse.json(
+      { error: `Seat limit reached (${activeCount}/${seatLimit}). Raise the seat limit in Client Config to add more.` },
+      { status: 409 }
+    );
   }
 
-  if (existingUser) {
-    if (existingUser.customClaims?.superadmin === true) {
-      return NextResponse.json(
-        { error: "This email belongs to a platform administrator and can't be added as a team member." },
-        { status: 409 }
-      );
-    }
-    uid = existingUser.uid;
-    const existingMemberSnap = await db.collection("businessUsers").doc(uid).get();
-    const existingMember = existingMemberSnap.data() as Partial<TeamMemberDoc> | undefined;
-    if (existingMember?.businessId && existingMember.businessId !== businessId) {
-      return NextResponse.json(
-        { error: "This email is already on another business's team." },
-        { status: 409 }
-      );
-    }
-    if (existingMember?.businessId === businessId && existingMember.active !== false) {
-      return NextResponse.json({ error: "This person is already on your team." }, { status: 409 });
-    }
-    // Falls through to reactivate a previously-removed member, or bind a
-    // stray Auth user (no prior businessUsers doc) to this business.
-  } else {
-    const created = await auth.createUser({
-      email: normalizedEmail,
-      password: generateTempPassword(),
-      emailVerified: false,
-    });
-    uid = created.uid;
+  const outcome = await inviteTeamMember({ db, auth, businessId, business, email, role });
+
+  if (outcome.status === "invalid") {
+    return NextResponse.json({ error: outcome.reason }, { status: 400 });
+  }
+  if (outcome.status === "conflict") {
+    return NextResponse.json({ error: outcome.reason }, { status: 409 });
+  }
+  if (outcome.status === "already_member") {
+    return NextResponse.json({ error: "This person is already on your team." }, { status: 409 });
   }
 
-  await db.collection("businessUsers").doc(uid).set(
-    {
-      uid,
-      businessId,
-      email: normalizedEmail,
-      role,
-      active: true,
-      createdAt: Date.now(),
-    },
-    { merge: true }
-  );
-
-  const brand: Branding = {
-    businessName: typeof business.businessName === "string" ? business.businessName : "Your Company",
-    brandColor: typeof business.brandColor === "string" ? business.brandColor : undefined,
-    logoUrl: typeof business.logoUrl === "string" ? business.logoUrl : undefined,
-    contactPhone: typeof business.contactPhone === "string" ? business.contactPhone : undefined,
-    contactEmail: typeof business.contactEmail === "string" ? business.contactEmail : undefined,
-  };
-
-  let invite: { status: string; reason?: string };
-  const resetLink = await auth.generatePasswordResetLink(normalizedEmail).catch((err: unknown) => {
-    console.warn("Team invite reset-link generation failed:", (err as Error)?.message ?? err);
-    return null;
+  return NextResponse.json({
+    success: true,
+    uid: outcome.uid,
+    email: outcome.email,
+    role: outcome.role,
+    invite: outcome.inviteEmail,
   });
-
-  if (resetLink) {
-    try {
-      const result = await sendTeamInviteEmail({ to: normalizedEmail, brand, role: role as TeamRole, resetLink });
-      if (result.status === "delivered") {
-        invite = { status: "sent" };
-      } else if (result.status === "unconfigured") {
-        invite = { status: "not_configured", reason: "Resend API key or FROM address not configured" };
-      } else {
-        invite = { status: "failed", reason: result.failureCode ?? "unknown" };
-      }
-    } catch (sendErr: unknown) {
-      console.warn("Team invite email send failed:", (sendErr as Error)?.message ?? sendErr);
-      invite = { status: "failed", reason: "email send threw an error" };
-    }
-  } else {
-    invite = { status: "failed", reason: "Could not generate password reset link" };
-  }
-
-  return NextResponse.json({ success: true, uid, email: normalizedEmail, role, invite });
 }

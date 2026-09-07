@@ -72,10 +72,53 @@ describe("useBusinessModules — family (T-056)", () => {
   });
 
   it("reads a cached industry from sessionStorage without waiting on getDoc", () => {
-    sessionStorage.setItem("industry_biz-1", "property-management");
+    sessionStorage.setItem("businessModules_biz-1", JSON.stringify({ industry: "property-management", subscriptionStatus: null }));
     const { result } = renderHook(() => useBusinessModules());
     expect(result.current.ready).toBe(true);
     expect(result.current.family).toBe("ops");
+    expect(mocks.getDoc).not.toHaveBeenCalled();
+  });
+
+  it("falls through to a fresh fetch instead of crashing on a legacy bare-string cache", async () => {
+    sessionStorage.setItem("industry_biz-1", "roofing"); // pre-existing key from before this field existed
+    mocks.getDoc.mockResolvedValue({ data: () => ({ industry: "dental", subscriptionStatus: "active" }) });
+    const { result } = renderHook(() => useBusinessModules());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.industry).toBe("dental");
+  });
+});
+
+describe("useBusinessModules — subscriptionStatus (paused-dashboard gate)", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    mocks.useBusinessId.mockReturnValue("biz-1");
+  });
+
+  afterEach(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("resolves a paused business's subscriptionStatus", async () => {
+    mocks.getDoc.mockResolvedValue({ data: () => ({ industry: "roofing", subscriptionStatus: "paused" }) });
+    const { result } = renderHook(() => useBusinessModules());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.subscriptionStatus).toBe("paused");
+  });
+
+  it("fails open to null for an unset subscriptionStatus", async () => {
+    mocks.getDoc.mockResolvedValue({ data: () => ({ industry: "roofing" }) });
+    const { result } = renderHook(() => useBusinessModules());
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.subscriptionStatus).toBeNull();
+  });
+
+  it("reads a cached subscriptionStatus without waiting on getDoc", () => {
+    sessionStorage.setItem("businessModules_biz-1", JSON.stringify({ industry: "roofing", subscriptionStatus: "paused" }));
+    const { result } = renderHook(() => useBusinessModules());
+    expect(result.current.ready).toBe(true);
+    expect(result.current.subscriptionStatus).toBe("paused");
     expect(mocks.getDoc).not.toHaveBeenCalled();
   });
 });

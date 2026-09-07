@@ -32,11 +32,17 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { ready: modulesReady, isEnabled, family } = useBusinessModules();
+  const { ready: modulesReady, isEnabled, family, subscriptionStatus } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
   );
+
+  // Dashboard-only pause for non-payment (superadmin toggles it from the
+  // client's admin config page) — never touches the phone agent. Superadmins
+  // always bypass, including in ?preview= mode, so pausing never locks out
+  // the person who needs to resume it.
+  const paused = modulesReady && subscriptionStatus === "paused" && !user?.superadmin;
 
   useEffect(() => {
     if (blockedModule) router.replace("/company/dashboard");
@@ -80,6 +86,22 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   if (!user) return null;
   // Don't paint a module this industry doesn't use while the redirect lands.
   if (blockedModule) return null;
+  if (paused) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority style={{ width: 64, height: "auto", margin: "0 auto 20px" }} />
+          <h1 style={{ fontSize: 20, margin: "0 0 10px" }}>Account paused</h1>
+          <p style={{ fontSize: 14, color: "var(--text-muted)", margin: "0 0 20px", lineHeight: 1.6 }}>
+            Your dashboard access is temporarily paused. Your phone line keeps answering calls and booking
+            jobs as usual — this only affects this web portal. Contact your account manager to resolve it.
+          </p>
+          <a href="mailto:connect@luxordev.com" className="button primary" style={{ marginRight: 8 }}>Contact us</a>
+          <button className="button" onClick={handleLogout}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
 
   const roleLabel = user.superadmin ? "Superadmin" : (user.role ?? "Viewer");
   const preview = searchParams?.get("preview");

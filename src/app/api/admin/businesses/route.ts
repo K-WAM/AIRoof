@@ -44,6 +44,10 @@ interface CreateBusinessRequest {
   contactEmail?: string;
   websiteUrl?: string;
   timezone?: string;
+  // Client-account / CRM fields
+  address?: string;
+  employeeCount?: number;
+  seatLimit?: number;
   actorUid?: string;
   actorEmail?: string;
 }
@@ -221,6 +225,11 @@ export async function POST(
       ...(body.contactPhone ? { contactPhone: body.contactPhone } : {}),
       ...(body.contactEmail ? { contactEmail: body.contactEmail } : {}),
       ...(body.websiteUrl ? { websiteUrl: body.websiteUrl } : {}),
+      // Client-account / CRM fields
+      ...(body.address ? { address: body.address } : {}),
+      ...(body.employeeCount !== undefined ? { employeeCount: body.employeeCount } : {}),
+      seatLimit: body.seatLimit ?? 5,
+      subscriptionStatus: "active",
       createdAt: now,
       updatedAt: now,
     };

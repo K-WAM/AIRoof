@@ -56,6 +56,24 @@ export interface BusinessConfig {
   contactEmail?: string;
   websiteUrl?: string;
   active: boolean;
+  // Client-account / CRM fields (superadmin-managed) — see docs/ADMIN-ONBOARDING.md
+  address?: string;
+  employeeCount?: number;
+  // Max active businessUsers (incl. owner) this client may invite. Enforced by
+  // POST /api/company/team and its CSV bulk sibling; defaults to 5 when unset.
+  seatLimit?: number;
+  // Dashboard access only — never gates the phone agent (Vapi webhook/tools
+  // are untouched by this field). See src/app/company/layout.tsx's paused gate.
+  subscriptionStatus?: "active" | "paused" | "trial";
+  pausedAt?: number;
+  pausedReason?: string;
+  billing?: {
+    planName?: string;
+    monthlyAmount?: number;       // dollars/month
+    billingDayOfMonth?: number;   // 1-28, informational
+    nextInvoiceDate?: number;     // ms epoch — recurring-invoices cron trigger
+    autoInvoice?: boolean;        // opt-in: cron drafts (never auto-sends) a monthly invoice
+  };
   createdAt: number;
   updatedAt: number;
 }
@@ -254,7 +272,9 @@ export interface AdminAuditEvent {
     | "phone_mapping.created"
     | "phone_mapping.updated"
     | "integration.updated"
-    | "test_call.completed";
+    | "test_call.completed"
+    | "subscription.paused"
+    | "subscription.resumed";
   targetPath: string;
   before?: unknown;
   after?: unknown;

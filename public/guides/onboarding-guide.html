@@ -392,7 +392,7 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.3 — September 2026</div>
+        <div><span>Version</span> 2.4 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
@@ -434,7 +434,7 @@
 
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">① Choose an industry</div>
     <p style="font-size:13px;margin:0 0 16px;line-height:1.8;">
-      <strong style="color:#60a5fa">ai-roof.vercel.app/admin/demo</strong><br>
+      <strong style="color:#60a5fa">ai-roof.vercel.app/hub/demo</strong><br>
       Eleven cards: <strong>Roofing · HVAC · Landscaping · Cleaning · Dental · Property Mgmt · General Contractors · Electricians · Appliance Repair · Childcare · Junk Removal</strong><br>
       Click one → it highlights.
     </p>
@@ -603,7 +603,7 @@
       <div class="step-num blue">2</div>
       <div class="step-body">
         <strong>Open Demo Studio</strong>
-        <p>Go to <span class="url">https://ai-roof.vercel.app/admin/demo</span>. You'll see eleven industry cards. Do not enter anything yet.</p>
+        <p>Go to <span class="url">https://ai-roof.vercel.app/hub/demo</span>. You'll see eleven industry cards. Do not enter anything yet.</p>
       </div>
     </li>
     <li>
@@ -978,7 +978,7 @@
     <thead><tr><th>URL</th><th>What it is</th><th>When to use</th></tr></thead>
     <tbody>
       <tr><td><code>ai-roof.vercel.app/login</code></td><td>Login page</td><td>Start of every demo</td></tr>
-      <tr><td><code>ai-roof.vercel.app/admin/demo</code></td><td><strong>Demo Studio</strong> — pick industry, enter prospect, launch</td><td>Every demo, every industry</td></tr>
+      <tr><td><code>ai-roof.vercel.app/hub/demo</code></td><td><strong>Demo Studio</strong> — pick industry, enter prospect, launch</td><td>Every demo, every industry</td></tr>
       <tr><td><code>…/company/dashboard?preview=demo-roofing</code></td><td><strong>The demo dashboard — for every industry.</strong> One live tenant (<code>demo-roofing</code>) that each launch reconfigures to whatever you picked. Always reach it via the Demo Studio's "Open dashboard" button.</td><td>Every demo</td></tr>
       <tr><td><code>…/field?businessId=demo-roofing&amp;key=…</code></td><td>Field voice screen — for crew voice updates (use the Demo Studio QR / Copy link; the key is required when not signed in)</td><td>Field demo (roofing + field-service)</td></tr>
       <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi assistant config</td><td>Setup / troubleshooting only</td></tr>
@@ -1023,6 +1023,10 @@
         <li>Client login provisioned so they can see their dashboard</li>
       </ul>
     </div>
+  </div>
+
+  <div class="highlight">
+    <strong>Fast path — create the account first, wire up Vapi after:</strong> <span class="url">/admin/businesses</span> → <strong>+ Client</strong> opens a short form (business name, owner email, phone, address, industry, employee count, seat limit) that creates the same business document Phase 3 below describes, with template defaults filling in everything else — greeting, agent name, rules, plan tier. Use it when you want the client's account and login to exist right away; come back to that business's <strong>Config page</strong> to paste in the Vapi assistant/phone IDs and branding once Phase 1–2 are done. The full <span class="url">/hub/onboarding</span> wizard is still there for entering everything — Vapi IDs and branding included — in one pass instead.
   </div>
 
   <hr>
@@ -1122,7 +1126,7 @@
 
   <!-- ── PHASE 3: Portal ── -->
   <h3>Phase 3 — Create the Business in the Portal</h3>
-  <p>Go to <span class="url">https://ai-roof.vercel.app/admin/onboarding</span></p>
+  <p>Go to <span class="url">https://ai-roof.vercel.app/hub/onboarding</span></p>
 
   <ol class="step-list">
     <li>
@@ -1219,7 +1223,7 @@ superadmin: false</code>
       <div class="step-num">4</div>
       <div class="step-body">
         <strong>Tell them they can add their own team — you don't have to</strong>
-        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff by email with one click, assigning Owner / Staff / Viewer as they go. Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Superadmins can do the same thing on a client's behalf via <code>?preview=</code>.</p>
+        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it's raised on that client's Config page. Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
       </div>
     </li>
   </ol>
@@ -1285,6 +1289,41 @@ superadmin: false</code>
 
   <div class="success-box">
     <strong>All 7 tests passed?</strong> The client is live. Send them their login credentials and schedule a 15-minute walkthrough call to show them the dashboard.
+  </div>
+
+  <hr>
+
+  <!-- ── PHASE 6: Ongoing Account Management ── -->
+  <h3>Phase 6 — Ongoing Account Management: Seats, Billing &amp; Pausing</h3>
+  <p>Everything below lives on that client's <strong>Config page</strong> (<span class="url">/admin/businesses/{businessId}/config</span>) — the same page from Phase 3, now also your billing console for that client. Nothing here is a separate login or a separate tool.</p>
+
+  <div class="two-col">
+    <div class="col-box">
+      <h4>Client Account panel</h4>
+      <ul style="margin-left:16px;">
+        <li style="margin-bottom:4px;">Address and employee count — CRM info, not agent config</li>
+        <li>Saves with the rest of the Config form (the same "Save config" button)</li>
+      </ul>
+    </div>
+    <div class="col-box">
+      <h4>Team panel</h4>
+      <ul style="margin-left:16px;">
+        <li style="margin-bottom:4px;">The client's actual team list, editable right here — invite, change role, remove</li>
+        <li>Same CSV import as their own Settings → Team (see Phase 4)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>Subscription &amp; Billing panel</h4>
+  <ul style="margin-left:16px;margin-bottom:12px;">
+    <li style="margin-bottom:6px;"><strong>Seat limit</strong> — the max active teammates this client can have (default 5). Raise it here the moment they need more; it applies immediately, no redeploy.</li>
+    <li style="margin-bottom:6px;"><strong>Plan name / monthly amount / billing day</strong> — informational fields describing their recurring plan.</li>
+    <li style="margin-bottom:6px;"><strong>Auto-draft a monthly invoice</strong> toggle — when on, a daily job checks whether this client's invoice is due and <strong>drafts</strong> it (never sends). It shows up in <span class="url">/admin/invoices</span> as a normal draft, exactly like one you typed by hand — you still review and click <strong>Send saved invoice</strong> yourself. Leave it off for any client you'd rather invoice manually.</li>
+    <li><strong>Generate invoice</strong> button — jumps to <span class="url">/admin/invoices</span> prefilled with this client's name, email, and address, and links the new invoice back to their account.</li>
+  </ul>
+
+  <div class="warning-box">
+    <strong>Pause access (non-payment):</strong> the <strong>Pause access</strong> button locks that client's <em>web dashboard only</em> — anyone signing in sees a plain "Account paused" screen with a contact-us link. It deliberately does <strong>not</strong> touch Alice: their phone line keeps answering calls and booking jobs exactly as before, so a billing dispute never turns into one of their customers hitting dead air. Click <strong>Resume access</strong> to restore the dashboard the moment it's resolved — nothing else needs to be redone.
   </div>
 
   <hr>
@@ -1369,13 +1408,14 @@ superadmin: false</code>
     <li>Model + voice configured (OpenAI gpt-realtime-2025-08-28, voice: cedar — native speech-to-speech, no separate STT/TTS provider)</li>
     <li>Phone number purchased and assigned to assistant in Vapi</li>
     <li>Call forwarding tested (if using existing number)</li>
-    <li>Business created in portal at /admin/onboarding — correct industry selected</li>
+    <li>Business created in portal at /hub/onboarding (or the "+ Client" quick-create at /admin/businesses) — correct industry selected</li>
     <li>Vapi assistant ID saved in portal config</li>
     <li>Vapi phone number ID saved in portal config</li>
     <li>Brand color, logo URL, contact phone saved in portal</li>
     <li>Notification email and escalation phone configured</li>
     <li>Client login provisioned (auto via wizard, or manually via Firebase Console)</li>
-    <li>Client told they can add their own team from Settings → Team (Owner role, no superadmin needed)</li>
+    <li>Client told they can add their own team from Settings → Team (Owner role, no superadmin needed) — one at a time or via CSV import</li>
+    <li>Seat limit set to their contracted headcount, if different from the default of 5 (Config page → Subscription &amp; Billing)</li>
     <li>Test appointment booked via live call — appears in portal</li>
     <li>Notification email confirmed received</li>
     <li>Escalation test passed</li>
@@ -1436,6 +1476,16 @@ superadmin: false</code>
         <td>Forwarding not set up or Vapi number not assigned</td>
         <td>Test by calling the Vapi number directly first. If that works, the issue is carrier forwarding setup.</td>
       </tr>
+      <tr>
+        <td>Client sees "Account paused" but should have access</td>
+        <td>subscriptionStatus left on "paused" from an earlier non-payment pause</td>
+        <td>Client's Config page → Subscription &amp; Billing → <strong>Resume access</strong>. Alice keeps answering calls the whole time either way — this only ever affected their dashboard login.</td>
+      </tr>
+      <tr>
+        <td>Owner can't invite a new teammate</td>
+        <td>Seat limit reached for that business</td>
+        <td>Client's Config page → Subscription &amp; Billing → raise <strong>Seat limit</strong>, then save.</td>
+      </tr>
     </tbody>
   </table>
 
@@ -1445,7 +1495,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.3 — September 2026</span>
+    <span>v2.4 — September 2026</span>
   </div>
 
 </div><!-- /page -->

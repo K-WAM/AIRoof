@@ -546,7 +546,7 @@ implementation starts, don't invent the missing decision.
 - **Prohibited scope:** assistant prompt/voice design changes (`buildAgentPrompt` stays config-driven, unchanged);
   no Twilio/Telnyx account-management UI.
 
-### T-055 — Split demo/onboarding into a dedicated hub
+### T-055 — Split demo/onboarding into a dedicated hub ✅ done (2026-09-07)
 - **Objective:** Move Demo Studio, the onboarding wizard, and the Playbooks/Guide out of the superadmin
   `/admin/*` shell into their own route group with a dedicated nav shell, reachable from its own domain (e.g.
   `hub.luxordev.com`) on the same Vercel deployment. Usage, invoices, businesses list, and platform settings stay
@@ -569,6 +569,19 @@ implementation starts, don't invent the missing decision.
 - **Rollback:** mechanical — revert the file moves + middleware line.
 - **Prohibited scope:** visual redesign of Demo Studio/onboarding beyond nav chrome (see T-056); no new auth
   system.
+- **Shipped (2026-09-07):** `src/app/hub/{demo,onboarding,guide}` (`git mv`'d from `src/app/admin/*`, history
+  preserved), a new `HubShell`/`HubNav` reusing the existing `.admin-shell`/`.admin-nav` CSS (re-skin via a
+  different link set, not a new visual system — the "no redesign" constraint held literally), same
+  `verifySuperadmin`-equivalent gate (`user.superadmin || user.role === "superadmin"`, unchanged from
+  `AdminShell`). `src/middleware.ts` gates `/hub` exactly like `/admin`/`/company`. Old links redirect via
+  `next.config.ts`'s `redirects()` (307, both the bare path and any nested sub-path) rather than stub pages —
+  confirmed live in the actual build's `routes-manifest.json`, not just asserted. Domain attachment
+  (`hub.luxordev.com`) remains the owner's Vercel-side action. Tests: a new `middleware.test.ts` (session-gated
+  `/hub/*`, `next` param preserved, `/admin`/`/company` unchanged) and `next-config-redirects.test.ts` (every
+  old path + its `:path*` form maps correctly, all temporary) stand in for the spec's "route test confirming
+  moved pages 200" — a real Next.js integration/e2e harness doesn't exist in this repo's vitest-only test
+  setup, so this is the closest equivalent verification actually available. All docs referencing the old paths
+  as current instruction (not historical narrative) updated in the same pass — see `TODO.md`'s T-055 entry.
 
 ### T-056 — Per-industry visual families in the company portal ✅ done (2026-09-05)
 - **Objective:** Give `useBusinessModules()` a visual "family" token (grouping the 10 verticals into a small

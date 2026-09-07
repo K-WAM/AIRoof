@@ -261,6 +261,33 @@ describe("/api/company/team", () => {
       expect(res.status).toBe(409);
     });
 
+    it("rejects a new invite once the business's seatLimit is reached", async () => {
+      firestore.seed("businesses/biz-1", { businessName: "Biz One", seatLimit: 1 });
+      firestore.seed("businessUsers/existing-owner", { businessId: "biz-1", role: "owner", active: true });
+
+      const { POST } = await import("@/app/api/company/team/route");
+      const res = await POST(postRequest(validBody));
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error).toMatch(/seat limit/i);
+      expect(mockCreateUser).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the default seat limit when unset", async () => {
+      // 4 active members already on a business with no explicit seatLimit (default 5) — still room for one more.
+      for (const n of [1, 2, 3, 4]) {
+        firestore.seed(`businessUsers/m${n}`, { businessId: "biz-1", role: "staff", active: true });
+      }
+      mockGetUserByEmail.mockRejectedValue(new Error("no such user"));
+      mockCreateUser.mockResolvedValue({ uid: "new-uid" });
+      mockGeneratePasswordResetLink.mockResolvedValue("https://example.com/reset");
+      mockSendTeamInviteEmail.mockResolvedValue({ status: "delivered" });
+
+      const { POST } = await import("@/app/api/company/team/route");
+      const res = await POST(postRequest(validBody));
+      expect(res.status).toBe(200);
+    });
+
     it("reactivates a previously-removed member on the same business", async () => {
       mockGetUserByEmail.mockResolvedValue({ uid: "returning-uid", customClaims: {} });
       firestore.seed("businessUsers/returning-uid", { businessId: "biz-1", role: "viewer", active: false });
