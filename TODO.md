@@ -6,12 +6,17 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot — 2026-09-07
 
-- **T-079 (Client Management, Phase 10) + T-055 (Hub split, Phase 7), both done, not pushed:** superadmin
+- **T-079 (Client Management, Phase 10) + T-055 (Hub split, Phase 7), both done and pushed:** superadmin
   "+ Client" quick-create, seat-capped team invites with CSV bulk import, a dashboard-only subscription
   pause/resume, and recurring-invoice drafting (T-079) — see the Phase 10 checklist entry below. Then, same
   session, Demo Studio/onboarding/Playbooks moved from `/admin/*` to a new `/hub/*` route group with old links
   redirecting (T-055) — see its entry in the Phase 7 checklist below. `tsc`/lint/build all green; `vitest run`
-  450/450 (up from the pre-session 428). Awaiting owner review before commit/push.
+  450/450 (up from the pre-session 428). **Pushed and live** (2026-09-07, owner said "commit and push to
+  github") as a single combined commit `472d14f`; Vercel's auto-deploy reached Ready (verified via `vercel
+  inspect` against the specific new deployment, not the deployments list — see the note under T-055 below
+  about why that distinction mattered) and production was re-verified post-deploy, including the actual point
+  of the hub move: `/admin/demo`, `/admin/onboarding`, `/admin/guide` each confirmed `307` to their new
+  `/hub/*` destination directly against `ai-roof.vercel.app`.
 - **Scoped implementation:** 100%. Phases 0–6 are merged and pushed; the latest baseline CI passed.
 - **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
   DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
@@ -95,7 +100,16 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         stale `.next/types` cache left by the pre-move build — a cache artifact, not a real error), lint 0/21
         (unchanged baseline), `vitest run` 450/450 (up from 442, +8 new; same 3 pre-existing concurrent-load
         flakes reconfirmed clean in isolation), `next build` green with `/hub/*` present and `/admin/{demo,
-        onboarding,guide}` correctly absent (moved, not duplicated). Not pushed — same standing policy.
+        onboarding,guide}` correctly absent (moved, not duplicated). **Pushed and live** (2026-09-07, combined
+        with T-079 in one commit `472d14f`, owner said "commit and push to github"). Post-push production
+        check caught its own tooling gap: an initial `vercel ls`-based "is the deploy Ready?" check false-
+        positived immediately, because `ai-roof`'s deployments list always has *older* Ready rows and a naive
+        grep for "Ready" anywhere in that output matches one of those instead of the new deployment — switched
+        to `vercel inspect <specific-deployment-url>` (from the `vercel ls` row just created by this push) and
+        polled that one deployment's own `status` field until it left "Building." Once Ready, confirmed the
+        actual point of this task directly against production: `curl` against `ai-roof.vercel.app/admin/demo`,
+        `/admin/onboarding`, and `/admin/guide` each returned `307` with the correct `/hub/*` `Location`
+        header — not just verified locally.
   - [x] T-056 — Per-industry visual families in the company portal (done 2026-09-05, see note below)
   - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
@@ -487,7 +501,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         seat-limit notes in Phase 4, a new "Phase 6 — Ongoing Account Management" section, two new
         troubleshooting rows, version bumped to 2.4) — the resolved NH-6 note above already confirms Vercel
         allows 100 cron jobs/project with only a once-daily frequency cap on Hobby, so the new cron needed no
-        further capacity check. Not pushed — owner approval required, per this file's standing policy.
+        further capacity check. **Pushed and live** (2026-09-07, combined with T-055 in one commit `472d14f`,
+        owner said "commit and push to github") — production re-verified post-deploy: `/api/health` →
+        `200`/`"connected"` with all six capabilities `configured`, unauthenticated webhook `POST` → `401`.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

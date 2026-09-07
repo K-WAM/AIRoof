@@ -14,7 +14,9 @@ it's already stale in unrelated ways (historical, not current). No Next e2e harn
 `middleware.test.ts` + `next-config-redirects.test.ts` stand in for the spec's route test. Full detail in
 `TODO.md`'s T-055 entry (nested under Phase 7) and `MASTER_PLAN.md`'s T-055 spec. `tsc` clean (after clearing a
 stale `.next/types` cache from the pre-move build), lint 0/21, `vitest run` 450/450 (up from 442, +8 new; same
-3 pre-existing concurrent-load flakes reconfirmed clean in isolation), `next build` green. Not pushed.
+3 pre-existing concurrent-load flakes reconfirmed clean in isolation), `next build` green. **Pushed and live**
+(2026-09-07, owner said "commit and push to github") — this push also carried T-079, previously local-only;
+see the Repository section below for the production redirect re-verification.
 
 Previous: 2026-09-07 (Claude) — T-079 (Phase 10, new) done, not pushed: superadmin client management — a
 "+ Client" quick-create modal, seat-capped team invites with CSV bulk import, recurring Luxor invoice
@@ -30,7 +32,8 @@ auto-sends). Full detail, including the `FieldValue.delete()` vs. plain-`undefin
 building the pause/resume route, in `TODO.md`'s T-079 entry. Also updated `public/guides/onboarding-guide.html`
 (fast-path callout, CSV/seat-limit notes, new "Phase 6 — Ongoing Account Management" section, two
 troubleshooting rows, v2.4) in the same pass. `tsc`/lint(0/21) clean, `vitest run` 442/442 (up from 428, all
-new), `next build` green with every new route present. Not pushed — awaiting owner review.
+new), `next build` green with every new route present. **Pushed and live** (2026-09-07) — see the Repository
+section below.
 
 Previous: 2026-09-06/07 (Claude), continued — T-078 (Phase 9, fourth slice) done: added Junk & Trash Removal as
 the platform's 11th vertical (jobs-mode, agent "Dusty", full FAQ/emergency/booking rule set — tsc's
@@ -106,12 +109,15 @@ Local commit only at the time — see the Repository section below for current p
 
 - Root: `D:\Apps\AI Receptionist` (this machine).
 - Branch: `main`.
-- Pushed baseline: `origin/main` is at `9eda6ad` (2026-09-06, owner approved this push) — it carried T-077 on
-  top of the earlier T-071–T-076 push (`d381907`). Vercel's GitHub auto-deploy reached Ready (confirmed via
-  `vercel ls`); production re-verified post-deploy: `/api/health` → `200`/`"connected"` with all six provider/
-  runtime capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and the two
-  newly auth-gated endpoints (`/api/company/crews`, `/api/company/library`) both confirmed `401` unauthenticated
-  against production. **T-078, T-079, and T-055 (all local-only) are not yet approved for push.**
+- Pushed baseline: `origin/main` is at `472d14f` (2026-09-07, owner said "commit and push to github") — a
+  single combined commit carrying T-079 (Client Management) and T-055 (hub split), on top of `0e08e3e` (T-078,
+  pushed in an earlier session). Vercel's GitHub auto-deploy reached Ready (confirmed via `vercel inspect` on
+  the specific new deployment, not just the deployments list — an earlier `vercel ls`-based check in this same
+  session gave a false-positive "Ready" by matching an older deployment row instead of the new one, caught and
+  corrected before relying on it). Production re-verified post-deploy: `/api/health` → `200`/`"connected"` with
+  all six capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and — the actual
+  point of this deploy — `/admin/demo`, `/admin/onboarding`, and `/admin/guide` each confirmed `307` to their
+  new `/hub/*` destination directly against production (not just locally).
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -171,8 +177,8 @@ seat limit mid-batch), the pause/resume route's audit-event + `FieldValue.delete
 `nextLuxorInvoiceNumber` monotonicity, and `useBusinessModules`'s new `subscriptionStatus` resolution/caching
 (including migrating one pre-existing test off the old bare-string sessionStorage cache format, with a
 dedicated legacy-cache-fallback test added so that migration doesn't silently regress); `next build` green,
-every new route present in the route table. Full detail in `TODO.md`'s T-079 entry. **Not pushed** — awaiting
-owner review, per this file's standing policy on commits/pushes.
+every new route present in the route table. Full detail in `TODO.md`'s T-079 entry. **Pushed and live**
+(2026-09-07, owner approved) — see the Repository section above for the production verification.
 
 ## 2026-09-06/07, continued — T-078: Junk & Trash Removal vertical + Calendar readability pass
 
