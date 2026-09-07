@@ -10,6 +10,11 @@ export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
+  // Was unauthenticated (only PUT was gated) — a competitor's pricing catalog is exactly the
+  // kind of data that shouldn't be readable by anyone who guesses a businessId.
+  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  if ("error" in auth) return auth.error;
+
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 

@@ -4,13 +4,17 @@ import { use, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
-import { lookupUnitPrice } from "@/types/library";
+import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Toggle } from "@/components/ui/Toggle";
+import { Tooltip } from "@/components/ui/Tooltip";
+import { useQuickAdd } from "@/contexts/QuickAddContext";
+import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import {
+  AlertCircle,
   ArrowLeft,
   Briefcase,
   ClipboardCopy,
@@ -46,11 +50,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const businessId = searchParams?.get("businessId") ?? hookBusinessId;
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
+  const { open: openQuickAdd } = useQuickAdd();
 
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
   const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
+  const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
@@ -117,7 +123,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
       if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
-      if (libRes?.library) setLibrary(libRes.library as LibraryPricing);
+      // Distinguish "fetch failed" (libRes null) from "fetched fine, catalog is
+      // just empty" (libRes.library with empty arrays) — only the former means
+      // invoice auto-fill silently has nothing to work with and the user
+      // should be told, not left to wonder why every price is blank.
+      if (libRes?.library) {
+        setLibrary(libRes.library as LibraryPricing);
+        setLibraryLoadFailed(false);
+      } else {
+        setLibraryLoadFailed(true);
+      }
     } catch {
       // silently fail — show not found below
     }
@@ -125,6 +140,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }, [businessId, jobId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Picks up a material price added via the global quick-add (including from
+  // this exact page's own "No price on file" prompt) without a full reload.
+  useQuickAddRefresh("material", () => {
+    if (!businessId) return;
+    fetch(`/api/company/library?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (d?.library) { setLibrary(d.library as LibraryPricing); setLibraryLoadFailed(false); } })
+      .catch(() => {});
+  });
 
   async function updateStatus(newStatus: string) {
     if (!businessId || !job || updatingStatus) return;
@@ -219,18 +244,24 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }
 
   const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
+  const laborCatalog = library?.laborRates ?? [];
 
   async function generateInvoice() {
     setGeneratingInvoice(true);
     setInvoiceError(null);
     try {
-      // Build labor rows — auto-calculate hours from arrival/departure when not explicitly stated
+      // Build labor rows — auto-calculate hours from arrival/departure when not explicitly stated.
+      // Rate: an explicit cost from the field note wins; otherwise try a role match against
+      // the Library's saved rates (e.g. "Foreman" logged in the field matches a "Foreman" role);
+      // only fall back to the flat business-wide default when neither exists.
       const newLaborRows: LaborRow[] = labor.map((l) => {
         const arrival = l.arrivalTime ?? "";
         const departure = l.departureTime ?? "";
         const autoHours = calcHours(arrival, departure);
         const hours = l.hours != null ? String(l.hours) : autoHours;
-        return { name: l.description, arrival, departure, hours, rate: l.rate != null ? String(l.rate) : defaultLaborRate };
+        const catalogRate = lookupLaborRate(laborCatalog, l.description);
+        const rate = l.rate != null ? String(l.rate) : catalogRate != null ? String(catalogRate) : defaultLaborRate;
+        return { name: l.description, arrival, departure, hours, rate };
       });
       if (newLaborRows.length === 0) {
         newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate });
@@ -937,6 +968,25 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </button>
               </div>
 
+              {/* Library couldn't be reached — every material price below is blank, not because
+                  nothing matched, but because the catalog itself never loaded. Silent otherwise. */}
+              {libraryLoadFailed && (
+                <div
+                  role="alert"
+                  className="no-print"
+                  style={{ marginBottom: 16, padding: "12px 16px", background: "#fffbeb", border: "1px dashed #fcd34d", borderRadius: 8, display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}
+                >
+                  <AlertCircle size={16} strokeWidth={1.75} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                  <span style={{ color: "var(--text)" }}>
+                    Your pricing catalog couldn&apos;t be loaded, so material prices weren&apos;t auto-filled —
+                    check them below before sending.
+                  </span>
+                  <button type="button" className="button small" onClick={load} style={{ marginLeft: "auto", flexShrink: 0 }}>
+                    Retry
+                  </button>
+                </div>
+              )}
+
               {/* Send invoice panel */}
               {showSendPanel && (
                 <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
@@ -1016,7 +1066,24 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <th style={thStyle("left")}>Arrival</th>
                           <th style={thStyle("left")}>Departure</th>
                           <th style={thStyle("right")}>Hours</th>
-                          <th style={thStyle("right")}>Rate/hr</th>
+                          <th style={thStyle("right")}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                              Rate/hr
+                              <span className="no-print">
+                                <Tooltip
+                                  content={
+                                    laborCatalog.length > 0
+                                      ? "Pick a role to fill its saved Library rate, or type your own."
+                                      : `No roles saved yet — using your business default ($${defaultLaborRate}/hr). Add roles & rates in Library → Pricing to auto-fill rates here.`
+                                  }
+                                >
+                                  <button type="button" aria-label="Where this rate comes from" style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "inline-flex" }}>
+                                    <AlertCircle size={12} strokeWidth={1.75} style={{ color: "#94a3b8" }} />
+                                  </button>
+                                </Tooltip>
+                              </span>
+                            </span>
+                          </th>
                           <th style={thStyle("right")}>Total</th>
                           <th style={thStyle("right")} className="no-print"></th>
                         </tr>
@@ -1038,7 +1105,28 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                               return u;
                             }))} placeholder="4:00 PM" /></td>
                             <td style={tdStyle("right")}><InlineInput value={row.hours} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, hours: v } : x))} placeholder="0" align="right" /></td>
-                            <td style={tdStyle("right")}>$<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} /></td>
+                            <td style={tdStyle("right")}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                                {laborCatalog.length > 0 && (
+                                  <select
+                                    className="no-print"
+                                    value=""
+                                    aria-label={`Pick a saved rate for ${row.name || "this row"}`}
+                                    onChange={(e) => {
+                                      const picked = laborCatalog.find((l) => l.role === e.target.value);
+                                      if (picked) setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: String(picked.rate) } : x));
+                                    }}
+                                    style={{ fontSize: 11, border: "1px solid #e2e8f0", borderRadius: 4, padding: "2px 2px", color: "#64748b", background: "#fff" }}
+                                  >
+                                    <option value="">Role…</option>
+                                    {laborCatalog.map((l) => (
+                                      <option key={l.role} value={l.role}>{l.role} (${l.rate})</option>
+                                    ))}
+                                  </select>
+                                )}
+                                $<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} />
+                              </div>
+                            </td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${laborTotal(row).toFixed(2)}</td>
                             <td style={tdStyle("right")} className="no-print"><button onClick={() => setLaborRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
@@ -1065,22 +1153,55 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <th style={thStyle("left")}>Item</th>
                           <th style={thStyle("right")}>Qty</th>
                           <th style={thStyle("left")}>Unit</th>
-                          <th style={thStyle("right")}>Unit Price</th>
+                          <th style={thStyle("right")}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+                              Unit Price
+                              <span className="no-print">
+                                <Tooltip content="Auto-filled from your Library pricing catalog when a field note doesn't include a cost. No match yet? The price is left blank rather than guessed, so it never inflates or shrinks your total silently.">
+                                  <button type="button" aria-label="How unit price is filled" style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "inline-flex" }}>
+                                    <AlertCircle size={12} strokeWidth={1.75} style={{ color: "#94a3b8" }} />
+                                  </button>
+                                </Tooltip>
+                              </span>
+                            </span>
+                          </th>
                           <th style={thStyle("right")}>Total</th>
                           <th style={thStyle("right")} className="no-print"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {materialRows.map((row, i) => (
+                        {materialRows.map((row, i) => {
+                          const unpriced = row.item.trim() !== "" && row.unitPrice.trim() === "";
+                          return (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                             <td style={tdStyle()}><InlineInput value={row.item} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, item: v } : x))} placeholder="Item" /></td>
                             <td style={tdStyle("right")}><InlineInput value={row.quantity} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, quantity: v } : x))} placeholder="0" align="right" width={56} /></td>
                             <td style={tdStyle()}><InlineInput value={row.unit} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unit: v } : x))} placeholder="sq/pieces/lbs" /></td>
-                            <td style={tdStyle("right")}>$<InlineInput value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} /></td>
+                            <td style={tdStyle("right")}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                                {unpriced && (
+                                  <Tooltip
+                                    content={`No price on file for "${row.item}" — it isn't in your Library pricing catalog, and this field note didn't include a cost. Click to add it to your catalog, or type a price here.`}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="no-print"
+                                      aria-label={`No price on file for ${row.item} — add it to your pricing catalog`}
+                                      onClick={() => openQuickAdd("material", row.item)}
+                                      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", color: "var(--warning)" }}
+                                    >
+                                      <AlertCircle size={13} strokeWidth={1.75} />
+                                    </button>
+                                  </Tooltip>
+                                )}
+                                $<InlineInput value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} />
+                              </div>
+                            </td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialTotal(row).toFixed(2)}</td>
                             <td style={tdStyle("right")} className="no-print"><button onClick={() => setMaterialRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}

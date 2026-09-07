@@ -39,7 +39,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 6 UX & Demo Polish (owner-added) | T-046 T-047 T-048 T-049 | not CIB-weighted | ✅ **all 4 tasks merged** — Phase complete | Phase 5 merged ✓ |
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 5/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
-| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 2 slices done** | Open-ended, self-selected per slice |
+| 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 3 slices done** | Open-ended, self-selected per slice |
 
 ### Checklist
 
@@ -291,6 +291,71 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         119kB, Settings 111kB). **Pushed and live** (2026-09-06, owner approved) — `origin/main` now at
         `d381907`, which also carried T-071 through T-075 (previously local-only); Vercel's auto-deploy reached
         Ready and production was re-verified healthy post-deploy (`/api/health`, `/login`, webhook 401).
+  - [x] T-077 — Invoice <-> Materials <-> Library "handshake" audit + educational tooltips for blocked/degraded
+        states (owner: "make sure the information handshake between invoice and materials and library is all
+        set up as needed for ultra smooth use, with tooltips explaining to user why something might be blocked
+        ... in educational matter of fact tone, and what they need to do to unblock" — 2026-09-06, continuing
+        straight off T-076). Audited the actual data flow rather than guessing: `generateInvoice()` in
+        `company/jobs/[jobId]/page.tsx` is 100% client-side (the server route at
+        `api/jobs/[jobId]/invoice/route.ts` has zero callers anywhere in the app - flagged as dead code, not
+        removed without owner sign-off, see note below) and builds material/labor rows from field-update data
+        plus the Library catalog. Found two real, silent gaps and one pre-existing security gap while tracing
+        it:
+        (1) **Materials — silent, not blocking.** `lookupUnitPrice()` fuzzy-matches a field-logged material
+        name against the Library catalog and correctly leaves the price blank on no match (never fabricates a
+        number) - but a blank price rendered identically to a real $0.00 entry, with the placeholder "0.00"
+        indistinguishable from an actual zero. An owner could send an invoice silently undercounting a material
+        with no way to notice. Fixed: unpriced rows now show a small warning icon next to the price field;
+        hovering explains why in the requested tone ("No price on file for 'X' - it isn't in your Library
+        pricing catalog, and this field note didn't include a cost...") and clicking it jumps straight to a new
+        "+ Add material" quick-add form (extending T-076's `QuickAddContext` with a fourth kind, prefilled with
+        the item name) that reads the current catalog, appends the new price, and PUTs it back - the catalog is
+        a whole-array PUT unlike Job/Crew/Teammate's single-row POST, so the form fetches-then-appends rather
+        than blindly overwriting the rest of the materials list. A header tooltip explains the general
+        auto-fill mechanism for anyone who hasn't hit a blank row yet.
+        (2) **Labor rates — a dead feature, not a UX gap.** Library's "Labor rates & tax" panel lets an owner
+        save $/hr by role (Foreman, Laborer, ...) with real UI and its own save path, but grepping every
+        consumer of `library.laborRates` found none outside the Library page itself - `generateInvoice()`'s
+        labor-row rate was always either an explicit field-note cost or one flat `businessConfig` default,
+        never the saved-by-role rate. An owner could carefully configure role rates that silently did nothing
+        on every invoice. Fixed with the same non-fabricating discipline as materials: added
+        `lookupLaborRate()` to `types/library.ts` (mirrors `lookupUnitPrice`'s exact/substring match) and wired
+        it into the rate fallback chain (explicit cost > matched role rate > business default); a technician's
+        actual name ("Mike") correctly returns no match rather than guessing, verified by test. Also added a
+        per-row "pick a saved role" dropdown next to the rate field (only rendered when the catalog has roles,
+        so it's not clutter for a tenant that hasn't set any up) and a header tooltip explaining where rates
+        come from and, when no roles are saved yet, exactly which default is being used and where to add roles.
+        (3) **Library-fetch failure was fully silent — the input side of the whole handshake.** Both the job
+        page's `library` state and the invoice auto-fill logic (`library?.materials ?? []`) treat "the fetch
+        threw" identically to "the fetch succeeded with an empty catalog" - a transient network error would
+        silently zero out every price with no distinguishing signal. Added a `libraryLoadFailed` flag (fetch
+        failure vs. successfully-empty are now tracked separately) and a dismissable-by-retry banner on the
+        Invoice tab: "Your pricing catalog couldn't be loaded, so material prices weren't auto-filled - check
+        them below before sending," with a Retry button.
+        (4) **Bonus find while tracing every reader of the Library/Crews collections:** `GET
+        /api/company/crews` and `GET /api/company/library` had no `verifyAuthAndRole` gate at all - only their
+        POST/PATCH/DELETE/PUT siblings were guarded. Anyone who knew or guessed a `businessId` could
+        unauthenticated-GET a tenant's crew roster (names/emails/phones) or full pricing catalog. Every caller
+        of both endpoints already runs from an authenticated `/company/*` page (confirmed via grep before
+        changing anything, so no legitimate caller breaks), so both now require session auth
+        (`["owner","staff","viewer","superadmin"]`, matching the read-level role set used elsewhere). This
+        wasn't part of the "tooltip" ask but was found directly while auditing the exact system the owner asked
+        about, in the same spirit as this session's T-071/T-074 "found and fixed a real bug along the way"
+        precedent.
+        **Not done, flagged for an owner decision:** the dead server-side `POST /api/jobs/[jobId]/invoice`
+        route - left in place rather than deleted, since removing a route is a more consequential call than
+        adding a tooltip and nothing in this task's scope required touching it.
+        Verified: `tsc` clean; lint 0 errors/21 warnings (unchanged baseline, two new `react/no-unescaped-entities`
+        catches fixed); new tests - `types/library.test.ts` (8, `lookupUnitPrice`/`lookupLaborRate` matching and
+        no-fabrication behavior), 2 new auth-gate regression tests (`api/company/crews/__tests__` and
+        `api/company/library/__tests__`, both proving a 401 with no session and that Firestore is never reached
+        first), 4 new `QuickAddContext.test.tsx` cases (material kind gated independently of jobs by the
+        `pricing` module, create-reads-then-appends-then-PUTs round trip, and prefill-when-opened-directly for
+        the BlockedAction-style entry point) - `vitest run` 424/424 with these included (3 pre-existing
+        concurrent-load flakes - `example-lib.test.ts`, `send.test.ts`, `registry.test.ts` - reconfirmed clean
+        on an isolated rerun of just those three files); release suite 16/16; `next build` green
+        (`/company/jobs/[jobId]` 121kB -> 135kB, the one route with real new logic; every other route
+        unchanged).
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

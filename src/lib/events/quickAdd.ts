@@ -5,7 +5,7 @@ import { useEffect } from "react";
 /** Entities the global quick-add can create. Extend this union (and
  * QuickAddPanel's KIND_TITLE/menu) when a new kind is added — never gate a
  * new create-flow on a separate ad hoc mechanism. */
-export type QuickAddKind = "job" | "crew" | "teammate";
+export type QuickAddKind = "job" | "crew" | "teammate" | "material";
 
 export interface QuickAddCreatedDetail {
   kind: QuickAddKind;

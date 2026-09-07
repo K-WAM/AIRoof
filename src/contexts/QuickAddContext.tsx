@@ -10,20 +10,23 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { Briefcase, ChevronLeft, UserPlus, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, ChevronLeft, Package, UserPlus, Users, type LucideIcon } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { VerticalVocab } from "@/lib/verticals/templates";
 import { emitQuickAddCreated, type QuickAddKind } from "@/lib/events/quickAdd";
+import type { LibraryPricing } from "@/types/library";
 import { TEAM_ROLES, type TeamRole } from "@/types/team";
 
 interface QuickAddContextValue {
   /** null = closed, "menu" = the picker, a specific kind = straight to that form. */
   panel: "menu" | QuickAddKind | null;
   openMenu: () => void;
-  open: (kind: QuickAddKind) => void;
+  /** `prefillName` seeds the form's name field — e.g. a material row's item
+   * name, when a "no price on file" tooltip jumps straight to "+ Add material". */
+  open: (kind: QuickAddKind, prefillName?: string) => void;
   close: () => void;
 }
 
@@ -47,28 +50,31 @@ export function useQuickAdd(): QuickAddContextValue {
  */
 export function QuickAddProvider({ children }: { children: ReactNode }) {
   const [panel, setPanel] = useState<"menu" | QuickAddKind | null>(null);
-  const openMenu = useCallback(() => setPanel("menu"), []);
-  const open = useCallback((kind: QuickAddKind) => setPanel(kind), []);
-  const close = useCallback(() => setPanel(null), []);
+  const [prefillName, setPrefillName] = useState<string | undefined>(undefined);
+  const openMenu = useCallback(() => { setPrefillName(undefined); setPanel("menu"); }, []);
+  const open = useCallback((kind: QuickAddKind, name?: string) => { setPrefillName(name); setPanel(kind); }, []);
+  const close = useCallback(() => { setPanel(null); setPrefillName(undefined); }, []);
   const value = useMemo(() => ({ panel, openMenu, open, close }), [panel, openMenu, open, close]);
 
   return (
     <QuickAddContext.Provider value={value}>
       {children}
-      <QuickAddPanel panel={panel} openMenu={openMenu} open={open} close={close} />
+      <QuickAddPanel panel={panel} prefillName={prefillName} openMenu={openMenu} open={open} close={close} />
     </QuickAddContext.Provider>
   );
 }
 
 function QuickAddPanel({
   panel,
+  prefillName,
   openMenu,
   open,
   close,
 }: {
   panel: "menu" | QuickAddKind | null;
+  prefillName?: string;
   openMenu: () => void;
-  open: (kind: QuickAddKind) => void;
+  open: (kind: QuickAddKind, name?: string) => void;
   close: () => void;
 }) {
   const businessId = useBusinessId();
@@ -83,17 +89,20 @@ function QuickAddPanel({
   // A dental office never sees "+ New Job"; only an owner/superadmin can invite —
   // same gates their home pages already enforce (MODULE_ROUTES, TeamPanel).
   const canJob = modulesReady && isEnabled("jobs");
+  const canMaterial = modulesReady && isEnabled("pricing");
   const canTeammate = Boolean(user?.role === "owner" || user?.superadmin);
 
   const items: { kind: QuickAddKind; icon: LucideIcon; label: string }[] = [
     ...(canJob ? [{ kind: "job" as const, icon: Briefcase, label: `New ${vocab.jobNoun}` }] : []),
     { kind: "crew" as const, icon: Users, label: `New ${vocab.resourceNoun}` },
+    ...(canMaterial ? [{ kind: "material" as const, icon: Package, label: "New material price" }] : []),
     ...(canTeammate ? [{ kind: "teammate" as const, icon: UserPlus, label: "Invite teammate" }] : []),
   ];
 
   const titles: Record<QuickAddKind, string> = {
     job: `New ${vocab.jobNoun}`,
     crew: `New ${vocab.resourceNoun}`,
+    material: "New material price",
     teammate: "Invite teammate",
   };
 
@@ -122,6 +131,9 @@ function QuickAddPanel({
       )}
       {panel === "crew" && (
         <CrewQuickAddForm businessId={businessId} vocab={vocab} previewSuffix={previewSuffix} />
+      )}
+      {panel === "material" && (
+        <MaterialQuickAddForm businessId={businessId} prefillName={prefillName} previewSuffix={previewSuffix} />
       )}
       {panel === "teammate" && (
         <TeammateQuickAddForm businessId={businessId} previewSuffix={previewSuffix} />
@@ -294,6 +306,98 @@ function CrewQuickAddForm({
       <div className="button-row">
         <button className="button primary" type="submit" disabled={adding || !name.trim()}>
           {adding ? "Adding…" : `Add ${vocab.resourceNoun}`}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── Material price ───────────────────────────────────────────────────────
+
+function MaterialQuickAddForm({
+  businessId, prefillName, previewSuffix,
+}: { businessId: string; prefillName?: string; previewSuffix: string }) {
+  const [name, setName] = useState(prefillName ?? "");
+  const [unit, setUnit] = useState("");
+  const [unitPrice, setUnitPrice] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ name: string } | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      // The catalog is a whole-array PUT (unlike Job/Crew/Teammate's single-row
+      // POST), so read the current list first and append — never send a
+      // one-item array that would silently wipe out the rest of the catalog.
+      const libRes = await fetch(`/api/company/library?businessId=${businessId}`);
+      if (!libRes.ok) throw new Error("Library fetch failed");
+      const { library } = await libRes.json();
+      const price = parseFloat(unitPrice);
+      const nextMaterials: LibraryPricing["materials"] = [
+        ...(library?.materials ?? []),
+        { name: name.trim(), unit: unit.trim(), unitPrice: Number.isFinite(price) ? price : 0 },
+      ];
+      const res = await fetch("/api/company/library", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, materials: nextMaterials }),
+      });
+      if (!res.ok) throw new Error("Material save failed");
+      emitQuickAddCreated({ kind: "material" });
+      setCreated({ name: name.trim() });
+      setName(""); setUnit(""); setUnitPrice("");
+    } catch {
+      setError("The material could not be added. Try again.");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  if (created) {
+    return (
+      <div className="quickadd-success">
+        <p>✓ {created.name} added to your pricing catalog.</p>
+        <div className="button-row" style={{ justifyContent: "flex-start" }}>
+          <a
+            className="button primary"
+            href={`/company/library${previewSuffix ? previewSuffix + "&section=pricing" : "?section=pricing"}`}
+          >
+            Manage pricing →
+          </a>
+          <button type="button" className="button" onClick={() => setCreated(null)}>Add another</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit}>
+      {error && <p role="alert" style={{ color: "var(--danger)" }}>{error}</p>}
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor="qa-material-name">Material name *</label>
+          <input id="qa-material-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Architectural shingles" required autoFocus />
+        </div>
+        <div className="field">
+          <label htmlFor="qa-material-unit">Unit</label>
+          <input id="qa-material-unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="sq / piece / bundle" />
+        </div>
+        <div className="field full">
+          <label htmlFor="qa-material-price">Unit price ($)</label>
+          <input id="qa-material-price" type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="0.00" />
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
+        Saved to your pricing catalog (Library → Pricing) — future field notes mentioning this material auto-fill
+        its price on invoices.
+      </p>
+      <div className="button-row">
+        <button className="button primary" type="submit" disabled={adding || !name.trim()}>
+          {adding ? "Adding…" : "Add material"}
         </button>
       </div>
     </form>

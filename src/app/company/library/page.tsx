@@ -72,6 +72,16 @@ export default function LibraryPage() {
       .catch(() => {});
   });
 
+  // Picks up a material price added via the global quick-add elsewhere (e.g. a job's
+  // "No price on file" prompt) while sitting on this page.
+  useQuickAddRefresh("material", () => {
+    if (!businessId) return;
+    fetch(`/api/company/library?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((lib) => setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] }))
+      .catch(() => {});
+  });
+
   async function saveLibrary(next: LibraryPricing) {
     const previous = library;
     setLibrary(next);

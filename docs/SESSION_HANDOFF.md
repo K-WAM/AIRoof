@@ -1,6 +1,18 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-06 (Claude), continued — T-076 (Phase 9, second slice) done: a global quick-add ("+") reachable
+Updated: 2026-09-06 (Claude), continued — T-077 (Phase 9, third slice) done: audited the invoice/materials/
+Library "handshake" the owner asked about and fixed what was actually silently broken, plus added the
+requested educational tooltips. Two real gaps, not just missing UI polish: (1) unpriced material rows on the
+Invoice tab looked identical to a real $0.00 — now flagged with a tooltip explaining why + a one-click "+ Add
+material" quick-add (extends T-076's picker with a 4th kind); (2) Library's "Labor rates & tax" role rates were
+never actually read by invoice generation — a fully dead feature — now wired in via a new `lookupLaborRate()`
+helper plus a per-row "pick a saved role" dropdown. Also surfaced a previously-silent Library-fetch failure
+(banner + retry) and, found while tracing every reader of the Library/Crews data, fixed a real security gap:
+`GET /api/company/crews` and `GET /api/company/library` had no auth gate at all (only their write methods did)
+— both now session-gated. Full detail in `TODO.md`'s T-077 entry. `tsc`/lint(0/21) clean, `vitest run` 424/424
+(3 pre-existing concurrent-load flakes, clean in isolation), release suite 16/16, `next build` green.
+
+Previous: 2026-09-06 (Claude), continued — T-076 (Phase 9, second slice) done: a global quick-add ("+") reachable
 from every company page, plus a reusable "add X first" blocked-workflow card, converted onto Calendar's
 empty-crew state as the flagship example. Owner: "in modern apps, its nice to be able to click + ... like in
 airbnb, i can do a lot from almost any page ... tool tips if the workflow is blocked ... a popup card that says
@@ -54,7 +66,7 @@ Local commit only at the time — see the Repository section below for current p
   pushing once T-076 was ready rather than one push per task). Vercel's GitHub auto-deploy reached Ready
   (confirmed via `vercel ls`, not just assumed from the push); production re-verified post-deploy:
   `/api/health` → `200`/`"connected"` with all six provider/runtime capabilities `configured`, unauthenticated
-  webhook `POST` → `401`, `/login` → `200`.
+  webhook `POST` → `401`, `/login` → `200`. **T-077 (this session) is local-only** — not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was
@@ -64,6 +76,59 @@ Local commit only at the time — see the Repository section below for current p
 - No worker branches, active worktrees, or development blockers otherwise.
 - Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
   screenshot, not an app asset; not added to git. Delete or relocate on request.
+
+## 2026-09-06, continued — T-077: invoice/materials/Library handshake audit + educational tooltips
+
+Direct continuation of T-076, same session. Owner: "make sure the information handshake between invoice and
+materials and library is all set up as needed for ultra smooth use, with tooltips explaining to user why
+something might be blocked, in educational matter of fact tone, and what they need to do to unblock."
+
+**Traced the real data flow instead of guessing.** `generateInvoice()` in `company/jobs/[jobId]/page.tsx` is
+entirely client-side; the server route at `api/jobs/[jobId]/invoice/route.ts` has zero callers anywhere in the
+app (grepped, confirmed) — flagged as dead code below, not removed without the owner's sign-off since deleting
+a route is a more consequential call than this task's scope needed. The client builds material/labor invoice
+rows from field-update data plus the Library catalog (`/api/company/library`).
+
+**Found and fixed:**
+1. **Materials — silent, not blocking.** `lookupUnitPrice()` already correctly leaves a material's price blank
+   on no catalog match (never fabricates a number) — but a blank price rendered identically to a real $0.00,
+   with the "0.00" placeholder indistinguishable from an actual zero. An owner could send an invoice silently
+   undercounting a material with nothing telling them to look. Fixed: unpriced rows get a small warning icon
+   next to the price field; its tooltip explains why in the requested tone ("No price on file for 'X' — it
+   isn't in your Library pricing catalog, and this field note didn't include a cost...") and clicking it opens
+   a new "+ Add material" quick-add form — extending T-076's `QuickAddContext` with a fourth kind, prefilled
+   with the item name. Because the catalog is a whole-array PUT (unlike Job/Crew/Teammate's single-row POST),
+   the form reads the current catalog first and appends, rather than risking a race that wipes the rest of it.
+2. **Labor rates — a genuinely dead feature, not a UX gap.** Library's "Labor rates & tax" panel lets an owner
+   save $/hr by role with a real UI and save path, but grepping every consumer of `library.laborRates` found
+   none outside the Library page itself — `generateInvoice()`'s labor rate was always either an explicit
+   field-note cost or one flat business-wide default, never the saved-by-role rate. Careful role-rate setup was
+   silently doing nothing on every invoice. Fixed with the same non-fabricating discipline as materials: added
+   `lookupLaborRate()` to `types/library.ts` (mirrors `lookupUnitPrice`'s exact/substring match — a logged
+   person's name like "Mike" correctly returns no match rather than guessing, covered by a test) and wired it
+   into the rate fallback chain between an explicit cost and the flat default. Also added a per-row "pick a
+   saved role" dropdown (only rendered when roles exist, so it's not clutter for a tenant with none) and a
+   header tooltip explaining where rates come from.
+3. **Library-fetch failure was fully silent.** `library?.materials ?? []` treats "the fetch threw" identically
+   to "fetched fine, catalog's just empty" — a transient network error would silently zero out every price with
+   no distinguishing signal. Added a `libraryLoadFailed` flag (tracked separately from a genuinely-empty
+   catalog) and a banner on the Invoice tab explaining it, with a Retry button.
+4. **Bonus find, not part of the tooltip ask:** while tracing every reader of the Library/Crews collections,
+   found `GET /api/company/crews` and `GET /api/company/library` had no `verifyAuthAndRole` gate at all — only
+   POST/PATCH/DELETE/PUT were guarded. Anyone who knew or guessed a `businessId` could unauthenticated-GET a
+   tenant's crew roster (names/emails/phones) or full pricing catalog. Confirmed every caller already runs from
+   an authenticated `/company/*` page before changing anything, so nothing legitimate breaks; both routes now
+   require session auth. Same "found and fixed a real bug along the way" pattern as T-071/T-074 this session.
+
+**Verified:** `tsc` clean; lint 0 errors/21 warnings (two new `react/no-unescaped-entities` catches fixed, same
+baseline otherwise); new tests — `types/library.test.ts` (8: `lookupUnitPrice`/`lookupLaborRate` matching and
+no-fabrication behavior), 2 new auth-gate regression tests (crews/library GET, both proving 401 with no session
+and that Firestore is never reached first), 4 new `QuickAddContext.test.tsx` cases (material kind gated
+independently of jobs by the `pricing` module, the read-then-append-then-PUT round trip, prefill when opened
+directly the way a blocked-workflow card would) — `vitest run` 424/424 with these included (3 pre-existing
+concurrent-load flakes — `example-lib.test.ts`, `send.test.ts`, `registry.test.ts` — reconfirmed clean on an
+isolated rerun); release suite 16/16; `next build` green (`/company/jobs/[jobId]` 121kB → 135kB, the one route
+with real new logic; every other route unchanged). Committed locally; push pending owner confirmation.
 
 ## 2026-09-06, continued — T-076: global quick-add ("+") + a blocked-workflow "add X first" pattern
 
@@ -534,13 +599,17 @@ backlog closed weeks ago).
 
 ## Next actions
 
-0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075/T-076 entries for the full
-   list: a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status
-   filters as the option count grows, a `PageSkeleton` pass on the pages that don't yet use it (most are
-   redirects or static content that don't need one), a further audit for other blocked-workflow dead ends
-   beyond Calendar's crew-empty state (T-076 converted only that one), and — the one that needs an owner product
-   decision rather than a self-executable pick — whether to build a net-new manual "add appointment" flow so it
-   can join Job/Crew/Teammate in the quick-add picker (today appointments are voice-booked by Alice only).
+0. **Phase 9 (UI/UX Modernization) candidate next slices** — see `TODO.md`'s T-075/T-076/T-077 entries for the
+   full list: a breadcrumb/back-link audit on nested pages beyond Jobs, a second look at Pipeline/Calls status
+   filters as the option count grows, a `PageSkeleton` pass on the pages that don't yet use it, a further audit
+   for other blocked-workflow dead ends beyond Calendar's crew-empty state and the Invoice tab's material/labor
+   rows, and — the one that needs an owner product decision rather than a self-executable pick — whether to
+   build a net-new manual "add appointment" flow so it can join Job/Crew/Material/Teammate in the quick-add
+   picker (today appointments are voice-booked by Alice only).
+0b. **Dead code flagged, not removed:** `POST /api/jobs/[jobId]/invoice` (`api/jobs/[jobId]/invoice/route.ts`)
+    has zero callers anywhere in the app — the real invoice-generation logic is entirely client-side in
+    `company/jobs/[jobId]/page.tsx`. Left in place pending an owner decision on whether to delete it or wire it
+    up as a real API for some future integration.
 1. **Review and prioritize the remaining Phase 7/8 backlog** (`MASTER_PLAN.md`, T-054–056/058/060 and
    T-062 firebase-admin half/T-067) — decide what to greenlight next; nothing remaining is assigned or started.
 2. **NH-13**: owner to paste reference organizing/roofing apps for T-056's per-industry visual palette work.

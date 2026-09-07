@@ -51,3 +51,17 @@ export function lookupUnitPrice(materials: LibraryMaterial[], item: string): num
   const partial = materials.find((m) => norm(m.name).includes(target) || target.includes(norm(m.name)));
   return partial ? partial.unitPrice : null;
 }
+
+// Same fuzzy match, for a labor row's technician/description against a saved role's $/hr rate
+// (e.g. a field note logging "Foreman" matches a "Foreman" role in the Library). A logged
+// person's actual name ("Mike") won't match a role and correctly falls through to null — this
+// is a same-confidence-bar convenience default, not a guess at who someone is.
+export function lookupLaborRate(laborRates: LibraryLaborRate[], description: string): number | null {
+  if (!description) return null;
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const target = norm(description);
+  const exact = laborRates.find((l) => norm(l.role) === target);
+  if (exact) return exact.rate;
+  const partial = laborRates.find((l) => norm(l.role) && (target.includes(norm(l.role)) || norm(l.role).includes(target)));
+  return partial ? partial.rate : null;
+}
