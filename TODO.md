@@ -120,7 +120,8 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   - [x] T-057 — Post-sale client talk-track content (done 2026-09-03)
   - [ ] T-058 — AI-authored document layer + server-side PDF generation
   - [x] T-059 — Cleanup: Twilio type debris + archive stale planning docs
-  - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (done 2026-09-05, see note below)
+  - [x] T-060 — Voice-model evaluation → shipped GPT Realtime + cedar live (2026-09-05), **reverted 2026-09-07**
+        after a live call found broken turn-taking; back to gpt-4o-mini + Vapi Voices v2 Savannah (see note below)
 - [ ] Phase 8 — Hardening, Performance & Discoverability (owner-added, 2026-09-01) — 12/14
       **Suggested order** (quick/independent wins first, riskiest last — not a strict dependency chain):
       T-064 (owner deferred, 2026-09-02) → T-061 ✓ → {T-067 ✓, T-068 ✓, T-069 ✓} → T-063 ✓ → T-065 ✓ → T-062 (CI half ✓, firebase-admin v14 half still open) → T-066 ✓ → T-070 ✓ → T-071 ✓ → T-072 ✓ → T-073 ✓ → T-074 ✓ (2026-09-06)
@@ -1513,6 +1514,37 @@ docs, applied the change, and caught a real regression before it shipped.
   specific change since it's a pure external-API operation (Vapi's live assistant config) — zero lines of
   application source changed, only a new standalone script + `.gitignore` + docs. The three commits from this
   session's earlier T-056/token-conservation work were already independently verified green before this.
+
+**2026-09-07 — the live call test above found a real regression; GPT Realtime reverted.** Owner placed a real
+call and reported: doesn't sound human, talks over the caller and never yields on interruption, cuts off
+mid-word on longer responses (resumes only if the caller says "continue").
+
+- **Root cause (confirmed via Vapi's docs + a live read-only GET of the assistant):** `startSpeakingPlan`/
+  `stopSpeakingPlan` govern the cascaded transcriber→LLM→TTS pipeline only, **not** speech-to-speech models —
+  [docs.vapi.ai/customization/voice-pipeline-configuration](https://docs.vapi.ai/customization/voice-pipeline-configuration)
+  is explicit about this. The hand-tuned `numWords: 2`/`backoffSeconds: 0.7`/`waitSeconds: 0.1` this task
+  deliberately preserved were silently inert the entire time `gpt-realtime` was live — nothing was actually
+  handling interruption. The mid-response cutoffs match a native-realtime turn getting truncated (context
+  survives — "continue" resumes it), not a dropped call. Vapi's OpenAI Realtime docs
+  ([docs.vapi.ai/openai-realtime](https://docs.vapi.ai/openai-realtime)) don't document a reliable tuning knob
+  for this today.
+- **Fix:** new `scripts/rollback-vapi-voice.mjs` (`--dry-run` supported, same backup-then-PATCH-then-verify
+  pattern as `set-vapi-human-voice.mjs`) reverted `model`→`gpt-4o-mini` (openai) and `voice`→
+  `{provider: "vapi", voiceId: "Savannah", version: 2}` — the exact pre-T-060 config. Transcriber (Deepgram
+  Flux), all 7 `toolIds`, and the system prompt were never touched by T-060 and are unaffected. Verified live via
+  a clean GET: `model.model` → `gpt-4o-mini`, `voice.voiceId` → `Savannah`, 7/7 tools intact. Cost back to
+  ~$0.09–0.14/min.
+- **Cleanup:** the pre-rollback (gpt-realtime/cedar) snapshot moved outside the repo (gitignored either way);
+  the redundant dry-run copy deleted, matching this repo's own T-060 cleanup convention.
+- **Docs corrected:** `CLAUDE.md`'s Known Limitations "Voice" bullet now describes the revert, not the
+  gpt-realtime experiment as current. `HANDOFF.md` gets a matching 2026-09-07 entry.
+- **Not done:** a second live call to confirm the fix by ear. **Not investigated:** whether Vapi's realtime
+  integration exposes an undocumented turn-detection/interruption knob outside the assistant PATCH schema
+  (e.g. dashboard-only). If GPT Realtime is revisited, its turn-taking needs its own dedicated tuning/testing
+  pass — nothing about the cascaded pipeline's settings transfers to it.
+- **T-060 status:** flip from "done" to **done, then reverted** — the task's own acceptance criterion ("an
+  actual human placing a real call and listening") is exactly what caught this; leaving this note here rather
+  than only in HANDOFF so a future session doesn't re-attempt gpt-realtime without reading why it was pulled.
 
 ## Historical assignments (none active)
 

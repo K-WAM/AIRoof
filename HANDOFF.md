@@ -1,5 +1,5 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-06 (T-071 — cut Firestore round-trip time on Dashboard/Calls/Pipeline/CommandBar — see below)
+Last updated: 2026-09-07 (live-voice regression found and reverted — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
@@ -27,6 +27,38 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-07) — live-voice regression: GPT Realtime reverted back to the cascaded pipeline
+
+Owner placed a real call to the live line and reported it clearly: doesn't sound human, talks over the caller
+and never yields when interrupted, and cuts off mid-word on longer responses — resuming only if the caller says
+"continue." This is exactly the live-call test T-060 (2026-09-05, below) flagged as the one thing nothing short
+of a real call could substitute for, and it found a real regression.
+
+**Root cause, confirmed via Vapi's own docs and a live read-only check of the assistant:** `startSpeakingPlan`/
+`stopSpeakingPlan` — the settings governing interruption/turn-taking (`numWords: 2`, `backoffSeconds: 0.7`,
+`waitSeconds: 0.1`) — apply to the cascaded transcriber→LLM→TTS pipeline only, **not** to speech-to-speech
+models like `gpt-realtime-2025-08-28`. T-060 deliberately left those settings untouched because a dry-run
+showed they were already hand-tuned and snappy — but once the model switched to native speech-to-speech, they
+went silently inert. Nothing was left actually handling interruption, and the mid-word cutoffs on longer
+responses match a native-realtime turn getting truncated rather than a dropped call (context survives, so
+"continue" picks the response back up). Vapi's OpenAI Realtime integration docs don't document a reliable way
+to tune this today.
+
+**Fix:** reverted `model`+`voice` back to the pre-T-060 config — `gpt-4o-mini` (openai) + Vapi Voices v2
+`Savannah`, the same cascaded pipeline the tuned `startSpeakingPlan`/`stopSpeakingPlan` actually govern.
+Transcriber (Deepgram Flux), tools (all 7 `toolIds`), and system prompt were never touched by T-060 and remain
+unchanged. New script `scripts/rollback-vapi-voice.mjs` (`--dry-run` supported, writes a pre-change snapshot —
+kept outside the repo, gitignored). Verified live via a clean GET: `model.model` → `gpt-4o-mini`,
+`voice.voiceId` → `Savannah` (v2), 7/7 tools intact. Cost drops back to ~$0.09–0.14/min from ~$0.15–0.30/min.
+Docs corrected: `CLAUDE.md`'s Known Limitations "Voice" bullet, this entry.
+
+**Not done:** a second live call to confirm the fix by ear — recommended before treating this as fully closed.
+**Not investigated:** whether Vapi's realtime integration has an undocumented turn-detection/interruption knob
+reachable outside the assistant PATCH schema (e.g. dashboard-only). If GPT Realtime is revisited later, its
+turn-taking needs its own dedicated tuning pass — the cascaded pipeline's settings do not transfer.
 
 ---
 
