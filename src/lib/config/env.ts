@@ -5,6 +5,7 @@ const CAPABILITIES: Record<string, string[]> = {
   vapi: ["VAPI_API_KEY", "VAPI_WEBHOOK_SECRET"],
   firebase: ["FIREBASE_SERVICE_ACCOUNT_JSON"],
   cron: ["CRON_SECRET"],
+  stripe: ["STRIPE_SECRET_KEY"],
 } as const;
 
 export type EnvStatus = "configured" | "not_configured";

@@ -392,7 +392,7 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.4 — September 2026</div>
+        <div><span>Version</span> 2.5 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
@@ -1122,6 +1122,57 @@
     <strong>Recommended for most clients:</strong> Buy a new local Vapi number + set conditional forwarding (forward on no-answer after 2 rings) from their existing number. This way staff can still answer — if they don't, the AI catches it.
   </div>
 
+  <h4>Option C — Canadian numbers, or keeping a client's existing number as the primary line</h4>
+  <p>Vapi's own one-click number purchase is <strong>US-only</strong> (by area code). Both of these cases route through the same mechanism instead — Twilio as the number provider, imported into Vapi as bring-your-own-number (BYON):</p>
+  <ul style="margin-left:20px;margin-bottom:16px;">
+    <li style="margin-bottom:6px;"><strong>Canadian client, brand-new number:</strong> buy a Canadian DID in Twilio, import it into Vapi.</li>
+    <li><strong>Any client who wants to keep their existing number</strong> as the actual Vapi-routed line (not just forwarding to a second number): port that number into Twilio first, then import it into Vapi the same way. Porting is not instant — Twilio's own porting wizard typically takes 1–3 weeks and needs a copy of the client's current phone bill (a Letter of Authorization). Keep their old service active until the port completes.</li>
+  </ul>
+
+  <h4>Setting up the Twilio account (one-time, prerequisite for either case above)</h4>
+  <ol class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Sign up</strong>
+        <p>Go to <span class="url">twilio.com/try-twilio</span>, verify your email and phone number, and answer the business-profile questions (they ask what you're building — "call routing / conversational AI" is accurate).</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Add a payment method</strong>
+        <p>Twilio requires a card on file before you can buy a number, even on the free trial credit. Canadian numbers run roughly $1–2/month plus per-minute rates — confirm current pricing in Console before buying, it varies by number type and region.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Buy the number (new-number case) — or start a port (existing-number case)</strong>
+        <p><em>New number:</em> Twilio Console → <strong>Phone Numbers → Buy a Number</strong> → set the country filter to Canada → pick an area code → Buy.</p>
+        <p><em>Porting an existing number:</em> Console → <strong>Phone Numbers → Port</strong> → follow Twilio's wizard; you'll upload a recent bill for that number as proof of ownership.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Create a scoped API key</strong>
+        <p>Console → <strong>Account → API keys &amp; tokens → Create API key</strong>. Use this key (not your master Auth Token) for anything that touches Vapi or this app — narrower blast radius if a key ever leaks.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Import into Vapi</strong>
+        <p>Vapi dashboard → <strong>Phone Numbers → Import</strong> → choose <strong>Twilio</strong> → paste the Account SID and the API key from step 4, plus the phone number itself → Import → assign it to the client's assistant, same as any other Vapi number.</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="warning-box">
+    <strong>This is a manual runbook, not yet a portal button.</strong> In-app provisioning (buy/import a number without leaving the portal) is a backlog item (T-054) — it needs a live Twilio account and API key wired into this app first, which is exactly what steps 1–4 above produce. Once that exists, automating steps 3 and 5 becomes straightforward.
+  </div>
+
   <hr>
 
   <!-- ── PHASE 3: Portal ── -->
@@ -1322,6 +1373,12 @@ superadmin: false</code>
     <li><strong>Generate invoice</strong> button — jumps to <span class="url">/admin/invoices</span> prefilled with this client's name, email, and address, and links the new invoice back to their account.</li>
   </ul>
 
+  <h4>Getting paid — the "Generate payment link" button</h4>
+  <p>On any saved invoice in <span class="url">/admin/invoices</span>, click <strong>Generate payment link</strong> to create a Stripe-hosted checkout link for that exact invoice total (line items + tax). Card, Apple Pay, and Google Pay all show up automatically on the Stripe checkout page — nothing extra to configure per payment method. The link is saved on the invoice, appears as a <strong>Pay now →</strong> button in the emailed invoice automatically, and is also printed on the PDF. <strong>This does not auto-mark the invoice paid</strong> — there's no webhook wired up (a deliberate choice to keep this simple) — so once you see the payment land in your Stripe dashboard, come back and click <strong>Mark paid</strong> yourself, same as today.</p>
+  <div class="highlight">
+    <strong>Needs <code>STRIPE_SECRET_KEY</code> set in Vercel</strong> — until then the button returns "Stripe isn't configured yet." Apple Pay/Google Pay additionally need one one-time step in the Stripe Dashboard (Settings → Payment methods → enable them, plus domain verification for Apple Pay) — that's a Stripe-side toggle, not something this app needs to do.
+  </div>
+
   <div class="warning-box">
     <strong>Pause access (non-payment):</strong> the <strong>Pause access</strong> button locks that client's <em>web dashboard only</em> — anyone signing in sees a plain "Account paused" screen with a contact-us link. It deliberately does <strong>not</strong> touch Alice: their phone line keeps answering calls and booking jobs exactly as before, so a billing dispute never turns into one of their customers hitting dead air. Click <strong>Resume access</strong> to restore the dashboard the moment it's resolved — nothing else needs to be redone.
   </div>
@@ -1495,7 +1552,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.4 — September 2026</span>
+    <span>v2.5 — September 2026</span>
   </div>
 
 </div><!-- /page -->

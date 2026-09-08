@@ -1,6 +1,28 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-07 (Claude), continued — T-055 (Phase 7) done, not pushed: split Demo Studio, the onboarding
+Updated: 2026-09-07 (Claude), continued — T-080 (Phase 10, new) done, not pushed: Stripe Payment Links for
+Luxor's own invoice billing (card/Apple Pay/Google Pay via a Stripe-hosted Checkout Session, no webhook — still
+a manual "Mark paid"), plus a manual Twilio account-setup + Canadian-number/porting runbook added to the
+onboarding guide (v2.5). Owner asked directly, in one message: had Canadian Twilio+Vapi steps been written
+(no — see the T-055 entry below, that was never picked), how does payment actually get collected anywhere in
+this app (nowhere — zero payment code existed before this), and Stripe or something easier. Answered plainly,
+then let the owner pick scope off a menu rather than guess: "need to set up Twilio first" (docs-only, hold off
+automation) and "Payment Links for our own billing" (not full webhook integration, not client-customer
+collection). Added the `stripe` npm SDK and a `stripe` capability to `src/lib/config/env.ts` (shows up in
+`/api/health` automatically). New `src/lib/billing/stripePayments.ts` builds a one-time Checkout Session from
+an invoice's line items — each collapses to a fixed `quantity: 1` line rather than re-deriving Stripe's
+`quantity` from the invoice's own (sometimes fractional, e.g. "3.5 labor hours") quantity field, since Stripe
+requires a positive integer there. New superadmin-gated `POST /api/admin/invoices/[invoiceId]/pay-link`
+persists the link on the invoice so reopening it doesn't spawn a second Checkout Session; `/admin/invoices`
+gained a "Generate payment link" button, and the send-email route now renders a "Pay now →" button when one
+exists. Two new public pages, `/pay/success` and `/pay/cancelled`, are Checkout's redirect targets (the payer
+is a client, not a portal user, so these can't sit behind `verifySuperadmin`). Full detail, including exactly
+why the fractional-quantity collapse matters, in `TODO.md`'s T-080 entry. `tsc`/lint(0/21) clean, `vitest run`
+462/462 (up from 450, all new, zero flakes this run — including a fix to a pre-existing `env.test.ts` case that
+needed the new `STRIPE_SECRET_KEY` stubbed alongside its existing ones), `next build` green with both `/pay/*`
+pages and the new route present. Not pushed — awaiting owner review.
+
+Previous: 2026-09-07 (Claude), continued — T-055 (Phase 7) done, pushed: split Demo Studio, the onboarding
 wizard, and Playbooks out of `/admin/*` into a new `/hub/*` route group (Businesses/Usage/Invoices stay in
 `/admin`). Owner picked this off a 3-option menu of Phase 7's remaining tasks (T-054/T-055/T-058) — each
 genuinely needed a call, and T-055 was the one with no external dependency (no live Twilio credential, no PDF-
@@ -117,7 +139,8 @@ Local commit only at the time — see the Repository section below for current p
   corrected before relying on it). Production re-verified post-deploy: `/api/health` → `200`/`"connected"` with
   all six capabilities `configured`, unauthenticated webhook `POST` → `401`, `/login` → `200`, and — the actual
   point of this deploy — `/admin/demo`, `/admin/onboarding`, and `/admin/guide` each confirmed `307` to their
-  new `/hub/*` destination directly against production (not just locally).
+  new `/hub/*` destination directly against production (not just locally). **T-080 (Stripe payment links +
+  Twilio runbook), built immediately after in the same session, is local-only** — not yet approved for push.
 - **Live Vapi assistant config was changed directly via API this session (T-060)** — independent of git/Vercel
   deploys. Assistant `9267a84a-0f4f-416b-a328-1dc539f5265e` now runs `model: openai/gpt-realtime-2025-08-28` +
   `voice: openai/cedar`, up from `vapi/Savannah` + `gpt-4o-mini` (a pre-existing config this session found was

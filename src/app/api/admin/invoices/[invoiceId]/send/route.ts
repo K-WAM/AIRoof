@@ -84,6 +84,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ inv
       </table>
     </div>
 
+    ${invoice.stripePaymentUrl ? `<div style="margin-top:24px;text-align:center;"><a href="${invoice.stripePaymentUrl}" style="display:inline-block;background:#0f172a;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none;">Pay now →</a><p style="margin:10px 0 0;font-size:11px;color:#94a3b8;">Card, Apple Pay, or Google Pay — secure checkout via Stripe.</p></div>` : ""}
+
     ${invoice.notes ? `<div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Notes & Payment Terms</div><p style="font-size:13px;color:#475569;line-height:1.6;margin:0;">${invoice.notes}</p></div>` : ""}
   </div>
 

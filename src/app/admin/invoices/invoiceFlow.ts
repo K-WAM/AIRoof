@@ -31,6 +31,12 @@ export interface LuxorInvoice {
   dueDate: string;
   createdAt: number;
   sentAt?: number;
+  // Stripe Checkout — a hosted "Pay now" link (card/Apple Pay/Google Pay),
+  // generated on demand and persisted so it doesn't regenerate on every view.
+  // Absent whenever Stripe isn't configured or hasn't been generated yet.
+  // Marking paid is still a manual click (no webhook) — see stripePayments.ts.
+  stripePaymentUrl?: string;
+  stripeCheckoutSessionId?: string;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

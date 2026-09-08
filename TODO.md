@@ -17,6 +17,12 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   about why that distinction mattered) and production was re-verified post-deploy, including the actual point
   of the hub move: `/admin/demo`, `/admin/onboarding`, `/admin/guide` each confirmed `307` to their new
   `/hub/*` destination directly against `ai-roof.vercel.app`.
+- **T-080 (Client Management, Phase 10), done, not yet pushed:** Stripe Payment Links for Luxor's own invoice
+  billing (card/Apple Pay/Google Pay, no webhook — still a manual "Mark paid"), plus a manual Twilio account +
+  Canadian-number/porting runbook in the onboarding guide (v2.5) — the owner asked directly how payment
+  collection and Canadian numbers actually work today (answer: they didn't) and picked these two scopes off a
+  menu of options. See the Phase 10 checklist entry below. `tsc`/lint/build green; `vitest run` 462/462 (up
+  from 450, all new, zero flakes on this run).
 - **Scoped implementation:** 100%. Phases 0–6 are merged and pushed; the latest baseline CI passed.
 - **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
   DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
@@ -51,7 +57,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 7 QoL & Multi-Vertical Expansion (owner-added) | T-053…T-060 | not CIB-weighted | 🕓 **in progress — 6/8** | Owner prioritization pending |
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
-| 10 Client Management (owner-added, 2026-09-07) | T-079 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
+| 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
 
 ### Checklist
 
@@ -459,7 +465,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live Calendar
         after this ships to confirm it reads as intended.
 
-- [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 1/1
+- [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
         like a new client tab where I click + client account... they get one license, and they can +users
@@ -504,6 +510,52 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         further capacity check. **Pushed and live** (2026-09-07, combined with T-055 in one commit `472d14f`,
         owner said "commit and push to github") — production re-verified post-deploy: `/api/health` →
         `200`/`"connected"` with all six capabilities `configured`, unauthenticated webhook `POST` → `401`.
+  - [x] T-080 — Stripe payment links for Luxor's own billing, + a Twilio Canadian-number/porting runbook.
+        Owner asked three things in one message: (1) had Canadian Twilio+Vapi steps been written (no — T-054
+        was never picked, see T-055's note above); (2) how does anyone actually pay anyone in this app
+        (nowhere — zero payment code existed before this task, every invoice was generate → email → someone
+        marks it paid by hand once money shows up through some outside channel); (3) Stripe or something
+        easier. Presented options; owner picked "docs-only for Twilio" (no Twilio account yet) and "Stripe
+        Payment Links for our own billing" (not full webhook integration, not client-customer collection).
+        **Stripe:** added the `stripe` npm SDK (`^22.6.1`) and a `stripe` capability to
+        `src/lib/config/env.ts`'s existing `CAPABILITIES` map (shows up in `/api/health` automatically, same
+        pattern as `resend`/`vapi`/etc.). New `src/lib/billing/stripePayments.ts`:
+        `createInvoiceCheckoutLink()` builds a one-time Stripe Checkout Session from an invoice's line items —
+        card/Apple Pay/Google Pay all render on Stripe's hosted page with zero extra config. Each line item
+        collapses to `quantity: 1` with `unit_amount` = that item's own pre-computed `total` in cents,
+        deliberately never re-deriving `quantity × unitPrice` for Stripe's own `quantity` field, because this
+        app's line items can carry fractional quantities (e.g. "3.5 labor hours") and Stripe's Checkout
+        `quantity` must be a positive integer — passing a fractional value through would either throw or
+        silently misbill. Tax (already computed and stored on the invoice) is appended as its own line so the
+        Checkout total matches the invoice total exactly. New superadmin-gated
+        `POST /api/admin/invoices/[invoiceId]/pay-link` creates-or-returns the link and persists
+        `stripePaymentUrl`/`stripeCheckoutSessionId` on the invoice doc (new optional `LuxorInvoice` fields) so
+        reopening an invoice never spawns a second, orphaned Checkout Session for the same one. `/admin/invoices`
+        gained a "Generate payment link" button + a copyable link display (on-screen and on the printed/PDF
+        invoice); the send-email route now renders a "Pay now →" button whenever `stripePaymentUrl` is set. Two
+        new public (no-auth) pages, `/pay/success` and `/pay/cancelled`, are Stripe Checkout's `success_url`/
+        `cancel_url` targets — the payer is a client, not a portal user, so these can't live behind
+        `verifySuperadmin`. **Deliberately no webhook** — marking an invoice paid is still a manual click after
+        confirming the money landed in the real Stripe dashboard, matching the scope the owner actually picked
+        (full auto-mark-paid via webhook is a clearly separate, larger follow-up if ever wanted).
+        **Twilio runbook:** `public/guides/onboarding-guide.html` gained an "Option C" under Phase 2 (Canadian
+        numbers, or porting a client's existing number in as the primary line instead of just forwarding to it
+        — both go through the same Twilio-buy/port → Vapi-BYON-import mechanism) plus a full account-setup
+        walkthrough (signup, payment method, buy-or-port, scoped API key, Vapi import). Explicitly marked as a
+        manual runbook, not an in-app button — that's still T-054, unblocked once a real Twilio account and API
+        key exist to wire in. Also documented the new payment-link button in the guide's Phase 6 section, and
+        bumped the guide to v2.5.
+        Verified: `tsc` clean; lint 0 errors/21 warnings (unchanged baseline); `vitest run` 462/462 (up from
+        450 — 12 new: `createInvoiceCheckoutLink()`'s unconfigured/no-billable-items/fractional-quantity-
+        collapse/tax-line/zero-tax/filter-zero-rows/Stripe-failure cases, the `pay-link` route's auth gate +
+        already-generated-link short-circuit + persistence + 503-unconfigured + 502-failed paths, plus fixing
+        one pre-existing `env.test.ts` case that asserted every capability reports `configured` and needed the
+        new `STRIPE_SECRET_KEY` stub added alongside the existing ones — caught by CI-equivalent local
+        verification, not missed); `next build` green, `/api/admin/invoices/[invoiceId]/pay-link`, `/pay/success`,
+        `/pay/cancelled` all present in the route table. Smoke-tested locally: `/api/health` correctly reports
+        a 7th `stripe: "not_configured"` capability, both `/pay/*` pages render 200 with the invoice id
+        interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
+        server console.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

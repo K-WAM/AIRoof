@@ -6,6 +6,8 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import {
   CircleDollarSign,
+  Copy,
+  CreditCard,
   Download,
   FilePlus,
   LayoutTemplate,
@@ -70,6 +72,8 @@ function AdminInvoicesPageInner() {
   const [sending, setSending] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const [payLink, setPayLink] = useState<string | null>(null);
   const [sendEmail, setSendEmail] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -154,6 +158,7 @@ function AdminInvoicesPageInner() {
     setTaxRate(inv.taxRate ?? 0);
     setNotes(inv.notes ?? "");
     setSendEmail(inv.clientEmail ?? "");
+    setPayLink(inv.stripePaymentUrl ?? null);
     setActionError(null);
     setDirty(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -168,6 +173,7 @@ function AdminInvoicesPageInner() {
     setLineItems([blankItem()]); setTaxRate(0);
     setNotes("Net 30. Payment due within 30 days of invoice date.");
     setSendEmail("");
+    setPayLink(null);
     setActionError(null);
     setDirty(false);
   }
@@ -260,6 +266,27 @@ function AdminInvoicesPageInner() {
         setSending(false);
       }
     });
+  }
+
+  async function generatePayLink() {
+    if (!editingId || dirty) {
+      setActionError("Save the invoice before generating a payment link.");
+      return;
+    }
+    setGeneratingLink(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/admin/invoices/${editingId}/pay-link`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Payment link generation failed");
+      setPayLink(data.url);
+      await load();
+      showToast("Payment link ready — copy it into the invoice email or send it directly.");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "The payment link could not be generated. Try again.");
+    } finally {
+      setGeneratingLink(false);
+    }
   }
 
   async function markPaid() {
@@ -520,6 +547,12 @@ function AdminInvoicesPageInner() {
               <p className="print-only" style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: 0 }}>{notes}</p>
             </div>
 
+            {payLink && (
+              <div style={{ marginTop: 16, fontSize: 12, color: "#475569", textAlign: "center" }}>
+                Pay online (card / Apple Pay / Google Pay): <span style={{ wordBreak: "break-all" }}>{payLink}</span>
+              </div>
+            )}
+
             <div style={{ marginTop: 24, fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
               Luxor Developments LLC · connect@luxordev.com · Vancouver, BC
             </div>
@@ -546,7 +579,29 @@ function AdminInvoicesPageInner() {
                 {markingPaid ? "…" : "Mark paid"}
               </button>
             )}
+            {editingId && !dirty && !payLink && (
+              <button className="button" onClick={generatePayLink} disabled={generatingLink} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <CreditCard size={15} strokeWidth={1.75} />
+                {generatingLink ? "Generating…" : "Generate payment link"}
+              </button>
+            )}
           </div>
+
+          {payLink && (
+            <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: "#64748b" }}>Payment link (card / Apple Pay / Google Pay):</span>
+              <code style={{ fontSize: 12, padding: "4px 8px", background: "#f1f5f9", borderRadius: 4, wordBreak: "break-all" }}>{payLink}</code>
+              <button
+                type="button"
+                className="button"
+                onClick={() => navigator.clipboard.writeText(payLink)}
+                style={{ fontSize: 12, padding: "4px 10px", display: "inline-flex", alignItems: "center", gap: 5 }}
+              >
+                <Copy size={13} strokeWidth={1.75} />
+                Copy
+              </button>
+            </div>
+          )}
 
           {/* Save as template */}
           <div className="no-print" style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>

@@ -163,6 +163,7 @@ describe("env.ts", () => {
       vi.stubEnv("VAPI_WEBHOOK_SECRET", "wh-secret");
       vi.stubEnv("FIREBASE_SERVICE_ACCOUNT_JSON", "{}");
       vi.stubEnv("CRON_SECRET", "cron-secret");
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
       const { getCapabilityReport } = await import("@/lib/config/env");
       const report = getCapabilityReport();
       for (const status of Object.values(report)) {
