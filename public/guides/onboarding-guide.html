@@ -68,7 +68,8 @@
     border-top: 1px solid #1e293b;
     padding-top: 24px;
     display: flex;
-    gap: 32px;
+    flex-wrap: wrap;
+    gap: 20px 32px;
   }
   .cover-meta span { color: #94a3b8; }
   .cover-toc {
@@ -231,6 +232,7 @@
   }
   .step-num.blue { background: #2563eb; }
   .step-num.green { background: #16a34a; }
+  .step-num.purple { background: #7c3aed; }
   .step-body { flex: 1; }
   .step-body > strong { display: block; margin-bottom: 2px; font-size: 13px; }
   .step-body p { margin-bottom: 4px; color: #475569; font-size: 12px; }
@@ -383,7 +385,7 @@
       <div class="toc-item">
         <div class="toc-num">Part 1</div>
         <div class="toc-title">Demo Playbook</div>
-        <div class="toc-desc">Demo Studio steps, pitch scripts, live call flow, URLs</div>
+        <div class="toc-desc">Demo Studio steps, pitch scripts, live call flow, the self-led demo link, URLs</div>
       </div>
       <div class="toc-item">
         <div class="toc-num">Part 2</div>
@@ -392,9 +394,10 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.5 — September 2026</div>
+        <div><span>Version</span> 2.6 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
+      <div><span>Self-led link</span> ai-roof.vercel.app/try/roofing</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
     </div>
   </div>
@@ -972,6 +975,121 @@
     </tbody>
   </table>
 
+  <!-- ── Self-Led Demo ── -->
+  <h3>Self-Led Demo — Send a Link Instead</h3>
+  <p>Not every prospect wants you on the call. <span class="url">ai-roof.vercel.app/try/roofing</span> is a public, no-login page built for exactly this — safe to text, email, or hand over as a QR code with zero intro (Demo Studio's launch panel has one under <strong>"Self-led link"</strong>). Ask what they actually want to see, or just send the link and let them pick — the page adapts to all three below.</p>
+
+  <div class="success-box">
+    <strong>Before you send it:</strong> the link and its sandbox both point at the one shared demo line (<code>demo-roofing</code>). Make sure Demo Studio is currently launched as <strong>Roofing</strong> — it's the default/reset state, but relaunch it if you demoed a different industry recently. Hit <strong>Reset demo</strong> too if earlier tries left materials/labor clutter on the seeded jobs.
+  </div>
+
+  <h4>"Just let me hear the AI" — phone only, ~30 seconds</h4>
+  <ol class="step-list">
+    <li>
+      <div class="step-num purple">1</div>
+      <div class="step-body">
+        <strong>Send the link, or just the number</strong>
+        <p><span class="url">ai-roof.vercel.app/try/roofing</span> — or skip the link entirely: <em>"Call +1 (754) 283-7658 and talk to Alice like you're a customer booking a roof inspection."</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">2</div>
+      <div class="step-body">
+        <strong>They tap Call — that's the whole demo</strong>
+        <p>No login, no follow-up needed. Mobile dials straight from the page; desktop shows a Copy number button instead.</p>
+      </div>
+    </li>
+  </ol>
+
+  <h4>"Just let me see the software" — skip the call</h4>
+  <ol class="step-list">
+    <li>
+      <div class="step-num purple">1</div>
+      <div class="step-body">
+        <strong>Send the link</strong>
+        <p><span class="url">ai-roof.vercel.app/try/roofing</span></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">2</div>
+      <div class="step-body">
+        <strong>Tell them to skip the phone number</strong>
+        <p>Scroll to <strong>"See it in the real app →"</strong> and click it — no login required.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">3</div>
+      <div class="step-body">
+        <strong>They land in the real dashboard</strong>
+        <p>The same Pipeline, Calendar, Jobs, and Library your own team uses — pre-seeded with realistic roofing data. A banner across the top marks it as a demo and links straight to Field.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">4</div>
+      <div class="step-body">
+        <strong>Optional: point them to Field</strong>
+        <p>Click <strong>Field</strong> in the nav, pick any job, hold the mic, and say something like <em>"used 6 bundles of shingles, Marco worked 8 to 3."</em> Materials and Labor fill in live — then open that job's <strong>Invoice</strong> tab and click <strong>Generate Invoice</strong>. The numbers they just spoke are on it.</p>
+      </div>
+    </li>
+  </ol>
+
+  <h4>"Show me everything" — the full story, ~5 minutes</h4>
+  <ol class="step-list">
+    <li>
+      <div class="step-num purple">1</div>
+      <div class="step-body">
+        <strong>Send the link or the QR</strong>
+        <p><span class="url">ai-roof.vercel.app/try/roofing</span> — Demo Studio → launch Roofing → the <strong>Self-led link</strong> panel has a fresh QR for it.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">2</div>
+      <div class="step-body">
+        <strong>They call and book something</strong>
+        <p>Tap <strong>Call Alice now</strong>. They play the customer — an inspection, a leak, whatever feels real.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">3</div>
+      <div class="step-body">
+        <strong>They click "See it in the real app →"</strong>
+        <p>No login. Lands on the Dashboard.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">4</div>
+      <div class="step-body">
+        <strong>Pipeline — their own call is sitting there</strong>
+        <p>Click <strong>Pipeline</strong>. Their call becomes a lead or an appointment within moments — refresh if it's not there instantly.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">5</div>
+      <div class="step-body">
+        <strong>Calendar — the crew board</strong>
+        <p>Click <strong>Calendar</strong> to show the drag-and-drop crew scheduling.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">6</div>
+      <div class="step-body">
+        <strong>Field — log a voice update themselves</strong>
+        <p>Click <strong>Field</strong>, pick any seeded job, hold the mic, speak an update. Materials/Labor/Issues update live on the job.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num purple">7</div>
+      <div class="step-body">
+        <strong>Jobs → Invoice — the payoff</strong>
+        <p>Open that job, click the <strong>Invoice</strong> tab, click <strong>Generate Invoice</strong>. The line items they just spoke are on it.</p>
+      </div>
+    </li>
+  </ol>
+
+  <div class="warning-box">
+    <strong>What they can't do, by design:</strong> create or edit jobs from the office side, confirm or send anything, invite teammates, or touch Settings — every one of those is blocked for this guest role, so nothing they click can break the demo or send a real email. Field voice/photo logging is the one deliberate exception — it's genuinely real, and it's the point.
+  </div>
+
   <!-- ── URL Quick Reference ── -->
   <h3>Demo URLs — Quick Reference</h3>
   <table>
@@ -979,14 +1097,15 @@
     <tbody>
       <tr><td><code>ai-roof.vercel.app/login</code></td><td>Login page</td><td>Start of every demo</td></tr>
       <tr><td><code>ai-roof.vercel.app/hub/demo</code></td><td><strong>Demo Studio</strong> — pick industry, enter prospect, launch</td><td>Every demo, every industry</td></tr>
-      <tr><td><code>…/company/dashboard?preview=demo-roofing</code></td><td><strong>The demo dashboard — for every industry.</strong> One live tenant (<code>demo-roofing</code>) that each launch reconfigures to whatever you picked. Always reach it via the Demo Studio's "Open dashboard" button.</td><td>Every demo</td></tr>
+      <tr><td><code>ai-roof.vercel.app/try/roofing</code></td><td><strong>Self-led demo page — no login, safe to send.</strong> Tap-to-call CTA + a "See it in the real app" sandbox entry point. One per vertical (<code>/try/hvac</code>, etc.), but only Roofing has a phone number wired up today.</td><td>Send to a prospect who can't get you on the call</td></tr>
+      <tr><td><code>…/company/dashboard?preview=demo-roofing</code></td><td><strong>The demo dashboard — for every industry.</strong> One live tenant (<code>demo-roofing</code>) that each launch reconfigures to whatever you picked. Always reach it via the Demo Studio's "Open dashboard" button.</td><td>Every demo, presenter-led</td></tr>
       <tr><td><code>…/field?businessId=demo-roofing&amp;key=…</code></td><td>Field voice screen — for crew voice updates (use the Demo Studio QR / Copy link; the key is required when not signed in)</td><td>Field demo (roofing + field-service)</td></tr>
       <tr><td><code>dashboard.vapi.ai</code></td><td>Vapi assistant config</td><td>Setup / troubleshooting only</td></tr>
     </tbody>
   </table>
 
   <div class="warning-box">
-    <strong>Important:</strong> All <code>?preview=demo-*</code> links require being logged in as superadmin (<strong>connect@luxordev.com</strong>). Without a login session, they redirect to the login page. Log in first, then open the demo dashboard — or use the "Open dashboard →" button in the Demo Studio launch panel, which handles this automatically.
+    <strong>Important:</strong> All <code>?preview=demo-*</code> links require being logged in as superadmin (<strong>connect@luxordev.com</strong>). Without a login session, they redirect to the login page. Log in first, then open the demo dashboard — or use the "Open dashboard →" button in the Demo Studio launch panel, which handles this automatically. <code>/try/roofing</code> is the one exception — it and its "See it in the real app" sandbox need no login at all, by design.
   </div>
 
 </div><!-- /page -->
@@ -1552,7 +1671,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.5 — September 2026</span>
+    <span>v2.6 — September 2026</span>
   </div>
 
 </div><!-- /page -->
