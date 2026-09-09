@@ -167,10 +167,12 @@ export default async function TryVerticalPage({
             >
               After your call
             </p>
-            <p style={{ margin: "0 0 16px", fontSize: 15, color: "var(--text)", lineHeight: 1.6, maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
-              Your call doesn&apos;t just get answered — it becomes a lead in the Pipeline, a booked job on the
-              Calendar, and a draft invoice with materials and labor filled in. This is the actual product your
-              office would use, opened in a safe, read-only sandbox.
+            <p style={{ margin: "0 0 16px", fontSize: 15, color: "var(--text)", lineHeight: 1.6, maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+              Your call doesn&apos;t just get answered — it becomes a lead in the Pipeline and a job on the
+              Calendar. Open <strong>Field</strong> in the app and try it yourself: hold the mic, say something
+              like &ldquo;used 6 bundles of shingles, Marco worked 8 to 3&rdquo; — watch it land in Materials and
+              Labor, then generate the invoice and see the numbers appear. This is the real app your office
+              would use, opened in a safe guest mode.
             </p>
             <EnterSandboxButton />
           </div>
@@ -227,6 +229,7 @@ export default async function TryVerticalPage({
           <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, fontSize: 14, color: "var(--text)", lineHeight: 1.55 }}>
             <li>{agentName} answers instantly, day or night — no hold music, no voicemail.</li>
             <li>Every call becomes a booked job or a follow-up lead automatically — nothing lands on a sticky note.</li>
+            <li>Your crew logs materials and hours by voice from the job site — no paperwork, no end-of-day guessing.</li>
             <li>Ask about hours, service area, or pricing — {agentName} is trained on real business rules, not a generic script.</li>
           </ul>
         </div>

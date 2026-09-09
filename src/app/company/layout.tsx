@@ -211,8 +211,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
               }}
             >
               <span>
-                <strong>You&apos;re exploring a live product demo.</strong> This is real, sandboxed data —
-                booking, editing, and sending are turned off.
+                <strong>You&apos;re exploring a live product demo.</strong> Try{" "}
+                <Link href={`/company/field${previewSuffix}`} style={{ color: "#92400e", fontWeight: 700, textDecoration: "underline" }}>
+                  Field
+                </Link>{" "}
+                and log a voice update — it&apos;s real. Booking, sending, and account changes are turned off.
               </span>
               <Link href="/try/roofing" style={{ color: "#92400e", fontWeight: 700, textDecoration: "underline" }}>
                 ← Exit demo

@@ -676,6 +676,30 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         last launched. Re-launch Roofing there before sending this link out again if it may have been used to
         demo a different industry in between.
 
+        **Part 3, same day — owner asked to confirm voice field-logging (materials/crew hours → invoice) is
+        something a sandbox visitor can actually try, not just view.** Investigated before building anything:
+        `verifyFieldAccess()` — the guard already used by every field-logging route
+        (`jobs/[jobId]/updates` POST, `field-audio` POST, `photos` POST) — has always accepted **any** session
+        role on the business, including "viewer" ("Path 1: session (staff/owner/viewer of this business, or
+        superadmin)"), unlike the stricter office-mutation routes. So a sandbox visitor could already submit a
+        voice/typed field update, upload a photo, and see it flow into materials/labor/the invoice — this
+        needed no backend change at all. Confirmed live against production (not just read): entered the
+        sandbox, opened `/company/field`, and posted a real update to job J-1001 via its exact API contract
+        ("Used 6 bundles of shingles today, Marco worked 8am to 3pm, found a cracked vent") — DeepSeek parsed
+        it correctly (materials, labor with auto-computed hours, an issue), the job's Materials/Labor/Issues
+        tab counts updated live, and **Generate Invoice** picked up Marco's 7 hours and the shingles line item
+        in the draft. The actual gap was discoverability, not capability: nothing on `/try/[vertical]` or the
+        sandbox banner told a visitor Field existed or that it was real, and the banner's "editing... turned
+        off" wording was actively wrong for this one path. Fixed both: the sandbox CTA copy on `/try/[vertical]`
+        now names Field explicitly with a concrete example line to try speaking; the banner now links straight
+        to `/company/field` and says "log a voice update — it's real" instead of the inaccurate blanket
+        "editing... turned off." Verified: `tsc` clean; lint unchanged (0 errors/22 warnings); `vitest run`
+        467/467 (no new tests needed — no backend logic changed, only page copy and the banner's JSX); `next
+        build` green. **Housekeeping note for whoever demos next:** the live verification pass above wrote one
+        real field-update entry onto job J-1001 in `demo-roofing` (a small real invoice line, not fake/broken
+        data, but not something to explain mid-pitch either) — hit **Reset demo** in Demo Studio before the
+        real meeting to start from clean seeded data.
+
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
 pushed to `origin/main` as of `897bcc5`, 2026-07-25). Phase 6 (T-046-049, owner-added UX/demo polish, not
