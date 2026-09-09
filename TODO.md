@@ -4,8 +4,50 @@ Specs: `MASTER_PLAN.md`. Rules: `AGENTS.md`. State snapshot: `docs/SESSION_HANDO
 Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance cleanup this session
 (`c8487ed`), plus a 3-vertical expansion on top of it (`1d2f840`) — both on `origin/main`.
 
-## Current snapshot — 2026-09-07
+## Current snapshot — 2026-09-08
 
+- **End-to-end demo-readiness review (2026-09-08), no code changed:** owner asked for a full trace of the
+  roofing vertical's demo→job→invoice pipeline and the client-onboarding→self-service-team-invite flow ahead
+  of a demo the following week, plus a TODO cleanup. Read every file in the chain rather than trusting prior
+  session notes, and re-verified production live. **Confirmed solid, code-correct, nothing broken:** Vapi call
+  → webhook (`api/webhooks/vapi/route.ts`) → the 7 agent tools → Firestore, with replay protection and rate
+  limiting intact; Pipeline's leads/appointments read through the T-071 server endpoints; an Appointment's
+  "Create Job" button deep-links a prefilled Jobs form → `POST /api/jobs`, correctly linked via
+  `appointmentId`; field voice/typed/photo updates → `parseFieldUpdate` (DeepSeek) → `buildProjection` (a
+  deterministic, code-owned event-sourcing fold — the LLM never does the arithmetic) → `job.parsed`, which is
+  the single source feeding Timeline/Materials/Labor/Issues *and* the invoice generator; invoice generation
+  pulls Library catalog pricing (`lookupUnitPrice`/`lookupLaborRate`), never fabricates a price, flags unpriced
+  rows with a one-click "add to catalog," and "Send to Customer" hits a real, auth-gated, Resend-backed route;
+  onboarding (both the 6-step wizard and the fast "+ Client" modal — same `POST /api/admin/businesses`) writes
+  the owner's `businessUsers` doc with `active: true` (T-074's fix, re-confirmed present in the current code —
+  this is the exact bug that silently broke every wizard-onboarded owner's login before 2026-09-06); the
+  Settings → Team panel's self-service invite-by-email (`inviteTeamMember()`, T-073) has real guards (seat
+  limit, last-owner lockout, cross-tenant conflict, superadmin conflict) and is reachable only to
+  `owner`/`superadmin`; the roofing template has no disabled modules (Jobs/Field/Library/Pricing all present),
+  and the company nav's workflow order (Dashboard→Pipeline→Calls→Calendar→Jobs→Field→Library→Guide) puts every
+  page one click away. Production re-verified live just now: `/api/health` → 200, Firestore connected,
+  OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all `configured`; unauthenticated webhook `POST` → 401; `/login` →
+  200. Also confirmed `origin/main` and local `HEAD` are identical at `090dcea` — **T-080 is in fact pushed and
+  live** (see the corrected bullet below; the prior "not yet pushed" note was stale).
+  **New findings, added as Phase 11 below — none demo-blocking, nothing in the traced path is broken:**
+  (1) Stripe payment links (T-080) are deployed but non-functional in production — `/api/health` reports
+  `stripe: "not_configured"`, meaning `STRIPE_SECRET_KEY` was never added to Vercel. Only affects Luxor's own
+  client billing (`/admin/invoices`), not the roofing company's job invoicing to its customers.
+  (2) `business.active` doesn't gate the live phone line — `resolveBusinessId()` and its two lookup helpers
+  never check it; it only gates the internal `/api/agent/respond` test endpoint and shows as a status tag on
+  `/admin/businesses`. Once a real `vapiAssistantId`/`vapiPhoneNumberId` is wired up, the number answers
+  regardless of the Active toggle. Worth a doc note (or real enforcement) so nobody assumes flipping a client
+  to "Inactive" silences their line.
+  (3) Leads have no "Create Job" shortcut — only Appointments get one. A lead that never became a formal
+  appointment has to be turned into a job from a blank form.
+  (4) A call's transcript page has no link forward to the lead/appointment it produced, even though Pipeline
+  already supports the deep-link (`?lead=`/`?appt=`) Calendar already uses for the reverse direction.
+  (5) Two separate, easy-to-conflate invoicing systems: the job-level invoice (Job detail → Invoice tab) is a
+  draft the roofing company emails its own customer, with no online payment option; the Stripe Payment Links
+  from T-080 are only for Luxor billing the roofing company itself. Worth being explicit about this distinction
+  before the demo — customers can't pay online today.
+  (6) `POST /api/jobs/[jobId]/invoice` (server-side invoice generation) still has zero callers — flagged dead
+  in T-077, never removed, still true.
 - **T-079 (Client Management, Phase 10) + T-055 (Hub split, Phase 7), both done and pushed:** superadmin
   "+ Client" quick-create, seat-capped team invites with CSV bulk import, a dashboard-only subscription
   pause/resume, and recurring-invoice drafting (T-079) — see the Phase 10 checklist entry below. Then, same
@@ -17,12 +59,16 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   about why that distinction mattered) and production was re-verified post-deploy, including the actual point
   of the hub move: `/admin/demo`, `/admin/onboarding`, `/admin/guide` each confirmed `307` to their new
   `/hub/*` destination directly against `ai-roof.vercel.app`.
-- **T-080 (Client Management, Phase 10), done, not yet pushed:** Stripe Payment Links for Luxor's own invoice
-  billing (card/Apple Pay/Google Pay, no webhook — still a manual "Mark paid"), plus a manual Twilio account +
-  Canadian-number/porting runbook in the onboarding guide (v2.5) — the owner asked directly how payment
-  collection and Canadian numbers actually work today (answer: they didn't) and picked these two scopes off a
-  menu of options. See the Phase 10 checklist entry below. `tsc`/lint/build green; `vitest run` 462/462 (up
-  from 450, all new, zero flakes on this run).
+- **T-080 (Client Management, Phase 10), done and pushed (corrected 2026-09-08 — was stale):** Stripe Payment
+  Links for Luxor's own invoice billing (card/Apple Pay/Google Pay, no webhook — still a manual "Mark paid"),
+  plus a manual Twilio account + Canadian-number/porting runbook in the onboarding guide (v2.5) — the owner
+  asked directly how payment collection and Canadian numbers actually work today (answer: they didn't) and
+  picked these two scopes off a menu of options. See the Phase 10 checklist entry below. `tsc`/lint/build
+  green; `vitest run` 462/462 (up from 450, all new, zero flakes on this run). **Confirmed live 2026-09-08:**
+  `origin/main` == local `HEAD` at `090dcea`, which includes this commit (`e15b104`) — it was pushed at some
+  point after this note was written and the note was never updated. However, production `/api/health` still
+  reports `stripe: "not_configured"` — the code shipped but `STRIPE_SECRET_KEY` was never added to Vercel, so
+  "Generate payment link" will 503 until that env var is set. See Phase 11, T-081.
 - **Scoped implementation:** 100%. Phases 0–6 are merged and pushed; the latest baseline CI passed.
 - **Production:** `https://ai-roof.vercel.app/api/health` returns `200`; Firestore is connected and OpenAI,
   DeepSeek, Resend, Vapi, Firebase, and cron all report configured.
@@ -58,6 +104,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
+| 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **queued — 0/7** | Independent; none block the demo |
 
 ### Checklist
 
@@ -557,6 +604,46 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         a 7th `stripe: "not_configured"` capability, both `/pay/*` pages render 200 with the invoice id
         interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
         server console.
+
+- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 0/7
+      Found during a full end-to-end trace of the roofing demo→job→invoice pipeline and the
+      onboarding→team-invite flow, requested ahead of a demo the following week (see the 2026-09-08 entry in
+      "Current snapshot" above for the full audit — everything traced was confirmed connected and
+      code-correct; these are gaps/polish, not fixes to something broken). None block the demo as-is.
+  - [ ] T-081 — Set `STRIPE_SECRET_KEY` in Vercel so T-080's already-deployed payment-link button actually
+        works (`/api/health` currently reports `stripe: "not_configured"` in production). Env-var entry only,
+        needs the owner's Stripe dashboard access — not self-executable.
+  - [ ] T-082 — Decide whether `business.active` should actually gate the live Vapi phone line (it currently
+        doesn't — `resolveBusinessId()` routes calls purely on `vapiAssistantId`/`vapiPhoneNumberId` matching,
+        with no `active` check at all; the flag only gates the internal `/api/agent/respond` test endpoint and
+        shows as a status tag on `/admin/businesses`). At minimum, correct the onboarding wizard's "review
+        before creating the inactive tenant" copy so it doesn't imply a phone-line hold that isn't real; a
+        real fix would add the check to `resolveBusinessId()`.
+  - [ ] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
+        one Appointments already has, for a lead that needs to become work without ever going through a
+        formal booked appointment.
+  - [ ] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
+        supports the `?lead=`/`?appt=` deep-link — Calendar's "Bookings" strip already uses it in the other
+        direction).
+  - [ ] T-085 — Make the two invoicing systems' distinct purposes explicit in the UI/guide: the job-level
+        invoice (Job detail → Invoice tab) is a draft the tenant emails its own customer with no online payment
+        option; T-080's Stripe Payment Links are only for Luxor billing the tenant. Worth a one-line label or
+        guide note so nobody promises a customer can pay online from the job invoice today.
+  - [ ] T-086 — Delete (or wire up) the dead `POST /api/jobs/[jobId]/invoice` route — zero callers since
+        T-077 replaced it with client-side generation, flagged then, still true now.
+  - [ ] T-087 — No safe, self-led web link exists for a prospect (owner asked 2026-09-08: "how do I send a
+        potential client a safe demo link, for them to demo without my intro"). Audited Demo Studio's two
+        share artifacts: the "Dashboard preview" link/QR is `/company/dashboard?preview=demo-roofing`, which
+        requires the superadmin's own login — an outside prospect hitting it is bounced to `/login`, so it's
+        presenter-only, not shareable. The Field QR is genuinely no-login but is a one-time exchange grant good
+        for only 10 minutes (`FIELD_EXCHANGE_TTL_MS`, `verifyRole.ts`) — fine to scan together live, useless
+        emailed ahead of time. **The only thing that actually works today as a standalone, safe, self-led demo
+        is the phone call itself** (call the personalized live line, no login, no expiry, sandboxed to
+        `demo-roofing`) — real and good, but it's just the call; there's no way for a prospect to see the
+        office side (Pipeline, Calendar, the job/invoice their call produces) without a login, nor should there
+        be as this stands (that's admin tooling). If wanted: a small public `/try/<vertical>` landing page
+        (pitch + the phone number + maybe a canned example transcript/screenshots) would be a real, safe,
+        no-login artifact to send instead of just a bare phone number. Not started — owner to confirm scope.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and
@@ -1607,6 +1694,12 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 
 ## NEEDS-HUMAN
 
+**Demo next week (2026-09-08 note):** of the items below, **NH-8** is the one actually worth doing before the
+demo — it's the only residual gap the 2026-09-08 code review couldn't close by reading (a live click-through of
+Calendar drag→confirm and a real-phone field QR + hold-to-speak). Everything else on this list is
+production/legal sign-off, not demo risk — the roofing call→job→invoice path and owner-onboarding→team-invite
+path were both traced end-to-end and confirmed connected/correct this session (see "Current snapshot" above).
+
 | ID | Needed | Blocks | Notes |
 |---|---|---|---|
 | NH-1 | Vapi dashboard: confirm server-URL secret matches production; confirm assistant model/voice/7 tool schemas/retry/recording; remove any obsolete bypass-era console config; confirm `cancelAppointment` includes optional `confirmCancellation` and `appointmentNumber` without renaming legacy fields | Production sign-off | Console-only; the 2026-08-23 health check proves Vapi env configuration exists, not that dashboard values/schemas match |
@@ -1622,6 +1715,7 @@ for what was checked and fixed; both merged into `main` locally, nothing pushed.
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
 | NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
 | NH-13 | ~~Owner to research/paste reference apps for visual direction~~ — **Closed 2026-09-05:** owner dropped a client-portal screenshot (`example image irrigation.png`, repo root, untracked — not moved into the app) showing a branded sidebar-nav portal with one confident accent color; T-056 shipped using it as direction. | T-056 (per-industry visual families) | Added 2026-09-01; see T-056's 2026-09-05 note for the palette actually shipped and the quick sign-off still worth doing |
+| NH-14 | Add `STRIPE_SECRET_KEY` to Vercel's production env vars (T-080's code is deployed but the key was never set — `/api/health` confirms `stripe: "not_configured"` live) | T-081 | Needs the owner's Stripe dashboard access; not something the integrator can self-serve |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

@@ -21,9 +21,10 @@ import {
   EyeOff,
   Rocket,
   RotateCcw,
+  QrCode,
   type LucideIcon,
 } from "lucide-react";
-import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
+import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 
 type Step = "pick" | "prospect" | "launch";
 
@@ -65,11 +66,6 @@ function hasFieldScreen(verticalId: VerticalId): boolean {
   return !VERTICAL_TEMPLATES[verticalId].disabledModules.includes("jobs");
 }
 
-// Phone numbers for voice-ready verticals — add entry when Vapi assistant is provisioned
-const VERTICAL_PHONE: Partial<Record<VerticalId, string>> = {
-  roofing: "+1 (754) 283-7658",
-};
-
 const ORDERED_VERTICALS = Object.values(VERTICAL_TEMPLATES) as (typeof VERTICAL_TEMPLATES)[VerticalId][];
 
 export default function DemoStudioPage() {
@@ -80,7 +76,8 @@ export default function DemoStudioPage() {
   const [busy, setBusy] = useState<"launch" | "reset" | null>(null);
   const [result, setResult] = useState<ApplyResult | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
-  const [copied, setCopied] = useState<"phone" | "script" | "link" | null>(null);
+  const [tryQrDataUrl, setTryQrDataUrl] = useState<string>("");
+  const [copied, setCopied] = useState<"phone" | "script" | "link" | "tryLink" | null>(null);
   const [scriptOpen, setScriptOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState("");
@@ -113,11 +110,33 @@ export default function DemoStudioPage() {
     };
   }, [result?.businessId, result?.demoUrl, result?.fieldUrl, selectedId]);
 
+  // QR for the public, no-login /try/<vertical> page (T-087) — safe to hand a
+  // prospect directly. Only generated post-launch, since the phone number it
+  // advertises is only accurate once this vertical is actually live on the
+  // shared demo line. Static per vertical, so it never needs Firestore state.
+  useEffect(() => {
+    if (!selectedId || !result?.ok) { setTryQrDataUrl(""); return; }
+    const tryUrl = `https://ai-roof.vercel.app/try/${selectedId}`;
+    let cancelled = false;
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(tryUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
+      )
+      .then((dataUrl) => {
+        if (!cancelled) setTryQrDataUrl(dataUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, result?.ok]);
+
   function pickVertical(id: VerticalId) {
     setSelectedId(id);
     setStep("prospect");
     setResult(null);
     setQrDataUrl("");
+    setTryQrDataUrl("");
   }
 
   function changeVertical() {
@@ -195,7 +214,7 @@ export default function DemoStudioPage() {
     }
   }
 
-  function copyToClipboard(text: string, key: "phone" | "script" | "link") {
+  function copyToClipboard(text: string, key: "phone" | "script" | "link" | "tryLink") {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(key);
       setTimeout(() => setCopied(null), 2000);
@@ -204,7 +223,7 @@ export default function DemoStudioPage() {
 
   // The demo runs on one universal live line — the API returns its number for every
   // vertical (the line reconfigures to whatever you launched).
-  const phone = result?.phone ?? (selectedId ? VERTICAL_PHONE[selectedId] : undefined);
+  const phone = result?.phone ?? (selectedId ? DEMO_LINE_PHONE[selectedId] : undefined);
   const isFieldService = selectedId ? hasFieldScreen(selectedId) : false;
   const fieldUrl = result?.fieldUrl
     ?? (result?.businessId ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}` : "");
@@ -412,7 +431,47 @@ export default function DemoStudioPage() {
               </div>
             </div>
 
-            {/* Col 3 — Presenter notes (collapsed: this screen is often visible to
+            {/* Col 3 — Self-led link (T-087): the one artifact from this screen
+                that's actually safe to hand a prospect directly — public, no
+                login, isolated to the demo. Unlike Col 2's preview link/QR,
+                which bounces an anonymous visitor to /login. */}
+            <div style={panelStyle}>
+              <p style={panelLabelStyle}>
+                <QrCode size={13} strokeWidth={1.75} />
+                Self-led link
+              </p>
+              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0.4rem 0 0.9rem", lineHeight: 1.5 }}>
+                Safe to text, email, or scan — no login, no intro needed. Send this instead of the dashboard link above.
+              </p>
+              <div style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+                padding: "14px 16px",
+                background: "#fff",
+                borderRadius: 10,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.14)",
+              }}>
+                {tryQrDataUrl
+                  ? <img src={tryQrDataUrl} alt="Self-led demo QR code" style={{ width: 150, height: 150, display: "block" }} />
+                  : <div style={{ width: 150, height: 150, background: "#f1f5f9", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94a3b8" }}>Generating…</div>
+                }
+              </div>
+              <button
+                onClick={() => copyToClipboard(`https://ai-roof.vercel.app/try/${selectedId}`, "tryLink")}
+                style={{ ...ghostLinkStyle, marginTop: 8, display: "block" }}
+              >
+                {copied === "tryLink" ? "Copied!" : "Copy link"}
+              </button>
+              {!phone && (
+                <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
+                  No phone number connected for {selected.label} yet — the page shows a &ldquo;request a walkthrough&rdquo; link instead of a call button.
+                </p>
+              )}
+            </div>
+
+            {/* Col 4 — Presenter notes (collapsed: this screen is often visible to
                 the person being demoed, and the script is written to them). */}
             <div style={panelStyle}>
               <p style={panelLabelStyle}>Presenter notes</p>
@@ -643,7 +702,7 @@ function alertStyle(kind: "error" | "success"): React.CSSProperties {
 
 const launchGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
   gap: 14,
 };
 

@@ -1,6 +1,19 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-07 (Claude), continued — T-080 (Phase 10, new) done, not pushed: Stripe Payment Links for
+Updated: 2026-09-08 (Claude) — full end-to-end review of the roofing demo→job→invoice pipeline and the
+client-onboarding→self-service-team-invite flow, ahead of a demo the following week. No code changed. Traced
+every hop (Vapi call → webhook → 7 agent tools → Firestore; Pipeline → "Create Job" → prefilled Jobs form;
+field voice/photo updates → `parseFieldUpdate` → `buildProjection` → `job.parsed` → invoice generation → Send;
+onboarding wizard/fast-create → `businessUsers.active: true` (T-074's fix, re-confirmed present) → Settings
+Team panel self-service invites) and confirmed the whole chain is connected and code-correct — nothing broken
+found. Also caught that T-080 (previously marked "not yet pushed" here and in `HANDOFF.md`) is in fact already
+on `origin/main` (`090dcea` == local `HEAD`) and live in production, though its Stripe payment-link feature is
+non-functional there because `STRIPE_SECRET_KEY` was never added to Vercel. Six small gaps/polish items found
+during the trace (none demo-blocking) were filed as `TODO.md`'s new Phase 11 (T-081–T-086); `TODO.md`'s
+"Current snapshot" and `NEEDS-HUMAN` were updated with the corrected T-080 status and full findings — see
+`TODO.md` for the complete list rather than duplicating it here.
+
+Previous: 2026-09-07 (Claude), continued — T-080 (Phase 10, new) done, not pushed: Stripe Payment Links for
 Luxor's own invoice billing (card/Apple Pay/Google Pay via a Stripe-hosted Checkout Session, no webhook — still
 a manual "Mark paid"), plus a manual Twilio account-setup + Canadian-number/porting runbook added to the
 onboarding guide (v2.5). Owner asked directly, in one message: had Canadian Twilio+Vapi steps been written

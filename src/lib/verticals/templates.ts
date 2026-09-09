@@ -964,3 +964,15 @@ const DEMO_AGENT_NAME_OVERRIDE: Partial<Record<VerticalId, string>> = {
 export function demoAgentName(verticalId: VerticalId): string {
   return DEMO_AGENT_NAME_OVERRIDE[verticalId] ?? VERTICAL_TEMPLATES[verticalId].agentName;
 }
+
+/**
+ * Phone number for the one shared live demo line (`demo-roofing`), keyed by
+ * whichever vertical it's currently launched as. Only industries with a real
+ * provisioned Vapi number appear here — add an entry once a vertical is voice-
+ * ready. Single source of truth for both Demo Studio (`/hub/demo`) and the
+ * public self-led `/try/[vertical]` page, so they can never drift apart on
+ * what number is advertised.
+ */
+export const DEMO_LINE_PHONE: Partial<Record<VerticalId, string>> = {
+  roofing: "+1 (754) 283-7658",
+};
