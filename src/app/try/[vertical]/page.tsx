@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import { PhoneCall } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { CopyPhoneButton } from "./CopyPhoneButton";
+import { EnterSandboxButton } from "./EnterSandboxButton";
 
 type RouteParams = { vertical: string };
 
@@ -93,11 +94,12 @@ export default async function TryVerticalPage({
             AI Receptionist · {t.label}
           </p>
           <h1 style={{ margin: "0 0 12px", fontSize: "1.9rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}>
-            See exactly what your customers will hear
+            See exactly what your customers will hear — and what your office sees
           </h1>
           <p style={{ margin: 0, fontSize: 15, color: "var(--text-muted)", lineHeight: 1.6 }}>
-            This is a live call to {agentName} — the same AI that would answer for your business.
-            No signup, no login, no waiting on hold. Just call the number below and try it yourself.
+            This is a live call to {agentName} — the same AI that would answer for your business. Then open the
+            real dashboard and watch your call become a lead, a booked job, and a draft invoice, exactly like a
+            real one would. No signup, no login, no waiting on hold.
           </p>
         </div>
 
@@ -147,6 +149,32 @@ export default async function TryVerticalPage({
             </>
           )}
         </div>
+
+        {/* Sandbox CTA — the real app, not a mockup. Only offered where the
+            phone demo is also live, since both point at the same shared
+            demo-roofing business/data. */}
+        {phone && (
+          <div className="panel" style={{ marginTop: 18, padding: "26px 28px", textAlign: "center" }}>
+            <p
+              style={{
+                margin: "0 0 6px",
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--text-muted)",
+              }}
+            >
+              After your call
+            </p>
+            <p style={{ margin: "0 0 16px", fontSize: 15, color: "var(--text)", lineHeight: 1.6, maxWidth: 440, marginLeft: "auto", marginRight: "auto" }}>
+              Your call doesn&apos;t just get answered — it becomes a lead in the Pipeline, a booked job on the
+              Calendar, and a draft invoice with materials and labor filled in. This is the actual product your
+              office would use, opened in a safe, read-only sandbox.
+            </p>
+            <EnterSandboxButton />
+          </div>
+        )}
 
         {/* Try saying */}
         <div className="panel" style={{ marginTop: 18, padding: "22px 26px" }}>

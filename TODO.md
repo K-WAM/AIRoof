@@ -104,7 +104,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
-| 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **queued — 0/7** | Independent; none block the demo |
+| 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
 
 ### Checklist
 
@@ -605,7 +605,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
         server console.
 
-- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 0/7
+- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 1/7
       Found during a full end-to-end trace of the roofing demo→job→invoice pipeline and the
       onboarding→team-invite flow, requested ahead of a demo the following week (see the 2026-09-08 entry in
       "Current snapshot" above for the full audit — everything traced was confirmed connected and
@@ -631,19 +631,50 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
         guide note so nobody promises a customer can pay online from the job invoice today.
   - [ ] T-086 — Delete (or wire up) the dead `POST /api/jobs/[jobId]/invoice` route — zero callers since
         T-077 replaced it with client-side generation, flagged then, still true now.
-  - [ ] T-087 — No safe, self-led web link exists for a prospect (owner asked 2026-09-08: "how do I send a
-        potential client a safe demo link, for them to demo without my intro"). Audited Demo Studio's two
-        share artifacts: the "Dashboard preview" link/QR is `/company/dashboard?preview=demo-roofing`, which
-        requires the superadmin's own login — an outside prospect hitting it is bounced to `/login`, so it's
-        presenter-only, not shareable. The Field QR is genuinely no-login but is a one-time exchange grant good
-        for only 10 minutes (`FIELD_EXCHANGE_TTL_MS`, `verifyRole.ts`) — fine to scan together live, useless
-        emailed ahead of time. **The only thing that actually works today as a standalone, safe, self-led demo
-        is the phone call itself** (call the personalized live line, no login, no expiry, sandboxed to
-        `demo-roofing`) — real and good, but it's just the call; there's no way for a prospect to see the
-        office side (Pipeline, Calendar, the job/invoice their call produces) without a login, nor should there
-        be as this stands (that's admin tooling). If wanted: a small public `/try/<vertical>` landing page
-        (pitch + the phone number + maybe a canned example transcript/screenshots) would be a real, safe,
-        no-login artifact to send instead of just a bare phone number. Not started — owner to confirm scope.
+  - [x] T-087 — Self-led demo link + QR (done 2026-09-08, two-part). **Part 1:** `/try/[vertical]` — a
+        public, no-login, statically-generated (`generateStaticParams`, all 11 verticals prerendered at build
+        time, zero Firestore reads) landing page: tap-to-call CTA for the live demo number, 3 suggested things
+        to say drawn from the vertical template's own FAQ/service data, a short value-prop list. Falls back to
+        a "request a walkthrough" mailto for verticals with no phone number yet. Demo Studio (`/hub/demo`)
+        gained a matching "Self-led link" panel (its own QR + copy-link button) so the owner can grab this for
+        any vertical without asking again. Extracted the roofing-only phone map out of a local const in
+        `hub/demo/page.tsx` into a shared `DEMO_LINE_PHONE` export in `templates.ts` so the two surfaces can't
+        drift.
+        **Part 2, same day — owner pushed back that Part 1 alone was incomplete** ("the call gets logged into a
+        pipeline and materials invoicing and calendar are never shown... the demo should be the app in a
+        sandbox so they can see the flow, the real app"). Correct: Part 1 only covered the phone call, not what
+        it produces. Added a **"See it in the real app →" sandbox entry point**, not a mockup — the actual
+        `/company/*` portal (Pipeline, Calendar, Jobs incl. materials/labor/timeline/photos/the client-side
+        invoice generator, Library), reached without a password. Mechanism: `POST /api/demo/sandbox-token`
+        (public, rate-limited, hardcoded to the allowlisted `demo-roofing`/`isDemo:true` business only — can
+        never be pointed at a real tenant) finds-or-creates one shared Firebase Auth identity
+        (`sandbox-visitor@luxordev.com`) and upserts its `businessUsers` doc to `role: "viewer"`, then mints a
+        Firebase custom token via the Admin SDK. The button on `/try/[vertical]` signs in with that token
+        (`signInWithCustomToken`, session-only persistence so it doesn't linger on the prospect's own device),
+        pre-sets the same `__session` marker cookie `login/page.tsx` does (avoids a middleware race on the
+        client-side nav that follows), and lands on `/company/dashboard`. No new permission model was built —
+        "viewer" already exists and was already correctly read-only everywhere that matters: every mutating API
+        route already excludes it (`jobs/route.ts`, `company/team/*`, invoice send, etc. all gate to
+        `["owner","staff","superadmin"]`), and `firestore.rules`' `isBusinessOwnerOrStaff()` — what every direct
+        client-side Firestore write in the company UI depends on — excludes it too, so a sandbox visitor can
+        read everything a real viewer teammate could and write nothing, on both write paths the app has. Added
+        a persistent amber banner ("You're exploring a live product demo... booking, editing, and sending are
+        turned off" + "← Exit demo") in `company/layout.tsx`, gated on a new `isSandboxVisitor` flag (not on
+        `role === "viewer"` — a real client's invited viewer teammate must never see demo messaging; the flag
+        is set only by this one route and threaded through `AuthContext`'s existing profile spread).
+        Verified: `tsc` clean; lint 0 errors/22 warnings (one new pre-existing-pattern `<img>` warning for the
+        added QR image, matching the file's existing one); 5 new tests in
+        `api/demo/sandbox-token/__tests__/route.test.ts` (the `isDemo` allowlist guard rejecting both a missing
+        business and a real/non-demo one, create-vs-reuse of the shared Auth user, the businessUsers upsert
+        shape, and rate-limiting) — `vitest run` 467/467 (up from 462, all new, zero flakes); `next build`
+        green, `/api/demo/sandbox-token` and `/try/[vertical]` both present in the route table. **Pushed and
+        live** (2026-09-08) — production re-verified: `/try/roofing` 200 with the correct `tel:` link,
+        `/try/hvac` 200 with the mailto fallback, `/api/health` unaffected.
+        **Known operational caveat, stated plainly (not new — same one T-087's Part 1 already flagged for the
+        phone number, now also true for the sandbox):** `demo-roofing` is the one shared live business. Both
+        the phone persona and the sandbox's Pipeline/Calendar/Jobs data reflect whatever vertical Demo Studio
+        last launched. Re-launch Roofing there before sending this link out again if it may have been used to
+        demo a different industry in between.
 
 Overall implementation: **100% of the CIB-audit-derived scope** (Phases 0-5, weighted 8/12/15/30/20/15,
 all fully merged — the entire security/compliance backlog this release plan was scoped to close — and

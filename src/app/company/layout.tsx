@@ -191,6 +191,34 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         )}
 
         <main className="company-main">
+          {user.isSandboxVisitor && (
+            <div
+              role="status"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                flexWrap: "wrap",
+                margin: "0 0 16px",
+                padding: "10px 16px",
+                background: "#fffbeb",
+                border: "1px solid #fcd34d",
+                borderRadius: 8,
+                fontSize: 13,
+                color: "#92400e",
+                textAlign: "center",
+              }}
+            >
+              <span>
+                <strong>You&apos;re exploring a live product demo.</strong> This is real, sandboxed data —
+                booking, editing, and sending are turned off.
+              </span>
+              <Link href="/try/roofing" style={{ color: "#92400e", fontWeight: 700, textDecoration: "underline" }}>
+                ← Exit demo
+              </Link>
+            </div>
+          )}
           {!user.superadmin && (
             <FirstLoginGuideNudge
               userId={user.uid}

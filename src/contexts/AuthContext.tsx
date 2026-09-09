@@ -12,6 +12,10 @@ interface AuthUser {
   businessName?: string;
   role?: "superadmin" | "owner" | "staff" | "viewer";
   superadmin?: boolean;
+  /** Set on the shared read-only identity /api/demo/sandbox-token mints for a
+   * prospect exploring /try/[vertical] — never true for a real teammate, even
+   * one with role "viewer". Drives the sandbox banner in company/layout.tsx. */
+  isSandboxVisitor?: boolean;
 }
 
 interface AuthContextValue {
