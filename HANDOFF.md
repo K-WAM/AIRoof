@@ -147,6 +147,10 @@ Also reviewed (not modified): `example image irrigation.png` (untracked, repo ro
 screenshot) came up for a nav-design opinion this session — feedback given on the external screenshot itself,
 nothing in this codebase to change from it. Still untracked; delete or relocate on request.
 
+**2026-09-08:** Relocated per owner request. It carried real PII (owner's home address/phone, vendor's
+mailing address + Zelle number) and `AIRoof` is public, so the sensitive fields were redacted before
+committing — now at `docs/references/irrigation-portal-example.png`; the raw root copy is deleted.
+
 ---
 
 ## Earlier (2026-09-05, continued further) — T-060: live assistant switched to GPT Realtime + cedar

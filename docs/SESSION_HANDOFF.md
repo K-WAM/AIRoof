@@ -161,8 +161,8 @@ Local commit only at the time — see the Repository section below for current p
   (session scratchpad), not in git.
 - Vercel: deployed via the GitHub-integration auto-deploy on each push to `main`.
 - No worker branches, active worktrees, or development blockers otherwise.
-- Untracked in the working tree: `example image irrigation.png` (repo root) — the owner's T-056 reference
-  screenshot, not an app asset; not added to git. Delete or relocate on request.
+- The owner's T-056 reference screenshot is now in git, redacted (name/address/phone/vendor payment
+  details boxed out) at `docs/references/irrigation-portal-example.png`; the untracked root copy is deleted.
 
 ## 2026-09-07 — T-079: superadmin client management (Phase 10, new)
 
@@ -547,6 +547,10 @@ shipped. Investigated rather than assuming those were exhausted.
 - **Also touched:** `example image irrigation.png` (untracked, repo root) — the owner's T-056 reference
   screenshot — was reviewed again this session for a nav-design opinion but not modified; still untracked,
   per the standing "delete or relocate on request" note (no request made).
+- **2026-09-08:** Owner asked to relocate it. It contained real PII (owner's home address/phone, vendor's
+  mailing address + Zelle number) and `AIRoof` is a public repo, so it was redacted (those fields boxed out,
+  layout/pricing/terms left visible) before committing to `docs/references/irrigation-portal-example.png`;
+  the raw untracked root copy was deleted.
 
 ## 2026-09-05, continued further — T-060: live assistant switched to GPT Realtime + cedar
 

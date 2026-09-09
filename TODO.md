@@ -1593,6 +1593,9 @@ new (non-numbered) token/cost audit matching the owner's other stated priority.
 - **Left for the owner:** `example image irrigation.png` is still sitting untracked in the repo root — it was
   useful as a one-time visual reference, not an asset the app itself needs, so it wasn't added to git or moved
   into `public/`. Delete it, or say if it should be kept somewhere for future reference.
+  **Resolved 2026-09-08:** owner asked to keep it. It carried real PII (owner's home address/phone, vendor's
+  mailing address + Zelle number) and `AIRoof` is a public repo, so those fields were redacted before
+  committing to `docs/references/irrigation-portal-example.png`; the raw untracked root copy is deleted.
 
 **2026-09-05, continuation — T-060: switched the live line to GPT Realtime (owner: "set it to the currently most
 human sounding timing, personality, models, responses... find out what it is and set it that way. the best,
