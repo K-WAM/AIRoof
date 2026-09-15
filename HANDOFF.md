@@ -1,11 +1,13 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-07 (live-voice regression found and reverted — see below)
+Last updated: 2026-09-15 (Phase 12 — Speed/Customers foundation, T-088/T-089 — see below)
 
-> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
-> Production is healthy — confirmed via `/api/health`, the webhook 401 path, and `/login` after this session's
-> incident revert (see below). The remaining launch work is authenticated human smoke testing and provider/legal
-> sign-off, not unfinished scoped implementation. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live
-> state. The dated session narratives below remain historical evidence.
+> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed
+> (`origin/main` == local `main` at `a956eb4`, 2026-09-08 — T-087). A new owner-added initiative, **Phase 12**
+> (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
+> `docs/PLATFORM-EXPANSION-PLAN.md`), is 2 of 7 sub-phases in on a separate local branch
+> (`phase1-foundation-perf-url-fix`), **not yet merged to `main` or pushed**. Production is unaffected by this
+> work until it's reviewed and merged. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The
+> dated session narratives below remain historical evidence.
 
 ## Current State
 
@@ -27,6 +29,63 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-14/15) — Phase 12 kickoff: foundation/speed/URL fix + Customers (T-088, T-089)
+
+New owner-added initiative, not a continuation of Phase 11. Owner gave one large multi-part brief covering a
+Customers entity with fast cross-job search, a Spanish toggle (phone AI + field voice parser) with a
+"translated" indicator, a tap-based time clock with a cross-job guard, before/after photo labeling with a
+specific report grid layout, persisted/editable invoices with hide-materials and a logo library, trade-role
+invites, and a general "reduce loading times on all pages, token conservation is fiduciary" mandate — plus one
+concrete bug: "voice input screen has a url, thats weird." Explored the codebase (3 parallel Explore agents),
+designed the architecture (a Plan agent), asked 4 clarifying questions, then wrote a full 7-phase spec —
+**`docs/PLATFORM-EXPANSION-PLAN.md`** is now canonical for this initiative; `TODO.md`'s Phase 12 checklist
+entry narrates what shipped, not a duplicate of the design.
+
+**T-088 — Foundation + the field-URL bug, shipped.** Drops the ~281KB `@firebase/firestore` chunk from every
+authenticated page — confirmed by inspecting `.next/static/chunks` after a production build, not assumed from
+a route-size table. Replaced with `/api/auth/profile` + `/api/company/bootstrap`;
+`useBusinessModules`/`useBusinessTimezone` become thin `BootstrapContext` selectors with their exact public
+signatures kept, so none of their ~15 consumers changed. `verifyAuthAndRole` moved from a 3-clause composite
+Firestore query to a point-read + 30s memo (bypassed whenever an `"owner"` check is in play). **Found and fixed
+a real bug along the way**, same pattern as several prior sessions' work: the old composite query required
+`active == true`, which 403'd legitimate legacy member docs predating that field — now `active !== false`,
+matching `invite.ts`'s existing convention. **Closed a real security hole:** `GET /api/company/settings` had no
+auth check at all (the PUT did) — any caller who knew a businessId could read another tenant's contact info.
+Removed the app's last two client-Firestore writes (Pipeline's status buttons) and tightened `firestore.rules`
+to match. Fixed the reported bug exactly: QR grants now resolve through a short `/f/<22-char-id>` alias instead
+of a ~300-char token in the address bar, and `/field` learns its business/job from the session cookie via a new
+`GET /api/field/session` instead of URL params — **the crew's address bar reads a bare `/field`, nothing else,
+ever.** Found and fixed a live cross-tenant bug while in there: `public/manifest.json`'s `start_url` was
+hardcoded to the demo tenant, so any installed field PWA opened `demo-roofing` regardless of whose session
+cookie was actually set. Deliberately deferred, not silently dropped: splitting the 1854-line job detail page,
+and migrating any page onto the new `useQuery` data-cache layer — both are real refactors of the riskiest UI
+surface in the app and weren't attempted without the ability to click through the result.
+
+**T-089 — Customers, shipped.** New `businesses/{bid}/customers` entity. The actual "type walmart, all jobs
+show up, fast" requirement: a slim customer list is fetched once per session and filtered entirely in memory on
+every keystroke — zero network round trip per keystroke. A Firestore `searchTokens` fallback covers past the
+1000-row in-memory cap. New Library "Customers" tab (first in the tab order), a job-create combobox that's
+simultaneously free text and live search (picking a match auto-fills phone/address; typing a novel name still
+submits with zero extra clicks and resolves to a customer record in the background), and a one-time backfill
+script for jobs that predate this feature. Two deliberate deviations from the written spec, both to avoid
+unnecessary churn: skipped adding a new `customerPlaceholder` field to `VerticalVocab` (the existing
+`customerNoun`/`customerNounPlural` were already sufficient); shipped only an additive `&customerId=` filter on
+`GET /api/jobs` rather than the fuller pagination rewrite the spec described (that rewrite touches 5 different
+page surfaces that need to be clicked through together — deferred as its own follow-up).
+
+**Verified (both tasks):** `tsc` clean; `vitest run` 560/560 (the same long-documented pre-existing
+concurrent-load flake — `registry.test.ts`/`send.test.ts`/`example-lib.test.ts` — showed up once on a full-suite
+run and was reconfirmed clean in isolation, same as every prior session); `next build` green, zero new lint
+warnings across either task's files. **Committed locally** on a new branch, `phase1-foundation-perf-url-fix`
+(two commits) — **not pushed**, per the standing "nothing pushed without explicit approval" rule; `main` and
+`origin/main` are both still at `a956eb4` (T-087, 2026-09-08).
+
+**Remaining, designed but not started:** Photos (before/after phase, batched-blob endpoint, the 2×2+2×2 report
+grid), Invoice persistence + hide-materials + logos, the time clock, Spanish (Whisper + phone AI), and trade
+roles — full specs in `docs/PLATFORM-EXPANSION-PLAN.md`'s Phases 3–7.
 
 ---
 

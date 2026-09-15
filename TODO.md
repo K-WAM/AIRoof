@@ -1,10 +1,27 @@
 # TODO.md — Live queue
 
-Specs: `MASTER_PLAN.md`. Rules: `AGENTS.md`. State snapshot: `docs/SESSION_HANDOFF.md`.
+Specs: `MASTER_PLAN.md`, and for Phase 12 specifically `docs/PLATFORM-EXPANSION-PLAN.md`. Rules: `AGENTS.md`.
+State snapshot: `docs/SESSION_HANDOFF.md`.
 Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance cleanup this session
 (`c8487ed`), plus a 3-vertical expansion on top of it (`1d2f840`) — both on `origin/main`.
 
-## Current snapshot — 2026-09-08
+## Current snapshot — 2026-09-14/15
+
+- **Phase 12 (new, owner-added) — 2 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug) and
+  T-089 (Customers).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
+  12 checklist entry below. Headline results: the ~281KB `@firebase/firestore` chunk is gone from every
+  authenticated page (confirmed by inspecting the built chunks — not assumed from a route-size table), a real
+  security hole was closed (`GET /api/company/settings` had no auth check at all), a live cross-tenant bug was
+  fixed (an installed field PWA always opened the demo tenant regardless of whose session was active), the
+  reported "voice input screen has a url" bug is fixed (the field screen's address bar is now a bare `/field`,
+  the QR grant is a short opaque alias instead of a ~300-char token), and a Customer entity now backs
+  instant, zero-network, in-memory cross-job search from the Library. `tsc` clean; `vitest run` 560/560 (the 3
+  historical concurrent-load flakes reconfirmed clean in isolation); `next build` green. **Committed locally**
+  on branch `phase1-foundation-perf-url-fix`, **not yet pushed to `origin`** — owner approval still required.
+  Remaining sub-phases (Photos, Invoice persistence, Time clock, Spanish, Trade roles — T-090…T-094) are
+  designed but not started; see the plan doc's per-phase status table.
+- **End-to-end demo-readiness review (2026-09-08), no code changed:** owner asked for a full trace of the
+  roofing vertical's demo→job→invoice pipeline and the client-onboarding→self-service-team-invite flow ahead
 
 - **End-to-end demo-readiness review (2026-09-08), no code changed:** owner asked for a full trace of the
   roofing vertical's demo→job→invoice pipeline and the client-onboarding→self-service-team-invite flow ahead
@@ -105,6 +122,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
 | 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
+| 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | 🕓 **in progress — 2/7** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; independent of Phase 11 |
 
 ### Checklist
 
@@ -1690,6 +1708,124 @@ mid-word on longer responses (resumes only if the caller says "continue").
 - **T-060 status:** flip from "done" to **done, then reverted** — the task's own acceptance criterion ("an
   actual human placing a real call and listening") is exactly what caught this; leaving this note here rather
   than only in HANDOFF so a future session doesn't re-attempt gpt-realtime without reading why it was pulled.
+
+- [ ] Phase 12 — Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles
+      (owner-added, 2026-09-14) — 2/7
+      Owner gave a single large, multi-part brief in one message covering: a Customers entity with fast
+      cross-job search ("type walmart or kevin, all jobs show up, fast"), a Spanish toggle for both the phone
+      AI and the field voice parser with a "translated" indicator, a tap-based time clock with a cross-job
+      guard, before/after photo labeling with a specific 2×2+2×2 report grid, persisted/editable invoices with
+      a hide-materials option and a logo library, trade-role invites, and a general "reduce loading times on
+      all pages, token conservation is fiduciary" mandate — plus one concrete bug report ("voice input screen
+      has a url, thats weird"). Explored the codebase with 3 parallel Explore agents, designed the
+      architecture with a Plan agent, then asked 4 clarifying questions (Spanish translation model, time-clock
+      vs. voice-labor precedence, customer/job backfill strategy, phase sequencing) before writing the full
+      7-phase plan — **`docs/PLATFORM-EXPANSION-PLAN.md`** is the canonical spec; this entry and the ones below
+      narrate what actually shipped and where it deviated, not a duplicate of the design.
+  - [x] T-088 — Foundation + the field-URL bug (Phase 1 of the plan). Drops the ~281KB `@firebase/firestore`
+        chunk from every authenticated page (confirmed by inspecting `.next/static/chunks` post-build — no
+        Firestore SDK internals anywhere in the client bundle), replacing it with `/api/auth/profile` +
+        `/api/company/bootstrap`; `useBusinessModules`/`useBusinessTimezone` become thin `BootstrapContext`
+        selectors with their exact public signatures preserved (zero call-site churn across ~15 consumers).
+        `verifyAuthAndRole` moved from a 3-clause composite Firestore query to a `.doc(uid).get()` point-read +
+        30s in-process memo (bypassed whenever an `"owner"` check is in play, so an ownership change is never
+        served stale) — found and fixed a real bug along the way: the old composite query required
+        `active == true`, which 403'd legitimate legacy member docs written before that field existed; now
+        `active !== false`, matching the convention `invite.ts` already used. Closed a real security hole:
+        `GET /api/company/settings` had no auth check at all (the PUT did) — any caller who knew a businessId
+        could read another tenant's contact info. Removed the last two client-Firestore writes (Pipeline's
+        lead/appointment status buttons) via two new PATCH routes, and tightened `firestore.rules` for
+        leads/appointments to `allow write: if false`, matching jobs/library/crews. Fixed the exact bug the
+        owner reported: QR grants now resolve through a short `/f/<22-char-id>` alias instead of putting a
+        ~300-char signed token in the address bar (`POST /api/jobs/[jobId]/field-qr` stores it server-side; the
+        real token keeps its existing one-use enforcement unchanged), and `/field`'s landing page now learns
+        its businessId/jobId from the session cookie via a new `GET /api/field/session` instead of URL params —
+        the crew's address bar is a bare `/field`, nothing else, ever. Found and fixed a live cross-tenant bug
+        while in there: `public/manifest.json`'s `start_url` was hardcoded to `/field?businessId=demo-roofing`,
+        so any installed field PWA opened the demo tenant regardless of whose session cookie was actually set.
+        Also: a hand-rolled `src/lib/data/` cache/tag-invalidation layer (justified over adding SWR — this app
+        already has an equivalent in-house event bus, `src/lib/events/quickAdd.ts`, so generalizing it into
+        `invalidate(tag)` is less new concept surface than running two systems), wired into
+        `useQuickAddRefresh` additively; a shared `src/lib/format/` module (dedupes two copies of `fmtDay` that
+        existed in the same file); `optimizePackageImports` for `lucide-react`; the calls list's default page
+        size 500→100 (call docs carry full transcripts, the largest payload in the app); the `admin/businesses`
+        N+1 fixed via `db.getAll(...refs)`.
+        **Deliberately deferred, not silently dropped:** splitting the 1854-line job detail page into
+        components, and migrating any of the 13 company pages onto the new `useQuery` hook. Both are real
+        refactors of the app's riskiest UI surface and weren't attempted without the ability to click through
+        the result in this sandbox. `admin/usage`'s own N+1 (1 + 3N per-tenant count-aggregation queries) was
+        investigated and left alone — it's inherent to Firestore's `count()` API (can't be batched the way
+        `getAll` batches document reads); a real fix needs pagination plus a separate totals-aggregation
+        strategy, which is a product decision, not a backend tweak.
+        Verified: `tsc` clean; `vitest run` 512/512 (3 timeout failures seen on one full-suite run were
+        reconfirmed as the long-documented pre-existing concurrent-load flake — `registry.test.ts`/
+        `send.test.ts`/`example-lib.test.ts`, none touching changed files, all clean in isolation); `next build`
+        green with every new route present and no lint warnings in any new file. New/changed test files: 8
+        (`verifyRole.test.ts`, the field-qr/field-session/`/f/[grant]` route tests, `useBusinessModules.test.tsx`
+        rewritten onto the new `BootstrapProvider`, `company/settings` auth-gate regression, `data/store.test.ts`).
+        **Committed locally** on branch `phase1-foundation-perf-url-fix`, not yet pushed to `origin`.
+  - [x] T-089 — Customers (Phase 2 of the plan). New `businesses/{bid}/customers` entity with `firestore.rules`/
+        `firestore.indexes.json` updated. The actual "type walmart, all jobs show up, fast" requirement: a slim
+        customer list (`{name,phone,address,jobCount,lastJobAt}`, up to 1000 rows) is fetched once and filtered
+        entirely in memory on every keystroke (`matchesQuery()`) — zero network round trip per keystroke,
+        confirmed by the pure `buildSearchTokens`/`matchesQuery` unit tests (diacritic-folding — "jose" matches
+        "José" — stopword-stripping, phone-suffix indexing all covered). A Firestore `searchTokens
+        array-contains` query is the fallback past the 1000-row cap; `tokenForQuery()` keeps the query-side
+        lookup token in exact sync with how the indexer built it, so the two can't silently drift apart. New
+        Library "Customers" tab (`CustomersSection.tsx`, first in the tab order — most-visited), instant-
+        filtered list + a detail panel showing every job linked to the selected customer. Job-create form's
+        client-name field is now a `CustomerCombobox` — simultaneously free text and a live search: picking a
+        match auto-fills phone/address and sets `customerId`; typing a novel name still submits with zero extra
+        clicks and resolves to a customer record in the background (`POST /api/company/customers/resolve`,
+        find-or-create by `matchKey` = normalized name + phone-last-7, idempotent). `PATCH
+        /customers/[id]?propagate=true` re-denormalizes name/phone/address onto that customer's still-**open**
+        jobs only — an already-invoiced job's snapshot is frozen, covered by a dedicated test. New
+        `scripts/backfill-customers.mjs` (`--dry-run` supported, idempotent) groups pre-existing jobs by the
+        same `matchKey` identity for a business that had jobs before this feature existed. CommandBar's ⌘K
+        gained customers as a 4th result type.
+        **Deviations from the plan, stated plainly:** `customerPlaceholder` was not added to `VerticalVocab` —
+        `customerNoun`/`customerNounPlural` already existed on all 11 vertical templates and were sufficient,
+        so a new required field forcing an edit to every `Record<VerticalId,…>` block wasn't worth it for a
+        placeholder string. `GET /api/jobs`'s fuller pagination rewrite (`?status=&crewId=&since=&cursor=`,
+        default limit 50) did **not** ship — only an additive `&customerId=` filter did, so every existing
+        caller's default behavior (unfiltered, limit 100) is unchanged; the fuller rewrite touches 5 different
+        page surfaces (dashboard, jobs list, field, CalendarBoard, CommandBar) that need to be clicked through
+        together, deferred as its own follow-up.
+        Verified: `tsc` clean; `vitest run` 560/560 (7 new test files: `search.test.ts` — 22 pure-logic cases —
+        plus route tests for list/create, get/patch-with-propagate, and resolve, all against a new small
+        in-memory Firestore fake at `src/test-utils/fakeFirestore.ts` shared across the three); `next build`
+        green, zero new lint warnings (two were introduced and fixed in-session: an unused import, and a
+        missing `aria-controls` on the combobox's `role="combobox"` input). **Committed locally**, same branch
+        as T-088, not yet pushed.
+  - [ ] T-090 — Photos: before/after phase + sort + label editing after the fact (mobile bottom sheet) + the
+        batched-blob endpoint that kills today's 8-request N+1 + the 2×2+2×2 report grid (blurred-backdrop
+        technique so mixed portrait/landscape phone photos never crop or distort). Full spec: Phase 3 of
+        `docs/PLATFORM-EXPANSION-PLAN.md`.
+  - [ ] T-091 — Invoice: real persistence (`businesses/{bid}/invoices`, finally writes the long-dangling
+        `Job.invoiceId`), a live preview sharing one `computeTotals` with the server so they can't drift,
+        `hideMaterials` (customer sees one "Materials & supplies" lump line, not nothing — preserves the tax
+        base and the visible-lines-sum-to-total invariant), editable line totals, and up to 5 logos in the
+        Library (color logo renders at natural color on the white invoice header; the existing
+        `brightness(0) invert(1)` mono treatment stays scoped to the email/report brand bar only). Full spec:
+        Phase 4.
+  - [ ] T-092 — Time clock: the 6-punch state machine (office/site × in/out + a lunch toggle, reconciling the
+        owner's 6 requested buttons into a coherent state graph), an append-only punch ledger, the cross-job
+        409 guard ("you're still clocked in at J-1042 — switch?"), and the projection merge rule where a
+        punched `(worker, day)` shadows the voice-spoken labor entirely rather than summing with it — preserving
+        the existing "the LLM is never in the arithmetic path" invariant. Full spec: Phase 5.
+  - [ ] T-093 — Spanish: Whisper auto-detect (not a forced language — crews code-switch mid-sentence) +
+        `verbose_json` to get the detected language back; `parseFieldUpdate` translates in the same extraction
+        call it already makes (not a second LLM call) and always emits canonical English structured data plus
+        a display-only `transcriptEn`; an `ES → EN` badge with tap-to-see-original on the raw transcript; a
+        bilingual phone-AI toggle via `updateAssistantPersona` (the real mechanism — `assistant-request`
+        doesn't fire for a fixed-assistantId number) with the CLAUDE.md-documented trap that a partial PATCH of
+        a nested Vapi object replaces it wholesale, so `startSpeakingPlan`/`stopSpeakingPlan` must be read from
+        the GET and written back on every voice/transcriber change. Full spec: Phase 6.
+  - [ ] T-094 — Trade roles: a `trade` field alongside (not inside) the existing `role` on `businessUsers` —
+        kept as a separate axis specifically so `verifyAuthAndRole`'s dozens of literal-array call sites and
+        the last-owner guard's `role === "owner"` count never need to change. An invited technician deep-links
+        to `/company/field`, scoped to their crew's jobs (a convenience, not a new security boundary —
+        `verifyFieldAccess` still grants business-wide read). Full spec: Phase 7.
 
 ## Historical assignments (none active)
 

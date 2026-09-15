@@ -2,6 +2,8 @@
 
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
+**Phase 12 (in progress, 2026-09-14)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. Currently on local branch `phase1-foundation-perf-url-fix` (2/7 sub-phases shipped: foundation/speed/the field-URL fix, and Customers), not yet merged to `main`.
+
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
 ## Code Navigation — Read Graphify Before Broad Work
@@ -51,6 +53,37 @@ A tenant must only ever see tools that apply to *their* industry — a dental of
 - **Consume via `useBusinessModules()`** (`isEnabled(module)`, `vocab`, `calendarMode`). It fails *open* (unknown industry keeps every tab) and is sessionStorage-cached. Route-gating lives in one place: `MODULE_ROUTES` in `src/app/company/layout.tsx`.
 - **Agent prompt is fully config-driven** (`buildAgentPrompt`) — no industry hardcoding, no per-vertical Vapi assistant. Extra per-industry booking fields (DOB, insurance, unit no.) go in the booking tool's `notes`.
 - **Demo data**: `demoSeedFor()` must seed resources + something draggable for every vertical, or the Calendar demos empty.
+
+## Customer Entity & Search (read before touching Customers or any Firestore-list API)
+
+`businesses/{businessId}/customers/{customerId}` (`src/types/customer.ts`) is relational truth for who a job is
+for; `Job.clientName`/`clientPhone`/`clientEmail`/`address` stay as flat fields — a **point-in-time snapshot**,
+never rewritten except by an explicit `PATCH /customers/[id]?propagate=true`, and even then only onto that
+customer's still-*open* jobs (an invoiced/complete job's snapshot is frozen so a rename can never mutate
+something already sent to a customer).
+
+- **The instant-search requirement ("type walmart, jobs show up, fast") is solved client-side, not by a
+  Firestore query.** `GET /api/company/customers` returns a slim list (up to 1000 rows) fetched once per
+  session; `src/lib/customers/search.ts`'s `matchesQuery()` filters it in memory on every keystroke — zero
+  network round trip. The Firestore `searchTokens array-contains` query (`buildSearchTokens`/`tokenForQuery`,
+  same file) is the fallback past that row cap, honest to ~50k customers/tenant; past that the answer is a real
+  search service, not a patch to this.
+- **`matchKey` (normalized name + phone-last-7) is the one definition of "same customer."** `resolveCustomer()`
+  (`src/lib/customers/resolve.ts`) is the only place that decides find-vs-create — the manual-create route, the
+  job-create combobox's background resolve call, and `scripts/backfill-customers.mjs` all call it (or its
+  plain-JS duplicate, in the script's case — no path aliases there) so none of the three can disagree about
+  what counts as a duplicate.
+- **Diacritic-folding is load-bearing, not cosmetic** — `src/lib/format/name.ts`'s `normalizeName()` NFD-folds
+  before lowercasing, so "José" and "jose" search/match identically. Any new name-comparison logic must reuse
+  it, not roll its own.
+
+## Cache-Control Rule (read before adding any GET route)
+
+Every API route in this app is single-tenant, cookie-authenticated. **Never set `public` or `s-maxage` on a
+response** — a shared/CDN cache would risk serving one tenant's response to another tenant's request, a
+cross-tenant data leak, not a bug to tune later. Use `src/lib/http/cache.ts`'s `jsonWithCache(data, policy)` —
+every named tier (`semiStatic`, `volatile`, `immutable`, `noStore`) is already `private`.
+
 **Estimated Completion**: 100% of currently scoped implementation; production sign-off remains
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI (incl. GPT Realtime for the live voice), DeepSeek, Vapi, Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
@@ -87,6 +120,8 @@ Basis:
 - **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
 - **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
+- **Customer entity + instant search ✓ (Phase 12, T-089, on `phase1-foundation-perf-url-fix`, not yet merged)**: `businesses/{bid}/customers`, a Library "Customers" tab, a job-create combobox, and client-side zero-network search — see the Customer Entity & Search rule above.
+- **No client Firestore SDK left ✓ (Phase 12, T-088, same branch)**: the last four client-side Firestore reads/writes (AuthContext's profile doc, `useBusinessModules`/`useBusinessTimezone`, Pipeline's status writes) are gone, replaced by `/api/auth/profile` + `/api/company/bootstrap` + two new PATCH routes — confirmed by inspecting the built client chunks directly, not assumed. The field screen's address bar is now a bare `/field` (was showing a ~300-char token).
 - Mobile responsiveness: done (2026-07-04). Remaining: verified RESEND_FROM domain (NH-3 in TODO.md). SMS and Google Calendar OAuth are post-MVP; Twilio integration was superseded by Vapi (T-051 removed Twilio env declarations).
 
 ## Architecture
@@ -253,6 +288,19 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - docs/archive/PERFORMANCE-CLEANUP.md — Phase 4 spec (done; archived)
 - docs/archive/EPIC-PLAN.md — Field Ops + Calendar Powerhouse + Library epic plan (the 7-phase build that's now complete; archived)
 - docs/archive/DEMO-STUDIO-PLAN.md — original multi-vertical Demo Studio design; superseded by universal-line routing (archived)
+- docs/PLATFORM-EXPANSION-PLAN.md — Phase 12 canonical spec (Customers ✓, Photos, Invoice persistence, Time clock, Spanish, Trade roles, speed) — per-phase shipped/not-shipped status table at the top
+- src/types/bootstrap.ts + src/app/api/company/bootstrap/route.ts + src/contexts/BootstrapContext.tsx — one-call company-shell bootstrap (industry/vocab-derivable/timezone/branding); useBusinessModules/useBusinessTimezone are now thin selectors over this
+- src/app/api/auth/profile/route.ts — server-verified replacement for AuthContext's old client-Firestore profile read (admin/hub layouts, FeedbackForm, QuickAddContext, company/settings all consume it via useAuth())
+- src/lib/auth/memberCache.ts — 30s point-read memo backing verifyAuthAndRole (bypassed whenever an "owner" check is in play)
+- src/lib/format/ — shared fmtDay/fmtTime/dayKey/normalizeName (memoized Intl.DateTimeFormat); src/hooks/useFormat.ts binds tz from bootstrap
+- src/lib/data/store.ts + src/hooks/useQuery.ts — hand-rolled cache/tag-invalidation layer (chosen over SWR — generalizes the existing quickAdd event bus); wired additively into useQuickAddRefresh, not yet adopted by any page
+- src/lib/http/cache.ts — the Cache-Control tiers (see the rule above) — jsonWithCache(data, policy)
+- src/app/f/[grant]/route.ts + src/app/api/field/session/route.ts — the short opaque field-QR alias + session-cookie-based businessId/jobId lookup (replaces the old ?businessId=&jobId= URL params)
+- src/types/customer.ts + src/lib/customers/search.ts + src/lib/customers/resolve.ts — Customer type, buildSearchTokens/matchesQuery/tokenForQuery, resolveCustomer/bumpCustomerJobStats (see the Customer Entity & Search rule above)
+- src/app/api/company/customers/route.ts + [customerId]/route.ts + resolve/route.ts — Customer list/create, get+propagate-patch, and the job-create form's non-blocking find-or-create
+- src/app/company/library/CustomersSection.tsx + src/components/customers/CustomerCombobox.tsx — the Library Customers tab and the job-create form's free-text-and-search combobox
+- scripts/backfill-customers.mjs — one-time, --dry-run-capable, idempotent backfill grouping pre-Phase-12 jobs into customers by matchKey
+- src/test-utils/fakeFirestore.ts — small in-memory Firestore fake (nested collections, where/orderBy/limit, transactions, batch) shared across the customers route tests
 
 ## Navigation Completeness Rule
 
@@ -275,13 +323,17 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
+1. **Phase 12 continuation** — Photos (before/after + report grid), Invoice persistence, Time clock, Spanish,
+   Trade roles: 5 of 7 sub-phases remain, fully specced in `docs/PLATFORM-EXPANSION-PLAN.md`. The shipped 2/7
+   (`phase1-foundation-perf-url-fix` branch) need owner review + merge to `main` + push before continuing, or a
+   session can keep building on the same branch.
+2. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
    and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
-2. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore
+3. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore
    TTL policies (NH-1/NH-3/NH-4/NH-11).
-3. **Major dependency upgrades** — evaluate Next.js 16, Firebase 12, and Firebase Admin 14 separately; the
+4. **Major dependency upgrades** — evaluate Next.js 16, Firebase 12, and Firebase Admin 14 separately; the
    2026-08-23 maintenance pass applied all non-breaking audit fixes but intentionally did not force majors.
-4. **Post-MVP** — Google Calendar OAuth, Stripe billing, and SMS.
+5. **Post-MVP** — Google Calendar OAuth, Stripe billing, and SMS.
 
 ## Implementation Phases
 
