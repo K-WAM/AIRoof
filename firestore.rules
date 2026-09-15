@@ -82,6 +82,15 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Customer roster (Library's Customers tab). Stricter than jobs from
+      // day one — client writes were already gone platform-wide by the time
+      // this collection was added, so there's no legacy client-write path to
+      // preserve here the way jobs/appointments/leads had.
+      match /customers/{customerId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow write: if false;
+      }
+
       match /jobs/{jobId} {
         allow read: if isSuperadmin() || isBusinessMember(businessId);
         allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);

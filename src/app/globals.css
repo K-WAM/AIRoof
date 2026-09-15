@@ -1238,9 +1238,10 @@ a.metric:hover {
   flex-shrink: 0;
 }
 
-.cmd-type--lead  { color: #1e40af; }
-.cmd-type--job   { color: #0f766e; }
-.cmd-type--appt  { color: #0891b2; }
+.cmd-type--lead     { color: #1e40af; }
+.cmd-type--job      { color: #0f766e; }
+.cmd-type--appt     { color: #0891b2; }
+.cmd-type--customer { color: #7c3aed; }
 
 .cmd-result-body { flex: 1; min-width: 0; }
 
@@ -2433,5 +2434,13 @@ a.metric:hover {
     width: 100%;
     height: 42px;
     margin-bottom: 8px;
+  }
+}
+
+/* Library's Customers tab: list + detail side by side on desktop, stacked
+   on phone width (CustomersSection.tsx). */
+@media (max-width: 760px) {
+  .customers-grid {
+    grid-template-columns: 1fr !important;
   }
 }

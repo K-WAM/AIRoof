@@ -5,10 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
+import type { CustomerSlim } from "@/types/customer";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
+import { CustomersSection } from "./CustomersSection";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -19,7 +21,7 @@ import {
   Users,
 } from "lucide-react";
 
-type Section = "pricing" | "crews" | "documents";
+type Section = "customers" | "pricing" | "crews" | "documents";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
@@ -29,15 +31,15 @@ export default function LibraryPage() {
   const hasPricing = isEnabled("pricing");
   const searchParams = useSearchParams();
   const initialSection = searchParams?.get("section");
+  const initialCustomerId = searchParams?.get("customerId");
   const [section, setSection] = useState<Section>(
-    initialSection === "crews" || initialSection === "documents"
+    initialSection === "crews" || initialSection === "documents" || initialSection === "customers"
       ? initialSection
-      : hasPricing
-        ? "pricing"
-        : "crews"
+      : "customers"
   );
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
+  const [customers, setCustomers] = useState<CustomerSlim[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -54,10 +56,15 @@ export default function LibraryPage() {
         if (!r.ok) throw new Error("Crews request failed");
         return r.json();
       }),
+      fetch(`/api/company/customers?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Customers request failed");
+        return r.json();
+      }),
     ])
-      .then(([lib, cr]) => {
+      .then(([lib, cr, cu]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
+        setCustomers(cu.customers ?? []);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -137,11 +144,13 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["pricing", "crews", "documents"] as Section[])
+          {(["customers", "pricing", "crews", "documents"] as Section[])
             .filter((s) => s !== "pricing" || hasPricing)
             .map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
-                {s === "pricing"
+                {s === "customers"
+                  ? `${vocab.customerNounPlural} (${customers.length})`
+                  : s === "pricing"
                   ? "Pricing"
                   : s === "crews"
                     ? `${vocab.resourceNounPlural} (${crews.length})`
@@ -151,6 +160,14 @@ export default function LibraryPage() {
         </div>
       </div>
 
+      {section === "customers" && (
+        <CustomersSection
+          businessId={businessId}
+          customers={customers}
+          setCustomers={setCustomers}
+          initialCustomerId={initialCustomerId}
+        />
+      )}
       {section === "pricing" && hasPricing && <PricingSection library={library} onSave={saveLibrary} />}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} />}
       {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} />}

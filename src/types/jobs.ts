@@ -87,6 +87,12 @@ export interface Job {
   clientName?: string;
   clientPhone?: string;
   clientEmail?: string;
+  // Relational link to businesses/{bid}/customers/{customerId} (Phase 2).
+  // clientName/clientPhone/address above stay exactly as-is — they're a
+  // point-in-time snapshot; customerId is the durable identity. Renaming a
+  // customer never rewrites these unless the edit explicitly propagates to
+  // still-open jobs (see PATCH /api/company/customers/[customerId]).
+  customerId?: string;
   serviceType?: string;
   appointmentId?: string;
   notes?: string;

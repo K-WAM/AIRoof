@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 
 interface Result {
-  type: "lead" | "job" | "appt";
+  type: "lead" | "job" | "appt" | "customer";
   id: string;
   name: string;
   sub: string;
@@ -49,12 +49,13 @@ export function CommandBar() {
 
   async function fetchData() {
     try {
-      // T-071: all three sources are now plain server-side API reads — no
-      // client Firestore SDK involved in the command palette at all anymore.
-      const [leadsRes, jobsRes, apptsRes] = await Promise.all([
+      // T-071: all sources are plain server-side API reads — no client
+      // Firestore SDK involved in the command palette at all.
+      const [leadsRes, jobsRes, apptsRes, customersRes] = await Promise.all([
         fetch(`/api/businesses/${businessId}/leads`).catch(() => null),
         fetch(`/api/jobs?businessId=${businessId}`).catch(() => null),
         fetch(`/api/businesses/${businessId}/appointments?order=desc`).catch(() => null),
+        fetch(`/api/company/customers?businessId=${businessId}`).catch(() => null),
       ]);
       const results: Result[] = [];
 
@@ -97,6 +98,19 @@ export function CommandBar() {
         }
       }
 
+      if (customersRes?.ok) {
+        const { customers = [] } = await customersRes.json().catch(() => ({}));
+        for (const c of customers) {
+          results.push({
+            type: "customer",
+            id: c.customerId,
+            name: c.name,
+            sub: [c.phone, c.jobCount ? `${c.jobCount} job${c.jobCount === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
+            href: `/company/library${previewSuffix ? previewSuffix + "&" : "?"}section=customers&customerId=${c.customerId}`,
+          });
+        }
+      }
+
       setAllResults(results);
       setFetched(true);
     } catch {
@@ -121,7 +135,7 @@ export function CommandBar() {
     window.location.href = href;
   }
 
-  const TYPE_LABEL = { lead: "Lead", job: "Job", appt: "Appt" } as const;
+  const TYPE_LABEL = { lead: "Lead", job: "Job", appt: "Appt", customer: "Customer" } as const;
 
   return (
     <>
@@ -139,7 +153,7 @@ export function CommandBar() {
               className="cmd-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search leads, appointments, jobs…"
+              placeholder="Search leads, appointments, jobs, customers…"
             />
             {query && (
               <button

@@ -9,6 +9,7 @@ import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
 import { Briefcase, ExternalLink, FilePlus, Plus } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 
@@ -36,6 +37,16 @@ export default function JobsPage() {
   const prefillAddress = searchParams?.get("address") ?? "";
   const prefillServiceType = searchParams?.get("serviceType") ?? "";
   const prefillApptId = searchParams?.get("appointmentId") ?? "";
+
+  // Lifted to controlled state (unlike the rest of the form, read via
+  // FormData on submit) so the customer combobox can drive them: picking an
+  // existing customer fills phone/address and remembers customerId; typing a
+  // novel name leaves customerId null and gets resolved in the background
+  // after the job is created (see createJob below).
+  const [clientName, setClientName] = useState(prefillClientName);
+  const [clientPhone, setClientPhone] = useState(prefillClientPhone);
+  const [address, setAddress] = useState(prefillAddress);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   function fetchJobs() {
     if (!businessId) return;
@@ -71,9 +82,10 @@ export default function JobsPage() {
         body: JSON.stringify({
           businessId,
           title: fd.get("title"),
-          clientName: fd.get("clientName"),
-          clientPhone: fd.get("clientPhone"),
-          address: fd.get("address"),
+          clientName: clientName.trim() || undefined,
+          clientPhone: clientPhone.trim() || undefined,
+          address: address.trim() || undefined,
+          customerId: selectedCustomerId ?? undefined,
           serviceType: fd.get("serviceType"),
           notes: fd.get("notes"),
           appointmentId: fd.get("appointmentId") || undefined,
@@ -85,6 +97,22 @@ export default function JobsPage() {
       setShowForm(false);
       setJustCreatedId(data.job.jobId);
       (e.target as HTMLFormElement).reset();
+
+      // A novel name (no existing customer picked) — find-or-create and
+      // link it in the background. The job is already created and visible
+      // above; this never blocks or can fail the create flow itself.
+      if (!selectedCustomerId && clientName.trim() && businessId) {
+        fetch("/api/company/customers/resolve", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId, jobId: data.job.jobId,
+            name: clientName.trim(), phone: clientPhone.trim() || undefined, address: address.trim() || undefined,
+          }),
+        }).catch(() => {});
+      }
+
+      setClientName(""); setClientPhone(""); setAddress(""); setSelectedCustomerId(null);
       setTimeout(() => setJustCreatedId(null), 4000);
     } catch {
       setActionError("The job could not be created. Review the form and try again.");
@@ -153,16 +181,27 @@ export default function JobsPage() {
                   <input name="title" required placeholder={vocab.jobTitlePlaceholder} />
                 </div>
                 <div className="field">
-                  <label>Client name</label>
-                  <input name="clientName" defaultValue={prefillClientName} placeholder="John Smith" />
+                  <CustomerCombobox
+                    businessId={businessId}
+                    label={`${vocab.customerNoun} name`}
+                    value={clientName}
+                    onChangeText={setClientName}
+                    onSelect={(c) => {
+                      setSelectedCustomerId(c.customerId);
+                      if (c.phone) setClientPhone(c.phone);
+                      if (c.address) setAddress(c.address);
+                    }}
+                    onClearSelection={() => setSelectedCustomerId(null)}
+                    placeholder="John Smith, or start typing to find an existing one"
+                  />
                 </div>
                 <div className="field">
-                  <label>Client phone</label>
-                  <input name="clientPhone" defaultValue={prefillClientPhone} placeholder="+1 (305) 555-0100" />
+                  <label>{vocab.customerNoun} phone</label>
+                  <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
                 </div>
                 <div className="field full">
                   <label>Address</label>
-                  <input name="address" defaultValue={prefillAddress} placeholder="123 Main St, Miami, FL" />
+                  <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, Miami, FL" />
                 </div>
                 <div className="field">
                   <label>Service type</label>
