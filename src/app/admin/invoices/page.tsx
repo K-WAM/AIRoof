@@ -348,8 +348,17 @@ function AdminInvoicesPageInner() {
   return (
     <>
       <style>{`
+        /* Twin-render base rule: without this, .print-only spans (the read-only mirror of each
+           editable input, below) have no display rule outside of print and default to visible —
+           duplicating every line item on screen next to its input. See the job invoice page's
+           own copy of this same rule for the full twin-render explanation. */
+        .print-only { display: none; }
         @media print {
           .no-print { display: none !important; }
+          /* revert (not a fixed "block"/"inline") because .print-only tags both <span>s (line
+             items, inline) and a <p> (notes, block) — revert restores each tag's own UA-default
+             display instead of forcing one value that would break the other. */
+          .print-only { display: revert !important; }
           body { background: white; }
         }
       `}</style>

@@ -634,10 +634,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const due = new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  // Invoice letterhead branding — mirrors ReportRenderer's own accent/bizName so the invoice and
+  // job report read as the same document family.
+  const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
+  const invoiceBizName = businessConfig?.businessName ?? job.title;
 
   return (
     <>
       <style>{`
+        /* Twin-render base rule: .print-only content (e.g. the collapsed "Materials & supplies"
+           line when hiding the breakdown from the customer) stays hidden on screen and only
+           appears once @media print flips it back to block below. Without this base rule the
+           .print-only element has no display rule of its own outside of print and just renders
+           at its default display — i.e. always visible, duplicating the on-screen content. */
+        .print-only { display: none; }
+
         /* Report photo grid (Phase 12, Phase 3) — a fixed-aspect card slot + object-fit: contain
            + a blurred scaled copy of the same image as the backdrop. No crop (the old bug: a
            fixed-height box with object-fit: cover), no distortion, no dead letterbox space. */
@@ -1177,7 +1188,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }}>{invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
-                  <Tooltip content="When on, the emailed invoice shows one 'Materials & supplies' line at the subtotal instead of the item breakdown. Materials still appear as usual here in the app, and in the printed/PDF view.">
+                  <Tooltip content="When on, the emailed invoice and the printed/PDF view both show one 'Materials & supplies' line at the subtotal instead of the item breakdown. Materials still appear fully broken out and editable here in the app.">
                     <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: invoiceStatus === "draft" ? "pointer" : "not-allowed" }}>
                       <Toggle checked={hideMaterials} onChange={setHideMaterials} label="Hide materials from customer email" disabled={invoiceStatus !== "draft"} size="sm" />
                       Hide materials from customer
@@ -1256,40 +1267,55 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               {/* Invoice document */}
               <div className="invoice-doc" style={{
                 background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
-                padding: "40px 48px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
+                padding: "44px 52px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
               }}>
-                {/* Header */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32 }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 20, color: "#0f172a" }}>{job.title}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginTop: 4, lineHeight: 1.7 }}>
-                      {job.address && <>{job.address}<br /></>}
-                      {job.clientPhone && <>{job.clientPhone}<br /></>}
+                {/* Letterhead */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, marginBottom: 24, paddingBottom: 24, borderBottom: `3px solid ${invoiceAccent}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    {businessConfig?.logoUrl && (
+                      <img src={businessConfig.logoUrl} alt={invoiceBizName} style={{ height: 52, maxWidth: 140, objectFit: "contain" }} />
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 19, color: "#0f172a" }}>{invoiceBizName}</div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 3, lineHeight: 1.6 }}>
+                        {businessConfig?.address && <>{businessConfig.address}<br /></>}
+                        {(businessConfig?.contactPhone || businessConfig?.contactEmail) && (
+                          <>{[businessConfig?.contactPhone, businessConfig?.contactEmail].filter(Boolean).join("  ·  ")}<br /></>
+                        )}
+                        {businessConfig?.websiteUrl && <>{businessConfig.websiteUrl}</>}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#3b82f6", marginBottom: 4 }}>Draft Invoice</div>
-                    <div style={{ fontWeight: 800, fontSize: 22, color: "#0f172a" }}>#{jobId}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 1.7 }}>
-                      Date: {today}<br />Due: {due}
-                    </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: 28, color: invoiceAccent, letterSpacing: "-0.02em", marginBottom: 8 }}>Invoice</div>
+                    {invoiceStatus && invoiceStatus !== "draft" && (
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "#15803d", marginBottom: 6 }}>{invoiceStatus}</div>
+                    )}
+                    <table style={{ fontSize: 12, borderCollapse: "collapse", marginLeft: "auto" }}>
+                      <tbody>
+                        <InvoiceMetaRow label="Date" value={today} accent={invoiceAccent} />
+                        <InvoiceMetaRow label="Invoice No." value={invoiceId ?? jobId} accent={invoiceAccent} />
+                        <InvoiceMetaRow label="Due" value={due} accent={invoiceAccent} />
+                        {job.serviceType && <InvoiceMetaRow label="Service" value={job.serviceType} accent={invoiceAccent} />}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* Bill To + Job Info */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "20px 0", borderTop: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>
+                {/* Bill To + Service Info */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Bill To</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Bill To</div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{job.clientName || "—"}</div>
                     {job.clientPhone && <div style={{ fontSize: 13, color: "#64748b" }}>{job.clientPhone}</div>}
                     {job.address && <div style={{ fontSize: 13, color: "#64748b" }}>{job.address}</div>}
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Job Details</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Service At</div>
                     <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7 }}>
+                      <div><strong style={{ color: "#1e293b" }}>Job:</strong> {job.title}</div>
                       <div><strong style={{ color: "#1e293b" }}>Job ID:</strong> {jobId}</div>
-                      {job.serviceType && <div><strong style={{ color: "#1e293b" }}>Service:</strong> {job.serviceType}</div>}
                       {job.address && <div><strong style={{ color: "#1e293b" }}>Site:</strong> {job.address}</div>}
                     </div>
                   </div>
@@ -1384,6 +1410,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {/* Materials */}
                 <div style={{ marginBottom: 28 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Materials</div>
+                  {/* Full itemized breakdown — always shown on screen; hidden from the printed/PDF
+                      output (not from the app itself) when "Hide materials from customer" is on. */}
+                  <div className={hideMaterials ? "no-print" : undefined}>
                   {materialRows.length === 0 ? (
                     <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 6px" }}>No materials extracted. Add manually below.</p>
                   ) : (
@@ -1450,6 +1479,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     Add material
                   </button>
                   {materialRows.length > 0 && <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Materials subtotal: <strong>${materialSubtotal.toFixed(2)}</strong></div>}
+                  </div>
+                  {/* Collapsed single line — printed/PDF output only, when hiding the breakdown from the customer */}
+                  {hideMaterials && materialRows.length > 0 && (
+                    <table className="print-only" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <tbody>
+                        <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={tdStyle()}>Materials &amp; supplies</td>
+                          <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialSubtotal.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )}
                 </div>
 
                 {/* Other charges */}
@@ -1472,36 +1513,38 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {/* Totals */}
                 <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <table style={{ fontSize: 13, minWidth: 260 }}>
-                      <tbody>
-                        <tr>
-                          <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>Subtotal</td>
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>${subtotal.toFixed(2)}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
-                            Tax (
-                            <input
-                              value={taxRate}
-                              onChange={(e) => setTaxRate(e.target.value)}
-                              style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px" }}
-                            />
-                            %)
-                          </td>
-                          <td style={{ textAlign: "right", fontWeight: 600 }}>${tax.toFixed(2)}</td>
-                        </tr>
-                        <tr style={{ borderTop: "2px solid #0f172a" }}>
-                          <td style={{ padding: "10px 16px 4px 0", fontWeight: 800, fontSize: 15 }}>Total Due</td>
-                          <td style={{ textAlign: "right", fontWeight: 800, fontSize: 18, color: "#0f172a", paddingTop: 10 }}>${grandTotal.toFixed(2)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div style={{ minWidth: 260 }}>
+                      <table style={{ width: "100%", fontSize: 13 }}>
+                        <tbody>
+                          <tr>
+                            <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>Subtotal</td>
+                            <td style={{ textAlign: "right", fontWeight: 600 }}>${subtotal.toFixed(2)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
+                              Tax (
+                              <input
+                                value={taxRate}
+                                onChange={(e) => setTaxRate(e.target.value)}
+                                style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px" }}
+                              />
+                              %)
+                            </td>
+                            <td style={{ textAlign: "right", fontWeight: 600 }}>${tax.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1.5px solid ${invoiceAccent}`, borderRadius: 6, padding: "10px 14px", marginTop: 10 }}>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: "#0f172a" }}>Total Due</span>
+                        <span style={{ fontWeight: 800, fontSize: 18, color: invoiceAccent }}>${grandTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Notes / payment terms */}
                 <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Notes & Payment Terms</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Notes & Payment Terms</div>
                   <textarea
                     value={invoiceNotes}
                     onChange={(e) => setInvoiceNotes(e.target.value)}
@@ -1510,8 +1553,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   />
                 </div>
 
-                <div style={{ marginTop: 24, fontSize: 11, color: "#94a3b8", textAlign: "center" }}>
-                  This is a draft invoice. Please review all amounts before sending to client.
+                <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                    {[invoiceBizName, businessConfig?.websiteUrl, businessConfig?.contactPhone].filter(Boolean).join("  ·  ")}
+                  </div>
+                  {invoiceStatus === "draft" && (
+                    <div className="no-print" style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>
+                      This is a draft invoice. Please review all amounts before sending to client.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2089,6 +2139,18 @@ function ReportSection({ title, children }: { title: string; children: React.Rea
       </div>
       {children}
     </div>
+  );
+}
+
+// Compact label:value row for the invoice letterhead's Date/Invoice No./Due block — labels in
+// the tenant's brand color (bold, right-aligned) so it reads like the printed-invoice reference
+// style, values in plain dark text immediately to the right.
+function InvoiceMetaRow({ label, value, accent }: { label: string; value: string; accent: string }) {
+  return (
+    <tr>
+      <td style={{ padding: "1px 8px 1px 0", textAlign: "right", fontWeight: 700, color: accent, whiteSpace: "nowrap" }}>{label}:</td>
+      <td style={{ padding: "1px 0", textAlign: "left", color: "#1e293b", whiteSpace: "nowrap" }}>{value}</td>
+    </tr>
   );
 }
 

@@ -1,7 +1,8 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–3 and 5 shipped; Phase 4 partially shipped (persistence +
-> hide-materials; the logo library and two-pane preview deferred) — all merged to `main` and
+> **Status (2026-09-15): Phases 1–3 and 5 shipped; Phase 4 partially shipped (persistence,
+> hide-materials now everywhere it's promised, and a formal letterhead redesign matching a real
+> reference invoice; the logo library and two-pane preview still deferred) — all merged to `main` and
 > pushed to `origin/main`.** Phases 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088
 > onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
@@ -330,9 +331,11 @@ Add to `src/lib/photos/store.ts`: `updatePhotoMeta(db, bid, jobId, photoId, patc
 
 ---
 
-## Phase 4 — Invoice persistence, hide-materials, logos — PARTIALLY SHIPPED (T-092)
+## Phase 4 — Invoice persistence, hide-materials, logos — PARTIALLY SHIPPED (T-092, +letterhead pass 2026-09-15)
 
-**Shipped: the actual bug (invoices don't persist, `job.invoiceId` dangles) and hide-materials.
+**Shipped: the actual bug (invoices don't persist, `job.invoiceId` dangles), hide-materials (now
+in the email, the in-app print/PDF view, *and* the on-screen doc identically), and a letterhead
+redesign so the invoice reads like a real printed invoice instead of a generic SaaS card.
 Deferred: the two-pane live-preview redesign and the entire logo library.** See T-092's `TODO.md`
 entry for the full reasoning; summary:
 
@@ -347,14 +350,42 @@ entry for the full reasoning; summary:
   `status !== "draft"`. `POST` is idempotent (re-clicking "Generate Invoice" just re-fetches); a
   new `force: true` flag rebuilds a still-draft invoice from the current projection for
   "Regenerate." `send/route.ts` now reads the saved doc instead of trusting rows the client sent.
-- **`hideMaterials` — real, but scoped to the emailed invoice only.** When on, `send/route.ts`
-  collapses the materials table to one "Materials & supplies" line at the real subtotal in the
-  email. **Deviation:** the in-app Print/Save-as-PDF view does not yet apply this — it always
-  shows the full material rows regardless of the toggle. The spec's `.print-only`/`.no-print`
-  twin-render trick for this exists in `admin/invoices/page.tsx` but was found to be missing its
-  own base "hidden outside print" CSS rule there (both the editable input and the print-only span
-  render simultaneously on screen today) — rather than propagate that same gap into new code, this
-  was left for a dedicated pass that fixes it properly in both places.
+- **`hideMaterials` — now real everywhere it's promised (2026-09-15 follow-up), not just the
+  emailed invoice.** The original T-092 session shipped it for `send/route.ts` only and
+  *documented* the in-app Print/Save-as-PDF gap rather than propagate a real bug it had found:
+  `admin/invoices/page.tsx`'s own `.print-only`/`.no-print` twin-render was missing its base
+  "hidden outside print" CSS rule, so its `.print-only` spans rendered on screen at the same time
+  as their paired `<input>` — a real, live, visibly duplicated-text bug on Luxor's own invoice
+  editor. Fixed both places: `.print-only { display: none; }` now exists as a base rule (outside
+  `@media print`) in both `admin/invoices/page.tsx` and the job detail page, with the print-time
+  override restoring the right `display` per element (`revert` on admin/invoices, since it mixes
+  block `<p>` and inline `<span>` under one class; `block` on the job page, since its own
+  `.print-only` usage is a `<table>`). The job invoice's Materials section now renders both a
+  `.no-print`-gated (when `hideMaterials`) full itemized table for on-screen editing and a
+  `.print-only` (when `hideMaterials`) single "Materials & supplies" line — so the printed/PDF/
+  emailed views all agree, and the app itself still always shows the full editable breakdown. The
+  toggle's tooltip copy was corrected to match (it previously told the user the printed view
+  would *not* collapse, which was accurate at the time but is no longer true).
+- **Letterhead redesign (2026-09-15), matching a real reference invoice the owner supplied.** The
+  invoice doc (job detail page, Invoice tab) and the emailed HTML both moved from a generic dark-
+  header-bar "SaaS notification" look to a classic printed-invoice layout: business logo/name/
+  address/phone on the left, a large "Invoice" title with a compact blue-label Date / Invoice No.
+  / Due / Service key-value block on the right, a boxed "Total Due" (not just bold text), and a
+  footer identity line — all using `businessConfig.logoUrl`/`address`/`contactPhone`/
+  `contactEmail`/`websiteUrl`/`brandColor`, the same branding fields `ReportRenderer` already
+  reads, so the invoice and the job report read as the same document family. Two real bugs fixed
+  along the way: (1) the in-app doc showed `#{jobId}` as the "invoice number" even after a real
+  `invoiceId` (`INV-1000+`) was persisted — now shows the real number, matching what's emailed;
+  (2) the emailed invoice read `biz.phone`, a field that has never existed on `BusinessConfig`
+  (the actual field is `contactPhone`) — the business's phone silently never appeared on a sent
+  invoice regardless of Settings config. The 100-line inline HTML template in `send/route.ts` was
+  also extracted to a new pure, unit-tested module, **`src/lib/billing/jobInvoiceEmailHtml.ts`**
+  (`buildJobInvoiceEmailHtml`), both so the route stays a thin auth-and-fetch shell and so the
+  email template can't silently drift from what the tests check — it also now escapes
+  HTML-significant characters in free-text fields (customer name, notes, item descriptions), which
+  the original inline template never did. The draft-invoice disclaimer footer line is now
+  `.no-print` — it printed onto the actual PDF/email before, which read as unfinished on a
+  document meant for a customer to keep.
 - **Client wiring is deliberately the SAME editing UI, not a two-pane split.** The existing
   Invoice tab already renders as an in-place, WYSIWYG editable document (edits show immediately
   in the exact layout that prints) — that already serves "live preview," so a full two-pane
@@ -367,10 +398,13 @@ entry for the full reasoning; summary:
   through this UI — every saved row becomes `"manual"`. The punch/voice distinction is still
   fully correct at *generation* time (`buildDraftFromProjection` reads it straight off
   `job.parsed`); this only affects a row after a manual edit touches it.
-- **The entire logo library (the rest of this phase's spec below) was not built.** New collection,
-  new upload pipeline, new Library UI section, new invoice-header rendering rules — a genuinely
-  separate feature from "invoices persist," deferred rather than compressed into this already-large
-  session. `logoId` exists on `JobInvoice` (typed, unused) for whenever it lands.
+- **The entire logo library (the rest of this phase's spec below) still isn't built.** New
+  collection, new upload pipeline, new Library UI section, per-invoice logo *choice* — a genuinely
+  separate feature from "invoices persist" or "the invoice looks professional," deferred rather
+  than compressed into this already-large session. The 2026-09-15 letterhead pass only reads the
+  one `businessConfig.logoUrl` a tenant already sets in Settings (the same field `ReportRenderer`
+  has used since Phase 3) — there is still no way to upload/manage multiple logos or pick one per
+  invoice. `logoId` exists on `JobInvoice` (typed, unused) for whenever the library lands.
 - Customer rate/tax overrides (`customer.defaultLaborRate`/`defaultTaxRate` ahead of the Library
   and business-wide defaults) and the editable-total-column-back-solves-unitPrice UX were both in
   scope for this phase; the former shipped (it's pure precedence logic in the draft builder), the

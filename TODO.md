@@ -96,6 +96,30 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   switching `src/app/login/page.tsx` to `signInWithRedirect`/`getRedirectResult`, which never needs that
   cross-origin relay. Also answered: the Spanish toggle and a time-clock "+ start time" control don't exist yet
   — both are Phase 12 Phases 5/6, not started (confirmed by grep, not assumption). `tsc`/lint clean.
+- **2026-09-15 — Job invoice letterhead redesign + hide-materials print parity (T-092 follow-up), shipped.**
+  Owner supplied a real printed-invoice sample and asked the job invoice match its look. Redesigned both the
+  in-app invoice doc (job detail page, Invoice tab) and the emailed HTML: business logo/name/address/phone
+  letterhead on the left, a large "Invoice" title with a blue-label Date/Invoice No./Due/Service key-value
+  block on the right (reusing `businessConfig.logoUrl`/`address`/`contactPhone`/`contactEmail`/`websiteUrl`/
+  `brandColor` — the same fields `ReportRenderer` already reads, so invoice and report read as one document
+  family), and a boxed "Total Due." Found and fixed two real bugs while doing it: the in-app doc showed
+  `#{jobId}` as the invoice number instead of the real persisted `invoiceId` ("INV-1000+"), and the emailed
+  invoice read a `biz.phone` field that has never existed on `BusinessConfig` (the real field is
+  `contactPhone`) — the business phone silently never appeared on a sent invoice. Also closed the documented
+  `hideMaterials` print-view gap from T-092: it now collapses materials to one line in the in-app Print/
+  Save-as-PDF output too, not just the email, via a `.no-print`/`.print-only` twin-render — which required
+  fixing a real, separate, currently-live bug found along the way: `admin/invoices/page.tsx`'s own copy of
+  that same twin-render pattern was missing its base "hidden outside print" CSS rule, so its `.print-only`
+  spans rendered on screen at the same time as their paired `<input>` (visibly duplicated text on Luxor's own
+  invoice editor). Fixed the base rule in both places. Extracted the invoice email's 100-line inline HTML
+  template out of `send/route.ts` into a new pure, unit-tested module (`src/lib/billing/jobInvoiceEmailHtml.ts`,
+  6 tests covering letterhead content, hideMaterials collapse, HTML-escaping of free-text fields, and a
+  missing-Bill-To edge case) — it also now escapes customer name/notes/item text, which the inline template
+  never did. `tsc`/lint clean (pre-existing warnings only, none new); `vitest run` 590/592 (the 2 failures are
+  the standing `example-lib.test.ts`/`send.test.ts` concurrent-load flakes — both reconfirmed clean run in
+  isolation); `next build` verified. Still deferred, unchanged from T-092: the logo library (upload/manage
+  multiple logos — this pass only reads the one `logoUrl` a tenant already sets in Settings) and the two-pane
+  live-preview redesign.
 - **End-to-end demo-readiness review (2026-09-08), no code changed:** owner asked for a full trace of the
   roofing vertical's demo→job→invoice pipeline and the client-onboarding→self-service-team-invite flow ahead
 

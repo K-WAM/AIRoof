@@ -1,6 +1,25 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude), continued yet further — Invoice persistence (T-092, Phase 12/Phase 4)
+Updated: 2026-09-15 (Claude), continued yet again — Invoice letterhead redesign + hide-materials print
+parity (T-092 follow-up), shipped and pushed to `main`/`origin/main`. Owner supplied a real printed invoice
+(Roof Doctors) and asked the job invoice match its look; also asked things be verified working end-to-end,
+not just committed. Redesigned both the in-app invoice doc and the emailed HTML to a classic
+logo/name/address/phone letterhead + blue-label Date/Invoice No./Due/Service block + boxed Total Due,
+reusing the same `businessConfig` branding fields `ReportRenderer` already uses. Found and fixed two real
+bugs while doing it: the in-app doc showed `#{jobId}` instead of the real persisted `invoiceId`, and the
+emailed invoice read a `biz.phone` field that has never existed on `BusinessConfig` (real field:
+`contactPhone`) — the business phone has silently never appeared on a sent invoice. Closed the
+`hideMaterials` print-view gap T-092 had documented rather than shipped: it now collapses in the in-app
+Print/Save-as-PDF output too, via a `.no-print`/`.print-only` twin-render — which required fixing a real,
+separately-live bug found along the way (`admin/invoices/page.tsx`'s own copy of that same pattern was
+missing its base "hidden outside print" CSS rule, so it visibly duplicated every line item on screen; fixed
+in both places). Extracted the invoice email's inline HTML template into a new pure, unit-tested module,
+`src/lib/billing/jobInvoiceEmailHtml.ts` (6 tests), which also now escapes free-text fields the old inline
+template never did. `tsc`/lint clean (0 new errors); `vitest run` 590/592 (2 pre-existing concurrent-load
+flakes, both reconfirmed clean in isolation); `next build` exit 0. Still deferred: the logo library and the
+two-pane live-preview redesign. Full narrative in `HANDOFF.md`'s matching entry.
+
+Previous: 2026-09-15 (Claude), continued yet further — Invoice persistence (T-092, Phase 12/Phase 4)
 PARTIALLY shipped and pushed to `main`/`origin/main`. The real bug is fixed: invoices now persist in
 `businesses/{bid}/invoices` ("INV-1000+", its own counter separate from Luxor's platform billing),
 `job.invoiceId`/`status` are no longer dangling, GET/POST/PATCH are all real (POST idempotent, `force`

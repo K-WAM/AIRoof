@@ -1,12 +1,13 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Invoice persistence, T-092 — see below)
+Last updated: 2026-09-15 (Invoice letterhead redesign + hide-materials print parity, T-092 follow-up — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
 > `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 4 sub-phases (T-088/T-089/T-090/T-091) fully shipped, plus
-> T-092 (Invoice persistence) **partially** shipped — the real bug (invoices didn't persist, `job.invoiceId`
-> dangled) and hide-materials are fixed; the logo library and a two-pane live-preview redesign are deliberately
-> deferred (see `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes). All merged to `main` and pushed to
+> T-092 (Invoice persistence) **partially** shipped — real persistence, hide-materials now everywhere it's
+> promised (email + in-app print/PDF), and a letterhead redesign matching a real reference invoice are done;
+> the logo library and a two-pane live-preview redesign are deliberately deferred (see
+> `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes). All merged to `main` and pushed to
 > `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library. See
 > `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives below remain
 > historical evidence.
@@ -31,6 +32,77 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, continued yet again) — Invoice letterhead redesign + hide-materials print parity (T-092 follow-up)
+
+Owner supplied a real printed invoice (Roof Doctors — a South Florida roofing company's actual
+customer invoice) and asked the job invoice match that look, plus a request to verify everything
+actually works end-to-end rather than just compiles.
+
+**Letterhead redesign, both places an invoice is seen.** The in-app invoice doc (job detail page,
+Invoice tab) and the emailed HTML both moved off a generic dark-header-bar "SaaS notification"
+look onto a classic printed-invoice layout: business logo/name/address/phone on the left, a large
+"Invoice" title with a compact blue-label Date / Invoice No. / Due / Service key-value block on
+the right, a boxed "Total Due" instead of just bold text, and a footer identity line — reusing
+`businessConfig.logoUrl`/`address`/`contactPhone`/`contactEmail`/`websiteUrl`/`brandColor`, the
+exact fields `ReportRenderer` already reads for the job report, so the invoice and the report now
+read as the same document family instead of two different visual languages.
+
+**Two real bugs found and fixed along the way, not just style.** (1) The in-app doc displayed
+`#{jobId}` as the "invoice number" even though T-092 already persists a real `invoiceId`
+("INV-1000+") — the in-app view and the emailed copy disagreed about the invoice's own number.
+Now both show the real one. (2) The emailed invoice read `biz.phone`, a field name that has never
+existed on `BusinessConfig` (the actual branding field is `contactPhone`) — meaning the business's
+phone number has never once appeared on a sent invoice regardless of what was configured in
+Settings, silently, since T-092 shipped. Caught by re-deriving the letterhead fields from the type
+definition instead of trusting the existing route's field names.
+
+**`hideMaterials` now applies everywhere it's promised — email, in-app print/PDF, and (invisibly)
+the on-screen doc all agree.** T-092 shipped this for the emailed invoice only and *documented* a
+real bug it had found rather than propagate it: `admin/invoices/page.tsx`'s own
+`.print-only`/`.no-print` twin-render was missing its base "hidden outside print" CSS rule, so its
+`.print-only` spans rendered on screen at the same time as their paired `<input>` — a real,
+currently-live, visibly-duplicated-text bug on Luxor's own invoice editor, not a hypothetical one.
+Fixed properly in both places this time: `.print-only { display: none; }` now exists as a base
+rule outside `@media print` on both pages, with the print-time override restoring the correct
+`display` per element (`display: revert !important` on `admin/invoices/page.tsx`, since its
+`.print-only` class spans both a block `<p>` and inline `<span>`s under one selector; `display:
+block !important` on the job page, since its own new `.print-only` usage there is a `<table>`).
+The job invoice's Materials section now renders a `.no-print`-gated (only when `hideMaterials`)
+full itemized table for on-screen editing, plus a `.print-only` (only when `hideMaterials`)
+single "Materials & supplies" line — so what prints/downloads-as-PDF/gets-emailed all match, while
+the app itself keeps showing the full editable breakdown regardless. Updated the toggle's tooltip
+copy, which previously told the user the printed view would *not* collapse — true when T-092
+shipped, false now.
+
+**Extracted the emailed invoice's 100-line inline HTML template** out of `send/route.ts` into a
+new pure module, `src/lib/billing/jobInvoiceEmailHtml.ts` (`buildJobInvoiceEmailHtml`), mirroring
+how `jobInvoice.ts` already separates the invoice's pure math from its call sites. 6 new unit
+tests (letterhead content, hideMaterials collapse, HTML-escaping, a missing-Bill-To edge case).
+The route is now a thin auth-and-fetch shell. The extraction also fixed a latent, if low-severity,
+gap: the inline template never escaped free-text fields (customer name, notes, material/labor
+descriptions) before interpolating them into the email HTML — the new module does, matching the
+`esc()` convention already used in `notify.ts` and `report/send/route.ts`.
+
+**One more small correctness fix:** the "This is a draft invoice, please review before sending"
+disclaimer at the bottom of the in-app doc previously had no `.no-print` class, so it printed onto
+the actual customer-facing PDF/email — unprofessional on a document meant for a customer to keep.
+It's now `.no-print` and only shows while the invoice is still a draft, in the app itself.
+
+**Verified, not just built:** `tsc --noEmit` clean; `eslint` on every touched file — 0 errors (the
+9 warnings are pre-existing, mostly `next/image` suggestions on `<img>` tags already used the same
+way elsewhere in this same file since Phase 3). `vitest run` — 590/592, the 2 failures
+(`example-lib.test.ts`, `src/lib/comms/__tests__/send.test.ts`) are the standing concurrent-load
+flakes already documented in `TODO.md`, both reconfirmed passing cleanly when run in isolation.
+`next build` — exit 0, `/company/jobs/[jobId]` grew 21.5kB → 23.2kB (consistent with the added
+letterhead markup, no unexpected bloat).
+
+**Still deferred, unchanged from T-092:** the entire logo library (upload/manage multiple logos —
+this pass only reads the one `logoUrl` a tenant already sets in Settings, the same field
+`ReportRenderer` has used since Phase 3) and the two-pane live-preview redesign (the existing
+in-place WYSIWYG editing still serves that need).
 
 ---
 

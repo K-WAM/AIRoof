@@ -2,7 +2,7 @@
 
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
-**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases fully shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091), plus Phase 4/T-092 **partially** shipped (invoice persistence + hide-materials real; the logo library and a two-pane live-preview redesign deliberately deferred — see the plan doc's Phase 4 "Shipped" notes) — all pushed to `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library whenever it's picked up.
+**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases fully shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091), plus Phase 4/T-092 **partially** shipped (invoice persistence + hide-materials real everywhere it's promised — email, in-app print/PDF, and on-screen — plus a letterhead redesign matching a real reference invoice; the logo library and a two-pane live-preview redesign deliberately deferred — see the plan doc's Phase 4 "Shipped" notes) — all pushed to `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library whenever it's picked up.
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
@@ -262,7 +262,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/route.ts — GET list + POST create (atomic J-XXXX short ID via runTransaction)
 - src/app/api/jobs/[jobId]/updates/route.ts — Submit field update + DeepSeek parse
 - src/app/api/jobs/[jobId]/report/route.ts — Generate text report from all parsed updates
-- src/app/api/jobs/[jobId]/invoice/route.ts — Generate editable draft invoice
+- src/app/api/jobs/[jobId]/invoice/route.ts — GET/POST/PATCH for the persisted invoice (see the fuller entry further down this list — this line was stale since T-092, still describing the pre-persistence dead-code version)
 - src/types/jobs.ts — Job, FieldUpdate (+ correction fields), ParsedUpdate, ProposedCorrection, JobPhotoMeta
 - src/lib/ai/deepseekClient.ts — DeepSeek/GPT-4o: summaries, classification, parseFieldUpdate() (now also flags corrections)
 - src/lib/jobs/projection.ts — buildProjection() (code-owned aggregation), resolveCorrection(), parsedToFieldLog() — **single source of truth for job data**
@@ -311,6 +311,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/components/field/PhotoEditSheet.tsx — after-the-fact photo label/phase editing (wired into the job detail page's Photos tab); the `includeInReport` toggle only renders when `canCurate` is passed
 - src/types/invoice.ts + src/lib/billing/jobInvoiceNumber.ts + src/app/company/jobs/[jobId]/jobInvoice.ts — persisted JobInvoice type, its own `invoiceCounter` sequence (deliberately separate from Luxor's own `nextLuxorInvoiceNumber`), and the pure `buildDraftFromProjection`/`computeTotals`/`canSendInvoice` module both client and server import
 - src/app/api/jobs/[jobId]/invoice/route.ts — GET/POST/PATCH for the persisted invoice (POST is idempotent, `force: true` rebuilds a still-draft invoice from the current projection)
+- src/lib/billing/jobInvoiceEmailHtml.ts — `buildJobInvoiceEmailHtml()`, the pure/unit-tested emailed-invoice HTML template (extracted from `send/route.ts`, 2026-09-15); the same letterhead (logo/name/address/phone left, Invoice title + Date/Invoice No./Due/Service block right, boxed Total Due) as the in-app invoice-doc render in `jobs/[jobId]/page.tsx`, both reading `businessConfig`'s branding fields
+- src/app/api/jobs/[jobId]/invoice/send/route.ts — thin auth-and-fetch shell around `buildJobInvoiceEmailHtml()`; marks the invoice `sent`
 
 ## Navigation Completeness Rule
 
