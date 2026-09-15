@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
-import { buildProjection, resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
+import { resolveCorrection } from "@/lib/jobs/projection";
+import { loadLedger, writeJobProjection } from "@/lib/jobs/writeProjection";
 import type { FieldUpdate } from "@/types/jobs";
 
 // GET /api/jobs/[jobId]/updates?businessId=xxx (session or field key)
@@ -24,37 +25,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
   const updates = snap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[];
   return NextResponse.json({ updates });
-}
-
-// Recompute job.parsed from the full ledger and write it + the legacy display mirror.
-async function writeProjection(
-  db: FirebaseFirestore.Firestore,
-  businessId: string,
-  jobId: string,
-  ledger: FieldUpdate[],
-  bumpStatus = true
-) {
-  const projection = buildProjection(ledger);
-  const log = parsedToFieldLog(projection);
-  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
-  const snap = await jobRef.get();
-  const status = snap.data()?.status;
-  await jobRef.update({
-    parsed: projection,
-    materials: log.materials,
-    laborEntries: log.laborEntries,
-    timelineEvents: log.timelineEvents,
-    fieldNotes: log.fieldNotes,
-    totalLaborHours: log.totalLaborHours,
-    updatedAt: Date.now(),
-    ...(bumpStatus && ["open", "inspection"].includes(status ?? "") ? { status: "in_progress" } : {}),
-  });
-  return projection;
-}
-
-async function loadLedger(db: FirebaseFirestore.Firestore, businessId: string, jobId: string): Promise<FieldUpdate[]> {
-  const snap = await db.collection(`businesses/${businessId}/jobs/${jobId}/updates`).orderBy("createdAt", "asc").get();
-  return snap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[];
 }
 
 // POST /api/jobs/[jobId]/updates
@@ -93,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     };
     await updatesCol.doc(corrId).set(corrEntry);
     const ledger = await loadLedger(db, businessId, jobId);
-    const projection = await writeProjection(db, businessId, jobId, ledger, false);
+    const projection = await writeJobProjection(db, businessId, jobId, { ledger, bumpStatus: false });
     return NextResponse.json({ ok: true, corrected: true, projection }, { status: 201 });
   }
 
@@ -150,7 +120,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   };
   await updatesCol.doc(updateId).set(entry);
   const ledger = await loadLedger(db, businessId, jobId);
-  const projection = await writeProjection(db, businessId, jobId, ledger);
+  const projection = await writeJobProjection(db, businessId, jobId, { ledger });
 
   return NextResponse.json({ update: { ...entry, parsed }, projection }, { status: 201 });
 }

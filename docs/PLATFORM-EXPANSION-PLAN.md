@@ -1,7 +1,7 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–2 shipped, merged to `main` and pushed to `origin/main` (`3fec20b`).**
-> Phases 3–7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
+> **Status (2026-09-15): Phases 1–2 and 5 shipped, merged to `main` and pushed to `origin/main`.**
+> Phases 3, 4, 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
 > shipped and point back here rather than re-deriving the design. Where an implementation detail below differs
 > from what actually shipped, a `**Shipped:**` note says so; the rest of each phase's spec is unchanged and is
@@ -399,7 +399,37 @@ That last branch is the real answer for a color logo on a colored bar: **don't f
 
 ---
 
-## Phase 5 — Time clock — NOT STARTED
+## Phase 5 — Time clock ✅ SHIPPED (T-090)
+
+**Shipped, with these deviations from the original spec (all deliberate — see T-090's `TODO.md` entry):**
+- **The `timesheets/{uid}_{dayKey}` collection was never persisted.** `WorkerDay` is computed on
+  demand by `foldPunches` from the `punches` ledger, exactly like `job.parsed` is computed from
+  the `updates` ledger — a second write path would just be another cache to keep in sync with
+  zero benefit, and the whole point of this architecture (both here and for jobs) is that the
+  immutable ledger is the only source of truth.
+- **The mobile-editable admin time-edit sheet (append a `supersedes` pair, `verifyAuthAndRole`-
+  gated) was not built.** The punch route (`POST /api/timeclock/punch`) only carries the live
+  field-app flow — the state machine, the cross-job guard, and the projection merge are all real
+  and tested, but there's no UI yet for an owner/staff member to correct a past punch. Nothing in
+  the ledger design blocks adding it; it's simply more writes through the same collection.
+- **No `[PUNCH]`/`[VOICE]` provenance chips on the job detail page's Labor tab.** The data itself
+  is there (`ParsedUpdate.labor[].source`/`dayKey`/`workerKey`) and the merge is correct and
+  tested — punched hours genuinely shadow voice hours in the invoice — but the *display*
+  treatment wasn't added to `company/jobs/[jobId]/page.tsx`, a 1854-line file with three separate
+  labor-rendering call sites that a prior session already flagged as too risky to edit blind
+  (no ability to click through the result in this environment). Deferred, not attempted.
+- **The nightly close-punches cron runs once/day at a fixed UTC hour** (Vercel Hobby's cron
+  frequency cap), chosen to land after local midnight in every mainland US timezone — an
+  approximation, not a per-business-precise 23:59:00 close. `missing_out`/`over_16h`/`overlap`
+  anomalies are computed correctly by the fold but have no dedicated "amber flag, one-tap fix" UI
+  yet (that's part of the deferred edit sheet above).
+- Everything else — the six-punch state machine, the office/site split, the lunch-break pause,
+  the atomic "Switch job" cross-job guard, and the projection merge rule (a punched
+  `(workerKey, dayKey)` shadows the spoken one entirely) — shipped exactly as spec'd below, with
+  12 unit tests on the pure fold (`src/lib/timeclock/__tests__/fold.test.ts`).
+
+<details>
+<summary>Original spec (for reference — the "Shipped" notes above are the authoritative delta)</summary>
 
 **New:** `src/types/timeclock.ts`, `src/lib/timeclock/fold.ts`, `src/lib/timeclock/machine.ts`, `src/app/api/timeclock/punch/route.ts`, `src/app/api/cron/close-punches/route.ts`, `src/lib/jobs/writeProjection.ts`
 
@@ -507,6 +537,8 @@ Merge rule, inside the existing step 3:
 **Why the "LLM is never in the arithmetic path" invariant holds:** `punchedLabor` comes from `foldPunches`, pure arithmetic over timestamps written by button taps. Voice labor is **suppressed** by punch data, never combined with it — there is no code path where a model-produced number is added to a punch-produced number. Extend the module doc: *"Two authoritative sources, never mixed: a punched (workerKey, dayKey) shadows the spoken one entirely."*
 
 **Consolidate the duplicated `writeProjection`** — the private helper exists in both `field-audio/route.ts:52-69` and `updates/route.ts`. Replace both, plus the new punch route, with `src/lib/jobs/writeProjection.ts` → `writeJobProjection(db, businessId, jobId, opts?)`.
+
+</details>
 
 ---
 

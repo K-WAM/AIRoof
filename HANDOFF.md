@@ -1,15 +1,12 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Google sign-in fix + a stale-docs correction — see below)
+Last updated: 2026-09-15 (Time clock, T-090 — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
-> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 2 of 7 sub-phases (T-088/T-089) **confirmed merged to `main`
-> and pushed to `origin/main`** (`3fec20b`) — this corrects every earlier note in this file/`TODO.md` claiming
-> they were still local-only on a `phase1-foundation-perf-url-fix` branch; that branch no longer exists and
-> `git log`/`git branch -a` confirm the merge actually happened (untracked by any session's own notes — likely
-> done outside a session). Remaining sub-phases (Photos, Invoice persistence, Time clock, Spanish, Trade roles —
-> T-090–T-094) are designed but not started. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The
-> dated session narratives below remain historical evidence.
+> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 3 of 7 sub-phases (T-088/T-089/T-090) merged to `main` and
+> pushed to `origin/main`. Remaining sub-phases (Photos, Invoice persistence, Spanish, Trade roles — T-091–T-094)
+> are designed but not started. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated
+> session narratives below remain historical evidence.
 
 ## Current State
 
@@ -31,6 +28,56 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, continued further) — Time clock (T-090, Phase 12/Phase 5)
+
+Owner asked where the "+ start times" feature was after not finding it on the field screen; answer was that it
+didn't exist yet (Phase 12's Phase 5, not started) — owner picked it as the next phase to build.
+
+**Shipped:** the full six-punch state machine (`src/lib/timeclock/machine.ts`) — office/site arrival and
+departure plus a lunch-break toggle that pauses whichever clock is running — driving both the live guard and a
+pure ledger fold (`src/lib/timeclock/fold.ts`, 12 unit tests). Punches are an immutable, append-only edge ledger
+under `businesses/{bid}/punches`, the same event-sourcing pattern the `updates`/`job.parsed` system already
+uses. `POST /api/timeclock/punch` is the cross-job guard: an illegal transition (most importantly, tapping
+"Arrived Jobsite" while already on a *different* job) returns a 409 with the current state and a suggestion;
+resending with `closeOpen: true` closes the old job and opens the new one atomically in one `WriteBatch`, so
+neither the guard nor the invoice ever sees a moment with two open jobs. A nightly `close-punches` cron
+(`vercel.json`, 9am UTC — after local midnight in every mainland US timezone) auto-closes anyone left open from
+a prior day. New `src/components/field/TimeClock.tsx` renders the punch buttons and is shared by both field
+screens (`/field` and `/company/field`) — the only difference between them is where the worker's name comes
+from (typed vs. the logged-in session), which the server resolves either way.
+
+**The actual capability the owner was asking about:** punched hours now really affect the invoice. Extended
+`buildProjection` (`src/lib/jobs/projection.ts`) to accept punched labor and, per the plan doc's merge rule, let
+a punched `(workerKey, dayKey)` shadow the spoken labor line **entirely** — never summed with it, so the LLM
+stays fully out of the arithmetic path exactly as the existing voice-correction system already guarantees.
+Consolidated a real piece of drift while in there: the `writeProjection` helper existed as two near-identical
+private copies in `updates/route.ts` and `field-audio/route.ts` — replaced both with one
+`src/lib/jobs/writeProjection.ts`, which the new punch-aware merge only had to be written once.
+
+**Caught and fixed two real bugs in my own draft before they shipped** (both would have corrupted the guard or
+mis-labeled times): the fold's `emit` helper left `openJobId` pointing at a job the worker had just left
+whenever a `site_out` returned to `"office"` state, which would have wrongly blocked a legitimate future
+`site_in`; and `stampArrival`/`stampDeparture` hardcoded `"UTC"` instead of the real business timezone. Caught
+by writing and running the unit tests rather than trusting the logic by inspection — worth noting as the reason
+this took a real test file, not just tsc/lint, before being called correct.
+
+**Deliberately deferred** (documented in `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 5 "Shipped" notes, not
+silently dropped): the `timesheets` collection was never persisted separately — `WorkerDay` is computed on
+demand from the punches ledger instead, one less cache to keep in sync; the mobile-editable admin time-edit
+sheet (append a `supersedes` pair, role-gated) has no UI yet, though the ledger already supports it; and
+`[PUNCH]`/`[VOICE]` provenance chips were not added to the job detail page's Labor tab — that file is 1854
+lines with three separate labor-rendering call sites, already flagged by a prior session as too risky to edit
+without the ability to click through the result, which this environment doesn't have.
+
+**Verified:** `tsc` clean; lint 0 errors (one new unused-import warning caught and fixed); `vitest run` 571/572
+(the one failure is the long-documented `example-lib.test.ts` concurrent-load flake, reconfirmed clean in
+isolation); `next build` green — `/company/field` and `/field` both grew by <1kB. Firestore rules (a new
+`punches` read-only-to-members rule) and a new composite index (`workerKey`/`dayKey`/`at`) were **actually
+deployed** (`firebase deploy --only firestore:rules,firestore:indexes`), not just committed — the punch route's
+query would otherwise throw "index required" on its first real call in production. **Pushed to `origin/main`.**
 
 ---
 

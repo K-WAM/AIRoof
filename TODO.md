@@ -7,8 +7,26 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot — 2026-09-14/15
 
-- **Phase 12 (new, owner-added) — 2 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug) and
-  T-089 (Customers).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
+- **T-090 (Time clock, Phase 12/Phase 5), shipped and pushed to `main`.** Six-punch state machine
+  (office/site arrival-departure + a lunch-break toggle), an immutable append-only `punches`
+  ledger exactly like the `updates` ledger pattern, a pure `foldPunches` fold (12 unit tests) with
+  `missing_out`/`over_16h`/`overlap` anomalies specified per the plan doc, an atomic cross-job
+  guard (`POST /api/timeclock/punch` — a 409 with a "Switch job" suggestion, resolved via one
+  `WriteBatch`), a nightly `close-punches` cron, and the actual invoice-affecting integration: a
+  punched `(workerKey, dayKey)` shadows the spoken labor line entirely in `buildProjection` — the
+  LLM stays out of the arithmetic path, exactly as the existing correction system already
+  guarantees. Consolidated the `writeProjection` helper that was previously duplicated in
+  `updates/route.ts` and `field-audio/route.ts` into `src/lib/jobs/writeProjection.ts` along the
+  way (both routes, plus the new punch route, share one implementation now). Firestore rules +
+  a new composite index (`punches`: workerKey/dayKey/at) deployed live. Deliberately deferred (see
+  `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 5 "Shipped" notes): the persisted `timesheets`
+  collection (computed on demand instead — one less cache to desync), the admin time-edit sheet,
+  and Labor-tab `[PUNCH]`/`[VOICE]` provenance chips (the 1854-line job detail page was already
+  flagged too risky to edit blind by a prior session). `tsc`/lint clean, `vitest run` 571/572 (the
+  one failure is the long-documented `example-lib.test.ts` concurrent-load flake, reconfirmed
+  clean in isolation), `next build` green.
+- **Phase 12 (new, owner-added) — 3 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug),
+  T-089 (Customers), and T-090 (Time clock, above).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
   12 checklist entry below. Headline results: the ~281KB `@firebase/firestore` chunk is gone from every
   authenticated page (confirmed by inspecting the built chunks — not assumed from a route-size table), a real
   security hole was closed (`GET /api/company/settings` had no auth check at all), a live cross-tenant bug was
@@ -20,8 +38,8 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   `main` and pushed to `origin/main`** (`3fec20b`) — a 2026-09-15 session found every doc still claiming this
   sat unmerged on a `phase1-foundation-perf-url-fix` branch; `git branch -a`/`git log` show that branch is gone
   and `main`/`origin/main` already match, so that claim was stale and is now corrected everywhere it appeared.
-  Remaining sub-phases (Photos, Invoice persistence, Time clock, Spanish, Trade roles — T-090…T-094) are
-  designed but not started; see the plan doc's per-phase status table.
+  Remaining sub-phases (Photos, Invoice persistence, Spanish, Trade roles — T-091…T-094) are designed but not
+  started; see the plan doc's per-phase status table.
 - **2026-09-15 — Google sign-in fix (`auth/internal-error`) + the doc-staleness correction above.** Diagnosed
   via CLI against production (public Identity Toolkit `createAuthUri` call, no console access needed): Google
   provider, OAuth client, and `authorizedDomains` all check out fine server-side. Root cause is

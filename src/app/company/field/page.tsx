@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
+import { TimeClock } from "@/components/field/TimeClock";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
 import {
@@ -591,7 +592,7 @@ function FieldPageContent() {
           </header>
 
           {/* Job Selector */}
-          <div style={{ marginBottom: 32 }}>
+          <div style={{ marginBottom: 20 }}>
             <JobSelector
               jobs={jobs}
               loading={loadingJobs}
@@ -599,6 +600,8 @@ function FieldPageContent() {
               onSelect={setSelectedJobId}
             />
           </div>
+
+          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={user?.email || ""} />
 
           {/* Mic Button */}
           <div style={{

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
+import { TimeClock } from "@/components/field/TimeClock";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
 
 // ── SVG mic icon ────────────────────────────────────────────────────────────
@@ -374,6 +375,8 @@ function FieldApp() {
               background: "#0f172a", outline: "none",
             }}
           />
+
+          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} />
 
           {/* Mic button — hold to speak, release to save (one step) */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>

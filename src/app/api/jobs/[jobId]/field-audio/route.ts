@@ -3,7 +3,8 @@ import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate, ParseFieldUpdateError } from "@/lib/ai/deepseekClient";
-import { buildProjection, resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
+import { resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
+import { loadLedger, writeJobProjection } from "@/lib/jobs/writeProjection";
 import { isProviderReady } from "@/lib/ai/registry";
 import type { FieldUpdate } from "@/types/jobs";
 
@@ -44,30 +45,6 @@ function isTranscriptEmpty(transcript: string): boolean {
   return !transcript || transcript.trim().length < 3;
 }
 
-async function loadLedger(db: FirebaseFirestore.Firestore, businessId: string, jobId: string): Promise<FieldUpdate[]> {
-  const snap = await db.collection(`businesses/${businessId}/jobs/${jobId}/updates`).orderBy("createdAt", "asc").get();
-  return snap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[];
-}
-
-async function writeProjection(db: FirebaseFirestore.Firestore, businessId: string, jobId: string, ledger: FieldUpdate[]) {
-  const projection = buildProjection(ledger);
-  const log = parsedToFieldLog(projection);
-  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
-  const snap = await jobRef.get();
-  const status = snap.data()?.status;
-  await jobRef.update({
-    parsed: projection,
-    materials: log.materials,
-    laborEntries: log.laborEntries,
-    timelineEvents: log.timelineEvents,
-    fieldNotes: log.fieldNotes,
-    totalLaborHours: log.totalLaborHours,
-    updatedAt: Date.now(),
-    ...(["open", "inspection"].includes(status ?? "") ? { status: "in_progress" } : {}),
-  });
-  return { projection, log };
-}
-
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   const body = await req.json();
@@ -98,8 +75,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       correctionNewValue: Number(confirmCorrection.newValue),
     } as FieldUpdate);
     const ledger = await loadLedger(db, businessId, jobId);
-    const { log } = await writeProjection(db, businessId, jobId, ledger);
-    return NextResponse.json({ success: true, corrected: true, updatedJob: log });
+    const projection = await writeJobProjection(db, businessId, jobId, { ledger });
+    return NextResponse.json({ success: true, corrected: true, updatedJob: parsedToFieldLog(projection) });
   }
 
   const audioCheck = validateAudioInput(audioBase64, mimeType);
@@ -214,7 +191,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   } as FieldUpdate);
 
   const ledger = await loadLedger(db, businessId, jobId);
-  const { log } = await writeProjection(db, businessId, jobId, ledger);
+  const projection = await writeJobProjection(db, businessId, jobId, { ledger });
+  const log = parsedToFieldLog(projection);
 
   const parts: string[] = [];
   if (parsed.timeline.length) parts.push(`${parsed.timeline.length} timeline event(s)`);

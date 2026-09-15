@@ -12,6 +12,8 @@ import type {
   FieldLaborEntry,
   FieldTimelineEvent,
 } from "@/types/jobs";
+import type { PunchedLaborEntry } from "@/types/timeclock";
+import { dayKey, normalizeName } from "@/lib/format";
 
 function normalizeItem(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -37,7 +39,15 @@ function ovKey(updateId: string, field: string, item: string): string {
  * - Labor: each worker-shift kept as its own line (hours corrected where overridden).
  * - Timeline / issues / invoiceSuggestions: concatenated in ledger order (timeline sorted by time when present).
  */
-export function buildProjection(updatesInput: FieldUpdate[]): ParsedUpdate {
+// `punchedLabor`/`tz` are Phase 12/Phase 5 (time clock) additions — omitting both keeps every
+// existing caller's output byte-for-byte identical, since an empty punchedLabor set never
+// matches anything regardless of tz. `tz` only exists to stamp voice labor's dayKey so it can
+// be compared against punchedLabor's dayKeys; it never gates whether punches themselves apply.
+export function buildProjection(
+  updatesInput: FieldUpdate[],
+  punchedLabor: PunchedLaborEntry[] = [],
+  tz: string = "UTC",
+): ParsedUpdate {
   const updates = [...updatesInput].sort((a, b) => a.createdAt - b.createdAt);
 
   // 1. Collect corrections into an override map (last correction for a key wins).
@@ -74,13 +84,37 @@ export function buildProjection(updatesInput: FieldUpdate[]): ParsedUpdate {
     ...(m.hasCost ? { cost: m.cost } : {}),
   }));
 
-  // 3. Labor — keep each worker-shift; apply hours override per (entry, worker).
+  // 3. Labor — keep each voice worker-shift, hours-overridden where corrected — UNLESS a
+  //    punched (workerKey, dayKey) shadows it, in which case the punch wins entirely (Phase 12,
+  //    Phase 5 — see docs/PLATFORM-EXPANSION-PLAN.md). Two authoritative sources, never mixed:
+  //    punchedLabor comes from foldPunches — pure arithmetic over button-tap timestamps — so
+  //    there is no code path where a model-produced number is added to a punch-produced one.
+  const punchedKeys = new Set(punchedLabor.map((p) => `${p.workerKey}|${p.dayKey}`));
   const labor: ParsedUpdate["labor"] = [];
   for (const u of normal) {
     for (const l of u.parsed!.labor) {
+      const workerKey = `name:${normalizeName(l.description)}`;
+      const entryDayKey = dayKey(u.createdAt, tz);
+      if (punchedKeys.has(`${workerKey}|${entryDayKey}`)) continue; // the punch wins
       const ov = overrides.get(ovKey(u.updateId, "labor", l.description));
-      labor.push(ov != null ? { ...l, hours: ov } : { ...l });
+      labor.push({
+        ...(ov != null ? { ...l, hours: ov } : { ...l }),
+        source: "voice",
+        dayKey: entryDayKey,
+        workerKey,
+      });
     }
+  }
+  for (const p of punchedLabor) {
+    labor.push({
+      description: p.workerName,
+      hours: p.hours,
+      arrivalTime: p.arrivalTime,
+      departureTime: p.departureTime,
+      source: "punch",
+      dayKey: p.dayKey,
+      workerKey: p.workerKey,
+    });
   }
 
   // 4. Timeline — concat, stamping each event with its source update's day so multi-day

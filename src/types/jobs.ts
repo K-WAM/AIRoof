@@ -10,7 +10,15 @@ export interface ParsedUpdate {
   // can show which day each event happened on.
   timeline: Array<{ time?: string; description: string; dateMs?: number }>;
   materials: Array<{ item: string; quantity?: string; unit?: string; cost?: number }>;
-  labor: Array<{ description: string; hours?: number; rate?: number; arrivalTime?: string; departureTime?: string }>;
+  labor: Array<{
+    description: string; hours?: number; rate?: number; arrivalTime?: string; departureTime?: string;
+    // Provenance (Phase 12, Phase 5 — time clock). Absent on every pre-existing doc and on any
+    // voice-parsed line the punch ledger doesn't shadow, so old data and .optional() schemas
+    // stay valid untouched.
+    source?: "voice" | "punch";
+    dayKey?: string;
+    workerKey?: string;
+  }>;
   issues: Array<{ description: string; severity: "low" | "medium" | "high"; resolution?: string }>;
   invoiceSuggestions: InvoiceLineItem[];
   // Optional correction signal emitted by parseFieldUpdate when the speaker is fixing a prior entry.

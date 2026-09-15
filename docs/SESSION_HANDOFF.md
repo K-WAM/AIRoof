@@ -1,6 +1,18 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude), continued — Google sign-in fix + a stale-docs correction. Owner reported
+Updated: 2026-09-15 (Claude), continued further — Time clock (T-090, Phase 12/Phase 5) shipped and pushed to
+`main`/`origin/main`. Full six-punch state machine + atomic cross-job guard (`POST /api/timeclock/punch`, a 409
+with "Switch job" resolved in one `WriteBatch`) + an immutable `punches` ledger + a nightly auto-close cron, and
+the actual invoice-affecting integration: a punched `(workerKey, dayKey)` shadows the spoken labor line entirely
+in `buildProjection`, keeping the LLM out of the arithmetic path. Consolidated the duplicated `writeProjection`
+helper (`updates/route.ts`/`field-audio/route.ts`) into one `src/lib/jobs/writeProjection.ts`. Firestore rules +
+a new composite index were actually deployed, not just committed. Deliberately deferred (see
+`docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 5 notes): the persisted `timesheets` collection, the admin time-edit
+sheet, and Labor-tab provenance chips (job detail page is too large/risky to edit blind here). `tsc`/lint clean,
+`vitest run` 571/572 (the one failure is the pre-existing `example-lib.test.ts` flake), `next build` green. Full
+narrative in `HANDOFF.md`'s matching entry.
+
+Previous: 2026-09-15 (Claude), continued — Google sign-in fix + a stale-docs correction. Owner reported
 `Firebase: Error (auth/internal-error)` on "Continue with Google"; diagnosed via CLI against production
 (Identity Toolkit's public `createAuthUri` endpoint — no console access needed) and found the Google
 provider/OAuth client/`authorizedDomains` all correctly configured, which narrows it to `signInWithPopup`'s
