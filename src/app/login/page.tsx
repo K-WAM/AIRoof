@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getFirebaseAuth } from "@/lib/firebase/client";
@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resumingRedirect, setResumingRedirect] = useState(true);
 
   // Honor middleware's ?next= deep link (e.g. a superadmin who clicked an /admin link
   // while logged out), falling back to the dashboard. Only allow same-origin paths.
@@ -20,26 +21,52 @@ export default function LoginPage() {
     return next && next.startsWith("/") && !next.startsWith("//") ? next : "/company/dashboard";
   }
 
+  // Google sign-in uses a full-page redirect, not a popup. A popup depends on third-party
+  // storage access between this origin and the authDomain iframe to relay the result back —
+  // exactly what browsers increasingly block (Chrome's third-party-cookie rollback, Brave,
+  // Safari ITP, privacy extensions), which surfaces as an opaque "auth/internal-error" with
+  // no actionable cause. A redirect never needs that cross-origin relay. This effect picks up
+  // the result after Google sends the browser back here.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [auth, { getRedirectResult }] = await Promise.all([
+          getFirebaseAuth(),
+          import("firebase/auth"),
+        ]);
+        if (!auth) return;
+        const result = await getRedirectResult(auth);
+        if (cancelled) return;
+        if (result) {
+          document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
+          router.replace(postLoginDest());
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Sign-in failed.");
+      } finally {
+        if (!cancelled) setResumingRedirect(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleGoogle() {
     setLoading(true);
     setError(null);
     try {
-      const [auth, { signInWithPopup, GoogleAuthProvider }] = await Promise.all([
+      const [auth, { signInWithRedirect, GoogleAuthProvider }] = await Promise.all([
         getFirebaseAuth(),
         import("firebase/auth"),
       ]);
       if (!auth) { setError("Firebase not configured."); return; }
-      await signInWithPopup(auth, new GoogleAuthProvider());
-      document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
-      router.replace(postLoginDest());
+      await signInWithRedirect(auth, new GoogleAuthProvider());
+      // Browser navigates away here; control returns via the useEffect above after Google
+      // redirects back.
     } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        setError(null);
-      } else {
-        setError(err instanceof Error ? err.message : "Sign-in failed.");
-      }
-    } finally {
+      setError(err instanceof Error ? err.message : "Sign-in failed.");
       setLoading(false);
     }
   }
@@ -97,11 +124,11 @@ export default function LoginPage() {
             type="button"
             className="button"
             onClick={handleGoogle}
-            disabled={loading}
+            disabled={loading || resumingRedirect}
             style={{ width: "100%", justifyContent: "center", display: "flex", alignItems: "center", gap: 8 }}
           >
             <GoogleIcon />
-            {loading ? "Signing in…" : "Continue with Google"}
+            {resumingRedirect ? "Checking sign-in…" : loading ? "Redirecting…" : "Continue with Google"}
           </button>
 
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>

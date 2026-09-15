@@ -1,14 +1,26 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude) — Phase 12 kickoff (new owner-added initiative — Customers, time clock, Spanish,
+Updated: 2026-09-15 (Claude), continued — Google sign-in fix + a stale-docs correction. Owner reported
+`Firebase: Error (auth/internal-error)` on "Continue with Google"; diagnosed via CLI against production
+(Identity Toolkit's public `createAuthUri` endpoint — no console access needed) and found the Google
+provider/OAuth client/`authorizedDomains` all correctly configured, which narrows it to `signInWithPopup`'s
+known third-party-storage failure mode. Fixed by switching `src/app/login/page.tsx` to
+`signInWithRedirect`/`getRedirectResult`, which doesn't depend on that cross-origin relay. Also confirmed, while
+verifying this: **T-088/T-089 (below) are in fact already merged to `main` and pushed to `origin/main`**
+(`3fec20b`) — every doc, including this one, had gone stale claiming they were still on an unmerged
+`phase1-foundation-perf-url-fix` branch; that branch no longer exists (`git branch -a`), and `main`/`origin/main`
+already match. Corrected across `CLAUDE.md`/`HANDOFF.md`/`TODO.md`/`docs/PLATFORM-EXPANSION-PLAN.md`. Also
+answered directly (not yet built, confirmed by grep): the Spanish toggle is Phase 12 Phase 6, the time-clock
+"+ start time" control is Phase 12 Phase 5 — neither started.
+
+Previous: 2026-09-15 (Claude) — Phase 12 kickoff (new owner-added initiative — Customers, time clock, Spanish,
 invoicing, general speed; full spec in `docs/PLATFORM-EXPANSION-PLAN.md`). Shipped T-088 (foundation/speed/the
 field-URL bug) and T-089 (Customers), 2 of 7 sub-phases. Headline results: the ~281KB `@firebase/firestore`
 chunk is gone from every authenticated page (confirmed by inspecting the built chunks directly); a real
 security hole closed (`GET /api/company/settings` had no auth check); a live cross-tenant bug fixed
 (`manifest.json`'s `start_url` always opened the demo tenant); the reported "voice input screen has a url" bug
 fixed (the field screen's address bar is now a bare `/field`); a Customer entity now backs instant, zero-network,
-in-memory cross-job search. `tsc` clean, `vitest run` 560/560, `next build` green. **Committed locally** on a
-new branch `phase1-foundation-perf-url-fix`, **not pushed** — `main`/`origin/main` still at `a956eb4` (T-087).
+in-memory cross-job search. `tsc` clean, `vitest run` 560/560, `next build` green.
 Full narrative in the matching dated section below and in `HANDOFF.md`/`TODO.md`'s Phase 12 entries.
 
 Previous: 2026-09-08 (Claude) — full end-to-end review of the roofing demo→job→invoice pipeline and the

@@ -16,10 +16,20 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   reported "voice input screen has a url" bug is fixed (the field screen's address bar is now a bare `/field`,
   the QR grant is a short opaque alias instead of a ~300-char token), and a Customer entity now backs
   instant, zero-network, in-memory cross-job search from the Library. `tsc` clean; `vitest run` 560/560 (the 3
-  historical concurrent-load flakes reconfirmed clean in isolation); `next build` green. **Committed locally**
-  on branch `phase1-foundation-perf-url-fix`, **not yet pushed to `origin`** — owner approval still required.
+  historical concurrent-load flakes reconfirmed clean in isolation); `next build` green. **Confirmed merged to
+  `main` and pushed to `origin/main`** (`3fec20b`) — a 2026-09-15 session found every doc still claiming this
+  sat unmerged on a `phase1-foundation-perf-url-fix` branch; `git branch -a`/`git log` show that branch is gone
+  and `main`/`origin/main` already match, so that claim was stale and is now corrected everywhere it appeared.
   Remaining sub-phases (Photos, Invoice persistence, Time clock, Spanish, Trade roles — T-090…T-094) are
   designed but not started; see the plan doc's per-phase status table.
+- **2026-09-15 — Google sign-in fix (`auth/internal-error`) + the doc-staleness correction above.** Diagnosed
+  via CLI against production (public Identity Toolkit `createAuthUri` call, no console access needed): Google
+  provider, OAuth client, and `authorizedDomains` all check out fine server-side. Root cause is
+  `signInWithPopup`'s known failure mode — it depends on third-party storage access to the `authDomain` iframe
+  to relay the result back, which browsers increasingly block, surfacing as this exact opaque error. Fixed by
+  switching `src/app/login/page.tsx` to `signInWithRedirect`/`getRedirectResult`, which never needs that
+  cross-origin relay. Also answered: the Spanish toggle and a time-clock "+ start time" control don't exist yet
+  — both are Phase 12 Phases 5/6, not started (confirmed by grep, not assumption). `tsc`/lint clean.
 - **End-to-end demo-readiness review (2026-09-08), no code changed:** owner asked for a full trace of the
   roofing vertical's demo→job→invoice pipeline and the client-onboarding→self-service-team-invite flow ahead
 

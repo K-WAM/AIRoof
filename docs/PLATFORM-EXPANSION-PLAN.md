@@ -1,7 +1,7 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–2 shipped, committed locally on `phase1-foundation-perf-url-fix`, not yet
-> pushed. Phases 3–7 not started.** Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
+> **Status (2026-09-15): Phases 1–2 shipped, merged to `main` and pushed to `origin/main` (`3fec20b`).**
+> Phases 3–7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
 > shipped and point back here rather than re-deriving the design. Where an implementation detail below differs
 > from what actually shipped, a `**Shipped:**` note says so; the rest of each phase's spec is unchanged and is

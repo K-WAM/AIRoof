@@ -1,12 +1,14 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Phase 12 — Speed/Customers foundation, T-088/T-089 — see below)
+Last updated: 2026-09-15 (Google sign-in fix + a stale-docs correction — see below)
 
-> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed
-> (`origin/main` == local `main` at `a956eb4`, 2026-09-08 — T-087). A new owner-added initiative, **Phase 12**
-> (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
-> `docs/PLATFORM-EXPANSION-PLAN.md`), is 2 of 7 sub-phases in on a separate local branch
-> (`phase1-foundation-perf-url-fix`), **not yet merged to `main` or pushed**. Production is unaffected by this
-> work until it's reviewed and merged. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The
+> **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
+> **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
+> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 2 of 7 sub-phases (T-088/T-089) **confirmed merged to `main`
+> and pushed to `origin/main`** (`3fec20b`) — this corrects every earlier note in this file/`TODO.md` claiming
+> they were still local-only on a `phase1-foundation-perf-url-fix` branch; that branch no longer exists and
+> `git log`/`git branch -a` confirm the merge actually happened (untracked by any session's own notes — likely
+> done outside a session). Remaining sub-phases (Photos, Invoice persistence, Time clock, Spanish, Trade roles —
+> T-090–T-094) are designed but not started. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The
 > dated session narratives below remain historical evidence.
 
 ## Current State
@@ -29,6 +31,41 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, continued) — Google sign-in fix + stale-docs correction
+
+Owner reported `Firebase: Error (auth/internal-error)` clicking "Continue with Google" on `/login`, and asked
+to resolve it permanently. Diagnosed via CLI/curl rather than guessing at Firebase-console settings (per this
+file's own Agent Verification Protocol): pulled the public Firebase client config straight out of the deployed
+`/login` JS chunk (it's already public in every visitor's browser, no secret involved), then called the
+Identity Toolkit's own public `accounts:createAuthUri` REST endpoint — the same one the client SDK itself uses
+— directly against production. Result: the Google provider **is** enabled and correctly wired (returned a real
+`authUri` with a valid OAuth `client_id`), `ai-roof.vercel.app` **is** in the project's `authorizedDomains`, and
+email/password auth responds normally too — every server-side/console configuration item checked out clean.
+
+That narrows `auth/internal-error` to `signInWithPopup`'s well-documented failure class: the popup relies on
+third-party storage access between `ai-roof.vercel.app` and the `authDomain` iframe
+(`business-expense-trackin-ef659.firebaseapp.com`) to relay the sign-in result back via `postMessage` — exactly
+what Chrome's third-party-cookie rollback, Brave, Safari ITP, and privacy extensions increasingly block, and it
+surfaces as this same opaque internal-error with no actionable cause. **Fix:** switched `src/app/login/page.tsx`
+from `signInWithPopup` to `signInWithRedirect` + `getRedirectResult` — a full top-level navigation to Google and
+back that never depends on that cross-origin storage relay, so it can't regress the same way again. `tsc` and
+lint clean; no existing login tests to update (there were none).
+
+**Also answered two feature questions directly from the code/spec rather than guessing:** the Spanish toggle
+and a "+ start time" control the owner expected to find don't exist yet — both are still **Phase 12, not
+started** (Spanish = Phase 6, Time clock = Phase 5, both fully specced in `docs/PLATFORM-EXPANSION-PLAN.md`).
+Confirmed by grep, not assumption: no `signInWithRedirect`-adjacent i18n/locale toggle or clock-in/punch code
+exists anywhere in `src/`.
+
+**Found and corrected a real doc-staleness bug while in there:** every doc (`CLAUDE.md`, this file, `TODO.md`,
+`docs/SESSION_HANDOFF.md`, `docs/PLATFORM-EXPANSION-PLAN.md`) still claimed T-088/T-089 were sitting unmerged on
+a local `phase1-foundation-perf-url-fix` branch — but `git branch -a` shows that branch no longer exists, and
+`git log`/`git rev-list --left-right --count origin/main...main` confirm local `main` and `origin/main` are
+identical, both already at `3fec20b` with T-088/T-089 in their history. The merge+push already happened, just
+never narrated by any session. Corrected across all five docs rather than re-propagating the stale claim.
 
 ---
 
@@ -79,9 +116,10 @@ page surfaces that need to be clicked through together — deferred as its own f
 **Verified (both tasks):** `tsc` clean; `vitest run` 560/560 (the same long-documented pre-existing
 concurrent-load flake — `registry.test.ts`/`send.test.ts`/`example-lib.test.ts` — showed up once on a full-suite
 run and was reconfirmed clean in isolation, same as every prior session); `next build` green, zero new lint
-warnings across either task's files. **Committed locally** on a new branch, `phase1-foundation-perf-url-fix`
-(two commits) — **not pushed**, per the standing "nothing pushed without explicit approval" rule; `main` and
-`origin/main` are both still at `a956eb4` (T-087, 2026-09-08).
+warnings across either task's files. Originally committed locally on a branch, `phase1-foundation-perf-url-fix`
+(two commits) — **since confirmed merged to `main` and pushed to `origin/main`** (`3fec20b`; see the
+2026-09-15 stale-docs-correction entry above for how this was verified and why every doc previously said
+otherwise).
 
 **Remaining, designed but not started:** Photos (before/after phase, batched-blob endpoint, the 2×2+2×2 report
 grid), Invoice persistence + hide-materials + logos, the time clock, Spanish (Whisper + phone AI), and trade
