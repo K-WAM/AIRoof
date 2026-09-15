@@ -39,6 +39,12 @@ function FieldApp() {
 
   const [businessId, setBusinessId] = useState(urlBusinessId ?? "demo-roofing");
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
+  // The businessId/jobId a job-scoped QR grant resolves to now arrive via the
+  // HttpOnly field-session cookie instead of URL query params (so the address
+  // bar can stay a bare "/field" — see /f/[grant] and GET /api/field/session).
+  // prefillJobId (from the URL) still covers the legacy ?jobId= link shape;
+  // sessionJobId is what the rest of the page actually reads.
+  const [sessionJobId, setSessionJobId] = useState(prefillJobId);
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
@@ -78,8 +84,32 @@ function FieldApp() {
     } catch {}
 
     if (!legacy) {
-      setBootstrapComplete(true);
-      return;
+      // No old-style ?key= credential. If the URL also has no explicit
+      // ?businessId= (the new short-QR flow: /f/[grant] already redirected
+      // here to a bare "/field" and set the HttpOnly session cookie), ask the
+      // cookie what business/job it's scoped to. A direct link that already
+      // names ?businessId= (bookmarks, dev/demo) keeps working unchanged and
+      // skips this call.
+      if (urlBusinessId) {
+        setBootstrapComplete(true);
+        return;
+      }
+      let cancelled = false;
+      fetch("/api/field/session", { credentials: "same-origin" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((session: { businessId: string; jobId: string | null } | null) => {
+          if (cancelled || !session) return;
+          setBusinessId(session.businessId);
+          if (session.jobId) {
+            setSessionJobId(session.jobId);
+            setSelectedJobId(session.jobId);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setBootstrapComplete(true);
+        });
+      return () => { cancelled = true; };
     }
 
     let cancelled = false;
@@ -112,8 +142,8 @@ function FieldApp() {
   useEffect(() => {
     if (!bootstrapComplete) return;
     setLoadingJobs(true);
-    const jobsUrl = prefillJobId
-      ? `/api/jobs/${encodeURIComponent(prefillJobId)}?businessId=${encodeURIComponent(businessId)}`
+    const jobsUrl = sessionJobId
+      ? `/api/jobs/${encodeURIComponent(sessionJobId)}?businessId=${encodeURIComponent(businessId)}`
       : `/api/jobs?businessId=${encodeURIComponent(businessId)}`;
     fetch(jobsUrl)
       .then(async (r) => {
@@ -128,11 +158,11 @@ function FieldApp() {
         const loaded = d.job ? [d.job as Job] : (d.jobs ?? []) as Job[];
         const open = loaded.filter((j) => j.status !== "complete");
         setJobs(open);
-        if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) setSelectedJobId(prefillJobId);
+        if (sessionJobId && open.find((j) => j.jobId === sessionJobId)) setSelectedJobId(sessionJobId);
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [bootstrapComplete, businessId, prefillJobId]);
+  }, [bootstrapComplete, businessId, sessionJobId]);
 
   const refreshRecent = useCallback((jobId: string) => {
     if (!jobId) { setRecentUpdates([]); return; }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { invalidate } from "@/lib/data/store";
+import type { Tag } from "@/lib/data/tags";
 
 /** Entities the global quick-add can create. Extend this union (and
  * QuickAddPanel's KIND_TITLE/menu) when a new kind is added — never gate a
@@ -14,6 +16,18 @@ export interface QuickAddCreatedDetail {
 
 const EVENT_NAME = "luxor:quickadd-created";
 
+// Maps a quick-add kind onto the src/lib/data/store.ts tag any useQuery-based
+// reader of that kind would have tagged its cache entry with. This lets a
+// page migrated onto useQuery (see src/hooks/useQuery.ts) get quick-add
+// invalidation for free, without touching pages that still use their own
+// fetch-on-event handler below.
+const KIND_TAG: Record<QuickAddKind, Tag> = {
+  job: "jobs",
+  crew: "crews",
+  teammate: "team",
+  material: "library",
+};
+
 /**
  * Fired once a quick-add form successfully creates something, so any page
  * already showing a list of that kind (Jobs, Library's crew roster, Settings'
@@ -23,6 +37,7 @@ const EVENT_NAME = "luxor:quickadd-created";
  */
 export function emitQuickAddCreated(detail: QuickAddCreatedDetail) {
   window.dispatchEvent(new CustomEvent<QuickAddCreatedDetail>(EVENT_NAME, { detail }));
+  invalidate(KIND_TAG[detail.kind]);
 }
 
 /** Low-level subscribe; prefer the `useQuickAddRefresh` hook below in components. */

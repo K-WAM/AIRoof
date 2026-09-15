@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { jsonWithCache } from "@/lib/http/cache";
 
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+
+  // Was missing entirely — any caller who knew a businessId could read
+  // another tenant's notification email/contact info/business hours. The
+  // PUT below has always been gated; this GET was not.
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -13,14 +20,14 @@ export async function GET(req: NextRequest) {
   if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
 
   const d = snap.data()!;
-  return NextResponse.json({
+  return jsonWithCache({
     timezone: d.timezone ?? "America/New_York",
     businessHours: d.businessHours ?? {},
     notificationEmail: d.notificationEmail ?? "",
     contactPhone: d.contactPhone ?? "",
     contactEmail: d.contactEmail ?? "",
     businessName: d.businessName ?? "",
-  });
+  }, "semiStatic");
 }
 
 export async function PUT(req: NextRequest) {

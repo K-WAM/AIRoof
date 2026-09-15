@@ -14,6 +14,7 @@ import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { BootstrapProvider } from "@/contexts/BootstrapContext";
 import { QuickAddProvider } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 
@@ -240,7 +241,9 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
   return (
     <AuthProvider>
       <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>Loading…</div>}>
-        <CompanyShell>{children}</CompanyShell>
+        <BootstrapProvider>
+          <CompanyShell>{children}</CompanyShell>
+        </BootstrapProvider>
       </Suspense>
     </AuthProvider>
   );

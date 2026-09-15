@@ -2,6 +2,7 @@ import type { Auth } from "firebase-admin/auth";
 import type { Firestore } from "firebase-admin/firestore";
 import { sendTeamInviteEmail, type Branding } from "@/lib/notify";
 import { TEAM_ROLES, type TeamRole } from "@/types/team";
+import { invalidateCachedMember } from "@/lib/auth/memberCache";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,6 +89,7 @@ export async function inviteTeamMember(opts: {
     { uid, businessId, email: normalizedEmail, role, active: true, createdAt: Date.now() },
     { merge: true }
   );
+  invalidateCachedMember(uid);
 
   const brand: Branding = {
     businessName: typeof business.businessName === "string" ? business.businessName : "Your Company",

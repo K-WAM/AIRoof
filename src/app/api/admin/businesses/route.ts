@@ -77,26 +77,22 @@ export async function GET(req: NextRequest): Promise<
     }
 
     const businessesSnapshot = await db.collection("businesses").orderBy("createdAt", "desc").get();
-    const businesses = await Promise.all(
-      businessesSnapshot.docs.map(async (businessDoc) => {
-        const business = { businessId: businessDoc.id, ...businessDoc.data() } as BusinessConfig;
-        const bizId = businessDoc.id;
-        const [onboardingDoc, integrationDoc] = await Promise.all([
-          db.collection("businessOnboarding").doc(bizId).get(),
-          db.collection("businessIntegrationStatus").doc(bizId).get(),
-        ]);
 
-        return {
-          business,
-          onboarding: onboardingDoc.exists
-            ? (onboardingDoc.data() as BusinessOnboardingStatus)
-            : null,
-          integrationStatus: integrationDoc.exists
-            ? (integrationDoc.data() as BusinessIntegrationStatus)
-            : null,
-        };
-      })
-    );
+    // Was 1 + 2N separate .get() calls (two per business, all in-flight
+    // concurrently but still N individual round trips each). db.getAll()
+    // batches every companion doc into one Firestore request regardless of
+    // how many businesses exist.
+    const onboardingRefs = businessesSnapshot.docs.map((d) => db.collection("businessOnboarding").doc(d.id));
+    const integrationRefs = businessesSnapshot.docs.map((d) => db.collection("businessIntegrationStatus").doc(d.id));
+    const [onboardingDocs, integrationDocs] = businessesSnapshot.empty
+      ? [[], []]
+      : await Promise.all([db.getAll(...onboardingRefs), db.getAll(...integrationRefs)]);
+
+    const businesses = businessesSnapshot.docs.map((businessDoc, i) => ({
+      business: { businessId: businessDoc.id, ...businessDoc.data() } as BusinessConfig,
+      onboarding: onboardingDocs[i]?.exists ? (onboardingDocs[i].data() as BusinessOnboardingStatus) : null,
+      integrationStatus: integrationDocs[i]?.exists ? (integrationDocs[i].data() as BusinessIntegrationStatus) : null,
+    }));
 
     return NextResponse.json({ businesses });
   } catch (error) {

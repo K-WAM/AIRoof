@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
+import { getAdminFirestore } from "@/lib/firebase/admin";
+import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { initiateVapiCall } from "@/lib/vapi/vapiClient";
 
 function sanitizePhone(v: unknown): string | undefined {
@@ -9,35 +10,15 @@ function sanitizePhone(v: unknown): string | undefined {
   return digitCount >= 7 ? trimmed : undefined;
 }
 
-async function getAuthenticatedBusinessId(request: NextRequest): Promise<{ businessId: string; uid: string } | null> {
-  const db = getAdminFirestore();
-  if (!db) return null;
-
-  const sessionCookie = request.cookies.get("__session")?.value;
-  if (!sessionCookie) return null;
-
-  const decoded = await verifyIdToken(sessionCookie);
-  if (!decoded) return null;
-
-  const uid = decoded.uid;
-
-  // Look up businessId + role from businessUsers/{uid}
-  const memberSnap = await db.collection("businessUsers").doc(uid).get();
-  if (!memberSnap.exists) return null;
-
-  const member = memberSnap.data();
-  if (!member?.businessId) return null;
-  if (member.role !== "owner" && member.role !== "staff") return null;
-
-  return { businessId: member.businessId as string, uid };
-}
-
 export async function POST(request: NextRequest) {
-  const auth = await getAuthenticatedBusinessId(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const { businessId, uid } = auth;
+  // Resolves "my own business" from the session rather than checking against
+  // a caller-supplied businessId — this route has no businessId input, only
+  // a targetPhone. Shares the same point-read + active-status + role check
+  // every other route uses, so this can no longer drift from them.
+  const gate = await verifyOwnBusinessRole(request, ["owner", "staff"]);
+  if ("error" in gate) return gate.error;
+  const businessId = gate.user.businessId!;
+  const uid = gate.user.uid;
 
   let body: Record<string, unknown>;
   try {

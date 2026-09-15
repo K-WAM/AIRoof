@@ -2,6 +2,8 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnv } from "@/lib/config/env";
 import { verifyIdToken, getAdminFirestore } from "@/lib/firebase/admin";
+import { getCachedMember, setCachedMember } from "@/lib/auth/memberCache";
+import type { TeamMemberDoc } from "@/lib/team/invite";
 
 export type AllowedRole = "owner" | "staff" | "viewer" | "superadmin";
 
@@ -175,6 +177,27 @@ export function mintFieldExchangeToken(
   jobId?: string,
 ): FieldTokenSuccess {
   return mintToken("exchange", businessId, fieldKey, jobId, FIELD_EXCHANGE_TTL_MS);
+}
+
+/**
+ * Read-only peek at the current field session cookie's businessId/jobId,
+ * without consuming anything or hitting Firestore. Lets the /field client
+ * land on a bare URL (no ?businessId=/?jobId=) and still learn which
+ * business/job it's scoped to — those values still have to reach the page
+ * as JS state because every /api/jobs* call it makes takes businessId
+ * explicitly, but they no longer need to live in the address bar to get
+ * there. Not a substitute for verifyFieldAccess: this doesn't check the
+ * fieldKey digest against the current business record, so it must only be
+ * used to seed client-side "what am I looking at" state, never as an
+ * authorization decision — every API call the page then makes is itself
+ * re-verified by verifyFieldAccess.
+ */
+export function peekFieldSessionClaims(req: NextRequest): { businessId: string; jobId?: string } | null {
+  const token = req.cookies.get(FIELD_ACCESS_COOKIE)?.value;
+  if (!token) return null;
+  const parsed = parseFieldToken(token, "session", Date.now());
+  if (!parsed.ok) return null;
+  return { businessId: parsed.claims.businessId, jobId: parsed.claims.jobId };
 }
 
 function legacyFieldKeyFallbackEnabled(): boolean {
@@ -351,6 +374,27 @@ function fieldUser(businessId: string, tokenId: string): VerifiedUser {
  * Returns { user } on success, or a NextResponse error (403/401) that callers
  * should return immediately.
  */
+// businessUsers is keyed by uid everywhere it's written (invite.ts,
+// team/[uid]/route.ts, provision-login, sandbox-token) — a point read
+// replaces what used to be a 3-clause composite query on every authenticated
+// request. Bypass the memo whenever an "owner" check is in play so an
+// ownership change (and the last-owner guard's count) is never served stale;
+// every other role check tolerates the memo's 30s window, matching the
+// staleness AuthContext's own client cache already allows.
+async function loadCachedMember(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  bypassCache: boolean
+): Promise<TeamMemberDoc | null> {
+  let member: TeamMemberDoc | null | undefined = bypassCache ? undefined : getCachedMember(uid);
+  if (member === undefined) {
+    const snap = await db.collection("businessUsers").doc(uid).get();
+    member = snap.exists ? (snap.data() as TeamMemberDoc) : null;
+    if (!bypassCache) setCachedMember(uid, member);
+  }
+  return member;
+}
+
 export async function verifyAuthAndRole(
   req: NextRequest,
   businessId: string,
@@ -371,27 +415,67 @@ export async function verifyAuthAndRole(
     return { user: { uid: decoded.uid, email: decoded.email, superadmin: true } };
   }
 
-  // Look up business membership
   const db = getAdminFirestore();
   if (!db) {
     return { error: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
   }
 
-  const memberSnap = await db
-    .collection("businessUsers")
-    .where("uid", "==", decoded.uid)
-    .where("businessId", "==", businessId)
-    .where("active", "==", true)
-    .limit(1)
-    .get();
+  const member = await loadCachedMember(db, decoded.uid, allowedRoles.includes("owner"));
 
-  if (memberSnap.empty) {
+  // `active !== false` (not `=== true`): docs written before the `active`
+  // field existed have no such property at all, and treating that as "not
+  // active" 403s legitimate legacy members — a real behavior fix, not just
+  // a perf one. invite.ts already uses this same convention.
+  if (!member || member.active === false || member.businessId !== businessId) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  const member = memberSnap.docs[0].data() as { role: AllowedRole; businessId: string };
-
   if (!allowedRoles.includes(member.role)) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return {
+    user: {
+      uid: decoded.uid,
+      email: decoded.email,
+      superadmin: false,
+      role: member.role,
+      businessId: member.businessId,
+    },
+  };
+}
+
+/**
+ * Like verifyAuthAndRole, but for the handful of routes that don't already
+ * know which business they're operating on and need to resolve "my own
+ * business" from the session instead of checking membership against a
+ * businessId supplied by the request. Superadmins are rejected (there is no
+ * "own business" for a platform admin) rather than silently no-op'ing.
+ */
+export async function verifyOwnBusinessRole(
+  req: NextRequest,
+  allowedRoles: AllowedRole[]
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  const sessionCookie = req.cookies.get("__session")?.value;
+  if (!sessionCookie) {
+    return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
+  }
+
+  const decoded = await verifyIdToken(sessionCookie);
+  if (!decoded) {
+    return { error: NextResponse.json({ error: "Invalid session" }, { status: 401 }) };
+  }
+  if (decoded.superadmin === true) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  const db = getAdminFirestore();
+  if (!db) {
+    return { error: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
+  }
+
+  const member = await loadCachedMember(db, decoded.uid, allowedRoles.includes("owner"));
+  if (!member || member.active === false || !allowedRoles.includes(member.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

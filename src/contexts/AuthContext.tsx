@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
-import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
+import { getFirebaseAuth } from "@/lib/firebase/client";
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from "@/lib/auth/profileCache";
 
 interface AuthUser {
@@ -87,14 +87,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: firebaseUser.email,
           };
 
-          const db = await getFirebaseDb();
-          if (db) {
-            const { doc, getDoc } = await import("firebase/firestore");
-            const snap = await getDoc(doc(db, "businessUsers", firebaseUser.uid));
-            if (snap.exists()) {
-              const data = snap.data();
-              profile = { ...profile, ...data };
-            }
+          // Server-verified equivalent of the old client Firestore read (see
+          // /api/auth/profile) — the cookie set just above authenticates it,
+          // and this is the last call site that pulled @firebase/firestore
+          // into the client bundle on every authenticated page.
+          const res = await fetch("/api/auth/profile", { credentials: "same-origin" }).catch(() => null);
+          if (res?.ok) {
+            const data = (await res.json().catch(() => null))?.profile;
+            if (data) profile = { ...profile, ...data };
           }
 
           // onIdTokenChanged also fires on Firebase's own hourly token refresh,

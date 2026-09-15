@@ -53,9 +53,25 @@ export async function POST(
     return NextResponse.json({ error: "Field access is not configured" }, { status: 503 });
   }
 
+  // The signed grant token is ~300 chars, which the browser has to display in
+  // the address bar while /f/[grant] resolves it — visible, alarming-looking,
+  // and it bloats the QR code's data density. Store the real token
+  // server-side under a short opaque id instead, so the crew only ever sees
+  // a 22-char path. The real token is still one-use (fieldAccessGrantUses,
+  // enforced inside consumeFieldExchangeToken); this doc is just an alias
+  // layer and is deleted as soon as it's looked up.
+  const shortGrantId = randomBytes(16).toString("base64url");
+  await db.collection("fieldAccessGrants").doc(shortGrantId).set({
+    token: grant.token,
+    businessId,
+    jobId,
+    createdAt: Date.now(),
+    expiresAt: grant.expiresAt,
+  });
+
   return NextResponse.json({
     ok: true,
-    fieldUrl: `${req.nextUrl.origin}/api/field/exchange?grant=${encodeURIComponent(grant.token)}`,
+    fieldUrl: `${req.nextUrl.origin}/f/${shortGrantId}`,
     expiresAt: grant.expiresAt,
   });
 }

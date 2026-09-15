@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { getFirebaseDb } from "@/lib/firebase/client";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -157,13 +156,12 @@ export default function PipelinePage() {
   async function markContacted(lead: Lead) {
     setLeadUpdating(true);
     try {
-      const db = await getFirebaseDb();
-      if (!db) return;
-      const { doc, updateDoc } = await import("firebase/firestore");
-      await updateDoc(doc(db, `businesses/${businessId}/leads`, lead.leadId), {
-        status: "contacted",
-        updatedAt: Date.now(),
+      const res = await fetch(`/api/businesses/${businessId}/leads/${lead.leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, status: "contacted" }),
       });
+      if (!res.ok) throw new Error(await res.text().catch(() => ""));
       setLeads((prev) => prev.map((l) => (l.leadId === lead.leadId ? { ...l, status: "contacted" } : l)));
       if (selectedLead?.leadId === lead.leadId) setSelectedLead({ ...lead, status: "contacted" });
       showToast("Marked as contacted.", "ok");
@@ -178,12 +176,12 @@ export default function PipelinePage() {
   async function updateApptStatus(appt: Appointment, status: string) {
     setApptUpdating(appt.appointmentId);
     try {
-      const db = await getFirebaseDb();
-      if (!db) return;
-      const { doc, updateDoc } = await import("firebase/firestore");
-      await updateDoc(doc(db, `businesses/${businessId}/appointments`, appt.appointmentId), {
-        status, updatedAt: Date.now(),
+      const res = await fetch(`/api/businesses/${businessId}/appointments/${appt.appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, status }),
       });
+      if (!res.ok) throw new Error(await res.text().catch(() => ""));
       setAppointments((prev) =>
         prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status } : a))
       );

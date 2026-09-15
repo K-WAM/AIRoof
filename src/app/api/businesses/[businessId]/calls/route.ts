@@ -32,8 +32,13 @@ export async function GET(
     return NextResponse.json({ count: countSnap.data().count });
   }
 
+  // Call docs carry a full transcript + messages[] (the largest payload in
+  // the app per doc) — the Calls page is the only consumer of this list mode
+  // and doesn't pass ?limit=, so the *default* is what actually matters here.
+  // 500 was needlessly large for a list view; an explicit ?limit= can still
+  // go up to 500 for a caller that genuinely wants it.
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
-  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 500;
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 100;
 
   const snap = await collection.orderBy("startedAt", "desc").limit(limit).get();
   const calls = snap.docs.map((d) => ({ callId: d.id, ...d.data() }));

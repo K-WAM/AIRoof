@@ -43,16 +43,20 @@ service cloud.firestore {
         allow delete: if false;
       }
 
+      // Leads and appointments: all writes now go through admin-SDK API routes
+      // (the Pipeline page's last two direct client-Firestore writes were
+      // removed when BootstrapContext replaced the client Firestore SDK —
+      // see PATCH /api/businesses/[businessId]/leads/[leadId] and
+      // .../appointments/[appointmentId]). Matches the jobs/library/crews
+      // posture: client reads only, never client writes.
       match /leads/{leadId} {
         allow read: if isSuperadmin() || isBusinessMember(businessId);
-        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
-        allow delete: if false;
+        allow write: if false;
       }
 
       match /appointments/{appointmentId} {
         allow read: if isSuperadmin() || isBusinessMember(businessId);
-        allow create, update: if isSuperadmin() || isBusinessOwnerOrStaff(businessId);
-        allow delete: if false;
+        allow write: if false;
       }
 
       match /agentActions/{actionId} {

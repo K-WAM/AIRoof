@@ -19,6 +19,13 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // lucide-react is imported (icon-by-icon, which is already tree-shakeable)
+  // in 30+ files; this lets Next's compiler rewrite those into per-icon
+  // module paths at build time so bundling/minification has less to do per
+  // route, rather than relying on tree-shaking alone.
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
   // T-055: Demo Studio, the onboarding wizard, and Playbooks moved from
   // /admin/* to their own /hub/* route group. Old deep links (bookmarks,
   // this file's own history) must redirect, never 404 — temporary (307), not

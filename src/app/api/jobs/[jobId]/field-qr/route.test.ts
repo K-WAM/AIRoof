@@ -18,6 +18,7 @@ type Doc = Record<string, unknown> | undefined;
 function makeDb(opts: { business: Doc; job: Doc }) {
   let business = opts.business;
   const businessSets: Array<Record<string, unknown>> = [];
+  const grantSets: Array<Record<string, unknown>> = [];
 
   const jobRef = {
     get: async () => ({ exists: opts.job !== undefined, data: () => opts.job }),
@@ -35,11 +36,18 @@ function makeDb(opts: { business: Doc; job: Doc }) {
   };
   const db = {
     collection: (name: string) => {
-      if (name !== "businesses") throw new Error(`unexpected collection ${name}`);
-      return { doc: () => businessRef };
+      if (name === "businesses") return { doc: () => businessRef };
+      if (name === "fieldAccessGrants") {
+        return {
+          doc: () => ({
+            set: async (data: Record<string, unknown>) => { grantSets.push(data); },
+          }),
+        };
+      }
+      throw new Error(`unexpected collection ${name}`);
     },
   };
-  return { db, businessSets };
+  return { db, businessSets, grantSets };
 }
 
 vi.mock("@/lib/firebase/admin", () => ({
@@ -62,8 +70,8 @@ describe("POST /api/jobs/[jobId]/field-qr", () => {
     mocks.verifyAuthAndRole.mockResolvedValue(staffUser);
   });
 
-  it("mints a grant and returns a field-exchange URL for an existing job", async () => {
-    const { db } = makeDb({
+  it("mints a grant, stores it under a short opaque id, and returns a /f/ URL", async () => {
+    const { db, grantSets } = makeDb({
       business: { businessName: "Apex Roofing", fieldKey: "a".repeat(32) },
       job: { title: "Roof repair" },
     });
@@ -82,10 +90,12 @@ describe("POST /api/jobs/[jobId]/field-qr", () => {
 
     expect(response.status).toBe(200);
     expect(responseBody.ok).toBe(true);
-    expect(responseBody.fieldUrl).toBe(
-      "http://localhost/api/field/exchange?grant=signed-grant-token",
-    );
+    // Short opaque path, not the ~300-char signed token — the whole point of
+    // the /f/[grant] indirection (see its route.ts header comment).
+    expect(responseBody.fieldUrl).toMatch(/^http:\/\/localhost\/f\/[A-Za-z0-9_-]{20,}$/);
     expect(mocks.mintFieldExchangeToken).toHaveBeenCalledWith("biz-1", "a".repeat(32), "J-1");
+    expect(grantSets).toHaveLength(1);
+    expect(grantSets[0]).toMatchObject({ token: "signed-grant-token", businessId: "biz-1", jobId: "J-1" });
   });
 
   it("lazily provisions a field key when the business doesn't have one yet", async () => {

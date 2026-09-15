@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { invalidateCachedMember } from "@/lib/auth/memberCache";
 import { TEAM_ROLES, type TeamRole } from "@/types/team";
 
 // PATCH /api/company/team/[uid]  body: { businessId, role?, active? }
@@ -59,6 +60,7 @@ export async function PATCH(
   if (role !== undefined) update.role = role;
   if (active !== undefined) update.active = active;
   await memberRef.update(update);
+  invalidateCachedMember(uid);
 
   return NextResponse.json({ ok: true });
 }

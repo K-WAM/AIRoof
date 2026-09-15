@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getFirebaseDb } from "@/lib/firebase/client";
-import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 
 // US + Canada timezones. Rendered as a flat <select>, so country is baked into
 // each label for scannability. Add other countries here as we expand.
@@ -28,34 +26,12 @@ export const SUPPORTED_TIMEZONES = [
 
 const DEFAULT_TZ = "America/New_York";
 
+/**
+ * A thin selector over BootstrapContext (see useBusinessModules.ts — same
+ * migration, same single fetch/cache shared between the two). Kept as its
+ * own hook because ~10 call sites import it by this name.
+ */
 export function useBusinessTimezone(): string {
-  const businessId = useBusinessId();
-  const [timezone, setTimezone] = useState<string>(DEFAULT_TZ);
-
-  useEffect(() => {
-    if (!businessId) return;
-
-    const cacheKey = `tz_${businessId}`;
-    try {
-      const cached = sessionStorage.getItem(cacheKey);
-      if (cached) { setTimezone(cached); return; }
-    } catch { /* sessionStorage unavailable (SSR) */ }
-
-    (async () => {
-      const db = await getFirebaseDb();
-      if (!db) return;
-      const { doc, getDoc } = await import("firebase/firestore");
-      getDoc(doc(db, "businesses", businessId))
-        .then((snap) => {
-          const tz = snap.data()?.timezone;
-          if (typeof tz === "string" && tz.length > 0) {
-            setTimezone(tz);
-            try { sessionStorage.setItem(cacheKey, tz); } catch { /* ignore */ }
-          }
-        })
-        .catch(() => {});
-    })();
-  }, [businessId]);
-
-  return timezone;
+  const { data } = useBootstrap();
+  return data?.business.timezone ?? DEFAULT_TZ;
 }

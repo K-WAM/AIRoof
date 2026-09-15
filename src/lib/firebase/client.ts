@@ -1,20 +1,26 @@
 // Firebase Client SDK initialization (browser-safe) — lazily loaded (T-070).
 //
-// firebase/auth + firebase/firestore together are ~150kB (gzipped) of JS. Every
-// authenticated page used to pay that cost synchronously (a static top-level
-// `import { auth, db } from "./client"` bundles the whole SDK into that page's
-// first-load JS, whether or not the page renders before the user interacts with
-// anything auth/data-related). Loading them via dynamic `import()` instead lets
-// webpack code-split them into their own chunk, so a page's own JS shrinks and
-// hydrates faster while the SDK chunk fetches in parallel.
+// firebase/auth alone is lazily code-split so a page's own JS shrinks and
+// hydrates faster while the SDK chunk fetches in parallel, instead of a
+// static top-level `import { auth } from "./client"` bundling the whole SDK
+// into every page's first-load JS whether or not it's needed immediately.
+//
+// firebase/firestore is deliberately NOT re-exported from here. The last
+// client-side Firestore reads/writes (AuthContext's profile doc, the
+// business-modules/timezone hooks, and two Pipeline status writes) were
+// replaced by server API routes in the Phase 1 foundation work — see
+// /api/auth/profile and /api/company/bootstrap — specifically to drop the
+// ~281KB @firebase/firestore chunk from every authenticated page. Don't add
+// it back here; if a new feature seems to need a client Firestore read,
+// write a server route instead (this app already authenticates every page
+// via the __session cookie, so a server round trip is one hop, not two).
 //
 // The app is still initialized eagerly (not gated behind a call) so the actual
-// network fetch for these chunks starts the moment this module is first
+// network fetch for the auth chunk starts the moment this module is first
 // evaluated (effectively as soon as hydration begins) rather than waiting for
 // whichever effect happens to run first.
 import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
-import type { Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -36,7 +42,6 @@ const appPromise: Promise<FirebaseApp | null> = isConfigValid
   : Promise.resolve(null);
 
 let authPromise: Promise<Auth | null> | null = null;
-let dbPromise: Promise<Firestore | null> | null = null;
 
 /** Resolves to the Firebase Auth instance, loading the SDK on first call (memoized). */
 export function getFirebaseAuth(): Promise<Auth | null> {
@@ -46,14 +51,4 @@ export function getFirebaseAuth(): Promise<Auth | null> {
     );
   }
   return authPromise;
-}
-
-/** Resolves to the Firestore instance, loading the SDK on first call (memoized). */
-export function getFirebaseDb(): Promise<Firestore | null> {
-  if (!dbPromise) {
-    dbPromise = appPromise.then((app) =>
-      app ? import("firebase/firestore").then(({ getFirestore }) => getFirestore(app)) : null
-    );
-  }
-  return dbPromise;
 }

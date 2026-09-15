@@ -914,12 +914,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 Expires {new Date(qrExpiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} — one scan only
               </p>
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "center" }}>
+            {qrFieldUrl && !qrLoading && (
+              // A short opaque path now (see /f/[grant]), not the raw signed
+              // token — safe to show. A visible, selectable field also
+              // doubles as the copy fallback, so there's no prompt() dialog
+              // exposing anything if the Clipboard API is unavailable.
+              <input
+                type="text"
+                readOnly
+                value={qrFieldUrl}
+                onFocus={(e) => e.currentTarget.select()}
+                onClick={(e) => e.currentTarget.select()}
+                aria-label="Field link"
+                style={{ width: "100%", marginTop: 14, fontSize: 12, padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, color: "#334155", fontFamily: "monospace", textAlign: "center", background: "#f8fafc" }}
+              />
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "center" }}>
               {qrFieldUrl && !qrLoading && (
                 <button className="button" style={{ fontSize: 12 }} onClick={() => {
-                  navigator.clipboard.writeText(qrFieldUrl).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => prompt("Copy this link:", qrFieldUrl));
+                  navigator.clipboard.writeText(qrFieldUrl).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => {});
                 }}>
-                  {qrLinkCopied ? "Link copied" : "Copy link instead"}
+                  {qrLinkCopied ? "Link copied" : "Copy link"}
                 </button>
               )}
               <button className="button" style={{ fontSize: 12 }} onClick={openFieldQr} disabled={qrLoading}>
