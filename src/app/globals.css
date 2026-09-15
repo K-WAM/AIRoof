@@ -2341,6 +2341,52 @@ a.metric:hover {
   padding: 18px;
 }
 
+/* ── Bottom sheet ────────────────────────────────────────────────────────
+   A real gap this design system had: every mobile-style popup (PhotoCapture's
+   description prompt, the job-photo lightbox) hand-rolled its own
+   "position: fixed; inset: 0; align-items: flex-end" instead of a shared
+   primitive. New surfaces (PhotoEditSheet, and Phase 5's future time editor)
+   should use this instead of hand-rolling another one — same relationship
+   .modal-overlay/.modal-box already have to Modal.tsx. */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  margin: 0 auto 14px;
+}
+
+.sheet-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* ── Quick add (global "+") ─────────────────────────────────────────────── */
 
 .quickadd-trigger {

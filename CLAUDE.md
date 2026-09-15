@@ -2,7 +2,7 @@
 
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
-**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 3/7 sub-phases shipped (foundation/speed/the field-URL fix; Customers; and Time clock, T-090) and pushed to `origin/main`. Remaining: Photos, Invoice persistence, Spanish, Trade roles (T-091–T-094).
+**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091) and pushed to `origin/main`. Remaining: Invoice persistence, Spanish, Trade roles (T-092–T-094).
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
@@ -306,6 +306,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/timeclock/punch/route.ts — the cross-job punch guard (GET today's state, POST a punch; the atomic "Switch job" flow lives here)
 - src/app/api/cron/close-punches/route.ts — nightly auto-close of any punch left open from a prior day (vercel.json: 9am UTC)
 - src/components/field/TimeClock.tsx — the punch-buttons widget shared by both field screens (`/field` and `/company/field`)
+- src/app/api/jobs/[jobId]/photos/blobs/route.ts — batched full-res photo fetch (≤12 ids/request, `immutable` cache tier) — kills the report/lightbox N+1
+- src/components/ui/Sheet.tsx — generic bottom-sheet shell (Modal.tsx's mobile-appropriate sibling); `.sheet`/`.sheet-backdrop`/`.sheet-handle` in globals.css
+- src/components/field/PhotoEditSheet.tsx — after-the-fact photo label/phase editing (wired into the job detail page's Photos tab); the `includeInReport` toggle only renders when `canCurate` is passed
 
 ## Navigation Completeness Rule
 
@@ -328,11 +331,12 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Phase 12 continuation** — Photos (before/after + report grid), Invoice persistence, Spanish, Trade roles:
-   4 of 7 sub-phases remain, fully specced in `docs/PLATFORM-EXPANSION-PLAN.md`. The shipped 3/7 (foundation,
-   Customers, Time clock) are already merged to `main` and pushed — pick one and build directly on `main`. Time
-   clock's own deferred follow-ups (the admin time-edit sheet, Labor-tab provenance chips) are listed in the
-   plan doc's Phase 5 "Shipped" notes if picked up later.
+1. **Phase 12 continuation** — Invoice persistence, Spanish, Trade roles: 3 of 7 sub-phases remain, fully
+   specced in `docs/PLATFORM-EXPANSION-PLAN.md`. The shipped 4/7 (foundation, Customers, Time clock, Photos) are
+   already merged to `main` and pushed — pick one and build directly on `main`. Each shipped phase's own
+   deliberate deferrals (Time clock's admin time-edit sheet + Labor-tab chips; Photos' field-side gallery +
+   `comfortable` density + drag-reorder) are listed in the plan doc's per-phase "Shipped" notes if picked up
+   later.
 2. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
    and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
 3. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore

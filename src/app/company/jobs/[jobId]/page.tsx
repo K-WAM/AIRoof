@@ -5,12 +5,13 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
 import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
-import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
+import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta, PhotoPhase } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Toggle } from "@/components/ui/Toggle";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import {
@@ -38,6 +39,31 @@ const SEVERITY_COLOR: Record<string, string> = {
   medium: "#d97706",
   low: "#15803d",
 };
+
+// Phase 12, Phase 3 — report photo grid. Raised 8 → 16 (2 pages @ 8/page).
+const MAX_REPORT_PHOTOS = 16;
+const PHASE_ORDER: PhotoPhase[] = ["before", "after", "other"];
+
+type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
+
+/**
+ * Group already-sorted (before → after → other) photos and insert an invisible spacer between
+ * groups so a phase boundary always lands on a fresh row — 3 "before" photos followed directly
+ * by "after" photos would otherwise put the last "before" mid-row, which reads as a rendering
+ * error rather than an intentional section break.
+ */
+function groupAndPadForGrid(photos: ReportPhoto[], columns = 2): Array<ReportPhoto | { spacer: true }> {
+  const groups = PHASE_ORDER
+    .map((phase) => photos.filter((p) => (p.phase ?? "other") === phase))
+    .filter((g) => g.length > 0);
+  const out: Array<ReportPhoto | { spacer: true }> = [];
+  groups.forEach((group, i) => {
+    out.push(...group);
+    const isLastGroup = i === groups.length - 1;
+    if (!isLastGroup && out.length % columns !== 0) out.push({ spacer: true });
+  });
+  return out;
+}
 
 type LaborRow = { name: string; arrival: string; departure: string; hours: string; rate: string };
 type MaterialRow = { item: string; quantity: string; unit: string; unitPrice: string };
@@ -76,6 +102,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // Photos (Phase 2) — metas loaded lazily when the tab opens; full blobs on lightbox open.
   const [photos, setPhotos] = useState<JobPhotoMeta[]>([]);
   const [photosLoaded, setPhotosLoaded] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<JobPhotoMeta | null>(null);
   const [lightbox, setLightbox] = useState<{ photoId: string; label: string; fullB64?: string } | null>(null);
 
   // Edit buffer for the data tabs (null = read-only). Edits write to job.parsed via PATCH.
@@ -96,7 +123,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [reportError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reportNotes, setReportNotes] = useState("");
-  const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string }>>([]);
+  const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string; phase?: PhotoPhase }>>([]);
   const [showReportSend, setShowReportSend] = useState(false);
   const [reportTo, setReportTo] = useState("");
   const [reportSending, setReportSending] = useState(false);
@@ -306,14 +333,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setPhotos(metas);
       setPhotosLoaded(true);
     }
-    const included = metas.filter((p) => p.includeInReport).slice(0, 8);
-    const withBlobs = await Promise.all(
-      included.map(async (p) => {
-        const r = await fetch(`/api/jobs/${jobId}/photos/${p.photoId}?businessId=${businessId}`).then((x) => x.json()).catch(() => null);
-        return r?.fullB64 ? { label: p.label, fullB64: r.fullB64 as string } : null;
+    // Sort before → after → other (interleaved is useless), then cap at 2 pages (8/page).
+    const included = metas
+      .filter((p) => p.includeInReport)
+      .sort((a, b) => {
+        const order = PHASE_ORDER.indexOf(a.phase ?? "other") - PHASE_ORDER.indexOf(b.phase ?? "other");
+        return order !== 0 ? order : (a.sort ?? a.createdAt) - (b.sort ?? b.createdAt);
       })
+      .slice(0, MAX_REPORT_PHOTOS);
+
+    // Batched blob fetch (≤12 ids/request) — was one GET per photo.
+    const ids = included.map((p) => p.photoId);
+    const blobsById: Record<string, string> = {};
+    for (let i = 0; i < ids.length; i += 12) {
+      const chunk = ids.slice(i, i + 12);
+      const r = await fetch(`/api/jobs/${jobId}/photos/blobs?businessId=${businessId}&ids=${chunk.join(",")}`)
+        .then((x) => x.json()).catch(() => null);
+      if (r?.blobs) Object.assign(blobsById, r.blobs);
+    }
+    setReportPhotos(
+      included
+        .filter((p) => blobsById[p.photoId])
+        .map((p) => ({ label: p.label, fullB64: blobsById[p.photoId], phase: p.phase ?? "other" }))
     );
-    setReportPhotos(withBlobs.filter(Boolean) as Array<{ label: string; fullB64: string }>);
   }
 
   async function openFieldQr() {
@@ -489,6 +531,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   return (
     <>
       <style>{`
+        /* Report photo grid (Phase 12, Phase 3) — a fixed-aspect card slot + object-fit: contain
+           + a blurred scaled copy of the same image as the backdrop. No crop (the old bug: a
+           fixed-height box with object-fit: cover), no distortion, no dead letterbox space. */
+        .rpt-photos { display: grid; grid-template-columns: repeat(2, 1fr);
+                      gap: .14in .2in; break-before: page; page-break-before: always; }
+        .rpt-photo  { break-inside: avoid; page-break-inside: avoid;
+                      border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; background: #fff; }
+        .rpt-photo--spacer { visibility: hidden; }
+
+        .rpt-photo__frame { position: relative; aspect-ratio: 16 / 10; background: #eef2f6; overflow: hidden; }
+        .rpt-photo__bg    { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+                            filter: blur(14px) saturate(1.1) brightness(.92); transform: scale(1.12); }
+        .rpt-photo__img   { position: absolute; inset: 0; width: 100%; height: 100%;
+                            object-fit: contain; object-position: center; }
+
+        .rpt-photo__cap   { display: flex; align-items: baseline; gap: 6px;
+                            padding: 5px 8px 7px; font-size: 8.5pt; line-height: 1.25; color: #475569; }
+        .rpt-photo__phase { flex: none; font-size: 7pt; font-weight: 800; letter-spacing: .06em;
+                            text-transform: uppercase; padding: 1px 5px; border-radius: 4px; color: #fff; }
+        .rpt-photo__phase--before { background: #64748b; }
+        .rpt-photo__phase--after  { background: var(--report-accent, #0f172a); }
+        .rpt-photo__label { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+
         @media print {
           /* Print ONLY the document — strip all app chrome so a PDF reads like a real invoice */
           .no-print { display: none !important; }
@@ -505,7 +570,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             max-width: 100% !important;
             margin: 0 auto !important;
           }
-          @page { margin: 0.5in; }
+          .rpt-photo__bg { display: none; }
+          .rpt-photo { border-color: #cbd5e1; }
+          .rpt-photos { gap: .12in .18in; }
+          .rpt-photo__cap, .rpt-photo__phase { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { size: letter portrait; margin: 0.4in; }
         }
       `}</style>
 
@@ -856,15 +925,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         style={{ width: "100%", height: 120, objectFit: "cover", cursor: "pointer", display: "block" }}
                       />
                       <div style={{ padding: "8px 10px" }}>
+                        {ph.phase && ph.phase !== "other" && (
+                          <span style={{
+                            display: "inline-block", marginBottom: 6, fontSize: 9, fontWeight: 800,
+                            letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 4,
+                            color: "#fff", background: ph.phase === "before" ? "#64748b" : "var(--accent)",
+                          }}>{ph.phase}</span>
+                        )}
                         <p style={{ margin: "0 0 6px", fontSize: 12, color: "#334155", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{ph.label}</p>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#475569" }}>
                             <Toggle checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} label={`Include ${ph.label} in report`} size="sm" />
                             In report
                           </div>
-                          <button onClick={() => { if (confirm("Delete this photo?")) deletePhoto(ph); }} title="Delete" aria-label={`Delete ${ph.label}`} className="icon-del">
-                            <Trash2 size={15} strokeWidth={1.75} />
-                          </button>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            <button onClick={() => setEditingPhoto(ph)} title="Edit" aria-label={`Edit ${ph.label}`} className="icon-del">
+                              <Pencil size={14} strokeWidth={1.75} />
+                            </button>
+                            <button onClick={() => { if (confirm("Delete this photo?")) deletePhoto(ph); }} title="Delete" aria-label={`Delete ${ph.label}`} className="icon-del">
+                              <Trash2 size={15} strokeWidth={1.75} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -875,6 +956,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </div>
         </section>
       )}
+
+      <PhotoEditSheet
+        photo={editingPhoto}
+        jobId={jobId}
+        businessId={businessId}
+        canCurate
+        onClose={() => setEditingPhoto(null)}
+        onSaved={(patch) => setPhotos((ps) => ps.map((p) => (p.photoId === editingPhoto?.photoId ? { ...p, ...patch } : p)))}
+        onDeleted={() => setPhotos((ps) => ps.filter((p) => p.photoId !== editingPhoto?.photoId))}
+      />
 
       {/* Lightbox popup */}
       {lightbox && (
@@ -1608,7 +1699,8 @@ function ReportRenderer({
       color: "#1e293b",
       boxShadow: "0 4px 32px rgba(0,0,0,0.08)",
       overflow: "hidden",
-    }}>
+      ["--report-accent" as string]: accent,
+    } as React.CSSProperties}>
 
       {/* ── Branded header bar ── */}
       <div style={{
@@ -1802,17 +1894,32 @@ function ReportRenderer({
           </div>
         )}
 
-        {/* ── Photo documentation (max 2 pages: up to 8 photos, 4 per page) ── */}
+        {/* ── Photo documentation (2 cols x up to 8 rows/page = 16 max, 2 pages) ──
+             Fixed-aspect frame + object-fit: contain + a blurred backdrop copy of the same
+             image — no crop (the old bug here was a fixed-height box with object-fit: cover),
+             no distortion, no dead letterbox space on a portrait photo. */}
         {reportPhotos && reportPhotos.length > 0 && (
           <div style={{ pageBreakBefore: "always", marginTop: 8 }}>
             <ReportSection title="Photo Documentation">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                {reportPhotos.slice(0, 8).map((ph, i) => (
-                  <div key={i} style={{ breakInside: "avoid" }}>
-                    <img src={`data:image/jpeg;base64,${ph.fullB64}`} alt={ph.label} style={{ width: "100%", height: 200, objectFit: "cover", borderRadius: 8, border: "1px solid #e2e8f0" }} />
-                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.4 }}>{ph.label}</p>
-                  </div>
-                ))}
+              <div className="rpt-photos">
+                {groupAndPadForGrid(reportPhotos).map((ph, i) =>
+                  "spacer" in ph ? (
+                    <div key={i} className="rpt-photo rpt-photo--spacer" />
+                  ) : (
+                    <div key={i} className="rpt-photo">
+                      <div className="rpt-photo__frame">
+                        <img className="rpt-photo__bg" src={`data:image/jpeg;base64,${ph.fullB64}`} alt="" aria-hidden />
+                        <img className="rpt-photo__img" src={`data:image/jpeg;base64,${ph.fullB64}`} alt={ph.label} />
+                      </div>
+                      <div className="rpt-photo__cap">
+                        {ph.phase && ph.phase !== "other" && (
+                          <span className={`rpt-photo__phase rpt-photo__phase--${ph.phase}`}>{ph.phase}</span>
+                        )}
+                        <span className="rpt-photo__label">{ph.label}</span>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             </ReportSection>
           </div>

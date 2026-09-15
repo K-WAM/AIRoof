@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { processPhoto, type ProcessedPhoto } from "@/lib/photos/clientResize";
+import type { PhotoPhase } from "@/types/jobs";
 
 // Frictionless field photo capture: tap + Photo → pick/snap → required description → save.
 // Used by both /field (public) and /company/field (staff). Dark-themed to match.
@@ -25,8 +26,24 @@ export function PhotoCapture({
   const [processing, setProcessing] = useState(false);
   const [photo, setPhoto] = useState<ProcessedPhoto | null>(null);
   const [label, setLabel] = useState("");
+  const [phase, setPhase] = useState<PhotoPhase>("before");
+  const [existingCount, setExistingCount] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A real default, not a required click: zero photos on this job yet → "before", else "after".
+  // The user can still tap to override it.
+  useEffect(() => {
+    if (!jobId) { setExistingCount(null); return; }
+    let cancelled = false;
+    fetch(`/api/jobs/${jobId}/photos?businessId=${businessId}`, {
+      headers: fieldKey ? { "x-field-key": fieldKey } : undefined,
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setExistingCount((d.photos ?? []).length); })
+      .catch(() => { if (!cancelled) setExistingCount(null); });
+    return () => { cancelled = true; };
+  }, [jobId, businessId, fieldKey]);
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -38,6 +55,7 @@ export function PhotoCapture({
       const p = await processPhoto(file);
       setPhoto(p);
       setLabel("");
+      setPhase((existingCount ?? 0) === 0 ? "before" : "after");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not process photo");
     } finally {
@@ -56,7 +74,7 @@ export function PhotoCapture({
           "Content-Type": "application/json",
           ...(fieldKey ? { "x-field-key": fieldKey } : {}),
         },
-        body: JSON.stringify({ businessId, label: label.trim(), thumbB64: photo.thumbB64, fullB64: photo.fullB64, uploadedBy: submittedBy, w: photo.w, h: photo.h }),
+        body: JSON.stringify({ businessId, label: label.trim(), thumbB64: photo.thumbB64, fullB64: photo.fullB64, uploadedBy: submittedBy, w: photo.w, h: photo.h, phase }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -101,6 +119,25 @@ export function PhotoCapture({
               alt="preview"
               style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 12, marginBottom: 12, border: "1px solid #1e2a4a" }}
             />
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }} role="group" aria-label="Photo phase">
+              {(["before", "after"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPhase(p)}
+                  aria-pressed={phase === p}
+                  style={{
+                    flex: 1, padding: "9px", borderRadius: 10, fontSize: 13, fontWeight: 700,
+                    textTransform: "capitalize", cursor: "pointer",
+                    border: phase === p ? "1.5px solid var(--accent)" : "1.5px solid #1e2a4a",
+                    background: phase === p ? "var(--accent)" : "transparent",
+                    color: phase === p ? "#fff" : "#7c93c8",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}

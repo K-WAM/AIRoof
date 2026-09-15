@@ -1,10 +1,10 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Time clock, T-090 — see below)
+Last updated: 2026-09-15 (Photos, T-091 — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
-> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 3 of 7 sub-phases (T-088/T-089/T-090) merged to `main` and
-> pushed to `origin/main`. Remaining sub-phases (Photos, Invoice persistence, Spanish, Trade roles — T-091–T-094)
+> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 4 of 7 sub-phases (T-088/T-089/T-090/T-091) merged to `main`
+> and pushed to `origin/main`. Remaining sub-phases (Invoice persistence, Spanish, Trade roles — T-092–T-094)
 > are designed but not started. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated
 > session narratives below remain historical evidence.
 
@@ -28,6 +28,67 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, continued even further) — Photos (T-091, Phase 12/Phase 3)
+
+Owner picked Photos as the next Phase 12 sub-phase after Time clock.
+
+**Shipped:** `PhotoPhase` ("before"/"after"/"other") plus `sort`/`orientation` added to
+`JobPhotoMeta` (no migration — read with defaults everywhere). Raised `MAX_PHOTOS_PER_JOB` 10 →
+24 and exported it; retuned `processPhoto`'s compression ladder toward a ~400KB typical output
+(was ~900KB) so the raise doesn't blow through the free Spark plan's 1GiB total as fast (the hard
+`MAX_FULL_BYTES` reject is unchanged). New batched `GET /api/jobs/[jobId]/photos/blobs?ids=` (≤12
+ids, one `db.getAll()` round trip, the `immutable` Cache-Control tier from `src/lib/http/cache.ts`)
+replaces what the report generator used to do — fetch each included photo's full-res blob with
+its own separate request — the actual N+1 the plan wanted killed. Split `PATCH
+.../photos/[photoId]`'s permission by field rather than by role for the whole route: a body
+touching only `label`/`phase`/`sort` now goes through `verifyFieldAccess` (the crew who took a
+photo can fix its own label), while `includeInReport` and DELETE stay
+`verifyAuthAndRole(["owner","staff"])` — a customer-facing report decision stays an office
+decision. `PhotoCapture` gained an inline Before/After control that defaults to "before" when the
+job has zero photos, else "after" — a real default per the plan's own framing, not a required
+click, though the crew can still tap to override it (it fetches the job's current photo count
+once per job selection to decide).
+
+**The report grid rewrite — this was the actual reported bug.** Replaced the old `height: 200,
+objectFit: "cover"` grid (which cropped portrait photos) with a fixed-aspect `.rpt-photo__frame`
++ `object-fit: contain` for the real image + a blurred, scaled copy of the *same* image as a
+backdrop filling the frame — no crop, no distortion, and no dead letterbox space around a
+portrait shot next to a landscape one. Included photos now sort before → after → other (with a
+`visibility: hidden` spacer inserted between phase groups so a 3-before/5-after split doesn't
+leave the last "before" stranded mid-row), and `MAX_REPORT_PHOTOS` raised 8 → 16 (2 pages @
+8/page), fetched via the new batched endpoint. Print CSS added inline in the job detail page's
+existing page-scoped `<style>` block (matching that page's own established pattern, not a new
+globals.css addition) — `@page` margin corrected to the 0.4in the layout math is actually
+anchored on.
+
+**A real design-system gap closed:** every mobile-style popup in this app (`PhotoCapture`'s own
+upload prompt, the job-photo lightbox) had hand-rolled its own `position: fixed; inset: 0;
+align-items: flex-end` instead of a shared primitive. New `.sheet`/`.sheet-backdrop`/
+`.sheet-handle` classes in `globals.css` back a new `src/components/ui/Sheet.tsx` (Modal.tsx's
+bottom-sheet-shaped sibling — same Escape/click-outside-dismiss contract) and
+`src/components/field/PhotoEditSheet.tsx`, wired into the job detail page's Photos tab as a
+pencil-icon "Edit" button next to the existing delete button — an owner/staff member can now fix
+a photo's label/phase after the fact, which had no UI at all before this.
+
+**Deliberately deferred** (documented in `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 3 "Shipped"
+notes, not silently dropped): a field-side photo gallery — `PhotoEditSheet` only reaches the
+desktop job-detail page, because neither field screen has ever listed already-uploaded photos
+(upload-only, by original design) and building that list is a real feature beyond "an edit
+sheet"; the `comfortable` 4-up report density variant (only `compact`, the default and the actual
+bug, shipped); and a drag-reorder UI for `sort` (the field is real, stored, and already
+respected by `listPhotoMetas`'s own sort — nothing writes it yet).
+
+**Verified:** `tsc` clean; lint 0 errors (one pre-existing `<img>`-vs-`next/image` warning in
+`PhotoCapture.tsx`, unrelated to this session's edit); `vitest run` 572/572 clean this run (no
+flake this pass); `next build` green — `/company/jobs/[jobId]` grew 19.3kB → 21.5kB (the new sheet
++ grid logic). No new automated tests were added for `src/lib/photos/store.ts`'s additions
+(`getPhotoBlobs`, `updatePhotoMeta`) — thin Firestore wrappers around `db.getAll()`/`.update()`,
+consistent with that file's pre-existing zero-test coverage; the actual logic risk in this session
+lived in the report grid and permission split, both reasoned through carefully and build-verified,
+not in the store layer. **Pushed to `origin/main`.**
 
 ---
 

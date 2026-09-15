@@ -43,8 +43,12 @@ export async function processPhoto(file: File): Promise<ProcessedPhoto> {
 
   const thumb = drawScaled(img, 240, 0.6);
 
-  // Try progressively lower quality / size until under the cap.
-  const attempts: Array<[number, number]> = [[1280, 0.72], [1100, 0.65], [900, 0.55], [800, 0.45]];
+  // Try progressively lower quality / size until under the cap. Phase 12/Phase 3 retuned this
+  // ladder to TARGET ~400KB typical output (was ~900KB) so raising MAX_PHOTOS_PER_JOB 10 → 24
+  // doesn't blow through the free Spark plan's 1GiB total as fast: shrink the edge length first
+  // (1024 → 800) at a fixed quality before falling back to lowering quality too. MAX_FULL_BYTES
+  // (900_000) is unchanged as the hard reject.
+  const attempts: Array<[number, number]> = [[1024, 0.72], [800, 0.72], [800, 0.55], [640, 0.45]];
   let full = drawScaled(img, attempts[0][0], attempts[0][1]);
   for (const [edge, q] of attempts) {
     full = drawScaled(img, edge, q);

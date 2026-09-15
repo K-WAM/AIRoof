@@ -1,6 +1,19 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude), continued further — Time clock (T-090, Phase 12/Phase 5) shipped and pushed to
+Updated: 2026-09-15 (Claude), continued even further — Photos (T-091, Phase 12/Phase 3) shipped and pushed to
+`main`/`origin/main`. `PhotoPhase` (before/after/other) + `sort`/`orientation` on `JobPhotoMeta`,
+`MAX_PHOTOS_PER_JOB` 10 → 24 (exported), `processPhoto` retuned toward ~400KB typical output, a new batched
+`GET .../photos/blobs` (≤12 ids, one round trip) replacing the report's old one-fetch-per-photo N+1, a PATCH
+permission split by field (label/phase → `verifyFieldAccess`; `includeInReport`/DELETE stay owner/staff), an
+inline Before/After default on `PhotoCapture`, and the actual reported-bug fix: the report grid rewritten with
+a fixed-aspect frame + `object-fit: contain` + a blurred backdrop copy (no crop, no dead space), before → after
+→ other ordering with a row-boundary spacer, `MAX_REPORT_PHOTOS` 8 → 16. Closed a real design-system gap with
+new `.sheet`/`.sheet-backdrop`/`.sheet-handle` classes backing a `Sheet.tsx` primitive and `PhotoEditSheet.tsx`,
+wired into the job detail Photos tab. Deliberately deferred (see `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 3
+notes): a field-side photo gallery, the `comfortable` density variant, and drag-reorder for `sort`. `tsc`/lint
+clean, `vitest run` 572/572, `next build` green. Full narrative in `HANDOFF.md`'s matching entry.
+
+Previous: 2026-09-15 (Claude), continued further — Time clock (T-090, Phase 12/Phase 5) shipped and pushed to
 `main`/`origin/main`. Full six-punch state machine + atomic cross-job guard (`POST /api/timeclock/punch`, a 409
 with "Switch job" resolved in one `WriteBatch`) + an immutable `punches` ledger + a nightly auto-close cron, and
 the actual invoice-affecting integration: a punched `(workerKey, dayKey)` shadows the spoken labor line entirely

@@ -25,8 +25,31 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   flagged too risky to edit blind by a prior session). `tsc`/lint clean, `vitest run` 571/572 (the
   one failure is the long-documented `example-lib.test.ts` concurrent-load flake, reconfirmed
   clean in isolation), `next build` green.
-- **Phase 12 (new, owner-added) — 3 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug),
-  T-089 (Customers), and T-090 (Time clock, above).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
+- **T-091 (Photos, Phase 12/Phase 3), shipped and pushed to `main`.** `PhotoPhase` (before/after/
+  other) + `sort`/`orientation` added to `JobPhotoMeta` (no migration — old docs read with
+  defaults). `MAX_PHOTOS_PER_JOB` raised 10 → 24 and exported; `processPhoto`'s compression
+  ladder retuned toward a ~400KB typical output (was ~900KB) so the raise doesn't blow through
+  Spark's 1GiB total as fast. New batched `GET .../photos/blobs?ids=` (≤12 ids, one `db.getAll()`
+  round trip, `immutable` cache tier) replaces the report's old one-fetch-per-photo loop — the
+  actual N+1 the spec wanted killed. `PATCH .../photos/[photoId]` permission split by field:
+  label/phase now go through `verifyFieldAccess` (the crew who took a photo can fix it),
+  `includeInReport`/DELETE stay `verifyAuthAndRole(["owner","staff"])`. `PhotoCapture` gained an
+  inline Before/After control defaulting to "before" when the job has zero photos else "after"
+  (a real default, still one tap to override). Report grid rewritten: a fixed-aspect frame +
+  `object-fit: contain` + a blurred backdrop copy of the same image — no crop (the old bug: a
+  fixed-height box with `object-fit: cover`), no distortion, no dead space on a portrait photo —
+  sorted before → after → other with a row-boundary spacer between groups, `MAX_REPORT_PHOTOS`
+  raised 8 → 16. New `.sheet`/`.sheet-backdrop`/`.sheet-handle` classes in `globals.css` (a real
+  design-system gap) back a new `Sheet.tsx` primitive and `PhotoEditSheet.tsx`, wired into the
+  job-detail Photos tab for after-the-fact label/phase editing. Deliberately deferred (see
+  `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 3 "Shipped" notes): a field-side photo gallery (the
+  edit sheet is desktop-only for now — neither field screen has ever listed already-uploaded
+  photos), the `comfortable` 4-up report density variant, and a drag-reorder UI for `sort` (the
+  field/sort logic is real and tested via `listPhotoMetas`'s own sort, just nothing writes `sort`
+  yet). `tsc`/lint clean, `vitest run` 572/572 clean this run, `next build` green
+  (`/company/jobs/[jobId]` 19.3kB → 21.5kB).
+- **Phase 12 (new, owner-added) — 4 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug),
+  T-089 (Customers), T-090 (Time clock), and T-091 (Photos, above).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
   12 checklist entry below. Headline results: the ~281KB `@firebase/firestore` chunk is gone from every
   authenticated page (confirmed by inspecting the built chunks — not assumed from a route-size table), a real
   security hole was closed (`GET /api/company/settings` had no auth check at all), a live cross-tenant bug was
@@ -38,8 +61,8 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   `main` and pushed to `origin/main`** (`3fec20b`) — a 2026-09-15 session found every doc still claiming this
   sat unmerged on a `phase1-foundation-perf-url-fix` branch; `git branch -a`/`git log` show that branch is gone
   and `main`/`origin/main` already match, so that claim was stale and is now corrected everywhere it appeared.
-  Remaining sub-phases (Photos, Invoice persistence, Spanish, Trade roles — T-091…T-094) are designed but not
-  started; see the plan doc's per-phase status table.
+  Remaining sub-phases (Invoice persistence, Spanish, Trade roles — T-092…T-094) are designed but not started;
+  see the plan doc's per-phase status table.
 - **2026-09-15 — Google sign-in fix (`auth/internal-error`) + the doc-staleness correction above.** Diagnosed
   via CLI against production (public Identity Toolkit `createAuthUri` call, no console access needed): Google
   provider, OAuth client, and `authorizedDomains` all check out fine server-side. Root cause is

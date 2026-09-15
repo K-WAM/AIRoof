@@ -1,7 +1,7 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–2 and 5 shipped, merged to `main` and pushed to `origin/main`.**
-> Phases 3, 4, 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
+> **Status (2026-09-15): Phases 1–3 and 5 shipped, merged to `main` and pushed to `origin/main`.**
+> Phases 4, 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
 > shipped and point back here rather than re-deriving the design. Where an implementation detail below differs
 > from what actually shipped, a `**Shipped:**` note says so; the rest of each phase's spec is unchanged and is
@@ -225,7 +225,34 @@ Do **not** make `customerId` required on `POST /api/jobs` — it would break the
 
 ---
 
-## Phase 3 — Photos: before/after, labels, report grid — NOT STARTED
+## Phase 3 — Photos: before/after, labels, report grid ✅ SHIPPED (T-091)
+
+**Shipped, with these deviations from the original spec (all deliberate — see T-091's `TODO.md` entry):**
+- **No field-side photo gallery.** `PhotoEditSheet` (label/phase editing after the fact) is wired
+  into the desktop job-detail Photos tab, not a new gallery on `/field`/`/company/field` — neither
+  field screen has ever listed already-uploaded photos (upload-only, by design, to stay
+  lightweight), and building that gallery is a real feature of its own beyond "add an edit
+  sheet." The core value — correct before/after tagging — still lands where it's actually
+  decided: `PhotoCapture`'s new inline phase control, at the moment of capture, in both field
+  contexts.
+- **Only `photoDensity: "compact"` (8-up, the default and the actual reported bug) shipped.** The
+  `"comfortable"` 4-up variant is spec'd but not built — `compact` alone already fixes the
+  crop/dead-space problem and delivers the "8 photos across 2 pages" ask; a density toggle is
+  additional UI scope, not required to close the bug.
+- **`sort`/`orientation` are real, stored fields with no consumer yet.** `listPhotoMetas` already
+  sorts by `sort ?? createdAt` and `putPhoto` derives `orientation` from `w`/`h` on every upload,
+  but no drag-reorder UI writes `sort` yet — `updatePhotoMeta` already accepts a `sort` patch for
+  whenever that ships.
+- Everything else shipped as spec'd: `MAX_PHOTOS_PER_JOB` 10 → 24 (exported), `processPhoto`
+  retuned toward a ~400KB typical output, the batched `GET .../photos/blobs` endpoint (≤12 ids,
+  `immutable` cache tier) replacing the report's old one-fetch-per-photo loop, the PATCH
+  permission split (label/phase → `verifyFieldAccess`; `includeInReport`/DELETE stay
+  owner/staff), and the report grid rewrite (fixed-aspect frame + `object-fit: contain` + a
+  blurred backdrop copy — no crop, no distortion, no dead space — before → after → other
+  ordering with a row-boundary spacer, `MAX_REPORT_PHOTOS` 8 → 16).
+
+<details>
+<summary>Original spec (for reference — the "Shipped" notes above are the authoritative delta)</summary>
 
 ```ts
 export type PhotoPhase = "before" | "after" | "other";
@@ -296,6 +323,8 @@ Add to `src/lib/photos/store.ts`: `updatePhotoMeta(db, bid, jobId, photoId, patc
 `print-color-adjust: exact` on the phase chip is required or the badge prints blank.
 
 **Ordering + the collision.** Sort included photos `before` (by `sort`) → `after` → `other`; interleaved is useless. But 3 before + 5 after puts the last "before" mid-row, which reads as an error. **Pad to a row boundary between phase groups** with a `visibility:hidden` `.rpt-photo--spacer`. Raise `MAX_REPORT_PHOTOS` 8 → 16 (2 pages), fetched as 2 batched calls of ≤12.
+
+</details>
 
 ---
 

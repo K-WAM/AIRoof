@@ -128,6 +128,8 @@ export interface Job {
   auditLog?: FieldAuditEntry[];
 }
 
+export type PhotoPhase = "before" | "after" | "other";
+
 export interface JobPhotoMeta {
   photoId: string;
   label: string;
@@ -137,4 +139,9 @@ export interface JobPhotoMeta {
   thumbB64: string;  // small ~240px JPEG data (no data: prefix)
   w?: number;
   h?: number;
+  // Phase 12, Phase 3 additions. No migration — every pre-existing doc lacks these; read them
+  // with defaults (`meta.phase ?? "other"`) rather than backfilling.
+  phase?: PhotoPhase;
+  sort?: number;      // sparse — a drag-reorder writes midpoints between neighbors
+  orientation?: "portrait" | "landscape" | "square"; // derived once at upload from w/h
 }

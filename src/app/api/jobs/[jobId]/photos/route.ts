@@ -19,12 +19,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   return NextResponse.json({ photos });
 }
 
+const VALID_PHASES = new Set(["before", "after", "other"]);
+
 // POST /api/jobs/[jobId]/photos  — upload a photo (businessId-scoped, public field workers OK)
-// body: { businessId, label, thumbB64, fullB64, uploadedBy?, w?, h? }
+// body: { businessId, label, thumbB64, fullB64, uploadedBy?, w?, h?, phase? }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   const body = await req.json();
-  const { businessId, label, thumbB64, fullB64, uploadedBy, w, h } = body;
+  const { businessId, label, thumbB64, fullB64, uploadedBy, w, h, phase } = body;
 
   if (!businessId || !thumbB64 || !fullB64) {
     return NextResponse.json({ error: "businessId, thumbB64, fullB64 required" }, { status: 400 });
@@ -37,7 +39,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const result = await putPhoto(db, businessId, jobId, { label, thumbB64, fullB64, uploadedBy, w, h });
+  const result = await putPhoto(db, businessId, jobId, {
+    label, thumbB64, fullB64, uploadedBy, w, h,
+    phase: VALID_PHASES.has(phase) ? phase : undefined,
+  });
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
 
   return NextResponse.json({ ok: true, photoId: result.photoId }, { status: 201 });
