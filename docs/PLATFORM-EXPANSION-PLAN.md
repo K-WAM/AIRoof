@@ -1,7 +1,9 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–3 and 5 shipped, merged to `main` and pushed to `origin/main`.**
-> Phases 4, 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
+> **Status (2026-09-15): Phases 1–3 and 5 shipped; Phase 4 partially shipped (persistence +
+> hide-materials; the logo library and two-pane preview deferred) — all merged to `main` and
+> pushed to `origin/main`.** Phases 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088
+> onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
 > shipped and point back here rather than re-deriving the design. Where an implementation detail below differs
 > from what actually shipped, a `**Shipped:**` note says so; the rest of each phase's spec is unchanged and is
@@ -328,7 +330,55 @@ Add to `src/lib/photos/store.ts`: `updatePhotoMeta(db, bid, jobId, photoId, patc
 
 ---
 
-## Phase 4 — Invoice persistence, hide-materials, logos — NOT STARTED
+## Phase 4 — Invoice persistence, hide-materials, logos — PARTIALLY SHIPPED (T-092)
+
+**Shipped: the actual bug (invoices don't persist, `job.invoiceId` dangles) and hide-materials.
+Deferred: the two-pane live-preview redesign and the entire logo library.** See T-092's `TODO.md`
+entry for the full reasoning; summary:
+
+- **Persistence, real.** `businesses/{bid}/invoices/{invoiceId}` ("INV-1000+" via a dedicated
+  `invoiceCounter`, deliberately separate from Luxor's own `nextLuxorInvoiceNumber` sequence — see
+  `src/lib/billing/jobInvoiceNumber.ts`). `POST /api/jobs/[jobId]/invoice` builds the draft via a
+  new pure module (`src/app/company/jobs/[jobId]/jobInvoice.ts` — `buildDraftFromProjection`,
+  `computeTotals`, `canSendInvoice`; 14 unit tests), allocates the number, writes the doc, and in
+  one `WriteBatch` sets `job.invoiceId` + `status: "invoiced"` — closing the dangling field for
+  real. `GET` fetches it back (the actual "leaving the tab discards the work" fix); `PATCH`
+  recomputes totals with the *same* `computeTotals` the client's live math uses and refuses once
+  `status !== "draft"`. `POST` is idempotent (re-clicking "Generate Invoice" just re-fetches); a
+  new `force: true` flag rebuilds a still-draft invoice from the current projection for
+  "Regenerate." `send/route.ts` now reads the saved doc instead of trusting rows the client sent.
+- **`hideMaterials` — real, but scoped to the emailed invoice only.** When on, `send/route.ts`
+  collapses the materials table to one "Materials & supplies" line at the real subtotal in the
+  email. **Deviation:** the in-app Print/Save-as-PDF view does not yet apply this — it always
+  shows the full material rows regardless of the toggle. The spec's `.print-only`/`.no-print`
+  twin-render trick for this exists in `admin/invoices/page.tsx` but was found to be missing its
+  own base "hidden outside print" CSS rule there (both the editable input and the print-only span
+  render simultaneously on screen today) — rather than propagate that same gap into new code, this
+  was left for a dedicated pass that fixes it properly in both places.
+- **Client wiring is deliberately the SAME editing UI, not a two-pane split.** The existing
+  Invoice tab already renders as an in-place, WYSIWYG editable document (edits show immediately
+  in the exact layout that prints) — that already serves "live preview," so a full two-pane
+  editable-left/preview-right redesign was skipped as additional UI scope on top of the real fix,
+  not required to close it. Autosave is debounced 1200ms, single-flighted
+  (`runSingleFlight`/`guardUnsavedInvoiceUnload`/`UNSAVED_INVOICE_MESSAGE` imported directly from
+  `src/app/admin/invoices/invoiceFlow.ts`, exactly as spec'd).
+- **A known, documented limitation:** the editable rows track by array index, not `lineId`, so
+  labor-line provenance (`source: "punch"` vs `"voice"`) is NOT preserved once a row is edited
+  through this UI — every saved row becomes `"manual"`. The punch/voice distinction is still
+  fully correct at *generation* time (`buildDraftFromProjection` reads it straight off
+  `job.parsed`); this only affects a row after a manual edit touches it.
+- **The entire logo library (the rest of this phase's spec below) was not built.** New collection,
+  new upload pipeline, new Library UI section, new invoice-header rendering rules — a genuinely
+  separate feature from "invoices persist," deferred rather than compressed into this already-large
+  session. `logoId` exists on `JobInvoice` (typed, unused) for whenever it lands.
+- Customer rate/tax overrides (`customer.defaultLaborRate`/`defaultTaxRate` ahead of the Library
+  and business-wide defaults) and the editable-total-column-back-solves-unitPrice UX were both in
+  scope for this phase; the former shipped (it's pure precedence logic in the draft builder), the
+  latter was not (it only affects the manual-edit UX, not correctness, and the existing
+  `unitPrice` field is still directly editable).
+
+<details>
+<summary>Original spec (for reference — the "Shipped" notes above are the authoritative delta)</summary>
 
 **New:** `src/types/invoice.ts`, `src/lib/billing/jobInvoiceNumber.ts`, `src/app/company/jobs/[jobId]/jobInvoice.ts`, `src/lib/branding/logo.ts`, `src/app/api/company/library/logos/route.ts`
 
@@ -425,6 +475,8 @@ export function logoStyle(logo, surface: "light" | "brand-bar"): React.CSSProper
 //             → color: NO filter + a white rounded pill behind it (padding 6px 10px, radius 6px)
 ```
 That last branch is the real answer for a color logo on a colored bar: **don't filter it — put it on a white chip.** Library preview shows the logo on white and on the brand bar so the owner picks `variant` correctly.
+
+</details>
 
 ---
 

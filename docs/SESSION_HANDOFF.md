@@ -1,6 +1,21 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude), continued even further — Photos (T-091, Phase 12/Phase 3) shipped and pushed to
+Updated: 2026-09-15 (Claude), continued yet further — Invoice persistence (T-092, Phase 12/Phase 4)
+PARTIALLY shipped and pushed to `main`/`origin/main`. The real bug is fixed: invoices now persist in
+`businesses/{bid}/invoices` ("INV-1000+", its own counter separate from Luxor's platform billing),
+`job.invoiceId`/`status` are no longer dangling, GET/POST/PATCH are all real (POST idempotent, `force`
+regenerates a draft, PATCH refuses a sent invoice), and `send/route.ts` reads the saved doc instead of
+trusting client rows. New pure module `jobInvoice.ts` (`buildDraftFromProjection`/`computeTotals`/
+`canSendInvoice`, 14 tests) is shared by client and server so totals can't drift. `hideMaterials` is real
+for the emailed invoice; **not yet for print/PDF** (a real latent bug was found in the spec's own
+`.print-only` precedent in `admin/invoices/page.tsx` — no base CSS hides it outside print — and propagating
+that gap into new code was declined). **Deliberately deferred:** the entire logo library and the two-pane
+live-preview redesign — both genuinely separate scope from the actual bug, documented in
+`docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes rather than compressed into this session. `tsc`/lint
+clean, `vitest run` 585/586, `next build` green. Firestore rules deployed live. Full narrative in
+`HANDOFF.md`'s matching entry.
+
+Previous: 2026-09-15 (Claude), continued even further — Photos (T-091, Phase 12/Phase 3) shipped and pushed to
 `main`/`origin/main`. `PhotoPhase` (before/after/other) + `sort`/`orientation` on `JobPhotoMeta`,
 `MAX_PHOTOS_PER_JOB` 10 → 24 (exported), `processPhoto` retuned toward ~400KB typical output, a new batched
 `GET .../photos/blobs` (≤12 ids, one round trip) replacing the report's old one-fetch-per-photo N+1, a PATCH

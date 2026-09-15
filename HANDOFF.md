@@ -1,12 +1,15 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Photos, T-091 — see below)
+Last updated: 2026-09-15 (Invoice persistence, T-092 — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
-> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 4 of 7 sub-phases (T-088/T-089/T-090/T-091) merged to `main`
-> and pushed to `origin/main`. Remaining sub-phases (Invoice persistence, Spanish, Trade roles — T-092–T-094)
-> are designed but not started. See `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated
-> session narratives below remain historical evidence.
+> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 4 sub-phases (T-088/T-089/T-090/T-091) fully shipped, plus
+> T-092 (Invoice persistence) **partially** shipped — the real bug (invoices didn't persist, `job.invoiceId`
+> dangled) and hide-materials are fixed; the logo library and a two-pane live-preview redesign are deliberately
+> deferred (see `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes). All merged to `main` and pushed to
+> `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library. See
+> `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives below remain
+> historical evidence.
 
 ## Current State
 
@@ -28,6 +31,59 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, continued yet further) — Invoice persistence (T-092, Phase 12/Phase 4, PARTIAL)
+
+Owner picked Invoice persistence as the next Phase 12 sub-phase after Photos. This is the largest
+remaining sub-phase in the plan (full persistence + a two-pane live-preview redesign + a logo
+library), so a real scope decision was made and documented rather than compressing all of it into
+one already-large session: **ship the actual bug fix and hide-materials; defer the logo library
+and the visual redesign.**
+
+**The actual bug, fixed for real:** invoices were pure ephemeral React state — "leaving the tab
+discards the work," `Job.invoiceId` declared but never written, `POST /api/jobs/[jobId]/invoice`
+existed but was dead code nothing called. New `businesses/{bid}/invoices/{invoiceId}` collection
+("INV-1000+" via a dedicated `src/lib/billing/jobInvoiceNumber.ts` sequence, deliberately separate
+from Luxor's own platform-billing counter). New pure module
+`src/app/company/jobs/[jobId]/jobInvoice.ts` — `buildDraftFromProjection` (rate/price precedence:
+line's own value → Library catalog → customer override → business default → hardcoded fallback,
+material prices never guessed) and `computeTotals`, both imported by the client's live math AND
+the server's PATCH handler so they can never drift apart; 14 unit tests, caught two real fixture
+bugs (a wrong `LibraryMaterial` shape) before they could hide anything. `POST` builds the draft,
+allocates the number, and in one `WriteBatch` sets `job.invoiceId` + `status: "invoiced"` —
+closing the dangling field. `GET` fetches it back on tab reopen. `PATCH` autosaves (debounced
+1200ms, single-flighted via `runSingleFlight`, `beforeunload`-guarded via
+`guardUnsavedInvoiceUnload` — both imported directly from `src/app/admin/invoices/invoiceFlow.ts`
+exactly as spec'd) and refuses once `status !== "draft"`. `send/route.ts` now reads the saved doc
+instead of trusting whatever rows the client happened to send, and marks the invoice sent.
+
+**`hideMaterials` is real for the email, not yet for print/PDF.** When on, the emailed invoice
+collapses the materials table to one "Materials & supplies" line at the real subtotal — never
+nothing (the line items would stop summing to the total) and never rolled into labor (misstates
+tax treatment). Investigated reusing the spec's named `.print-only`/`.no-print` twin-render
+pattern for the in-app Print/Save-as-PDF view too, and found a real latent bug in its own
+precedent (`admin/invoices/page.tsx`): there is no base CSS rule hiding `.print-only` on screen,
+so its own editable input and print-only span would render simultaneously outside of print.
+Rather than propagate that same gap into new code under time pressure, left the in-app print view
+showing full material rows regardless of the toggle — documented, not silently dropped.
+
+**Deliberately not built, and why:** the two-pane editable-left/live-preview-right redesign
+(the existing Invoice tab already edits in place, in the exact document layout that prints — that
+already serves "does it look real while I edit it," so a structural rebuild wasn't required to
+close the actual bug); the entire logo library (`src/lib/branding/logo.ts`, a `library/logos` doc,
+upload pipeline, Library UI section, color/mono rendering rules — a genuinely separate feature,
+not a corner of this one); and the editable-total-column-back-solves-unitPrice UX (a manual-edit
+convenience, not a correctness gap — `unitPrice` is still directly editable). One known,
+documented limitation: the editable rows track by array index rather than `lineId`, so a labor
+line's punch/voice provenance doesn't survive being edited through this UI (it's still fully
+correct at generation time, straight off `job.parsed`).
+
+**Verified:** `tsc` clean; lint 0 errors; `vitest run` 585/586 clean this run (the one failure is
+the long-documented `example-lib.test.ts` concurrent-load flake, unrelated); `next build` green —
+`/company/jobs/[jobId]` grew 21.5kB → 22.7kB. Firestore rules (a new `invoices` read-only-to-
+members rule) **actually deployed**, not just committed. **Pushed to `origin/main`.**
 
 ---
 

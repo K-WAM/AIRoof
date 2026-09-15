@@ -2,7 +2,7 @@
 
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
-**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091) and pushed to `origin/main`. Remaining: Invoice persistence, Spanish, Trade roles (T-092–T-094).
+**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases fully shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091), plus Phase 4/T-092 **partially** shipped (invoice persistence + hide-materials real; the logo library and a two-pane live-preview redesign deliberately deferred — see the plan doc's Phase 4 "Shipped" notes) — all pushed to `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library whenever it's picked up.
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
@@ -309,6 +309,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/photos/blobs/route.ts — batched full-res photo fetch (≤12 ids/request, `immutable` cache tier) — kills the report/lightbox N+1
 - src/components/ui/Sheet.tsx — generic bottom-sheet shell (Modal.tsx's mobile-appropriate sibling); `.sheet`/`.sheet-backdrop`/`.sheet-handle` in globals.css
 - src/components/field/PhotoEditSheet.tsx — after-the-fact photo label/phase editing (wired into the job detail page's Photos tab); the `includeInReport` toggle only renders when `canCurate` is passed
+- src/types/invoice.ts + src/lib/billing/jobInvoiceNumber.ts + src/app/company/jobs/[jobId]/jobInvoice.ts — persisted JobInvoice type, its own `invoiceCounter` sequence (deliberately separate from Luxor's own `nextLuxorInvoiceNumber`), and the pure `buildDraftFromProjection`/`computeTotals`/`canSendInvoice` module both client and server import
+- src/app/api/jobs/[jobId]/invoice/route.ts — GET/POST/PATCH for the persisted invoice (POST is idempotent, `force: true` rebuilds a still-draft invoice from the current projection)
 
 ## Navigation Completeness Rule
 
@@ -331,12 +333,12 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Phase 12 continuation** — Invoice persistence, Spanish, Trade roles: 3 of 7 sub-phases remain, fully
-   specced in `docs/PLATFORM-EXPANSION-PLAN.md`. The shipped 4/7 (foundation, Customers, Time clock, Photos) are
-   already merged to `main` and pushed — pick one and build directly on `main`. Each shipped phase's own
-   deliberate deferrals (Time clock's admin time-edit sheet + Labor-tab chips; Photos' field-side gallery +
-   `comfortable` density + drag-reorder) are listed in the plan doc's per-phase "Shipped" notes if picked up
-   later.
+1. **Phase 12 continuation** — Spanish, Trade roles, and Phase 4's deferred logo library: fully specced in
+   `docs/PLATFORM-EXPANSION-PLAN.md`. Foundation, Customers, Time clock, Photos, and (partially) Invoice
+   persistence are already merged to `main` and pushed — pick one and build directly on `main`. Each shipped
+   phase's own deliberate deferrals (Time clock's admin time-edit sheet + Labor-tab chips; Photos' field-side
+   gallery + `comfortable` density + drag-reorder; Invoice's logo library + two-pane preview + print-view
+   hide-materials) are listed in the plan doc's per-phase "Shipped" notes if picked up later.
 2. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
    and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
 3. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore

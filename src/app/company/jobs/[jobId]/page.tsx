@@ -1,13 +1,15 @@
 "use client";
 
-import { use, useEffect, useState, useCallback } from "react";
+import { use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
-import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta, PhotoPhase } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
+import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
+import { computeTotals, canSendInvoice } from "./jobInvoice";
+import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Toggle } from "@/components/ui/Toggle";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -69,6 +71,41 @@ type LaborRow = { name: string; arrival: string; departure: string; hours: strin
 type MaterialRow = { item: string; quantity: string; unit: string; unitPrice: string };
 type OtherRow = { description: string; amount: string };
 
+// Invoice persistence (Phase 12, Phase 4) row <-> line adapters. The editable rows above are
+// plain strings (bound directly to text inputs); InvoiceLaborLine/InvoiceMaterialLine/
+// InvoiceOtherLine are the persisted, numeric shape. A known, documented simplification: the
+// editable UI tracks rows by array index, not by lineId, so provenance (source: "punch" vs
+// "voice") is NOT preserved once a row round-trips through an edit — every saved row becomes
+// "manual". That's an honest limitation of reusing the existing row-editing UI rather than
+// building a lineId-tracking model; the punch/voice distinction is still fully correct at
+// generation time (buildDraftFromProjection reads it straight from job.parsed).
+function laborRowsToLines(rows: LaborRow[]): InvoiceLaborLine[] {
+  return rows.map((r, i) => {
+    const hours = parseFloat(r.hours) || 0;
+    const rate = parseFloat(r.rate) || 0;
+    return { lineId: `lab_${i}`, name: r.name, arrival: r.arrival || undefined, departure: r.departure || undefined, hours, rate, total: hours * rate, source: "manual" };
+  });
+}
+function materialRowsToLines(rows: MaterialRow[]): InvoiceMaterialLine[] {
+  return rows.map((r, i) => {
+    const quantity = parseFloat(r.quantity) || 0;
+    const unitPrice = parseFloat(r.unitPrice) || 0;
+    return { lineId: `mat_${i}`, item: r.item, quantity, unit: r.unit || undefined, unitPrice, total: quantity * unitPrice, source: "manual" };
+  });
+}
+function otherRowsToLines(rows: OtherRow[]): InvoiceOtherLine[] {
+  return rows.map((r, i) => ({ lineId: `oth_${i}`, description: r.description, amount: parseFloat(r.amount) || 0 }));
+}
+function laborLinesToRows(lines: InvoiceLaborLine[]): LaborRow[] {
+  return lines.map((l) => ({ name: l.name, arrival: l.arrival ?? "", departure: l.departure ?? "", hours: l.hours ? String(l.hours) : "", rate: String(l.rate) }));
+}
+function materialLinesToRows(lines: InvoiceMaterialLine[]): MaterialRow[] {
+  return lines.map((m) => ({ item: m.item, quantity: String(m.quantity), unit: m.unit ?? "", unitPrice: m.unitPrice ? String(m.unitPrice) : "" }));
+}
+function otherLinesToRows(lines: InvoiceOtherLine[]): OtherRow[] {
+  return lines.map((o) => ({ description: o.description, amount: String(o.amount) }));
+}
+
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
   const searchParams = useSearchParams();
@@ -111,12 +148,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Invoice state
   const [invoiceReady, setInvoiceReady] = useState(false);
+  const [invoiceLoaded, setInvoiceLoaded] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const [laborRows, setLaborRows] = useState<LaborRow[]>([]);
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [otherRows, setOtherRows] = useState<OtherRow[]>([]);
   const [taxRate, setTaxRate] = useState("0");
   const [invoiceNotes, setInvoiceNotes] = useState("Net 30. Payment due within 30 days of invoice date.");
+
+  // Invoice persistence (Phase 12, Phase 4). invoiceId/invoiceStatus are null until a real
+  // JobInvoice doc exists (GET or POST). Edits only autosave while status === "draft" — a sent
+  // invoice is immutable server-side (PATCH refuses it), and the effect below mirrors that so
+  // the UI never fires a PATCH the server would just reject.
+  const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
+  const [hideMaterials, setHideMaterials] = useState(false);
+  const [invoiceDirty, setInvoiceDirty] = useState(false);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  // Guards the autosave effect from firing the instant hydration (GET/POST) populates the rows —
+  // that's a load, not an edit.
+  const hydratingInvoiceRef = useRef(false);
+  const invoicePatchLock = useRef({ current: false });
 
   // Report state
   const [report, setReport] = useState<string | null>(null);
@@ -249,6 +301,33 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       .finally(() => setPhotosLoaded(true));
   }, [activeTab, photosLoaded, businessId, jobId]);
 
+  // Lazy-load a previously-saved invoice the first time the Invoice tab is opened — this is the
+  // actual fix for "leaving the tab discards the work": if job.invoiceId already points at a
+  // real doc, hydrate from it instead of starting from a blank "Generate Invoice" screen.
+  useEffect(() => {
+    if (activeTab !== "invoice" || invoiceLoaded || !businessId || !job) return;
+    if (!job.invoiceId) { setInvoiceLoaded(true); return; }
+    fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const inv = d.invoice as JobInvoice | null;
+        if (!inv) return;
+        hydratingInvoiceRef.current = true;
+        setLaborRows(laborLinesToRows(inv.labor));
+        setMaterialRows(materialLinesToRows(inv.materials));
+        setOtherRows(otherLinesToRows(inv.other));
+        setTaxRate(String(inv.taxRate));
+        setHideMaterials(inv.hideMaterials);
+        setInvoiceNotes(inv.notes ?? invoiceNotes);
+        setInvoiceId(inv.invoiceId);
+        setInvoiceStatus(inv.status);
+        setInvoiceReady(true);
+      })
+      .catch(() => {})
+      .finally(() => setInvoiceLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, invoiceLoaded, businessId, job, jobId]);
+
   async function openLightbox(meta: JobPhotoMeta) {
     setLightbox({ photoId: meta.photoId, label: meta.label });
     const r = await fetch(`/api/jobs/${jobId}/photos/${meta.photoId}?businessId=${businessId}`).then((x) => x.json()).catch(() => null);
@@ -273,46 +352,36 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
   const laborCatalog = library?.laborRates ?? [];
 
-  async function generateInvoice() {
+  // Phase 12, Phase 4: "Generate Invoice" now persists a real JobInvoice doc server-side
+  // (POST /api/jobs/[jobId]/invoice) instead of building ephemeral rows in local state — the
+  // server's buildDraftFromProjection is the ONE place a draft gets built, so the client never
+  // duplicates that precedence logic and can't drift from what actually gets saved. POST is
+  // idempotent: clicking it again on an already-invoiced job just re-fetches the existing doc.
+  async function generateInvoice(force = false) {
+    if (!businessId) return;
     setGeneratingInvoice(true);
     setInvoiceError(null);
     try {
-      // Build labor rows — auto-calculate hours from arrival/departure when not explicitly stated.
-      // Rate: an explicit cost from the field note wins; otherwise try a role match against
-      // the Library's saved rates (e.g. "Foreman" logged in the field matches a "Foreman" role);
-      // only fall back to the flat business-wide default when neither exists.
-      const newLaborRows: LaborRow[] = labor.map((l) => {
-        const arrival = l.arrivalTime ?? "";
-        const departure = l.departureTime ?? "";
-        const autoHours = calcHours(arrival, departure);
-        const hours = l.hours != null ? String(l.hours) : autoHours;
-        const catalogRate = lookupLaborRate(laborCatalog, l.description);
-        const rate = l.rate != null ? String(l.rate) : catalogRate != null ? String(catalogRate) : defaultLaborRate;
-        return { name: l.description, arrival, departure, hours, rate };
+      const res = await fetch(`/api/jobs/${jobId}/invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, force }),
       });
-      if (newLaborRows.length === 0) {
-        newLaborRows.push({ name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate });
+      const data = await res.json();
+      if (!res.ok) {
+        setInvoiceError(data.error ?? "Failed to generate invoice");
+        return;
       }
-
-      // Build material rows — auto-fill unit price from the Library catalog when the field
-      // update didn't state a cost. Never fabricate: a no-match leaves the field blank.
-      const catalog = library?.materials ?? [];
-      const newMaterialRows: MaterialRow[] = materials.map((m) => {
-        let unitPrice = "";
-        if (m.cost != null && m.quantity) {
-          unitPrice = String((m.cost / (parseFloat(m.quantity) || 1)).toFixed(2));
-        } else {
-          const fromCatalog = lookupUnitPrice(catalog, m.item);
-          if (fromCatalog != null) unitPrice = String(fromCatalog);
-        }
-        return { item: m.item, quantity: m.quantity ?? "1", unit: m.unit ?? "", unitPrice };
-      });
-
-      setLaborRows(newLaborRows);
-      setMaterialRows(newMaterialRows);
-      setOtherRows([]);
-      if (library?.defaultTaxRate != null) setTaxRate(String(library.defaultTaxRate));
-      else if (businessConfig?.defaultTaxRate != null) setTaxRate(String(businessConfig.defaultTaxRate));
+      const inv = data.invoice as JobInvoice;
+      hydratingInvoiceRef.current = true;
+      setLaborRows(laborLinesToRows(inv.labor));
+      setMaterialRows(materialLinesToRows(inv.materials));
+      setOtherRows(otherLinesToRows(inv.other));
+      setTaxRate(String(inv.taxRate));
+      setHideMaterials(inv.hideMaterials);
+      setInvoiceId(inv.invoiceId);
+      setInvoiceStatus(inv.status);
+      setInvoiceLoaded(true);
       setInvoiceReady(true);
       setActiveTab("invoice");
     } catch (e) {
@@ -447,33 +516,24 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     return String(Math.round(net * 10) / 10);
   }
 
+  // Phase 12, Phase 4: the server now reads the SAVED invoice doc rather than trusting rows the
+  // client sends — canSendInvoice gates the button so a send can't race an in-flight autosave.
   async function sendInvoice() {
-    if (!sendEmail.trim()) { setSendError("Enter a recipient email."); return; }
+    if (!canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
+      setSendError(invoiceDirty ? "Still saving your edits — try again in a moment." : "Enter a recipient email.");
+      return;
+    }
     setSending(true); setSendError(null);
     try {
       const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId,
-          to: sendEmail.trim(),
-          jobId,
-          clientName: job?.clientName,
-          address: job?.address,
-          serviceType: job?.serviceType,
-          laborRows,
-          materialRows,
-          otherRows,
-          taxRate,
-          subtotal,
-          tax,
-          grandTotal,
-          invoiceNotes,
-        }),
+        body: JSON.stringify({ businessId, to: sendEmail.trim() }),
       });
       if (res.ok) {
         setSendSuccess(true);
         setSendEmail("");
+        setInvoiceStatus("sent");
         setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
@@ -497,12 +557,59 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     const p = parseFloat(row.unitPrice) || 0;
     return q * p;
   }
-  const laborSubtotal = laborRows.reduce((s, r) => s + laborTotal(r), 0);
-  const materialSubtotal = materialRows.reduce((s, r) => s + materialTotal(r), 0);
-  const otherSubtotal = otherRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-  const subtotal = laborSubtotal + materialSubtotal + otherSubtotal;
-  const tax = subtotal * (parseFloat(taxRate) || 0) / 100;
-  const grandTotal = subtotal + tax;
+  // The exact same computeTotals the server's PATCH handler runs — client preview and persisted
+  // totals can never drift apart. Pure/O(rows); safe on every render, no memo needed.
+  const { laborSubtotal, materialSubtotal, otherSubtotal, subtotal, taxAmount: tax, total: grandTotal } = computeTotals({
+    labor: laborRowsToLines(laborRows),
+    materials: materialRowsToLines(materialRows),
+    other: otherRowsToLines(otherRows),
+    taxRate: parseFloat(taxRate) || 0,
+  });
+
+  // Autosave (debounced 1200ms) — PATCH only while a real draft invoice exists; the server
+  // itself refuses a PATCH once status !== "draft", and this mirrors that so an edit after
+  // sending doesn't even attempt a doomed request. hydratingInvoiceRef skips the single pass
+  // triggered by loading/generating the invoice — that's a load, not an edit.
+  useEffect(() => {
+    if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; return; }
+    if (!invoiceId || invoiceStatus !== "draft" || !businessId) return;
+    setInvoiceDirty(true);
+    const timer = setTimeout(() => {
+      runSingleFlight(invoicePatchLock.current, async () => {
+        setInvoiceSaving(true);
+        try {
+          const res = await fetch(`/api/jobs/${jobId}/invoice`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              businessId,
+              labor: laborRowsToLines(laborRows),
+              materials: materialRowsToLines(materialRows),
+              other: otherRowsToLines(otherRows),
+              taxRate: parseFloat(taxRate) || 0,
+              hideMaterials,
+              notes: invoiceNotes,
+            }),
+          });
+          if (res.ok) setInvoiceDirty(false);
+        } catch {
+          // Left dirty — the beforeunload guard below still warns, and the next successful
+          // autosave (or an explicit retry) clears it. Never silently claim a save that failed.
+        } finally {
+          setInvoiceSaving(false);
+        }
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+
+  // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => guardUnsavedInvoiceUnload(e, invoiceDirty);
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [invoiceDirty]);
 
   const TABS = [
     { id: "timeline", label: `Timeline (${timeline.length})` },
@@ -610,7 +717,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <FileText size={15} strokeWidth={1.75} />
             Generate Report
           </button>
-          <button className="button primary" onClick={generateInvoice} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Receipt size={15} strokeWidth={1.75} />
             {generatingInvoice ? "Generating…" : "Generate Invoice"}
           </button>
@@ -1049,7 +1156,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     : "Click Generate Invoice to build a draft from field data."}
                 </p>
                 {updates.length > 0 && (
-                  <button className="button primary" onClick={generateInvoice} disabled={generatingInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Receipt size={15} strokeWidth={1.75} />
                     {generatingInvoice ? "Building…" : "Generate Invoice"}
                   </button>
@@ -1059,20 +1166,47 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Invoice toolbar */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
-                <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Send size={14} strokeWidth={1.75} />
-                  Send to Customer
-                </button>
-                <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <Printer size={14} strokeWidth={1.75} />
-                  Print / Save as PDF
-                </button>
-                <button className="button" onClick={() => setInvoiceReady(false)} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <RefreshCw size={14} strokeWidth={1.75} />
-                  Regenerate
-                </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
+                <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
+                  {invoiceStatus && (
+                    <span style={{
+                      fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10,
+                      padding: "2px 8px", borderRadius: 10,
+                      background: invoiceStatus === "draft" ? "#eff6ff" : "#f0fdf4",
+                      color: invoiceStatus === "draft" ? "#3b82f6" : "#15803d",
+                    }}>{invoiceStatus}</span>
+                  )}
+                  {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
+                  <Tooltip content="When on, the emailed invoice shows one 'Materials & supplies' line at the subtotal instead of the item breakdown. Materials still appear as usual here in the app, and in the printed/PDF view.">
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: invoiceStatus === "draft" ? "pointer" : "not-allowed" }}>
+                      <Toggle checked={hideMaterials} onChange={setHideMaterials} label="Hide materials from customer email" disabled={invoiceStatus !== "draft"} size="sm" />
+                      Hide materials from customer
+                    </label>
+                  </Tooltip>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Send size={14} strokeWidth={1.75} />
+                    Send to Customer
+                  </button>
+                  <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Printer size={14} strokeWidth={1.75} />
+                    Print / Save as PDF
+                  </button>
+                  {invoiceStatus === "draft" && (
+                    <button className="button" onClick={() => generateInvoice(true)} disabled={generatingInvoice} title="Rebuild labor/materials from the latest field updates" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <RefreshCw size={14} strokeWidth={1.75} />
+                      {generatingInvoice ? "Regenerating…" : "Regenerate"}
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {invoiceStatus && invoiceStatus !== "draft" && (
+                <div className="no-print" style={{ marginBottom: 16, padding: "10px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, color: "#15803d" }}>
+                  This invoice has been {invoiceStatus} and can no longer be edited. Void/reissue isn&apos;t built yet — contact support if it needs to change.
+                </div>
+              )}
 
               {/* Library couldn't be reached — every material price below is blank, not because
                   nothing matched, but because the catalog itself never loaded. Silent otherwise. */}

@@ -48,8 +48,33 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   field/sort logic is real and tested via `listPhotoMetas`'s own sort, just nothing writes `sort`
   yet). `tsc`/lint clean, `vitest run` 572/572 clean this run, `next build` green
   (`/company/jobs/[jobId]` 19.3kB → 21.5kB).
-- **Phase 12 (new, owner-added) — 4 of 7 sub-phases shipped: T-088 (foundation/speed/the field-URL bug),
-  T-089 (Customers), T-090 (Time clock), and T-091 (Photos, above).** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
+- **T-092 (Invoice persistence, Phase 12/Phase 4), PARTIALLY shipped and pushed to `main`.** The
+  actual reported bug is fixed: `businesses/{bid}/invoices/{invoiceId}` now persists real
+  invoices ("INV-1000+" via a dedicated `invoiceCounter`), `job.invoiceId`/`status` are no longer
+  dangling (set atomically in one `WriteBatch` on creation), and a page reload no longer discards
+  the work — `GET`/`POST`/`PATCH /api/jobs/[jobId]/invoice` are all real now (POST is idempotent;
+  `force: true` rebuilds a still-draft invoice for "Regenerate"; PATCH refuses once
+  `status !== "draft"`). New pure module `src/app/company/jobs/[jobId]/jobInvoice.ts`
+  (`buildDraftFromProjection`/`computeTotals`/`canSendInvoice`, 14 unit tests) is imported by
+  both the client's live math and the server's PATCH handler, so they can't drift.
+  `send/route.ts` now reads the saved doc instead of trusting client-sent rows, and marks the
+  invoice `sent`. `hideMaterials` is real for the emailed invoice (collapses to one lump line at
+  the true subtotal) — **but not yet for the in-app Print/Save-as-PDF view**, a documented
+  deviation (see `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes for why: the spec's own
+  `.print-only`/`.no-print` twin-render precedent in `admin/invoices/page.tsx` turned out to be
+  missing its own base CSS rule, and propagating that same gap into new code wasn't the right
+  fix). Customer rate/tax overrides (`defaultLaborRate`/`defaultTaxRate`) are wired into the
+  draft builder's precedence chain. **Deliberately NOT built:** the entire logo library (a
+  separate collection/upload-pipeline/UI/rendering-rules feature), the two-pane live-preview
+  redesign (the existing WYSIWYG in-place editor already serves that need), and the
+  editable-total-column-back-solves-unitPrice UX. Known limitation: the editable rows track by
+  array index, not `lineId`, so a labor line's punch/voice provenance is lost once it's edited
+  through this UI (still fully correct at generation time). Firestore rules (a new
+  `invoices` read-only-to-members rule) actually deployed. `tsc`/lint clean, `vitest run`
+  585/586 (the one failure is the pre-existing `example-lib.test.ts` flake), `next build` green.
+- **Phase 12 (new, owner-added) — 4 of 7 sub-phases fully shipped (T-088 foundation/speed/the
+  field-URL bug, T-089 Customers, T-090 Time clock, T-091 Photos) plus T-092 (Invoice
+  persistence) partially shipped, above.** Full design in `docs/PLATFORM-EXPANSION-PLAN.md`; narrative + verification in the Phase
   12 checklist entry below. Headline results: the ~281KB `@firebase/firestore` chunk is gone from every
   authenticated page (confirmed by inspecting the built chunks — not assumed from a route-size table), a real
   security hole was closed (`GET /api/company/settings` had no auth check at all), a live cross-tenant bug was
@@ -61,8 +86,8 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
   `main` and pushed to `origin/main`** (`3fec20b`) — a 2026-09-15 session found every doc still claiming this
   sat unmerged on a `phase1-foundation-perf-url-fix` branch; `git branch -a`/`git log` show that branch is gone
   and `main`/`origin/main` already match, so that claim was stale and is now corrected everywhere it appeared.
-  Remaining sub-phases (Invoice persistence, Spanish, Trade roles — T-092…T-094) are designed but not started;
-  see the plan doc's per-phase status table.
+  Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4/T-092's deferred logo library; see the plan
+  doc's per-phase status table.
 - **2026-09-15 — Google sign-in fix (`auth/internal-error`) + the doc-staleness correction above.** Diagnosed
   via CLI against production (public Identity Toolkit `createAuthUri` call, no console access needed): Google
   provider, OAuth client, and `authorizedDomains` all check out fine server-side. Root cause is

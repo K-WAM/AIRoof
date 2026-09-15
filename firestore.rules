@@ -91,6 +91,14 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Persisted job invoices (Phase 12, Phase 4). All writes go through
+      // /api/jobs/[jobId]/invoice's GET/POST/PATCH (admin-SDK) — client writes denied here
+      // exactly like jobs/updates/photos.
+      match /invoices/{invoiceId} {
+        allow read: if isSuperadmin() || isBusinessMember(businessId);
+        allow write: if false;
+      }
+
       // Time clock (Phase 12, Phase 5): an immutable, append-only edge ledger. All writes go
       // through /api/timeclock/punch's cross-job guard and the nightly close-punches cron
       // (both admin-SDK), so client writes are denied here exactly like updates/photos/library.
