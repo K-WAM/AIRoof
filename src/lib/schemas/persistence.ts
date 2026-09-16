@@ -71,6 +71,7 @@ const fieldUpdateRecordSchema: z.ZodType<
   kind: z.enum(["normal", "correction"]).optional(),
   rawText: boundedText(20_000),
   language: boundedText(50).optional(),
+  rawTextEn: boundedText(20_000).optional(),
   submittedBy: boundedText(256).optional(),
   createdAt: nonNegativeNumber,
   parsed: parsedUpdateSchema.optional(),

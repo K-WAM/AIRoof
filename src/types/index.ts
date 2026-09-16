@@ -42,6 +42,15 @@ export interface BusinessConfig {
   maxCallAttempts?: number;        // default 3
   callbackWindowStart?: number;    // hour in business timezone (e.g. 8 = 8 AM)
   callbackWindowEnd?: number;      // e.g. 20 = 8 PM
+  // Spanish (Phase 12, Phase 6). agentLanguage is the primary/default language the phone AI
+  // greets and answers in; agentLanguages is the fuller set this tenant has enabled (drives the
+  // Whisper biasing prompt's Spanish correction cues even when the phone AI itself is English-only
+  // — the two are independent: a business can want Spanish field-update support without wanting a
+  // bilingual phone line, or vice versa). "multi" (bilingual transcriber) is deliberately NOT a
+  // Settings option yet — see docs/PLATFORM-EXPANSION-PLAN.md's Phase 6 notes on why bilingual
+  // ships gated behind a flag, not as a default choice.
+  agentLanguage?: "en" | "es";
+  agentLanguages?: Array<"en" | "es">;
   // Labor rate and tax config for invoice generation
   laborRate?: {
     defaultHourlyRate: number;       // dollars/hr, e.g. 65

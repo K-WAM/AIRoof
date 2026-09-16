@@ -24,14 +24,22 @@ export interface ParsedUpdate {
   // Optional correction signal emitted by parseFieldUpdate when the speaker is fixing a prior entry.
   // The LLM only flags intent + values; the server resolves the target and does all arithmetic.
   correction?: { item: string; newValue: number; field?: "materials" | "labor"; targetHint?: string };
+  // Spanish (Phase 12, Phase 6). transcriptEn is a faithful English rendering of the WHOLE update,
+  // display-only — structured data above is already canonicalized to English regardless of
+  // sourceLanguage. Both are per-update parse output only: buildProjection must NOT fold these
+  // into the job-level projection (translations would concatenate across days onto one field) —
+  // see src/lib/jobs/__tests__/projection.test.ts's language-fold guard.
+  transcriptEn?: string;
+  sourceLanguage?: string;
 }
 
 export interface FieldUpdate {
   updateId: string;
   // "normal" (default) = additive line items; "correction" = override of one prior entry's line item
   kind?: "normal" | "correction";
-  rawText: string;
-  language?: string;
+  rawText: string;     // UNCHANGED — verbatim, spoken language
+  language?: string;   // "en" | "es" — Whisper's auto-detected language, or the typed-text heuristic
+  rawTextEn?: string;  // canonical English rendering of rawText — absent when language === "en"
   submittedBy?: string;
   createdAt: number;
   parsed?: ParsedUpdate;

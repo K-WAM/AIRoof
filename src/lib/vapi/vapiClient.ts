@@ -66,6 +66,15 @@ export interface UpdateAssistantPersonaInput {
   firstMessage: string;
   /** Rendered system prompt — replaces the assistant's single system message verbatim. */
   systemPrompt: string;
+  /**
+   * Phase 12/Phase 6 (Spanish) — overlays just the `language` sub-field onto whatever
+   * transcriber this assistant already has configured (provider/model untouched), rather than
+   * constructing a transcriber object from scratch. Deliberately conservative: this repo doesn't
+   * hardcode Deepgram's exact model string anywhere, and this way it never has to. Pass "en"/"es"
+   * for a single-language switch. "multi" (bilingual) is intentionally not offered here yet — see
+   * this function's own file-level doc note on why.
+   */
+  transcriberLanguage?: "en" | "es";
 }
 
 /**
@@ -80,7 +89,17 @@ export interface UpdateAssistantPersonaInput {
  *
  * Vapi's PATCH replaces the whole `model` object, so this reads the assistant first
  * and resends its existing provider/model/toolIds unchanged — only `messages` (the
- * one system prompt entry) actually changes.
+ * one system prompt entry) actually changes. `startSpeakingPlan`/`stopSpeakingPlan`
+ * are read back from the same GET and re-sent verbatim on every PATCH, unconditionally
+ * — see CLAUDE.md's 2026-09-07 gpt-realtime incident: these are the hand-tuned
+ * turn-taking settings that govern the cascaded transcriber→LLM→TTS pipeline, and a
+ * nested object a PATCH doesn't explicitly carry forward is the exact kind of gap
+ * that incident traced back to. Belt-and-suspenders, not just for the transcriber
+ * change this function now also makes — every call through here preserves them.
+ *
+ * NOT touched here: voice. Phase 6 (Spanish) deliberately does not pick a
+ * language-specific voiceId — see src/lib/vapi/voices.ts's own doc comment for why
+ * (no confirmed-working Spanish voice ID exists in this codebase to switch to).
  */
 export async function updateAssistantPersona(input: UpdateAssistantPersonaInput): Promise<void> {
   const apiKey = process.env.VAPI_API_KEY;
@@ -93,20 +112,32 @@ export async function updateAssistantPersona(input: UpdateAssistantPersonaInput)
     const text = await getRes.text().catch(() => "");
     throw new Error(`Vapi GET /assistant failed (${getRes.status}): ${text}`);
   }
-  const current = (await getRes.json()) as { model?: { provider?: string; model?: string; toolIds?: string[] } };
+  const current = (await getRes.json()) as {
+    model?: { provider?: string; model?: string; toolIds?: string[] };
+    transcriber?: Record<string, unknown>;
+    startSpeakingPlan?: unknown;
+    stopSpeakingPlan?: unknown;
+  };
+
+  const patchBody: Record<string, unknown> = {
+    firstMessage: input.firstMessage,
+    model: {
+      provider: current.model?.provider,
+      model: current.model?.model,
+      toolIds: current.model?.toolIds,
+      messages: [{ role: "system", content: input.systemPrompt }],
+    },
+    ...(current.startSpeakingPlan !== undefined ? { startSpeakingPlan: current.startSpeakingPlan } : {}),
+    ...(current.stopSpeakingPlan !== undefined ? { stopSpeakingPlan: current.stopSpeakingPlan } : {}),
+  };
+  if (input.transcriberLanguage) {
+    patchBody.transcriber = { ...(current.transcriber ?? {}), language: input.transcriberLanguage };
+  }
 
   const patchRes = await fetch(`${VAPI_BASE_URL}/assistant/${input.assistantId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      firstMessage: input.firstMessage,
-      model: {
-        provider: current.model?.provider,
-        model: current.model?.model,
-        toolIds: current.model?.toolIds,
-        messages: [{ role: "system", content: input.systemPrompt }],
-      },
-    }),
+    body: JSON.stringify(patchBody),
   });
   if (!patchRes.ok) {
     const text = await patchRes.text().catch(() => "");

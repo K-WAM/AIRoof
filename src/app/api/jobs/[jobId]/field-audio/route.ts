@@ -3,26 +3,22 @@ import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate, ParseFieldUpdateError } from "@/lib/ai/deepseekClient";
+import { buildWhisperPrompt } from "@/lib/ai/whisperPrompt";
+import { normalizeLang } from "@/lib/i18n/detect";
 import { resolveCorrection, parsedToFieldLog } from "@/lib/jobs/projection";
 import { loadLedger, writeJobProjection } from "@/lib/jobs/writeProjection";
 import { isProviderReady } from "@/lib/ai/registry";
 import type { FieldUpdate } from "@/types/jobs";
+import type { LibraryPricing } from "@/types/library";
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_PREFIXES = ["audio/", "video/"];
 const WHISPER_TIMEOUT_MS = 30_000;
 
-function buildWhisperPrompt(jobContext?: { title?: string; address?: string; serviceType?: string; clientName?: string }): string {
-  const context = [jobContext?.title, jobContext?.clientName, jobContext?.address, jobContext?.serviceType]
-    .filter(Boolean)
-    .join(", ");
-  return [
-    context ? `Job-site field update for: ${context}.` : "Job-site field update from a service crew.",
-    "May include materials with quantities (squares of shingles, bundles, rolls of underlayment, drip edge, flashing, plywood, OSB, 2x4s, nails),",
-    "crew member first names, arrival and departure times, hours worked, and issues found (leak, rot, mold, damaged, cracked).",
-    "Corrections sound like: make that 120 not 150, scratch that, I meant.",
-  ].join(" ");
-}
+// Whisper transcription + GPT-4o extraction + up to 3 Firestore round trips, run serially — this
+// route already ran close to the platform default before Spanish added a translation hop to the
+// same single extraction call. There is no other maxDuration export anywhere in the repo.
+export const maxDuration = 60;
 
 function validateAudioInput(audioBase64: string, mimeType?: string): { error?: string } {
   if (!audioBase64 || audioBase64.length === 0) {
@@ -93,7 +89,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const openai = (await import("openai")).default;
   const openaiClient = new openai({ apiKey: process.env.OPENAI_API_KEY });
 
+  // Fetched before transcription (not after, like before Spanish) — the biasing prompt now needs
+  // agentLanguages/industry/Library material names, all of which live here.
+  const [bizSnap, libSnap] = await Promise.all([
+    db.collection("businesses").doc(businessId).get(),
+    db.collection(`businesses/${businessId}/library`).doc("pricing").get(),
+  ]);
+  const biz = bizSnap.data();
+  const libraryMaterialNames = ((libSnap.data() as LibraryPricing | undefined)?.materials ?? []).map((m) => m.name);
+
   let transcript: string;
+  let detectedLanguage: string | undefined;
   try {
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const ext = (mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
@@ -102,17 +108,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), WHISPER_TIMEOUT_MS);
 
+    // Auto-detect — do NOT pass `language`. Crews code-switch mid-sentence ("puse doce bundles de
+    // shingles"); forcing "es" degrades the English nouns, forcing "en" mangles the Spanish.
+    // response_format: "verbose_json" is the only shape that returns `.language` back.
     const transcription = await openaiClient.audio.transcriptions.create(
       {
         model: "whisper-1",
         file: audioFile,
-        prompt: buildWhisperPrompt(jobContext),
+        prompt: buildWhisperPrompt(jobContext, biz?.agentLanguages, biz?.industry, libraryMaterialNames),
+        response_format: "verbose_json",
+        temperature: 0,
       },
       { signal: controller.signal },
     );
 
     clearTimeout(timeout);
     transcript = transcription.text.trim();
+    detectedLanguage = normalizeLang(transcription.language);
   } catch (err) {
     return NextResponse.json(
       { error: "Transcription failed", details: err instanceof Error ? err.message : String(err) },
@@ -124,21 +136,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ success: false, error: "No speech detected", transcript: "" });
   }
 
-  const bizSnap = await db.collection("businesses").doc(businessId).get();
-  const biz = bizSnap.data();
-
   let parsed;
   try {
     parsed = await parseFieldUpdate({
       rawText: transcript,
       businessName: biz?.businessName || jobContext?.businessName || "the business",
       industry: biz?.industry,
-      language: "en",
+      language: detectedLanguage ?? "en",
       jobContext,
       modelOverrides: biz?.backOfficeModel
         ? { backOfficeModel: biz.backOfficeModel }
         : undefined,
     });
+    if (detectedLanguage) parsed.sourceLanguage = detectedLanguage;
   } catch (err) {
     if (err instanceof ParseFieldUpdateError && err.needsConfirmation) {
       const updateId = `upd_${now}`;
@@ -146,7 +156,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
         updateId,
         kind: "normal",
         rawText: transcript,
-        language: "en",
+        language: detectedLanguage ?? "en",
         submittedBy: submittedBy || "field-worker",
         createdAt: now,
         parseError: err.message,
@@ -184,7 +194,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     updateId,
     kind: "normal",
     rawText: transcript,
-    language: "en",
+    language: detectedLanguage ?? "en",
+    ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
     submittedBy: submittedBy || "field-worker",
     createdAt: now,
     parsed,

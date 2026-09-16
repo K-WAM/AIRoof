@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
+import { detectLanguage } from "@/lib/i18n/detect";
 import { resolveCorrection } from "@/lib/jobs/projection";
 import { loadLedger, writeJobProjection } from "@/lib/jobs/writeProjection";
 import type { FieldUpdate } from "@/types/jobs";
@@ -74,19 +75,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   // ── Parse + correction detection — industry-aware (multi-vertical platform) ──
   const bizSnap = await db.collection("businesses").doc(businessId).get();
   const biz = bizSnap.data();
+  // No Whisper on this path (typed text) — no model-provided language, so a cheap heuristic fills
+  // the same role. Ambiguous text stays undefined and parseFieldUpdate's own model call decides —
+  // no extra LLM call either way, this is just a hint for its LANGUAGE instruction block.
+  const detectedLanguage: string | undefined = language ?? detectLanguage(rawText.trim());
   let parsed;
   try {
     parsed = await parseFieldUpdate({
       rawText: rawText.trim(),
       businessName: biz?.businessName ?? businessName ?? "the business",
       industry: biz?.industry,
-      language,
+      language: detectedLanguage,
       jobContext,
     });
+    if (detectedLanguage) parsed.sourceLanguage = detectedLanguage;
   } catch (err) {
     // Store raw so nothing is lost; projection unchanged
     const updateId = `upd_${now}`;
-    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: language ?? "en", submittedBy: submittedBy ?? undefined, createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
+    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: detectedLanguage ?? "en", submittedBy: submittedBy ?? undefined, createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
     return NextResponse.json({ update: { updateId, rawText: rawText.trim(), parseError: true } }, { status: 201 });
   }
 
@@ -113,7 +119,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     updateId,
     kind: "normal",
     rawText: rawText.trim(),
-    language: language ?? "en",
+    language: detectedLanguage ?? "en",
+    ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
     submittedBy: submittedBy ?? undefined,
     createdAt: now,
     parsed,

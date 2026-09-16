@@ -8,7 +8,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Toggle } from "@/components/ui/Toggle";
 import { TeamPanel } from "./TeamPanel";
-import { Bell, Clock3, Globe2, Save, Settings } from "lucide-react";
+import { Bell, Clock3, Globe2, Languages, Save, Settings } from "lucide-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -32,6 +32,7 @@ interface Settings {
   contactPhone: string;
   contactEmail: string;
   businessName: string;
+  agentLanguage: "en" | "es";
 }
 
 export default function CompanySettingsPage() {
@@ -45,6 +46,7 @@ export default function CompanySettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const notificationEmailRef = useRef<HTMLInputElement>(null);
   const contactPhoneRef = useRef<HTMLInputElement>(null);
   const contactEmailRef = useRef<HTMLInputElement>(null);
@@ -101,16 +103,19 @@ export default function CompanySettingsPage() {
     }
     setSaving(true);
     setError(null);
+    setWarning(null);
     try {
       const res = await fetch("/api/company/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...settings }),
+        body: JSON.stringify({ businessId, ...settings, agentLanguages: [settings.agentLanguage] }),
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error("Settings save failed");
       }
       setSaved(true);
+      if (data.vapiSyncWarning) setWarning(data.vapiSyncWarning);
       // Clear timezone cache so next nav picks up new value
       try { sessionStorage.removeItem(`tz_${businessId}`); } catch {}
       setTimeout(() => setSaved(false), 3000);
@@ -140,6 +145,11 @@ export default function CompanySettingsPage() {
       {saved && (
         <div style={{ padding: "10px 16px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#15803d", fontWeight: 600 }}>
           ✓ Settings saved successfully.
+        </div>
+      )}
+      {warning && (
+        <div role="status" style={{ padding: "10px 16px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, marginBottom: 16, fontSize: 14, color: "#92400e" }}>
+          {warning}
         </div>
       )}
       {error && (
@@ -221,6 +231,39 @@ export default function CompanySettingsPage() {
                     <option key={tz.value} value={tz.value}>{tz.label}</option>
                   ))}
                 </select>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-header">
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Languages size={16} strokeWidth={1.75} />
+                Phone AI Language
+              </h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
+                Switches immediately on save — the next call greets in this language. Field voice
+                updates always understand English and Spanish automatically, regardless of this setting.
+              </p>
+              <div className="segmented-control" aria-label="Phone AI language" style={{ maxWidth: 260 }}>
+                <button
+                  type="button"
+                  className="segment"
+                  aria-pressed={settings.agentLanguage === "en"}
+                  onClick={() => setSettings(prev => prev ? { ...prev, agentLanguage: "en" } : prev)}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  className="segment"
+                  aria-pressed={settings.agentLanguage === "es"}
+                  onClick={() => setSettings(prev => prev ? { ...prev, agentLanguage: "es" } : prev)}
+                >
+                  Español
+                </button>
               </div>
             </div>
           </section>

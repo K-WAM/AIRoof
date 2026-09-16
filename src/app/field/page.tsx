@@ -56,6 +56,10 @@ function FieldApp() {
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [recentUpdates, setRecentUpdates] = useState<FieldUpdate[]>([]);
   const [showRecent, setShowRecent] = useState(false);
+  // Spanish (Phase 12, Phase 6) — which RECENT cards are showing the verbatim original instead
+  // of the translated English. Pure client state, zero fetch: both strings already arrive in the
+  // updates payload (rawText/rawTextEn).
+  const [showOriginal, setShowOriginal] = useState<Set<string>>(new Set());
 
   // Type-to-capture fallback (collapsed by default — voice is the primary path)
   const [typing, setTyping] = useState(false);
@@ -549,8 +553,30 @@ function FieldApp() {
                         </span>
                       </div>
                       <p style={{ margin: 0, fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
-                        {u.rawText.length > 120 ? u.rawText.slice(0, 120) + "…" : u.rawText}
+                        {(() => {
+                          const key = u.updateId ?? String(i);
+                          const showingOriginal = showOriginal.has(key);
+                          const text = u.rawTextEn && !showingOriginal ? u.rawTextEn : u.rawText;
+                          return text.length > 120 ? text.slice(0, 120) + "…" : text;
+                        })()}
                       </p>
+                      {u.rawTextEn && (
+                        <button
+                          type="button"
+                          onClick={() => setShowOriginal((prev) => {
+                            const key = u.updateId ?? String(i);
+                            const next = new Set(prev);
+                            if (next.has(key)) next.delete(key); else next.add(key);
+                            return next;
+                          })}
+                          style={{
+                            marginTop: 4, background: "#1e2a4a", border: "none", borderRadius: 20,
+                            padding: "2px 8px", fontSize: 10, fontWeight: 700, color: "#7c93c8", cursor: "pointer",
+                          }}
+                        >
+                          {showOriginal.has(u.updateId ?? String(i)) ? "Original" : "ES → EN"}
+                        </button>
+                      )}
                       {u.parsed && (
                         <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {u.parsed.timeline.length > 0 && <span style={{ fontSize: 10, padding: "2px 8px", background: "#1e2a4a", borderRadius: 20, color: "#7c93c8" }}>{u.parsed.timeline.length} steps</span>}

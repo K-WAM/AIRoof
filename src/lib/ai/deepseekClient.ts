@@ -133,6 +133,13 @@ CORRECTIONS (critical — do NOT do math, only flag intent):
 - When you emit a correction, do NOT also put that item in the materials/labor arrays — the correction handles it. Only put NEW (non-correcting) items in the arrays.
 - If it's NOT a correction (just a new delivery/usage), leave correction null and add to materials normally.
 
+LANGUAGE:
+- The update may be in English, Spanish, or a mix (crews code-switch mid-sentence).
+- ALWAYS emit structured data (material names, issue descriptions, timeline descriptions) in canonical ENGLISH regardless of what language the update itself was in.
+- Worker names are NEVER translated ("José" stays "José", not "Joseph").
+- Also return "transcriptEn": a faithful English rendering of the whole update. If the update is already in English, set it to "" — do not echo the input back.
+- Numbers, units, and times are language-independent — digits and 24h "HH:MM".
+
 Return JSON with exactly these keys:
 - timeline: [{time?: string, description: string}]
 - materials: [{item: string, quantity?: string, unit?: string, cost?: number}]
@@ -140,6 +147,7 @@ Return JSON with exactly these keys:
 - issues: [{description: string, severity: "low"|"medium"|"high"}]
 - invoiceSuggestions: [{description: string, quantity: number, unitPrice: number, total: number}]
 - correction: null OR {item: string, newValue: number, field: "materials"|"labor"}
+- transcriptEn: string (English rendering of the whole update, or "" if it was already English)
 
 If a section is empty, return []. Never fabricate data not explicitly stated. Never compute totals — the system sums quantities itself.`,
         },

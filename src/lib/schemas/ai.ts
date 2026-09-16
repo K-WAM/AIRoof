@@ -65,10 +65,17 @@ export const parsedUpdateSchema: z.ZodType<ParsedUpdate, z.ZodTypeDef, unknown> 
       (value) => (value === null ? undefined : value),
       correctionSchema.optional()
     ),
+    // Spanish (Phase 12, Phase 6) — display-only, never folded across updates. See ParsedUpdate's
+    // own doc comment in src/types/jobs.ts for why buildProjection must ignore both.
+    transcriptEn: optionalModelText(20_000),
+    sourceLanguage: boundedText(50).optional(),
   })
-  .transform(({ correction, ...update }) =>
-    correction ? { ...update, correction } : update
-  );
+  .transform(({ correction, transcriptEn, sourceLanguage, ...update }) => ({
+    ...update,
+    ...(correction ? { correction } : {}),
+    ...(transcriptEn ? { transcriptEn } : {}),
+    ...(sourceLanguage ? { sourceLanguage } : {}),
+  }));
 
 export interface SummaryOutput {
   summary: string;

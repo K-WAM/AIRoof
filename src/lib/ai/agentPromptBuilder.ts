@@ -52,6 +52,21 @@ This is the start of the call. Greet the caller naturally and ask how you can he
 When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date from today's date above before booking.\n`
     : "";
 
+  // Language (Phase 12, Phase 6). Inserted right before Response Style so the tone rules that
+  // follow apply to whichever language ends up active. Deliberately its own section rather than
+  // folded into Response Style: the field-update path (buildProjection) canonicalizes everything
+  // to English, but a caller's own spoken name/notes must NOT be translated — the two subsystems
+  // have opposite requirements, and this is the one place that has to say so explicitly.
+  const primary = businessConfig.agentLanguage === "es" ? "Spanish" : "English";
+  const languages = businessConfig.agentLanguages ?? (businessConfig.agentLanguage ? [businessConfig.agentLanguage] : ["en"]);
+  const isBilingual = languages.includes("en") && languages.includes("es");
+  const languageSection = `## Language
+- Greet and answer in ${primary}.${isBilingual ? `
+- If the caller speaks Spanish, switch and stay there. Follow them back to English if they switch. Never mix languages within a sentence.` : ""}
+- Spell back names and addresses in the caller's language.
+- Record tool arguments (name, phone, email, serviceType, notes) in the language the caller used — do NOT translate the customer's own words into English.
+`;
+
   const rawPhone = runtime?.callerPhone ?? "";
   const phoneDigits = rawPhone.replace(/\D/g, "");
   const last4 = phoneDigits.slice(-4);
@@ -117,6 +132,7 @@ ${phoneInstruction}
 ## Escalation
 If urgent or outside your scope: collect details and escalate to ${businessConfig.escalationPhone || "the team"}.
 
+${languageSection}
 ## Response Style
 - Use a ${agentTone} tone
 - Keep responses short and phone-friendly
