@@ -2,7 +2,7 @@
 
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
-**Phase 12 (in progress, 2026-09-15)** — a separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. 4/7 sub-phases fully shipped (foundation/speed/the field-URL fix; Customers; Time clock, T-090; Photos, T-091), plus Phase 4/T-092 **partially** shipped (invoice persistence + hide-materials real everywhere it's promised — email, in-app print/PDF, and on-screen — plus a letterhead redesign matching a real reference invoice; the logo library and a two-pane live-preview redesign deliberately deferred — see the plan doc's Phase 4 "Shipped" notes) — all pushed to `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library whenever it's picked up.
+**Phase 12 (2026-09-16) — all 7 sub-phases shipped and pushed to `origin/main`.** A separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. Foundation/speed/the field-URL fix; Customers; Time clock (T-090); Photos (T-091); Invoice persistence + hide-materials everywhere it's promised + a letterhead redesign + the logo library (T-092, Phase 4 — only the two-pane live-preview redesign is deliberately not built); Spanish (T-093 — field-update auto-detect+translate and the phone AI's language toggle are real; voice selection is a documented **NEEDS-HUMAN** follow-up, see `TODO.md`); Trade roles (T-094). See the plan doc's per-phase "Shipped" notes for exact deviations/deferrals — every phase has honest ones, nothing is oversold as 100% complete.
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
@@ -226,7 +226,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/vapi/verify.ts — Webhook secret verification (VAPI_AUTH_BYPASS removed by T-010; now fail-closed; timing-safe compare + Firestore-based replay guard)
 - src/lib/vapi/businessLookup.ts — Maps vapiAssistantId → businessId
 - src/lib/tools/agentTools.ts — Seven Vapi tools, transactional scheduling, callback state, and ledgered escalation
-- src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls
+- src/lib/vapi/vapiClient.ts — Vapi REST client: initiateVapiCall() for outbound calls; updateAssistantPersona() pushes prompt/greeting/transcriber-language live (the actual mechanism that makes a persona change "take" — assistant-request never fires for a number with a fixed assistantId), always reads back and re-sends startSpeakingPlan/stopSpeakingPlan verbatim (see the 2026-09-07 gpt-realtime incident below)
+- src/lib/vapi/voices.ts — per-language voice map, deliberately inert (NEEDS-HUMAN: no confirmed Spanish voiceId exists yet — see TODO.md)
 - src/app/api/jobs/[jobId]/route.ts — GET single job + PATCH job status
 - src/app/api/cron/follow-up-calls/route.ts — Daily follow-up cron (vercel.json: 2pm UTC)
 - src/app/api/admin/invoices/route.ts — GET/POST Luxor invoices (LX-XXXX auto-ID)
@@ -264,7 +265,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/report/route.ts — Generate text report from all parsed updates
 - src/app/api/jobs/[jobId]/invoice/route.ts — GET/POST/PATCH for the persisted invoice (see the fuller entry further down this list — this line was stale since T-092, still describing the pre-persistence dead-code version)
 - src/types/jobs.ts — Job, FieldUpdate (+ correction fields), ParsedUpdate, ProposedCorrection, JobPhotoMeta
-- src/lib/ai/deepseekClient.ts — DeepSeek/GPT-4o: summaries, classification, parseFieldUpdate() (now also flags corrections)
+- src/lib/ai/deepseekClient.ts — DeepSeek/GPT-4o: summaries, classification, parseFieldUpdate() (flags corrections; Phase 12/Phase 6 — one LANGUAGE instruction block canonicalizes structured data to English and returns transcriptEn, one call not two)
+- src/lib/ai/whisperPrompt.ts — the field-audio Whisper biasing prompt, industry/tenant-driven (vertical voiceExample + top-30 Library material names), capped at Whisper's 224-token limit
+- src/lib/i18n/detect.ts — normalizeLang() (Whisper's full language name → ISO code) + detectLanguage() (cheap Spanish heuristic for the typed-text path, no Whisper/no extra LLM call)
 - src/lib/jobs/projection.ts — buildProjection() (code-owned aggregation), resolveCorrection(), parsedToFieldLog() — **single source of truth for job data**
 - src/lib/photos/store.ts — swappable photo storage (base64-Firestore now, Firebase Storage later); MAX_PHOTOS_PER_JOB, MAX_FULL_BYTES
 - src/lib/photos/clientResize.ts — browser canvas compression (thumb + capped full)
@@ -313,6 +316,11 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/invoice/route.ts — GET/POST/PATCH for the persisted invoice (POST is idempotent, `force: true` rebuilds a still-draft invoice from the current projection)
 - src/lib/billing/jobInvoiceEmailHtml.ts — `buildJobInvoiceEmailHtml()`, the pure/unit-tested emailed-invoice HTML template (extracted from `send/route.ts`, 2026-09-15); the same letterhead (logo/name/address/phone left, Invoice title + Date/Invoice No./Due/Service block right, boxed Total Due) as the in-app invoice-doc render in `jobs/[jobId]/page.tsx`, both reading `businessConfig`'s branding fields
 - src/app/api/jobs/[jobId]/invoice/send/route.ts — thin auth-and-fetch shell around `buildJobInvoiceEmailHtml()`; marks the invoice `sent`
+- src/types/team.ts — TeamRole (permission axis) + TradeTitle (Phase 12/Phase 7, descriptive only, no permissions) + TeamMember (trade?/displayName?/crewId?)
+- src/lib/team/landing.ts — defaultLandingPath(): field trades → `/company/field`, foreman → `/company/jobs`, else the dashboard; always the dashboard when this industry has no Jobs/Field module
+- src/lib/branding/logo.ts — logo-library size caps + `logoStyle()`/`needsLogoChip()`, the rendering rule for a logo on a white document vs. a colored bar (see the Cache-Control-style "read this before touching X" rules above — this is the one place that decision lives)
+- src/app/api/company/library/logos/route.ts + src/app/company/library/LogosSection.tsx — the logo library's GET/POST/PATCH/DELETE and its Library "Branding" tab UI (dual white/brand-bar preview, set-default, variant picker)
+- src/components/field/InstallPrompt.tsx — "Add to Home Screen" nudge on `/field` only (not `/company/field` — its manifest start_url doesn't point there, see the component's own doc comment); the one real lever over "the address bar shows on mobile," which no website can suppress in a plain browser tab
 
 ## Navigation Completeness Rule
 
@@ -369,6 +377,7 @@ Before asking the user to verify anything, use CLI/curl first:
 - **SMS**: Post-MVP (deferred). Twilio integration superseded by Vapi; Twilio env declarations removed by T-051. No active SMS seam in source.
 - **RESEND_FROM**: Needs a verified sending domain in Resend for the "From" name to show correctly.
 - **Voice (2026-09-07, reverted)**: briefly ran OpenAI `gpt-realtime-2025-08-28` (native speech-to-speech) + the `cedar` voice (2026-09-05 – 2026-09-07) for maximum prosody/naturalness. **Rolled back after a real phone call exposed a broken turn-taking regression**: the assistant talked over the caller, never yielded on interruption, and cut off mid-word on longer responses (resuming only if the caller said "continue"). Root cause: Vapi's `startSpeakingPlan`/`stopSpeakingPlan` (the hand-tuned `numWords: 2`/`backoffSeconds: 0.7`/`waitSeconds: 0.1`) govern the cascaded transcriber→LLM→TTS pipeline only — they don't apply to speech-to-speech models, so the tuned interruption handling was silently inert the whole time it ran. **Live config is back to** Vapi Voices v2 `Savannah` + `gpt-4o-mini` (openai) + Deepgram Flux transcriber — the same cascaded pipeline the turn-timing settings actually govern. Cost is back to ~$0.09–0.14/min. Script: `scripts/rollback-vapi-voice.mjs` (`--dry-run` supported); the pre-rollback (gpt-realtime/cedar) snapshot is saved outside the repo, not in git. If gpt-realtime is revisited, treat interruption/turn-detection tuning as a separate, unproven problem — don't assume the cascaded-pipeline settings carry over.
+- **Spanish voice (2026-09-16, NEEDS-HUMAN)**: the phone AI's language toggle (Settings → Phone AI Language) switches the transcriber and the prompt/greeting live, but deliberately does NOT switch to a language-specific voice — `src/lib/vapi/voices.ts` has no confirmed-working Spanish `voiceId` anywhere in this codebase, and guessing one risked silently breaking a live line. `Savannah` (English-named) speaks whatever language the prompt asks for in the meantime. To finish: pick a real Spanish voice in the Vapi dashboard's voice picker, confirm it sounds right on a test call, then fill in `AGENT_VOICES.es` and thread it through `updateAssistantPersona`.
 
 ## Contact
 

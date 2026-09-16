@@ -1,10 +1,13 @@
 # Roofing Platform — Customers, Time Clock, Spanish, Invoicing & Speed
 
-> **Status (2026-09-15): Phases 1–3 and 5 shipped; Phase 4 partially shipped (persistence,
-> hide-materials now everywhere it's promised, and a formal letterhead redesign matching a real
-> reference invoice; the logo library and two-pane preview still deferred) — all merged to `main` and
-> pushed to `origin/main`.** Phases 6, 7 not started. Tracked as **Phase 12** in `TODO.md` (T-088
-> onward). This doc is the
+> **Status (2026-09-16): all 7 phases shipped and pushed to `origin/main`.** Phases 1, 2, 3, 5 fully
+> shipped. Phase 4 (invoices) shipped including the previously-deferred logo library and letterhead
+> redesign — only the two-pane live-preview redesign remains deliberately not built (the existing
+> in-place WYSIWYG editor already serves that need). Phase 6 (Spanish) shipped for the field-update
+> pipeline and the phone AI's language toggle — voice selection and bilingual/"multi" transcriber
+> mode are deliberately deferred (see the Phase 6 "Shipped" note: no confirmed-working Spanish
+> voiceId exists to switch to, and the spec's own risk warning is against defaulting to bilingual).
+> Phase 7 (trade roles) shipped. Tracked as **Phase 12** in `TODO.md` (T-088 onward). This doc is the
 > canonical spec for the whole initiative — `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` narrate what
 > shipped and point back here rather than re-deriving the design. Where an implementation detail below differs
 > from what actually shipped, a `**Shipped:**` note says so; the rest of each phase's spec is unchanged and is
@@ -331,12 +334,12 @@ Add to `src/lib/photos/store.ts`: `updatePhotoMeta(db, bid, jobId, photoId, patc
 
 ---
 
-## Phase 4 — Invoice persistence, hide-materials, logos — PARTIALLY SHIPPED (T-092, +letterhead pass 2026-09-15)
+## Phase 4 — Invoice persistence, hide-materials, logos — SHIPPED (T-092, +letterhead pass + logo library, 2026-09-15/16)
 
 **Shipped: the actual bug (invoices don't persist, `job.invoiceId` dangles), hide-materials (now
-in the email, the in-app print/PDF view, *and* the on-screen doc identically), and a letterhead
-redesign so the invoice reads like a real printed invoice instead of a generic SaaS card.
-Deferred: the two-pane live-preview redesign and the entire logo library.** See T-092's `TODO.md`
+in the email, the in-app print/PDF view, *and* the on-screen doc identically), a letterhead
+redesign so the invoice reads like a real printed invoice instead of a generic SaaS card, and (2026-
+09-16) the logo library itself. Deferred: only the two-pane live-preview redesign.** See T-092's `TODO.md`
 entry for the full reasoning; summary:
 
 - **Persistence, real.** `businesses/{bid}/invoices/{invoiceId}` ("INV-1000+" via a dedicated
@@ -398,13 +401,12 @@ entry for the full reasoning; summary:
   through this UI — every saved row becomes `"manual"`. The punch/voice distinction is still
   fully correct at *generation* time (`buildDraftFromProjection` reads it straight off
   `job.parsed`); this only affects a row after a manual edit touches it.
-- **The entire logo library (the rest of this phase's spec below) still isn't built.** New
-  collection, new upload pipeline, new Library UI section, per-invoice logo *choice* — a genuinely
-  separate feature from "invoices persist" or "the invoice looks professional," deferred rather
-  than compressed into this already-large session. The 2026-09-15 letterhead pass only reads the
-  one `businessConfig.logoUrl` a tenant already sets in Settings (the same field `ReportRenderer`
-  has used since Phase 3) — there is still no way to upload/manage multiple logos or pick one per
-  invoice. `logoId` exists on `JobInvoice` (typed, unused) for whenever the library lands.
+- **The logo library shipped 2026-09-16** — see the "Logos in the Library" section's own Shipped
+  note above for the full detail. The 2026-09-15 letterhead pass (the day before) had only read the
+  one `businessConfig.logoUrl` a tenant already sets in Settings; that's now the fallback, not the
+  whole story. `JobInvoice.logoId` is still typed but unused — a specific invoice always reflects
+  the library's *current* default rather than a frozen choice, a deliberate simplification (see the
+  Shipped note) rather than an oversight.
 - Customer rate/tax overrides (`customer.defaultLaborRate`/`defaultTaxRate` ahead of the Library
   and business-wide defaults) and the editable-total-column-back-solves-unitPrice UX were both in
   scope for this phase; the former shipped (it's pure precedence logic in the draft builder), the
@@ -480,7 +482,28 @@ Purely presentational: `materialSubtotal` is still computed from real lines, the
 
 **Editable material amounts:** `unitPrice` is already an input. Add an editable **`total`** column that back-solves `unitPrice = total / max(quantity, 1)` and flips the row to `source: "manual"` — because "that roll was 240 bucks" is how field-service users actually think.
 
-### Logos in the Library
+### Logos in the Library — SHIPPED (2026-09-16)
+
+**Shipped as specced below, with one deliberate simplification.** `src/lib/branding/logo.ts` (caps +
+`logoStyle`/`needsLogoChip`, unit tested), `src/lib/photos/clientResize.ts`'s `processLogo()` (PNG-
+always for raster, SVG passed through untouched), `businesses/{bid}/library/logos` +
+`GET/POST/PATCH/DELETE /api/company/library/logos` (sum-validated on write, zero rules change —
+confirmed the existing `library/{docId}` rule covers it), and a new Library "Branding" section with
+dual white/brand-bar preview so the owner sees, not guesses, which variant is right. Wired the
+default logo into the in-app invoice letterhead, the emailed invoice, and the job report cover — the
+last of which had a **real, live rendering bug** this work fixed along the way: the report's colored
+header bar applied `brightness(0) invert(1)` to *every* logo unconditionally, meaning a full-color
+logo was always flattened to a plain white silhouette, not just a mono-dark one. All three surfaces
+fall back to the pre-existing `businessConfig.logoUrl` unchanged when no library logo exists, so this
+is a strict upgrade, never a regression, for a tenant who never touches the new feature.
+**Simplification:** `logoStyle`/`needsLogoChip` take the surface (`"light"`/`"brand-bar"`) and the
+logo's own `variant`, exactly as specced below — no separate `logoId?: string | null` resolution was
+added per-invoice (a specific invoice always uses the library's current default, not a frozen choice
+from when it was generated); revisit if a tenant ever needs an invoice to keep an old logo after the
+default changes. **Not wired:** `notify.ts`'s other transactional emails (crew assignment, customer
+confirmation, team invite) still read the old `businessConfig.logoUrl` with the old unconditional
+filter — a real, same-class gap as the report's, left as a documented follow-up rather than chased
+down in the same pass.
 
 **Separate doc, not the pricing doc** — base64 on `library/pricing` would bloat a document read on every job page. Use `businesses/{bid}/library/logos`, a **sibling doc in the existing `library` collection**, so the current `match /library/{docId} { allow write: if false }` rule already covers it. **Zero rules change.**
 
@@ -657,7 +680,49 @@ Merge rule, inside the existing step 3:
 
 ---
 
-## Phase 6 — Spanish — NOT STARTED
+## Phase 6 — Spanish — SHIPPED (2026-09-16), voice selection deferred
+
+**Shipped, largely as specced below:** Whisper auto-detect (no forced `language`, `verbose_json` to
+get the detected language back, `normalizeLang()`), the industry/tenant-driven biasing prompt
+(`src/lib/ai/whisperPrompt.ts` — the vertical's own `voiceExample` + the tenant's top-30 Library
+material names, capped at 224 tokens), `parseFieldUpdate`'s one-call LANGUAGE block +
+`transcriptEn`/`sourceLanguage` (guarded against folding across updates by a unit test), the typed-
+text heuristic (`src/lib/i18n/detect.ts`), the "Translated" (ES → EN) tap-to-toggle badge in both
+`/field`'s RECENT list and the job detail page's Timeline "View original" disclosure,
+`BusinessConfig.agentLanguage`/`agentLanguages`, `buildAgentPrompt`'s `## Language` section (with
+the field-path's opposite requirement — never translate the *caller's* own words — stated
+explicitly), and a `/company/settings` toggle that pushes live via `updateAssistantPersona` on
+save rather than just writing Firestore and hoping a webhook path picks it up.
+
+**Deviations from the spec below, both deliberate:**
+- **Voice is NOT switched per language.** `src/lib/vapi/voices.ts` exists but is intentionally inert
+  — this codebase has no confirmed-working Spanish `voiceId` anywhere, and guessing one risks
+  silently breaking a live phone line the next time someone flips the toggle. Flagged
+  **NEEDS-HUMAN**: a real Vapi-dashboard voice-picker pass to confirm one, then fill in
+  `AGENT_VOICES.es` and thread it through `updateAssistantPersona`. Until then, the transcriber
+  language and the prompt/greeting switch; the English-named voice (`Savannah`) speaks whatever
+  language the prompt asks for, same as it already had to for any non-English caller before this
+  phase existed — a real, working degradation, not a broken one.
+- **Bilingual/"multi" transcriber mode is not exposed in Settings** — a straight single-select
+  (English/Español), per the spec's own caution below against defaulting to bilingual given the
+  CLAUDE.md 2026-09-07 gpt-realtime turn-taking incident. `BusinessConfig.agentLanguages` (the
+  array) exists for whenever this is picked up; `updateAssistantPersona`'s `transcriberLanguage`
+  param only ever receives `"en"`/`"es"` from the current UI.
+- `updateAssistantPersona` now **always** reads back and re-sends `startSpeakingPlan`/
+  `stopSpeakingPlan` verbatim on every PATCH, unconditionally (not just when touching the
+  transcriber) — a direct, permanent hardening from the same incident, not scoped to Spanish.
+- The `<html lang>`/date-locale literal-replacement item (`field/page.tsx:515`,
+  `webhooks/vapi/route.ts:114-115` in the original line numbering) was **not done** — it's a genuine
+  cosmetic nicety (a RECENT card's clock format, the injected `{{currentDate}}` context's spoken
+  month/day names) but touches 8 call sites in `webhooks/vapi/route.ts` alone, several of which are
+  pure date-math tricks that must stay `"en-US"` regardless of caller language; a scoped follow-up,
+  not a silent drop.
+
+**Not yet covered by an automated test:** buildProjection's language-fold guard is (see
+`src/lib/jobs/__tests__/projection.test.ts`) — but the live-phone/Vapi-dashboard verification the
+spec's own gate table calls for (record a real Spanish note on a phone, confirm
+`startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH in the Vapi dashboard) has not been done;
+no device/dashboard access in this sandbox, same limitation every prior phase's gate table notes.
 
 ### `field-audio/route.ts`
 
@@ -739,7 +804,33 @@ That last line matters: the **field** path canonicalizes to English, but a booki
 
 ---
 
-## Phase 7 — Trade roles — NOT STARTED
+## Phase 7 — Trade roles — SHIPPED (2026-09-16)
+
+**Shipped as specced below.** `TradeTitle`/`TRADE_TITLES`/`TRADE_TITLE_LABEL` in `src/types/team.ts`;
+`TeamMember`/`TeamMemberDoc` gain `trade?`/`displayName?`/`crewId?`, none of which enter
+`verifyAuthAndRole`'s permission check. `src/lib/team/landing.ts`'s `defaultLandingPath()` (unit
+tested) — field trades to `/company/field`, foreman to `/company/jobs`, everyone else (and always,
+regardless of trade, when this industry has no Jobs/Field module) to the dashboard. Wired into
+`company/layout.tsx` as a convenience redirect (not a security boundary — stated explicitly in the
+function's own doc comment) whenever someone lands on `/company/dashboard`. The invite email's
+password-reset link now carries a `continueUrl` (Firebase `ActionCodeSettings`) pointing at the
+invitee's own landing page, so "after they land there scoped to their crew" is real, not aspirational.
+Team panel UI: **Name / Email / Role / Title**, plus a Crew picker shown only when Title is a field
+trade — two live-editable columns per member row (Role, Title), never a merged dropdown, matching
+the spec exactly. CSV import gained a third optional `trade` column.
+
+**The one genuinely new behavioral wiring beyond the original spec's own scope:** `GET /api/jobs`
+gained an additive `crewId`/`includeUnassigned` filter (in-memory over the existing bounded read,
+matching the Customers-search precedent rather than a new composite index), and
+`/company/field/page.tsx`'s job list now passes it whenever the logged-in worker has a `crewId` —
+without this, "lands scoped to their crew" would have been true only for the *landing page*, not
+for what jobs they actually saw once there. Also (not in the original spec, but a direct,
+well-motivated consequence of `displayName` existing): `/company/field` now stamps punches/labor/
+photo attribution with the worker's real name instead of their email address.
+
+**Deliberately not done:** raising `DEFAULT_SEAT_LIMIT` from 5 to 10 — the spec calls this out as its
+own flagged product decision ("a roofer with 12 techs can't onboard"), not something to change
+silently as a side effect of adding trade titles. Still 5; revisit as its own decision.
 
 **Decision: a separate `trade` field on `businessUsers`. Not a new `TeamRole` member. Not a `Crew` link.**
 
@@ -811,9 +902,16 @@ Run per phase; each is independently shippable.
 | **1** | DevTools Network on `/company/dashboard`: **no `@firebase/firestore` chunk**, one `/api/company/bootstrap` (not two `businesses/{bid}` reads). Back-nav jobs→detail→jobs paints with no skeleton. `curl https://ai-roof.vercel.app/api/health`. Scan a field QR on a real phone → **address bar reads `/field` with nothing after it**. Install the PWA on a non-demo tenant → opens that tenant, not `demo-roofing`. | Chunk absence confirmed locally by inspecting `.next/static/chunks` after a production build; the field-QR/PWA gates need a real-phone pass, not yet done (no device in this sandbox). |
 | **2** | Seed ~200 customers; type "wal" in ⌘K → results in **<50ms with no network request** (confirm in Network). Click through → drawer lists every Walmart job. Create a job with a brand-new client name → reload → `job.customerId` populated. Run `node scripts/backfill-customers.mjs --dry-run` then for real; verify job counts match. | Logic verified by unit/route tests against a fake Firestore; the live ⌘K timing/network-tab check and the backfill script's real-data dry-run against `demo-roofing` are not yet done. |
 | **3** | Upload one portrait and one landscape photo, mark both for report → Print Preview: **both look intentional, neither cropped nor distorted**, phase badges print in color, 8 per page, no mid-row phase split. Report generation is **1 network request**, not 8. Edit a label from a phone as a QR crew member (no login) → saves. | Not started. |
-| **4** | Build an invoice, navigate away, return → **still there**. Toggle `hideMaterials` → customer view shows one "Materials & supplies" line and the visible lines still sum to the total. Upload a color PNG logo → renders at natural colors on the invoice and on a white chip in the emailed report header. Send → `job.invoiceId` and `status: "invoiced"` written; PATCH afterwards returns 4xx. | Not started. |
+| **4** | Build an invoice, navigate away, return → **still there**. Toggle `hideMaterials` → customer view shows one "Materials & supplies" line and the visible lines still sum to the total. Upload a color PNG logo → renders at natural colors on the invoice and on a white chip in the emailed report header. Send → `job.invoiceId` and `status: "invoiced"` written; PATCH afterwards returns 4xx. | Logic verified by unit tests (jobInvoice.ts, jobInvoiceEmailHtml.ts, branding/logo.ts) and a full local build; the live authenticated-browser pass (drag/build/upload/send against production data) has not been done — no browser session in this sandbox. |
 | **5** | Tap Arrived Jobsite on J-1001, then on J-1002 → **409 with the "still clocked in at J-1001" dialog**; Switch job emits both edges. Lunch Break pauses, Back from Lunch resumes. Edit a time on mobile → appends a `supersedes` punch, original preserved. Unit test: a punched (worker, day) **removes** the voice line rather than summing with it. | Not started. |
-| **6** | Record a Spanish note on a real phone → English line items on the invoice, `ES → EN` chip on the entry, tap shows the verbatim Spanish. Test: `foldedJob.parsed.transcriptEn === undefined`. Set a business to Español, call the demo line → agent greets in Spanish; **verify in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH** (this is the CLAUDE.md-documented failure mode). | Not started. |
-| **7** | Invite a technician → invite email deep-links to `/company/field` → after password reset they land there scoped to their crew. Try to demote the last owner → still refused. | Not started. |
+| **6** | Record a Spanish note on a real phone → English line items on the invoice, `ES → EN` chip on the entry, tap shows the verbatim Spanish. Test: `foldedJob.parsed.transcriptEn === undefined`. Set a business to Español, call the demo line → agent greets in Spanish; **verify in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH** (this is the CLAUDE.md-documented failure mode). | The `transcriptEn` fold guard is a real, passing unit test. Everything else in this row needs a real phone + Vapi dashboard access this sandbox doesn't have — **NEEDS-HUMAN**, tracked in `TODO.md`. |
+| **7** | Invite a technician → invite email deep-links to `/company/field` → after password reset they land there scoped to their crew. Try to demote the last owner → still refused. | The last-owner guard was already tested pre-Phase-7 and is untouched by trade/displayName/crewId (they don't enter that check). The invite → deep-link → landing → crew-scoped-jobs chain is logic-verified (defaultLandingPath unit tests, the crewId filter's own request-shape review) but not run end-to-end against a real inbox/password-reset flow — **NEEDS-HUMAN**. |
 
 **Docs updated on Phase 1–2 completion:** this file (new), `CLAUDE.md` (new Key Files entries, the never-`public`-Cache-Control rule, a Customers/search summary), `TODO.md` (new Phase 12, T-088/T-089), `HANDOFF.md`, `docs/SESSION_HANDOFF.md`. `public/guides/onboarding-guide.html` intentionally **not** touched yet — nothing customer-facing in the demo flow changed (Customers is an internal Library tab, not a new onboarding step); revisit once Phase 4 (logo upload) or Phase 6 (language toggle) land, per the guide's own update-trigger list in `CLAUDE.md`.
+
+**Revisited 2026-09-16, both landed — checked against CLAUDE.md's actual trigger list, still not touched, and
+that's the correct call, not a miss:** the logo library and the Spanish toggle are both post-onboarding
+features (Library "Branding" tab; `/company/settings`), and the 6-step onboarding wizard's own fields are
+unchanged — the guide's trigger list is specifically "Onboarding form steps (e.g. new required fields
+added)," which didn't happen. The guide already documents the pre-existing single `logoUrl` field
+onboarding always had (still the fallback when no library logo is set) accurately as-is.

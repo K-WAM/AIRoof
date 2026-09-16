@@ -1,16 +1,17 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-15 (Invoice letterhead redesign + hide-materials print parity, T-092 follow-up — see below)
+Last updated: 2026-09-16 (Phase 12 fully closed out: Trade roles, logo library, Spanish, Calendar/Field UX pass — see below)
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
-> **Phase 12** (Customers, time clock, Spanish, invoicing, and a general speed pass — full spec in
-> `docs/PLATFORM-EXPANSION-PLAN.md`) has its first 4 sub-phases (T-088/T-089/T-090/T-091) fully shipped, plus
-> T-092 (Invoice persistence) **partially** shipped — real persistence, hide-materials now everywhere it's
-> promised (email + in-app print/PDF), and a letterhead redesign matching a real reference invoice are done;
-> the logo library and a two-pane live-preview redesign are deliberately deferred (see
-> `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 notes). All merged to `main` and pushed to
-> `origin/main`. Remaining: Spanish, Trade roles (T-093/T-094), plus Phase 4's deferred logo library. See
-> `TODO.md` and `docs/SESSION_HANDOFF.md` for the live state. The dated session narratives below remain
-> historical evidence.
+> **Phase 12** (Customers, time clock, Spanish, invoicing, trade roles, and a general speed pass — full spec
+> in `docs/PLATFORM-EXPANSION-PLAN.md`) is now **fully shipped, all 7 sub-phases, merged to `main` and pushed
+> to `origin/main`.** T-088–T-094 all shipped; Phase 4 (invoices) includes the logo library and the letterhead
+> redesign, with only the two-pane live-preview redesign deliberately not built; Phase 6 (Spanish) ships the
+> field-update auto-detect+translate pipeline and the phone AI's language toggle, with voice selection flagged
+> **NEEDS-HUMAN** (NH-15/NH-16 in `TODO.md` — no confirmed Spanish voiceId exists yet, and the live-phone/
+> Vapi-dashboard verification needs real device/console access this sandbox doesn't have). See
+> `docs/PLATFORM-EXPANSION-PLAN.md`'s per-phase "Shipped" notes for every deviation/deferral — each one is
+> honest and specific, not a blanket "done." `TODO.md` and `docs/SESSION_HANDOFF.md` carry the live state. The
+> dated session narratives below remain historical evidence.
 
 ## Current State
 
@@ -32,6 +33,60 @@ documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) a
 > authenticated production smoke pass.
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-16) — Phase 12 closed out: Trade roles, logo library, Spanish, Calendar/Field UX pass
+
+Owner asked for all three remaining Phase 12 sub-phases (Spanish, Trade roles, the deferred logo
+library) plus a general performance/UX/bug pass, with explicit emphasis on the Calendar Powerboard
+working excellently and the field input flow being effortless. Full narrative lives in `TODO.md`'s
+matching 2026-09-16 entry and `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4/6/7 "Shipped" notes — this
+is the short version. Four commits, each verified independently (`tsc`/`eslint .`/`vitest run`/
+`next build`, not just at the very end):
+
+1. **Trade roles (T-094).** A `trade` field on `TeamMember`, deliberately separate from `TeamRole` —
+   zero permission-check call sites needed to change. `defaultLandingPath()` picks a field trade's/
+   foreman's/everyone-else's post-login screen; invite emails deep-link their password-reset
+   `continueUrl` there. `GET /api/jobs` gained a `crewId`/`includeUnassigned` filter so
+   `/company/field` actually scopes to a worker's own crew. `/company/field` now shows real names,
+   not emails, on punches/labor/photos.
+2. **Logo library (Phase 4 remainder).** A real upload/variant/default library, wired into the
+   invoice letterhead, the emailed invoice, and the job report cover — fixing a real, live bug found
+   along the way: the report's colored header bar was flattening every logo, including full-color
+   ones, to a plain white silhouette via an unconditional `brightness(0) invert(1)`.
+3. **Spanish (T-093).** Whisper auto-detect + one-call translation in `parseFieldUpdate` (a
+   `transcriptEn` field, guarded against folding across updates by a new unit test), an "ES → EN"
+   tap-to-toggle badge in both field screens, and a `/company/settings` language toggle that pushes
+   live to Vapi on save. Deliberately did NOT switch the phone voice per language (no confirmed
+   Spanish voiceId exists anywhere in this codebase — flagged NEEDS-HUMAN, NH-15/16 in `TODO.md`,
+   rather than guessed and risking a live line) or expose bilingual/"multi" mode (the spec's own
+   caution, given the 2026-09-07 gpt-realtime incident). `updateAssistantPersona` now always
+   preserves `startSpeakingPlan`/`stopSpeakingPlan` on every PATCH — a permanent hardening from that
+   same incident.
+4. **Calendar/Field UX + bug fixes.** A "+ New Job" button on the Calendar (with a matching
+   quick-add refresh subscription jobs never had). A dismissible "Add to Home Screen" nudge on
+   `/field` — the actual, only real lever over "the address bar shows on mobile" (no website can
+   suppress a plain browser tab's chrome; the fix is getting people to actually launch from the
+   home-screen icon). `/field`'s worker-name field now persists per-device instead of being retyped
+   every visit. Fixed a real, live manifest bug (`theme_color` was the exact pre-teal blue hex
+   CLAUDE.md's design-system rule says never to reintroduce) and a real `tsc` error in the Spanish
+   commit's own new test.
+
+**Explicitly not done, all documented rather than silently skipped:** the Spanish voice pick and the
+live-phone/Vapi-dashboard verification (NH-15/NH-16); the Phase 6 spec's `<html lang>`/date-locale
+literal replacements (8 call sites in `webhooks/vapi/route.ts` alone, several of which must stay
+`en-US`); raising the default seat limit 5→10 (the plan doc flags this as its own product decision);
+a full mobile redesign of the Calendar's drag-and-drop grid (the core one-drag-then-tap workflow
+already degrades reasonably; a bottom-sheet alternative would be a bigger, unvalidated redesign); and
+a pre-existing (not introduced this session) Calendar scaling characteristic — `GET /api/jobs` has no
+date-range filter, capping at the 100 most-recently-created jobs, so a very high-volume business could
+see gaps on a far past/future week.
+
+`tsc --noEmit` clean; `eslint .` (whole repo) 0 errors; `vitest run` 632/632 (two runs under load hit
+the same long-documented concurrent-load flake pattern on different files each time, always clean on
+immediate retry); `next build` green after every one of the four commits. Production `/api/health`
+re-verified after each push.
 
 ---
 

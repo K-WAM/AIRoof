@@ -5,7 +5,81 @@ State snapshot: `docs/SESSION_HANDOFF.md`.
 Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance cleanup this session
 (`c8487ed`), plus a 3-vertical expansion on top of it (`1d2f840`) — both on `origin/main`.
 
-## Current snapshot — 2026-09-14/15
+## Current snapshot — 2026-09-14/15/16
+
+- **2026-09-16 — Phase 12 closed out: Trade roles (T-094), the logo library (Phase 4 remainder),
+  Spanish (T-093), plus a Calendar/Field UX pass. All 7 Phase 12 sub-phases now shipped and pushed
+  to `main`/`origin/main`.** Owner asked for all three remaining phases plus a general
+  performance/UX/bug pass, with explicit emphasis on the Calendar Powerboard and the field input
+  flow. Three separate commits (one per feature, per the standing convention), plus a fourth for
+  the Calendar/Field/bug-fix pass:
+  - **T-094 (Trade roles).** `TeamMember` gains `trade`/`displayName`/`crewId` (a separate axis from
+    `TeamRole` — zero permission-check call sites touched). `src/lib/team/landing.ts`'s
+    `defaultLandingPath()` (unit tested) picks a field trade's/foreman's/everyone-else's post-login
+    screen, wired as a convenience redirect in `company/layout.tsx`. Invite emails now deep-link
+    their password-reset `continueUrl` to the invitee's real landing page. Team panel: Name/Title/
+    Crew on invite, a live Title selector per row, CSV gains an optional `trade` column. `GET
+    /api/jobs` gained an additive `crewId`/`includeUnassigned` filter (in-memory, mirroring the
+    Customers-search precedent) so `/company/field` actually scopes to a worker's own crew, not
+    just their landing page. `/company/field` now shows real names (not emails) on punches/labor/
+    photo attribution — a direct field-usability win that `displayName` made possible.
+  - **Phase 4 remainder (logo library).** `businesses/{bid}/library/logos` (zero rules change),
+    `src/lib/branding/logo.ts` (caps + the color/mono-dark/mono-light rendering rule, unit tested),
+    `processLogo()` (PNG-always, SVG passed through), a new Library "Branding" tab with dual white/
+    brand-bar preview. Wired into the invoice letterhead, the emailed invoice, and the job report
+    cover — fixing a real bug found along the way: the report's colored header bar was flattening
+    *every* logo (including full-color ones) to a plain white silhouette via an unconditional
+    `brightness(0) invert(1)`. `docs/PLATFORM-EXPANSION-PLAN.md`'s Phase 4 is now fully SHIPPED
+    (only the two-pane live-preview redesign remains deliberately not built).
+  - **T-093 (Spanish).** Whisper auto-detect (no forced `language`, `verbose_json` for the detected
+    language back), an industry/tenant-driven biasing prompt (the vertical's own voice example +
+    the tenant's Library material names), `parseFieldUpdate`'s one-call LANGUAGE block +
+    `transcriptEn`/`sourceLanguage` (guarded against folding across updates by a new unit test), a
+    typed-text heuristic (`src/lib/i18n/detect.ts`), an "ES → EN" tap-to-toggle badge in both field
+    screens. Phone AI: a `/company/settings` language toggle that pushes live via
+    `updateAssistantPersona` on save (not just written to Firestore and hoped-upon — matches the
+    mechanism the Demo Studio path already proved works), a `## Language` prompt section, and
+    `updateAssistantPersona` now **always** reads back and re-sends `startSpeakingPlan`/
+    `stopSpeakingPlan` verbatim on every PATCH (a permanent hardening from the 2026-09-07
+    gpt-realtime incident, not scoped to just this change). **Deliberately not done, both
+    documented:** a language-specific voice (`src/lib/vapi/voices.ts` exists but is inert — no
+    confirmed Spanish voiceId in this codebase; **NEEDS-HUMAN**, see NH list below) and
+    bilingual/"multi" transcriber mode (spec's own caution against defaulting to it).
+  - **Calendar Powerboard**: a "+ New {job}" button in the header opens the existing quick-add form
+    without leaving the page, with a `useQuickAddRefresh("job", …)` subscription so it shows up in
+    the Unscheduled rail immediately (crews already had this; jobs didn't).
+  - **Field ease-of-use**: `src/components/field/InstallPrompt.tsx` — a dismissible "Add to Home
+    Screen" nudge on `/field` (iOS gets manual instructions, Android/Chrome a real one-tap install
+    via `beforeinstallprompt`). This is the actual, only real lever over "the address bar shows on
+    mobile" — no website can suppress a plain browser tab's chrome, in any browser; the fix is
+    getting people to launch from the home-screen icon, which nothing ever prompted before.
+    Deliberately NOT added to `/company/field` — the manifest's `start_url`/`scope` is `/field`, so
+    installing from the authenticated screen would relaunch into the wrong (anonymous) entry point;
+    flagged as a follow-up, not shipped as a misleading nudge. Also: `/field`'s "Your name" field
+    now persists per-device (was retyped on every single visit — a real, if small, friction point
+    on the one screen literally named for being easy to use). Fixed a real, live-in-production
+    manifest bug found along the way: `theme_color` was `#2563eb`, the exact pre-teal blue hex
+    CLAUDE.md's own design-system rule says never to reintroduce.
+  - **Verified, not just built, across all four commits:** `tsc --noEmit` clean; `eslint .`
+    (repo-wide) — 0 errors, only pre-existing warnings; `vitest run` 632/632 (a couple of runs under
+    load hit the same long-documented concurrent-load flake pattern, always clean on immediate
+    retry — confirmed, not assumed); `next build` green after every commit, not just once at the
+    end. Caught and fixed one real `tsc` error in the Spanish commit's own new test (an unnecessary
+    unsafe cast where the fields were already real, typed, optional properties) in a same-day
+    follow-up fix rather than leaving it for someone else to find.
+  - **Explicitly NOT done, all documented rather than silently skipped:** the Spanish voice pick
+    (NEEDS-HUMAN); the `<html lang>`/date-locale literal replacements the Phase 6 spec also asked
+    for (8 call sites in `webhooks/vapi/route.ts` alone, several of which must stay `"en-US"`
+    regardless of caller language — a scoped follow-up); raising `DEFAULT_SEAT_LIMIT` 5→10 (the
+    plan doc flags this as its own product decision, not a side effect of trade titles); a full
+    mobile-friendly redesign of the Calendar's drag-and-drop grid (the core workflow — one drag to
+    schedule, then tap-only Confirm/Unschedule — already degrades reasonably on a narrow screen via
+    horizontal scroll; a bottom-sheet tap-to-assign alternative would be a bigger, unvalidated
+    redesign, not attempted blind); a known, pre-existing (not introduced this session) Calendar
+    scaling characteristic — `GET /api/jobs` caps at the 100 most-recently-created jobs with no
+    date-range filter, so a business with >100 jobs ever created could see gaps on a far past/
+    future week; noted for whenever real usage volume makes it worth a dedicated fix, mirroring how
+    appointments already do date-range filtering server-side.
 
 - **T-090 (Time clock, Phase 12/Phase 5), shipped and pushed to `main`.** Six-punch state machine
   (office/site arrival-departure + a lunch-break toggle), an immutable append-only `punches`
@@ -2010,6 +2084,8 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
 | NH-13 | ~~Owner to research/paste reference apps for visual direction~~ — **Closed 2026-09-05:** owner dropped a client-portal screenshot (`example image irrigation.png`, repo root, untracked — not moved into the app) showing a branded sidebar-nav portal with one confident accent color; T-056 shipped using it as direction. | T-056 (per-industry visual families) | Added 2026-09-01; see T-056's 2026-09-05 note for the palette actually shipped and the quick sign-off still worth doing |
 | NH-14 | Add `STRIPE_SECRET_KEY` to Vercel's production env vars (T-080's code is deployed but the key was never set — `/api/health` confirms `stripe: "not_configured"` live) | T-081 | Needs the owner's Stripe dashboard access; not something the integrator can self-serve |
+| NH-15 | Pick a real, confirmed-working Spanish voiceId in the Vapi dashboard's voice picker (test it on a real call first), then fill in `src/lib/vapi/voices.ts`'s `AGENT_VOICES.es` and thread it through `updateAssistantPersona` | T-093 (Spanish) full completion | The phone AI's Español toggle already switches the transcriber + prompt/greeting live; only the voice itself is unswitched (an English-named voice speaks the Spanish prompt in the meantime — a real, working degradation, not a broken one) |
+| NH-16 | Real-phone/Vapi-dashboard verification for T-093 (Spanish): record a Spanish field note on an actual phone and confirm the ES→EN badge + invoice line items; set a business to Español and call the demo line, then check in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH | T-093 gate table (Phase 6, `docs/PLATFORM-EXPANSION-PLAN.md`) | No phone/dashboard access in this sandbox — logic is unit-tested (transcriptEn fold guard, whisperPrompt, detectLanguage) but this specific live check has not been done |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

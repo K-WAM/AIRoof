@@ -1,6 +1,25 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-15 (Claude), continued yet again — Invoice letterhead redesign + hide-materials print
+Updated: 2026-09-16 (Claude) — Phase 12 fully closed out: Trade roles (T-094), the logo library (Phase 4
+remainder), Spanish (T-093), and a Calendar/Field UX + bug-fix pass, all shipped and pushed to
+`main`/`origin/main` across 4 commits. Owner asked for all 3 remaining Phase 12 sub-phases plus a general
+performance/UX/bug pass, emphasizing the Calendar Powerboard and field input flow. Trade roles: a separate
+`trade` field on TeamMember (zero permission-check sites touched), `defaultLandingPath()` for post-login
+routing, invite emails deep-link to it, `/company/field` scoped to a worker's own crew and showing real
+names instead of emails. Logo library: upload/variant/default, wired into the invoice letterhead/email/report
+cover — fixed a real bug where the report flattened every logo (including color ones) to a white silhouette.
+Spanish: Whisper auto-detect + one-call translation (`transcriptEn`, fold-guarded by a new test), an ES→EN
+badge in both field screens, a live phone-AI language toggle (pushes via `updateAssistantPersona`, which now
+always preserves `startSpeakingPlan`/`stopSpeakingPlan` on every PATCH) — voice selection and bilingual mode
+deliberately deferred (NEEDS-HUMAN NH-15/16 in `TODO.md`). Calendar/Field: a "+ New Job" quick-add button, a
+dismissible "Add to Home Screen" nudge on `/field` (the real fix for "the address bar shows on mobile" — no
+site can suppress a browser tab's own chrome), per-device worker-name persistence, a real manifest
+`theme_color` bug fix (was the banned pre-teal blue), and a real `tsc` error caught in the Spanish commit's
+own test. `tsc`/`eslint .` clean (repo-wide, 0 errors), `vitest run` 632/632, `next build` green after every
+commit. Full narrative in `HANDOFF.md`'s matching entry and `docs/PLATFORM-EXPANSION-PLAN.md`'s per-phase
+Shipped notes.
+
+Previous: 2026-09-15 (Claude), continued yet again — Invoice letterhead redesign + hide-materials print
 parity (T-092 follow-up), shipped and pushed to `main`/`origin/main`. Owner supplied a real printed invoice
 (Roof Doctors) and asked the job invoice match its look; also asked things be verified working end-to-end,
 not just committed. Redesigned both the in-app invoice doc and the emailed HTML to a classic
