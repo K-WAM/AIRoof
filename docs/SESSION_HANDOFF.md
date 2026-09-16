@@ -1,6 +1,17 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-16 (Claude) — Phase 12 fully closed out: Trade roles (T-094), the logo library (Phase 4
+Updated: 2026-09-15 (Claude) — status check + doc condense, no code changes. Owner confirmed (via code
+trace, not memory) that field entry's Spanish auto-detect+translate pipeline is real end-to-end, both voice
+and typed; confirmed the 2026-09-15 Google sign-in fix is resolved and already pushed (`7aa1f85`) — distinct
+from the still-open firebase-admin v14 dependency upgrade (T-062, blocked upstream); ran a general status
+check straight off `TODO.md`/`HANDOFF.md`/this file. Then asked to condense docs before ending the session:
+trimmed `TODO.md`'s ~274-line "Current snapshot" (largely duplicated `HANDOFF.md` narrative, including a
+stale "Phase 12 — 4 of 7" marker) to a short per-phase summary, and fixed a real drift in `TODO.md`'s Phase
+12 checklist — T-090/091/092 were still stubbed `[ ]` with an early draft's task order (Photos/Invoice/
+Time-clock) instead of the order actually shipped (Time-clock/Photos/Invoice) that every other doc already
+used. No code changed. Full note in `HANDOFF.md`'s matching entry.
+
+Previous: 2026-09-16 (Claude) — Phase 12 fully closed out: Trade roles (T-094), the logo library (Phase 4
 remainder), Spanish (T-093), and a Calendar/Field UX + bug-fix pass, all shipped and pushed to
 `main`/`origin/main` across 4 commits. Owner asked for all 3 remaining Phase 12 sub-phases plus a general
 performance/UX/bug pass, emphasizing the Calendar Powerboard and field input flow. Trade roles: a separate

@@ -1,5 +1,6 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-16 (Phase 12 fully closed out: Trade roles, logo library, Spanish, Calendar/Field UX pass — see below)
+Last updated: 2026-09-16 (Phase 12 fully closed out: Trade roles, logo library, Spanish, Calendar/Field UX
+pass); most recent session (dated 2026-09-15 in the log below) was a status check + doc condense, no code changes
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, trade roles, and a general speed pass — full spec
@@ -18,21 +19,36 @@ Last updated: 2026-09-16 (Phase 12 fully closed out: Trade roles, logo library, 
 **Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
 on the human-owned checks in `TODO.md#needs-human`.
 
-**Latest pushed baseline:** `origin/main` at `6691480` (2026-09-06, owner approved that push) — it includes
-T-067, the T-068 qrcode follow-up, T-056, the token-conservation pass, the Vapi voice script, a docs sync, and
-T-070. Vercel's GitHub auto-deploy picked it up (`vercel ls`/`vercel inspect` confirmed the resulting deployment
-reached Ready); `/api/health` → `200`/`"connected"`, `/login` → `200`, unauthenticated webhook `POST` → `401`
-re-verified against production after the deploy. **T-071 (this session) is local-only, not yet approved for
-push.** See the 2026-09-03/04 session entry below for the older history, including one reverted commit (a
-firebase-admin v14 migration that broke production for a few minutes; fixed forward via `git revert`,
-documented as a live incident). The 2026-08-23 maintenance cleanup (`c8487ed`) and a 3-vertical expansion
-(`1d2f840`) were reviewed and pushed earlier still.
+**Latest pushed baseline:** `origin/main` == local `main` at `cc6c6ff` (2026-09-16, Phase 12 closeout docs
+sync), confirmed via `git rev-list --left-right --count origin/main...main` (0/0) — every phase through
+Phase 12 is merged and pushed, no local-only or unmerged branches exist. Vercel's GitHub auto-deploy tracks
+`main` on every push; older baselines and the firebase-admin v14 revert incident are in the dated session log
+below and in `TODO.md`'s T-062 entry, not repeated here.
 
 > **Residual verification:** deterministic tests cover the critical paths, but Calendar drag/confirm, field QR
 > voice capture on a real phone, document printing, and controlled-inbox email delivery still need one
-> authenticated production smoke pass.
+> authenticated production smoke pass (`NH-8` in `TODO.md`).
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-15, status check + doc condense) — no code changes
+
+Owner asked two questions (confirmed via code trace, not memory: field entry's Spanish auto-detect+translate
+pipeline is real end-to-end for both voice and typed updates — see `src/lib/i18n/detect.ts` +
+`parseFieldUpdate`'s LANGUAGE block; the 2026-09-15 Google sign-in `auth/internal-error` fix is resolved,
+committed (`7aa1f85`), and already pushed — a **different**, still-open item is the firebase-admin v14
+dependency upgrade, T-062, blocked upstream, not to be confused with the sign-in fix) then asked for a
+general status check, answered from `TODO.md`/`HANDOFF.md`/`docs/SESSION_HANDOFF.md` directly rather than
+memory. Then asked to condense the docs before ending the session: trimmed `TODO.md`'s "Current snapshot"
+(was ~274 lines of narrative largely duplicated from this file, including a stale "Phase 12 — 4 of 7" marker
+left over from mid-close-out) down to a short per-phase summary pointing here for full narrative, and fixed
+a real numbering drift in `TODO.md`'s Phase 12 checklist (T-090/091/092 had been stubbed with the *original*
+pre-work draft's task order — Photos/Invoice/Time-clock — while every other doc, including this one and
+`docs/PLATFORM-EXPANSION-PLAN.md`, already used the order actually shipped — Time clock/Photos/Invoice; the
+checklist stubs were still `[ ]` unchecked and forward-looking-tense, never updated after those tasks
+shipped). No code touched; `tsc`/tests/build not re-run since nothing changed. Doc-only commit.
 
 ---
 
