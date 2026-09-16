@@ -3,7 +3,9 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
+import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
 import type { JobInvoice } from "@/types/invoice";
+import type { LibraryLogo } from "@/types/library";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
 // Phase 12/Phase 4 rewrite: reads the SAVED invoice doc instead of trusting rows the client
@@ -37,14 +39,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const invoice = invSnap.data() as JobInvoice;
 
-  const bizDoc = await db.collection("businesses").doc(businessId).get();
+  const [bizDoc, logosDoc] = await Promise.all([
+    db.collection("businesses").doc(businessId).get(),
+    db.collection(`businesses/${businessId}/library`).doc("logos").get(),
+  ]);
   const biz = bizDoc.exists ? bizDoc.data()! : {};
   const bizName: string = biz.businessName ?? "Roofing Company";
+
+  // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
+  // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
+  const defaultLogo = pickDefaultLogo((logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const logoUrl = defaultLogo ? logoDataUri(defaultLogo) : biz.logoUrl;
 
   const html = buildJobInvoiceEmailHtml(invoice, {
     businessName: bizName,
     brandColor: biz.brandColor,
-    logoUrl: biz.logoUrl,
+    logoUrl,
     address: biz.address,
     // Bug fix: this previously read `biz.phone`, a field that has never existed on
     // BusinessConfig (the branding field is `contactPhone`) — the business phone silently never

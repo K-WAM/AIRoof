@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { buildProjection } from "@/lib/jobs/projection";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta, PhotoPhase } from "@/types/jobs";
-import type { LibraryPricing } from "@/types/library";
+import type { LibraryPricing, LibraryLogo } from "@/types/library";
+import { pickDefaultLogo, logoDataUri, logoStyle, needsLogoChip } from "@/lib/branding/logo";
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { computeTotals, canSendInvoice } from "./jobInvoice";
@@ -118,6 +119,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
   const [businessConfig, setBusinessConfig] = useState<BusinessConfig | null>(null);
+  const [logos, setLogos] = useState<LibraryLogo[]>([]);
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -192,16 +194,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const load = useCallback(async () => {
     if (!businessId) return;
     try {
-      const [jobRes, updatesRes, configRes, libRes] = await Promise.all([
+      const [jobRes, updatesRes, configRes, libRes, logosRes] = await Promise.all([
         fetch(`/api/jobs/${jobId}?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
         fetch(`/api/company/library?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.job as Job) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
       if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
+      if (logosRes?.logos) setLogos(logosRes.logos as LibraryLogo[]);
       // Distinguish "fetch failed" (libRes null) from "fetched fine, catalog is
       // just empty" (libRes.library with empty arrays) — only the former means
       // invoice auto-fill silently has nothing to work with and the user
@@ -635,9 +639,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const due = new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   // Invoice letterhead branding — mirrors ReportRenderer's own accent/bizName so the invoice and
-  // job report read as the same document family.
+  // job report read as the same document family. The logo library's default (Phase 12, Phase 4
+  // remainder) takes precedence over the older single businessConfig.logoUrl field — most
+  // tenants will only ever have the one from Settings, so this is a strict upgrade, never a
+  // regression: no library logo just means the same fallback as before it existed.
   const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
   const invoiceBizName = businessConfig?.businessName ?? job.title;
+  const defaultLogo = pickDefaultLogo(logos);
+  const invoiceLogoSrc = defaultLogo ? logoDataUri(defaultLogo) : businessConfig?.logoUrl;
 
   return (
     <>
@@ -1273,8 +1282,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {/* Letterhead */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, marginBottom: 24, paddingBottom: 24, borderBottom: `3px solid ${invoiceAccent}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    {businessConfig?.logoUrl && (
-                      <img src={businessConfig.logoUrl} alt={invoiceBizName} style={{ height: 52, maxWidth: 140, objectFit: "contain" }} />
+                    {invoiceLogoSrc && (
+                      <img src={invoiceLogoSrc} alt={invoiceBizName} style={{ height: 52, maxWidth: 140, objectFit: "contain" }} />
                     )}
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 19, color: "#0f172a" }}>{invoiceBizName}</div>
@@ -1631,7 +1640,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <textarea value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={saveReportNotes} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
               </div>
 
-              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} allParsed={allParsed} reportNotes={reportNotes} reportPhotos={reportPhotos} />
+              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} allParsed={allParsed} reportNotes={reportNotes} reportPhotos={reportPhotos} />
             </div>
           )}
         </div>
@@ -1684,6 +1693,10 @@ function statusToStepIdx(status: string): number {
 // ── Parsed field update card ──────────────────────────────────────────────────
 function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: number }) {
   const [showRaw, setShowRaw] = useState(false);
+  // Spanish (Phase 12, Phase 6) — "View original" defaults to the English rendering when the
+  // source wasn't English; this second toggle flips to the verbatim spoken text. Pure client
+  // state, zero fetch: rawText/rawTextEn both already arrive in the updates payload.
+  const [showVerbatim, setShowVerbatim] = useState(false);
 
   // Correction entries: render a compact audit line instead of the parsed grid.
   if (update.kind === "correction") {
@@ -1798,9 +1811,19 @@ function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: numbe
         {showRaw ? "Hide original" : "View original"}
       </button>
       {showRaw && (
-        <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.5, wordBreak: "break-word", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 10px" }}>
-          {update.rawText}
-        </p>
+        <>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.5, wordBreak: "break-word", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 10px" }}>
+            {update.rawTextEn && !showVerbatim ? update.rawTextEn : update.rawText}
+          </p>
+          {update.rawTextEn && (
+            <button
+              onClick={() => setShowVerbatim((v) => !v)}
+              style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#64748b", background: "#f1f5f9", border: "none", borderRadius: 20, padding: "2px 8px", cursor: "pointer" }}
+            >
+              {showVerbatim ? "Original" : "ES → EN"}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -1827,19 +1850,28 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
 
 // ── Professional branded report renderer ────────────────────────────────────────
 function ReportRenderer({
-  job, jobId, businessConfig, allParsed, reportNotes, reportPhotos,
+  job, jobId, businessConfig, logos, allParsed, reportNotes, reportPhotos,
 }: {
   report: string;
   job: Job;
   jobId: string;
   businessConfig: BusinessConfig | null;
+  logos: LibraryLogo[];
   allParsed: ParsedUpdate[];
   reportNotes?: string;
   reportPhotos?: Array<{ label: string; fullB64: string }>;
 }) {
   const accent = businessConfig?.brandColor ?? "#1e3a5f";
   const bizName = businessConfig?.businessName ?? "Field Report";
-  const logoUrl = businessConfig?.logoUrl;
+  // The cover is a colored bar ("brand-bar" surface) — a mono-dark library logo gets knocked out
+  // to white same as the old unconditional filter always did; mono-light needs no filter; a
+  // full-color logo gets a white chip instead of the old blanket filter (which used to flatten
+  // every logo to a plain white silhouette, real colors lost). No library logo at all (legacy
+  // businessConfig.logoUrl, no variant known) keeps that exact old behavior — unaffected.
+  const reportLogo = pickDefaultLogo(logos);
+  const logoUrl = reportLogo ? logoDataUri(reportLogo) : businessConfig?.logoUrl;
+  const logoNeedsChip = reportLogo ? needsLogoChip(reportLogo, "brand-bar") : false;
+  const logoFilterStyle: React.CSSProperties = reportLogo ? logoStyle(reportLogo, "brand-bar") : { filter: "brightness(0) invert(1)" };
   const contactPhone = businessConfig?.contactPhone;
   const contactEmail = businessConfig?.contactEmail;
   const website = businessConfig?.websiteUrl;
@@ -1897,7 +1929,13 @@ function ReportRenderer({
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {logoUrl && (
-            <img src={logoUrl} alt={bizName} style={{ height: 44, objectFit: "contain", filter: "brightness(0) invert(1)", maxWidth: 120 }} />
+            logoNeedsChip ? (
+              <div style={{ background: "#fff", borderRadius: 6, padding: "6px 10px", display: "flex", alignItems: "center" }}>
+                <img src={logoUrl} alt={bizName} style={{ height: 28, objectFit: "contain", maxWidth: 100 }} />
+              </div>
+            ) : (
+              <img src={logoUrl} alt={bizName} style={{ height: 44, objectFit: "contain", maxWidth: 120, ...logoFilterStyle }} />
+            )
           )}
           <div>
             <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 2 }}>Job Report</div>

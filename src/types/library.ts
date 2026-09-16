@@ -30,6 +30,25 @@ export interface LibraryPricing {
   updatedAt?: number;
 }
 
+// Logo library (Phase 12, Phase 4 remainder). A SEPARATE doc from LibraryPricing
+// (businesses/{bid}/library/logos, a sibling in the same `library` collection) —
+// base64 image data on the pricing doc would bloat a document read on every job
+// page. See src/lib/branding/logo.ts for the size caps and rendering rules.
+export interface LibraryLogo {
+  logoId: string;
+  name: string;
+  b64: string;          // no `data:` prefix — matches LibraryDocument.b64 precedent
+  mimeType: "image/png" | "image/jpeg" | "image/svg+xml" | "image/webp";
+  w?: number;
+  h?: number;
+  // "color": the real mark, natural colors — the default for a white invoice header.
+  // "mono-dark"/"mono-light": single-color renditions for a colored brand bar (email
+  // header, report cover) where a color logo would otherwise need a filter or a chip.
+  variant: "color" | "mono-dark" | "mono-light";
+  isDefault?: boolean;
+  createdAt: number;
+}
+
 export interface Crew {
   crewId: string;
   name: string;

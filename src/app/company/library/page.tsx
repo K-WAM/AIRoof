@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
-import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, Crew } from "@/types/library";
+import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, LibraryLogo, Crew } from "@/types/library";
 import type { CustomerSlim } from "@/types/customer";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CustomersSection } from "./CustomersSection";
+import { LogosSection } from "./LogosSection";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -21,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-type Section = "customers" | "pricing" | "crews" | "documents";
+type Section = "customers" | "pricing" | "crews" | "documents" | "branding";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
@@ -33,13 +34,14 @@ export default function LibraryPage() {
   const initialSection = searchParams?.get("section");
   const initialCustomerId = searchParams?.get("customerId");
   const [section, setSection] = useState<Section>(
-    initialSection === "crews" || initialSection === "documents" || initialSection === "customers"
+    initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding"
       ? initialSection
       : "customers"
   );
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
   const [customers, setCustomers] = useState<CustomerSlim[]>([]);
+  const [logos, setLogos] = useState<LibraryLogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -60,11 +62,16 @@ export default function LibraryPage() {
         if (!r.ok) throw new Error("Customers request failed");
         return r.json();
       }),
+      fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Logos request failed");
+        return r.json();
+      }),
     ])
-      .then(([lib, cr, cu]) => {
+      .then(([lib, cr, cu, lo]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
         setCustomers(cu.customers ?? []);
+        setLogos(lo.logos ?? []);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -144,7 +151,7 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["customers", "pricing", "crews", "documents"] as Section[])
+          {(["customers", "pricing", "crews", "documents", "branding"] as Section[])
             .filter((s) => s !== "pricing" || hasPricing)
             .map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
@@ -154,7 +161,9 @@ export default function LibraryPage() {
                   ? "Pricing"
                   : s === "crews"
                     ? `${vocab.resourceNounPlural} (${crews.length})`
-                    : `Documents (${library.documents?.length ?? 0})`}
+                    : s === "documents"
+                      ? `Documents (${library.documents?.length ?? 0})`
+                      : `Branding (${logos.length})`}
               </button>
             ))}
         </div>
@@ -171,6 +180,7 @@ export default function LibraryPage() {
       {section === "pricing" && hasPricing && <PricingSection library={library} onSave={saveLibrary} />}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} />}
       {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} />}
+      {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} />}
     </>
   );
 }
