@@ -1,6 +1,7 @@
 # HANDOFF — AI Receptionist Platform
-Last updated: 2026-09-16 (Phase 12 fully closed out: Trade roles, logo library, Spanish, Calendar/Field UX
-pass); most recent session (dated 2026-09-15 in the log below) was a status check + doc condense, no code changes
+Last updated: 2026-09-16 (`crm.luxordev.com` live + a real Google sign-in CSP bug fixed + Jobs search — see the
+"continued" session entry below); before that, same-day Phase 12 closeout (Trade roles, logo library, Spanish,
+Calendar/Field UX pass), and before that a 2026-09-15 status check + doc condense, no code changes
 
 > **Current status:** all audited release phases and the owner-added UX/demo phase are merged and pushed.
 > **Phase 12** (Customers, time clock, Spanish, invoicing, trade roles, and a general speed pass — full spec
@@ -16,8 +17,9 @@ pass); most recent session (dated 2026-09-15 in the log below) was a status chec
 
 ## Current State
 
-**Scoped implementation: 100%** — live at https://ai-roof.vercel.app. Production certification still depends
-on the human-owned checks in `TODO.md#needs-human`.
+**Scoped implementation: 100%** — live at both https://ai-roof.vercel.app and https://crm.luxordev.com (same
+Vercel project/deployment, the domain move is additive — see the 2026-09-16 "continued" session entry below).
+Production certification still depends on the human-owned checks in `TODO.md#needs-human`.
 
 **Latest pushed baseline:** `origin/main` == local `main` at `cc6c6ff` (2026-09-16, Phase 12 closeout docs
 sync), confirmed via `git rev-list --left-right --count origin/main...main` (0/0) — every phase through
@@ -30,6 +32,51 @@ below and in `TODO.md`'s T-062 entry, not repeated here.
 > authenticated production smoke pass (`NH-8` in `TODO.md`).
 
 **Knowledge graph**: `graphify-out/` — **908 nodes, 1639→1676 edges, 81 communities** (rebuilt + incrementally updated 2026-07-15; health check clean). It is **gitignored/local-only** — each machine builds its own via the `/graphify` skill. God nodes: `getAdminFirestore()` (114), `verifyAuthAndRole()` (42), `verifySuperadmin()` (34), `useBusinessId()` (26), **`useBusinessModules()` (20)**, `verifyFieldAccess()` (19).
+
+---
+
+## This session (2026-09-16, continued) — `crm.luxordev.com` live, Google sign-in fixed, Jobs search
+
+Owner is moving the product onto their own domain (`luxordev.com`, already owned via GoDaddy) as a branded
+product named **RAM**, target `crm.luxordev.com`. This session covered the code side plus a real production
+incident found while the owner was testing.
+
+**Domain move (owner did the DNS/Vercel/Firebase console steps; this session verified and fixed code):**
+`crm.luxordev.com` is confirmed live in production — DNS resolves via Vercel, valid SSL, `/api/health` returns
+200 with Firestore connected, and it's registered on the `ai-roof` Vercel project's domain list alongside
+`ai-roof.vercel.app` (both serve the identical deployment, additive not a cutover).
+
+**Real incident found and fixed: Google sign-in `auth/internal-error` on the new domain (T-096).** The owner hit
+this directly while testing right after finishing the DNS/Vercel/Firebase setup. Root cause: `next.config.ts`'s
+CSP (added by T-061, Phase 8, 2026-09-01) declared `connect-src` but never `frame-src`, silently falling back to
+`default-src 'self'` — which blocks the hidden iframe Firebase Auth's redirect sign-in embeds from the
+project's authDomain to relay `getRedirectResult()`. This is why the earlier popup→redirect fix (`7aa1f855`,
+Phase 12, 2026-09-15) didn't actually resolve it for good: that fix was verified only via a server-side Identity
+Toolkit API call, never a real browser click-through, so this CSP interaction was never caught. Email/password
+sign-in was unaffected the whole time (no iframe dependency). Fixed by adding a `frame-src` directive scoped to
+the project's own authDomain, plus a regression test mirroring the existing connect-src regression test for the
+same incident class.
+
+**Jobs list search (T-097).** Owner asked for a forgiving, live-filtering search ("type 1004 and J-1004 will
+show, not difficult"). New `src/lib/jobs/search.ts` (`matchesJobSearch()`), same shape as the existing
+`src/lib/customers/search.ts` pattern — punctuation/case-insensitive substring match across id/title/client/
+address/service type, plus digits-only phone matching. Wired into the Jobs page alongside the existing
+status-tab filter.
+
+**Live-verified on production, not just read in code** (via the public `/try/roofing` sandbox as a read-only
+viewer, no credentials needed): uploaded a real photo through the field screen's "+ Photo" control and watched
+it appear immediately on the matching job's Photos tab, confirming the field→job photo pipeline works
+end-to-end in prod — then deleted the test photo to leave demo data clean. Also confirmed J-1001's real field
+updates (materials/timeline/labor/issues, including a voice correction) render correctly, and the Library →
+Branding tab (logo upload location) renders correctly. Logo upload itself needs owner/staff/superadmin (the
+sandbox's viewer role correctly can't do it), so "first upload auto-becomes default" was confirmed via code +
+its existing unit tests, not a live click — stated plainly, not overclaimed.
+
+Verified: `tsc` clean; lint clean on every touched file; full `vitest run` 638 passed + 3 pre-existing
+concurrent-load flakes (`example-lib.test.ts`, `send.test.ts`, `company/team/route.test.ts` — all reconfirmed
+clean on an isolated rerun, the same long-documented pattern as every prior session, unrelated to this change).
+Full detail in `TODO.md`'s Phase 13 entry (T-095/T-096/T-097). T-095 (parameterizing the hardcoded
+`ai-roof.vercel.app` base URL into `NEXT_PUBLIC_APP_URL`) remains open, not attempted this session.
 
 ---
 

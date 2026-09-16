@@ -306,6 +306,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/test-utils/fakeFirestore.ts — small in-memory Firestore fake (nested collections, where/orderBy/limit, transactions, batch) shared across the customers route tests
 - src/types/timeclock.ts + src/lib/timeclock/machine.ts + src/lib/timeclock/fold.ts — the time-clock (Phase 12, Phase 5) state machine and pure ledger fold; `foldPunches`/`punchedLaborForJob` are the only source of a job's punched labor
 - src/lib/jobs/writeProjection.ts — `writeJobProjection()`, the single recompute-and-persist-a-job's-projection implementation (was duplicated in updates/route.ts and field-audio/route.ts; also folds in punched labor)
+- src/lib/jobs/search.ts — `matchesJobSearch()`, the Jobs list's client-side live-filter (job id/title/client/address/service type + digits-only phone), same forgiving/punctuation-insensitive shape as `src/lib/customers/search.ts`'s `matchesQuery()`
 - src/app/api/timeclock/punch/route.ts — the cross-job punch guard (GET today's state, POST a punch; the atomic "Switch job" flow lives here)
 - src/app/api/cron/close-punches/route.ts — nightly auto-close of any punch left open from a prior day (vercel.json: 9am UTC)
 - src/components/field/TimeClock.tsx — the punch-buttons widget shared by both field screens (`/field` and `/company/field`)

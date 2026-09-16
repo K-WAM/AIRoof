@@ -10,8 +10,9 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
-import { Briefcase, ExternalLink, FilePlus, Plus } from "lucide-react";
+import { Briefcase, ExternalLink, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
+import { matchesJobSearch } from "@/lib/jobs/search";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -30,6 +31,7 @@ export default function JobsPage() {
   const [creating, setCreating] = useState(false);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [query, setQuery] = useState("");
 
   // Prefill from "Create Job" button on appointments page
   const prefillClientName = searchParams?.get("clientName") ?? "";
@@ -126,6 +128,13 @@ export default function JobsPage() {
       month: "short", day: "numeric", year: "numeric", timeZone: tz,
     });
   }
+
+  const visibleJobs = jobs
+    .filter((j) =>
+      statusFilter === "all" ||
+      (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
+    )
+    .filter((j) => matchesJobSearch(j, query));
 
   if (loading) return <PageSkeleton rows={6} />;
   if (loadError) {
@@ -239,7 +248,18 @@ export default function JobsPage() {
       )}
 
       {jobs.length > 0 && (
-        <div className="toolbar" style={{ marginBottom: 12 }}>
+        <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ position: "relative", maxWidth: 340 }}>
+            <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search jobs, clients, addresses, phone…"
+              aria-label="Search jobs"
+              autoComplete="off"
+              style={{ width: "100%", padding: "8px 10px 8px 30px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }}
+            />
+          </div>
           <div className="segmented-control" aria-label="Filter by status">
             {([
               { key: "all",         label: "All" },
@@ -291,12 +311,14 @@ export default function JobsPage() {
                 </tr>
               </thead>
               <tbody>
-                {jobs
-                  .filter((j) =>
-                    statusFilter === "all" ||
-                    (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
-                  )
-                  .map((job) => (
+                {visibleJobs.length === 0 && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                      {query.trim() ? `No jobs match "${query}".` : "No jobs match this filter."}
+                    </td>
+                  </tr>
+                )}
+                {visibleJobs.map((job) => (
                   <tr
                     key={job.jobId}
                     onClick={() => { window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`; }}

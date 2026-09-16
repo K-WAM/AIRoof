@@ -81,6 +81,7 @@ an active queue.*
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
 | 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
+| 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **in progress — 2/3** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix) and T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL env var) still open |
 
 ### Checklist
 
@@ -488,6 +489,51 @@ an active queue.*
         the same standing limitation documented throughout this session) — verified by careful review of the
         grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live Calendar
         after this ships to confirm it reads as intended.
+
+- [ ] Phase 13 — CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) — 2/3
+  - [x] T-096 — Fixed Google sign-in returning `auth/internal-error` on the live `crm.luxordev.com` domain
+        (owner hit this directly while testing right after DNS/Vercel/Firebase setup). Root cause: `next.config.ts`'s
+        CSP (added by T-061, Phase 8) declared `connect-src` but never `frame-src`, so it silently fell back to
+        `default-src 'self'` — which blocks the hidden iframe Firebase Auth's redirect sign-in embeds from the
+        project's authDomain (`business-expense-trackin-ef659.firebaseapp.com`) to relay `getRedirectResult()`
+        back to the app. Surfaces as an opaque `auth/internal-error` with no actionable detail. This is exactly
+        why the earlier popup→redirect fix (`7aa1f855`, Phase 12) didn't actually resolve it for good — that fix
+        was verified only via a server-side Identity Toolkit API call, never a real browser click-through, so the
+        CSP interaction was never caught; email/password sign-in was unaffected the whole time since it never
+        loads that iframe. Fixed: added `frame-src 'self' https://business-expense-trackin-ef659.firebaseapp.com`
+        to the CSP; added a regression test (`security-headers.test.ts`, matching the existing connect-src
+        regression test's pattern for the identical class of incident). Verified: `tsc` clean, targeted test
+        8/8, full `vitest run` 638 passed + 3 pre-existing concurrent-load flakes (`example-lib.test.ts`,
+        `send.test.ts`, `company/team/route.test.ts` — all 3 reconfirmed clean on an isolated rerun, the same
+        long-documented pattern as every prior session, unrelated to this change), lint clean on touched files.
+  - [x] T-097 — Jobs list search: a live-filtering, forgiving search box (owner: "add a search where they can
+        search jobs... type 1004 and J-1004 will show, not difficult"). New `src/lib/jobs/search.ts` —
+        `matchesJobSearch()`, punctuation/case-insensitive substring match across job id/title/client
+        name/address/service type, plus a separate digits-only phone match (3+ digit queries) — mirrors
+        `src/lib/customers/search.ts`'s `matchesQuery()` approach, same "forgiving, in-memory, zero network
+        round trip" shape. Wired into `company/jobs/page.tsx` alongside the existing status-tab filter, with a
+        "No jobs match…" empty state. 8 new unit tests including the exact "1004" → "J-1004" case from the ask.
+        Verified: `tsc` clean, lint clean, tests 8/8.
+  - **Live-verified on production during this session** (via the public `/try/roofing` sandbox, viewer role, no
+        credentials): uploaded a real photo through `/company/field?jobId=J-1001`'s "+ Photo" control — it
+        appeared immediately in the job detail page's Photos tab (thumbnail, description, phase badge, "In
+        report" toggle), confirming the field→job photo pipeline works end-to-end in production, not just in
+        code — then deleted the test photo to leave demo data clean. Also confirmed live: J-1001's 6 real field
+        updates (materials/timeline/labor/issues, including a voice correction) all render correctly from
+        `job.parsed`, and the Library → **Branding** tab (where logos are uploaded) renders its empty state and
+        upload form correctly. Logo upload itself needs `owner`/`staff`/`superadmin` (the sandbox's `viewer` role
+        correctly can't), so the "first upload auto-becomes default" behavior was confirmed by code + its
+        existing unit tests (`logo.test.ts`) rather than a live click, not assumed.
+  - [ ] T-095 — Parameterize the hardcoded `https://ai-roof.vercel.app` base URL into one `NEXT_PUBLIC_APP_URL`
+        env var (set per-environment in Vercel). Currently a literal string in 5 places: `agentTools.ts:826`,
+        `vapiClient.ts`, `team/invite.ts`, `appointments/send-confirmation/route.ts`, and
+        `admin/demo-customize/route.ts`. Prerequisite for pointing the product at a `luxordev.com` subdomain
+        (target: `crm.luxordev.com`, using the existing GoDaddy-registered domain) — without this, booking-
+        confirmation emails, team-invite links, and demo links keep pointing at the old `ai-roof.vercel.app`
+        domain even after the move. Owner-only in parallel: GoDaddy CNAME record, Vercel custom-domain add,
+        Firebase Auth authorized-domain entry, and repointing (or leaving as-is) the Vapi webhook server URL —
+        none of these are integrator-doable (console/account access only). Product name for the new domain:
+        **RAM** (owner-picked, 2026-09-16).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring

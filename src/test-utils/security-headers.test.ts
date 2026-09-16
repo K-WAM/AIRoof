@@ -74,4 +74,17 @@ describe("next.config.ts security headers", () => {
     expect(csp!.value).toMatch(/connect-src[^;]*'self'/);
     expect(csp!.value).toMatch(/connect-src[^;]*googleapis\.com/);
   });
+
+  // Regression test for a live incident (2026-09-16): an enforced CSP with no
+  // frame-src falls back to default-src 'self', which silently blocks the hidden
+  // iframe Firebase Auth's redirect sign-in embeds from the project's authDomain
+  // to relay getRedirectResult() back to the app — surfaced in prod as an opaque
+  // "Firebase: Error (auth/internal-error)" on Google sign-in only (email/password
+  // never loads that iframe, so it kept working the whole time).
+  it("allows Firebase Auth's redirect-result iframe (frame-src)", async () => {
+    const allHeaders = await getAllHeaders();
+    const csp = allHeaders.find((h) => h.key === "Content-Security-Policy");
+    expect(csp!.value).toMatch(/frame-src[^;]*'self'/);
+    expect(csp!.value).toMatch(/frame-src[^;]*firebaseapp\.com/);
+  });
 });
