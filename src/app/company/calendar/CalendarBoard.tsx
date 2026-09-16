@@ -194,6 +194,17 @@ export default function CalendarBoard() {
       .catch(() => {});
   });
 
+  // Same for a job created via the header's own "+ New" button below — without this, a
+  // dispatcher who adds a job right from the Calendar wouldn't see it land in the Unscheduled
+  // rail until a full page reload, which reads as "did that even work?"
+  useQuickAddRefresh("job", () => {
+    if (!businessId || apptMode) return;
+    fetch(`/api/jobs?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((jr) => setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete")))
+      .catch(() => {});
+  });
+
   // Appointments for the visible window. In jobs mode they're a read-only
   // "Bookings" strip; in appointments mode they're the draggable cards.
   // T-072 (round-trip time): server-side admin-SDK read replacing a direct
@@ -473,6 +484,12 @@ export default function CalendarBoard() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {toast && <span role="status" className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
+          {!apptMode && (
+            <button className="button small primary" type="button" onClick={() => openQuickAdd("job")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <Plus size={13} strokeWidth={1.75} />
+              New {vocab.jobNoun.toLowerCase()}
+            </button>
+          )}
           <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
             <Plus size={13} strokeWidth={1.75} />
             Manage {vocab.resourceNounPlural.toLowerCase()}

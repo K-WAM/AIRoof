@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { TimeClock } from "@/components/field/TimeClock";
+import { InstallPrompt } from "@/components/field/InstallPrompt";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
 
 // ── SVG mic icon ────────────────────────────────────────────────────────────
@@ -19,6 +20,9 @@ function MicIcon({ size = 32, color = "currentColor" }: { size?: number; color?:
 // One-deploy migration only: old builds stored the reusable field key here.
 // Successful bootstrap deletes it; signed access now lives only in HttpOnly cookie.
 const ACCESS_STORE = "luxorFieldAccess";
+
+// Per-device remembered name — see the workerName useState's own comment.
+const WORKER_NAME_STORE = "luxorFieldWorkerName";
 
 function loadStoredAccess(): { businessId: string; key: string } | null {
   try {
@@ -51,7 +55,13 @@ function FieldApp() {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [accessDenied, setAccessDenied] = useState(searchParams?.get("access") === "denied");
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
-  const [workerName, setWorkerName] = useState("");
+  // Remembered per-device so a returning crew member never has to retype it — this is the
+  // anonymous QR path (no login), so a name field with no memory at all meant everyone typed
+  // their name fresh on every single visit. Hydrated lazily (not in an effect) so it's already
+  // correct on the very first paint, before the mic button is even usable.
+  const [workerName, setWorkerName] = useState(() => {
+    try { return localStorage.getItem(WORKER_NAME_STORE) ?? ""; } catch { return ""; }
+  });
   const [error, setError] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [recentUpdates, setRecentUpdates] = useState<FieldUpdate[]>([]);
@@ -181,6 +191,14 @@ function FieldApp() {
   useEffect(() => {
     refreshRecent(selectedJobId);
   }, [selectedJobId, refreshRecent]);
+
+  // Remember the worker's name on this device for next time (see the useState above).
+  useEffect(() => {
+    try {
+      if (workerName.trim()) localStorage.setItem(WORKER_NAME_STORE, workerName);
+      else localStorage.removeItem(WORKER_NAME_STORE);
+    } catch {}
+  }, [workerName]);
 
   const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
   const jobContext = selectedJob
@@ -326,6 +344,8 @@ function FieldApp() {
           {recording && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#7c3aed", letterSpacing: "0.06em" }}>● REC</span>}
           {transcribing && <span style={{ marginLeft: "auto", fontSize: 11, color: "#64748b" }}>Saving…</span>}
         </div>
+
+        <InstallPrompt />
 
         <div style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
 

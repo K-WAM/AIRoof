@@ -26,8 +26,8 @@ describe("buildProjection — Spanish fields must never fold across updates (Pha
         },
       }),
     ]);
-    expect((projection as Record<string, unknown>).transcriptEn).toBeUndefined();
-    expect((projection as Record<string, unknown>).sourceLanguage).toBeUndefined();
+    expect(projection.transcriptEn).toBeUndefined();
+    expect(projection.sourceLanguage).toBeUndefined();
   });
 
   it("does not concatenate transcriptEn across multiple Spanish updates", () => {
@@ -35,7 +35,7 @@ describe("buildProjection — Spanish fields must never fold across updates (Pha
       update({ updateId: "upd_1", createdAt: 1000, parsed: { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [], transcriptEn: "First translation" } }),
       update({ updateId: "upd_2", createdAt: 2000, parsed: { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [], transcriptEn: "Second translation" } }),
     ]);
-    expect((projection as Record<string, unknown>).transcriptEn).toBeUndefined();
+    expect(projection.transcriptEn).toBeUndefined();
   });
 
   it("still folds materials/labor/issues normally alongside the Spanish fields", () => {
