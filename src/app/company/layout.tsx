@@ -17,6 +17,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BootstrapProvider } from "@/contexts/BootstrapContext";
 import { QuickAddProvider } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
+import { defaultLandingPath } from "@/lib/team/landing";
+import type { TeamRole, TradeTitle } from "@/types/team";
 
 // Routes that only exist for industries using that module. Hiding the nav tab
 // isn't enough — a dental tenant typing /company/jobs must not land on it.
@@ -33,7 +35,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { ready: modulesReady, isEnabled, family, subscriptionStatus } = useBusinessModules();
+  const { ready: modulesReady, isEnabled, family, subscriptionStatus, disabledModules } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
@@ -48,6 +50,23 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (blockedModule) router.replace("/company/dashboard");
   }, [blockedModule, router]);
+
+  // Phase 12/Phase 7 — a trade worker who lands on the generic dashboard (the
+  // login page's own fallback, or a bookmark/typed URL) is bounced to their
+  // actual day-to-day screen instead. Convenience only, never security:
+  // verifyFieldAccess still grants business-wide read regardless of where
+  // this sends anyone — see defaultLandingPath's own doc comment.
+  useEffect(() => {
+    if (!modulesReady || !user || user.superadmin || pathname !== "/company/dashboard") return;
+    const target = defaultLandingPath(
+      { role: user.role as TeamRole | undefined, trade: user.trade as TradeTitle | undefined },
+      disabledModules,
+    );
+    if (target === "/company/dashboard") return;
+    const preview = searchParams?.get("preview");
+    router.replace(preview ? `${target}?preview=${preview}` : target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulesReady, user, pathname, disabledModules]);
 
   useEffect(() => {
     if (!loading && !user) {

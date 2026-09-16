@@ -3,12 +3,21 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
 
-// GET /api/jobs?businessId=xxx[&customerId=xxx] — list jobs (session or field key)
+// GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
+// (session or field key)
 //
 // customerId is additive/optional — every existing caller (dashboard, jobs
 // list, field, CalendarBoard, CommandBar) keeps its current unfiltered
 // behavior. It exists for the Library's "click a customer, see every job"
 // drawer (Phase 2) without touching the default query shape.
+//
+// crewId/includeUnassigned (Phase 12/Phase 7) filter to one crew's jobs plus
+// (optionally) unassigned ones — for a trade worker's /company/field, which
+// would otherwise list the whole business's open jobs regardless of who's
+// actually on them. Filtered in memory over the same bounded read rather than
+// a second `where("assignedCrewId","==",…)` Firestore query, matching this
+// codebase's own precedent (Customers search, Phase 2) for a small-scale
+// filter that doesn't earn a new composite index.
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
@@ -25,7 +34,14 @@ export async function GET(req: NextRequest) {
   query = query.orderBy("createdAt", "desc").limit(100);
 
   const snap = await query.get();
-  const jobs = snap.docs.map((d) => ({ jobId: d.id, ...d.data() })) as Job[];
+  let jobs = snap.docs.map((d) => ({ jobId: d.id, ...d.data() })) as Job[];
+
+  const crewId = req.nextUrl.searchParams.get("crewId");
+  if (crewId) {
+    const includeUnassigned = req.nextUrl.searchParams.get("includeUnassigned") === "1";
+    jobs = jobs.filter((j) => j.assignedCrewId === crewId || (includeUnassigned && !j.assignedCrewId));
+  }
+
   return NextResponse.json({ jobs });
 }
 

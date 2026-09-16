@@ -13,6 +13,12 @@ export interface VerifiedUser {
   superadmin: boolean;
   role?: AllowedRole;
   businessId?: string;
+  // Phase 12/Phase 7 — carried straight off the already-fetched TeamMemberDoc,
+  // no extra read. Descriptive only: trade/crewId never gate anything here,
+  // same as the member doc they come from.
+  trade?: string;
+  displayName?: string;
+  crewId?: string;
 }
 
 export const FIELD_ACCESS_COOKIE = "__field_access";
@@ -441,6 +447,9 @@ export async function verifyAuthAndRole(
       superadmin: false,
       role: member.role,
       businessId: member.businessId,
+      trade: member.trade,
+      displayName: member.displayName,
+      crewId: member.crewId,
     },
   };
 }
@@ -486,6 +495,9 @@ export async function verifyOwnBusinessRole(
       superadmin: false,
       role: member.role,
       businessId: member.businessId,
+      trade: member.trade,
+      displayName: member.displayName,
+      crewId: member.crewId,
     },
   };
 }

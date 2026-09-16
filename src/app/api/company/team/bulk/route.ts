@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { TEAM_ROLES, type TeamRole } from "@/types/team";
+import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
 import { countActiveTeamMembers, inviteTeamMember, DEFAULT_SEAT_LIMIT } from "@/lib/team/invite";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 
 const MAX_ROWS_PER_REQUEST = 200;
 
 interface BulkRow {
   email: string;
   role: string;
+  trade?: string;
 }
 
 type RowResult =
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
   if (!bizSnap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
   const business = bizSnap.data()!;
   const seatLimit = (business.seatLimit as number | undefined) ?? DEFAULT_SEAT_LIMIT;
+  const disabledModules = getVerticalTemplate(typeof business.industry === "string" ? business.industry : "").disabledModules;
 
   let activeCount = await countActiveTeamMembers(db, businessId);
   const results: RowResult[] = [];
@@ -51,6 +54,7 @@ export async function POST(req: NextRequest) {
   for (const raw of rows as BulkRow[]) {
     const email = typeof raw?.email === "string" ? raw.email.trim() : "";
     const role = typeof raw?.role === "string" && raw.role.trim() ? raw.role.trim() : "staff";
+    const trade = typeof raw?.trade === "string" && raw.trade.trim() ? raw.trade.trim() : undefined;
 
     if (!email) {
       results.push({ email: email || "(blank)", status: "invalid", reason: "Missing email" });
@@ -60,13 +64,17 @@ export async function POST(req: NextRequest) {
       results.push({ email, status: "invalid", reason: `Role must be one of: ${TEAM_ROLES.join(", ")}` });
       continue;
     }
+    if (trade && !TRADE_TITLES.includes(trade as TradeTitle)) {
+      results.push({ email, status: "invalid", reason: `Title must be one of: ${TRADE_TITLES.join(", ")}` });
+      continue;
+    }
     if (activeCount >= seatLimit) {
       results.push({ email, status: "seat_limit", reason: `Seat limit reached (${seatLimit})` });
       continue;
     }
 
     try {
-      const outcome = await inviteTeamMember({ db, auth, businessId, business, email, role });
+      const outcome = await inviteTeamMember({ db, auth, businessId, business, email, role, trade, disabledModules });
       if (outcome.status === "invited") {
         activeCount += 1;
         results.push({ email: outcome.email, status: "invited", role: outcome.role });

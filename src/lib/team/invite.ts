@@ -1,10 +1,18 @@
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore } from "firebase-admin/firestore";
 import { sendTeamInviteEmail, type Branding } from "@/lib/notify";
-import { TEAM_ROLES, type TeamRole } from "@/types/team";
+import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
 import { invalidateCachedMember } from "@/lib/auth/memberCache";
+import { defaultLandingPath } from "@/lib/team/landing";
+import type { CompanyModule } from "@/hooks/useBusinessModules";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Matches the hardcoded convention already used by every other absolute-URL
+// site in this codebase (send-confirmation route, agentTools.ts, hub/demo) —
+// there is no shared env var for this, so this follows the same pattern
+// rather than introducing a lone new one.
+const BASE_URL = "https://ai-roof.vercel.app";
 
 export function generateTempPassword(): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
@@ -16,6 +24,9 @@ export interface TeamMemberDoc {
   businessId: string;
   email: string;
   role: TeamRole;
+  trade?: TradeTitle;
+  displayName?: string;
+  crewId?: string;
   active?: boolean;
   createdAt?: number;
 }
@@ -40,15 +51,24 @@ export async function inviteTeamMember(opts: {
   business: Record<string, unknown>;
   email: string;
   role: string;
+  trade?: string;
+  displayName?: string;
+  crewId?: string;
+  disabledModules?: CompanyModule[];
 }): Promise<InviteOutcome> {
-  const { db, auth, businessId, business, role } = opts;
+  const { db, auth, businessId, business, role, crewId, disabledModules = [] } = opts;
   const trimmedEmail = opts.email.trim();
+  const trade = opts.trade?.trim() || undefined;
+  const displayName = opts.displayName?.trim() || undefined;
 
   if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
     return { status: "invalid", email: trimmedEmail, reason: "Not a valid email address" };
   }
   if (!TEAM_ROLES.includes(role as TeamRole)) {
     return { status: "invalid", email: trimmedEmail, reason: `Role must be one of: ${TEAM_ROLES.join(", ")}` };
+  }
+  if (trade && !TRADE_TITLES.includes(trade as TradeTitle)) {
+    return { status: "invalid", email: trimmedEmail, reason: `Title must be one of: ${TRADE_TITLES.join(", ")}` };
   }
 
   const normalizedEmail = trimmedEmail.toLowerCase();
@@ -86,7 +106,12 @@ export async function inviteTeamMember(opts: {
   }
 
   await db.collection("businessUsers").doc(uid).set(
-    { uid, businessId, email: normalizedEmail, role, active: true, createdAt: Date.now() },
+    {
+      uid, businessId, email: normalizedEmail, role, active: true, createdAt: Date.now(),
+      ...(trade ? { trade } : {}),
+      ...(displayName ? { displayName } : {}),
+      ...(crewId ? { crewId } : {}),
+    },
     { merge: true }
   );
   invalidateCachedMember(uid);
@@ -99,11 +124,18 @@ export async function inviteTeamMember(opts: {
     contactEmail: typeof business.contactEmail === "string" ? business.contactEmail : undefined,
   };
 
+  // Deep-link a trade worker straight to their landing page (Phase 7): Firebase's own hosted
+  // reset-password page shows this as a "Continue" link once the reset succeeds. Everyone else
+  // still lands on the dashboard, same as before this option existed.
+  const continueUrl = `${BASE_URL}${defaultLandingPath({ role: role as TeamRole, trade: trade as TradeTitle | undefined }, disabledModules)}`;
+
   let inviteEmail: { status: string; reason?: string };
-  const resetLink = await auth.generatePasswordResetLink(normalizedEmail).catch((err: unknown) => {
-    console.warn("Team invite reset-link generation failed:", (err as Error)?.message ?? err);
-    return null;
-  });
+  const resetLink = await auth
+    .generatePasswordResetLink(normalizedEmail, { url: continueUrl })
+    .catch((err: unknown) => {
+      console.warn("Team invite reset-link generation failed:", (err as Error)?.message ?? err);
+      return null;
+    });
 
   if (resetLink) {
     try {

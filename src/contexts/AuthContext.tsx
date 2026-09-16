@@ -12,6 +12,11 @@ interface AuthUser {
   businessName?: string;
   role?: "superadmin" | "owner" | "staff" | "viewer";
   superadmin?: boolean;
+  /** Phase 12/Phase 7 — descriptive job title + a friendly name for punch/labor
+   * attribution; neither carries any permission (see src/types/team.ts). */
+  trade?: string;
+  displayName?: string;
+  crewId?: string;
   /** Set on the shared read-only identity /api/demo/sandbox-token mints for a
    * prospect exploring /try/[vertical] — never true for a real teammate, even
    * one with role "viewer". Drives the sandbox banner in company/layout.tsx. */

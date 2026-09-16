@@ -2,8 +2,18 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { FileUp, Mail, Trash2, UserPlus, Users } from "lucide-react";
-import type { TeamMember, TeamRole } from "@/types/team";
+import type { TeamMember, TeamRole, TradeTitle } from "@/types/team";
+import { TRADE_TITLES, TRADE_TITLE_LABEL } from "@/types/team";
+import type { Crew } from "@/types/library";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
+
+// The only trades a Crew assignment actually does anything for — see
+// src/lib/team/landing.ts's FIELD_LANDING_TRADES, the one place this list is
+// otherwise duplicated. Kept local (not imported) because that set is about
+// where someone lands, not what the invite form shows; they happen to match
+// today, and if they ever diverge this form's job is still "show Crew only
+// when it would matter," which is a UI call, not a landing-page one.
+const FIELD_TRADES: TradeTitle[] = ["technician", "journeyman", "apprentice", "installer", "helper"];
 
 const ROLES: TeamRole[] = ["owner", "staff", "viewer"];
 const ROLE_LABEL: Record<TeamRole, string> = { owner: "Owner", staff: "Staff", viewer: "Viewer" };
@@ -12,19 +22,26 @@ const ROLE_HINT: Record<TeamRole, string> = {
   staff: "Can work jobs, calls, pipeline, and the calendar",
   viewer: "Read-only access to everything",
 };
+// Title (trade) is a separate axis from Role — it never changes what someone
+// can access, only what they're called and where they land after signing in
+// (field trades → the Field screen; foreman → Jobs). "No title" is always
+// the first option since most teammates don't need one.
+const TITLE_HINT = "Optional — picks a landing screen (field trades open on Field) and labels labor lines. Never affects access.";
 
 interface CsvRow {
   email: string;
   role: TeamRole;
+  trade?: TradeTitle;
 }
 
 type CsvRowResult =
   | { email: string; status: "invited"; role: TeamRole }
   | { email: string; status: "already_member" | "conflict" | "invalid" | "seat_limit"; reason: string };
 
-/** Dependency-free `email,role` CSV parser — good enough for a two-column
- * import (no quoted-field/embedded-comma support). Skips a header row if the
- * first cell looks like "email". Blank lines are ignored. */
+/** Dependency-free `email,role,trade` CSV parser — good enough for a three-column
+ * import (no quoted-field/embedded-comma support; trade is optional and may be
+ * omitted entirely). Skips a header row if the first cell looks like "email".
+ * Blank lines are ignored. */
 function parseTeamCsv(text: string): CsvRow[] {
   return text
     .split(/\r\n|\n|\r/)
@@ -32,11 +49,13 @@ function parseTeamCsv(text: string): CsvRow[] {
     .filter(Boolean)
     .filter((line) => !/^email\s*,/i.test(line))
     .map((line) => {
-      const [emailRaw, roleRaw] = line.split(",");
+      const [emailRaw, roleRaw, tradeRaw] = line.split(",");
       const email = (emailRaw ?? "").trim();
       const roleCandidate = (roleRaw ?? "").trim().toLowerCase();
       const role: TeamRole = (ROLES as string[]).includes(roleCandidate) ? (roleCandidate as TeamRole) : "staff";
-      return { email, role };
+      const tradeCandidate = (tradeRaw ?? "").trim().toLowerCase();
+      const trade = (TRADE_TITLES as string[]).includes(tradeCandidate) ? (tradeCandidate as TradeTitle) : undefined;
+      return { email, role, trade };
     })
     .filter((row) => row.email.length > 0);
 }
@@ -51,8 +70,12 @@ export function TeamPanel({ businessId }: { businessId: string }) {
   const [loadError, setLoadError] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<TeamRole>("staff");
+  const [inviteTrade, setInviteTrade] = useState<TradeTitle | "">("");
+  const [inviteCrewId, setInviteCrewId] = useState("");
   const [inviting, setInviting] = useState(false);
+  const [crews, setCrews] = useState<Crew[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
   const [busyUid, setBusyUid] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; tone: "ok" | "error" } | null>(null);
@@ -93,6 +116,17 @@ export function TeamPanel({ businessId }: { businessId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
+  // Crews, for the invite form's optional "which crew" picker — only shown
+  // when the selected title is a field trade, so this fetch's result stays
+  // unused (and invisible) for the common no-title invite.
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/company/crews?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : { crews: [] }))
+      .then((d: { crews?: Crew[] }) => setCrews(d.crews ?? []))
+      .catch(() => setCrews([]));
+  }, [businessId]);
+
   // Picks up a teammate invited via the global quick-add while sitting on this page.
   useQuickAddRefresh("teammate", loadTeam);
 
@@ -109,7 +143,12 @@ export function TeamPanel({ businessId }: { businessId: string }) {
       const res = await fetch("/api/company/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, email: trimmed, role: inviteRole }),
+        body: JSON.stringify({
+          businessId, email: trimmed, role: inviteRole,
+          trade: inviteTrade || undefined,
+          displayName: inviteName.trim() || undefined,
+          crewId: inviteCrewId || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -117,7 +156,10 @@ export function TeamPanel({ businessId }: { businessId: string }) {
         return;
       }
       setInviteEmail("");
+      setInviteName("");
       setInviteRole("staff");
+      setInviteTrade("");
+      setInviteCrewId("");
       setInviteOpen(false);
       loadTeam();
       if (data.invite?.status === "sent") {
@@ -204,6 +246,29 @@ export function TeamPanel({ businessId }: { businessId: string }) {
     }
   }
 
+  // trade is sent as `null` to clear it (back to "No title") — undefined would mean
+  // "leave it alone" server-side, which is right for role/active but wrong here.
+  async function changeTrade(member: TeamMember, trade: TradeTitle | "") {
+    setBusyUid(member.uid);
+    try {
+      const res = await fetch(`/api/company/team/${member.uid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, trade: trade || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        flash(data.error ?? "Could not change that title.", "error");
+        return;
+      }
+      setMembers((prev) => prev.map((m) => (m.uid === member.uid ? { ...m, trade: trade || undefined } : m)));
+    } catch {
+      flash("Network error — could not change that title.", "error");
+    } finally {
+      setBusyUid(null);
+    }
+  }
+
   async function toggleActive(member: TeamMember) {
     const nextActive = !member.active;
     if (!nextActive && !confirm(`Remove ${member.email} from the team? They'll lose access immediately.`)) return;
@@ -269,8 +334,8 @@ export function TeamPanel({ businessId }: { businessId: string }) {
       <div className="panel-body">
         <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
           Add anyone on your team by email and assign what they can do — one at a time, or import a CSV
-          (columns: <code>email,role</code>; role defaults to staff). They each get one email with a link to
-          set their own password — no passwords to relay by hand.
+          (columns: <code>email,role,trade</code>; role defaults to staff, trade is optional). They each get
+          one email with a link to set their own password — no passwords to relay by hand.
         </p>
         {atSeatLimit && (
           <p role="status" style={{ margin: "0 0 16px", fontSize: 12, color: "#b91c1c" }}>
@@ -301,9 +366,16 @@ export function TeamPanel({ businessId }: { businessId: string }) {
             }}
           >
             <input
+              type="text"
+              autoFocus
+              placeholder="Full name (optional)"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              style={{ flex: "1 1 160px", padding: "8px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 13 }}
+            />
+            <input
               type="email"
               required
-              autoFocus
               placeholder="teammate@company.com"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
@@ -319,6 +391,30 @@ export function TeamPanel({ businessId }: { businessId: string }) {
                 <option key={r} value={r}>{ROLE_LABEL[r]}</option>
               ))}
             </select>
+            <select
+              value={inviteTrade}
+              onChange={(e) => setInviteTrade(e.target.value as TradeTitle | "")}
+              title={TITLE_HINT}
+              style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 13 }}
+            >
+              <option value="">No title</option>
+              {TRADE_TITLES.map((t) => (
+                <option key={t} value={t}>{TRADE_TITLE_LABEL[t]}</option>
+              ))}
+            </select>
+            {inviteTrade && FIELD_TRADES.includes(inviteTrade) && crews.length > 0 && (
+              <select
+                value={inviteCrewId}
+                onChange={(e) => setInviteCrewId(e.target.value)}
+                title="Scopes their Field screen to this crew's jobs (plus unassigned ones) instead of the whole business"
+                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 13 }}
+              >
+                <option value="">Any crew</option>
+                {crews.map((c) => (
+                  <option key={c.crewId} value={c.crewId}>{c.name}</option>
+                ))}
+              </select>
+            )}
             <button className="button primary small" type="submit" disabled={inviting}>
               {inviting ? "Sending…" : "Send invite"}
             </button>
@@ -341,7 +437,9 @@ export function TeamPanel({ businessId }: { businessId: string }) {
               {csvRows.map((row, i) => (
                 <div key={`${row.email}-${i}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#475569" }}>
                   <span>{row.email}</span>
-                  <span style={{ color: "#94a3b8" }}>{ROLE_LABEL[row.role]}</span>
+                  <span style={{ color: "#94a3b8" }}>
+                    {ROLE_LABEL[row.role]}{row.trade ? ` · ${TRADE_TITLE_LABEL[row.trade]}` : ""}
+                  </span>
                 </div>
               ))}
             </div>
@@ -398,8 +496,13 @@ export function TeamPanel({ businessId }: { businessId: string }) {
                 <Mail size={14} style={{ color: "#94a3b8", flexShrink: 0 }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {m.email}
+                    {m.displayName || m.email}
                   </div>
+                  {m.displayName && (
+                    <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {m.email}
+                    </div>
+                  )}
                   {!m.active && <div style={{ fontSize: 11, color: "#94a3b8" }}>Removed</div>}
                 </div>
                 <select
@@ -411,6 +514,18 @@ export function TeamPanel({ businessId }: { businessId: string }) {
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                  ))}
+                </select>
+                <select
+                  value={m.trade ?? ""}
+                  disabled={busyUid === m.uid || !m.active}
+                  onChange={(e) => changeTrade(m, e.target.value as TradeTitle | "")}
+                  title={TITLE_HINT}
+                  style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12, color: m.trade ? "#0f172a" : "#94a3b8" }}
+                >
+                  <option value="">No title</option>
+                  {TRADE_TITLES.map((t) => (
+                    <option key={t} value={t}>{TRADE_TITLE_LABEL[t]}</option>
                   ))}
                 </select>
                 <button

@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
-import { TEAM_ROLES, type TeamRole } from "@/types/team";
+import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
 import { countActiveTeamMembers, inviteTeamMember, DEFAULT_SEAT_LIMIT } from "@/lib/team/invite";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 
 interface TeamMemberDoc {
   uid: string;
   businessId: string;
   email: string;
   role: TeamRole;
+  trade?: TradeTitle;
+  displayName?: string;
+  crewId?: string;
   active?: boolean;
   createdAt?: number;
 }
@@ -37,6 +41,9 @@ export async function GET(req: NextRequest) {
         uid: d.id,
         email: data.email ?? "",
         role: (data.role as TeamRole) ?? "viewer",
+        trade: data.trade,
+        displayName: data.displayName,
+        crewId: data.crewId,
         active: data.active !== false,
         createdAt: data.createdAt ?? 0,
       };
@@ -54,7 +61,9 @@ export async function GET(req: NextRequest) {
 // password-reset link — no temp password to relay by hand, no second step.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const { businessId, email, role } = body as { businessId?: string; email?: string; role?: string };
+  const { businessId, email, role, trade, displayName, crewId } = body as {
+    businessId?: string; email?: string; role?: string; trade?: string; displayName?: string; crewId?: string;
+  };
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   if (!email || typeof email !== "string") {
@@ -62,6 +71,9 @@ export async function POST(req: NextRequest) {
   }
   if (!role || !TEAM_ROLES.includes(role as TeamRole)) {
     return NextResponse.json({ error: `Role must be one of: ${TEAM_ROLES.join(", ")}` }, { status: 400 });
+  }
+  if (trade && !TRADE_TITLES.includes(trade as TradeTitle)) {
+    return NextResponse.json({ error: `Title must be one of: ${TRADE_TITLES.join(", ")}` }, { status: 400 });
   }
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "superadmin"]);
@@ -84,7 +96,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const outcome = await inviteTeamMember({ db, auth, businessId, business, email, role });
+  const disabledModules = getVerticalTemplate(typeof business.industry === "string" ? business.industry : "").disabledModules;
+  const outcome = await inviteTeamMember({ db, auth, businessId, business, email, role, trade, displayName, crewId, disabledModules });
 
   if (outcome.status === "invalid") {
     return NextResponse.json({ error: outcome.reason }, { status: 400 });

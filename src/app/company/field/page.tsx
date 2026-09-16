@@ -419,6 +419,10 @@ function FieldPageContent() {
   const businessId = searchParams?.get("businessId") ?? hookBusinessId;
   const prefillJobId = searchParams?.get("jobId") ?? "";
   const { user } = useAuth();
+  // Phase 12/Phase 7 — a real name (set at invite time) reads far better on
+  // labor lines, punches, and attribution than an email address ever did.
+  // Falls back to email for teammates invited before this field existed.
+  const workerDisplayName = user?.displayName || user?.email || "";
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
@@ -433,10 +437,14 @@ function FieldPageContent() {
 
   const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
 
-  // Load jobs list
+  // Load jobs list — scoped to this worker's own crew (+ unassigned jobs) when
+  // they have one, so a large team's field screen isn't the whole business's
+  // open jobs. Scope-as-convenience only (verifyFieldAccess still grants
+  // business-wide read) — see src/lib/team/landing.ts's doc comment.
   useEffect(() => {
     if (!businessId) return;
-    fetch(`/api/jobs?businessId=${businessId}`)
+    const crewParams = user?.crewId ? `&crewId=${encodeURIComponent(user.crewId)}&includeUnassigned=1` : "";
+    fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
       .then((r) => r.json())
       .then((d) => {
         const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
@@ -447,7 +455,7 @@ function FieldPageContent() {
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [businessId, prefillJobId]);
+  }, [businessId, prefillJobId, user?.crewId]);
 
   // Load structured job data when selection changes
   useEffect(() => {
@@ -472,7 +480,7 @@ function FieldPageContent() {
     selectedJobId || null,
     {
       businessId,
-      submittedBy: user?.email || undefined,
+      submittedBy: workerDisplayName || undefined,
       jobContext: selectedJob
         ? {
             title: selectedJob.title,
@@ -548,7 +556,7 @@ function FieldPageContent() {
               </h1>
               {user && (
                 <p style={{ margin: 0, fontSize: 11, color: "#475569", marginTop: 2 }}>
-                  {user.email}
+                  {workerDisplayName}
                 </p>
               )}
             </div>
@@ -556,7 +564,8 @@ function FieldPageContent() {
               onClick={() => {
                 if (!businessId) return;
                 setLoadingJobs(true);
-                fetch(`/api/jobs?businessId=${businessId}`)
+                const crewParams = user?.crewId ? `&crewId=${encodeURIComponent(user.crewId)}&includeUnassigned=1` : "";
+                fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
                   .then((r) => r.json())
                   .then((d) => {
                     const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
@@ -601,7 +610,7 @@ function FieldPageContent() {
             />
           </div>
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={user?.email || ""} />
+          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} />
 
           {/* Mic Button */}
           <div style={{
@@ -649,7 +658,7 @@ function FieldPageContent() {
 
           {/* Photo capture */}
           <div style={{ marginBottom: 20 }}>
-            <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={user?.email || undefined} />
+            <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
           </div>
 
           {/* One-tap correction confirm card */}
