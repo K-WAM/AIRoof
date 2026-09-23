@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
-import { CalendarDays, Check, Clock, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
+import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
 
@@ -70,9 +72,17 @@ function formatCallTime(ms: number, tz: string): string {
 export default function PipelinePage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const { vocab, isEnabled, ready: modulesReady } = useBusinessModules();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
+
+  // A lead/appointment can only become a Job where the "jobs" module exists
+  // (every appointments-mode industry — dental, childcare, care homes, … —
+  // disables it). Gate on `ready` exactly like company/layout.tsx's module
+  // routes so the button can't flash in before bootstrap resolves, and never
+  // dangle a dead button for a tenant whose Jobs page is route-blocked.
+  const showJobActions = modulesReady && isEnabled("jobs");
 
   const urgencyParam = searchParams?.get("urgency");
   const leadParam = searchParams?.get("lead");
@@ -132,6 +142,14 @@ export default function PipelinePage() {
     const el = document.getElementById(`appt-${apptParam}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [apptParam, tab, loading, appointments]);
+
+  // T-084: the matching lead deep link from Calls (?tab=leads&lead=<id>) —
+  // same anchor pattern, scrolls the queue card a call produced into view.
+  useEffect(() => {
+    if (!leadParam || tab !== "leads" || loading) return;
+    const el = document.getElementById(`lead-${leadParam}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [leadParam, tab, loading, leads]);
 
   // --- Lead actions ---
   async function callBackLead(lead: Lead) {
@@ -193,15 +211,29 @@ export default function PipelinePage() {
   }
 
   function createJob(appt: Appointment) {
-    const params = new URLSearchParams({
+    window.location.href = buildJobPrefillUrl({
       clientName: appt.callerName ?? "",
       clientPhone: appt.callerPhone ?? "",
       address: appt.address ?? "",
       serviceType: appt.serviceType ?? "",
       appointmentId: appt.appointmentId,
+      preview: preview ?? undefined,
     });
-    if (preview) params.set("preview", preview);
-    window.location.href = `/company/jobs?${params.toString()}#new`;
+  }
+
+  // The Lead-side equivalent of createJob — same Jobs prefill route, same
+  // flat point-in-time snapshot of name/phone/address, plus the lead's notes
+  // and its id as the form's auto-open trigger (no appointment involved).
+  function createJobFromLead(lead: Lead) {
+    window.location.href = buildJobPrefillUrl({
+      clientName: lead.callerName ?? "",
+      clientPhone: lead.callerPhone ?? "",
+      address: lead.address ?? "",
+      serviceType: lead.serviceRequested ?? "",
+      notes: lead.notes ?? undefined,
+      leadId: lead.leadId,
+      preview: preview ?? undefined,
+    });
   }
 
   async function callBackAppt(appt: Appointment) {
@@ -375,9 +407,11 @@ export default function PipelinePage() {
               {apptCalling === appt.appointmentId ? "Calling…" : "Call Back"}
             </button>
           )}
-          <button className="button secondary" onClick={() => createJob(appt)} style={{ fontSize: 13 }}>
-            Create Job
-          </button>
+          {showJobActions && (
+            <button className="button secondary" onClick={() => createJob(appt)} style={{ fontSize: 13 }}>
+              Create {vocab.jobNoun}
+            </button>
+          )}
 
           {!isPast && !isConfirmed && !justConfirmed && (
             <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")} style={{ fontSize: 12 }} title="Mark confirmed without emailing the customer">
@@ -483,9 +517,13 @@ export default function PipelinePage() {
                       <article
                         className="lead-card"
                         key={lead.leadId}
+                        id={`lead-${lead.leadId}`}
                         aria-selected={selectedLead?.leadId === lead.leadId}
                         onClick={() => setSelectedLead(lead)}
-                        style={{ cursor: "pointer" }}
+                        style={{
+                          cursor: "pointer",
+                          ...(!!leadParam && leadParam === lead.leadId ? { boxShadow: "0 0 0 3px var(--accent)" } : {}),
+                        }}
                       >
                         <div className="lead-title-row">
                           <div>
@@ -613,6 +651,18 @@ export default function PipelinePage() {
                         >
                           <Phone size={13} />
                           {leadCalling === selectedLead.leadId ? "Calling…" : "Call Back"}
+                        </button>
+                      )}
+                      {showJobActions && (
+                        <button
+                          className="button secondary"
+                          type="button"
+                          onClick={() => createJobFromLead(selectedLead)}
+                          title={`Prefill a new ${vocab.jobNoun.toLowerCase()} with this lead's details`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                        >
+                          <FilePlus size={14} strokeWidth={1.75} />
+                          Create {vocab.jobNoun}
                         </button>
                       )}
                     </div>

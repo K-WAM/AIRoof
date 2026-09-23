@@ -1160,3 +1160,37 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Decision: TODO marked stale and closed. No route or caller was deleted.
 - Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests); the once-per-batch `npm run build` passed (77 static pages).
 - Removals: none.
+
+---
+
+## T-083 — Add "Create Job" to the Leads side of Pipeline
+- Date: 2026-09-23 · branch: task/pipeline-links · commit: 48fe6f3
+- Lead Detail gains the same Create action Appointments has, sharing ONE prefill handshake
+  (new pure src/lib/pipeline/jobPrefill.ts — buildJobPrefillUrl) used by both createJob(appt) and
+  createJobFromLead(lead): same /company/jobs route, name/phone/address/service params, plus the lead's
+  notes and leadId (the form's auto-open trigger, additive in jobs/page.tsx alongside ?notes).
+- Label is vocab-driven (\Create \\ — Pickup/Service call/Job/…) and gated on
+  \modulesReady && isEnabled("jobs")\ exactly like company/layout.tsx's MODULE_ROUTES, so
+  jobs-disabled tenants (dental, childcare, care homes, daycares, property management) see no dead
+  button; the Appointments tab's previously hardcoded, ungated "Create Job" button was gated/labeled
+  identically (same owned file, kills its pre-existing dead button for those tenants).
+- Customer-snapshot rule preserved: prefill copies lead fields flat into the Jobs form; no leadId
+  stamped on Job (type has no such field, and no jobs API change was in scope).
+- Deviation (logged): minimal 6-line change to src/app/company/jobs/page.tsx (not in the owned list,
+  but strictly needed — the shared mechanism only prefills notes and auto-opens if the receiver reads
+  ?notes/?leadId; file is owned by no parallel worker and jobs/[jobId]/page.tsx was untouched).
+- Evidence: tsc clean; eslint 0 errors / 32 warnings (no new warnings in touched files); vitest 673/673
+  (+5 jobPrefill tests); next build green.
+
+## T-084 — Link a call's transcript forward to the lead/appointment it produced
+- Date: 2026-09-23 · branch: task/pipeline-links · commit: d0bcdcc
+- Calls page now fetches the leads+appointments lists (both routes already return full docs incl.
+  sourceCallId — no API field added) and resolves the selected call via new pure
+  src/lib/pipeline/callLinks.ts (findCallLinks, matches sourceCallId); renders "View lead" /
+  "View appointment" .button links deep-linking to Pipeline with ?preview= preserved. Nothing renders
+  when the call produced neither (no dead link); the link lookup is best-effort and can never fail the
+  transcript view.
+- Pipeline: added the matching ?lead=<id> deep link — lead- anchor id + accent ring highlight +
+  scrollIntoView, mirroring the existing appt- pattern (the ?lead= selection logic already existed).
+- Evidence: tsc clean; eslint 0 errors / 32 warnings (no new warnings in touched files); vitest 673/673
+  (+5 callLinks tests); next build green.

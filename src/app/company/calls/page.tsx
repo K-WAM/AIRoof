@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
-import { Clock, Headphones, History, PhoneCall } from "lucide-react";
+import { ArrowRight, Clock, Headphones, History, PhoneCall } from "lucide-react";
 
 interface CallMessage {
   role: "caller" | "agent" | "system" | string;
@@ -29,6 +32,19 @@ interface Call {
   outcomeReason?: string;
   isAfterHours?: boolean;
   messages: CallMessage[];
+}
+
+// Slim shapes of what the leads/appointments list routes return — only the
+// fields the call→lead/appt link needs (both routes already return full docs,
+// including sourceCallId, so no API change was required).
+interface LeadRef {
+  leadId: string;
+  sourceCallId?: string;
+}
+
+interface AppointmentRef {
+  appointmentId: string;
+  sourceCallId?: string;
 }
 
 function formatTime(ms: number, tz: string): string {
@@ -63,12 +79,18 @@ const CATEGORY_STATUS: Record<string, string> = {
 export default function CompanyCallsPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const searchParams = useSearchParams();
+  const preview = searchParams?.get("preview");
 
   const [calls, setCalls] = useState<Call[]>([]);
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
+  // T-084: leads/appointments lists, fetched solely to resolve which lead or
+  // appointment (if any) each call produced, by matching on sourceCallId.
+  const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
+  const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -86,6 +108,25 @@ export default function CompanyCallsPage() {
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+  }, [businessId]);
+
+  // Best-effort fetch of the leads/appointments lists for the call → outcome
+  // links. A failure here must never fail the page — the transcript view is
+  // the point, and the links simply don't render.
+  useEffect(() => {
+    if (!businessId) return;
+    const base = `/api/businesses/${businessId}`;
+    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
+      .then(async ([leadsRes, apptsRes]) => {
+        if (!leadsRes.ok || !apptsRes.ok) return;
+        const [{ leads }, { appointments }] = (await Promise.all([
+          leadsRes.json(),
+          apptsRes.json(),
+        ])) as [{ leads: LeadRef[] }, { appointments: AppointmentRef[] }];
+        setLinkedLeads(leads ?? []);
+        setLinkedAppts(appointments ?? []);
+      })
+      .catch(() => {});
   }, [businessId]);
 
   if (loading) return <PageSkeleton rows={6} />;
@@ -106,6 +147,16 @@ export default function CompanyCallsPage() {
     if (dirFilter === "outbound") return c.callType === "outbound";
     return true;
   });
+
+  // T-084: the lead/appointment the selected call produced, if any. Both
+  // undefined means the call produced neither — render no link at all.
+  const selectedLinks = selected ? findCallLinks(selected.callId, linkedLeads, linkedAppts) : null;
+  const leadHref = selectedLinks?.leadId
+    ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=leads&lead=${selectedLinks.leadId}`
+    : null;
+  const apptHref = selectedLinks?.appointmentId
+    ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${selectedLinks.appointmentId}`
+    : null;
 
   return (
     <>
@@ -208,6 +259,36 @@ export default function CompanyCallsPage() {
                     </p>
                   </div>
                 </div>
+
+                {(leadHref || apptHref) && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      marginBottom: 16,
+                      padding: "10px 14px",
+                      background: "#f0fdfa",
+                      border: "1px solid #99f6e4",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      This call produced
+                    </span>
+                    {leadHref && (
+                      <Link className="button small" href={leadHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        View lead <ArrowRight size={13} />
+                      </Link>
+                    )}
+                    {apptHref && (
+                      <Link className="button small secondary" href={apptHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        View appointment <ArrowRight size={13} />
+                      </Link>
+                    )}
+                  </div>
+                )}
 
                 {selected.recordingUrl && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>

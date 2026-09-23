@@ -732,12 +732,21 @@ an active queue.*
         live Vapi line; calls can route once Vapi assistant/phone IDs are attached. Whether to add an
         `active` check to `resolveBusinessId()` is an owner decision (NH-19); changing it could silently drop
         calls on an existing live line. No routing logic changed.
-  - [ ] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
+  - [x] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
         one Appointments already has, for a lead that needs to become work without ever going through a
-        formal booked appointment.
-  - [ ] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
+        formal booked appointment. **Done 2026-09-23 (Worker D, branch `task/pipeline-links`, commit
+        `48fe6f3`)** — Lead Detail gained `Create <vocab.jobNoun>` reusing the appointments' single prefill
+        handshake (`src/lib/pipeline/jobPrefill.ts`), gated on `ready && isEnabled("jobs")` (jobs-disabled
+        tenants show no dead button; the appointments tab's own ungated hardcoded button was gated/labeled
+        the same way). No "Book appointment" variant was built — no staff-facing appointment-booking flow
+        exists (T-076), so such a button would itself be a dead button. Status → `review`.
+  - [x] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
         supports the `?lead=`/`?appt=` deep-link — Calendar's "Bookings" strip already uses it in the other
-        direction).
+        direction). **Done 2026-09-23 (Worker D, branch `task/pipeline-links`, commit `d0bcdcc`)** — Calls
+        page resolves the selected call against leads/appointments by `sourceCallId`
+        (`src/lib/pipeline/callLinks.ts`, no API change — both list routes already return the field) and
+        renders "View lead"/"View appointment" deep links; Pipeline gained the matching `?lead=` scroll-to-card
+        anchor (it previously selected the lead but never scrolled/highlighted it). Status → `review`.
   - [x] T-085 — Clarified in the Job Invoice tab and onboarding guide that tenants can email job
         invoices to their customers without online payment; Stripe Payment Links in `/admin/invoices`
         are only for Luxor billing tenants. Invoice totals, persistence, and letterhead unchanged.

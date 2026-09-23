@@ -33,12 +33,15 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
 
-  // Prefill from "Create Job" button on appointments page
+  // Prefill from the Pipeline's "Create <jobNoun>" buttons (appointments and
+  // leads share this one handshake — see src/lib/pipeline/jobPrefill.ts).
   const prefillClientName = searchParams?.get("clientName") ?? "";
   const prefillClientPhone = searchParams?.get("clientPhone") ?? "";
   const prefillAddress = searchParams?.get("address") ?? "";
   const prefillServiceType = searchParams?.get("serviceType") ?? "";
   const prefillApptId = searchParams?.get("appointmentId") ?? "";
+  const prefillLeadId = searchParams?.get("leadId") ?? "";
+  const prefillNotes = searchParams?.get("notes") ?? "";
 
   // Lifted to controlled state (unlike the rest of the form, read via
   // FormData on submit) so the customer combobox can drive them: picking an
@@ -67,10 +70,11 @@ export default function JobsPage() {
   // Picks up a job created via the global quick-add while sitting on this page.
   useQuickAddRefresh("job", fetchJobs);
 
-  // Auto-open form when navigated from appointments "Create Job" button
+  // Auto-open form when navigated from Pipeline's "Create <jobNoun>" buttons
+  // (appointmentId = appointment provenance, leadId = lead provenance).
   useEffect(() => {
-    if (prefillApptId) setShowForm(true);
-  }, [prefillApptId]);
+    if (prefillApptId || prefillLeadId) setShowForm(true);
+  }, [prefillApptId, prefillLeadId]);
 
   async function createJob(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -219,7 +223,7 @@ export default function JobsPage() {
                 <input type="hidden" name="appointmentId" value={prefillApptId} />
                 <div className="field full">
                   <label>Notes</label>
-                  <input name="notes" placeholder="Any additional context…" />
+                  <input name="notes" defaultValue={prefillNotes} placeholder="Any additional context…" />
                 </div>
               </div>
               <div className="button-row" style={{ marginTop: 16 }}>
