@@ -62,6 +62,29 @@ export type CalendarMode = "jobs" | "appointments";
  */
 export type VisualFamily = "field" | "care" | "ops";
 
+/**
+ * Structured per-industry intake details (T-100). Beyond the core booking
+ * fields (name/phone/service/address/time), each vertical declares the small
+ * set of extras worth asking about so they can be captured as labeled values
+ * instead of free-text notes. All fields are optional — the AI must never
+ * stall a call on one; `required` only exists to forbid the opposite.
+ */
+export type IntakeFieldType = "text" | "select" | "yesno" | "date";
+
+export interface IntakeField {
+  /** Stable key persisted in `lead.intake`/`appointment.intake` maps. */
+  key: string;
+  /** Human label the agent asks with and the UI displays. */
+  label: string;
+  type: IntakeFieldType;
+  /** Select choices — required for "select" fields. */
+  options?: string[];
+  /** Whether to collect it when booking, capturing a lead, or either. */
+  appliesTo: "lead" | "appointment" | "both";
+  /** Intake fields are never required; only `false` (or absent) is legal. */
+  required?: false;
+}
+
 export interface VerticalTemplate {
   verticalId: VerticalId;
   label: string;
@@ -92,6 +115,8 @@ export interface VerticalTemplate {
    *  - "library": the whole Library tab (roster + docs) — currently unused
    */
   disabledModules: Array<"jobs" | "pricing" | "library">;
+  /** Extra booking/lead details the phone agent collects as labeled values (T-100). */
+  intakeFields: IntakeField[];
 }
 
 export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
@@ -175,6 +200,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Roofing",
     sampleCallerScript:
       "Hey [Prospect], imagine your customer calling after last night's storm — your AI books the inspection, sends the confirmation, and captures the lead, all while you're on the roof. Want to hear it live?",
+    intakeFields: [
+      { key: "roof-type", label: "Roof type", type: "select", options: ["Shingle", "Metal", "Tile", "Flat", "Not sure"], appliesTo: "both" },
+      { key: "insurance-claim", label: "Insurance claim", type: "yesno", appliesTo: "both" },
+      { key: "active-leak", label: "Active leak", type: "yesno", appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -249,6 +279,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "HVAC",
     sampleCallerScript:
       "Hi [Prospect], imagine your customers calling — AC out in July — and your receptionist books them same-day without you lifting a finger. Want to see it live right now?",
+    intakeFields: [
+      { key: "system-type", label: "System type", type: "select", options: ["Central AC", "Heat pump", "Furnace", "Mini-split", "Not sure"], appliesTo: "both" },
+      { key: "system-age", label: "System age", type: "select", options: ["Under 5 years", "5–10 years", "Over 10 years", "Not sure"], appliesTo: "both" },
+      { key: "issue", label: "Issue", type: "text", appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -322,6 +357,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Landscaping",
     sampleCallerScript:
       "Hey [Prospect], picture a homeowner calling for a lawn quote Saturday morning — your AI qualifies them, books a site visit, sends a confirmation, all while you're on another job. Sound useful?",
+    intakeFields: [
+      { key: "property-size", label: "Property size", type: "select", options: ["Small lot", "Standard lot", "Large lot", "Acreage"], appliesTo: "both" },
+      { key: "service-frequency", label: "Service frequency", type: "select", options: ["One-time", "Weekly", "Bi-weekly", "Monthly"], appliesTo: "both" },
+      { key: "project-type", label: "Project type", type: "select", options: ["Lawn maintenance", "Design / install", "Irrigation", "Tree work", "Other"], appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -402,6 +442,12 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Cleaning",
     sampleCallerScript:
       "Hey [Prospect], someone calls Sunday night wanting a move-out clean Tuesday — your AI quotes it, books it, and puts it on the board before you've picked up the phone. Want to hear it?",
+    intakeFields: [
+      { key: "home-size", label: "Home size", type: "select", options: ["Studio / 1 bedroom", "2 bedrooms", "3 bedrooms", "4+ bedrooms"], appliesTo: "both" },
+      { key: "bathrooms", label: "Bathrooms", type: "select", options: ["1", "2", "3+"], appliesTo: "both" },
+      { key: "frequency", label: "Frequency", type: "select", options: ["One-time", "Weekly", "Bi-weekly", "Monthly"], appliesTo: "both" },
+      { key: "pets", label: "Pets", type: "yesno", appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -478,6 +524,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Dental",
     sampleCallerScript:
       "Hey [Prospect], your front desk just missed a call from a new patient with a toothache. Our AI would have booked them a same-day slot instantly. Want to hear how it sounds?",
+    intakeFields: [
+      { key: "patient-status", label: "New or returning patient", type: "select", options: ["New patient", "Returning patient"], appliesTo: "both" },
+      { key: "insurance", label: "Insurance", type: "yesno", appliesTo: "both" },
+      { key: "insurance-provider", label: "Insurance provider", type: "text", appliesTo: "both" },
+    ],
     // No field jobs. Calendar stays (patients → providers); Library stays for the
     // provider roster + documents, minus the materials catalog (see "pricing").
     disabledModules: ["jobs", "pricing"],
@@ -569,6 +620,14 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Care Homes",
     sampleCallerScript:
       "Imagine a family calling after hours to ask about assisted living openings and a tour. Elena captures the inquiry, offers an admissions follow-up, and routes any resident-specific question to live staff. Want to hear it?",
+    // Front-office only (T-100 hard rule): never resident health or identifying
+    // data — just community type, room preference, and a desired move-in date.
+    intakeFields: [
+      // A question about which kind of COMMUNITY the family wants to tour — never about the prospective resident's condition.
+      { key: "community-type", label: "Community type of interest", type: "select", options: ["Independent living community", "Assisted living community", "Memory care community", "Not sure yet"], appliesTo: "both" },
+      { key: "room-preference", label: "Room preference", type: "select", options: ["Studio", "One bedroom", "Two bedrooms", "Not sure"], appliesTo: "both" },
+      { key: "desired-start-date", label: "Desired move-in date", type: "date", appliesTo: "both" },
+    ],
     disabledModules: ["jobs", "pricing"],
   },
 
@@ -645,6 +704,12 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Prop Mgmt",
     sampleCallerScript:
       "Hey [Prospect], your tenant calls at 11pm about a burst pipe — our AI answers, escalates to your on-call, creates a work order, all before you see it in the morning. Want a live demo?",
+    intakeFields: [
+      { key: "unit-number", label: "Unit number", type: "text", appliesTo: "both" },
+      { key: "issue-type", label: "Issue type", type: "select", options: ["Plumbing", "Electrical", "HVAC", "Appliance", "Structural", "Other"], appliesTo: "both" },
+      { key: "urgency", label: "Urgency", type: "select", options: ["Routine", "Urgent", "Emergency"], appliesTo: "both" },
+      { key: "permission-to-enter", label: "Permission to enter", type: "yesno", appliesTo: "appointment" },
+    ],
     // No field jobs. Calendar dispatches requests to vendors; Library keeps the
     // vendor roster + documents, minus the materials catalog (see "pricing").
     disabledModules: ["jobs", "pricing"],
@@ -722,6 +787,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "GC",
     sampleCallerScript:
       "Hey [Prospect], a homeowner just called asking for a kitchen remodel quote — your AI captured all the project details, booked a site visit, and sent a confirmation. Sound like something your crew needs?",
+    intakeFields: [
+      { key: "project-type", label: "Project type", type: "select", options: ["Remodel", "Addition", "New build", "Commercial build-out", "Other"], appliesTo: "both" },
+      { key: "budget-range", label: "Budget range", type: "select", options: ["Under $10k", "$10k–$50k", "$50k–$100k", "Over $100k"], appliesTo: "both" },
+      { key: "timeline", label: "Timeline", type: "select", options: ["ASAP", "1–3 months", "3–6 months", "Flexible"], appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -796,6 +866,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Electrical",
     sampleCallerScript:
       "Hey [Prospect], a customer's breaker keeps tripping at 9pm — your AI captures the details, flags it as urgent, and has a job on your board before you're even up. Want to see it live?",
+    intakeFields: [
+      { key: "issue-type", label: "Issue type", type: "select", options: ["Panel", "Outlets", "Lighting", "Wiring", "EV charger", "Other"], appliesTo: "both" },
+      { key: "has-power", label: "Power currently on", type: "yesno", appliesTo: "both" },
+      { key: "home-age", label: "Home age", type: "select", options: ["Under 20 years", "20–50 years", "Over 50 years", "Not sure"], appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -870,6 +945,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Appliances",
     sampleCallerScript:
       "Hey [Prospect], a customer's fridge dies on a Sunday — your AI books the repair, captures the model number, and puts it on your board before Monday morning. Want to hear it?",
+    intakeFields: [
+      { key: "appliance-type", label: "Appliance type", type: "select", options: ["Refrigerator", "Washer", "Dryer", "Dishwasher", "Oven / range", "Other"], appliesTo: "both" },
+      { key: "brand-model", label: "Brand and model", type: "text", appliesTo: "both" },
+      { key: "under-warranty", label: "Under warranty", type: "yesno", appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 
@@ -951,6 +1031,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Childcare",
     sampleCallerScript:
       "Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?",
+    intakeFields: [
+      { key: "child-age-range", label: "Child age range", type: "select", options: ["Infant (0–1)", "Toddler (1–3)", "Preschool (3–5)", "School age (5+)"], appliesTo: "both" },
+      { key: "number-of-children", label: "Number of children", type: "select", options: ["1", "2", "3+"], appliesTo: "both" },
+      { key: "care-start-date", label: "Care needed from", type: "date", appliesTo: "both" },
+    ],
     // No field jobs. Calendar schedules families onto sitters; Library keeps the
     // sitter roster + documents, minus the materials catalog (see "pricing").
     disabledModules: ["jobs", "pricing"],
@@ -1036,6 +1121,13 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Daycares",
     sampleCallerScript:
       "Hey [Prospect], a parent calls after hours asking about infant-room openings — your AI answers the tuition questions, books a tour with the director, and adds the family to the waitlist, all before you've seen the missed call. Want to hear it live?",
+    // Front-office only (T-100 hard rule): never a child's health or identifying
+    // data — just an age RANGE, a program, and a desired start date.
+    intakeFields: [
+      { key: "child-age-range", label: "Child age range", type: "select", options: ["Infant (0–12 months)", "Toddler (1–2 years)", "Preschool (3–4 years)", "Pre-K (4–5 years)"], appliesTo: "both" },
+      { key: "program", label: "Program", type: "select", options: ["Full-time", "Part-time", "After-school"], appliesTo: "both" },
+      { key: "desired-start-date", label: "Desired start date", type: "date", appliesTo: "both" },
+    ],
     // No field jobs. Calendar schedules family tours onto directors; Library
     // keeps the staff roster + enrollment documents, minus the materials
     // catalog (see "pricing").
@@ -1119,6 +1211,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     shortLabel: "Junk Removal",
     sampleCallerScript:
       "Hey [Prospect], a customer calls needing a same-day garage cleanout — your AI gets the item list, confirms a pickup window, and books the truck, all before you've finished your coffee. Want to hear it live?",
+    intakeFields: [
+      { key: "load-size", label: "Load size", type: "select", options: ["A few items", "Half truck", "Full truck", "Multiple trucks"], appliesTo: "both" },
+      { key: "item-types", label: "Items to remove", type: "select", options: ["Furniture", "Appliances", "Yard waste", "Construction debris", "Whole-house cleanout"], appliesTo: "both" },
+      { key: "access", label: "Stairs or limited access", type: "yesno", appliesTo: "both" },
+    ],
     disabledModules: [],
   },
 };

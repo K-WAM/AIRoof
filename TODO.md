@@ -85,7 +85,7 @@ an active queue.*
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
-| 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | 🕓 **assigned 2026-09-23** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
+| 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | 🕓 **in progress — T-100 done (→ review), T-101 in flight** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 
 ### Checklist
 
@@ -629,14 +629,14 @@ an active queue.*
         (`send`/`example-lib`/`company/team` — the long-documented flakes), the isolated rerun 89/89 and a second
         full run had zero failures; `next build` green, 77 routes (`/try/` now generates 13 verticals).
 
-- [ ] Phase 15 — Industry Peripherals (owner-added, 2026-09-23) — 0/2
+- [ ] Phase 15 — Industry Peripherals (owner-added, 2026-09-23) — 1/2
       **Principle (owner, 2026-09-23):** the skeleton (Dashboard/Calls/Pipeline/Calendar/Library/Settings, the
       call→lead→appointment→job flow) stays identical for every industry. Only *peripherals* differ, and each
       one lives in ONE per-vertical record typed `Record<VerticalId, …>` so `tsc` fails until a new vertical
       declares it (same rule as `templates.ts`). Never a per-industry `if` in a shared page. Fail-open: an
       unknown/blank industry shows the generic experience, never a hole. T-100 and T-101 have zero file
       overlap by design — T-100 owns `templates.ts`, T-101 owns a new `starterKits.ts`.
-  - [ ] T-100 — Structured per-industry **intake fields** (Deepseek). Today extra booking data (DOB/insurance,
+  - [x] T-100 — Structured per-industry **intake fields** (Deepseek). Today extra booking data (DOB/insurance,
         unit no., system age, roof type, child age, tour date, …) is stuffed into free-text `notes`. Add an
         `intakeFields` block to `VerticalTemplate` (`key`, `label`, `type: text|select|yesno|date`, optional
         `options`, `appliesTo: lead|appointment|both`, `required?: false` default — the AI must never stall a
@@ -650,6 +650,18 @@ an active queue.*
         detail beyond what T-098/T-099's front-office-only rules already allow (tour interest, child age
         range, start date — never diagnoses, allergies, or "is X there"). Unit tests for prompt output + tool
         persistence + the per-vertical `Record` completeness.
+        **Done (2026-09-23, branch `task/intake-fields`) — status: review.** All 13 verticals declare 2–4
+        `intakeFields` (tsc's `Record<VerticalId,…>` exhaustiveness enforced it); `buildAgentPrompt` emits a
+        config-driven "## Intake Details" section (never required / never stall / skip when in a hurry or
+        emergency) telling the agent to record answers as "Label: value" lines inside the existing `notes`
+        param — zero Vapi tool-schema change, NH-1-safe; `bookAppointment`/`createLead` parse those lines into
+        `lead.intake`/`appointment.intake` (explicit `input.intake` wins; free-text notes and legacy docs
+        untouched); Pipeline renders intake as template-labeled rows; `jobPrefill` merges intake lines into job
+        notes (and the appointment→job path now carries appt notes too — previously dropped). Care-homes/
+        daycares intake is front-office-only (care level/room/move-in date; child age RANGE/program/start
+        date), no free-text fields, no health/identifying terms — test-asserted in both the template and the
+        prompt section. Gates: tsc clean, lint 0 errors/32 warnings (baseline), `vitest run` 717/717 (up from
+        673), `next build` green.
   - [ ] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). New `src/lib/verticals/starterKits.ts`
         (`Record<VerticalId, …>`): (a) a starter **catalog** for verticals with the `pricing` module (HVAC filters/
         refrigerant/labor tiers, roofing shingles/underlayment, electricians breakers/wire, landscaping mulch/

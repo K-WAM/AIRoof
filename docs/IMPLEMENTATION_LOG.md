@@ -1194,3 +1194,42 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   scrollIntoView, mirroring the existing appt- pattern (the ?lead= selection logic already existed).
 - Evidence: tsc clean; eslint 0 errors / 32 warnings (no new warnings in touched files); vitest 673/673
   (+5 callLinks tests); next build green.
+
+## T-100 — Structured per-industry intake fields
+- Date: 2026-09-23 · branch: task/intake-fields · commit: 3021d58
+- VerticalTemplate gains a required `intakeFields: IntakeField[]` block (key, label,
+  type text|select|yesno|date, optional options, appliesTo lead|appointment|both, required?: false —
+  the only legal value is false/absent so a field can never be marked required). All 13 verticals
+  declare 2–4 fields (dental: new-vs-returning + insurance + provider; hvac: system type/age/issue;
+  property mgmt: unit #, issue type, urgency, permission-to-enter (appointment-only); roofing: roof
+  type, insurance claim, active leak; cleaning: home size/bathrooms/frequency/pets; care homes &
+  daycares: front-office only — see hard rule below). Record<VerticalId, …> exhaustiveness made tsc
+  fail until every vertical declared it.
+- buildAgentPrompt now emits a config-driven "## Intake Details" section (from the business's
+  industry template; unknown industry fails open to no section): ask one at a time, never an
+  interrogation, never required / never stall — skip if the caller is in a hurry or it's an
+  emergency — and record answers into the existing "notes" parameter as parseable "Label: value"
+  lines. No Vapi tool schema change (the dashboard schema is NH-1 human-verified): intake rides the
+  existing notes param.
+- agentTools: new pure helpers intakeFieldsForIndustry / parseIntakeFromNotes / mergeIntake /
+  resolveIntake; bookAppointment and createLead persist an optional
+  `intake: Record<string,string>` on the lead/appointment, parsed from "Label: value" notes lines
+  keyed against that business's template labels (explicit input.intake map wins; free-text notes are
+  kept untouched, so legacy docs render exactly as before). Lead/Appointment types gain the optional
+  intake field — backward compatible.
+- Pipeline lead detail + appointment cards render intake as labeled rows using the template's labels
+  (dental sees "Insurance", property management sees "Unit number"); jobPrefill's buildJobPrefillUrl
+  merges intake into the job notes param as "Label: value" lines via formatIntakeLines, and the
+  appointment→job path now also carries the appointment's free-text notes (previously dropped).
+- Hard rule: care-homes + daycares intake is front-office only — care level / room preference /
+  desired move-in date, and child age RANGE / program / desired start date; no free-text fields, and
+  tests assert no health or identifying terms (diagnoses, allergies, medications, conditions,
+  presence/whereabouts, names, DOB) in their labels/options or prompt sections.
+- Tests: intake-fields.test.ts (completeness/validity/hard rules, 13 verticals), tools intake.test.ts
+  (parse/merge/precedence + createLead/bookAppointment persistence via an in-memory Firestore fake +
+  legacy-doc behavior), agentPromptBuilder intake-section tests (per-vertical output, hurry/emergency
+  skip, Label: value instruction, care-homes/daycares section scan, every vertical renders a
+  section), jobPrefill intake-lines tests.
+- Evidence: tsc clean; eslint 0 errors / 32 warnings (baseline unchanged, no new warnings in touched
+  files); vitest run 717/717 (up from 673); next build green (77 routes, /company/pipeline 129 kB
+  unchanged).
