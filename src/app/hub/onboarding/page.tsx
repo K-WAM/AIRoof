@@ -531,7 +531,7 @@ export default function OnboardingPage() {
             </div>
             <div className="panel-body">
               <p style={{ margin: "0 0 14px", color: "var(--text-muted)", fontSize: 13 }}>
-                Review every setup area before creating the inactive tenant. Test calls remain a post-create launch task.
+                Review every setup area before creating the tenant, which is initially flagged inactive. That flag does not hold the live line: calls can route here as soon as Vapi IDs are attached. Test the line before launch.
               </p>
               <div className="readiness-list">
                 {readinessChecks.map((check, index) => (
