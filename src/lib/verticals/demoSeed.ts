@@ -64,6 +64,7 @@ const RESOURCES: Record<VerticalId, string[]> = {
   electricians: ["Danny Crew", "Spark Crew", "Panel Team", "Emergency Response", "Wiring Crew"],
   "appliance-repair": ["Sam T.", "Rita K.", "Miguel P.", "Dana W.", "After-hours On-call"],
   childcare: ["Jenna M.", "Priya S.", "Marcus T.", "Weekend Team", "After-hours On-call"],
+  daycares: ["Director — Ms. Alvarez", "Enrollment Coordinator", "Infant Room Lead", "Toddler Room Lead", "Pre-K Room Lead"],
   "junk-removal": ["Truck 1 Crew", "Truck 2 Crew", "Cleanout Crew", "Heavy Haul Team", "Same-Day Crew"],
 };
 

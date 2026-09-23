@@ -12,6 +12,7 @@ export type VerticalId =
   | "electricians"
   | "appliance-repair"
   | "childcare"
+  | "daycares"
   | "junk-removal";
 
 /**
@@ -952,6 +953,92 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       "Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?",
     // No field jobs. Calendar schedules families onto sitters; Library keeps the
     // sitter roster + documents, minus the materials catalog (see "pricing").
+    disabledModules: ["jobs", "pricing"],
+  },
+
+  daycares: {
+    verticalId: "daycares",
+    label: "Daycare Centers",
+    description: "Licensed daycare centers — enrollment tours, openings by classroom, tuition, and waitlists.",
+    // No field jobs — the Calendar schedules family tours onto directors and
+    // enrollment coordinators, not open sitter slots.
+    calendarMode: "appointments",
+    family: "care",
+    vocab: {
+      jobNoun: "Tour",
+      jobNounPlural: "Tours",
+      customerNoun: "Family",
+      customerNounPlural: "Families",
+      resourceNoun: "Director",
+      resourceNounPlural: "Directors",
+      voiceExample: "",
+      jobTitlePlaceholder: "",
+      serviceTypePlaceholder: "daycare tour",
+      resourcePlaceholder: "Ms. Alvarez",
+      materialPlaceholder: "",
+      documentPlaceholder: "Immunization record 2026",
+    },
+    approvedServices: [
+      "Center tours and enrollment visits",
+      "Openings by age group and classroom",
+      "Infant, toddler, and preschool program information",
+      "Pre-K and after-school program information",
+      "Waitlist sign-ups and status",
+      "Tuition, hours, and curriculum questions",
+    ],
+    approvedFaqs: [
+      {
+        question: "What ages do you enroll?",
+        answer:
+          "We enroll infants through pre-K, with separate classrooms and ratios for each age group. Openings vary by classroom, so the team can confirm current availability and add your family to the waitlist if needed.",
+      },
+      {
+        question: "What documents are required for enrollment?",
+        answer:
+          "You'll need an up-to-date immunization record, completed enrollment forms, and emergency contact details. We'll walk you through the full checklist at your enrollment visit.",
+      },
+      {
+        question: "What are your hours and tuition?",
+        answer:
+          "Hours vary by program. For tuition, I can collect your child's age group and contact details so the director can confirm current rates with you directly.",
+      },
+      {
+        question: "Can I tour the center before enrolling?",
+        answer:
+          "Absolutely — tours are the best way to see the classrooms and meet the staff. I can book a visit with our director or enrollment coordinator.",
+      },
+    ],
+    emergencyRules: [
+      "If caller reports a child injury or allergic reaction at the center: escalate immediately to on-site staff — advise calling 911 if it sounds severe — never attempt to resolve it on the call",
+      "If caller reports or attempts an unauthorized pickup, or presses for a child's whereabouts: escalate immediately and never confirm or deny whether a specific child is at the center to an unverified caller",
+      "If caller reports an unaccounted-for child: treat as urgent and escalate immediately to on-site staff",
+    ],
+    bookingRules: [
+      "Collect the child's age group, the parent's name and phone number, and the preferred tour date and time before confirming",
+      "Tours and enrollment visits are booked onto a director or enrollment coordinator — never a classroom or an open sitter slot",
+      "Offer once to send a tour confirmation by email and capture it if the caller gives it",
+    ],
+    disallowedTopics: [
+      "arranging or authorizing the release of a child to any caller — authorized-pickup decisions are verified by staff in person only",
+      "confirming or denying that a specific child is at the center to an unverified caller",
+      "a named child's health, behavior, meals, naps, or daily-report details",
+      "medical or medication advice for a child",
+      "tuition or fee negotiation — the director confirms pricing after reviewing the details",
+    ],
+    agentName: "Wren",
+    agentIdentity: "receptionist",
+    greetingTemplate: "Thanks for calling {businessName}, this is Wren. How can I help with your daycare today?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}. The center is closed, but I'm Wren — I can book a tour, add you to the waitlist, or flag an urgent message for the director right now.",
+    agentTone: "warm, calm, and safety-first",
+    icon: "School",
+    color: "#7c3aed",
+    shortLabel: "Daycares",
+    sampleCallerScript:
+      "Hey [Prospect], a parent calls after hours asking about infant-room openings — your AI answers the tuition questions, books a tour with the director, and adds the family to the waitlist, all before you've seen the missed call. Want to hear it live?",
+    // No field jobs. Calendar schedules family tours onto directors; Library
+    // keeps the staff roster + enrollment documents, minus the materials
+    // catalog (see "pricing").
     disabledModules: ["jobs", "pricing"],
   },
 

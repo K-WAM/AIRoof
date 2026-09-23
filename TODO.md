@@ -55,8 +55,9 @@ onboarding→team-invite flow (2026-09-08) found the whole chain connected and c
 gaps it surfaced are tracked as Phase 11 (T-081–086 below), none demo-blocking.
 
 **Baseline facts:** scoped implementation 100% (production certification still pending the `NEEDS-HUMAN`
-items below); `main` is one commit ahead of `origin/main` (`6d9157e`, T-095 — committed locally 2026-09-23,
-awaiting owner push approval); production `/api/health` reports Firestore connected and
+items below); `main` is ahead of `origin/main` with unpushed local work (T-095 base-URL parameterization,
+the Phase 14 TODO entries, and the merged T-098/T-099 verticals — all 2026-09-23, awaiting owner push
+approval); production `/api/health` reports Firestore connected and
 OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 11 industries (see
 `src/lib/verticals/templates.ts`).
 
@@ -83,7 +84,7 @@ an active queue.*
 | 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
-| 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ⬜ **queued, not started — 0/2** | Independent; same `VerticalTemplate` pattern as every prior vertical (T-078 etc.) |
+| 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 
 ### Checklist
 
@@ -553,8 +554,8 @@ an active queue.*
         console/account-access actions, not integrator-doable. Product name for the new domain: **RAM**
         (owner-picked, 2026-09-16).
 
-- [ ] Phase 14 — New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) — 0/2, queued, not started
-  - [ ] T-098 — **review** — New vertical: **Care Homes** (assisted living / residential/senior care facilities). Follow the
+- [x] Phase 14 — New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) — 2/2, merged to `main` locally, not pushed
+  - [x] T-098 — New vertical: **Care Homes** (assisted living / residential/senior care facilities). Follow the
         same `VerticalTemplate` pattern as every prior vertical (`src/lib/verticals/templates.ts` — one config
         block, `disabledModules`/`calendarMode`/`vocab`-driven, no hardcoded per-industry logic elsewhere; adding
         the new `VerticalId` union member will make `tsc` fail on every consumer until each is handled, same
@@ -583,7 +584,14 @@ an active queue.*
         — no new UI patterns — matching the Toggle/Modal/QuickAdd/PageSkeleton conventions Phase 9 already
         established, so it reads "simple, intuitive, fast, modern" by inheriting the same polish every other
         vertical already has, not by inventing something bespoke.
-  - [ ] T-099 — New vertical: **Daycares** (licensed early-childhood/daycare centers) — deliberately **distinct
+        **Shipped 2026-09-23** (Codex, `task/care-homes` `1ec95c0`, merged `--no-ff`): template inserted after
+        `dental`; agent "Elena", icon `HeartHandshake`, color `#7f3f55` (distinct + 4.5:1 white-text contrast,
+        asserted in `family-palette.test.ts`). Resident health/medication/diagnosis/named-resident-confirmation
+        are `disallowedTopics`; falls, elopement, and alleged neglect escalate to live staff. New
+        `care-homes.test.ts` verifies those rules reach the `buildAgentPrompt` output. **Not verified:** actual
+        live-call behavior — the tests prove the boundaries are *in the prompt*, not that the voice model obeys
+        them on a real call (see NH-18). No `DEMO_LINE_PHONE` entry: no provisioned number for this vertical.
+  - [x] T-099 — New vertical: **Daycares** (licensed early-childhood/daycare centers) — deliberately **distinct
         from the existing `childcare` vertical** (`templates.ts` line ~785, "Childcare & Sitters" — individual
         sitter/nanny bookings, `resourceNoun: "Sitter"`). A licensed daycare *center* is a different business
         shape entirely: capacity/ratio-constrained classrooms, state-licensing requirements, and a facility to
@@ -606,6 +614,19 @@ an active queue.*
         escalation. Same closeout bar as T-098: own agent name/tone/icon/color (checked against the existing
         palette, distinct from `childcare`'s), demo seed data, onboarding-guide count update, and no new UI
         patterns — reuse the existing Calendar/Library/Dashboard conventions as-is.
+        **Shipped 2026-09-23** (Deepseek, `task/daycares` `80f1c4b`, merged `--no-ff`): template inserted after
+        `childcare`; agent "Wren", icon `School`, color `#7c3aed`, `resourceNoun: "Director"` (separate from
+        `childcare`'s "Sitter"). Pickup-release, child-presence confirmation, and named-child details are
+        `disallowedTopics`; injury/allergy, unauthorized pickup, and unaccounted child escalate immediately. New
+        `daycares.test.ts` (19 tests) includes an assertion that `daycares` and `childcare` stay separate
+        templates. **Not verified:** live-call behavior, same caveat as T-098 (NH-18).
+        **Integrator merge (2026-09-23):** both branches merged with `--no-ff`; conflicts only in the shared
+        files predicted up front — `family-palette.test.ts` (care family now
+        `["care-homes","childcare","daycares","dental"]`), `IMPLEMENTATION_LOG.md` (kept both entries), and
+        `onboarding-guide.html` (combined card list; all four "eleven" mentions → "thirteen"). Verified on the
+        merged tree: `tsc` clean; `vitest run` 663 tests, 3 concurrent-load timeouts on the first pass
+        (`send`/`example-lib`/`company/team` — the long-documented flakes), the isolated rerun 89/89 and a second
+        full run had zero failures; `next build` green, 77 routes (`/try/` now generates 13 verticals).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
@@ -1928,6 +1949,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-15 | Pick a real, confirmed-working Spanish voiceId in the Vapi dashboard's voice picker (test it on a real call first), then fill in `src/lib/vapi/voices.ts`'s `AGENT_VOICES.es` and thread it through `updateAssistantPersona` | T-093 (Spanish) full completion | The phone AI's Español toggle already switches the transcriber + prompt/greeting live; only the voice itself is unswitched (an English-named voice speaks the Spanish prompt in the meantime — a real, working degradation, not a broken one) |
 | NH-16 | Real-phone/Vapi-dashboard verification for T-093 (Spanish): record a Spanish field note on an actual phone and confirm the ES→EN badge + invoice line items; set a business to Español and call the demo line, then check in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH | T-093 gate table (Phase 6, `docs/PLATFORM-EXPANSION-PLAN.md`) | No phone/dashboard access in this sandbox — logic is unit-tested (transcriptEn fold guard, whisperPrompt, detectLanguage) but this specific live check has not been done |
 | NH-17 | Finish the `crm.luxordev.com` domain move: add the GoDaddy CNAME record, add the custom domain in Vercel, add it to Firebase Auth's authorized-domain list, set `NEXT_PUBLIC_APP_URL=https://crm.luxordev.com` in Vercel per environment, and decide whether to repoint the Vapi assistant's Server URL (or leave it on `ai-roof.vercel.app`) | Phase 13 completion | T-095's code side is done (2026-09-23) — every app-generated link now reads `NEXT_PUBLIC_APP_URL` with the old domain as a safe fallback, so this is purely console/account access (GoDaddy, Vercel, Firebase, Vapi dashboards), nothing left for the integrator to do first |
+| NH-18 | Live-call verification of the T-098/T-099 safety boundaries: launch Care Homes and Daycares in Demo Studio, call the demo line, and try the adversarial asks — a caller claiming to be family asking whether a named person is a resident / how they are doing (Care Homes); a caller asking to release a child, or asking whether a specific child is at the center (Daycares); plus a fall/elopement/injury report in each. Confirm the agent refuses to confirm/deny/discuss and escalates immediately | T-098/T-099 production sign-off | Unit tests prove the rules are present in the generated prompt (`buildAgentPrompt`), not that the voice model obeys them on a real call — this is the same class of gap as the 2026-09-07 gpt-realtime incident, where config that looked right didn't behave right live. No phone access in this sandbox. Neither vertical has its own provisioned number; they run on the shared `demo-roofing` line via Demo Studio |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
