@@ -190,6 +190,12 @@ export interface Lead {
   urgency: "low" | "normal" | "urgent" | "unknown";
   preferredTime?: string;
   notes?: string;
+  /**
+   * Structured per-industry intake answers (T-100), keyed by the vertical
+   * template's intake field `key`. Optional and backward compatible — legacy
+   * docs without it still render from `notes`.
+   */
+  intake?: Record<string, string>;
   sourceCallId?: string;
   status: "new" | "contacted" | "booked" | "closed" | "lost";
   // Outbound follow-up tracking
@@ -215,6 +221,12 @@ export interface Appointment {
   status: "requested" | "confirmed" | "cancelled" | "completed";
   sourceCallId?: string;
   notes?: string;
+  /**
+   * Structured per-industry intake answers (T-100), keyed by the vertical
+   * template's intake field `key`. Optional and backward compatible — legacy
+   * docs without it still render from `notes`.
+   */
+  intake?: Record<string, string>;
   // Set when Alice books outside business hours — needs a one-click morning confirmation.
   pendingConfirmation?: boolean;
   // Which crew/provider/vendor is taking this, assigned by dragging it on the

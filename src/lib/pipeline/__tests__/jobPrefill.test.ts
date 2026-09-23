@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
+import { buildJobPrefillUrl, formatIntakeLines } from "@/lib/pipeline/jobPrefill";
+import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 
 describe("buildJobPrefillUrl", () => {
   it("carries the shared name/phone/address/service fields for an appointment", () => {
@@ -48,5 +49,65 @@ describe("buildJobPrefillUrl", () => {
   it("escapes notes so free-text can never break the URL", () => {
     const url = buildJobPrefillUrl({ clientName: "A", notes: 'quote "marks" & ampersand & more', leadId: "l" });
     expect(url).toContain("quote+%22marks%22+%26+ampersand+%26+more");
+  });
+});
+
+// T-100 — structured intake is carried into the job's notes as "Label: value"
+// lines using the vertical template's labels.
+describe("formatIntakeLines", () => {
+  const dentalFields = VERTICAL_TEMPLATES.dental.intakeFields;
+
+  it("renders intake entries as Label: value lines in template order", () => {
+    const lines = formatIntakeLines(
+      { "patient-status": "New patient", insurance: "yes" },
+      dentalFields
+    );
+    expect(lines).toEqual(["New or returning patient: New patient", "Insurance: yes"]);
+  });
+
+  it("skips empty values and falls back to the key for unknown keys", () => {
+    const lines = formatIntakeLines(
+      { insurance: "yes", "insurance-provider": "  ", "some-future-key": "value" },
+      dentalFields
+    );
+    expect(lines).toEqual(["Insurance: yes", "some-future-key: value"]);
+  });
+
+  it("returns no lines for undefined intake or no fields", () => {
+    expect(formatIntakeLines(undefined, dentalFields)).toEqual([]);
+    expect(formatIntakeLines({ insurance: "yes" }, undefined)).toEqual(["insurance: yes"]);
+  });
+});
+
+describe("buildJobPrefillUrl — intake into notes (T-100)", () => {
+  const dentalFields = VERTICAL_TEMPLATES.dental.intakeFields;
+
+  it("appends intake lines to the notes param when a lead has intake", () => {
+    const url = buildJobPrefillUrl({
+      clientName: "Jane",
+      notes: "Wants a Saturday slot.",
+      intake: { "patient-status": "New patient", insurance: "yes" },
+      intakeFields: dentalFields,
+      leadId: "lead-9",
+    });
+    expect(url).toContain(
+      "notes=Wants+a+Saturday+slot.%0ANew+or+returning+patient%3A+New+patient%0AInsurance%3A+yes"
+    );
+  });
+
+  it("sets the notes param from intake alone when there are no free-text notes", () => {
+    const url = buildJobPrefillUrl({
+      clientName: "Jane",
+      intake: { insurance: "yes" },
+      intakeFields: dentalFields,
+      appointmentId: "A-2",
+    });
+    expect(url).toContain("notes=Insurance%3A+yes");
+    expect(url).toContain("appointmentId=A-2");
+  });
+
+  it("omits the notes param entirely when neither notes nor intake exist", () => {
+    const url = buildJobPrefillUrl({ clientName: "Solo", intake: {}, intakeFields: dentalFields });
+    expect(url).not.toContain("notes");
   });
 });

@@ -1,6 +1,11 @@
 import type { Appointment, Lead, AgentAction } from "@/types";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import {
+  VERTICAL_TEMPLATES,
+  type IntakeField,
+  type VerticalId,
+} from "@/lib/verticals/templates";
+import {
   claimOperation,
   completeOperationAttempt,
   createEmailOperationId,
@@ -179,6 +184,64 @@ export function scheduleBucketStarts(startTime: number, endTime: number): number
 
 export function scheduleLockId(resourceKey: string, bucketStart: number): string {
   return `${encodeURIComponent(resourceKey)}:${bucketStart}`;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Structured intake (T-100)
+//
+// The Vapi tool schema in the dashboard is human-verified (NH-1) and cannot be
+// changed from code, so intake answers travel inside the existing free-text
+// "notes" parameter as parseable "Label: value" lines. These helpers turn
+// those lines back into a structured map keyed by the vertical template's
+// field `key`, persisted as `lead.intake` / `appointment.intake` alongside the
+// untouched notes (legacy docs render from notes exactly as before).
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** The intake field definitions for a business's industry; [] when unknown. */
+export function intakeFieldsForIndustry(industry: unknown): IntakeField[] {
+  if (typeof industry !== "string") return [];
+  return VERTICAL_TEMPLATES[industry as VerticalId]?.intakeFields ?? [];
+}
+
+/** Parse "Label: value" lines out of free-text notes into a keyed map. */
+export function parseIntakeFromNotes(
+  notes: string | undefined,
+  fields: readonly IntakeField[]
+): Record<string, string> | undefined {
+  if (!notes) return undefined;
+  const labelToKey = new Map<string, string>();
+  for (const field of fields) {
+    labelToKey.set(field.label.trim().toLowerCase(), field.key);
+  }
+  const parsed: Record<string, string> = {};
+  for (const line of notes.split(/\r?\n/)) {
+    const match = line.match(/^\s*([^:\n]{1,80}?)\s*:\s*(.+?)\s*$/);
+    if (!match) continue;
+    const key = labelToKey.get(match[1].trim().toLowerCase());
+    if (key && match[2].trim()) parsed[key] = match[2].trim();
+  }
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
+}
+
+/** Merge parsed-from-notes values with an explicit intake map (explicit wins). */
+export function mergeIntake(
+  parsed: Record<string, string> | undefined,
+  explicit: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  const merged: Record<string, string> = { ...(parsed ?? {}), ...(explicit ?? {}) };
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+/** One-call resolution used by the booking/lead tools. */
+export function resolveIntake(input: {
+  industry?: unknown;
+  notes?: string;
+  intake?: Record<string, string>;
+}): Record<string, string> | undefined {
+  return mergeIntake(
+    parseIntakeFromNotes(input.notes, intakeFieldsForIndustry(input.industry)),
+    input.intake
+  );
 }
 
 export function isScheduleWithinBusinessHours(
@@ -402,6 +465,8 @@ export interface BookAppointmentInput {
   serviceType?: string;
   address?: string;
   notes?: string;
+  /** Structured intake (T-100). Also parsed from "Label: value" lines in notes. */
+  intake?: Record<string, string>;
   startTime: number;
   endTime: number;
   sourceCallId?: string;
@@ -426,24 +491,6 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
       "The requested appointment must be in the future."
     );
   }
-  const appointment: Appointment = {
-    appointmentId,
-    businessId: input.businessId,
-    callerName: input.callerName,
-    callerPhone: input.callerPhone,
-    callerEmail: input.callerEmail,
-    serviceType: input.serviceType,
-    address: input.address,
-    notes: input.notes,
-    startTime: input.startTime,
-    endTime: input.endTime,
-    calendarProvider: "mock",
-    status: "requested",
-    pendingConfirmation: true,
-    sourceCallId: input.sourceCallId,
-    createdAt: now,
-    updatedAt: now,
-  };
   const lockBuckets = scheduleBucketStarts(input.startTime, input.endTime);
   const lockRefs = lockBuckets.map((bucket) =>
     businessRef
@@ -452,7 +499,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
   );
   let businessData: Record<string, unknown> = {};
 
-  await db.runTransaction(async (transaction) => {
+  const appointment: Appointment = await db.runTransaction(async (transaction) => {
     const businessDoc = await transaction.get(businessRef);
     if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
     businessData = businessDoc.data() ?? {};
@@ -500,6 +547,29 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
       );
     }
 
+    const appointment: Appointment = {
+      appointmentId,
+      businessId: input.businessId,
+      callerName: input.callerName,
+      callerPhone: input.callerPhone,
+      callerEmail: input.callerEmail,
+      serviceType: input.serviceType,
+      address: input.address,
+      notes: input.notes,
+      intake: resolveIntake({
+        industry: businessData.industry,
+        notes: input.notes,
+        intake: input.intake,
+      }),
+      startTime: input.startTime,
+      endTime: input.endTime,
+      calendarProvider: "mock",
+      status: "requested",
+      pendingConfirmation: true,
+      sourceCallId: input.sourceCallId,
+      createdAt: now,
+      updatedAt: now,
+    };
     for (const [index, lockRef] of lockRefs.entries()) {
       transaction.create(lockRef, {
         resourceKey: scheduleResourceKey(),
@@ -512,6 +582,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
       });
     }
     transaction.create(appointmentRef, appointment);
+    return appointment;
   });
 
   // Persistence is complete before notification. Delivery state lives in T-021,
@@ -569,6 +640,8 @@ export interface CreateLeadInput {
   address?: string;
   urgency: "low" | "normal" | "urgent" | "unknown";
   notes?: string;
+  /** Structured intake (T-100). Also parsed from "Label: value" lines in notes. */
+  intake?: Record<string, string>;
   sourceCallId?: string;
   callbackConsent?: boolean;
 }
@@ -611,6 +684,11 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     address: input.address,
     urgency: input.urgency,
     notes: input.notes,
+    intake: resolveIntake({
+      industry: bizData?.industry,
+      notes: input.notes,
+      intake: input.intake,
+    }),
     sourceCallId: input.sourceCallId,
     status: "new",
     callbackState,

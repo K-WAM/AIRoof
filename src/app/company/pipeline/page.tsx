@@ -7,6 +7,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -22,6 +23,7 @@ interface Lead {
   address?: string;
   urgency: string;
   notes?: string;
+  intake?: Record<string, string>;
   status: string;
   sourceCallId?: string;
   createdAt: number;
@@ -35,6 +37,7 @@ interface Appointment {
   serviceType?: string;
   address?: string;
   notes?: string;
+  intake?: Record<string, string>;
   startTime: number;
   endTime: number;
   status: string;
@@ -69,13 +72,38 @@ function formatCallTime(ms: number, tz: string): string {
   });
 }
 
+// T-100: structured intake rendered as labeled rows. Labels come from the
+// vertical template (see intakeLabelFor) so each industry sees its own words.
+function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; labelFor: (key: string) => string }) {
+  if (!intake) return null;
+  const entries = Object.entries(intake);
+  if (entries.length === 0) return null;
+  return (
+    <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+      {entries.map(([key, value]) => (
+        <div key={key} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.4 }}>
+          <span style={{ color: "#64748b", minWidth: 130, flexShrink: 0 }}>{labelFor(key)}</span>
+          <span style={{ color: "#0f172a", fontWeight: 600 }}>{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function PipelinePage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
-  const { vocab, isEnabled, ready: modulesReady } = useBusinessModules();
+  const { vocab, isEnabled, ready: modulesReady, industry } = useBusinessModules();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
+
+  // T-100: intake labels come from the vertical template so a dental office
+  // sees "Insurance" and property management sees "Unit number" — never a raw
+  // camelCase key. Unknown industry fails open to the key itself.
+  const intakeFields = industry ? getVerticalTemplate(industry).intakeFields : [];
+  const intakeLabelFor = (key: string): string =>
+    intakeFields.find((field) => field.key === key)?.label ?? key;
 
   // A lead/appointment can only become a Job where the "jobs" module exists
   // (every appointments-mode industry — dental, childcare, care homes, … —
@@ -216,6 +244,9 @@ export default function PipelinePage() {
       clientPhone: appt.callerPhone ?? "",
       address: appt.address ?? "",
       serviceType: appt.serviceType ?? "",
+      notes: appt.notes ?? undefined,
+      intake: appt.intake,
+      intakeFields,
       appointmentId: appt.appointmentId,
       preview: preview ?? undefined,
     });
@@ -231,6 +262,8 @@ export default function PipelinePage() {
       address: lead.address ?? "",
       serviceType: lead.serviceRequested ?? "",
       notes: lead.notes ?? undefined,
+      intake: lead.intake,
+      intakeFields,
       leadId: lead.leadId,
       preview: preview ?? undefined,
     });
@@ -377,6 +410,7 @@ export default function PipelinePage() {
               &ldquo;{appt.notes.length > 120 ? appt.notes.slice(0, 120) + "…" : appt.notes}&rdquo;
             </p>
           )}
+          <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
         </div>
 
         <div className="appt-actions">
@@ -628,6 +662,8 @@ export default function PipelinePage() {
                     {selectedLead.notes && (
                       <p style={{ marginTop: 12, fontSize: 14, color: "#444" }}>{selectedLead.notes}</p>
                     )}
+
+                    <IntakeRows intake={selectedLead.intake} labelFor={intakeLabelFor} />
 
                     <div className="lead-actions" style={{ marginTop: 18 }}>
                       <button

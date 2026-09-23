@@ -1,5 +1,6 @@
 // Builds strict system prompt from BusinessConfig — controls what agent says
 import type { BusinessConfig } from "@/types";
+import { VERTICAL_TEMPLATES, type IntakeField, type VerticalId } from "@/lib/verticals/templates";
 
 export interface PromptOptions {
   /** True when there are already prior turns in the conversation. Suppresses the greeting instruction so the agent doesn't re-introduce itself. */
@@ -74,6 +75,8 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
     ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back the last four digits, e.g. "I've got your number ending in ${last4} — is that the best one to reach you?" Only collect a different number if they ask you to.`
     : `- Phone number: ask for the best callback number once and read it back to confirm.`;
 
+  const intakeSection = buildIntakeSection(businessConfig.industry);
+
   return `You are ${agentName}, the ${agentIdentity} for ${businessConfig.businessName}, a ${businessConfig.industry} business.
 
 ${conversationContext}
@@ -120,12 +123,10 @@ ${businessConfig.emergencyRules.map((rule) => `- ${rule}`).join("\n")}
 ${businessConfig.bookingRules.map((rule) => `- ${rule}`).join("\n")}
 
 The booking tool has fields for name, phone, email, service type, address, and time.
-Anything else these rules ask you to collect (for example a date of birth, insurance
-provider, unit number, system brand, or property size) has no dedicated field — put it
-in "notes" so the team sees it. Only ask for what the rules above actually require:
+Anything else these rules ask you to collect has no dedicated field — put it in
+"notes" so the team sees it. Only ask for what the rules above actually require:
 if they don't mention an address, don't ask for one.
-
-## Collecting Contact Details
+${intakeSection ? `\n${intakeSection}\n` : ""}## Collecting Contact Details
 ${phoneInstruction}
 - Email (OPTIONAL — never required): collecting an email by phone is awkward, so keep it light. You may offer once to send a confirmation by email; if they give it, include it as "email" when you call the booking/lead tool. If they hesitate, struggle to spell it, or decline, drop it immediately and move on. Never insist, never spell it back letter-by-letter unless they ask, and never let the email hold up the booking.
 
@@ -153,4 +154,41 @@ If asked about disallowed topics, respond:
 "I can only help with ${businessConfig.businessName} services, scheduling, or messages for the team. Would you like to book an appointment or leave a message?"
 
 Remember: You are representing ${businessConfig.businessName}. Stay professional, helpful, and within scope.`;
+}
+
+/**
+ * T-100 — structured per-industry intake. Reads the vertical template's
+ * `intakeFields` (unknown industry fails open to no section) and tells the
+ * agent to collect them conversationally, never required, and to record each
+ * answer as a parseable "Label: value" line inside the booking/lead tool's
+ * existing "notes" parameter — the Vapi tool schema in the dashboard is
+ * human-verified (NH-1), so intake travels through the existing notes field
+ * rather than any schema change.
+ */
+function buildIntakeSection(industry: string): string {
+  const fields: IntakeField[] =
+    VERTICAL_TEMPLATES[industry as VerticalId]?.intakeFields ?? [];
+  if (fields.length === 0) return "";
+
+  const lines = fields
+    .map((field) => {
+      const options =
+        field.options && field.options.length > 0
+          ? ` (${field.options.join(" / ")})`
+          : "";
+      const yesno = field.type === "yesno" ? " (yes/no)" : "";
+      const applies =
+        field.appliesTo === "appointment"
+          ? " — when booking only"
+          : field.appliesTo === "lead"
+            ? " — when taking a message only"
+            : "";
+      return `- ${field.label}${options}${yesno}${applies}`;
+    })
+    .join("\n");
+
+  return `## Intake Details
+Beyond the core booking information, ask about these details as they come up naturally — one at a time, conversationally, never as an interrogation:
+${lines}
+These are never required — never stall a booking on them. If the caller doesn't know an answer, is in a hurry, or this is an emergency, skip whatever is left and finish the booking. When you call the bookAppointment or createLead tool, write each answer you did collect into "notes" on its own line, exactly as "Label: value" (for example "Insurance: yes"). Keep everything else in notes as ordinary sentences, not in that format.`;
 }
