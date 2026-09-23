@@ -69,7 +69,7 @@ describe("T-056 per-industry visual families", () => {
       },
       { field: [], care: [], ops: [] },
     );
-    expect(byFamily.care.sort()).toEqual(["childcare", "dental"]);
+    expect(byFamily.care.sort()).toEqual(["childcare", "daycares", "dental"]);
     expect(byFamily.ops).toEqual(["property-management"]);
     expect(byFamily.field).toHaveLength(8);
   });

@@ -1076,3 +1076,48 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   isolated rerun, matches the documented pattern from the 2026-08-23 entry); `npm run build` green, 48 routes
   (unchanged route count — no new pages were needed).
 - **Pushed** both commits to `origin/main`.
+
+---
+
+## T-099 — New vertical: Daycares
+
+- Date: 2026-09-23 · branch: `task/daycares` · commit: `T-099: add Daycares vertical` (single commit,
+  this entry ships inside it — hash via `git log --grep "T-099"`).
+- Added `daycares` to the `VerticalId` union and a full `VerticalTemplate` block in
+  `src/lib/verticals/templates.ts`, inserted immediately after `childcare` (per the merge-cleanliness
+  instruction). Shape: `calendarMode: "appointments"`, `family: "care"`,
+  `disabledModules: ["jobs","pricing"]`; vocab `customerNoun` Family/Families, `jobNoun` Tour/Tours,
+  `resourceNoun` Director/Directors (never "Sitter"); tours/enrollment visits book onto a director or
+  enrollment coordinator. Front-office scope only (Brightwheel/Procare/HiMama's enrollment side): openings
+  by age group/classroom, tuition, hours, curriculum, required enrollment documents (immunization records),
+  waitlist, tour booking, existing-parent routing, staff call-outs. The agent never checks a child in/out,
+  never says which children are present, never discusses a named child's day/health/behavior.
+- Safety boundaries (daycare equivalent of dental's PHI discipline): `disallowedTopics` includes
+  "arranging or authorizing the release of a child… verified by staff in person only", "confirming or
+  denying that a specific child is at the center to an unverified caller", "a named child's health,
+  behavior, meals, naps, or daily-report details", medical/medication advice, and tuition negotiation;
+  `emergencyRules` escalate child injury/allergic reaction immediately (911 if severe), unauthorized-pickup
+  attempts / child-whereabouts pressure immediately with no presence confirmation, and unaccounted-for-child
+  as urgent immediate escalation.
+- Identity: agent "Wren", tone "warm, calm, and safety-first", icon `School`, color `#7c3aed` (verified
+  distinct from all 11 existing template colors and from childcare's name/color/icon). No
+  `DEMO_LINE_PHONE` entry added; Vapi tools, `agentTools.ts`, and the webhook untouched.
+- Consumers fixed: `VERTICAL_ICONS` in `src/app/hub/demo/page.tsx` (School, inserted after childcare) and
+  `RESOURCES` in `src/lib/verticals/demoSeed.ts` (Director — Ms. Alvarez, Enrollment Coordinator, Infant
+  Room Lead, Toddler Room Lead, Pre-K Room Lead, inserted after childcare). `demoSeedFor("daycares")` yields
+  draggable/unassigned appointments plus an after-hours `pendingConfirmation` booking with email.
+- Tests: `family-palette.test.ts` care-family membership updated to
+  `["childcare","daycares","dental"]` (T-099's gates only — integrator reconciles with T-098's value at
+  merge). New `src/lib/verticals/__tests__/daycares.test.ts`, 19 tests, negative-first: (a) disallowedTopics
+  cover pickup-release, child-presence confirmation, named-child details; (b) emergencyRules cover
+  injury/allergy, unauthorized pickup, unaccounted child; (c) `buildAgentPrompt` output carries those
+  boundaries; (d) `demoSeedFor("daycares")` rows > 0, draggable > 0, pendingConfirmation + email present;
+  (e) `daycares` and `childcare` remain separate templates with different `vocab.resourceNoun`.
+- `public/guides/onboarding-guide.html`: daycares added to the cover industry list, the "Eleven cards" list
+  ("eleven" wording left intact for the integrator's final count), the quick-reference table (Wren · Tours →
+  Directors · dashboard QR), and the per-industry pitch-card grid (after childcare).
+- Verification: `npm run type-check` clean; `npm run lint` 0 errors / 32 warnings (no new warnings — none
+  in touched files); `vitest run` 656/658 with the two failures being known concurrent-load timeouts
+  (`example-lib.test.ts` verifyVapiWebhook, `company/team/route.test.ts` PATCH outside business) — both
+  18/18 clean on isolated rerun; targeted `family-palette.test.ts` + `daycares.test.ts` 23/23;
+  `npm run build` green (76 routes, `/try/[vertical]` SSG now 12 verticals including daycares).

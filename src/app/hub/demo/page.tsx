@@ -12,6 +12,7 @@ import {
   Zap,
   Wrench,
   Baby,
+  School,
   Trash2,
   Presentation,
   ExternalLink,
@@ -57,6 +58,7 @@ const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
   electricians: Zap,
   "appliance-repair": Wrench,
   childcare: Baby,
+  daycares: School,
   "junk-removal": Trash2,
 };
 

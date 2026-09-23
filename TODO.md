@@ -583,7 +583,7 @@ an active queue.*
         — no new UI patterns — matching the Toggle/Modal/QuickAdd/PageSkeleton conventions Phase 9 already
         established, so it reads "simple, intuitive, fast, modern" by inheriting the same polish every other
         vertical already has, not by inventing something bespoke.
-  - [ ] T-099 — New vertical: **Daycares** (licensed early-childhood/daycare centers) — deliberately **distinct
+  - [x] T-099 — New vertical: **Daycares** (licensed early-childhood/daycare centers) — deliberately **distinct
         from the existing `childcare` vertical** (`templates.ts` line ~785, "Childcare & Sitters" — individual
         sitter/nanny bookings, `resourceNoun: "Sitter"`). A licensed daycare *center* is a different business
         shape entirely: capacity/ratio-constrained classrooms, state-licensing requirements, and a facility to
@@ -605,7 +605,8 @@ an active queue.*
         safety/legal boundary, not just tone); an unaccounted-for-child report is treated as urgent, immediate
         escalation. Same closeout bar as T-098: own agent name/tone/icon/color (checked against the existing
         palette, distinct from `childcare`'s), demo seed data, onboarding-guide count update, and no new UI
-        patterns — reuse the existing Calendar/Library/Dashboard conventions as-is.
+        patterns — reuse the existing Calendar/Library/Dashboard conventions as-is. **Status: `review`**
+        (worker branch `task/daycares`, 2026-09-23 — gates green, awaiting integrator merge with T-098).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
