@@ -86,6 +86,7 @@ an active queue.*
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
+| 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **assigned 2026-09-23** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
 
 ### Checklist
 
@@ -674,6 +675,31 @@ an active queue.*
         today's bookings/pending confirmations; daycares/care homes: tour requests this week) via a
         `Record<VerticalId, …>` tile config, not per-industry branches. Placeholder pricing is clearly labeled
         "edit to match your rates" — never presented as real market prices.
+
+- [ ] Phase 16 — Call Compliance & Voice (owner-added, 2026-09-23) — 0/2
+  - [ ] T-102 — **Per-tenant call-recording disclosure** (Deepseek). Found 2026-09-23: nothing in the agent
+        greeting/prompt tells callers a call may be recorded/transcribed (Florida is all-party consent; NH-4).
+        Add `recordingDisclosure?: { enabled: boolean; text?: string }` to BusinessConfig, **default ON with a
+        clearly-drafted default sentence** (owner/counsel can edit or turn off), composed into BOTH the normal and
+        after-hours greeting and mentioned in the prompt so the agent answers "yes, it may be recorded" honestly
+        if asked. Settings gets a small "Call recording notice" section (owner-editable, live preview of the
+        spoken greeting, and a note that wording should be reviewed by counsel). Pushes through the existing
+        `updateAssistantPersona` greeting path (do not change its speaking-plan preservation). Existing tenants
+        get the default without a migration (missing field = default on). Unit tests: greeting composition per
+        mode/language (Spanish variant of the default text), toggle off, custom text, fail-open for unknown
+        industry. Not legal advice — the default text is a draft.
+  - [ ] T-103 — **Per-tenant / per-language voice override** (Codex). `AGENT_VOICES` in `src/lib/vapi/voices.ts`
+        is hardcoded (`en: Savannah`) and unwired; `updateAssistantPersona` never sends `voice`, so a voice picked in
+        the Vapi dashboard survives persona pushes today — **keep that true by default**. Add optional
+        `voice?: { en?: VoiceRef; es?: VoiceRef }` (`VoiceRef` = provider `vapi|11labs|cartesia|openai` + voiceId
+        + optional model) to BusinessConfig; the superadmin-only business config page
+        (`src/app/admin/businesses/[businessId]/config`) gets fields to set them; `updateAssistantPersona` sends
+        `voice` ONLY when a voice is configured for the language being pushed (unset = leave the live voice exactly
+        as is — never revert a dashboard-chosen voice to a hardcoded default). Validate provider/voiceId shape
+        server-side; never echo secrets; keep startSpeakingPlan/stopSpeakingPlan preservation byte-for-byte. Delete
+        the misleading hardcoded `en` entry (or make it a documented example, not a default). Unit tests with
+        mocked fetch: unset → PATCH body has no `voice`; set → PATCH body has the exact voice; es↔en flips;
+        speaking plans preserved. This gives NH-15 (Spanish voice) a place to land without a code change.
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
