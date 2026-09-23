@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { countDashboardMetrics, tilesFor } from "@/lib/verticals/starterKits";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -37,6 +38,7 @@ interface JobSnapshot {
   clientName?: string;
   address?: string;
   status: string;
+  invoiceId?: string;
 }
 
 interface AgentSnapshot {
@@ -68,7 +70,7 @@ function fmtTime(ms: number, tz: string): string {
 export default function CompanyDashboardPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
-  const { isEnabled, ready: modulesReady, vocab } = useBusinessModules();
+  const { isEnabled, ready: modulesReady, vocab, industry } = useBusinessModules();
   const hasJobs = modulesReady && isEnabled("jobs");
   const searchParams = useSearchParams();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
@@ -179,12 +181,27 @@ export default function CompanyDashboardPage() {
   const apptTabHref = `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`;
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
-  const metrics = [
+  const genericMetrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
     { label: "Leads", value: leads.length, href: `/company/pipeline${previewSuffix}` },
     { label: "Urgent leads", value: trulyUrgentCount, href: `/company/pipeline${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
     { label: "Appointments", value: appointments.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}` },
   ];
+  const counts = countDashboardMetrics(leads, appointments, jobs, tz, Date.now());
+  const configuredTiles = tilesFor(industry);
+  // Tile counts come from the same bounded lists the rest of this page already loads (20 newest
+  // leads / 200 soonest appointments), so a very busy tenant's counts are "of the recent ones" —
+  // deliberately not a bigger fetch on the most-visited page. Total calls stays as the fourth tile.
+  const totalCallsTile = { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` };
+  const metrics = configuredTiles
+    ? [...configuredTiles.map((tile) => ({
+        label: tile.label,
+        value: counts[tile.metric],
+        href: tile.href === "jobs"
+          ? `/company/jobs${previewSuffix}`
+          : `/company/pipeline${previewSuffix ? `${previewSuffix}&tab=${tile.href === "appointments" ? "appointments" : "leads"}` : `?tab=${tile.href === "appointments" ? "appointments" : "leads"}`}`,
+      })), totalCallsTile]
+    : genericMetrics;
 
   const agentSettings = agent
     ? [

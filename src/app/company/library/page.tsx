@@ -26,7 +26,7 @@ type Section = "customers" | "pricing" | "crews" | "documents" | "branding";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
-  const { vocab, isEnabled } = useBusinessModules();
+  const { vocab, isEnabled, industry, ready: modulesReady } = useBusinessModules();
   // The materials/labor catalog only feeds job invoices — an intake business
   // (dental, property mgmt) has no use for it, but still needs the roster + docs.
   const hasPricing = isEnabled("pricing");
@@ -46,6 +46,8 @@ export default function LibraryPage() {
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loadingKit, setLoadingKit] = useState(false);
+  const [kitMessage, setKitMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -116,6 +118,30 @@ export default function LibraryPage() {
     }
   }
 
+  async function loadStarterKit() {
+    if (!businessId || !industry || !modulesReady || !isEnabled("library")) return;
+    setLoadingKit(true);
+    setActionError(null);
+    setKitMessage(null);
+    try {
+      const response = await fetch("/api/company/library/starter-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Starter kit could not be loaded");
+      setLibrary(result.library);
+      setKitMessage(result.added > 0
+        ? `Added ${result.added} starter item${result.added === 1 ? "" : "s"}. Review all templates and placeholder rates before use.`
+        : "Starter kit already loaded. Your changes were preserved.");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Starter kit could not be loaded.");
+    } finally {
+      setLoadingKit(false);
+    }
+  }
+
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError) {
     return (
@@ -140,8 +166,18 @@ export default function LibraryPage() {
               : `Your ${vocab.resourceNounPlural.toLowerCase()} and shared documents. ${vocab.resourceNounPlural} appear as rows on the Calendar.`}
           </p>
         </div>
-        {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
+          {modulesReady && industry && isEnabled("library") && (
+            <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
+              {loadingKit ? "Loading…" : "Load starter kit"}
+            </button>
+          )}
+        </div>
       </header>
+
+      {kitMessage && <p role="status" style={{ margin: "0 0 16px", color: "var(--accent)" }}>{kitMessage}</p>}
+      {hasPricing && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Items marked “Starter” carry example prices — edit each price to match your rates before invoicing.</p>}
 
       {actionError && (
         <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
@@ -222,9 +258,9 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {materials.map((m, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} /></td>
+                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} />{m.starter && <StarterBadge />}</td>
                   <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
                   <td style={td}>
                     <Tooltip content="Remove">
                       <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" aria-label={`Remove ${m.name || "material"}`}>
@@ -258,8 +294,8 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {laborRates.map((l, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
+                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} />{l.starter && <StarterBadge />}</td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
                   <td style={td}>
                     <Tooltip content="Remove">
                       <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" aria-label={`Remove ${l.role || "role rate"}`}>
@@ -462,7 +498,11 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
           {docs.map((d) => (
             <div key={d.docId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
               <FileText size={18} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0 }} />
-              <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>{d.name} ↗</a>
+              <a
+                href={d.b64 ? `data:${d.mimeType ?? "text/plain"};base64,${d.b64}` : d.url}
+                {...(d.b64 ? { download: `${d.name.replace(/[^a-z0-9-]+/gi, "-")}.txt` } : { target: "_blank", rel: "noopener noreferrer" })}
+                style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}
+              >{d.name} {d.b64 ? "↓" : "↗"}</a>
               <Tooltip content="Remove">
                 <button onClick={() => removeDoc(d.docId)} className="icon-del" aria-label={`Remove ${d.name}`}>
                   <Trash2 size={14} strokeWidth={1.75} />
@@ -490,3 +530,8 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#64748b", fontSize: 12 };
 const td: React.CSSProperties = { padding: "6px 12px" };
 const cell: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%", outline: "none", fontFamily: "inherit" };
+
+// A starter-kit item whose example price the tenant hasn't reviewed yet (cleared on the first price edit).
+function StarterBadge() {
+  return <span className="chip" style={{ marginLeft: 8, fontSize: 11, whiteSpace: "nowrap" }} title="Example price from the starter kit — edit it to match your rates">Starter — review price</span>;
+}

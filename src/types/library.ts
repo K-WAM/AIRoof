@@ -5,11 +5,15 @@ export interface LibraryMaterial {
   name: string;
   unit: string;
   unitPrice: number;
+  /** Seeded by a starter kit with an example price the tenant hasn't reviewed yet; cleared on the first price edit. */
+  starter?: boolean;
 }
 
 export interface LibraryLaborRate {
   role: string;
   rate: number; // $/hr
+  /** Same meaning as LibraryMaterial.starter. */
+  starter?: boolean;
 }
 
 export interface LibraryDocument {

@@ -85,7 +85,7 @@ an active queue.*
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
-| 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | 🕓 **in progress — T-100 done (→ review), T-101 in flight** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
+| 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 
 ### Checklist
 
@@ -629,7 +629,7 @@ an active queue.*
         (`send`/`example-lib`/`company/team` — the long-documented flakes), the isolated rerun 89/89 and a second
         full run had zero failures; `next build` green, 77 routes (`/try/` now generates 13 verticals).
 
-- [ ] Phase 15 — Industry Peripherals (owner-added, 2026-09-23) — 1/2
+- [x] Phase 15 — Industry Peripherals (owner-added, 2026-09-23) — 2/2
       **Principle (owner, 2026-09-23):** the skeleton (Dashboard/Calls/Pipeline/Calendar/Library/Settings, the
       call→lead→appointment→job flow) stays identical for every industry. Only *peripherals* differ, and each
       one lives in ONE per-vertical record typed `Record<VerticalId, …>` so `tsc` fails until a new vertical
@@ -658,11 +658,11 @@ an active queue.*
         `lead.intake`/`appointment.intake` (explicit `input.intake` wins; free-text notes and legacy docs
         untouched); Pipeline renders intake as template-labeled rows; `jobPrefill` merges intake lines into job
         notes (and the appointment→job path now carries appt notes too — previously dropped). Care-homes/
-        daycares intake is front-office-only (care level/room/move-in date; child age RANGE/program/start
+        daycares intake is front-office-only (community type/room/move-in date; child age RANGE/program/start
         date), no free-text fields, no health/identifying terms — test-asserted in both the template and the
         prompt section. Gates: tsc clean, lint 0 errors/32 warnings (baseline), `vitest run` 717/717 (up from
         673), `next build` green.
-  - [ ] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). New `src/lib/verticals/starterKits.ts`
+  - [x] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). **Status: review (Worker C, `task/starter-kits`).** New `src/lib/verticals/starterKits.ts`
         (`Record<VerticalId, …>`): (a) a starter **catalog** for verticals with the `pricing` module (HVAC filters/
         refrigerant/labor tiers, roofing shingles/underlayment, electricians breakers/wire, landscaping mulch/
         sod/hourly, cleaning flat-rate-by-size, GC/trades); (b) starter **document templates** for every vertical
