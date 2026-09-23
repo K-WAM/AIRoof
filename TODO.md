@@ -81,10 +81,11 @@ an active queue.*
 | 8 Hardening, Performance & Discoverability (owner-added) | T-061…T-074 | not CIB-weighted | 🕓 **in progress — 12/14** | Owner prioritization pending |
 | 9 UI/UX Modernization Pass (owner-added, 2026-09-06) | T-075… | not CIB-weighted | 🕓 **in progress — 4 slices done** | Open-ended, self-selected per slice |
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
-| 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
+| 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **6/7 — only T-081 (Stripe key in Vercel, NH-14) left, human-only** | T-082–T-086 closed 2026-09-23; T-082's real gating fix is an owner decision (NH-19) |
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
+| 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | 🕓 **assigned 2026-09-23** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 
 ### Checklist
 
@@ -628,6 +629,40 @@ an active queue.*
         (`send`/`example-lib`/`company/team` — the long-documented flakes), the isolated rerun 89/89 and a second
         full run had zero failures; `next build` green, 77 routes (`/try/` now generates 13 verticals).
 
+- [ ] Phase 15 — Industry Peripherals (owner-added, 2026-09-23) — 0/2
+      **Principle (owner, 2026-09-23):** the skeleton (Dashboard/Calls/Pipeline/Calendar/Library/Settings, the
+      call→lead→appointment→job flow) stays identical for every industry. Only *peripherals* differ, and each
+      one lives in ONE per-vertical record typed `Record<VerticalId, …>` so `tsc` fails until a new vertical
+      declares it (same rule as `templates.ts`). Never a per-industry `if` in a shared page. Fail-open: an
+      unknown/blank industry shows the generic experience, never a hole. T-100 and T-101 have zero file
+      overlap by design — T-100 owns `templates.ts`, T-101 owns a new `starterKits.ts`.
+  - [ ] T-100 — Structured per-industry **intake fields** (Deepseek). Today extra booking data (DOB/insurance,
+        unit no., system age, roof type, child age, tour date, …) is stuffed into free-text `notes`. Add an
+        `intakeFields` block to `VerticalTemplate` (`key`, `label`, `type: text|select|yesno|date`, optional
+        `options`, `appliesTo: lead|appointment|both`, `required?: false` default — the AI must never stall a
+        call on a field). `buildAgentPrompt` asks for them naturally; the booking/lead tools persist them as
+        `intake: Record<string,string>` on the lead/appointment (keep the `notes` fallback for legacy docs and
+        keep the Vapi tool JSON-schema backward compatible — the dashboard schema is NEEDS-HUMAN NH-1, so
+        prefer carrying intake inside the existing `notes`/a new optional param the model can omit); Pipeline
+        lead/appointment detail shows them as labeled rows (labels from the template, so a dental office sees
+        "Insurance", property management sees "Unit #"); the T-083 job-prefill carries them into job notes.
+        **Hard rules:** care homes + daycares intake must NOT collect resident/child health or identifying
+        detail beyond what T-098/T-099's front-office-only rules already allow (tour interest, child age
+        range, start date — never diagnoses, allergies, or "is X there"). Unit tests for prompt output + tool
+        persistence + the per-vertical `Record` completeness.
+  - [ ] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). New `src/lib/verticals/starterKits.ts`
+        (`Record<VerticalId, …>`): (a) a starter **catalog** for verticals with the `pricing` module (HVAC filters/
+        refrigerant/labor tiers, roofing shingles/underlayment, electricians breakers/wire, landscaping mulch/
+        sod/hourly, cleaning flat-rate-by-size, GC/trades); (b) starter **document templates** for every vertical
+        (service agreement/estimate for field trades; new-patient form + cancellation policy for dental; tour
+        follow-up + enrollment checklist for daycares; visit-request policy for care homes; work-order policy for
+        property management). Library gets a one-click "Load starter kit" (idempotent — never duplicates or
+        overwrites tenant edits; respects `disabledModules`). Dashboard gets 2–3 vertical-specific KPI tiles
+        drawn from data that already exists (e.g. field trades: open jobs/uninvoiced; appointment verticals:
+        today's bookings/pending confirmations; daycares/care homes: tour requests this week) via a
+        `Record<VerticalId, …>` tile config, not per-industry branches. Placeholder pricing is clearly labeled
+        "edit to match your rates" — never presented as real market prices.
+
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
@@ -720,7 +755,7 @@ an active queue.*
         interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
         server console.
 
-- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 4/7
+- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 6/7
       Found during a full end-to-end trace of the roofing demo→job→invoice pipeline and the
       onboarding→team-invite flow, requested ahead of a demo the following week (see the 2026-09-08 entry in
       "Current snapshot" above for the full audit — everything traced was confirmed connected and
