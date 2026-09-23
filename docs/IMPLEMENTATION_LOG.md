@@ -1130,3 +1130,33 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   (`example-lib.test.ts` verifyVapiWebhook, `company/team/route.test.ts` PATCH outside business) — both
   18/18 clean on isolated rerun; targeted `family-palette.test.ts` + `daycares.test.ts` 23/23;
   `npm run build` green (76 routes, `/try/[vertical]` SSG now 12 verticals including daycares).
+
+---
+
+## T-082 — Honest onboarding line status copy
+
+- Branch: `task/honest-copy`; commit: this T-082 commit.
+- Evidence: onboarding wizard and go-live guide now state that inactive is a portal flag, while attached Vapi IDs allow live-call routing. `resolveBusinessId()` remains untouched.
+- Owner decision: NH-19 records the risk of silently dropping live calls if an `active` gate is added.
+- Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests).
+- Removals: none.
+
+---
+
+## T-085 — Distinguish customer invoices from Luxor billing
+
+- Branch: `task/honest-copy`; commit: this T-085 commit.
+- Evidence: the Job Invoice tab has a muted `.no-print` helper line, outside `.invoice-doc`, and the onboarding demo guide explains the separate Stripe links under `/admin/invoices`.
+- Scope: invoice totals, persistence, letterhead, and emailed HTML unchanged.
+- Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests).
+- Removals: none.
+
+---
+
+## T-086 — Keep the revived persisted invoice route
+
+- Branch: `task/honest-copy`; commit: this T-086 commit.
+- Evidence: `src/app/api/jobs/[jobId]/invoice/route.ts` exports GET, POST, PATCH; POST returns an existing invoice unless `force` rebuilds a still-draft invoice. `src/app/company/jobs/[jobId]/page.tsx` calls GET for hydration, POST for generation/regeneration, and PATCH for draft autosave.
+- Decision: TODO marked stale and closed. No route or caller was deleted.
+- Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests); the once-per-batch `npm run build` passed (77 static pages).
+- Removals: none.

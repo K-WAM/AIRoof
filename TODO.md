@@ -720,7 +720,7 @@ an active queue.*
         interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
         server console.
 
-- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 1/7
+- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 4/7
       Found during a full end-to-end trace of the roofing demo→job→invoice pipeline and the
       onboarding→team-invite flow, requested ahead of a demo the following week (see the 2026-09-08 entry in
       "Current snapshot" above for the full audit — everything traced was confirmed connected and
@@ -728,24 +728,22 @@ an active queue.*
   - [ ] T-081 — Set `STRIPE_SECRET_KEY` in Vercel so T-080's already-deployed payment-link button actually
         works (`/api/health` currently reports `stripe: "not_configured"` in production). Env-var entry only,
         needs the owner's Stripe dashboard access — not self-executable.
-  - [ ] T-082 — Decide whether `business.active` should actually gate the live Vapi phone line (it currently
-        doesn't — `resolveBusinessId()` routes calls purely on `vapiAssistantId`/`vapiPhoneNumberId` matching,
-        with no `active` check at all; the flag only gates the internal `/api/agent/respond` test endpoint and
-        shows as a status tag on `/admin/businesses`). At minimum, correct the onboarding wizard's "review
-        before creating the inactive tenant" copy so it doesn't imply a phone-line hold that isn't real; a
-        real fix would add the check to `resolveBusinessId()`.
+  - [x] T-082 — Corrected onboarding wizard and go-live guide copy: `business.active` does not gate the
+        live Vapi line; calls can route once Vapi assistant/phone IDs are attached. Whether to add an
+        `active` check to `resolveBusinessId()` is an owner decision (NH-19); changing it could silently drop
+        calls on an existing live line. No routing logic changed.
   - [ ] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
         one Appointments already has, for a lead that needs to become work without ever going through a
         formal booked appointment.
   - [ ] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
         supports the `?lead=`/`?appt=` deep-link — Calendar's "Bookings" strip already uses it in the other
         direction).
-  - [ ] T-085 — Make the two invoicing systems' distinct purposes explicit in the UI/guide: the job-level
-        invoice (Job detail → Invoice tab) is a draft the tenant emails its own customer with no online payment
-        option; T-080's Stripe Payment Links are only for Luxor billing the tenant. Worth a one-line label or
-        guide note so nobody promises a customer can pay online from the job invoice today.
-  - [ ] T-086 — Delete (or wire up) the dead `POST /api/jobs/[jobId]/invoice` route — zero callers since
-        T-077 replaced it with client-side generation, flagged then, still true now.
+  - [x] T-085 — Clarified in the Job Invoice tab and onboarding guide that tenants can email job
+        invoices to their customers without online payment; Stripe Payment Links in `/admin/invoices`
+        are only for Luxor billing tenants. Invoice totals, persistence, and letterhead unchanged.
+  - [x] T-086 — obsolete — route revived by T-092, has callers. Job detail uses GET to hydrate
+        saved invoices, POST to generate/regenerate (`force: true`) idempotently, and PATCH to autosave
+        draft edits. Kept `POST /api/jobs/[jobId]/invoice`; nothing deleted.
   - [x] T-087 — Self-led demo link + QR (done 2026-09-08, two-part). **Part 1:** `/try/[vertical]` — a
         public, no-login, statically-generated (`generateStaticParams`, all 11 verticals prerendered at build
         time, zero Firestore reads) landing page: tap-to-call CTA for the live demo number, 3 suggested things
@@ -1950,6 +1948,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-16 | Real-phone/Vapi-dashboard verification for T-093 (Spanish): record a Spanish field note on an actual phone and confirm the ES→EN badge + invoice line items; set a business to Español and call the demo line, then check in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH | T-093 gate table (Phase 6, `docs/PLATFORM-EXPANSION-PLAN.md`) | No phone/dashboard access in this sandbox — logic is unit-tested (transcriptEn fold guard, whisperPrompt, detectLanguage) but this specific live check has not been done |
 | NH-17 | Finish the `crm.luxordev.com` domain move: add the GoDaddy CNAME record, add the custom domain in Vercel, add it to Firebase Auth's authorized-domain list, set `NEXT_PUBLIC_APP_URL=https://crm.luxordev.com` in Vercel per environment, and decide whether to repoint the Vapi assistant's Server URL (or leave it on `ai-roof.vercel.app`) | Phase 13 completion | T-095's code side is done (2026-09-23) — every app-generated link now reads `NEXT_PUBLIC_APP_URL` with the old domain as a safe fallback, so this is purely console/account access (GoDaddy, Vercel, Firebase, Vapi dashboards), nothing left for the integrator to do first |
 | NH-18 | Live-call verification of the T-098/T-099 safety boundaries: launch Care Homes and Daycares in Demo Studio, call the demo line, and try the adversarial asks — a caller claiming to be family asking whether a named person is a resident / how they are doing (Care Homes); a caller asking to release a child, or asking whether a specific child is at the center (Daycares); plus a fall/elopement/injury report in each. Confirm the agent refuses to confirm/deny/discuss and escalates immediately | T-098/T-099 production sign-off | Unit tests prove the rules are present in the generated prompt (`buildAgentPrompt`), not that the voice model obeys them on a real call — this is the same class of gap as the 2026-09-07 gpt-realtime incident, where config that looked right didn't behave right live. No phone access in this sandbox. Neither vertical has its own provisioned number; they run on the shared `demo-roofing` line via Demo Studio |
+| NH-19 | Decide whether `business.active` should gate `resolveBusinessId()` for the live Vapi line | T-082 product decision | Today routing uses `vapiAssistantId`/`vapiPhoneNumberId` even when the tenant is flagged inactive. Adding an `active` check could silently drop calls on an already live line; decide the behavior and migration plan before changing routing. |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

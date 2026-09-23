@@ -1107,7 +1107,7 @@
       <div class="step-num purple">7</div>
       <div class="step-body">
         <strong>Jobs → Invoice — the payoff</strong>
-        <p>Open that job, click the <strong>Invoice</strong> tab, click <strong>Generate Invoice</strong>. The line items they just spoke are on it.</p>
+        <p>Open that job, click the <strong>Invoice</strong> tab, click <strong>Generate Invoice</strong>. The line items they just spoke are on it. This is a draft the client can email to their customer, with no online payment option; Stripe links in <span class="url">/admin/invoices</span> are only for Luxor billing the client.</p>
       </div>
     </li>
   </ol>
@@ -1623,7 +1623,7 @@ superadmin: false</code>
     <li>Escalation test passed</li>
     <li>Confirmation email sent — branded correctly</li>
     <li>Client login tested — sees only their business data, correct nav tabs visible</li>
-    <li>Portal status set to <strong>Active</strong> in config edit page</li>
+    <li>Portal status set to <strong>Active</strong> in config edit page; this flag does not hold Vapi calls — attach the assistant and phone IDs only when ready for calls</li>
   </ul>
 
   <hr>
