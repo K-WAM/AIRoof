@@ -98,8 +98,8 @@ export default function CompanyDashboardPage() {
         const base = `/api/businesses/${businessId}`;
         const [callCountRes, leadsRes, apptsRes, bizRes, jobsRes, actionsRes] = await Promise.all([
           fetch(`${base}/calls?countOnly=1`),
-          fetch(`${base}/leads?limit=500`),
-          fetch(`${base}/appointments?limit=500&order=asc`),
+          fetch(`${base}/leads?limit=20`),
+          fetch(`${base}/appointments?limit=200&order=asc`),
           fetch(`${base}/agent-config`),
           hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
           fetch(`${base}/agent-actions?limit=50`),
@@ -189,14 +189,18 @@ export default function CompanyDashboardPage() {
   ];
   const counts = countDashboardMetrics(leads, appointments, jobs, tz, Date.now());
   const configuredTiles = tilesFor(industry);
+  // Tile counts come from the same bounded lists the rest of this page already loads (20 newest
+  // leads / 200 soonest appointments), so a very busy tenant's counts are "of the recent ones" —
+  // deliberately not a bigger fetch on the most-visited page. Total calls stays as the fourth tile.
+  const totalCallsTile = { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` };
   const metrics = configuredTiles
-    ? configuredTiles.map((tile) => ({
+    ? [...configuredTiles.map((tile) => ({
         label: tile.label,
         value: counts[tile.metric],
         href: tile.href === "jobs"
           ? `/company/jobs${previewSuffix}`
           : `/company/pipeline${previewSuffix ? `${previewSuffix}&tab=${tile.href === "appointments" ? "appointments" : "leads"}` : `?tab=${tile.href === "appointments" ? "appointments" : "leads"}`}`,
-      }))
+      })), totalCallsTile]
     : genericMetrics;
 
   const agentSettings = agent

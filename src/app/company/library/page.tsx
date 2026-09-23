@@ -177,7 +177,7 @@ export default function LibraryPage() {
       </header>
 
       {kitMessage && <p role="status" style={{ margin: "0 0 16px", color: "var(--accent)" }}>{kitMessage}</p>}
-      {hasPricing && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Starter prices are placeholder — edit to match your rates before using them in an invoice.</p>}
+      {hasPricing && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Items marked “Starter” carry example prices — edit each price to match your rates before invoicing.</p>}
 
       {actionError && (
         <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
@@ -258,9 +258,9 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {materials.map((m, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} /></td>
+                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} />{m.starter && <StarterBadge />}</td>
                   <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
                   <td style={td}>
                     <Tooltip content="Remove">
                       <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" aria-label={`Remove ${m.name || "material"}`}>
@@ -294,8 +294,8 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
             <tbody>
               {laborRates.map((l, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0 } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
+                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} />{l.starter && <StarterBadge />}</td>
+                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
                   <td style={td}>
                     <Tooltip content="Remove">
                       <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" aria-label={`Remove ${l.role || "role rate"}`}>
@@ -530,3 +530,8 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
 const th: React.CSSProperties = { padding: "8px 12px", textAlign: "left", fontWeight: 600, color: "#64748b", fontSize: 12 };
 const td: React.CSSProperties = { padding: "6px 12px" };
 const cell: React.CSSProperties = { border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%", outline: "none", fontFamily: "inherit" };
+
+// A starter-kit item whose example price the tenant hasn't reviewed yet (cleared on the first price edit).
+function StarterBadge() {
+  return <span className="chip" style={{ marginLeft: 8, fontSize: 11, whiteSpace: "nowrap" }} title="Example price from the starter kit — edit it to match your rates">Starter — review price</span>;
+}

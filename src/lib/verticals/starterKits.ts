@@ -1,8 +1,6 @@
 import type { LibraryDocument, LibraryLaborRate, LibraryMaterial, LibraryPricing } from "@/types/library";
 import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
 
-export const PRICE_PLACEHOLDER = "placeholder — edit to match your rates";
-
 export interface StarterDocument {
   id: string;
   name: string;
@@ -15,11 +13,13 @@ export interface StarterKit {
   documents: StarterDocument[];
 }
 
+// Names stay clean (they print on customer invoices); the example-price status lives in the
+// `starter` flag, which the Library shows as a badge until the tenant edits the price.
 const material = (name: string, unit: string, unitPrice: number): LibraryMaterial => ({
-  name: `${name} (${PRICE_PLACEHOLDER})`, unit, unitPrice,
+  name, unit, unitPrice, starter: true,
 });
 const labor = (role: string, rate: number): LibraryLaborRate => ({
-  role: `${role} (${PRICE_PLACEHOLDER})`, rate,
+  role, rate, starter: true,
 });
 const doc = (id: string, name: string, body: string): StarterDocument => ({ id, name, body });
 const agreement = (service: string) => doc("service-agreement", "Service agreement template", `${service} SERVICE AGREEMENT — TEMPLATE\nBusiness: [Business name]\nCustomer: [Customer name]\nService address: [Address]\nScope of work: [Describe agreed work]\nSchedule: [Requested date and any conditions]\nPrice and payment terms: [Insert approved quote and terms]\nChanges: Any change to scope or price requires written approval.\nSignatures: [Business representative] / [Customer]    Date: [Date]\nReview this template with your own adviser before use.`);
@@ -66,7 +66,7 @@ export function starterKitFor(industry: unknown): StarterKit | null {
 type Imported = { materials: string[]; laborRates: string[]; documents: string[] };
 export type StarterLibrary = LibraryPricing & { starterKitImported?: Imported };
 const key = (value: string) => value.trim().toLocaleLowerCase("en-US").replace(/\s+/g, " ");
-const catalogKey = (value: string) => key(value).replace(` (${key(PRICE_PLACEHOLDER)})`, "");
+const catalogKey = key;
 
 /** Pure merge used inside a Firestore transaction. Historical import keys preserve deliberate deletions. */
 export function mergeStarterKit(existing: StarterLibrary, kit: StarterKit, pricingEnabled: boolean, industry: VerticalId, now: number): { library: StarterLibrary; added: number } {

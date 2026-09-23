@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DASHBOARD_TILES, PRICE_PLACEHOLDER, STARTER_KITS, countDashboardMetrics, kitHasAllowedPricing, mergeStarterKit, tilesFor } from "./starterKits";
+import { DASHBOARD_TILES, STARTER_KITS, countDashboardMetrics, kitHasAllowedPricing, mergeStarterKit, tilesFor } from "./starterKits";
 import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
 
 describe("vertical starter kits", () => {
@@ -25,10 +25,13 @@ describe("vertical starter kits", () => {
     for (const industry of industries) {
       expect(kitHasAllowedPricing(industry), industry).toBe(true);
       for (const item of STARTER_KITS[industry].materials) {
-        expect(item.name).toContain(PRICE_PLACEHOLDER);
+        // Names print on customer invoices — never carry placeholder text; the flag marks them instead.
+        expect(item.name).not.toMatch(/placeholder|edit to match/i);
+        expect(item.starter).toBe(true);
       }
       for (const item of STARTER_KITS[industry].laborRates) {
-        expect(item.role).toContain(PRICE_PLACEHOLDER);
+        expect(item.role).not.toMatch(/placeholder|edit to match/i);
+        expect(item.starter).toBe(true);
       }
     }
   });
@@ -55,7 +58,7 @@ describe("vertical starter kits", () => {
     expect(second.library.updatedAt).toBe(100);
   });
 
-  it("recognizes an existing tenant catalog entry without the starter placeholder suffix", () => {
+  it("recognizes an existing tenant catalog entry by name and does not re-add it", () => {
     const result = mergeStarterKit({
       materials: [{ name: "Shingle bundle", unit: "bundle", unitPrice: 123 }],
       laborRates: [{ role: "Roofer", rate: 245 }],
