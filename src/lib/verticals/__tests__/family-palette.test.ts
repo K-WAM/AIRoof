@@ -55,6 +55,15 @@ describe("T-056 per-industry visual families", () => {
     expect(new Set(values).size).toBe(values.length);
   });
 
+  it("gives Care Homes a distinct card color with readable white text", () => {
+    const careHomes = VERTICAL_TEMPLATES["care-homes"];
+    const otherColors = Object.values(VERTICAL_TEMPLATES)
+      .filter((template) => template.verticalId !== careHomes.verticalId)
+      .map((template) => template.color.toLowerCase());
+    expect(otherColors).not.toContain(careHomes.color.toLowerCase());
+    expect(contrastAgainstWhite(careHomes.color)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("assigns every vertical template a family", () => {
     for (const template of Object.values(VERTICAL_TEMPLATES)) {
       expect(["field", "care", "ops"]).toContain(template.family);
@@ -69,7 +78,7 @@ describe("T-056 per-industry visual families", () => {
       },
       { field: [], care: [], ops: [] },
     );
-    expect(byFamily.care.sort()).toEqual(["childcare", "dental"]);
+    expect(byFamily.care.sort()).toEqual(["care-homes", "childcare", "dental"]);
     expect(byFamily.ops).toEqual(["property-management"]);
     expect(byFamily.field).toHaveLength(8);
   });
