@@ -1196,8 +1196,8 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   (+5 callLinks tests); next build green.
 
 ## T-100 — Structured per-industry intake fields
-- Date: 2026-09-23 · branch: task/intake-fields · commit: <commit>
-- VerticalTemplate gains a required \intakeFields: IntakeField[]\ block (key, label,
+- Date: 2026-09-23 · branch: task/intake-fields · commit: 3021d58
+- VerticalTemplate gains a required `intakeFields: IntakeField[]` block (key, label,
   type text|select|yesno|date, optional options, appliesTo lead|appointment|both, required?: false —
   the only legal value is false/absent so a field can never be marked required). All 13 verticals
   declare 2–4 fields (dental: new-vs-returning + insurance + provider; hvac: system type/age/issue;
@@ -1213,7 +1213,7 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   existing notes param.
 - agentTools: new pure helpers intakeFieldsForIndustry / parseIntakeFromNotes / mergeIntake /
   resolveIntake; bookAppointment and createLead persist an optional
-  \intake: Record<string,string>\ on the lead/appointment, parsed from "Label: value" notes lines
+  `intake: Record<string,string>` on the lead/appointment, parsed from "Label: value" notes lines
   keyed against that business's template labels (explicit input.intake map wins; free-text notes are
   kept untouched, so legacy docs render exactly as before). Lead/Appointment types gain the optional
   intake field — backward compatible.
