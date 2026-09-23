@@ -107,7 +107,7 @@ describe("buildAgentPrompt — Intake Details section (T-100)", () => {
     const forbidden = /diagnos|allerg|medicat|condition|symptom|health|presence|whereabout|birth|full name/i;
     expect(intakeSectionOf("care-homes")).not.toMatch(forbidden);
     expect(intakeSectionOf("daycares")).not.toMatch(forbidden);
-    expect(intakeSectionOf("care-homes")).toContain("Care level");
+    expect(intakeSectionOf("care-homes")).toContain("Community type of interest");
     expect(intakeSectionOf("care-homes")).toContain("Desired move-in date");
     expect(intakeSectionOf("daycares")).toContain("Child age range");
     expect(intakeSectionOf("daycares")).toContain("Desired start date");

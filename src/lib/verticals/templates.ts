@@ -621,9 +621,10 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
     sampleCallerScript:
       "Imagine a family calling after hours to ask about assisted living openings and a tour. Elena captures the inquiry, offers an admissions follow-up, and routes any resident-specific question to live staff. Want to hear it?",
     // Front-office only (T-100 hard rule): never resident health or identifying
-    // data — just care level, room preference, and a desired move-in date.
+    // data — just community type, room preference, and a desired move-in date.
     intakeFields: [
-      { key: "care-level", label: "Care level", type: "select", options: ["Independent living", "Assisted living", "Memory care"], appliesTo: "both" },
+      // A question about which kind of COMMUNITY the family wants to tour — never about the prospective resident's condition.
+      { key: "community-type", label: "Community type of interest", type: "select", options: ["Independent living community", "Assisted living community", "Memory care community", "Not sure yet"], appliesTo: "both" },
       { key: "room-preference", label: "Room preference", type: "select", options: ["Studio", "One bedroom", "Two bedrooms", "Not sure"], appliesTo: "both" },
       { key: "desired-start-date", label: "Desired move-in date", type: "date", appliesTo: "both" },
     ],

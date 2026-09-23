@@ -82,10 +82,10 @@ describe("T-100 intake fields — care-homes and daycares hard rule", () => {
     }
   });
 
-  it("stays within the allowed front-office set: care level, age RANGE, program, desired start date", () => {
+  it("stays within the allowed front-office set: community type, age RANGE, program, desired start date", () => {
     const careHomes = VERTICAL_TEMPLATES["care-homes"];
     expect(careHomes.intakeFields.map((f) => f.key).sort()).toEqual([
-      "care-level",
+      "community-type",
       "desired-start-date",
       "room-preference",
     ]);
