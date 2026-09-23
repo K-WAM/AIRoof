@@ -1076,3 +1076,12 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   isolated rerun, matches the documented pattern from the 2026-08-23 entry); `npm run build` green, 48 routes
   (unchanged route count — no new pages were needed).
 - **Pushed** both commits to `origin/main`.
+
+## 2026-09-23 — T-098 Care Homes vertical
+
+- **Commit:** `T-098: add Care Homes vertical` (this commit, on `task/care-homes`).
+- Added the care-homes template immediately after Dental: appointments-mode admissions and tour intake, care-family styling, Family/Tour/Coordinator vocabulary, and no Jobs or materials pricing catalog. No demo phone number or clinical workflow was added.
+- Resident health, medication, diagnosis, named-resident confirmation, falls, elopement, and alleged neglect have explicit privacy and immediate live-escalation rules. The prompt test checks that those rules reach `buildAgentPrompt`.
+- Demo Studio has its own icon; five coordinator rows and the shared appointment seed provide draggable tours and an after-hours pending-confirmation booking with email. The onboarding guide has a Care Homes quick-reference row and pitch card; the industry-count wording remains for the integrator's combined T-098/T-099 update.
+- **Verification:** `npm run type-check` passed; `npm run lint` passed with 0 errors / 32 existing warnings; `npm test` passed 78 files / 646 tests; `npm run build` passed; `git diff --check` passed. Care Homes card color `#7f3f55` is distinct from the existing palette and passes 4.5:1 white-text contrast in the palette test.
+- **Removals:** none.

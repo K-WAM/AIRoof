@@ -58,6 +58,7 @@ const RESOURCES: Record<VerticalId, string[]> = {
   landscaping: ["Luis Crew", "Ana Crew", "Tree & Removal", "Design & Install", "Irrigation Team"],
   cleaning: ["Team A — Rosa", "Team B — Nadia", "Team C — Gina", "Deep Clean Crew", "Post-Construction Crew"],
   dental: ["Dr. Rivera", "Dr. Chen", "Dr. Park", "Hygiene — Sam", "Hygiene — Jess"],
+  "care-homes": ["Admissions Director", "Tour Coordinator", "Memory Care Liaison", "Family Services Coordinator", "Community Administrator"],
   "property-management": ["Ace Plumbing", "BrightSpark Electric", "CoolBreeze HVAC", "On-call Manager", "Turnover Crew"],
   "general-contractors": ["Dave's Crew", "Framing Crew", "Finish Carpentry", "Drywall Crew", "Concrete Crew"],
   electricians: ["Danny Crew", "Spark Crew", "Panel Team", "Emergency Response", "Wiring Crew"],

@@ -554,7 +554,7 @@ an active queue.*
         (owner-picked, 2026-09-16).
 
 - [ ] Phase 14 — New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) — 0/2, queued, not started
-  - [ ] T-098 — New vertical: **Care Homes** (assisted living / residential/senior care facilities). Follow the
+  - [ ] T-098 — **review** — New vertical: **Care Homes** (assisted living / residential/senior care facilities). Follow the
         same `VerticalTemplate` pattern as every prior vertical (`src/lib/verticals/templates.ts` — one config
         block, `disabledModules`/`calendarMode`/`vocab`-driven, no hardcoded per-industry logic elsewhere; adding
         the new `VerticalId` union member will make `tsc` fail on every consumer until each is handled, same
