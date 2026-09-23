@@ -1194,3 +1194,12 @@ field-key-gated `/field` capture surface and receive no new management navigatio
   scrollIntoView, mirroring the existing appt- pattern (the ?lead= selection logic already existed).
 - Evidence: tsc clean; eslint 0 errors / 32 warnings (no new warnings in touched files); vitest 673/673
   (+5 callLinks tests); next build green.
+
+---
+
+## T-101 — Per-industry starter kits and dashboard tiles
+
+- Date: 2026-09-23 · branch: `task/starter-kits` · commit: this T-101 commit.
+- All 13 verticals declare a StarterKit and 2–3 dashboard tiles through typed Record<VerticalId, …> values. Pricing-disabled verticals have no starter material or labor entries; every price is labeled "placeholder — edit to match your rates". Every vertical has downloadable document templates; care-home and daycare copies stay at the front office.
+- Library's Load starter kit button calls an owner/staff/superadmin-gated route. A Firestore transaction merges only missing catalog and document entries, preserves tenant edits and prior deletions via import markers, and returns no-store responses. Unknown industries get no kit. The dashboard uses existing lead, appointment, and job records; unknown industries retain the generic tiles.
+- Evidence: type-check green; lint 0 errors / 32 existing warnings; full vitest run 683/683 after final edits, focused starter-kit tests 10/10; next build green with /api/company/library/starter-kit present. No files removed.

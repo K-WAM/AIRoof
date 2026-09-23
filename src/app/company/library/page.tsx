@@ -26,7 +26,7 @@ type Section = "customers" | "pricing" | "crews" | "documents" | "branding";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
-  const { vocab, isEnabled } = useBusinessModules();
+  const { vocab, isEnabled, industry, ready: modulesReady } = useBusinessModules();
   // The materials/labor catalog only feeds job invoices — an intake business
   // (dental, property mgmt) has no use for it, but still needs the roster + docs.
   const hasPricing = isEnabled("pricing");
@@ -46,6 +46,8 @@ export default function LibraryPage() {
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loadingKit, setLoadingKit] = useState(false);
+  const [kitMessage, setKitMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -116,6 +118,30 @@ export default function LibraryPage() {
     }
   }
 
+  async function loadStarterKit() {
+    if (!businessId || !industry || !modulesReady || !isEnabled("library")) return;
+    setLoadingKit(true);
+    setActionError(null);
+    setKitMessage(null);
+    try {
+      const response = await fetch("/api/company/library/starter-kit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Starter kit could not be loaded");
+      setLibrary(result.library);
+      setKitMessage(result.added > 0
+        ? `Added ${result.added} starter item${result.added === 1 ? "" : "s"}. Review all templates and placeholder rates before use.`
+        : "Starter kit already loaded. Your changes were preserved.");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Starter kit could not be loaded.");
+    } finally {
+      setLoadingKit(false);
+    }
+  }
+
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError) {
     return (
@@ -140,8 +166,18 @@ export default function LibraryPage() {
               : `Your ${vocab.resourceNounPlural.toLowerCase()} and shared documents. ${vocab.resourceNounPlural} appear as rows on the Calendar.`}
           </p>
         </div>
-        {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
+          {modulesReady && industry && isEnabled("library") && (
+            <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
+              {loadingKit ? "Loading…" : "Load starter kit"}
+            </button>
+          )}
+        </div>
       </header>
+
+      {kitMessage && <p role="status" style={{ margin: "0 0 16px", color: "var(--accent)" }}>{kitMessage}</p>}
+      {hasPricing && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Starter prices are placeholder — edit to match your rates before using them in an invoice.</p>}
 
       {actionError && (
         <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
@@ -462,7 +498,11 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
           {docs.map((d) => (
             <div key={d.docId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
               <FileText size={18} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0 }} />
-              <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}>{d.name} ↗</a>
+              <a
+                href={d.b64 ? `data:${d.mimeType ?? "text/plain"};base64,${d.b64}` : d.url}
+                {...(d.b64 ? { download: `${d.name.replace(/[^a-z0-9-]+/gi, "-")}.txt` } : { target: "_blank", rel: "noopener noreferrer" })}
+                style={{ flex: 1, fontWeight: 600, fontSize: 14, color: "var(--accent)", textDecoration: "none" }}
+              >{d.name} {d.b64 ? "↓" : "↗"}</a>
               <Tooltip content="Remove">
                 <button onClick={() => removeDoc(d.docId)} className="icon-del" aria-label={`Remove ${d.name}`}>
                   <Trash2 size={14} strokeWidth={1.75} />

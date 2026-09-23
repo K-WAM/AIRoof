@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { countDashboardMetrics, tilesFor } from "@/lib/verticals/starterKits";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -37,6 +38,7 @@ interface JobSnapshot {
   clientName?: string;
   address?: string;
   status: string;
+  invoiceId?: string;
 }
 
 interface AgentSnapshot {
@@ -68,7 +70,7 @@ function fmtTime(ms: number, tz: string): string {
 export default function CompanyDashboardPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
-  const { isEnabled, ready: modulesReady, vocab } = useBusinessModules();
+  const { isEnabled, ready: modulesReady, vocab, industry } = useBusinessModules();
   const hasJobs = modulesReady && isEnabled("jobs");
   const searchParams = useSearchParams();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
@@ -96,8 +98,8 @@ export default function CompanyDashboardPage() {
         const base = `/api/businesses/${businessId}`;
         const [callCountRes, leadsRes, apptsRes, bizRes, jobsRes, actionsRes] = await Promise.all([
           fetch(`${base}/calls?countOnly=1`),
-          fetch(`${base}/leads?limit=20`),
-          fetch(`${base}/appointments?limit=200&order=asc`),
+          fetch(`${base}/leads?limit=500`),
+          fetch(`${base}/appointments?limit=500&order=asc`),
           fetch(`${base}/agent-config`),
           hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
           fetch(`${base}/agent-actions?limit=50`),
@@ -179,12 +181,23 @@ export default function CompanyDashboardPage() {
   const apptTabHref = `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`;
   const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
 
-  const metrics = [
+  const genericMetrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
     { label: "Leads", value: leads.length, href: `/company/pipeline${previewSuffix}` },
     { label: "Urgent leads", value: trulyUrgentCount, href: `/company/pipeline${previewSuffix ? previewSuffix + "&urgency=urgent" : "?urgency=urgent"}` },
     { label: "Appointments", value: appointments.length, href: `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}` },
   ];
+  const counts = countDashboardMetrics(leads, appointments, jobs, tz, Date.now());
+  const configuredTiles = tilesFor(industry);
+  const metrics = configuredTiles
+    ? configuredTiles.map((tile) => ({
+        label: tile.label,
+        value: counts[tile.metric],
+        href: tile.href === "jobs"
+          ? `/company/jobs${previewSuffix}`
+          : `/company/pipeline${previewSuffix ? `${previewSuffix}&tab=${tile.href === "appointments" ? "appointments" : "leads"}` : `?tab=${tile.href === "appointments" ? "appointments" : "leads"}`}`,
+      }))
+    : genericMetrics;
 
   const agentSettings = agent
     ? [

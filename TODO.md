@@ -650,7 +650,7 @@ an active queue.*
         detail beyond what T-098/T-099's front-office-only rules already allow (tour interest, child age
         range, start date — never diagnoses, allergies, or "is X there"). Unit tests for prompt output + tool
         persistence + the per-vertical `Record` completeness.
-  - [ ] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). New `src/lib/verticals/starterKits.ts`
+  - [ ] T-101 — Per-industry **starter kits + dashboard tiles** (Codex). **Status: review (Worker C, `task/starter-kits`).** New `src/lib/verticals/starterKits.ts`
         (`Record<VerticalId, …>`): (a) a starter **catalog** for verticals with the `pricing` module (HVAC filters/
         refrigerant/labor tiers, roofing shingles/underlayment, electricians breakers/wire, landscaping mulch/
         sod/hourly, cleaning flat-rate-by-size, GC/trades); (b) starter **document templates** for every vertical
