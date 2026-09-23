@@ -58,7 +58,7 @@ gaps it surfaced are tracked as Phase 11 (T-081–086 below), none demo-blocking
 items below); `main` is ahead of `origin/main` with unpushed local work (T-095 base-URL parameterization,
 the Phase 14 TODO entries, and the merged T-098/T-099 verticals — all 2026-09-23, awaiting owner push
 approval); production `/api/health` reports Firestore connected and
-OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 11 industries (see
+OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 13 industries (see
 `src/lib/verticals/templates.ts`).
 
 *Full dated session narratives (what shipped, what was found, what verification ran) live in `HANDOFF.md`
