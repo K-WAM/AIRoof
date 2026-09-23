@@ -83,6 +83,7 @@ an active queue.*
 | 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
+| 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ⬜ **queued, not started — 0/2** | Independent; same `VerticalTemplate` pattern as every prior vertical (T-078 etc.) |
 
 ### Checklist
 
@@ -551,6 +552,60 @@ an active queue.*
         authorized-domain entry, and deciding whether to repoint the Vapi webhook Server URL are all
         console/account-access actions, not integrator-doable. Product name for the new domain: **RAM**
         (owner-picked, 2026-09-16).
+
+- [ ] Phase 14 — New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) — 0/2, queued, not started
+  - [ ] T-098 — New vertical: **Care Homes** (assisted living / residential/senior care facilities). Follow the
+        same `VerticalTemplate` pattern as every prior vertical (`src/lib/verticals/templates.ts` — one config
+        block, `disabledModules`/`calendarMode`/`vocab`-driven, no hardcoded per-industry logic elsewhere; adding
+        the new `VerticalId` union member will make `tsc` fail on every consumer until each is handled, same
+        guardrail that caught T-078's two required consumer updates).
+        **What the industry's current software actually tracks** (research this before building — matters for
+        getting the vocab/FAQs/scope right): tools like PointClickCare, MatrixCare, Yardi Senior Living, Caremerge,
+        and ALIS split cleanly into (a) clinical/EMR — medication administration records, care plans, incident
+        charting — and (b) front-office/admissions — census/bed availability, level-of-care tiers (independent /
+        assisted / memory care), tour scheduling, family communication, billing. **This platform's phone-AI scope
+        is (b) only** — it is not, and must not become, a clinical record system; no medication, diagnosis, or
+        resident health-status details should ever be spoken by the agent (HIPAA exposure), matching the same
+        discipline dental's `disallowedTopics` already enforces for PHI.
+        Shape to build, following dental's/property-management's already-shipped `family: "care"`/`"ops"`,
+        `calendarMode: "appointments"` pattern (no field jobs/crews — a coordinator's calendar, not a crew's):
+        prospective-family calls (bed/room availability by care level, pricing — private pay vs. Medicaid/LTC
+        insurance, tour booking), existing-family calls (route to the nursing station/administrator rather than
+        disclosing resident status over the phone), staff call-outs, vendor calls. `emergencyRules` tuned to the
+        trade: a fall/injury/unresponsive-resident report escalates immediately (never "handled" by the agent);
+        a missing-resident/elopement report is treated as urgent same-priority escalation; a care-quality complaint
+        escalates to the administrator rather than being resolved on the call. Needs its own agent
+        name/tone/icon/color (verify the chosen color against the existing 11-vertical palette in
+        `templates.ts` before picking one, per the T-078 precedent), demo seed data (`demoSeed.ts` — something
+        draggable/bookable for the Calendar, per CLAUDE.md's demo-data rule), and an onboarding-guide industry-count
+        update (currently "eleven" in `public/guides/onboarding-guide.html` — becomes thirteen once both T-098/
+        T-099 ship). **UI bar** (per owner's explicit ask): reuse this vertical's Calendar/Library/Dashboard as-is
+        — no new UI patterns — matching the Toggle/Modal/QuickAdd/PageSkeleton conventions Phase 9 already
+        established, so it reads "simple, intuitive, fast, modern" by inheriting the same polish every other
+        vertical already has, not by inventing something bespoke.
+  - [ ] T-099 — New vertical: **Daycares** (licensed early-childhood/daycare centers) — deliberately **distinct
+        from the existing `childcare` vertical** (`templates.ts` line ~785, "Childcare & Sitters" — individual
+        sitter/nanny bookings, `resourceNoun: "Sitter"`). A licensed daycare *center* is a different business
+        shape entirely: capacity/ratio-constrained classrooms, state-licensing requirements, and a facility to
+        tour — not a marketplace of individual sitters. Don't fold this into `childcare`; give it its own
+        `VerticalId`.
+        **What the industry's current software actually tracks:** Brightwheel, Procare Solutions, HiMama, and
+        Kangarootime center on child check-in/check-out attendance, staff-to-child ratios per classroom (licensing-
+        driven), parent daily reports (meals/naps/photos), tuition billing/autopay, waitlists, and immunization-
+        record requirements at enrollment. As with T-098, **this platform's phone-AI scope stays front-office**:
+        the agent books tours/enrollment visits and answers pricing/hours/curriculum/openings-by-age-group
+        questions — it does not check a specific child in/out, disclose which children are present, or discuss a
+        named child's day over the phone.
+        Shape to build: `calendarMode: "appointments"` (tours/enrollment visits booked onto a director/enrollment
+        coordinator — not "Sitters" like `childcare`), vocab and FAQs covering openings by age group, tuition,
+        hours, curriculum, and required enrollment documents (immunization records). `emergencyRules` tuned to the
+        trade: a child injury/allergic-reaction report escalates immediately to on-site staff (911 if severe); an
+        unauthorized-pickup attempt escalates immediately and the agent never confirms or denies a specific child
+        is present to an unverified caller (this is the daycare-equivalent of dental's PHI discipline — a real
+        safety/legal boundary, not just tone); an unaccounted-for-child report is treated as urgent, immediate
+        escalation. Same closeout bar as T-098: own agent name/tone/icon/color (checked against the existing
+        palette, distinct from `childcare`'s), demo seed data, onboarding-guide count update, and no new UI
+        patterns — reuse the existing Calendar/Library/Dashboard conventions as-is.
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
