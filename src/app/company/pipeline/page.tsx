@@ -143,6 +143,14 @@ export default function PipelinePage() {
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [apptParam, tab, loading, appointments]);
 
+  // T-084: the matching lead deep link from Calls (?tab=leads&lead=<id>) —
+  // same anchor pattern, scrolls the queue card a call produced into view.
+  useEffect(() => {
+    if (!leadParam || tab !== "leads" || loading) return;
+    const el = document.getElementById(`lead-${leadParam}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [leadParam, tab, loading, leads]);
+
   // --- Lead actions ---
   async function callBackLead(lead: Lead) {
     if (!lead.callerPhone) return;
@@ -509,9 +517,13 @@ export default function PipelinePage() {
                       <article
                         className="lead-card"
                         key={lead.leadId}
+                        id={`lead-${lead.leadId}`}
                         aria-selected={selectedLead?.leadId === lead.leadId}
                         onClick={() => setSelectedLead(lead)}
-                        style={{ cursor: "pointer" }}
+                        style={{
+                          cursor: "pointer",
+                          ...(!!leadParam && leadParam === lead.leadId ? { boxShadow: "0 0 0 3px var(--accent)" } : {}),
+                        }}
                       >
                         <div className="lead-title-row">
                           <div>
