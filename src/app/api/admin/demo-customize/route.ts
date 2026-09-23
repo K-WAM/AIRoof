@@ -24,6 +24,7 @@ import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/vertic
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
@@ -293,10 +294,10 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       appliedGreeting: greeting,
       businessId: LIVE_LINE_BUSINESS_ID,
       phone: LIVE_LINE_PHONE,
-      demoUrl: `https://ai-roof.vercel.app/company/dashboard?preview=${LIVE_LINE_BUSINESS_ID}`,
+      demoUrl: `${getAppUrl()}/company/dashboard?preview=${LIVE_LINE_BUSINESS_ID}`,
       // Short-lived exchange URL; the route sets an HttpOnly session then redirects
       // to /field without leaving a reusable credential in history or referrers.
-      fieldUrl: `https://ai-roof.vercel.app/api/field/exchange?grant=${encodeURIComponent(fieldGrant.token)}`,
+      fieldUrl: `${getAppUrl()}/api/field/exchange?grant=${encodeURIComponent(fieldGrant.token)}`,
     };
   } finally {
     await lockRef.set({ locked: false, completedAt: Date.now() }, { merge: true });

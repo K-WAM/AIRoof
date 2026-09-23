@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
+import { getAppUrl } from "@/lib/config/appUrl";
 
 type Step = "pick" | "prospect" | "launch";
 
@@ -90,7 +91,7 @@ export default function DemoStudioPage() {
     const isFieldService = selectedId && hasFieldScreen(selectedId);
     // fieldUrl is a short-lived server exchange link for unauthenticated crew phones.
     const qrUrl = isFieldService
-      ? (result.fieldUrl ?? `https://ai-roof.vercel.app/field?businessId=${result.businessId}`)
+      ? (result.fieldUrl ?? `${getAppUrl()}/field?businessId=${result.businessId}`)
       : (result.demoUrl ?? "");
     if (!qrUrl) return;
     // Dynamic import, not a static top-level one, so `qrcode` only enters
@@ -116,7 +117,7 @@ export default function DemoStudioPage() {
   // shared demo line. Static per vertical, so it never needs Firestore state.
   useEffect(() => {
     if (!selectedId || !result?.ok) { setTryQrDataUrl(""); return; }
-    const tryUrl = `https://ai-roof.vercel.app/try/${selectedId}`;
+    const tryUrl = `${getAppUrl()}/try/${selectedId}`;
     let cancelled = false;
     import("qrcode")
       .then(({ default: QRCode }) =>
@@ -226,7 +227,7 @@ export default function DemoStudioPage() {
   const phone = result?.phone ?? (selectedId ? DEMO_LINE_PHONE[selectedId] : undefined);
   const isFieldService = selectedId ? hasFieldScreen(selectedId) : false;
   const fieldUrl = result?.fieldUrl
-    ?? (result?.businessId ? `https://ai-roof.vercel.app/field?businessId=${result.businessId}` : "");
+    ?? (result?.businessId ? `${getAppUrl()}/field?businessId=${result.businessId}` : "");
   const qrTargetUrl = isFieldService ? fieldUrl : (result?.demoUrl ?? "");
 
   return (
@@ -459,7 +460,7 @@ export default function DemoStudioPage() {
                 }
               </div>
               <button
-                onClick={() => copyToClipboard(`https://ai-roof.vercel.app/try/${selectedId}`, "tryLink")}
+                onClick={() => copyToClipboard(`${getAppUrl()}/try/${selectedId}`, "tryLink")}
                 style={{ ...ghostLinkStyle, marginTop: 8, display: "block" }}
               >
                 {copied === "tryLink" ? "Copied!" : "Copy link"}

@@ -3,8 +3,9 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCustomerConfirmation } from "@/lib/notify";
 import { sendEmail } from "@/lib/comms/send";
+import { getAppUrl } from "@/lib/config/appUrl";
 
-const BASE_URL = "https://ai-roof.vercel.app";
+const BASE_URL = getAppUrl();
 
 export async function POST(request: NextRequest) {
   const db = getAdminFirestore();

@@ -55,9 +55,10 @@ onboarding→team-invite flow (2026-09-08) found the whole chain connected and c
 gaps it surfaced are tracked as Phase 11 (T-081–086 below), none demo-blocking.
 
 **Baseline facts:** scoped implementation 100% (production certification still pending the `NEEDS-HUMAN`
-items below); `main` == `origin/main`, both fully pushed; production `/api/health` reports Firestore
-connected and OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 11
-industries (see `src/lib/verticals/templates.ts`).
+items below); `main` is one commit ahead of `origin/main` (`6d9157e`, T-095 — committed locally 2026-09-23,
+awaiting owner push approval); production `/api/health` reports Firestore connected and
+OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 11 industries (see
+`src/lib/verticals/templates.ts`).
 
 *Full dated session narratives (what shipped, what was found, what verification ran) live in `HANDOFF.md`
 and `docs/SESSION_HANDOFF.md` — this file tracks the live queue and current state, not the story. Detailed
@@ -81,7 +82,7 @@ an active queue.*
 | 10 Client Management (owner-added, 2026-09-07) | T-079, T-080 | not CIB-weighted | ✅ **done** | Independent of Phase 9 |
 | 11 Pre-Demo Polish (owner-added, 2026-09-08) | T-081…T-087 | not CIB-weighted | 🕓 **in progress — 1/7** | Independent; none block the demo |
 | 12 Platform Expansion: Speed, Customers, Photos, Invoicing, Time Clock, Spanish & Roles (owner-added, 2026-09-14) | T-088…T-094 | not CIB-weighted | ✅ **done — 7/7 (2026-09-16)** | Full spec in `docs/PLATFORM-EXPANSION-PLAN.md`; only NH-15/16 (Spanish voice pick + live verification) remain, human-only |
-| 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **in progress — 2/3** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix) and T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL env var) still open |
+| 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 
 ### Checklist
 
@@ -490,7 +491,7 @@ an active queue.*
         grid-column/cell-height arithmetic instead of a screenshot; worth an owner glance at the live Calendar
         after this ships to confirm it reads as intended.
 
-- [ ] Phase 13 — CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) — 2/3
+- [ ] Phase 13 — CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) — 3/3 code-side done
   - [x] T-096 — Fixed Google sign-in returning `auth/internal-error` on the live `crm.luxordev.com` domain
         (owner hit this directly while testing right after DNS/Vercel/Firebase setup). Root cause: `next.config.ts`'s
         CSP (added by T-061, Phase 8) declared `connect-src` but never `frame-src`, so it silently fell back to
@@ -524,16 +525,32 @@ an active queue.*
         upload form correctly. Logo upload itself needs `owner`/`staff`/`superadmin` (the sandbox's `viewer` role
         correctly can't), so the "first upload auto-becomes default" behavior was confirmed by code + its
         existing unit tests (`logo.test.ts`) rather than a live click, not assumed.
-  - [ ] T-095 — Parameterize the hardcoded `https://ai-roof.vercel.app` base URL into one `NEXT_PUBLIC_APP_URL`
-        env var (set per-environment in Vercel). Currently a literal string in 5 places: `agentTools.ts:826`,
-        `vapiClient.ts`, `team/invite.ts`, `appointments/send-confirmation/route.ts`, and
-        `admin/demo-customize/route.ts`. Prerequisite for pointing the product at a `luxordev.com` subdomain
-        (target: `crm.luxordev.com`, using the existing GoDaddy-registered domain) — without this, booking-
-        confirmation emails, team-invite links, and demo links keep pointing at the old `ai-roof.vercel.app`
-        domain even after the move. Owner-only in parallel: GoDaddy CNAME record, Vercel custom-domain add,
-        Firebase Auth authorized-domain entry, and repointing (or leaving as-is) the Vapi webhook server URL —
-        none of these are integrator-doable (console/account access only). Product name for the new domain:
-        **RAM** (owner-picked, 2026-09-16).
+  - [x] T-095 — Parameterized the hardcoded `https://ai-roof.vercel.app` base URL into one `NEXT_PUBLIC_APP_URL`
+        env var (2026-09-23). New `src/lib/config/appUrl.ts` — `getAppUrl()` reads
+        `process.env.NEXT_PUBLIC_APP_URL` as a static property access (required so Next.js inlines it into
+        client bundles, not just server ones) and falls back to the current production domain when unset, so
+        behavior is unchanged until the env var is actually set in Vercel. Re-audited the file list in this
+        entry against a fresh repo-wide grep rather than trusting it verbatim — `vapiClient.ts` turned out to
+        have no hardcoded app URL (`VAPI_BASE_URL` there is Vapi's own `api.vapi.ai`, unrelated); found two
+        real occurrences the original list missed instead: `hub/demo/page.tsx` (4 call sites — QR code
+        target, "Copy link" button, and the field-screen fallback URL, all functional, not cosmetic) and
+        `admin/businesses/[businessId]/config/page.tsx` (one display-text label). Fixed all 6 real files:
+        `agentTools.ts`, `team/invite.ts` (dropped its own stale comment explaining why it *couldn't* share a
+        helper — it now does), `appointments/send-confirmation/route.ts`, `admin/demo-customize/route.ts`,
+        `hub/demo/page.tsx`, and the admin config-page label. Documented the new var in `.env.example`. Left
+        the `https://ai-roof.vercel.app` string in two places on purpose: the fallback constant itself in
+        `appUrl.ts`, and a human-facing comment in `webhooks/vapi/route.ts` documenting the Vapi dashboard's
+        current Server URL setting (not code, and the actual repoint-or-not decision is owner-only per NH
+        below). Verified: `tsc` clean; lint clean on every touched file (the run's 3 errors are pre-existing
+        `.kilo/worktrees/**` noise — gitignored, untracked, unrelated to this change); targeted `vitest run`
+        32/32 (`demo-customize`, `team`, `tools`, `appointments` suites, including the existing test that
+        asserts the exact fallback URL literal — passed unchanged since the env var is unset in CI); `next
+        build` green, no First Load JS regression on any touched route. **Not done, owner-only (moved to
+        NEEDS-HUMAN as NH-17):** actually setting `NEXT_PUBLIC_APP_URL` per environment in Vercel once
+        `crm.luxordev.com` is ready — GoDaddy CNAME record, Vercel custom-domain add, Firebase Auth
+        authorized-domain entry, and deciding whether to repoint the Vapi webhook Server URL are all
+        console/account-access actions, not integrator-doable. Product name for the new domain: **RAM**
+        (owner-picked, 2026-09-16).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
@@ -1855,6 +1872,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-14 | Add `STRIPE_SECRET_KEY` to Vercel's production env vars (T-080's code is deployed but the key was never set — `/api/health` confirms `stripe: "not_configured"` live) | T-081 | Needs the owner's Stripe dashboard access; not something the integrator can self-serve |
 | NH-15 | Pick a real, confirmed-working Spanish voiceId in the Vapi dashboard's voice picker (test it on a real call first), then fill in `src/lib/vapi/voices.ts`'s `AGENT_VOICES.es` and thread it through `updateAssistantPersona` | T-093 (Spanish) full completion | The phone AI's Español toggle already switches the transcriber + prompt/greeting live; only the voice itself is unswitched (an English-named voice speaks the Spanish prompt in the meantime — a real, working degradation, not a broken one) |
 | NH-16 | Real-phone/Vapi-dashboard verification for T-093 (Spanish): record a Spanish field note on an actual phone and confirm the ES→EN badge + invoice line items; set a business to Español and call the demo line, then check in the Vapi dashboard that `startSpeakingPlan`/`stopSpeakingPlan` survived the PATCH | T-093 gate table (Phase 6, `docs/PLATFORM-EXPANSION-PLAN.md`) | No phone/dashboard access in this sandbox — logic is unit-tested (transcriptEn fold guard, whisperPrompt, detectLanguage) but this specific live check has not been done |
+| NH-17 | Finish the `crm.luxordev.com` domain move: add the GoDaddy CNAME record, add the custom domain in Vercel, add it to Firebase Auth's authorized-domain list, set `NEXT_PUBLIC_APP_URL=https://crm.luxordev.com` in Vercel per environment, and decide whether to repoint the Vapi assistant's Server URL (or leave it on `ai-roof.vercel.app`) | Phase 13 completion | T-095's code side is done (2026-09-23) — every app-generated link now reads `NEXT_PUBLIC_APP_URL` with the old domain as a safe fallback, so this is purely console/account access (GoDaddy, Vercel, Firebase, Vapi dashboards), nothing left for the integrator to do first |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

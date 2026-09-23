@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
@@ -602,7 +603,7 @@ export default function AdminBusinessConfigPage({
             <div className="panel-body">
               <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
                 Provision or reset login access for this company&apos;s owner. Generates a temp password they use to log in at{" "}
-                <strong>ai-roof.vercel.app/login</strong>.
+                <strong>{getAppUrl().replace(/^https?:\/\//, "")}/login</strong>.
               </p>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input

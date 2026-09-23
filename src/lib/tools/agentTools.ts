@@ -9,6 +9,7 @@ import {
 } from "@/lib/ops/ledger";
 import type { Firestore } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
+import { getAppUrl } from "@/lib/config/appUrl";
 
 export interface CheckAvailabilityInput {
   businessId: string;
@@ -823,7 +824,7 @@ export async function escalateCall(
   return { ...baseOutput, status: "delivered", escalated: true };
 }
 
-const BASE_URL = "https://ai-roof.vercel.app";
+const BASE_URL = getAppUrl();
 
 interface BizBranding {
   businessName: string;

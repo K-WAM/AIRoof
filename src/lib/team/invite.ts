@@ -5,14 +5,11 @@ import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/type
 import { invalidateCachedMember } from "@/lib/auth/memberCache";
 import { defaultLandingPath } from "@/lib/team/landing";
 import type { CompanyModule } from "@/hooks/useBusinessModules";
+import { getAppUrl } from "@/lib/config/appUrl";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Matches the hardcoded convention already used by every other absolute-URL
-// site in this codebase (send-confirmation route, agentTools.ts, hub/demo) —
-// there is no shared env var for this, so this follows the same pattern
-// rather than introducing a lone new one.
-const BASE_URL = "https://ai-roof.vercel.app";
+const BASE_URL = getAppUrl();
 
 export function generateTempPassword(): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
