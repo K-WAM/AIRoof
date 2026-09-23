@@ -734,12 +734,21 @@ an active queue.*
         shows as a status tag on `/admin/businesses`). At minimum, correct the onboarding wizard's "review
         before creating the inactive tenant" copy so it doesn't imply a phone-line hold that isn't real; a
         real fix would add the check to `resolveBusinessId()`.
-  - [ ] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
+  - [x] T-083 — Add a "Create Job" (or "Book appointment") shortcut on the Leads side of Pipeline, matching the
         one Appointments already has, for a lead that needs to become work without ever going through a
-        formal booked appointment.
-  - [ ] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
+        formal booked appointment. **Done 2026-09-23 (Worker D, branch `task/pipeline-links`, commit
+        `48fe6f3`)** — Lead Detail gained `Create <vocab.jobNoun>` reusing the appointments' single prefill
+        handshake (`src/lib/pipeline/jobPrefill.ts`), gated on `ready && isEnabled("jobs")` (jobs-disabled
+        tenants show no dead button; the appointments tab's own ungated hardcoded button was gated/labeled
+        the same way). No "Book appointment" variant was built — no staff-facing appointment-booking flow
+        exists (T-076), so such a button would itself be a dead button. Status → `review`.
+  - [x] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
         supports the `?lead=`/`?appt=` deep-link — Calendar's "Bookings" strip already uses it in the other
-        direction).
+        direction). **Done 2026-09-23 (Worker D, branch `task/pipeline-links`, commit `d0bcdcc`)** — Calls
+        page resolves the selected call against leads/appointments by `sourceCallId`
+        (`src/lib/pipeline/callLinks.ts`, no API change — both list routes already return the field) and
+        renders "View lead"/"View appointment" deep links; Pipeline gained the matching `?lead=` scroll-to-card
+        anchor (it previously selected the lead but never scrolled/highlighted it). Status → `review`.
   - [ ] T-085 — Make the two invoicing systems' distinct purposes explicit in the UI/guide: the job-level
         invoice (Job detail → Invoice tab) is a draft the tenant emails its own customer with no online payment
         option; T-080's Stripe Payment Links are only for Luxor billing the tenant. Worth a one-line label or
