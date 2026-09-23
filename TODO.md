@@ -738,10 +738,9 @@ an active queue.*
   - [ ] T-084 — Link a call's transcript page forward to the lead/appointment it produced (Pipeline already
         supports the `?lead=`/`?appt=` deep-link — Calendar's "Bookings" strip already uses it in the other
         direction).
-  - [ ] T-085 — Make the two invoicing systems' distinct purposes explicit in the UI/guide: the job-level
-        invoice (Job detail → Invoice tab) is a draft the tenant emails its own customer with no online payment
-        option; T-080's Stripe Payment Links are only for Luxor billing the tenant. Worth a one-line label or
-        guide note so nobody promises a customer can pay online from the job invoice today.
+  - [x] T-085 — Clarified in the Job Invoice tab and onboarding guide that tenants can email job
+        invoices to their customers without online payment; Stripe Payment Links in `/admin/invoices`
+        are only for Luxor billing tenants. Invoice totals, persistence, and letterhead unchanged.
   - [ ] T-086 — Delete (or wire up) the dead `POST /api/jobs/[jobId]/invoice` route — zero callers since
         T-077 replaced it with client-side generation, flagged then, still true now.
   - [x] T-087 — Self-led demo link + QR (done 2026-09-08, two-part). **Part 1:** `/try/[vertical]` — a

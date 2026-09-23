@@ -1140,3 +1140,13 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Owner decision: NH-19 records the risk of silently dropping live calls if an `active` gate is added.
 - Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests).
 - Removals: none.
+
+---
+
+## T-085 — Distinguish customer invoices from Luxor billing
+
+- Branch: `task/honest-copy`; commit: this T-085 commit.
+- Evidence: the Job Invoice tab has a muted `.no-print` helper line, outside `.invoice-doc`, and the onboarding demo guide explains the separate Stripe links under `/admin/invoices`.
+- Scope: invoice totals, persistence, letterhead, and emailed HTML unchanged.
+- Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests).
+- Removals: none.

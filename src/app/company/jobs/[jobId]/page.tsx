@@ -1167,6 +1167,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
         <div>
+          <p className="no-print" style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>
+            This job invoice can be emailed to your customer; online payment is not available here. Luxor payment links apply only to invoices Luxor sends your business.
+          </p>
           {!invoiceReady ? (
             <section className="panel">
               <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
