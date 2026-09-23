@@ -720,7 +720,7 @@ an active queue.*
         interpolated, and the pay-link route correctly 401s unauthenticated — no runtime errors in the dev
         server console.
 
-- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 1/7
+- [ ] Phase 11 — Pre-Demo Polish (owner-added, 2026-09-08) — 4/7
       Found during a full end-to-end trace of the roofing demo→job→invoice pipeline and the
       onboarding→team-invite flow, requested ahead of a demo the following week (see the 2026-09-08 entry in
       "Current snapshot" above for the full audit — everything traced was confirmed connected and
@@ -741,8 +741,9 @@ an active queue.*
   - [x] T-085 — Clarified in the Job Invoice tab and onboarding guide that tenants can email job
         invoices to their customers without online payment; Stripe Payment Links in `/admin/invoices`
         are only for Luxor billing tenants. Invoice totals, persistence, and letterhead unchanged.
-  - [ ] T-086 — Delete (or wire up) the dead `POST /api/jobs/[jobId]/invoice` route — zero callers since
-        T-077 replaced it with client-side generation, flagged then, still true now.
+  - [x] T-086 — obsolete — route revived by T-092, has callers. Job detail uses GET to hydrate
+        saved invoices, POST to generate/regenerate (`force: true`) idempotently, and PATCH to autosave
+        draft edits. Kept `POST /api/jobs/[jobId]/invoice`; nothing deleted.
   - [x] T-087 — Self-led demo link + QR (done 2026-09-08, two-part). **Part 1:** `/try/[vertical]` — a
         public, no-login, statically-generated (`generateStaticParams`, all 11 verticals prerendered at build
         time, zero Firestore reads) landing page: tap-to-call CTA for the live demo number, 3 suggested things

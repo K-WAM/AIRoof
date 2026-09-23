@@ -1150,3 +1150,13 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Scope: invoice totals, persistence, letterhead, and emailed HTML unchanged.
 - Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests).
 - Removals: none.
+
+---
+
+## T-086 — Keep the revived persisted invoice route
+
+- Branch: `task/honest-copy`; commit: this T-086 commit.
+- Evidence: `src/app/api/jobs/[jobId]/invoice/route.ts` exports GET, POST, PATCH; POST returns an existing invoice unless `force` rebuilds a still-draft invoice. `src/app/company/jobs/[jobId]/page.tsx` calls GET for hydration, POST for generation/regeneration, and PATCH for draft autosave.
+- Decision: TODO marked stale and closed. No route or caller was deleted.
+- Verification: `npm run type-check` passed; `npm run lint` passed (0 errors, 32 existing warnings); `npm test` passed (79 files, 663 tests); the once-per-batch `npm run build` passed (77 static pages).
+- Removals: none.
