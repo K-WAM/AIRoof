@@ -89,6 +89,7 @@ an active queue.*
 | 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
 | 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 assigned 2026-09-24; T-106 logged, unassigned** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
+| 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
 
 ### Checklist
 
@@ -798,6 +799,54 @@ an active queue.*
         Spanish, cost/min). Output: the decision plus, if the winner is not Vapi, a migration task behind a
         per-business `voiceProvider` flag. Feeds T-106 (bilingual line).
 
+- [ ] Phase 19 — ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) — 0/3
+      Owner created an ElevenLabs Creator-tier account. **Independence rule:** only the *phone call* is
+      provider-specific. Field notes (Whisper `whisper-1` + `gpt-4o` `parse-field-update`), summaries/classify
+      (DeepSeek), invoices, reports and the 7 booking tools (`src/lib/tools/agentTools.ts`) never touch Vapi or
+      ElevenLabs and must not change. Shared contract: `src/lib/voice/types.ts` + `BusinessConfig.voiceProvider` /
+      `.elevenlabs` (integrator-owned; extend with optional fields only). ElevenLabs facts used (docs, Sept 2026 —
+      workers must re-verify against the live docs): webhook tools (JSON schema, secret auth header), conversation
+      initiation webhook for inbound calls (POST {caller_id, called_number, agent_id, call_sid} -> return
+      `dynamic_variables` + `conversation_config_override` {prompt, first_message, language, tts.voice_id}; must
+      answer fast), post-call webhooks (`post_call_transcription`, HMAC `ElevenLabs-Signature`), agent PATCH
+      `/v1/convai/agents/{id}` (Bearer / xi-api-key), outbound `POST /v1/convai/twilio/outbound-call`
+      {agent_id, agent_phone_number_id, to_number, conversation_initiation_client_data}.
+  - [ ] T-111a — **Provider seam + ElevenLabs client + rewire** (Codex). `src/lib/voice/provider.ts`:
+        `getVoiceProvider(config)` returning a `VoiceProvider`; Vapi implementation is a thin wrapper over the existing
+        `updateAssistantPersona`/`initiateVapiCall` with ZERO behavior change; new ElevenLabs implementation
+        (`src/lib/voice/elevenlabs/client.ts`): `pushPersona` -> PATCH agent (prompt, first_message, language,
+        tts voice from T-103 `voice` override), `startOutboundCall` -> twilio/outbound-call (no scheduling: throw
+        `UnsupportedVoiceFeatureError` for `scheduledAt`, and make the follow-up cron handle that honestly).
+        Rewire EVERY caller (company/settings PUT, admin/demo-customize, admin/sync-personas + syncPersonas.ts,
+        calls/outbound, cron/follow-up-calls) to go through the provider chosen by `voiceProviderOf(config)`.
+        `businessLookup`: resolve a business by `elevenlabs.agentId` / `elevenlabs.phoneNumber` (cached like the
+        Vapi lookups). Superadmin config page + PUT: provider selector, agentId / phoneNumberId / phoneNumber
+        fields (validated), shown only when ElevenLabs is selected; default stays Vapi. `/api/health` reports
+        `elevenlabs: configured|not_configured` (env `ELEVENLABS_API_KEY`). Never log keys. Full mocked-fetch tests.
+  - [ ] T-111b — **ElevenLabs inbound webhooks + provisioning** (Deepseek). Routes under
+        `src/app/api/webhooks/elevenlabs/`: `initiation` (auth via secret header; resolve tenant by called number /
+        agent id; return per-call `dynamic_variables` + `conversation_config_override` built from
+        `buildAgentPrompt` + current date/after-hours context + greeting WITH the T-102 recording notice + language +
+        T-103 voice override; record `conversation_id -> businessId` in Firestore for the tools), `tools/[tool]` (the
+        7 tools -> the existing `agentTools.ts` functions; businessId and caller phone come from the stored
+        conversation record, NEVER from model-supplied parameters; same rate limiting/abuse guards as the Vapi
+        webhook), `post-call` (HMAC signature + timestamp tolerance + replay guard like `verify.ts`; writes the same
+        `calls` document/outcome tagging the Vapi end-of-call-report writes — extract a shared helper only as a
+        pure, tested refactor of `webhooks/vapi/route.ts`, behavior unchanged). Tool JSON schemas live in code
+        (`src/lib/voice/elevenlabs/toolSchemas.ts`) and `scripts/setup-elevenlabs-agent.mjs` (dry-run default)
+        creates the tools + a test agent via the API; `docs/ELEVENLABS-SETUP.md` gives the click-by-click for the
+        parts that need the dashboard (agent Security tab: enable overrides + initiation webhook, workspace
+        webhook + secrets). Env: `ELEVENLABS_API_KEY`, `ELEVENLABS_WEBHOOK_SECRET` (post-call HMAC),
+        `ELEVENLABS_TOOL_SECRET` (tools + initiation) in `.env.example`.
+  - [ ] T-112 — **ElevenLabs bake-off follow-ups (todo list, do after the bake-off decision).**
+        (a) attach the 7 tools to the test agent and run the T-110 scripted calls; (b) import a Twilio number into
+        ElevenAgents (Phone Numbers tab: label, number, Twilio SID + token — prefer an API key pair) and assign the
+        test agent; (c) decide the paid plan/minutes (Creator ≈ 275 agent-min/month; agent minutes $0.08 + LLM +
+        telephony) once a winner is clear; (d) one agent per tenant vs one shared agent with per-call overrides
+        (the initiation webhook makes shared viable); (e) in-app ElevenLabs provisioning like the parked T-054
+        (create agent + attach number from the onboarding wizard); (f) outbound scheduling for follow-up calls
+        (ElevenLabs' single-call endpoint has none — use its batch-calling or our own cron window); (g) voice
+        cloning/brand voice per tenant (optional); (h) knowledge base / FAQ upload per tenant (optional).
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
@@ -2128,6 +2177,9 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-17 | Finish the `crm.luxordev.com` domain move: add the GoDaddy CNAME record, add the custom domain in Vercel, add it to Firebase Auth's authorized-domain list, set `NEXT_PUBLIC_APP_URL=https://crm.luxordev.com` in Vercel per environment, and decide whether to repoint the Vapi assistant's Server URL (or leave it on `ai-roof.vercel.app`) | Phase 13 completion | T-095's code side is done (2026-09-23) — every app-generated link now reads `NEXT_PUBLIC_APP_URL` with the old domain as a safe fallback, so this is purely console/account access (GoDaddy, Vercel, Firebase, Vapi dashboards), nothing left for the integrator to do first |
 | NH-18 | Live-call verification of the T-098/T-099 safety boundaries: launch Care Homes and Daycares in Demo Studio, call the demo line, and try the adversarial asks — a caller claiming to be family asking whether a named person is a resident / how they are doing (Care Homes); a caller asking to release a child, or asking whether a specific child is at the center (Daycares); plus a fall/elopement/injury report in each. Confirm the agent refuses to confirm/deny/discuss and escalates immediately | T-098/T-099 production sign-off | Unit tests prove the rules are present in the generated prompt (`buildAgentPrompt`), not that the voice model obeys them on a real call — this is the same class of gap as the 2026-09-07 gpt-realtime incident, where config that looked right didn't behave right live. No phone access in this sandbox. Neither vertical has its own provisioned number; they run on the shared `demo-roofing` line via Demo Studio |
 | NH-19 | Decide whether `business.active` should gate `resolveBusinessId()` for the live Vapi line | T-082 product decision | Today routing uses `vapiAssistantId`/`vapiPhoneNumberId` even when the tenant is flagged inactive. Adding an `active` check could silently drop calls on an already live line; decide the behavior and migration plan before changing routing. |
+| NH-20 | Put the ElevenLabs API key in `.env.local` as `ELEVENLABS_API_KEY` (never in chat), and later in Vercel (Production, type Secret) plus `ELEVENLABS_WEBHOOK_SECRET` and `ELEVENLABS_TOOL_SECRET` (random 40+ char strings you also paste into ElevenLabs' secrets manager / workspace webhook) | T-111/T-112 | Owner account created 2026-09-24 (Creator tier) |
+| NH-21 | Twilio (or SIP) number for the ElevenLabs test agent: buy/verify a number, create a Twilio API key pair, import it in ElevenAgents -> Phone Numbers, assign the test agent | T-112(b) | Needed only for phone-line testing; browser "Test agent" works without it |
+| NH-22 | ElevenLabs privacy review: data retention / call-recording settings and data-processing terms for call audio and transcripts (ties to NH-4 recording notice and the T-102 disclosure) | Before any real caller reaches ElevenLabs | Set the shortest retention that still supports your support needs |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

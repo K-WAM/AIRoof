@@ -40,6 +40,16 @@ export interface BusinessConfig {
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
   voice?: { en?: VoiceRef; es?: VoiceRef };
+  // Phase 19 (T-111): which provider answers this tenant's calls. Missing = "vapi" (see src/lib/voice/types.ts).
+  voiceProvider?: "vapi" | "elevenlabs";
+  // ElevenLabs Agents integration (used only when voiceProvider === "elevenlabs").
+  elevenlabs?: {
+    agentId: string;
+    /** ElevenLabs' id for the imported phone number (needed for outbound calls). */
+    phoneNumberId?: string;
+    /** The E.164 number itself — lets inbound calls resolve to this tenant by "called number". */
+    phoneNumber?: string;
+  };
   // Per-business field access key — carried by the public /field QR link so
   // unauthenticated crews can submit voice updates (see verifyFieldAccess).
   fieldKey?: string;
