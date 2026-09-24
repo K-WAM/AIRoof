@@ -1266,3 +1266,13 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Persona pushes choose only the configured voice for the pushed language. With no override, the PATCH omits `voice`, preserving the dashboard-selected live voice. The existing speaking-plan readback and PATCH fields remain unchanged.
 - Tests cover no override, exact English override, Spanish/English flips, no stale voice on an unset language, speaking-plan preservation, invalid override rejection, and the superadmin gate.
 - Evidence: type-check green; lint 0 errors / 32 existing warnings; focused Vitest 12/12; full `vitest run` 739/739; `next build` green. No files removed.
+
+---
+
+## T-105b - Job findings, report, invoice, and quote
+
+- Date: 2026-09-24; branch: task/work-catalog-jobs; commit: this T-105b commit.
+- Added validated Job.findings snapshots (up to 60) and a Findings tab that reads the shared Work catalog API, groups and searches items, copies selections, supports one-off findings, and edits per-job wording and report/quote inclusion. The shared src/types/workCatalog.ts contract was not changed.
+- Included selected findings in the in-app and emailed reports while retaining crew issues and Scope & Resolution notes. Added an idempotent draft-invoice import that uses exact Library material prices, preserves crew rows and line IDs, and recomputes with shared computeTotals. New invoices no longer include an unnamed labor placeholder row.
+- Added persisted job quotes with a separate Q-1000+ counter, bill-to and finding snapshots, editable draft lines, manual status recording, valid-until date, hide-materials customer view, and a manual Resend send gate. The quote email escapes free text and states that online acceptance and payment are unavailable. Sending advances only open/inspection jobs to quoted.
+- Tests: finding copy/untick and catalog independence, validation, report HTML inclusion and escaping, invoice idempotency and math, quote numbering/status/email, route auth and validation. Full Vitest: 95 files / 798 tests passed with --maxWorkers=2; initial unrestricted run hit two known concurrent-load timeouts in unrelated tests, both passed in isolation. npm run type-check green; npm run lint 0 errors / 32 existing warnings; npm run build green with quote routes present. Mobile layout reviewed for wrapping and horizontal tab scrolling. No files removed.

@@ -728,7 +728,7 @@ an active queue.*
         must never carry placeholder text in customer-visible strings (lesson from T-101). API (owner/staff):
         `GET /api/company/work-catalog?businessId=` -> `{ catalog }`, `PUT` (replace items, validated, cap
         `WORK_CATALOG_MAX_ITEMS`), `POST /api/company/work-catalog/starter`. Plain text only, no HTML; length caps.
-  - [ ] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). On the job detail page the
+  - [x] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). **Status: review (Worker C, `task/work-catalog-jobs`).** On the job detail page the
         user opens **Findings**: catalog items grouped by category with checkboxes + search (reads
         `GET /api/company/work-catalog`) and a "+ Add a one-off finding". Ticking COPIES the item into
         `Job.findings` (snapshot) with per-finding "in report" / "in quote" toggles, editable wording per job.

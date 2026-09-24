@@ -1,3 +1,5 @@
+import type { JobFinding } from "./workCatalog";
+
 export interface InvoiceLineItem {
   description: string;
   quantity: number;
@@ -113,6 +115,8 @@ export interface Job {
   appointmentId?: string;
   notes?: string;
   invoiceId?: string;
+  quoteId?: string;
+  findings?: JobFinding[];
   createdAt: number;
   updatedAt: number;
   // Authoritative projection: deterministically computed in code from the updates ledger.
