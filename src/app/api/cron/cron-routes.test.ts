@@ -419,6 +419,8 @@ describe("follow-up callback state machine", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it("queries only due consented leads and records exactly one ledgered attempt", async () => {
@@ -457,6 +459,27 @@ describe("follow-up callback state machine", () => {
       callbackState: "pending",
       callbackDueAt: NOW + 4 * 60 * 60 * 1000,
     });
+  });
+
+  it("calls an ElevenLabs tenant only while inside its callback window", async () => {
+    vi.stubEnv("ELEVENLABS_API_KEY", "test-key");
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, conversation_id: "conv_callback" }) });
+    vi.stubGlobal("fetch", fetch);
+    const firestore = new FakeFirestore();
+    seedCallbackBusiness(firestore, {
+      voiceProvider: "elevenlabs",
+      elevenlabs: { agentId: "agent_1", phoneNumberId: "phone_1", phoneNumber: "+15551234567" },
+    });
+    seedLead(firestore, "eleven-lead");
+    providerMocks.getAdminFirestore.mockReturnValue(firestore as never);
+    const response = await followUpCalls(cronRequest("/api/cron/follow-up-calls", "GET", CRON_SECRET));
+    expect(await response.json()).toMatchObject({ attempted: 1, errors: [] });
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, options] = fetch.mock.calls[0];
+    expect(url).toBe("https://api.elevenlabs.io/v1/convai/twilio/outbound-call");
+    expect(JSON.parse(options.body)).toMatchObject({ agent_id: "agent_1", agent_phone_number_id: "phone_1", conversation_initiation_client_data: { dynamic_variables: { type: "follow_up" } } });
+    expect(JSON.parse(options.body)).not.toHaveProperty("scheduledAt");
+    expect(firestore.documents.get("businesses/biz-1/calls/call_elevenlabs_conv_callback")).toMatchObject({ elevenlabsConversationId: "conv_callback" });
   });
 
   it("lets only one overlapping invocation call the provider for the same lead", async () => {

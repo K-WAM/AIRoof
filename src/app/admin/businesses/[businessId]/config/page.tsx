@@ -49,6 +49,8 @@ interface BizData {
   timezone?: string;
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  voiceProvider?: "vapi" | "elevenlabs";
+  elevenlabs?: { agentId: string; phoneNumberId?: string; phoneNumber?: string };
   voice?: { en?: VoiceRef; es?: VoiceRef };
   callbackDelayMinutes?: number;
   maxCallAttempts?: number;
@@ -105,6 +107,7 @@ export default function AdminBusinessConfigPage({
 }) {
   const { businessId } = use(params);
   const [biz, setBiz] = useState<BizData | null>(null);
+  const [phoneProvider, setPhoneProvider] = useState<"vapi" | "elevenlabs">("vapi");
   const [onboarding, setOnboarding] = useState<OnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -178,6 +181,7 @@ export default function AdminBusinessConfigPage({
       })
       .then((data) => {
         setBiz(data.business ?? null);
+        setPhoneProvider(data.business?.voiceProvider === "elevenlabs" ? "elevenlabs" : "vapi");
         setOnboarding(data.onboarding ?? null);
       })
       .catch(() => setLoadError(true))
@@ -276,8 +280,17 @@ export default function AdminBusinessConfigPage({
         .filter(Boolean),
       timezone: String(formData.get("timezone") || "America/New_York"),
       // Vapi
-      vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
-      vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
+      voiceProvider: phoneProvider,
+      ...(phoneProvider === "vapi" ? {
+        vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
+        vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
+      } : {
+        elevenlabs: {
+          agentId: String(formData.get("elevenlabsAgentId") || "").trim(),
+          phoneNumberId: String(formData.get("elevenlabsPhoneNumberId") || "").trim(),
+          phoneNumber: String(formData.get("elevenlabsPhoneNumber") || "").trim(),
+        },
+      }),
       voice,
       callbackDelayMinutes: formData.get("callbackDelayMinutes") !== "" ? Number(formData.get("callbackDelayMinutes")) : undefined,
       maxCallAttempts: formData.get("maxCallAttempts") !== "" ? Number(formData.get("maxCallAttempts")) : undefined,
@@ -452,15 +465,23 @@ export default function AdminBusinessConfigPage({
             </div>
           </section>
 
-          {/* ─── Vapi Integration ─── */}
+          {/* ─── Phone provider ─── */}
           <section className="panel" aria-labelledby="vapi-config-title">
             <div className="panel-header">
               <h2 className="panel-title" id="vapi-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <PhoneCall size={16} strokeWidth={1.75} />
-                Vapi Integration
+                Phone provider
               </h2>
             </div>
             <div className="panel-body">
+              <div className="field full" style={{ marginBottom: 16 }}>
+                <label htmlFor="voiceProvider">Phone provider</label>
+                <select id="voiceProvider" name="voiceProvider" value={phoneProvider} onChange={(event) => setPhoneProvider(event.target.value as "vapi" | "elevenlabs")}>
+                  <option value="vapi">Vapi (default)</option>
+                  <option value="elevenlabs">ElevenLabs</option>
+                </select>
+              </div>
+              {phoneProvider === "vapi" ? (
               <div className="form-grid">
                 <div className="field full">
                   <label htmlFor="vapiAssistantId">Vapi assistant ID</label>
@@ -483,16 +504,32 @@ export default function AdminBusinessConfigPage({
                   />
                 </div>
               </div>
+              ) : (
+                <div className="form-grid">
+                  <div className="field full">
+                    <label htmlFor="elevenlabsAgentId">ElevenLabs agent ID</label>
+                    <input id="elevenlabsAgentId" name="elevenlabsAgentId" required defaultValue={biz.elevenlabs?.agentId ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsPhoneNumberId">ElevenLabs phone number ID</label>
+                    <input id="elevenlabsPhoneNumberId" name="elevenlabsPhoneNumberId" required defaultValue={biz.elevenlabs?.phoneNumberId ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsPhoneNumber">ElevenLabs phone number (E.164)</label>
+                    <input id="elevenlabsPhoneNumber" name="elevenlabsPhoneNumber" type="tel" required placeholder="+15551234567" defaultValue={biz.elevenlabs?.phoneNumber ?? ""} />
+                  </div>
+                </div>
+              )}
               <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
-                Find these in your Vapi dashboard → Assistants and Phone Numbers.
+                Find these IDs in your {phoneProvider === "vapi" ? "Vapi" : "ElevenLabs"} dashboard.
                 Set them here so calls route to the correct agent.
               </p>
 
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
                 <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 14 }}>Language voice overrides</p>
                 <p className="helper-text" style={{ margin: "0 0 14px" }}>
-                  Choose a provider and confirmed voice ID to override the live Vapi voice when that language is pushed.
-                  Select “Leave live voice unchanged” to clear an override. To change a voice already live, use the Vapi dashboard or set another override and push the language.
+                  Choose a provider and confirmed voice ID to override the live voice when that language is pushed.
+                  Select “Leave live voice unchanged” to clear an override.
                 </p>
                 {(["en", "es"] as const).map((language) => (
                   <div key={language} className="form-grid" style={{ marginBottom: 14 }}>

@@ -3,6 +3,7 @@ const CAPABILITIES: Record<string, string[]> = {
   deepseek: ["DEEPSEEK_API_KEY"],
   resend: ["RESEND_API_KEY", "RESEND_FROM"],
   vapi: ["VAPI_API_KEY", "VAPI_WEBHOOK_SECRET"],
+  elevenlabs: ["ELEVENLABS_API_KEY"],
   firebase: ["FIREBASE_SERVICE_ACCOUNT_JSON"],
   cron: ["CRON_SECRET"],
   stripe: ["STRIPE_SECRET_KEY"],

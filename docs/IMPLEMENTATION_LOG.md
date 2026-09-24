@@ -1289,3 +1289,13 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Included selected findings in the in-app and emailed reports while retaining crew issues and Scope & Resolution notes. Added an idempotent draft-invoice import that uses exact Library material prices, preserves crew rows and line IDs, and recomputes with shared computeTotals. New invoices no longer include an unnamed labor placeholder row.
 - Added persisted job quotes with a separate Q-1000+ counter, bill-to and finding snapshots, editable draft lines, manual status recording, valid-until date, hide-materials customer view, and a manual Resend send gate. The quote email escapes free text and states that online acceptance and payment are unavailable. Sending advances only open/inspection jobs to quoted.
 - Tests: finding copy/untick and catalog independence, validation, report HTML inclusion and escaping, invoice idempotency and math, quote numbering/status/email, route auth and validation. Full Vitest: 95 files / 798 tests passed with --maxWorkers=2; initial unrestricted run hit two known concurrent-load timeouts in unrelated tests, both passed in isolation. npm run type-check green; npm run lint 0 errors / 32 existing warnings; npm run build green with quote routes present. Mobile layout reviewed for wrapping and horizontal tab scrolling. No files removed.
+
+---
+
+## T-111a — Voice provider seam and ElevenLabs client
+
+- Date: 2026-09-24 · branch: `task/voice-provider` · commit: this T-111a commit.
+- Added `getVoiceProvider` with a thin Vapi wrapper retaining existing persona PATCH and outbound argument shapes. The shared voice contract gained only optional `OutboundCallInput.metadata`, needed to keep Vapi call metadata separate from assistant variables.
+- Added the ElevenLabs agent PATCH and Twilio outbound client using the documented endpoints and `xi-api-key` header. Persona pushes include the T-102 greeting and T-103 voice only when configured for the selected language. Scheduled outbound calls throw before fetch. Rewired settings, demo customization, persona sync, manual outbound, and follow-up cron through the provider seam. Cron places due callbacks only inside the tenant's allowed window.
+- Added ElevenLabs agent and E.164 phone lookups with warm-process caching, superadmin provider config with server validation and retained IDs for both providers, and an `elevenlabs` health capability. No files removed.
+- Evidence: type-check green; lint 0 errors / 32 existing warnings; full Vitest 805/805, including mocked exact ElevenLabs bodies, Vapi argument preservation, provider selection, sync planning, lookup caches, admin validation/auth, health flag, and cron window; production `next build` green.
