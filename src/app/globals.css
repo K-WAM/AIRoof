@@ -23,6 +23,8 @@
 
   /* Keyboard focus ring — applied app-wide via :focus-visible */
   --ring: 0 0 0 3px rgba(15, 118, 110, 0.35);
+  /* Darker surfaces need a brighter ring to stay visible (T-114). */
+  --ring-dark: 0 0 0 3px rgba(45, 212, 191, 0.5);
 
   /* Border-radius scale */
   --r-sm: 6px;
@@ -90,6 +92,13 @@ textarea:focus-visible,
   outline: none;
   box-shadow: var(--ring);
   border-radius: inherit;
+}
+
+/* On the dark admin/hub sidebar the teal ring above reads dimmer — brighten it. */
+.admin-sidebar a:focus-visible,
+.admin-sidebar button:focus-visible,
+.admin-sidebar [tabindex]:focus-visible {
+  box-shadow: var(--ring-dark);
 }
 
 * {
@@ -303,6 +312,7 @@ a {
   font-weight: 500;
   cursor: pointer;
   padding: 0;
+  min-height: 40px;
   transition: color 0.1s;
   font-family: inherit;
 }
@@ -773,6 +783,7 @@ a.panel:hover {
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
+  min-height: 40px;
   padding: 6px 12px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
