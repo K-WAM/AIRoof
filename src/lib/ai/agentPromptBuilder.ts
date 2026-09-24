@@ -1,6 +1,7 @@
 // Builds strict system prompt from BusinessConfig — controls what agent says
 import type { BusinessConfig } from "@/types";
 import { VERTICAL_TEMPLATES, type IntakeField, type VerticalId } from "@/lib/verticals/templates";
+import { resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 
 export interface PromptOptions {
   /** True when there are already prior turns in the conversation. Suppresses the greeting instruction so the agent doesn't re-introduce itself. */
@@ -77,6 +78,14 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
 
   const intakeSection = buildIntakeSection(businessConfig.industry);
 
+  // Call-recording disclosure (Phase 16, T-102). The greeting speaks the notice when the
+  // tenant has it enabled, but the agent must answer honestly EITHER way — calls are
+  // recorded and transcribed regardless of whether the notice is spoken.
+  const recordingSection = `## Call Recording
+Calls may be recorded and transcribed.${resolveRecordingDisclosure(businessConfig).enabled ? " The greeting already tells the caller this." : " This business has turned the spoken notice off, so do NOT volunteer that information — but if a caller asks, answer honestly."} If a caller asks whether the call is being recorded or transcribed, answer honestly in one short sentence: yes, this call may be recorded and transcribed. Do not offer extra legal detail.
+
+`;
+
   return `You are ${agentName}, the ${agentIdentity} for ${businessConfig.businessName}, a ${businessConfig.industry} business.
 
 ${conversationContext}
@@ -86,7 +95,7 @@ ${runtimeContext}
 Answer inbound calls, qualify leads, schedule appointments, escalate urgent cases, and take messages.
 If asked whether you are human, be transparent: "I'm the receptionist for ${businessConfig.businessName}. I can help with scheduling, messages, and urgent triage."
 
-## Scope
+${recordingSection}## Scope
 You may ONLY discuss:
 - This business's approved services
 - Scheduling and appointment booking

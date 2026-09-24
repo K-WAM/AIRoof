@@ -4,6 +4,11 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import {
+  composeGreetingWithDisclosure,
+  resolveRecordingDisclosure,
+  validateRecordingDisclosureText,
+} from "@/lib/recordingDisclosure";
 import type { BusinessConfig } from "@/types";
 
 export async function GET(req: NextRequest) {
@@ -22,7 +27,7 @@ export async function GET(req: NextRequest) {
   const snap = await db.collection("businesses").doc(businessId).get();
   if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
 
-  const d = snap.data()!;
+  const d = snap.data()! as BusinessConfig;
   return jsonWithCache({
     timezone: d.timezone ?? "America/New_York",
     businessHours: d.businessHours ?? {},
@@ -33,20 +38,57 @@ export async function GET(req: NextRequest) {
     // Spanish (Phase 12, Phase 6)
     agentLanguage: d.agentLanguage ?? "en",
     agentLanguages: d.agentLanguages ?? ["en"],
+    // Call-recording notice (Phase 16, T-102): the stored greetings plus the
+    // resolved disclosure feed the settings page's live spoken-greeting preview.
+    greeting: d.greeting ?? "",
+    afterHoursGreeting: d.afterHoursGreeting ?? "",
+    recordingDisclosure: resolveRecordingDisclosure(d),
   }, "semiStatic");
 }
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, agentLanguage, agentLanguages } = body;
+  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, agentLanguage, agentLanguages, recordingDisclosure } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   if (agentLanguage !== undefined && !["en", "es"].includes(agentLanguage)) {
     return NextResponse.json({ error: 'agentLanguage must be "en" or "es"' }, { status: 400 });
   }
 
+  // T-102: shape + content validation for the recording notice. Rejects bad
+  // input before any auth/write work. `text` may be omitted or empty — that
+  // means "use the drafted default sentence" (never store an empty text).
+  let disclosureUpdate: { enabled: boolean; text?: string } | undefined;
+  if (recordingDisclosure !== undefined) {
+    if (
+      recordingDisclosure === null ||
+      typeof recordingDisclosure !== "object" ||
+      Array.isArray(recordingDisclosure) ||
+      typeof recordingDisclosure.enabled !== "boolean"
+    ) {
+      return NextResponse.json({ error: "recordingDisclosure must be { enabled: boolean, text?: string }" }, { status: 400 });
+    }
+    let text: string | undefined;
+    if (recordingDisclosure.text !== undefined) {
+      if (typeof recordingDisclosure.text !== "string") {
+        return NextResponse.json({ error: "recordingDisclosure.text must be a string" }, { status: 400 });
+      }
+      const check = validateRecordingDisclosureText(recordingDisclosure.text);
+      if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
+      const trimmed = recordingDisclosure.text.trim();
+      text = trimmed.length > 0 ? trimmed : undefined;
+    }
+    disclosureUpdate = { enabled: recordingDisclosure.enabled, ...(text ? { text } : {}) };
+  }
+
   const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in auth) return auth.error;
+
+  // The recording notice is owner/superadmin territory (a legal-compliance
+  // setting), even though staff may save the other settings on this route.
+  if (disclosureUpdate !== undefined && !auth.user.superadmin && auth.user.role !== "owner") {
+    return NextResponse.json({ error: "Only the owner can change the call recording notice" }, { status: 403 });
+  }
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -59,32 +101,37 @@ export async function PUT(req: NextRequest) {
   if (contactEmail !== undefined) update.contactEmail = contactEmail;
   if (agentLanguage !== undefined) update.agentLanguage = agentLanguage;
   if (agentLanguages !== undefined) update.agentLanguages = agentLanguages;
+  if (disclosureUpdate !== undefined) update.recordingDisclosure = disclosureUpdate;
 
   const businessRef = db.collection("businesses").doc(businessId);
   await businessRef.update(update);
 
-  // Push the language switch live immediately — "the Spanish toggle should work seamlessly" means
+  // Push the change live immediately — "the Spanish toggle should work seamlessly" means
   // the phone line itself changes on save, not just what's stored in Firestore for the next call
   // that happens to hit the assistant-request path (every provisioned number has a fixed
   // assistantId, so that dynamic path never actually fires — see updateAssistantPersona's own doc
-  // comment). A push failure never fails the save itself; it's surfaced back to the owner instead
-  // of silently leaving the live line on the old language.
+  // comment). T-102: a recording-notice change also pushes here so the spoken greeting on the
+  // live line picks it up (the first message now carries the composed disclosure). A push failure
+  // never fails the save itself; it's surfaced back to the owner instead of silently leaving the
+  // live line on the old state.
   let vapiSyncWarning: string | undefined;
-  if (agentLanguage !== undefined) {
+  if (agentLanguage !== undefined || disclosureUpdate !== undefined) {
     try {
       const freshSnap = await businessRef.get();
       const config = freshSnap.data() as BusinessConfig | undefined;
       if (config?.vapiAssistantId) {
         await updateAssistantPersona({
           assistantId: config.vapiAssistantId,
-          firstMessage: config.greeting ?? "",
+          firstMessage: composeGreetingWithDisclosure(config.greeting ?? "", resolveRecordingDisclosure(config)),
           systemPrompt: buildAgentPrompt(config),
-          transcriberLanguage: agentLanguage,
+          // Only touch the transcriber when the language actually changed; a
+          // disclosure-only save must not disturb the speaking configuration.
+          ...(agentLanguage !== undefined ? { transcriberLanguage: agentLanguage } : {}),
         });
       }
     } catch (err) {
-      console.warn("company/settings: Vapi persona push failed after language change:", (err as Error)?.message ?? err);
-      vapiSyncWarning = "Saved, but the live phone line could not be updated yet — it may still answer in the previous language until the next successful sync.";
+      console.warn("company/settings: Vapi persona push failed after save:", (err as Error)?.message ?? err);
+      vapiSyncWarning = "Saved, but the live phone line could not be updated yet — it may still use the previous greeting or language until the next successful sync.";
     }
   }
 

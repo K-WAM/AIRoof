@@ -83,6 +83,16 @@ export interface BusinessConfig {
     nextInvoiceDate?: number;     // ms epoch — recurring-invoices cron trigger
     autoInvoice?: boolean;        // opt-in: cron drafts (never auto-sends) a monthly invoice
   };
+  // Call-recording disclosure (Phase 16, T-102). Missing field = DEFAULT ON:
+  // calls are recorded/transcribed and the drafted default sentence (English,
+  // or Spanish when agentLanguage is "es") is spoken first in the greeting —
+  // see src/lib/recordingDisclosure.ts. The default wording is a DRAFT, not
+  // legal advice; owners should have counsel review custom wording.
+  recordingDisclosure?: {
+    enabled: boolean;
+    /** Owner-edited wording; missing/empty = drafted default sentence. */
+    text?: string;
+  };
   createdAt: number;
   updatedAt: number;
 }

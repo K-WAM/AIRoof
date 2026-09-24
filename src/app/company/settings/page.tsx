@@ -8,7 +8,12 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Toggle } from "@/components/ui/Toggle";
 import { TeamPanel } from "./TeamPanel";
-import { Bell, Clock3, Globe2, Languages, Save, Settings } from "lucide-react";
+import {
+  composeGreetingWithDisclosure,
+  defaultRecordingDisclosureText,
+  RECORDING_DISCLOSURE_MAX_LENGTH,
+} from "@/lib/recordingDisclosure";
+import { Bell, Clock3, Globe2, Languages, Mic, Save, Settings } from "lucide-react";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -33,6 +38,11 @@ interface Settings {
   contactEmail: string;
   businessName: string;
   agentLanguage: "en" | "es";
+  // Call-recording notice (Phase 16, T-102) — optional so an older cached
+  // response can never crash this page.
+  greeting?: string;
+  afterHoursGreeting?: string;
+  recordingDisclosure?: { enabled: boolean; text: string };
 }
 
 export default function CompanySettingsPage() {
@@ -101,14 +111,36 @@ export default function CompanySettingsPage() {
       contactEmailRef.current?.focus();
       return;
     }
+    const disclosureText = settings.recordingDisclosure?.text ?? "";
+    if (disclosureText.trim().length > RECORDING_DISCLOSURE_MAX_LENGTH) {
+      setError(`The recording notice must be ${RECORDING_DISCLOSURE_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+    if (/<[a-z][^>]*>/i.test(disclosureText)) {
+      setError("The recording notice must be plain text — no HTML or markup.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setWarning(null);
     try {
+      // Staff may save the other settings but not the recording notice (owner/superadmin
+      // only server-side) — never send it from a non-owner session.
+      const payload: Record<string, unknown> = {
+        businessId,
+        timezone: settings.timezone,
+        businessHours: settings.businessHours,
+        notificationEmail: settings.notificationEmail,
+        contactPhone: settings.contactPhone,
+        contactEmail: settings.contactEmail,
+        agentLanguage: settings.agentLanguage,
+        agentLanguages: [settings.agentLanguage],
+      };
+      if (canManageTeam) payload.recordingDisclosure = settings.recordingDisclosure;
       const res = await fetch("/api/company/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, ...settings, agentLanguages: [settings.agentLanguage] }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -125,6 +157,14 @@ export default function CompanySettingsPage() {
       setSaving(false);
     }
   }
+
+  const disclosure = settings.recordingDisclosure ?? { enabled: true, text: "" };
+  const disclosureDraft = {
+    enabled: disclosure.enabled,
+    text: disclosure.text.trim() || defaultRecordingDisclosureText(settings.agentLanguage),
+  };
+  const previewGreeting = composeGreetingWithDisclosure(settings.greeting ?? "", disclosureDraft);
+  const previewAfterHours = composeGreetingWithDisclosure(settings.afterHoursGreeting ?? "", disclosureDraft);
 
   return (
     <>
@@ -159,6 +199,7 @@ export default function CompanySettingsPage() {
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 20 }}>
         {/* Business hours */}
         <section className="panel">
           <div className="panel-header">
@@ -209,6 +250,71 @@ export default function CompanySettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* Call recording notice — owner/superadmin only */}
+        {canManageTeam && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Mic size={16} strokeWidth={1.75} />
+                Call Recording Notice
+              </h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
+                In Florida and several other states, every party on a call must be told it may be
+                recorded. When this is on, the notice below is spoken as one short sentence at the
+                start of every greeting.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1e293b", fontWeight: 600, marginBottom: 12 }}>
+                <Toggle
+                  checked={disclosure.enabled}
+                  onChange={(next) => setSettings(prev => prev ? { ...prev, recordingDisclosure: { ...disclosure, enabled: next } } : prev)}
+                  label="Speak the recording notice on every call"
+                />
+                Speak the notice at the start of every call
+              </div>
+              {disclosure.enabled && (
+                <>
+                  <div className="field">
+                    <label htmlFor="recordingText">Spoken notice</label>
+                    <textarea
+                      id="recordingText"
+                      rows={3}
+                      maxLength={RECORDING_DISCLOSURE_MAX_LENGTH}
+                      value={disclosure.text}
+                      onChange={e => setSettings(prev => prev ? { ...prev, recordingDisclosure: { ...disclosure, text: e.target.value } } : prev)}
+                      placeholder={defaultRecordingDisclosureText(settings.agentLanguage)}
+                      style={{ resize: "vertical" }}
+                    />
+                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0 0" }}>
+                      {disclosure.text.length}/{RECORDING_DISCLOSURE_MAX_LENGTH} characters.
+                      {disclosure.text.trim().length === 0
+                        ? ` If left blank, the default "${defaultRecordingDisclosureText(settings.agentLanguage)}" is spoken.`
+                        : ""}
+                    </p>
+                  </div>
+                  <div style={{ marginTop: 14 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", margin: "0 0 6px" }}>Live preview — what callers hear first</p>
+                    <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                      <span style={{ fontWeight: 600, color: "#0f766e", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.4px" }}>Business hours</span>
+                      <p style={{ margin: "4px 0 0" }}>{previewGreeting}</p>
+                    </div>
+                    <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#334155", lineHeight: 1.5, marginTop: 8 }}>
+                      <span style={{ fontWeight: 600, color: "#0f766e", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.4px" }}>After hours</span>
+                      <p style={{ margin: "4px 0 0" }}>{previewAfterHours}</p>
+                    </div>
+                  </div>
+                </>
+              )}
+              <p style={{ fontSize: 12, color: "#64748b", margin: "12px 0 0", padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                The default wording is a <strong>draft, not legal advice</strong>. Recording-consent
+                requirements vary by state — have counsel review this wording before you rely on it.
+              </p>
+            </div>
+          </section>
+        )}
+        </div>
 
         {/* Timezone + Contact */}
         <div style={{ display: "grid", gap: 20 }}>
