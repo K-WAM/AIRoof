@@ -88,6 +88,7 @@ an active queue.*
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 | 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
 | 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 assigned 2026-09-24; T-106 logged, unassigned** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
+| 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 
 ### Checklist
 
@@ -756,6 +757,46 @@ an active queue.*
         method) and only then offered per-tenant, never forced on English-only tenants; (d) keeps
         `startSpeakingPlan`/`stopSpeakingPlan` preserved byte-for-byte; (e) picks the voice per detected language if
         T-103's `voice.es` is set. Optional follow-up (separate): a Spanish customer-facing report/quote.
+
+- [ ] Phase 18 — Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) — 0/4
+      **Product intent (owner):** users take jobs frictionlessly from calls or email (a job is created for them, or
+      they create one in a tap); set up their people; field updates are seamless; and from any job they generate
+      a **quote, invoice and report** where they can select issues, images and workers, edit everything, and
+      hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
+      simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
+  - [ ] T-107 — **Document suite unification** (start AFTER T-105a/b merge — it builds on T-105b's quote + findings).
+        Audit (2026-09-24): `hideMaterials` works on the INVOICE only (in-app, print/PDF, email; email path
+        unit-tested; a real send has not been click-verified — add to NH-8); the REPORT has no hide toggles and
+        the emailed report (`report/send/route.ts`) still uses the legacy `biz.logoUrl` with a white-silhouette
+        invert filter, bypassing the logo library; no labor-hide anywhere; no quote until T-105b. Build ONE shared
+        document layer used by invoice, quote and report (in-app, print/PDF, email): (1) shared options persisted per
+        document — `hideMaterials` (collapses to one lump "Materials" subtotal, as the reference invoice does),
+        NEW `hideLabor` (hides worker names/hours/rates, shows one lump "Labor" subtotal), `showPhotos`,
+        `showTechnicians` (worker names chosen from Team/crews, with their trade); (2) logo: EVERY document and
+        email resolves the tenant's logo through `src/lib/branding/logo.ts` variants (fix the legacy report email);
+        upload stays in Library -> Branding; (3) modern layout modeled on the reference: letterhead (logo,
+        address, phone, license #), large document title, meta block (date, number, terms, reference, service
+        address), bill-to, an editable auto-drafted narrative (from findings + field log), Labor and Materials
+        groups with subtotals, boxed total, and photo pages with per-finding "Problem / Corrective action" +
+        Before/After (needs a `licenseNumber` field on the business); (4) everything editable before send;
+        (5) tests that every toggle collapses correctly in ALL three renderings of ALL three documents, and an
+        HTML-escaping pass. Consistent design tokens (one teal, `.button`), mobile-checked.
+  - [ ] T-108 — **Auto-create a job from a booked call** (jobs-module tenants). Today a call only creates a
+        lead/appointment; a job needs the manual "Create Job" tap (T-083). Add a per-business setting (default:
+        off, offered in Settings) so `bookAppointment` also creates a linked draft job (customer resolved via
+        `resolveCustomer`, address/service/intake carried in, `appointmentId` link), idempotent per appointment,
+        with a Pipeline/Jobs indicator "created from call". Must not double-create when staff also tap Create Job.
+  - [ ] T-109 — **Email -> job intake.** No inbound email exists. Design + build: a per-tenant intake address
+        (Resend inbound or forwarding), the message parsed by the existing AI layer into customer / address /
+        scope / urgency, creating a LEAD (default) or draft job for one-click review; attachments become job photos
+        (respecting the 24-photo cap); spam/abuse limits (rate limit, sender allowlist option); never auto-replies.
+        Needs a NEEDS-HUMAN for the inbound domain/MX setup.
+  - [ ] T-110 — **Voice platform bake-off and decision** (owner + Claude, 2026-09-25). Follow
+        `docs/VOICE-RESEARCH-2026-09-24.md`: Vapi + ElevenLabs voice, Vapi + Cartesia, gpt-realtime-2.1(-mini) via
+        Vapi, then ElevenLabs Agents (and Retell if needed), on SEPARATE test assistants — the live line is not
+        touched — scored on 10 scripted calls (human-ness blind-rated, talk-over incidents, tool success, latency,
+        Spanish, cost/min). Output: the decision plus, if the winner is not Vapi, a migration task behind a
+        per-business `voiceProvider` flag. Feeds T-106 (bilingual line).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
