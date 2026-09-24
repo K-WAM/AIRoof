@@ -137,7 +137,7 @@ gcloud firestore fields ttls update expiresAt --collection-group=vapiAppointment
 ```
 Or console: **console.cloud.google.com → Firestore → Time-to-live → Create policy** → collection group + field `expiresAt` (do it twice). *Pass:* both show state *Active/Serving* (can take a few minutes).
 
-**NH-7 — Branch protection (5 min, but read this).** GitHub → repo `K-WAM/AIRoof` → **Settings → Branches → Add rule** → pattern `main` → tick *Require status checks to pass* → pick the `gate` job from the **CI** workflow. ⚠ If you also tick *Do not allow bypassing* / *Include administrators*, **direct pushes to `main` stop working** — you'd need pull requests for everything (including Claude's pushes). Recommended: leave administrators able to bypass, so CI is enforced for PRs but your own direct pushes still work.
+**NH-7 — Branch protection: DONE 2026-09-23.** Required check `gate`; administrators can bypass, so direct pushes to `main` still work; force-push and deletion are blocked. (Doing this exposed that CI had been failing for weeks on a critical Next.js advisory; fixed by upgrading to 15.5.26.)
 
 **T-081 / NH-14 — Stripe key (10 min).** Stripe Dashboard → **Developers → API keys** → *Create restricted key* (Payment Links: write; Products: write; Prices: write) or use the secret key → copy. Vercel → Environment Variables → add `STRIPE_SECRET_KEY` (Production), type **Secret** → Redeploy. *Pass:* `curl https://ai-roof.vercel.app/api/health` shows `"stripe":"configured"`. (Use a *test-mode* key first, `sk_test_…`, and a real one only when you're ready to bill.)
 
