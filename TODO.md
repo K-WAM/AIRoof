@@ -847,6 +847,20 @@ an active queue.*
         (create agent + attach number from the onboarding wizard); (f) outbound scheduling for follow-up calls
         (ElevenLabs' single-call endpoint has none — use its batch-calling or our own cron window); (g) voice
         cloning/brand voice per tenant (optional); (h) knowledge base / FAQ upload per tenant (optional).
+        **Existing-number integration (owner question 2026-09-24) — (i)-(l):** a business that already has a phone
+        number does NOT have to give it up or use Twilio itself. Ranked by friction: (i) **conditional call
+        forwarding** (recommended default): their carrier forwards unanswered/busy/after-hours calls (or all calls)
+        to a new "AI line" number we provision (a Twilio number imported into ElevenAgents natively, or any SIP DID);
+        the business keeps its number and can switch forwarding off any time; build an onboarding step that shows the
+        AI-line number, carrier-specific forwarding instructions (star codes / carrier portal) and a test-call
+        verifier; VERIFY on a real forwarded call that the AI still receives the ORIGINAL caller's number (caller-ID /
+        diversion headers are carrier-dependent) because the booking flow confirms it; support "ring the business
+        first, AI on no-answer" AND "AI first, transfer to a human" (ElevenLabs `transfer_to_number` system tool);
+        (j) **SIP trunk** for businesses already on a VoIP/PBX (RingCentral, Vonage, 8x8, Telnyx, etc.): their provider
+        routes the number/extension to ElevenLabs' SIP address (TLS, digest or IP allowlist, G.711/G.722) — no porting;
+        (k) **port the number** to Twilio/Telnyx for full takeover (days to weeks; only when the business wants it);
+        (l) provider choice for provisioned AI-line numbers: Twilio first (native ElevenLabs import, API-driven number
+        purchase for in-app provisioning), Telnyx later if per-minute cost matters.
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
