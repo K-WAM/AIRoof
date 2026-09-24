@@ -8,7 +8,8 @@ Twilio number **+1 689 204 2643** (`phnum_0801m3aknbref2w9tbhqc6ad3xzb`, Twilio 
 post-call webhook (transcripts back into the app) and the first real test call. Direction (owner): move from Vapi to ElevenLabs tenant by tenant (T-117).
 
 ## First 15 minutes
-1. **Post-call webhook (owner, click-by-click was given in chat):** ElevenLabs -> create webhook `https://ai-roof.vercel.app/api/webhooks/elevenlabs/post-call`
+0. **DONE 2026-09-24 (after this doc was first written): the post-call webhook exists, the secret is in Vercel prod, and prod was redeployed — skip step 1. The FIRST REAL TEST CALL is the next thing to do.**
+1. ~~Post-call webhook (owner, click-by-click was given in chat):~~ ElevenLabs -> create webhook `https://ai-roof.vercel.app/api/webhooks/elevenlabs/post-call`
    (HMAC; transcript + call-failure events) -> copy the signing secret ONCE -> put it in `.env.local` as `ELEVENLABS_WEBHOOK_SECRET=` -> tell Claude
    "webhook secret saved" -> Claude pushes it to Vercel (`vercel env add ... production --sensitive`, from the file, never printed) and redeploys.
 2. **First test call** to +1 689 204 2643 (expect the Twilio trial message, then "Roofus" — the app-generated persona for the roofing template, NOT the hand-written
