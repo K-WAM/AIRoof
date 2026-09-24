@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildCustomerConfirmationEmail } from "@/lib/notify";
+import { sendEmail } from "@/lib/comms/send";
+import { buildRequestDeclineEmail, REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
   isScheduleWithinBusinessHours,
@@ -20,6 +22,8 @@ interface AppointmentPatchBody {
   startTime?: number | null;
   confirm?: boolean;
   notifyCustomer?: boolean;
+  declineReason?: string;
+  customMessage?: string;
 }
 
 function schedulingError(error: unknown): NextResponse | null {
@@ -44,7 +48,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { businessId, assignedCrewId, startTime, confirm, notifyCustomer } = body;
+  const { businessId, assignedCrewId, startTime, confirm, notifyCustomer, declineReason, customMessage } = body;
   if (!businessId) {
     return NextResponse.json({ error: "businessId required" }, { status: 400 });
   }
@@ -64,6 +68,43 @@ export async function PATCH(
 
   const businessRef = db.collection("businesses").doc(businessId);
   const appointmentRef = businessRef.collection("appointments").doc(appointmentId);
+
+  // T-113: declining is a terminal, idempotent decision, not a scheduling
+  // update. Persist before any best-effort email attempt so a retry can never
+  // send a second decline.
+  if (declineReason !== undefined) {
+    if (!REQUEST_DECLINE_REASONS.includes(declineReason as RequestDeclineReason)) {
+      return NextResponse.json({ error: "A valid declineReason is required" }, { status: 400 });
+    }
+    if (typeof customMessage !== "undefined" && (typeof customMessage !== "string" || customMessage.length > 300)) {
+      return NextResponse.json({ error: "customMessage must be plain text up to 300 characters" }, { status: 400 });
+    }
+    const [appointmentSnapshot, businessSnapshot] = await Promise.all([appointmentRef.get(), businessRef.get()]);
+    if (!appointmentSnapshot.exists) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    if (!businessSnapshot.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    const appointment = appointmentSnapshot.data() ?? {};
+    if (appointment.declinedAt) return NextResponse.json({ ok: true, alreadyDeclined: true, notifiedCustomer: false });
+    const now = Date.now();
+    await appointmentRef.update({ status: "cancelled", pendingConfirmation: false, declinedAt: now, declineReason, decidedBy: gate.user.uid, updatedAt: now });
+    const email = typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
+    if (!email) return NextResponse.json({ ok: true, notifiedCustomer: false, noEmail: true });
+    const business = businessSnapshot.data() ?? {};
+    const message = buildRequestDeclineEmail({
+      brand: {
+        businessName: typeof business.businessName === "string" ? business.businessName : "Your Company",
+        brandColor: typeof business.brandColor === "string" ? business.brandColor : null,
+        logoUrl: typeof business.logoUrl === "string" ? business.logoUrl : null,
+        contactPhone: typeof business.contactPhone === "string" ? business.contactPhone : null,
+        contactEmail: typeof business.contactEmail === "string" ? business.contactEmail : null,
+      },
+      clientName: typeof appointment.callerName === "string" ? appointment.callerName : undefined,
+      serviceType: typeof appointment.serviceType === "string" ? appointment.serviceType : undefined,
+      reason: declineReason as RequestDeclineReason,
+      customMessage: typeof customMessage === "string" ? customMessage : undefined,
+    });
+    const result = await sendEmail({ to: email, ...message });
+    return NextResponse.json({ ok: true, notifiedCustomer: result.status === "delivered" });
+  }
   let committed:
     | {
         appointment: Record<string, unknown>;
