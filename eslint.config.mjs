@@ -40,6 +40,8 @@ const config = [
       "next-env.d.ts",
       "graphify-out/**",
       "Marketing Tools/**",
+      // Other tools (e.g. Kilo) park detached git worktrees inside the repo; they are copies of this app, not source.
+      ".kilo/**",
       // Operational Node scripts (seed/provision/pitch-deck), not app code — they
       // are legitimately CommonJS/console-driven and shouldn't fail an app lint.
       "scripts/**",
