@@ -4,7 +4,9 @@
 // .limit() chains, runTransaction, and batch — the exact surface those
 // routes and src/lib/customers/resolve.ts actually call. Not a general
 // Firestore emulator; extend deliberately if a new route needs more of the
-// API surface, don't grow this into one by accident.
+// API surface, don't grow this into one by accident. (T-105a extended
+// set() with the optional { merge: true } the work-catalog PUT uses so its
+// "clears nothing else" contract is observable in tests.)
 
 type DocData = Record<string, unknown>;
 type WhereOp = "==" | "array-contains";
@@ -71,8 +73,8 @@ class FakeDocRef {
   async get() {
     return this.store.snapshotFor(this.parentPath(), this.id);
   }
-  async set(data: DocData) {
-    this.store.set(this.parentPath(), this.id, data);
+  async set(data: DocData, options?: { merge?: boolean }) {
+    this.store.set(this.parentPath(), this.id, data, options);
   }
   async update(data: DocData) {
     this.store.update(this.parentPath(), this.id, data);
@@ -109,8 +111,9 @@ class FakeStore {
     return [...this.bucket(path).entries()].map(([id, data]) => ({ id, data }));
   }
 
-  set(path: string, id: string, data: DocData) {
-    this.bucket(path).set(id, { ...data });
+  set(path: string, id: string, data: DocData, options?: { merge?: boolean }) {
+    const existing = options?.merge ? this.bucket(path).get(id) : undefined;
+    this.bucket(path).set(id, existing ? { ...existing, ...data } : { ...data });
   }
 
   update(path: string, id: string, patch: DocData) {
@@ -143,13 +146,13 @@ export function makeFakeDb() {
     },
     async runTransaction<T>(fn: (tx: {
       get: (ref: FakeDocRef) => Promise<ReturnType<FakeStore["snapshotFor"]>>;
-      set: (ref: FakeDocRef, data: DocData) => void;
+      set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => void;
       update: (ref: FakeDocRef, data: DocData) => void;
     }) => Promise<T>): Promise<T> {
       const writes: Array<() => void> = [];
       const result = await fn({
         get: (ref: FakeDocRef) => ref.get(),
-        set: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
+        set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data, options)); },
         update: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
       });
       writes.forEach((w) => w());

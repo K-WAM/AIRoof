@@ -730,6 +730,24 @@ an active queue.*
         must never carry placeholder text in customer-visible strings (lesson from T-101). API (owner/staff):
         `GET /api/company/work-catalog?businessId=` -> `{ catalog }`, `PUT` (replace items, validated, cap
         `WORK_CATALOG_MAX_ITEMS`), `POST /api/company/work-catalog/starter`. Plain text only, no HTML; length caps.
+        **Done (2026-09-24, branch `task/work-catalog-library`) — status: review.** New `src/lib/verticals/workCatalogStarter.ts`
+        (`Record<VerticalId, WorkCatalogItem[]>`, tsc-enforced): 28 roofing items across leaks/flashing/shingles-tile/
+        ventilation/gutters-drainage/storm/penetrations-skylights/decking/inspection, 6–8 items each for HVAC,
+        electricians, landscaping, cleaning, general contractors, appliance repair, junk removal; jobs-disabled
+        verticals declare `[]`. All wording is real copy (no placeholder text — test-asserted), prices flagged
+        `starter: true`. Pure `mergeWorkStarter` (idempotent, starterKitImported-deleted-stays-deleted, edits
+        preserved) runs inside a Firestore transaction; the kit is server-picked from the tenant's industry
+        (409 unknown, 403 jobs-disabled). `GET`/`PUT /api/company/work-catalog` (owner/staff/superadmin,
+        noStore-only) — PUT replaces items, validates array cap/required strings/60-160-1200 caps/plain-text
+        (HTML rejected)/severity set/≤12 lines with quantity>0, unitPrice≥0, kind in set; stamps updatedAt,
+        clears nothing else. Library gets a `WorkCatalogSection.tsx` tab (jobs-enabled only): collapsible
+        category groups, search, add/edit in a `Sheet` (suggested-lines editor, severity chips, editing clears
+        the Starter badge), delete, empty state with Load starter kit, example-pricing note, vocab-driven.
+        Gates: tsc clean, lint 0 errors/32 warnings (baseline), vitest full run 813/816 with the 3 failures being
+        the long-documented pre-existing concurrent-load timeouts (example-lib/send/team — reconfirmed clean in
+        isolation, none touch these files), next build green with both routes present.
+        Extended `src/test-utils/fakeFirestore.ts` additively with `{ merge: true }` support (the file's own
+        extension note permits it) so the PUT's merge contract is observable in tests.
   - [ ] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). On the job detail page the
         user opens **Findings**: catalog items grouped by category with checkboxes + search (reads
         `GET /api/company/work-catalog`) and a "+ Add a one-off finding". Ticking COPIES the item into
