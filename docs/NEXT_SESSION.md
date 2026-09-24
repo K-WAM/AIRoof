@@ -8,7 +8,7 @@ Twilio number **+1 689 204 2643** (`phnum_0801m3aknbref2w9tbhqc6ad3xzb`, Twilio 
 post-call webhook (transcripts back into the app) and the first real test call. Direction (owner): move from Vapi to ElevenLabs tenant by tenant (T-117).
 
 ## First 15 minutes
-0. **DONE 2026-09-24 (after this doc was first written): the post-call webhook exists, the secret is in Vercel prod, and prod was redeployed — skip step 1. The FIRST REAL TEST CALL is the next thing to do.**
+0. **DONE 2026-09-24 (after this doc was first written): the post-call webhook exists, the secret is in Vercel prod, and prod was redeployed — skip step 1. The FIRST REAL TEST CALL WAS DONE (2026-09-24): initiation, checkAvailability, bookAppointment and post-call all returned 200, appointment ID issued, ~$0.16 for 2 min. Next: verify it shows in the Pipeline (Admin -> Clients -> Preview `carlita-elevenlabs-test`), then Twilio Upgrade and the T-118 prompt fixes (AI read the ID letter-by-letter; ~7 s dead air before tools).**
 1. ~~Post-call webhook (owner, click-by-click was given in chat):~~ ElevenLabs -> create webhook `https://ai-roof.vercel.app/api/webhooks/elevenlabs/post-call`
    (HMAC; transcript + call-failure events) -> copy the signing secret ONCE -> put it in `.env.local` as `ELEVENLABS_WEBHOOK_SECRET=` -> tell Claude
    "webhook secret saved" -> Claude pushes it to Vercel (`vercel env add ... production --sensitive`, from the file, never printed) and redeploys.

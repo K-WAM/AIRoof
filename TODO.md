@@ -946,6 +946,23 @@ an active queue.*
         (fixes T-106's prompt half too), driven by the vertical template (no per-industry `if`), A/B-tested against the dashboard Alice prompt on the
         ElevenLabs test tenant. Also fix stale UI/help text in the admin config page that still says "Vapi IDs" for provider-neutral settings
         (auto-callback help, page subtitle). Model: Terra medium (prompt builder is tested but sensitive: live behavior).
+        **First real call findings (2026-09-24, conv_2901m3atg8bf…, 121 s, all 4 webhooks 200, appointment booked):** (1) the AI READ THE APPOINTMENT ID
+        LETTER BY LETTER ("w Axjl D six j F m…") — add a prompt rule (and/or don't return the raw id to the model): never spell out ids/codes; offer to
+        text/email it instead. (2) ~7 s dead air between "let me check availability" and the tool call (LLM tool-request latency 6.3 s + tool 2.5 s):
+        investigate ElevenLabs pre-tool speech / tool timeout settings and the app tool latency (Firestore reads in checkAvailability/bookAppointment).
+        (3) The AI told the caller "you'll receive an email" — true only after the admin confirms an after-hours request (T-113 flow); reword.
+        (4) Cost observed: 2-minute call = $0.163 (voice $0.161 + LLM $0.003) ≈ $0.08/min on Creator, plus Twilio telephony.
+  - [ ] T-120 — **Demo Studio drives the ElevenLabs demo line too** (Codex Sol medium — touches the demo-reset guards). Today Demo Studio only
+        reconfigures `demo-roofing` (the Vapi line; allowlist `DEMO_BUSINESS_IDS` + `isDemo` marker guards). Goal: one launcher, pick a line
+        (Vapi 754 / ElevenLabs 689) + an industry, and the chosen line's tenant adapts per call (the ElevenLabs initiation webhook already builds
+        the prompt from the tenant, so a launch only needs to update the tenant + seed demo data). Keep BOTH guards (code allowlist AND `isDemo`);
+        add a way to mark the ElevenLabs demo tenant `isDemo` without loosening the guard for real tenants; tests for the guards. Blocked on: owner
+        sign-off for T-117 P2 (moving the demo line).
+  - [x] T-121 — **Demo Studio: no-friction launch + "Run a demo in 5 minutes" runbook** (DONE 2026-09-24, Claude). Company name and notification
+        email are now OPTIONAL (blank -> "<Industry> Demo" + default inbox; a provided email is still validated; server + UI + 4 tests). New
+        scannable `DemoRunbook` card at the top of `/hub/demo`: 6 steps with persisted pre-flight checkboxes, both demo lines with dialable numbers,
+        say-this scripts (English + Spanish), and one-click `?preview=` buttons to Pipeline/Calls/Calendar/Jobs for each line's tenant, plus an
+        honest "not live yet" wrap-up. Facts mirror docs/NEXT_SESSION.md (update both when a line changes).
   - [ ] T-119 — **Declutter the admin business-config form and make it provider-aware** (Deepseek, V4 Flash Think High — bounded UI, no live-path logic). Owner
         (2026-09-24): "the form is annoying… if the agent doesn't need to be configured here, keep config in ElevenLabs." Design: with ElevenLabs per-call overrides
         the app still owns the BUSINESS rules (industry template, services/FAQs/emergency+booking rules, greeting, agent name, recording notice, intake fields) —

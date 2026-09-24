@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { DemoRunbook } from "./DemoRunbook";
 
 type Step = "pick" | "prospect" | "launch";
 
@@ -249,6 +250,8 @@ export default function DemoStudioPage() {
         </div>
       </header>
 
+      <DemoRunbook />
+
       {/* ── Section 1: Vertical Picker ─────────────────────────── */}
       <section style={{ marginTop: "1.75rem" }}>
         <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "0.9rem" }}>
@@ -281,7 +284,7 @@ export default function DemoStudioPage() {
       <section style={{ marginTop: "2rem", display: step === "pick" ? "none" : "block" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "0.9rem" }}>
           <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", margin: 0 }}>
-            2 · Personalize
+            2 · Personalize (optional — you can launch right away)
           </p>
           <button onClick={changeVertical} style={ghostLinkStyle}>
             ← Change industry
@@ -299,25 +302,23 @@ export default function DemoStudioPage() {
         <form onSubmit={launch} style={formStyle}>
           <div style={fieldRowStyle}>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Company name</label>
+              <label style={labelStyle}>Company name <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
               <input
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                placeholder={selected ? `e.g. "Acme ${selected.label}"` : "Acme Corp"}
-                required
+                placeholder={selected ? `Leave blank for "${selected.label} Demo"` : "Leave blank for a default name"}
                 disabled={!!busy}
                 style={inputStyle}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Notification email</label>
+              <label style={labelStyle}>Notification email <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="owner@example.com"
-                required
+                placeholder="Leave blank to use the default demo inbox"
                 disabled={!!busy}
                 style={inputStyle}
               />

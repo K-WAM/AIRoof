@@ -66,17 +66,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const email = body.email?.trim();
-  const companyName = body.companyName?.trim();
-
-  if (!email || !companyName) {
-    return NextResponse.json({ error: "email and companyName are required" }, { status: 400 });
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Both fields are OPTIONAL (owner, 2026-09-24: "no complicated forms with friction"): a demo launches with just an
+  // industry. A blank company name becomes "<Industry> Demo"; a blank email falls back to the default demo inbox.
+  // A email that IS provided must still be valid.
+  const verticalId = resolveVerticalId(body.verticalId);
+  const providedEmail = body.email?.trim();
+  if (providedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedEmail)) {
     return NextResponse.json({ error: "invalid email format" }, { status: 400 });
   }
+  const email = providedEmail || DEFAULT_EMAIL;
+  const companyName = body.companyName?.trim() || `${VERTICAL_TEMPLATES[verticalId].label} Demo`;
 
-  const result = await applyVertical({ verticalId: resolveVerticalId(body.verticalId), companyName, email });
+  const result = await applyVertical({ verticalId, companyName, email });
   return NextResponse.json(result);
 }
 
