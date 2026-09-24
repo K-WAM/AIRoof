@@ -87,6 +87,7 @@ an active queue.*
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 | 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
+| 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 assigned 2026-09-24; T-106 logged, unassigned** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 
 ### Checklist
 
@@ -710,6 +711,51 @@ an active queue.*
         (`assistant-request` never fires for fixed-assistant numbers) — needed so T-102's default-ON notice
         actually reaches lines nobody re-saved. Skips shared-assistant tenants (demo line), greeting-less tenants
         and tenants whose config can't build a prompt. 784/784 tests.
+
+- [ ] Phase 17 — Work Catalog & Bilingual Line (owner-added, 2026-09-24) — 0/3
+      Shared data contract (written by the integrator, do not change without them): `src/types/workCatalog.ts`
+      (`WorkCatalogItem`, `WorkCatalog`, `JobFinding`, `WorkCatalogLine`). Catalog lives at
+      `businesses/{bid}/library/workCatalog`; job findings are point-in-time SNAPSHOTS on `Job.findings`.
+  - [ ] T-105a — **Work catalog — Library side** (Deepseek). Library gets a "Work catalog" tab (only when the
+        `jobs` module is enabled): items grouped by `category`, each with problem / solution / severity / optional
+        suggested priced lines; add / edit / delete; search; one-click "Load starter kit" (idempotent — never
+        duplicates, never re-adds a deleted starter item, never overwrites tenant edits). Starter content in a
+        NEW `src/lib/verticals/workCatalogStarter.ts`, `Record<VerticalId, …>` (tsc enforces every vertical
+        declares one; verticals without the `jobs` module declare an empty catalog). Roofing gets a real one
+        (leaks, flashing, shingles/tile, ventilation, gutters, storm damage, skylights/penetrations…) and the
+        other field trades (HVAC, electricians, landscaping, cleaning, general contractors, appliance repair,
+        junk removal) get 6–12 sensible items each. Suggested-line prices are EXAMPLES, flagged `starter`, and
+        must never carry placeholder text in customer-visible strings (lesson from T-101). API (owner/staff):
+        `GET /api/company/work-catalog?businessId=` -> `{ catalog }`, `PUT` (replace items, validated, cap
+        `WORK_CATALOG_MAX_ITEMS`), `POST /api/company/work-catalog/starter`. Plain text only, no HTML; length caps.
+  - [ ] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). On the job detail page the
+        user opens **Findings**: catalog items grouped by category with checkboxes + search (reads
+        `GET /api/company/work-catalog`) and a "+ Add a one-off finding". Ticking COPIES the item into
+        `Job.findings` (snapshot) with per-finding "in report" / "in quote" toggles, editable wording per job.
+        (1) **Report**: ticked findings render as an "Issues found & work performed/recommended" section (problem +
+        solution) alongside the crew-logged issues, editable, and appear in the emailed report. (2) **Invoice**:
+        "Add to invoice" turns the ticked findings' suggested lines into invoice lines (material lines use the
+        Library price if the name matches; never overwrites the crew's own lines; idempotent). (3) **Send a quote**:
+        NEW persisted quote (`businesses/{bid}/quotes/{quoteId}`, own counter like `jobInvoiceNumber.ts`,
+        status draft/sent/accepted/declined/expired; snapshot of bill-to + lines + per-finding wording), editable
+        draft, emailed to the customer via Resend with the same letterhead/logo pattern as the job invoice
+        (`buildJobInvoiceEmailHtml` is the model), marks the job `quoted` on send. **No online acceptance or
+        payment** — the quote and its email say so plainly (same honesty rule as T-085); acceptance is recorded
+        manually by staff ("Mark accepted"). Job.findings is added to `src/types/jobs.ts`. Bill-to snapshot rule
+        and hide-materials setting apply to quotes exactly as to invoices.
+  - [ ] T-106 — **One phone line for English AND Spanish callers** (logged 2026-09-24, unassigned, has a
+        NEEDS-HUMAN live test). Today the line runs ONE language at a time (Settings -> Phone AI Language sets
+        greeting, prompt AND the Deepgram transcriber together); `buildAgentPrompt`'s bilingual "if the caller
+        speaks Spanish, switch" line exists but the Settings toggle only ever writes `agentLanguages: [one]`, so it
+        never turns on, and the single-language transcriber would mishear a Spanish caller on an English line.
+        Build: a "Bilingual (English + Español)" option that (a) writes `agentLanguages: ["en","es"]`; (b) speaks a
+        short two-language greeting ("… para español, diga español"); (c) uses a multilingual transcriber mode
+        (`updateAssistantPersona` currently refuses `"multi"` on purpose) — BUT the live English line runs Deepgram
+        Flux, tuned for English turn-taking, so this MUST be proven on a SEPARATE test assistant + number first
+        (20 scripted calls incl. interruptions and code-switching, per `docs/VOICE-PLATFORM-EVALUATION.md`'s option-B
+        method) and only then offered per-tenant, never forced on English-only tenants; (d) keeps
+        `startSpeakingPlan`/`stopSpeakingPlan` preserved byte-for-byte; (e) picks the voice per detected language if
+        T-103's `voice.es` is set. Optional follow-up (separate): a Spanish customer-facing report/quote.
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
