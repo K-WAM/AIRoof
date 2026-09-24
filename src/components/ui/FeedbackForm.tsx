@@ -103,7 +103,7 @@ export function FeedbackForm({ open, onClose }: Props) {
             The Luxor team will reply to {userEmail} if a response is needed.
           </p>
           <button type="button" className="button primary small" onClick={handleClose}>
-            Close
+            Done
           </button>
         </div>
       ) : (
