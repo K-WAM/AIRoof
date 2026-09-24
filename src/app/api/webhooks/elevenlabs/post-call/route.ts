@@ -14,10 +14,9 @@
 //     with a 24h TTL — ElevenLabs retries deliver an identical payload, so an
 //     idempotent claim is the correct dedup.
 //
-// Response discipline: every post-call webhook gets a 2xx as long as it parses
-// and verifies — ElevenLabs auto-disables webhooks after 10 consecutive
-// failures, and retries only 5xx/429/408. A missing identity field acks rather
-// than erroring so we never poison that counter.
+// Response discipline: completed deliveries and unknown identities get 2xx;
+// an in-progress or failed write gets 5xx so ElevenLabs can retry it. A
+// missing identity field is acknowledged without processing.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -26,6 +25,7 @@ import {
   ELEVENLABS_SIGNATURE_HEADER,
   ELEVENLABS_WEBHOOK_SECRET_ENV,
   claimElevenLabsPostCallEvent,
+  completeElevenLabsPostCallEvent,
   verifyElevenLabsPostCallSignature,
 } from "@/lib/voice/elevenlabs/webhookAuth";
 import { findBusinessByElevenLabsAgentId } from "@/lib/vapi/businessLookup";
@@ -81,14 +81,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Webhook unavailable" }, { status: 503 });
   }
 
+  const eventIdentity = { type, conversationId, eventTimestamp: String(event.event_timestamp ?? "") };
   try {
     const replayClaim = await claimElevenLabsPostCallEvent(
       db,
-      { type, conversationId, eventTimestamp: String(event.event_timestamp ?? "") },
+      eventIdentity,
       Date.now()
     );
     if (replayClaim === "duplicate") {
       return NextResponse.json({ received: true });
+    }
+    if (replayClaim === "in_progress") {
+      // The first delivery has not completed. Ask ElevenLabs to retry rather
+      // than acknowledging work that may still fail.
+      return NextResponse.json({ error: "Webhook unavailable" }, { status: 503 });
     }
     if (replayClaim === "invalid") {
       // No stable identity to dedup (missing timestamp) — ack so the webhook is
@@ -115,6 +121,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         audioChars: typeof data.full_audio === "string" ? data.full_audio.length : 0,
       });
     }
+    await completeElevenLabsPostCallEvent(db, eventIdentity);
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("elevenlabs post-call handler error:", error);

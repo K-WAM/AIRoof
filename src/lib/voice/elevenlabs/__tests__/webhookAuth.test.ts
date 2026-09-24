@@ -4,6 +4,7 @@ import { NextRequest } from "next/server";
 import type { Firestore } from "firebase-admin/firestore";
 import {
   claimElevenLabsPostCallEvent,
+  completeElevenLabsPostCallEvent,
   timingSafeStringEqual,
   verifyElevenLabsPostCallSignature,
   verifyElevenLabsToolSecret,
@@ -143,7 +144,12 @@ describe("claimElevenLabsPostCallEvent (replay guard)", () => {
   function createReplayDb() {
     const claims = new Map<string, Record<string, unknown>>();
     const db = {
-      collection: () => ({ doc: (id: string) => ({ id }) }),
+      collection: () => ({ doc: (id: string) => ({
+        id,
+        update: async (value: Record<string, unknown>) => {
+          claims.set(id, { ...claims.get(id), ...value });
+        },
+      }) }),
       runTransaction: vi.fn(async <T>(callback: (transaction: {
         get: (ref: { id: string }) => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>;
         set: (ref: { id: string }, value: Record<string, unknown>) => void;
@@ -160,10 +166,18 @@ describe("claimElevenLabsPostCallEvent (replay guard)", () => {
 
   const event = { type: "post_call_transcription", conversationId: "conv_1", eventTimestamp: "1700000000" };
 
-  it("claims once, then reports duplicates", async () => {
+  it("treats an unfinished claim as in progress, then completed delivery as duplicate", async () => {
     const { db } = createReplayDb();
     expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_000_000)).toBe("claimed");
-    expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_000_000)).toBe("duplicate");
+    expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_000_000)).toBe("in_progress");
+    await completeElevenLabsPostCallEvent(db, event, 1_700_000_000_010);
+    expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_000_020)).toBe("duplicate");
+  });
+
+  it("reclaims an unfinished delivery after its processing lease", async () => {
+    const { db } = createReplayDb();
+    expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_000_000)).toBe("claimed");
+    expect(await claimElevenLabsPostCallEvent(db, event, 1_700_000_061_000)).toBe("claimed");
   });
 
   it("re-claims after the TTL window has passed", async () => {

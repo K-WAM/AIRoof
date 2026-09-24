@@ -93,10 +93,8 @@ interface RawToolSchema {
 
 const RAW_SCHEMAS = rawSchemas as unknown as RawToolSchema[];
 
-/** The 7 definitions with an absolute URL composed from `baseUrl` (defaults to NEXT_PUBLIC_APP_URL). */
-export function elevenLabsToolDefinitions(
-  baseUrl: string = getAppUrl()
-): ElevenLabsToolDefinition[] {
+/** The 7 relative tool definitions. */
+export function elevenLabsToolDefinitions(): ElevenLabsToolDefinition[] {
   return RAW_SCHEMAS.map((raw) => ({
     name: raw.name,
     description: raw.description,
@@ -120,7 +118,7 @@ export function elevenLabsToolConfig(
   name: string,
   options: { baseUrl?: string; toolSecretId: string }
 ): ElevenLabsWebhookToolConfig | undefined {
-  const definition = elevenLabsToolDefinitions(options.baseUrl).find(
+  const definition = elevenLabsToolDefinitions().find(
     (tool) => tool.name === name
   );
   if (!definition) return undefined;

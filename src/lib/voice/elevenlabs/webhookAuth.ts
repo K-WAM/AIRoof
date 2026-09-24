@@ -38,7 +38,8 @@ const ELEVENLABS_POST_CALL_REPLAY_COLLECTION = "_elevenLabsPostCallEvents";
 export const ELEVENLABS_SIGNATURE_PAST_TOLERANCE_MS = 30 * 60 * 1000;
 export const ELEVENLABS_SIGNATURE_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
-export type ElevenLabsPostCallReplayClaim = "claimed" | "duplicate" | "invalid";
+export type ElevenLabsPostCallReplayClaim = "claimed" | "in_progress" | "duplicate" | "invalid";
+const ELEVENLABS_POST_CALL_CLAIM_LEASE_MS = 60 * 1000;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared-secret header auth (initiation webhook + tools)
@@ -155,7 +156,11 @@ export async function claimElevenLabsPostCallEvent(
     const existing = await transaction.get(claimRef);
     const expiresAt = timestampMillis(existing.data()?.expiresAt);
     if (existing.exists && expiresAt !== null && expiresAt > now) {
-      return "duplicate";
+      if (timestampMillis(existing.data()?.completedAt) !== null) return "duplicate";
+      const claimedAt = timestampMillis(existing.data()?.claimedAt);
+      if (claimedAt !== null && claimedAt > now - ELEVENLABS_POST_CALL_CLAIM_LEASE_MS) {
+        return "in_progress";
+      }
     }
 
     transaction.set(claimRef, {
@@ -166,6 +171,19 @@ export async function claimElevenLabsPostCallEvent(
       expiresAt: Timestamp.fromMillis(now + ELEVENLABS_POST_CALL_REPLAY_WINDOW_MS),
     });
     return "claimed";
+  });
+}
+
+/** Mark processing complete only after the call document was written. */
+export async function completeElevenLabsPostCallEvent(
+  db: Firestore,
+  event: ElevenLabsPostCallEventIdentity,
+  now = Date.now()
+): Promise<void> {
+  const eventId = getElevenLabsPostCallEventIdentity(event);
+  if (!eventId) throw new Error("Missing ElevenLabs event identity");
+  await db.collection(ELEVENLABS_POST_CALL_REPLAY_COLLECTION).doc(eventId).update({
+    completedAt: Timestamp.fromMillis(now),
   });
 }
 

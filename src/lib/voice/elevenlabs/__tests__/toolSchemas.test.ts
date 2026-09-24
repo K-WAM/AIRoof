@@ -18,7 +18,7 @@ describe("elevenLabsToolDefinitions (single source of truth)", () => {
   });
 
   it("every tool is a POST to the elevenlabs tools route", () => {
-    for (const tool of elevenLabsToolDefinitions("https://example.com")) {
+    for (const tool of elevenLabsToolDefinitions()) {
       expect(tool.method).toBe("POST");
       expect(tool.path).toBe(`/api/webhooks/elevenlabs/tools/${tool.name}`);
     }

@@ -848,7 +848,7 @@ an active queue.*
         Vapi lookups). Superadmin config page + PUT: provider selector, agentId / phoneNumberId / phoneNumber
         fields (validated), shown only when ElevenLabs is selected; default stays Vapi. `/api/health` reports
         `elevenlabs: configured|not_configured` (env `ELEVENLABS_API_KEY`). Never log keys. Full mocked-fetch tests.
-  - [ ] T-111b — **ElevenLabs inbound webhooks + provisioning** (Deepseek). Routes under
+  - [x] T-111b — **ElevenLabs inbound webhooks + provisioning** (Codex A). **Status: review (`task/elevenlabs-hooks`).** Routes under
         `src/app/api/webhooks/elevenlabs/`: `initiation` (auth via secret header; resolve tenant by called number /
         agent id; return per-call `dynamic_variables` + `conversation_config_override` built from
         `buildAgentPrompt` + current date/after-hours context + greeting WITH the T-102 recording notice + language +
