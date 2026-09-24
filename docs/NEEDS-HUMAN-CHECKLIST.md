@@ -67,7 +67,9 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 
 > **Gap found while preparing this:** I searched the whole codebase and the docs for a recording disclosure ("this call may be recorded") and found none in the agent's greeting or prompt. Your business and demo are in Florida, which is an **all-party consent** state; callers generally must be told before a call is recorded. Whether the Vapi console adds its own disclosure is something only you can see (NH-1 step 6). I am not a lawyer — treat the wording below as a draft for counsel.
 
-**Decide, then implement (a small code change I can make once you choose):**
+**Shipped 2026-09-24 (T-102):** the recording notice now exists — default ON, spoken first in the greeting, editable in Company → Settings → "Call recording notice". The default wording is a *draft*; have counsel review it. **Making it live:** a greeting only reaches a phone line when it is pushed to Vapi, so after each deploy go to **Admin → Clients → "Sync live phone assistants" → Preview changes → Apply**. It pushes every tenant's greeting + prompt, skips tenants that share one assistant (e.g. the demo line — re-launch it from Demo Studio instead) and tenants with no greeting. Then place a test call and confirm you hear the notice.
+
+**Remaining decisions (a small change I can make once you choose):**
 1. *Is recording on?* If **off** in Vapi → the risk mostly disappears, but transcripts/call records still exist.
 2. If **on**, the greeting must disclose it. Draft: *"Thanks for calling {business}. This call may be recorded and transcribed to help us serve you. This is {agent}, the virtual assistant — how can I help?"*
 3. Retention: current default is **90 days**, then deleted/redacted. Pick a number (30/90/180) and tell me.

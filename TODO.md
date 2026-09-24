@@ -702,6 +702,15 @@ an active queue.*
         mocked fetch: unset → PATCH body has no `voice`; set → PATCH body has the exact voice; es↔en flips;
         speaking plans preserved. This gives NH-15 (Spanish voice) a place to land without a code change.
 
+  - [x] Phase 16 follow-ups (integrator, 2026-09-24): merged T-102 + T-103 (resolved 4 conflicts); fixed a cross-branch bug
+        (a notice-only settings save omits the transcriber language, so T-103's voice lookup defaulted to "en" and
+        would have applied an English voice override to a Spanish tenant — now falls back to the tenant's
+        `agentLanguage`, tested); added **`POST /api/admin/sync-personas`** (superadmin, dry-run by default) +
+        an Admin -> Clients "Sync live phone assistants" panel, because greetings only reach a live line when pushed
+        (`assistant-request` never fires for fixed-assistant numbers) — needed so T-102's default-ON notice
+        actually reaches lines nobody re-saved. Skips shared-assistant tenants (demo line), greeting-less tenants
+        and tenants whose config can't build a prompt. 784/784 tests.
+
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,

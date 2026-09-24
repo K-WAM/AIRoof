@@ -6,6 +6,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { loadBusinesses, type BizRow } from "./loadBusinesses";
 import { NewClientModal } from "./NewClientModal";
+import { SyncPersonasPanel } from "./SyncPersonasPanel";
 import { Building2, ExternalLink, Pencil, Plus } from "lucide-react";
 
 function timeAgo(ms: number): string {
@@ -100,6 +101,8 @@ export default function AdminBusinessesPage() {
           <p className="metric-value">{new Set(businesses.map((b) => b.industry)).size}</p>
         </article>
       </section>
+
+      <SyncPersonasPanel />
 
       <section className="panel" aria-labelledby="biz-list-title">
         <div className="panel-header">
