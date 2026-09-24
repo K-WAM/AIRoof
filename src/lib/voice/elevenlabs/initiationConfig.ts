@@ -143,11 +143,14 @@ export function buildInitiationResponse(
       runtime.isAfterHours && config.afterHoursGreeting
         ? config.afterHoursGreeting
         : (config.greeting ?? "");
-    // T-102: the recording notice (default ON) is spoken first in the greeting.
-    greeting = composeGreetingWithDisclosure(
-      baseGreeting,
-      resolveRecordingDisclosure(config)
-    );
+    // A notice alone would replace the agent's configured greeting. Match the
+    // sync-personas rule: only override when the tenant has greeting copy.
+    if (baseGreeting.trim()) {
+      greeting = composeGreetingWithDisclosure(
+        baseGreeting,
+        resolveRecordingDisclosure(config)
+      );
+    }
   } catch (error) {
     console.error("elevenlabs initiation: failed to build dynamic prompt", error);
   }

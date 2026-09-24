@@ -27,7 +27,7 @@ export function normalizeProviderTranscriptMessages(
 ): CallMessage[] {
   return (messages ?? []).map((m, i) => ({
     messageId: `m_${i}`,
-    role: m.role === "user" ? "caller" : (m.role === "assistant" || m.role === "bot") ? "agent" : "system",
+    role: m.role === "user" ? "caller" : (m.role === "assistant" || m.role === "bot" || m.role === "agent") ? "agent" : "system",
     text: m.message ?? m.content ?? "",
     timestamp: m.time ?? Date.now(),
   }));
