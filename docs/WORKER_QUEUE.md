@@ -34,7 +34,32 @@ If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b tas
 
 ---
 
+## Model selection (added 2026-09-24 — to conserve tokens)
+
+Owner's Codex tiers, as understood (cheapest -> strongest): **Luna < Terra < Sol < Astra**, each with **low / medium / high** effort.
+Deepseek (when credits return): **deepseek-chat** (cheap default) vs **deepseek-reasoner** (thinking; use sparingly). If this ordering is wrong,
+fix this section — every recommendation below follows from it.
+
+Pick by RISK first, size second:
+
+| Task looks like... | Use |
+|---|---|
+| Touches a live customer path (phone webhooks, outbound calls), auth/HMAC/secrets, money math, legal wording, or a data-loss risk | **Sol medium** (never below Terra medium). Have Claude review the diff before merge. |
+| Multi-file feature with a clear spec and existing patterns to copy (UI + API + tests) | **Terra medium** |
+| Bounded/mechanical: CSS tokens, copy/wording, renames, adding tests to existing code, doc edits | **Terra low** (or Luna low for pure text edits) |
+| Ambiguous design, architecture, cross-cutting refactor, deciding between approaches | **Claude (integrator), not a worker** — write the spec first, then hand the well-defined build to Terra/Sol |
+| Reviews, merges, conflict resolution, research, planning | **Claude** |
+| Deepseek (when topped up) | **chat** for self-contained UI/tests/docs. **Not** for security-sensitive or live-path work (the T-111b run showed why); use **reasoner** only for a genuinely algorithmic problem. |
+
+Token-saving habits (already in the prompts, worth repeating): point workers at exact files/line ranges (`page.tsx` is 2,250 lines — grep,
+don't read it whole); run the full gates once at the end and `next build` once; commit WIP instead of re-deriving; stop and ask on ambiguity
+instead of exploring; split big work into risk-ordered prompts rather than one giant prompt on the strongest model.
+
+---
+
 ## A1 — Codex A: finish T-111b (ElevenLabs inbound webhooks + provisioning)
+
+**Suggested model: Sol, medium.** Security-sensitive (webhook auth/HMAC) and it must PROVE a live customer-facing route unchanged — worth the stronger model. Don't go lower.
 
 ```
 You are Codex session A on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
@@ -96,6 +121,8 @@ Never push/merge/touch main. If stuck >20 min: commit WIP, add HELP-NEEDED to TO
 ---
 
 ## A2 — Codex A: T-113 request review + decision workflow
+
+**Suggested model: Terra, medium.** Well-specified UI + workflow + one email template; existing patterns to copy. Sol is overkill; low is risky for the multi-file wiring.
 
 ```
 You are Codex session A on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
@@ -165,6 +192,8 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
 
 ## B1 — Codex B: T-114 feedback fix + app-shell UX pass
 
+**Suggested model: Terra, low -> medium.** Bounded, mostly CSS tokens/a11y/wording. Start Terra low; bump to medium only if it flounders on the modal/focus-trap work.
+
 ```
 You are Codex session B on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
 
@@ -215,6 +244,8 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
 ---
 
 ## B2 — Codex B: T-107a document core + invoice + quote
+
+**Suggested model: Sol, medium.** Largest task: money math must not drift, hide-toggle correctness across 3 renderings x 2 documents, a 2,250-line page to edit safely.
 
 ```
 You are Codex session B on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
@@ -278,8 +309,8 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
 
 ## Written later (when the previous item merges)
 
-- **A3 — T-109** email -> request intake (creates a LEAD for review, never a job; needs the inbound-email domain: NEEDS-HUMAN).
-- **B3 — T-107b** the REPORT: shared letterhead + options, hide materials/labor toggles, Problem / Corrective-action photo pages
+- **A3 — T-109** (Sol medium — abuse/spam + inbound-email security) email -> request intake (creates a LEAD for review, never a job; needs the inbound-email domain: NEEDS-HUMAN).
+- **B3 — T-107b** (Terra medium; Sol medium if T-107a's shared layer needed rework) the REPORT: shared letterhead + options, hide materials/labor toggles, Problem / Corrective-action photo pages
   with Before/After, a deterministic `draftNarrative` + "Draft from job" buttons on invoice/quote/report, technicians on the
   report, and the emailed-report logo fix. Builds on T-107a's `src/lib/documents/`.
-- **Conditional on tomorrow's voice bake-off (T-110):** T-106 bilingual line and the T-112 ElevenLabs follow-ups.
+- **Conditional on tomorrow's voice bake-off (T-110):** T-106 bilingual line (Sol medium: live-call turn-taking risk) and the T-112 ElevenLabs follow-ups (Sol medium for anything on the live call path, Terra for admin/onboarding UI).
