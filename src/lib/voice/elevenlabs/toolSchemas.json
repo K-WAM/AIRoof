@@ -1,0 +1,189 @@
+[
+  {
+    "name": "bookAppointment",
+    "description": "Book a new appointment for the caller. Use once you have the caller's name, the service they need, and the date and time they want. Returns the appointment ID and time — tell the caller it is booked and keep the ID in case they want to change it later.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/bookAppointment",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "callerName": {
+          "type": "string",
+          "description": "The caller's full name."
+        },
+        "callerPhone": {
+          "type": "string",
+          "description": "The best callback number, only if the caller asks to be reached on a different number than the one they are calling from."
+        },
+        "callerEmail": {
+          "type": "string",
+          "description": "Optional email address. Only collect it if the caller offers one; never require it."
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "The service the caller wants, e.g. \"Roof inspection\" or \"Furnace repair\"."
+        },
+        "address": {
+          "type": "string",
+          "description": "The job site address, when the business rules or the caller's request make it relevant."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any other details the team should see, written as ordinary sentences. Per-industry intake answers go here as \"Label: value\" lines, one per line."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Appointment start, ISO 8601 date-time in the business's local time, e.g. 2026-09-30T14:00. Calculate it from the current date — never guess a past date."
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Appointment end, ISO 8601 date-time in the business's local time, e.g. 2026-09-30T15:00. Default to one hour after startTime when the caller did not specify."
+        }
+      },
+      "required": ["callerName", "serviceType", "startTime"]
+    }
+  },
+  {
+    "name": "createLead",
+    "description": "Capture a lead when the caller is not booking right now — they want a callback, a quote, or more information. Use when the agent cannot book an appointment but the caller's details should reach the team.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/createLead",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "callerName": {
+          "type": "string",
+          "description": "The caller's full name."
+        },
+        "callerPhone": {
+          "type": "string",
+          "description": "The best callback number, only if it differs from the number the caller is calling from."
+        },
+        "callerEmail": {
+          "type": "string",
+          "description": "Optional email address. Only collect it if the caller offers one; never require it."
+        },
+        "serviceRequested": {
+          "type": "string",
+          "description": "What the caller needs, e.g. \"New roof estimate\"."
+        },
+        "address": {
+          "type": "string",
+          "description": "The job site address, when relevant."
+        },
+        "urgency": {
+          "type": "string",
+          "enum": ["low", "normal", "urgent", "unknown"],
+          "description": "How quickly the caller needs help. Use \"urgent\" only for genuine emergencies — escalate those with escalateCall instead."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any other details the team should see, written as ordinary sentences. Per-industry intake answers go here as \"Label: value\" lines, one per line."
+        },
+        "callbackConsent": {
+          "type": "boolean",
+          "description": "Set true only if the caller explicitly agreed the team may call them back."
+        }
+      }
+    }
+  },
+  {
+    "name": "checkAvailability",
+    "description": "Find open appointment slots in the next few days. Use when a caller asks what times are available or wants to pick a day. Returns a short list of suggested slots to offer the caller.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/checkAvailability",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "preferredDate": {
+          "type": "string",
+          "description": "The day the caller prefers, as YYYY-MM-DD. Omit to search from the next business day."
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "The service the caller wants, if it affects how long the visit takes."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "How long the appointment should be, in minutes. Omit to use the default of 60."
+        }
+      }
+    }
+  },
+  {
+    "name": "escalateCall",
+    "description": "Flag the current call as urgent so the team is notified by email. Use for emergencies the agent cannot resolve itself. Never promise a response time, and remind the caller to call emergency services if anyone is in immediate danger.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/escalateCall",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Why this is urgent, in one or two sentences."
+        },
+        "callerPhone": {
+          "type": "string",
+          "description": "The best callback number, only if it differs from the number the caller is calling from."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Any extra context the team needs to respond, such as what the caller reported."
+        }
+      },
+      "required": ["reason"]
+    }
+  },
+  {
+    "name": "lookupAppointment",
+    "description": "Look up the caller's own upcoming appointments. Use when a caller wants to check, change, or cancel an existing booking. It verifies the caller by the number they are calling from, and tells you exactly which appointment numbers to pass to cancelAppointment.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/lookupAppointment",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "callerPhone": {
+          "type": "string",
+          "description": "The caller's phone number, only if you collected it and it differs from the number they are calling from."
+        },
+        "callerName": {
+          "type": "string",
+          "description": "The caller's name, if they gave it."
+        },
+        "address": {
+          "type": "string",
+          "description": "The job site address, if relevant."
+        }
+      }
+    }
+  },
+  {
+    "name": "cancelAppointment",
+    "description": "Cancel one of the caller's verified appointments. ALWAYS call lookupAppointment first and ask the caller to confirm cancellation before calling this. Use confirmCancellation=true only after the caller explicitly says yes, and pass the appointmentNumber lookupAppointment told you to use.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/cancelAppointment",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "confirmCancellation": {
+          "type": "boolean",
+          "description": "Set true only after the caller has explicitly confirmed they want to cancel. Anything else will be refused."
+        },
+        "appointmentNumber": {
+          "type": "integer",
+          "description": "The 1-based appointment number that lookupAppointment reported for the booking to cancel."
+        }
+      }
+    }
+  },
+  {
+    "name": "getCurrentDate",
+    "description": "Get today's real date and day of week in the business's time zone. Use this before any date math — when a caller says \"tomorrow\" or \"next Tuesday\", compute the actual date from what this returns.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/getCurrentDate",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  }
+]
