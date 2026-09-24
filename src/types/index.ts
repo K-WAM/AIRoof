@@ -225,6 +225,10 @@ export interface Lead {
   intake?: Record<string, string>;
   sourceCallId?: string;
   status: "new" | "contacted" | "booked" | "closed" | "lost";
+  /** T-113: a staff decision is retained for audit and idempotent customer notification. */
+  declinedAt?: number;
+  declineReason?: string;
+  decidedBy?: string;
   // Outbound follow-up tracking
   callAttempts?: number;
   lastCallAttemptAt?: number;
@@ -246,6 +250,10 @@ export interface Appointment {
   calendarProvider: "google" | "calendly" | "mock";
   calendarEventId?: string;
   status: "requested" | "confirmed" | "cancelled" | "completed";
+  /** T-113: a staff decision is retained for audit and idempotent customer notification. */
+  declinedAt?: number;
+  declineReason?: string;
+  decidedBy?: string;
   sourceCallId?: string;
   notes?: string;
   /**
