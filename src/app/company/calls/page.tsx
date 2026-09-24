@@ -8,6 +8,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -384,7 +385,7 @@ export default function CompanyCallsPage() {
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); setReview(null); }}
+        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) { const entity = review.lead ?? review.appointment; window.location.href = buildJobPrefillUrl({ clientName: entity?.callerName ?? "", clientPhone: entity?.callerPhone ?? "", address: entity?.address ?? "", serviceType: review.lead?.serviceRequested ?? review.appointment?.serviceType ?? "", notes: entity?.notes, intake: entity?.intake, intakeFields: getVerticalTemplate(industry ?? "roofing").intakeFields, leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId, preview: preview ?? undefined }); } setReview(null); }}
       />
     </>
   );
