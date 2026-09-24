@@ -11,6 +11,9 @@ import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
+import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
+import { isNewRequest } from "@/lib/pipeline/requestReview";
 import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -19,6 +22,7 @@ interface Lead {
   leadId: string;
   callerName?: string;
   callerPhone?: string;
+  callerEmail?: string;
   serviceRequested?: string;
   address?: string;
   urgency: string;
@@ -124,12 +128,14 @@ export default function PipelinePage() {
   const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">(urgencyParam === "urgent" ? "urgent" : "all");
   const [leadCalling, setLeadCalling] = useState<string | null>(null);
   const [leadUpdating, setLeadUpdating] = useState(false);
+  const [reviewLead, setReviewLead] = useState<Lead | null>(null);
 
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
   const [apptCalling, setApptCalling] = useState<string | null>(null);
+  const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -216,6 +222,15 @@ export default function PipelinePage() {
     } finally {
       setLeadUpdating(false);
     }
+  }
+
+  async function decideLead(lead: Lead, status: "booked" | "lost", reason?: RequestDeclineReason, customMessage?: string) {
+    const res = await fetch(`/api/businesses/${businessId}/leads/${lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(reason ? { declineReason: reason, customMessage } : {}) }) });
+    if (!res.ok) throw new Error("Request decision failed");
+    const data = await res.json() as { noEmail?: boolean; notifiedCustomer?: boolean };
+    setLeads((previous) => previous.map((item) => item.leadId === lead.leadId ? { ...item, status } : item));
+    setSelectedLead((current) => current?.leadId === lead.leadId ? { ...current, status } : current);
+    if (status === "lost") showToast(data.noEmail ? "Request declined. No email on file — nothing was sent." : data.notifiedCustomer ? "Request declined and customer notified." : "Request declined. Customer notification could not be sent.", data.noEmail ? "warn" : "ok");
   }
 
   // --- Appointment actions ---
@@ -324,6 +339,14 @@ export default function PipelinePage() {
     }
   }
 
+  async function declineAppointment(appt: Appointment, reason: RequestDeclineReason, customMessage?: string) {
+    const res = await fetch(`/api/appointments/${appt.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, declineReason: reason, customMessage }) });
+    if (!res.ok) throw new Error("Request decision failed");
+    const data = await res.json() as { noEmail?: boolean; notifiedCustomer?: boolean };
+    setAppointments((previous) => previous.map((item) => item.appointmentId === appt.appointmentId ? { ...item, status: "cancelled", pendingConfirmation: false } : item));
+    showToast(data.noEmail ? "Request declined. No email on file — nothing was sent." : data.notifiedCustomer ? "Request declined and customer notified." : "Request declined. Customer notification could not be sent.", data.noEmail ? "warn" : "ok");
+  }
+
   const filteredLeads = leads.filter((l) => {
     if (leadFilter === "urgent") return l.urgency === "urgent" || l.urgency === "Urgent";
     if (leadFilter === "new") return l.status === "new";
@@ -414,6 +437,8 @@ export default function PipelinePage() {
         </div>
 
         <div className="appt-actions">
+          {isNewRequest(appt.status) && <span className="tag">New request</span>}
+          {!isPast && appt.status !== "cancelled" && <button className="button small secondary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>}
           {justConfirmed ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
               ✓ Confirmation sent
@@ -564,6 +589,7 @@ export default function PipelinePage() {
                             <p className="lead-name">{lead.callerName ?? "Unknown caller"}</p>
                             <p className="lead-phone">{lead.callerPhone ?? "—"}</p>
                           </div>
+                          {isNewRequest(lead.status) && <span className="tag">New request</span>}
                           <StatusChip status={lead.urgency === "urgent" ? "urgent" : "normal"} />
                         </div>
                         <div className="lead-detail-grid">
@@ -666,6 +692,7 @@ export default function PipelinePage() {
                     <IntakeRows intake={selectedLead.intake} labelFor={intakeLabelFor} />
 
                     <div className="lead-actions" style={{ marginTop: 18 }}>
+                      <button className="button primary" type="button" onClick={() => setReviewLead(selectedLead)}>Review request</button>
                       <button
                         className="button primary"
                         type="button"
@@ -779,6 +806,28 @@ export default function PipelinePage() {
           to see incoming activity.
         </div>
       )}
+      <RequestReviewDialog
+        open={!!reviewLead}
+        onClose={() => setReviewLead(null)}
+        request={reviewLead ? { ...reviewLead, status: reviewLead.status } : null}
+        intakeLabelFor={intakeLabelFor}
+        jobNoun={vocab.jobNoun}
+        canCreateJob={showJobActions}
+        onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
+        onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) createJobFromLead(reviewLead); setReviewLead(null); }}
+      />
+      <RequestReviewDialog
+        open={!!reviewAppt}
+        onClose={() => setReviewAppt(null)}
+        request={reviewAppt ? { ...reviewAppt, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status } : null}
+        intakeLabelFor={intakeLabelFor}
+        jobNoun={vocab.jobNoun}
+        canCreateJob={showJobActions}
+        onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
+        onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) createJob(reviewAppt); setReviewAppt(null); }}
+      />
     </>
   );
 }

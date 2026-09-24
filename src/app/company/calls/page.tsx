@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
+import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -40,11 +44,13 @@ interface Call {
 interface LeadRef {
   leadId: string;
   sourceCallId?: string;
+  callerName?: string; callerPhone?: string; callerEmail?: string; serviceRequested?: string; address?: string; urgency?: string; preferredTime?: string; notes?: string; intake?: Record<string, string>; status?: string;
 }
 
 interface AppointmentRef {
   appointmentId: string;
   sourceCallId?: string;
+  callerName?: string; callerPhone?: string; callerEmail?: string; serviceType?: string; address?: string; notes?: string; intake?: Record<string, string>; startTime?: number; status?: string;
 }
 
 function formatTime(ms: number, tz: string): string {
@@ -79,6 +85,7 @@ const CATEGORY_STATUS: Record<string, string> = {
 export default function CompanyCallsPage() {
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
+  const { vocab, isEnabled, industry } = useBusinessModules();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
 
@@ -91,6 +98,7 @@ export default function CompanyCallsPage() {
   // appointment (if any) each call produced, by matching on sourceCallId.
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
+  const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -109,6 +117,25 @@ export default function CompanyCallsPage() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+
+  const intakeLabelFor = (key: string) => getVerticalTemplate(industry ?? "roofing").intakeFields.find((field) => field.key === key)?.label ?? key;
+  async function callBack(targetPhone?: string, leadId?: string, appointmentId?: string) {
+    if (!targetPhone) return;
+    const response = await fetch("/api/calls/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetPhone, leadId, appointmentId }) });
+    if (!response.ok) throw new Error("Callback could not be started");
+  }
+  async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string) {
+    if (!review) return;
+    if (review.lead) {
+      const response = await fetch(`/api/businesses/${businessId}/leads/${review.lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(reason ? { declineReason: reason, customMessage } : {}) }) });
+      if (!response.ok) throw new Error("Request decision failed");
+    } else if (review.appointment) {
+      const response = reason
+        ? await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, declineReason: reason, customMessage }) })
+        : await fetch("/api/appointments/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, appointmentId: review.appointment.appointmentId }) });
+      if (!response.ok) throw new Error("Request decision failed");
+    }
+  }
 
   // Best-effort fetch of the leads/appointments lists for the call → outcome
   // links. A failure here must never fail the page — the transcript view is
@@ -287,6 +314,7 @@ export default function CompanyCallsPage() {
                         View appointment <ArrowRight size={13} />
                       </Link>
                     )}
+                    <button className="button small secondary" type="button" onClick={() => setReview({ lead: selectedLinks?.leadId ? linkedLeads.find((lead) => lead.leadId === selectedLinks.leadId) : undefined, appointment: selectedLinks?.appointmentId ? linkedAppts.find((appointment) => appointment.appointmentId === selectedLinks.appointmentId) : undefined, call: selected })}>Review request</button>
                   </div>
                 )}
 
@@ -346,6 +374,18 @@ export default function CompanyCallsPage() {
           </div>
         </section>
       </div>
+      <RequestReviewDialog
+        open={!!review}
+        onClose={() => setReview(null)}
+        request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested" } : null}
+        call={review ? { summary: review.call.summary, recordingUrl: review.call.recordingUrl, transcript: review.call.messages } : undefined}
+        intakeLabelFor={intakeLabelFor}
+        jobNoun={vocab.jobNoun}
+        canCreateJob={isEnabled("jobs")}
+        onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
+        onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
+        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); setReview(null); }}
+      />
     </>
   );
 }
