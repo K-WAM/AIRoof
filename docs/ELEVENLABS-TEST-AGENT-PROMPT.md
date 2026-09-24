@@ -48,3 +48,9 @@ If they mention water coming in, active leaking, fire damage, an exposed roof af
 
 ## Scorecard
 Use the 10 scripted calls and the table in `docs/VOICE-RESEARCH-2026-09-24.md`. Call 5 (emergency), 6 (off-topic) and 10 ("are you a robot / is this recorded?") map directly to the sections above.
+
+## Findings log (owner tests, 2026-09-24)
+- Agent created in the owner's ElevenLabs workspace: "Alice — Roofing (voice test)" (Agent ID visible in the dashboard URL; confirm via MCP `list_agents` later).
+- **Speed:** GPT-4o as the agent LLM was "much better" than Gemini 3.5 Flash for response time. Keep GPT-4o class as the baseline for comparisons.
+- **Bilingual works:** system tool "Detect language" enabled; a caller who asked "¿Hablas español?" got a Spanish reply and continued in Spanish. Remaining: set the ENGLISH default first message to the recording-notice greeting, delete the dangling "Unknown tool" row (skipped Twilio tool), set timezone America/New_York, compare TTS model v3 Conversational vs Flash v2.5, then Turn V3.
+- Tool types available in "Add tool": Webhook (our 7 booking tools go here), Client, Integration (not needed).
