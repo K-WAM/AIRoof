@@ -29,6 +29,8 @@ function config(overrides: Partial<BusinessConfig> = {}): BusinessConfig {
     disallowedTopics: [],
     active: true,
     greeting: "Thanks for calling Apex Roofing.",
+    createdAt: 1,
+    updatedAt: 1,
     ...overrides,
   };
 }

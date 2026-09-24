@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
+import type { Firestore } from "firebase-admin/firestore";
 import {
   claimElevenLabsPostCallEvent,
   timingSafeStringEqual,
@@ -151,7 +152,10 @@ describe("claimElevenLabsPostCallEvent (replay guard)", () => {
         set: (ref, value) => claims.set(ref.id, value),
       })),
     };
-    return { db, claims };
+    // The replay guard uses only collection() and runTransaction(); this
+    // intentionally small fake has those methods but not the Firestore SDK's
+    // unrelated admin surface.
+    return { db: db as unknown as Firestore, claims };
   }
 
   const event = { type: "post_call_transcription", conversationId: "conv_1", eventTimestamp: "1700000000" };
