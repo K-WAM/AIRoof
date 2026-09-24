@@ -6,12 +6,14 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, LibraryLogo, Crew } from "@/types/library";
 import type { CustomerSlim } from "@/types/customer";
+import type { WorkCatalog } from "@/types/workCatalog";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CustomersSection } from "./CustomersSection";
 import { LogosSection } from "./LogosSection";
+import { WorkCatalogSection } from "./WorkCatalogSection";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -22,7 +24,7 @@ import {
   Users,
 } from "lucide-react";
 
-type Section = "customers" | "pricing" | "crews" | "documents" | "branding";
+type Section = "customers" | "pricing" | "crews" | "documents" | "branding" | "work-catalog";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
@@ -34,7 +36,7 @@ export default function LibraryPage() {
   const initialSection = searchParams?.get("section");
   const initialCustomerId = searchParams?.get("customerId");
   const [section, setSection] = useState<Section>(
-    initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding"
+    initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding" || initialSection === "work-catalog"
       ? initialSection
       : "customers"
   );
@@ -42,6 +44,7 @@ export default function LibraryPage() {
   const [crews, setCrews] = useState<Crew[]>([]);
   const [customers, setCustomers] = useState<CustomerSlim[]>([]);
   const [logos, setLogos] = useState<LibraryLogo[]>([]);
+  const [workCatalog, setWorkCatalog] = useState<WorkCatalog>({ items: [] });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -68,12 +71,17 @@ export default function LibraryPage() {
         if (!r.ok) throw new Error("Logos request failed");
         return r.json();
       }),
+      fetch(`/api/company/work-catalog?businessId=${businessId}`).then((r) => {
+        if (!r.ok) throw new Error("Work catalog request failed");
+        return r.json();
+      }),
     ])
-      .then(([lib, cr, cu, lo]) => {
+      .then(([lib, cr, cu, lo, wc]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
         setCustomers(cu.customers ?? []);
         setLogos(lo.logos ?? []);
+        setWorkCatalog(wc.catalog ?? { items: [] });
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -187,8 +195,8 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["customers", "pricing", "crews", "documents", "branding"] as Section[])
-            .filter((s) => s !== "pricing" || hasPricing)
+          {(["customers", "pricing", "crews", "documents", "branding", "work-catalog"] as Section[])
+            .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")))
             .map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
                 {s === "customers"
@@ -199,7 +207,9 @@ export default function LibraryPage() {
                     ? `${vocab.resourceNounPlural} (${crews.length})`
                     : s === "documents"
                       ? `Documents (${library.documents?.length ?? 0})`
-                      : `Branding (${logos.length})`}
+                      : s === "work-catalog"
+                        ? `Work catalog (${workCatalog.items.length})`
+                        : `Branding (${logos.length})`}
               </button>
             ))}
         </div>
@@ -217,6 +227,9 @@ export default function LibraryPage() {
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} />}
       {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} />}
       {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} />}
+      {section === "work-catalog" && isEnabled("jobs") && (
+        <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} />
+      )}
     </>
   );
 }
