@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
-import { initiateVapiCall } from "@/lib/vapi/vapiClient";
+import { getVoiceProvider } from "@/lib/voice/provider";
+import type { BusinessConfig } from "@/types";
 
 function sanitizePhone(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
@@ -40,13 +41,17 @@ export async function POST(request: NextRequest) {
   if (!bizSnap.exists) {
     return NextResponse.json({ error: "Business not found" }, { status: 404 });
   }
-  const bizData = bizSnap.data()!;
-  const vapiAssistantId = bizData.vapiAssistantId as string | undefined;
-  const vapiPhoneNumberId = bizData.vapiPhoneNumberId as string | undefined;
+  const bizData = bizSnap.data()! as BusinessConfig;
+  const provider = getVoiceProvider(bizData);
 
-  if (!vapiAssistantId || !vapiPhoneNumberId) {
+  const canCall = provider.id === "vapi"
+    ? Boolean(bizData.vapiAssistantId && bizData.vapiPhoneNumberId)
+    : provider.isConfigured(bizData);
+  if (!canCall) {
     return NextResponse.json(
-      { error: "Business is not configured for outbound calls. Set vapiAssistantId and vapiPhoneNumberId in business config." },
+      { error: provider.id === "vapi"
+        ? "Business is not configured for outbound calls. Set vapiAssistantId and vapiPhoneNumberId in business config."
+        : "Business is not configured for ElevenLabs outbound calls." },
       { status: 400 }
     );
   }
@@ -75,23 +80,20 @@ export async function POST(request: NextRequest) {
   // Initiate via Vapi
   let vapiCallId: string;
   try {
-    const vapiCall = await initiateVapiCall({
-      assistantId: vapiAssistantId,
-      phoneNumberId: vapiPhoneNumberId,
-      customerNumber: targetPhone,
+    const call = await provider.startOutboundCall({
+      config: bizData,
+      targetPhone,
       metadata: {
         businessId,
         outboundCallId: callId,
         ...(typeof body.leadId === "string" ? { leadId: body.leadId } : {}),
       },
-      assistantOverrides: {
-        variableValues: {
-          callType: "outbound",
-          ...(typeof body.context === "string" ? { callContext: body.context } : {}),
-        },
+      variables: {
+        callType: "outbound",
+        ...(typeof body.context === "string" ? { callContext: body.context } : {}),
       },
     });
-    vapiCallId = vapiCall.id;
+    vapiCallId = call.callId;
   } catch (err) {
     // Mark doc as failed so UI can show it
     await callRef.update({ status: "failed", updatedAt: Date.now() });
@@ -103,7 +105,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Update doc with real Vapi call ID and rename to canonical call_vapi_* pattern
-  const canonicalCallId = `call_vapi_${vapiCallId}`;
+  const canonicalCallId = `call_${provider.id}_${vapiCallId}`;
   const canonicalRef = db.collection("businesses").doc(businessId).collection("calls").doc(canonicalCallId);
   await canonicalRef.set({
     callId: canonicalCallId,
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest) {
     leadId: typeof body.leadId === "string" ? body.leadId : null,
     appointmentRef: typeof body.appointmentId === "string" ? body.appointmentId : null,
     context: typeof body.context === "string" ? body.context : null,
-    vapiCallId,
+    ...(provider.id === "vapi" ? { vapiCallId } : { elevenlabsConversationId: vapiCallId }),
     startedAt: now,
     createdAt: now,
     updatedAt: Date.now(),
@@ -124,5 +126,5 @@ export async function POST(request: NextRequest) {
   // Clean up the placeholder doc
   await callRef.delete();
 
-  return NextResponse.json({ callId: canonicalCallId, vapiCallId });
+  return NextResponse.json({ callId: canonicalCallId, ...(provider.id === "vapi" ? { vapiCallId } : { elevenlabsConversationId: vapiCallId }) });
 }

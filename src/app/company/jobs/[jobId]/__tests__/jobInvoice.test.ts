@@ -48,10 +48,9 @@ describe("buildDraftFromProjection — labor rate precedence", () => {
     expect(draft.labor[0].rate).toBe(65);
   });
 
-  it("adds one blank manual row when there is no labor at all", () => {
+  it("does not put a blank placeholder row on an invoice with no labor", () => {
     const draft = buildDraftFromProjection({ parsed: parsed(), library: emptyLibrary, businessConfig: null, customer: null });
-    expect(draft.labor).toHaveLength(1);
-    expect(draft.labor[0].source).toBe("manual");
+    expect(draft.labor).toEqual([]);
   });
 
   it("preserves punch provenance from the already-merged projection rather than re-deriving it", () => {

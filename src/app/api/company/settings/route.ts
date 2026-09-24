@@ -3,7 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
-import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import { getVoiceProvider } from "@/lib/voice/provider";
 import {
   composeGreetingWithDisclosure,
   resolveRecordingDisclosure,
@@ -119,15 +119,16 @@ export async function PUT(req: NextRequest) {
     try {
       const freshSnap = await businessRef.get();
       const config = freshSnap.data() as BusinessConfig | undefined;
-      if (config?.vapiAssistantId) {
-        await updateAssistantPersona({
-          assistantId: config.vapiAssistantId,
+      if (config) {
+        const provider = getVoiceProvider(config);
+        const agentId = provider.id === "elevenlabs" ? config.elevenlabs?.agentId : config.vapiAssistantId;
+        if (agentId) await provider.pushPersona({
+          config,
           firstMessage: composeGreetingWithDisclosure(config.greeting ?? "", resolveRecordingDisclosure(config)),
           systemPrompt: buildAgentPrompt(config),
           // Only touch the transcriber when the language actually changed; a
           // disclosure-only save must not disturb the speaking configuration.
-          ...(agentLanguage !== undefined ? { transcriberLanguage: agentLanguage } : {}),
-          voiceConfig: config,
+          ...(agentLanguage !== undefined ? { language: agentLanguage } : {}),
         });
       }
     } catch (err) {

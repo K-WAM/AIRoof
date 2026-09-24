@@ -40,6 +40,8 @@ interface UpdateBusinessConfigRequest {
   // Vapi integration
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  voiceProvider?: BusinessConfig["voiceProvider"];
+  elevenlabs?: BusinessConfig["elevenlabs"];
   voice?: BusinessConfig["voice"];
   // Pricing (invoice generation)
   laborRate?: { defaultHourlyRate: number };
@@ -106,6 +108,23 @@ export async function PUT(
     if (body.voice !== undefined && !isVoiceConfig(body.voice)) {
       return NextResponse.json({ error: "Invalid voice override" }, { status: 400 });
     }
+    if (body.voiceProvider !== undefined && body.voiceProvider !== "vapi" && body.voiceProvider !== "elevenlabs") {
+      return NextResponse.json({ error: "Invalid phone provider" }, { status: 400 });
+    }
+    if (body.elevenlabs !== undefined) {
+      const value = body.elevenlabs as unknown;
+      const fields = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+      const idPattern = /^[A-Za-z0-9_-]{1,100}$/;
+      if (!fields || Object.keys(fields).some((key) => !["agentId", "phoneNumberId", "phoneNumber"].includes(key)) ||
+          typeof fields.agentId !== "string" || !idPattern.test(fields.agentId) ||
+          typeof fields.phoneNumberId !== "string" || !idPattern.test(fields.phoneNumberId) ||
+          typeof fields.phoneNumber !== "string" || !/^\+[1-9]\d{1,14}$/.test(fields.phoneNumber)) {
+        return NextResponse.json({ error: "ElevenLabs requires a valid agent ID, phone number ID, and E.164 phone number" }, { status: 400 });
+      }
+    }
+    if (body.voiceProvider === "elevenlabs" && body.elevenlabs === undefined) {
+      return NextResponse.json({ error: "ElevenLabs IDs and E.164 phone number are required" }, { status: 400 });
+    }
 
     if (!businessId) {
       return NextResponse.json(
@@ -167,6 +186,8 @@ export async function PUT(
         // Vapi integration
         vapiAssistantId: body.vapiAssistantId,
         vapiPhoneNumberId: body.vapiPhoneNumberId,
+        voiceProvider: body.voiceProvider,
+        elevenlabs: body.elevenlabs,
         ...(body.voice !== undefined ? { voice: body.voice } : {}),
         // Pricing
         ...(body.laborRate !== undefined ? { laborRate: body.laborRate } : {}),

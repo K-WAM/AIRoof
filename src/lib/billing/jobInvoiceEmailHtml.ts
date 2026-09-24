@@ -37,7 +37,8 @@ export interface InvoiceEmailBusiness {
 
 export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceEmailBusiness): string {
   const accent = business.brandColor || "#1e3a5f";
-  const bizName = business.businessName || "Invoice";
+  const bizName = business.businessName?.trim();
+  if (!bizName) throw new Error("Business name required for invoice email");
 
   const today = new Date(invoice.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
   const due = new Date(invoice.dueAt ?? invoice.createdAt + 30 * 86400000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });

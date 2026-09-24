@@ -38,13 +38,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const invSnap = await invRef.get();
   if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const invoice = invSnap.data() as JobInvoice;
+  if (!invoice.billTo.name.trim() || ![
+    ...invoice.labor.map((line) => line.name),
+    ...invoice.materials.map((line) => line.item),
+    ...invoice.other.map((line) => line.description),
+  ].some((description) => description.trim())) {
+    return NextResponse.json({ error: "Invoice needs bill-to and at least one described line" }, { status: 400 });
+  }
 
   const [bizDoc, logosDoc] = await Promise.all([
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const biz = bizDoc.exists ? bizDoc.data()! : {};
-  const bizName: string = biz.businessName ?? "Roofing Company";
+  const bizName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
+  if (!bizName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
 
   // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.

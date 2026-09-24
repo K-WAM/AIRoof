@@ -4,6 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildProjection } from "@/lib/jobs/projection";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import type { FieldUpdate } from "@/types/jobs";
+import { reportFindingsHtml } from "@/lib/jobs/reportFindingsHtml";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     </div>
     ${summaryBits.length ? `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px 18px;margin-bottom:24px;font-size:14px;color:#0c4a6e">${summaryBits.join(" &middot; ")}.</div>` : ""}
     ${notesHtml}
+    ${reportFindingsHtml(job.findings)}
     ${issuesHtml}
     ${photosHtml}
     <div style="margin-top:24px;font-size:11px;color:#94a3b8;text-align:center">Powered by Luxor AI</div>

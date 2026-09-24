@@ -87,9 +87,10 @@ an active queue.*
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 | 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
-| 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 assigned 2026-09-24; T-106 logged, unassigned** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
+| 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 (a+b) done + merged 2026-09-24; T-106 open (after the T-110 bake-off)** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
+| 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **assigned 2026-09-24** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
 
 ### Checklist
 
@@ -714,11 +715,11 @@ an active queue.*
         actually reaches lines nobody re-saved. Skips shared-assistant tenants (demo line), greeting-less tenants
         and tenants whose config can't build a prompt. 784/784 tests.
 
-- [ ] Phase 17 — Work Catalog & Bilingual Line (owner-added, 2026-09-24) — 0/3
+- [ ] Phase 17 — Work Catalog & Bilingual Line (owner-added, 2026-09-24) — 2/3 (T-105 done; T-106 open)
       Shared data contract (written by the integrator, do not change without them): `src/types/workCatalog.ts`
       (`WorkCatalogItem`, `WorkCatalog`, `JobFinding`, `WorkCatalogLine`). Catalog lives at
       `businesses/{bid}/library/workCatalog`; job findings are point-in-time SNAPSHOTS on `Job.findings`.
-  - [ ] T-105a — **Work catalog — Library side** (Deepseek). Library gets a "Work catalog" tab (only when the
+  - [x] T-105a — **Work catalog — Library side** (Deepseek). Library gets a "Work catalog" tab (only when the
         `jobs` module is enabled): items grouped by `category`, each with problem / solution / severity / optional
         suggested priced lines; add / edit / delete; search; one-click "Load starter kit" (idempotent — never
         duplicates, never re-adds a deleted starter item, never overwrites tenant edits). Starter content in a
@@ -730,7 +731,25 @@ an active queue.*
         must never carry placeholder text in customer-visible strings (lesson from T-101). API (owner/staff):
         `GET /api/company/work-catalog?businessId=` -> `{ catalog }`, `PUT` (replace items, validated, cap
         `WORK_CATALOG_MAX_ITEMS`), `POST /api/company/work-catalog/starter`. Plain text only, no HTML; length caps.
-  - [ ] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). On the job detail page the
+        **Done (2026-09-24, branch `task/work-catalog-library`) — status: review.** New `src/lib/verticals/workCatalogStarter.ts`
+        (`Record<VerticalId, WorkCatalogItem[]>`, tsc-enforced): 28 roofing items across leaks/flashing/shingles-tile/
+        ventilation/gutters-drainage/storm/penetrations-skylights/decking/inspection, 6–8 items each for HVAC,
+        electricians, landscaping, cleaning, general contractors, appliance repair, junk removal; jobs-disabled
+        verticals declare `[]`. All wording is real copy (no placeholder text — test-asserted), prices flagged
+        `starter: true`. Pure `mergeWorkStarter` (idempotent, starterKitImported-deleted-stays-deleted, edits
+        preserved) runs inside a Firestore transaction; the kit is server-picked from the tenant's industry
+        (409 unknown, 403 jobs-disabled). `GET`/`PUT /api/company/work-catalog` (owner/staff/superadmin,
+        noStore-only) — PUT replaces items, validates array cap/required strings/60-160-1200 caps/plain-text
+        (HTML rejected)/severity set/≤12 lines with quantity>0, unitPrice≥0, kind in set; stamps updatedAt,
+        clears nothing else. Library gets a `WorkCatalogSection.tsx` tab (jobs-enabled only): collapsible
+        category groups, search, add/edit in a `Sheet` (suggested-lines editor, severity chips, editing clears
+        the Starter badge), delete, empty state with Load starter kit, example-pricing note, vocab-driven.
+        Gates: tsc clean, lint 0 errors/32 warnings (baseline), vitest full run 813/816 with the 3 failures being
+        the long-documented pre-existing concurrent-load timeouts (example-lib/send/team — reconfirmed clean in
+        isolation, none touch these files), next build green with both routes present.
+        Extended `src/test-utils/fakeFirestore.ts` additively with `{ merge: true }` support (the file's own
+        extension note permits it) so the PUT's merge contract is observable in tests.
+  - [x] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). **Status: review (Worker C, `task/work-catalog-jobs`).** On the job detail page the
         user opens **Findings**: catalog items grouped by category with checkboxes + search (reads
         `GET /api/company/work-catalog`) and a "+ Add a one-off finding". Ticking COPIES the item into
         `Job.findings` (snapshot) with per-finding "in report" / "in quote" toggles, editable wording per job.
@@ -765,7 +784,11 @@ an active queue.*
       a **quote, invoice and report** where they can select issues, images and workers, edit everything, and
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
-  - [ ] T-107 — **Document suite unification** (start AFTER T-105a/b merge — it builds on T-105b's quote + findings).
+  - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
+        **T-107a** (Codex; worktree `air-wt-documents-core`, prompt in `docs/PENDING_WORKER_PROMPTS_WAVE2.md`) = shared
+        `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
+        technicians; **T-107b** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
+        logo fix. Contract: `src/types/documentOptions.ts`. Original spec:
         Audit (2026-09-24): `hideMaterials` works on the INVOICE only (in-app, print/PDF, email; email path
         unit-tested; a real send has not been click-verified — add to NH-8); the REPORT has no hide toggles and
         the emailed report (`report/send/route.ts`) still uses the legacy `biz.logoUrl` with a white-silhouette
@@ -782,12 +805,14 @@ an active queue.*
         Before/After (needs a `licenseNumber` field on the business); (4) everything editable before send;
         (5) tests that every toggle collapses correctly in ALL three renderings of ALL three documents, and an
         HTML-escaping pass. Consistent design tokens (one teal, `.button`), mobile-checked.
-  - [ ] T-108 — **Auto-create a job from a booked call** (jobs-module tenants). Today a call only creates a
+  - [x] ~~T-108 — Auto-create a job from a booked call~~ — **CANCELLED 2026-09-24 (owner decision): jobs are never
+        auto-created; the admin/user decides. Superseded by T-113 (request review workflow).** Original text kept for
+        history: **Auto-create a job from a booked call** (jobs-module tenants). Today a call only creates a
         lead/appointment; a job needs the manual "Create Job" tap (T-083). Add a per-business setting (default:
         off, offered in Settings) so `bookAppointment` also creates a linked draft job (customer resolved via
         `resolveCustomer`, address/service/intake carried in, `appointmentId` link), idempotent per appointment,
         with a Pipeline/Jobs indicator "created from call". Must not double-create when staff also tap Create Job.
-  - [ ] T-109 — **Email -> job intake.** No inbound email exists. Design + build: a per-tenant intake address
+  - [ ] T-109 — **Email -> request intake** (creates a LEAD/request for review, never a job — see T-113). No inbound email exists. Design + build: a per-tenant intake address
         (Resend inbound or forwarding), the message parsed by the existing AI layer into customer / address /
         scope / urgency, creating a LEAD (default) or draft job for one-click review; attachments become job photos
         (respecting the 24-photo cap); spam/abuse limits (rate limit, sender allowlist option); never auto-replies.
@@ -811,7 +836,7 @@ an active queue.*
       answer fast), post-call webhooks (`post_call_transcription`, HMAC `ElevenLabs-Signature`), agent PATCH
       `/v1/convai/agents/{id}` (Bearer / xi-api-key), outbound `POST /v1/convai/twilio/outbound-call`
       {agent_id, agent_phone_number_id, to_number, conversation_initiation_client_data}.
-  - [ ] T-111a — **Provider seam + ElevenLabs client + rewire** (Codex). `src/lib/voice/provider.ts`:
+  - [x] T-111a — **Provider seam + ElevenLabs client + rewire** (Codex). **Status: review (Worker C, `task/voice-provider`).** `src/lib/voice/provider.ts`:
         `getVoiceProvider(config)` returning a `VoiceProvider`; Vapi implementation is a thin wrapper over the existing
         `updateAssistantPersona`/`initiateVapiCall` with ZERO behavior change; new ElevenLabs implementation
         (`src/lib/voice/elevenlabs/client.ts`): `pushPersona` -> PATCH agent (prompt, first_message, language,
@@ -847,6 +872,38 @@ an active queue.*
         (create agent + attach number from the onboarding wizard); (f) outbound scheduling for follow-up calls
         (ElevenLabs' single-call endpoint has none — use its batch-calling or our own cron window); (g) voice
         cloning/brand voice per tenant (optional); (h) knowledge base / FAQ upload per tenant (optional).
+        **Existing-number integration (owner question 2026-09-24) — (i)-(l):** a business that already has a phone
+        number does NOT have to give it up or use Twilio itself. Ranked by friction: (i) **conditional call
+        forwarding** (recommended default): their carrier forwards unanswered/busy/after-hours calls (or all calls)
+        to a new "AI line" number we provision (a Twilio number imported into ElevenAgents natively, or any SIP DID);
+        the business keeps its number and can switch forwarding off any time; build an onboarding step that shows the
+        AI-line number, carrier-specific forwarding instructions (star codes / carrier portal) and a test-call
+        verifier; VERIFY on a real forwarded call that the AI still receives the ORIGINAL caller's number (caller-ID /
+        diversion headers are carrier-dependent) because the booking flow confirms it; support "ring the business
+        first, AI on no-answer" AND "AI first, transfer to a human" (ElevenLabs `transfer_to_number` system tool);
+        (j) **SIP trunk** for businesses already on a VoIP/PBX (RingCentral, Vonage, 8x8, Telnyx, etc.): their provider
+        routes the number/extension to ElevenLabs' SIP address (TLS, digest or IP allowlist, G.711/G.722) — no porting;
+        (k) **port the number** to Twilio/Telnyx for full takeover (days to weeks; only when the business wants it);
+        (l) provider choice for provisioned AI-line numbers: Twilio first (native ElevenLabs import, API-driven number
+        purchase for in-app provisioning), Telnyx later if per-minute cost matters.
+- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — 0/2
+      **Owner workflow decision (2026-09-24):** the AI agent takes a call, records the details, and puts a REQUEST in the
+      Pipeline. The admin/user opens it (from Pipeline or by clicking the call) and sees the collected information in a
+      clear card. They then either ACCEPT — send a confirmation (email and/or an AI callback) and create the job themselves,
+      which unlocks scheduling on the Calendar — or DECLINE and send a polite decline. In ALL cases the admin/user creates
+      the job; nothing is auto-created. (Audit: confirm, cancel, Call Back and T-083 "Create Job" already exist; missing
+      are the unified review card, a real decline with customer notification, and "missing information" prompts.)
+  - [ ] T-113 — **Request review card + decline flow** (Deepseek; worktree `air-wt-request-review`; prompt in
+        `docs/PENDING_WORKER_PROMPTS_WORKFLOW_UX.md`). One shared `RequestReviewCard` used by Pipeline and Calls: caller,
+        what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
+        strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
+        Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
+  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Codex; worktree `air-wt-ux-pass`). Feedback is for CLIENT users only
+        (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
+        reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
+        shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the
+        Admin -> Clients "Sync live phone assistants" panel layout.
+
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,

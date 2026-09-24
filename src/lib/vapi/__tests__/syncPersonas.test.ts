@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { planPersonaSync } from "../syncPersonas";
 import { DEFAULT_RECORDING_DISCLOSURE_EN } from "@/lib/recordingDisclosure";
 import type { BusinessConfig } from "@/types";
@@ -23,6 +23,20 @@ function biz(businessId: string, over: Partial<BusinessConfig> = {}) {
 }
 
 describe("planPersonaSync", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("plans ElevenLabs by its own agent ID and reports missing configuration", () => {
+    const eleven = biz("eleven", { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent-11", phoneNumberId: "pn-11" }, vapiAssistantId: "vapi-old" });
+    const noAgent = biz("no-agent", { voiceProvider: "elevenlabs", elevenlabs: undefined });
+    const noKey = planPersonaSync([eleven, noAgent]);
+    expect(noKey.targets).toHaveLength(0);
+    expect(noKey.skipped.map((s) => s.reason)).toEqual(["ElevenLabs API key is not configured", "No ElevenLabs agent attached"]);
+    vi.stubEnv("ELEVENLABS_API_KEY", "test-key");
+    const plan = planPersonaSync([eleven, biz("vapi", { vapiAssistantId: "agent-11" })]);
+    expect(plan.targets.map((t) => [t.businessId, t.providerId, t.assistantId])).toEqual([
+      ["eleven", "elevenlabs", "agent-11"], ["vapi", "vapi", "agent-11"],
+    ]);
+  });
   it("composes the recording notice first into the greeting for a tenant that never set one (default ON)", () => {
     const { targets } = planPersonaSync([biz("a")]);
     expect(targets).toHaveLength(1);

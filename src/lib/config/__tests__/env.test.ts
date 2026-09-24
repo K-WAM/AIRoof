@@ -133,6 +133,8 @@ describe("env.ts", () => {
       expect(report).toHaveProperty("deepseek");
       expect(report).toHaveProperty("resend");
       expect(report).toHaveProperty("vapi");
+      expect(report).toHaveProperty("elevenlabs");
+      expect(report.elevenlabs).toBe("not_configured");
       expect(report).toHaveProperty("firebase");
       expect(report).toHaveProperty("cron");
     });
@@ -161,6 +163,7 @@ describe("env.ts", () => {
       vi.stubEnv("RESEND_FROM", "no-reply@example.com");
       vi.stubEnv("VAPI_API_KEY", "vapi-test");
       vi.stubEnv("VAPI_WEBHOOK_SECRET", "wh-secret");
+      vi.stubEnv("ELEVENLABS_API_KEY", "el-test");
       vi.stubEnv("FIREBASE_SERVICE_ACCOUNT_JSON", "{}");
       vi.stubEnv("CRON_SECRET", "cron-secret");
       vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");

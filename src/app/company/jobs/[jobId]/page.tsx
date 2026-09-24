@@ -10,6 +10,9 @@ import { pickDefaultLogo, logoDataUri, logoStyle, needsLogoChip } from "@/lib/br
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { computeTotals, canSendInvoice } from "./jobInvoice";
+import { FindingsPanel } from "./FindingsPanel";
+import { QuotePanel } from "./QuotePanel";
+import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Toggle } from "@/components/ui/Toggle";
@@ -68,43 +71,39 @@ function groupAndPadForGrid(photos: ReportPhoto[], columns = 2): Array<ReportPho
   return out;
 }
 
-type LaborRow = { name: string; arrival: string; departure: string; hours: string; rate: string };
-type MaterialRow = { item: string; quantity: string; unit: string; unitPrice: string };
-type OtherRow = { description: string; amount: string };
+type LaborRow = { lineId?: string; source?: InvoiceLaborLine["source"]; name: string; arrival: string; departure: string; hours: string; rate: string };
+type MaterialRow = { lineId?: string; source?: InvoiceMaterialLine["source"]; item: string; quantity: string; unit: string; unitPrice: string };
+type OtherRow = { lineId?: string; description: string; amount: string };
 
 // Invoice persistence (Phase 12, Phase 4) row <-> line adapters. The editable rows above are
 // plain strings (bound directly to text inputs); InvoiceLaborLine/InvoiceMaterialLine/
-// InvoiceOtherLine are the persisted, numeric shape. A known, documented simplification: the
-// editable UI tracks rows by array index, not by lineId, so provenance (source: "punch" vs
-// "voice") is NOT preserved once a row round-trips through an edit — every saved row becomes
-// "manual". That's an honest limitation of reusing the existing row-editing UI rather than
-// building a lineId-tracking model; the punch/voice distinction is still fully correct at
-// generation time (buildDraftFromProjection reads it straight from job.parsed).
+// InvoiceOtherLine are the persisted, numeric shape. Keep line IDs and source through edits so
+// a repeat finding import remains idempotent and crew provenance survives an autosave.
 function laborRowsToLines(rows: LaborRow[]): InvoiceLaborLine[] {
   return rows.map((r, i) => {
     const hours = parseFloat(r.hours) || 0;
     const rate = parseFloat(r.rate) || 0;
-    return { lineId: `lab_${i}`, name: r.name, arrival: r.arrival || undefined, departure: r.departure || undefined, hours, rate, total: hours * rate, source: "manual" };
+    return { lineId: r.lineId ?? `lab_${i}`, name: r.name, arrival: r.arrival || undefined, departure: r.departure || undefined, hours, rate, total: hours * rate, source: r.source ?? "manual" };
   });
 }
 function materialRowsToLines(rows: MaterialRow[]): InvoiceMaterialLine[] {
   return rows.map((r, i) => {
     const quantity = parseFloat(r.quantity) || 0;
     const unitPrice = parseFloat(r.unitPrice) || 0;
-    return { lineId: `mat_${i}`, item: r.item, quantity, unit: r.unit || undefined, unitPrice, total: quantity * unitPrice, source: "manual" };
+    return { lineId: r.lineId ?? `mat_${i}`, item: r.item, quantity, unit: r.unit || undefined, unitPrice, total: quantity * unitPrice, source: r.source ?? "manual" };
   });
 }
 function otherRowsToLines(rows: OtherRow[]): InvoiceOtherLine[] {
-  return rows.map((r, i) => ({ lineId: `oth_${i}`, description: r.description, amount: parseFloat(r.amount) || 0 }));
+  return rows.map((r, i) => ({ lineId: r.lineId ?? `oth_${i}`, description: r.description, amount: parseFloat(r.amount) || 0 }));
 }
 function laborLinesToRows(lines: InvoiceLaborLine[]): LaborRow[] {
-  return lines.map((l) => ({ name: l.name, arrival: l.arrival ?? "", departure: l.departure ?? "", hours: l.hours ? String(l.hours) : "", rate: String(l.rate) }));
+  return lines.map((l) => ({ lineId: l.lineId, source: l.source, name: l.name, arrival: l.arrival ?? "", departure: l.departure ?? "", hours: l.hours ? String(l.hours) : "", rate: String(l.rate) }));
 }
 function materialLinesToRows(lines: InvoiceMaterialLine[]): MaterialRow[] {
-  return lines.map((m) => ({ item: m.item, quantity: String(m.quantity), unit: m.unit ?? "", unitPrice: m.unitPrice ? String(m.unitPrice) : "" }));
+  return lines.map((m) => ({ lineId: m.lineId, source: m.source, item: m.item, quantity: String(m.quantity), unit: m.unit ?? "", unitPrice: m.unitPrice ? String(m.unitPrice) : "" }));
 }
 function otherLinesToRows(lines: InvoiceOtherLine[]): OtherRow[] {
-  return lines.map((o) => ({ description: o.description, amount: String(o.amount) }));
+  return lines.map((o) => ({ lineId: o.lineId, description: o.description, amount: String(o.amount) }));
 }
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
@@ -123,7 +122,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "photos" | "invoice" | "report">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -395,6 +394,24 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   }
 
+  async function addFindingsToDraftInvoice() {
+    if (!businessId || !invoiceId || invoiceStatus !== "draft" || invoiceDirty || invoiceSaving) return;
+    setInvoiceSaving(true); setInvoiceError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/invoice`, { method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, addFindings: true }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not add findings to invoice");
+      const inv = data.invoice as JobInvoice;
+      hydratingInvoiceRef.current = true;
+      setLaborRows(laborLinesToRows(inv.labor));
+      setMaterialRows(materialLinesToRows(inv.materials));
+      setOtherRows(otherLinesToRows(inv.other));
+      setInvoiceDirty(false);
+    } catch (e) { setInvoiceError(e instanceof Error ? e.message : "Could not add findings to invoice"); }
+    finally { setInvoiceSaving(false); }
+  }
+
   async function generateReport() {
     setReport("ready");
     setActiveTab("report");
@@ -620,8 +637,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
     { id: "issues", label: `Issues (${issues.length})` },
+    { id: "findings", label: `Findings (${job?.findings?.length ?? 0})` },
     { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
     { id: "invoice", label: "Invoice" },
+    { id: "quote", label: "Quote" },
     { id: "report", label: "Report" },
   ] as const;
 
@@ -733,11 +752,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <QrCode size={15} strokeWidth={1.75} />
             Field QR
           </button>
-          <button className="button" onClick={generateReport} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button className="button" onClick={generateReport} disabled={generatingInvoice || (updates.length === 0 && !job.findings?.some((f) => f.includeInReport))} title={updates.length === 0 && !job.findings?.some((f) => f.includeInReport) ? "Add a field update or report finding first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <FileText size={15} strokeWidth={1.75} />
             Generate Report
           </button>
-          <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice || updates.length === 0} title={updates.length === 0 ? "Add a field update first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice || (updates.length === 0 && !job.findings?.length)} title={updates.length === 0 && !job.findings?.length ? "Add a field update or finding first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Receipt size={15} strokeWidth={1.75} />
             {generatingInvoice ? "Generating…" : "Generate Invoice"}
           </button>
@@ -778,14 +797,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "2px solid #e2e8f0" }} className="no-print">
+      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }} className="no-print">
         {TABS.map((tab) => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
             padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
             fontWeight: activeTab === tab.id ? 700 : 400,
             color: activeTab === tab.id ? "var(--accent)" : "#64748b",
             borderBottom: activeTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
-            marginBottom: -2, fontSize: 13,
+            marginBottom: -2, fontSize: 13, flexShrink: 0,
           }}>
             {tab.label}
           </button>
@@ -1164,6 +1183,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
+      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+
+      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} onStatus={(status) => setJob((current) => current ? { ...current, status } : current)} />}
+
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
         <div>
@@ -1174,11 +1197,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <section className="panel">
               <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
                 <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>
-                  {updates.length === 0
-                    ? "No field updates yet — submit updates from the field view first."
+                  {updates.length === 0 && !job.findings?.length
+                    ? "Add a field update or finding first."
                     : "Click Generate Invoice to build a draft from field data."}
                 </p>
-                {updates.length > 0 && (
+                {(updates.length > 0 || !!job.findings?.length) && (
                   <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Receipt size={15} strokeWidth={1.75} />
                     {generatingInvoice ? "Building…" : "Generate Invoice"}
@@ -1208,6 +1231,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </Tooltip>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {invoiceStatus === "draft" && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
                   <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
                     Send to Customer
@@ -1588,11 +1612,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <section className="panel">
               <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
                 <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>
-                  {updates.length === 0
-                    ? "No field updates yet — submit updates from the field view first."
+                  {updates.length === 0 && !job.findings?.some((f) => f.includeInReport)
+                    ? "No field updates or report findings yet."
                     : "Click Generate Report to produce a job summary."}
                 </p>
-                {updates.length > 0 && (
+                {(updates.length > 0 || !!job.findings?.some((f) => f.includeInReport)) && (
                   <button className="button" onClick={generateReport} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <FileText size={15} strokeWidth={1.75} />
                     Generate Report
@@ -1988,6 +2012,19 @@ function ReportRenderer({
             <p style={{ margin: 0, fontSize: 14, color: "#334155", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{reportNotes.trim()}</p>
           </ReportSection>
         )}
+
+        {reportFindings(job.findings).length > 0 && <ReportSection title="Issues found & work performed / recommended">
+          <div style={{ display: "grid", gap: 10 }}>
+            {reportFindings(job.findings).map((finding) => {
+              const sev = SEV_COLOR[finding.severity ?? "low"] ?? SEV_COLOR.low;
+              return <div key={finding.findingId} style={{ padding: "12px 16px", background: sev.bg, border: `1px solid ${sev.border}`, borderRadius: 8 }}>
+                {finding.severity && <span style={{ color: sev.text, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>{finding.severity}</span>}
+                <div style={{ fontWeight: 700, marginTop: 3 }}>{finding.problem}</div>
+                {finding.solution && <div style={{ whiteSpace: "pre-wrap", marginTop: 4 }}>{finding.solution}</div>}
+              </div>;
+            })}
+          </div>
+        </ReportSection>}
 
         {/* ── Issues identified ── */}
         {issues.length > 0 && (

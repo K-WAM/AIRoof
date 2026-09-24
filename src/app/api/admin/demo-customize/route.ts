@@ -23,7 +23,7 @@ import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole"
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
-import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import { getVoiceProvider } from "@/lib/voice/provider";
 import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
@@ -185,21 +185,23 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     //     the new persona yet, which is worth surfacing to the operator, not failing on.
     let vapiUpdated = false;
     let vapiError: string | undefined;
-    const vapiAssistantId = (existing.data() as BusinessConfig | undefined)?.vapiAssistantId;
-    if (!vapiAssistantId) {
-      vapiError = "No vapiAssistantId on demo-roofing — live line was not updated";
+    const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
+    const provider = getVoiceProvider(mergedConfig);
+    const agentId = provider.id === "elevenlabs" ? mergedConfig.elevenlabs?.agentId : mergedConfig.vapiAssistantId;
+    if (!agentId) {
+      vapiError = provider.id === "vapi"
+        ? "No vapiAssistantId on demo-roofing — live line was not updated"
+        : "No ElevenLabs agent ID on demo-roofing — live line was not updated";
     } else {
       try {
-        const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
         const systemPrompt = buildAgentPrompt(mergedConfig);
         // T-102: the recording notice (default ON) is spoken first in the pushed greeting.
         const firstMessage = composeGreetingWithDisclosure(greeting, resolveRecordingDisclosure(mergedConfig));
-        await updateAssistantPersona({
-          assistantId: vapiAssistantId,
+        await provider.pushPersona({
+          config: mergedConfig,
           firstMessage,
           systemPrompt,
-          transcriberLanguage: mergedConfig.agentLanguage ?? "en",
-          voiceConfig: mergedConfig,
+          language: mergedConfig.agentLanguage ?? "en",
         });
         vapiUpdated = true;
       } catch (err) {

@@ -12,6 +12,9 @@ function request(voice: unknown) {
     body: JSON.stringify({ voice }),
   });
 }
+function providerRequest(value: unknown) {
+  return new NextRequest("http://localhost/api/admin/businesses/biz-1/config", { method: "PUT", body: JSON.stringify(value) });
+}
 
 describe("admin voice config route", () => {
   beforeEach(() => {
@@ -25,6 +28,19 @@ describe("admin voice config route", () => {
     const { PUT } = await import("../route");
     const response = await PUT(request({ en: { provider: "11labs", voiceId: "abc" } }), params);
     expect(response.status).toBe(403);
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { voiceProvider: "unknown" },
+    { voiceProvider: "elevenlabs" },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "bad/id", phoneNumberId: "pn_1", phoneNumber: "+15551234567" } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "555-123-4567" } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", secret: "extra" } },
+  ])("rejects invalid provider config before database access", async (body) => {
+    const { PUT } = await import("../route");
+    const response = await PUT(providerRequest(body), params);
+    expect(response.status).toBe(400);
     expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
   });
 
@@ -45,7 +61,7 @@ describe("admin voice config route", () => {
 
   it("stores a validated override and clears it with an empty voice map", async () => {
     const documents = new Map<string, Record<string, unknown>>([
-      ["businesses/biz-1", { businessId: "biz-1", businessName: "Example", industry: "roofing", planTier: "standard" }],
+      ["businesses/biz-1", { businessId: "biz-1", businessName: "Example", industry: "roofing", planTier: "standard", vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" }],
     ]);
     const collection = (name: string) => ({
       doc: (id: string) => ({
@@ -73,5 +89,10 @@ describe("admin voice config route", () => {
     expect(documents.get("businesses/biz-1")?.voice).toEqual(voice);
     expect((await PUT(request({}), params)).status).toBe(200);
     expect(documents.get("businesses/biz-1")?.voice).toEqual({});
+    const elevenlabs = { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567" };
+    expect((await PUT(providerRequest({ voiceProvider: "elevenlabs", elevenlabs }), params)).status).toBe(200);
+    expect(documents.get("businesses/biz-1")).toMatchObject({ voiceProvider: "elevenlabs", elevenlabs, vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" });
+    expect((await PUT(providerRequest({ voiceProvider: "vapi" }), params)).status).toBe(200);
+    expect(documents.get("businesses/biz-1")).toMatchObject({ voiceProvider: "vapi", elevenlabs, vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" });
   });
 });

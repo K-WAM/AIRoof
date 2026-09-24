@@ -13,6 +13,8 @@ import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLin
 import type { Job } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { Customer } from "@/types/customer";
+import { addFindingsToInvoice, validFindings } from "@/lib/jobs/findings";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -125,6 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
 interface PatchBody {
   businessId?: string;
+  addFindings?: boolean;
   labor?: InvoiceLaborLine[];
   materials?: InvoiceMaterialLine[];
   other?: InvoiceOtherLine[];
@@ -160,6 +163,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
 
   if (current.status !== "draft") {
     return NextResponse.json({ error: `Invoice is ${current.status} and can no longer be edited` }, { status: 409 });
+  }
+
+  if (body.addFindings !== undefined) {
+    if (body.addFindings !== true || Object.keys(body).some((key) => !["businessId", "addFindings"].includes(key))) {
+      return NextResponse.json({ error: "Invalid addFindings request" }, { status: 400 });
+    }
+    const job = jobSnap.data() as Job;
+    if (!validFindings(job.findings ?? [])) return NextResponse.json({ error: "Invalid job findings" }, { status: 409 });
+    const [bizSnap, librarySnap] = await Promise.all([
+      db.collection("businesses").doc(businessId).get(),
+      db.collection(`businesses/${businessId}/library`).doc("pricing").get(),
+    ]);
+    if (getVerticalTemplate(bizSnap.data()?.industry ?? "").disabledModules.includes("jobs")) {
+      return NextResponse.json({ error: "Jobs module unavailable" }, { status: 403 });
+    }
+    const merged = addFindingsToInvoice(current, job.findings ?? [], librarySnap.exists ? librarySnap.data() as LibraryPricing : null);
+    const patch = { labor: merged.labor, materials: merged.materials, other: merged.other,
+      laborSubtotal: merged.laborSubtotal, materialSubtotal: merged.materialSubtotal, otherSubtotal: merged.otherSubtotal,
+      subtotal: merged.subtotal, taxAmount: merged.taxAmount, total: merged.total, updatedAt: Date.now() };
+    await invRef.update(patch);
+    return NextResponse.json({ invoice: { ...current, ...patch } });
   }
 
   const merged: Pick<JobInvoice, "labor" | "materials" | "other" | "taxRate" | "discount"> = {
