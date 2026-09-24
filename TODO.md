@@ -90,6 +90,7 @@ an active queue.*
 | 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 (a+b) done + merged 2026-09-24; T-106 open (after the T-110 bake-off)** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
+| 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **assigned 2026-09-24** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
 
 ### Checklist
 
@@ -804,12 +805,14 @@ an active queue.*
         Before/After (needs a `licenseNumber` field on the business); (4) everything editable before send;
         (5) tests that every toggle collapses correctly in ALL three renderings of ALL three documents, and an
         HTML-escaping pass. Consistent design tokens (one teal, `.button`), mobile-checked.
-  - [ ] T-108 — **Auto-create a job from a booked call** (jobs-module tenants). Today a call only creates a
+  - [x] ~~T-108 — Auto-create a job from a booked call~~ — **CANCELLED 2026-09-24 (owner decision): jobs are never
+        auto-created; the admin/user decides. Superseded by T-113 (request review workflow).** Original text kept for
+        history: **Auto-create a job from a booked call** (jobs-module tenants). Today a call only creates a
         lead/appointment; a job needs the manual "Create Job" tap (T-083). Add a per-business setting (default:
         off, offered in Settings) so `bookAppointment` also creates a linked draft job (customer resolved via
         `resolveCustomer`, address/service/intake carried in, `appointmentId` link), idempotent per appointment,
         with a Pipeline/Jobs indicator "created from call". Must not double-create when staff also tap Create Job.
-  - [ ] T-109 — **Email -> job intake.** No inbound email exists. Design + build: a per-tenant intake address
+  - [ ] T-109 — **Email -> request intake** (creates a LEAD/request for review, never a job — see T-113). No inbound email exists. Design + build: a per-tenant intake address
         (Resend inbound or forwarding), the message parsed by the existing AI layer into customer / address /
         scope / urgency, creating a LEAD (default) or draft job for one-click review; attachments become job photos
         (respecting the 24-photo cap); spam/abuse limits (rate limit, sender allowlist option); never auto-replies.
@@ -883,6 +886,24 @@ an active queue.*
         (k) **port the number** to Twilio/Telnyx for full takeover (days to weeks; only when the business wants it);
         (l) provider choice for provisioned AI-line numbers: Twilio first (native ElevenLabs import, API-driven number
         purchase for in-app provisioning), Telnyx later if per-minute cost matters.
+- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — 0/2
+      **Owner workflow decision (2026-09-24):** the AI agent takes a call, records the details, and puts a REQUEST in the
+      Pipeline. The admin/user opens it (from Pipeline or by clicking the call) and sees the collected information in a
+      clear card. They then either ACCEPT — send a confirmation (email and/or an AI callback) and create the job themselves,
+      which unlocks scheduling on the Calendar — or DECLINE and send a polite decline. In ALL cases the admin/user creates
+      the job; nothing is auto-created. (Audit: confirm, cancel, Call Back and T-083 "Create Job" already exist; missing
+      are the unified review card, a real decline with customer notification, and "missing information" prompts.)
+  - [ ] T-113 — **Request review card + decline flow** (Deepseek; worktree `air-wt-request-review`; prompt in
+        `docs/PENDING_WORKER_PROMPTS_WORKFLOW_UX.md`). One shared `RequestReviewCard` used by Pipeline and Calls: caller,
+        what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
+        strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
+        Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
+  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Codex; worktree `air-wt-ux-pass`). Feedback is for CLIENT users only
+        (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
+        reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
+        shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the
+        Admin -> Clients "Sync live phone assistants" panel layout.
+
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
