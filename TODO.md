@@ -87,7 +87,7 @@ an active queue.*
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
 | 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
-| 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 assigned 2026-09-24; T-106 logged, unassigned** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
+| 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 (a+b) done + merged 2026-09-24; T-106 open (after the T-110 bake-off)** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
 
@@ -714,11 +714,11 @@ an active queue.*
         actually reaches lines nobody re-saved. Skips shared-assistant tenants (demo line), greeting-less tenants
         and tenants whose config can't build a prompt. 784/784 tests.
 
-- [ ] Phase 17 — Work Catalog & Bilingual Line (owner-added, 2026-09-24) — 0/3
+- [ ] Phase 17 — Work Catalog & Bilingual Line (owner-added, 2026-09-24) — 2/3 (T-105 done; T-106 open)
       Shared data contract (written by the integrator, do not change without them): `src/types/workCatalog.ts`
       (`WorkCatalogItem`, `WorkCatalog`, `JobFinding`, `WorkCatalogLine`). Catalog lives at
       `businesses/{bid}/library/workCatalog`; job findings are point-in-time SNAPSHOTS on `Job.findings`.
-  - [ ] T-105a — **Work catalog — Library side** (Deepseek). Library gets a "Work catalog" tab (only when the
+  - [x] T-105a — **Work catalog — Library side** (Deepseek). Library gets a "Work catalog" tab (only when the
         `jobs` module is enabled): items grouped by `category`, each with problem / solution / severity / optional
         suggested priced lines; add / edit / delete; search; one-click "Load starter kit" (idempotent — never
         duplicates, never re-adds a deleted starter item, never overwrites tenant edits). Starter content in a
@@ -748,7 +748,7 @@ an active queue.*
         isolation, none touch these files), next build green with both routes present.
         Extended `src/test-utils/fakeFirestore.ts` additively with `{ merge: true }` support (the file's own
         extension note permits it) so the PUT's merge contract is observable in tests.
-  - [ ] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). On the job detail page the
+  - [x] T-105b — **Work catalog — job side: findings, report, invoice, quote** (Codex). **Status: review (Worker C, `task/work-catalog-jobs`).** On the job detail page the
         user opens **Findings**: catalog items grouped by category with checkboxes + search (reads
         `GET /api/company/work-catalog`) and a "+ Add a one-off finding". Ticking COPIES the item into
         `Job.findings` (snapshot) with per-finding "in report" / "in quote" toggles, editable wording per job.

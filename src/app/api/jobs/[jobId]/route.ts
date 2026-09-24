@@ -3,6 +3,8 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parsedToFieldLog } from "@/lib/jobs/projection";
 import type { Job, ParsedUpdate } from "@/types/jobs";
+import { validFindings } from "@/lib/jobs/findings";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 
 const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced", "complete"];
 
@@ -39,8 +41,9 @@ export async function PATCH(
 ) {
   const { jobId } = await params;
   const body = await req.json();
-  const { businessId, status, parsed, reportNotes, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId } = body as {
+  const { businessId, status, parsed, reportNotes, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId } = body as {
     businessId?: string; status?: string; parsed?: ParsedUpdate; reportNotes?: string;
+    findings?: unknown;
     assignedCrewId?: string | null; scheduledStart?: number | null; scheduledEnd?: number | null; crewConfirmed?: boolean;
     customerId?: string | null;
   };
@@ -56,9 +59,18 @@ export async function PATCH(
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  if (findings !== undefined) {
+    if (!validFindings(findings)) return NextResponse.json({ error: "Invalid findings" }, { status: 400 });
+    const bizSnap = await db.collection("businesses").doc(businessId).get();
+    if (getVerticalTemplate(bizSnap.data()?.industry ?? "").disabledModules.includes("jobs")) {
+      return NextResponse.json({ error: "Jobs module unavailable" }, { status: 403 });
+    }
+  }
+
   const update: Record<string, unknown> = { updatedAt: Date.now() };
   if (status) update.status = status;
   if (reportNotes !== undefined) update.reportNotes = reportNotes;
+  if (findings !== undefined) update.findings = findings;
   if (assignedCrewId !== undefined) update.assignedCrewId = assignedCrewId;
   if (scheduledStart !== undefined) update.scheduledStart = scheduledStart;
   if (scheduledEnd !== undefined) update.scheduledEnd = scheduledEnd;

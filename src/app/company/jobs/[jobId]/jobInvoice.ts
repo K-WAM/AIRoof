@@ -85,10 +85,6 @@ export function buildDraftFromProjection(
       day: l.dayKey,
     };
   });
-  if (labor.length === 0) {
-    labor.push({ lineId: lineId("lab"), name: "", hours: 0, rate: defaultRate, total: 0, source: "manual" });
-  }
-
   const materials: InvoiceMaterialLine[] = parsed.materials.map((m) => {
     const qty = parseFloat(m.quantity ?? "1") || 1;
     const fromField = m.cost != null ? m.cost / qty : null;
