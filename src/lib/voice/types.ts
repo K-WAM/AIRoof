@@ -40,6 +40,8 @@ export interface OutboundCallInput {
   targetPhone: string;
   /** Free-form values the agent can use ({{name}}-style variables) and that come back on the call record. */
   variables?: Record<string, string>;
+  /** Vapi call metadata, separate from assistant variable values. */
+  metadata?: Record<string, string>;
   /** Overrides the spoken first message for this call only. */
   firstMessage?: string;
   /** ISO-8601. A provider that cannot schedule must throw `UnsupportedVoiceFeatureError`, never silently call now. */

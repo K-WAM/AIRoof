@@ -811,7 +811,7 @@ an active queue.*
       answer fast), post-call webhooks (`post_call_transcription`, HMAC `ElevenLabs-Signature`), agent PATCH
       `/v1/convai/agents/{id}` (Bearer / xi-api-key), outbound `POST /v1/convai/twilio/outbound-call`
       {agent_id, agent_phone_number_id, to_number, conversation_initiation_client_data}.
-  - [ ] T-111a — **Provider seam + ElevenLabs client + rewire** (Codex). `src/lib/voice/provider.ts`:
+  - [x] T-111a — **Provider seam + ElevenLabs client + rewire** (Codex). **Status: review (Worker C, `task/voice-provider`).** `src/lib/voice/provider.ts`:
         `getVoiceProvider(config)` returning a `VoiceProvider`; Vapi implementation is a thin wrapper over the existing
         `updateAssistantPersona`/`initiateVapiCall` with ZERO behavior change; new ElevenLabs implementation
         (`src/lib/voice/elevenlabs/client.ts`): `pushPersona` -> PATCH agent (prompt, first_message, language,

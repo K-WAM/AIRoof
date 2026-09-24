@@ -8,7 +8,9 @@ import {
   completeOperationAttempt,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
-import { initiateVapiCall } from "@/lib/vapi/vapiClient";
+import { getVoiceProvider } from "@/lib/voice/provider";
+import { UnsupportedVoiceFeatureError } from "@/lib/voice/types";
+import type { BusinessConfig } from "@/types";
 
 const DEFAULT_MAX_CALL_ATTEMPTS = 3;
 const DEFAULT_CALLBACK_WINDOW_START = 8;
@@ -63,20 +65,26 @@ export async function GET(request: NextRequest) {
   const errors: string[] = [];
 
   try {
-    const businesses = await db
-      .collection("businesses")
-      .where("vapiAssistantId", "!=", null)
-      .get();
+    const [vapiBusinesses, elevenLabsBusinesses] = await Promise.all([
+      db.collection("businesses").where("vapiAssistantId", "!=", null).get(),
+      db.collection("businesses").where("voiceProvider", "==", "elevenlabs").get(),
+    ]);
+    const businesses = new Map(vapiBusinesses.docs.map((doc) => [doc.id, doc]));
+    for (const doc of elevenLabsBusinesses.docs) businesses.set(doc.id, doc);
 
-    for (const businessDocument of businesses.docs) {
-      const business = businessDocument.data();
+    for (const businessDocument of businesses.values()) {
+      const business = businessDocument.data() as BusinessConfig;
       const businessId = businessDocument.id;
+      const provider = getVoiceProvider(business);
 
       if (!configuredNonNegativeNumber(business.callbackDelayMinutes)) {
         skipped += 1;
         continue;
       }
-      if (!business.vapiAssistantId || !business.vapiPhoneNumberId) {
+      const canCall = provider.id === "vapi"
+        ? Boolean(business.vapiAssistantId && business.vapiPhoneNumberId)
+        : provider.isConfigured(business);
+      if (!canCall) {
         skipped += 1;
         continue;
       }
@@ -162,14 +170,11 @@ export async function GET(request: NextRequest) {
         }
 
         try {
-          const vapiCall = await initiateVapiCall({
-            assistantId: business.vapiAssistantId,
-            phoneNumberId: business.vapiPhoneNumberId,
-            customerNumber: lead.callerPhone,
+          const call = await provider.startOutboundCall({
+            config: business,
+            targetPhone: lead.callerPhone,
             metadata: { businessId, leadId: leadDocument.id, type: "follow_up" },
-            assistantOverrides: {
-              firstMessage: `Hi, this is ${business.agentName ?? "your AI receptionist"} calling back from ${business.businessName}. We missed each other earlier — I'm calling about your roofing inquiry. Is now a good time?`,
-            },
+            firstMessage: `Hi, this is ${business.agentName ?? "your AI receptionist"} calling back from ${business.businessName}. We missed each other earlier — I'm calling about your roofing inquiry. Is now a good time?`,
           });
 
           await completeOperationAttempt(
@@ -178,12 +183,12 @@ export async function GET(request: NextRequest) {
               opId,
               attemptId: attempt.attemptId,
               state: "succeeded",
-              providerId: vapiCall.id,
+              providerId: call.callId,
             },
             { firestore: db, now: new Date(now) }
           );
 
-          const canonicalCallId = `call_vapi_${vapiCall.id}`;
+          const canonicalCallId = `call_${provider.id}_${call.callId}`;
           const callbackExhausted = nextAttempt >= maxAttempts;
           const batch = db.batch();
           batch.set(
@@ -196,7 +201,7 @@ export async function GET(request: NextRequest) {
               status: "queued",
               initiatedByUid: "system",
               leadId: leadDocument.id,
-              vapiCallId: vapiCall.id,
+              ...(provider.id === "vapi" ? { vapiCallId: call.callId } : { elevenlabsConversationId: call.callId }),
               callAttempt: nextAttempt,
               startedAt: now,
               createdAt: now,
@@ -215,6 +220,11 @@ export async function GET(request: NextRequest) {
 
           return NextResponse.json({ ok: true, attempted: 1, skipped, errors });
         } catch (error) {
+          if (error instanceof UnsupportedVoiceFeatureError) {
+            console.warn(`follow-up-calls: ${businessId}/${leadDocument.id}: ${error.message}; call skipped`);
+            skipped += 1;
+            return NextResponse.json({ ok: true, attempted: 0, skipped, errors: [...errors, error.message] });
+          }
           // Provider/network ambiguity remains pending in the ledger. A later
           // reconciliation task must resolve it instead of guessing and duplicating a call.
           errors.push(

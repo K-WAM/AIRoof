@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
-import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import { getVoiceProvider } from "@/lib/voice/provider";
 import { planPersonaSync } from "@/lib/vapi/syncPersonas";
 import type { BusinessConfig } from "@/types";
 
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     businessId: t.businessId,
     businessName: t.businessName,
     assistantId: t.assistantId,
+    providerId: t.providerId,
     greetingPreview: t.firstMessage.slice(0, 160),
     disclosureEnabled: t.disclosureEnabled,
   }));
@@ -44,12 +45,11 @@ export async function POST(req: NextRequest) {
   const results: Array<{ businessId: string; ok: boolean; error?: string }> = [];
   for (const t of plan.targets) {
     try {
-      await updateAssistantPersona({
-        assistantId: t.assistantId,
+      await getVoiceProvider(t.config).pushPersona({
+        config: t.config,
         firstMessage: t.firstMessage,
         systemPrompt: t.systemPrompt,
-        ...(t.transcriberLanguage ? { transcriberLanguage: t.transcriberLanguage } : {}),
-        voiceConfig: t.voiceConfig,
+        ...(t.transcriberLanguage ? { language: t.transcriberLanguage } : {}),
       });
       results.push({ businessId: t.businessId, ok: true });
     } catch (err) {

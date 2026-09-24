@@ -11,11 +11,14 @@
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import type { BusinessConfig } from "@/types";
+import { voiceProviderOf, type VoiceProviderId } from "@/lib/voice/types";
 
 export interface PersonaSyncTarget {
   businessId: string;
   businessName: string;
   assistantId: string;
+  providerId: VoiceProviderId;
+  config: BusinessConfig;
   firstMessage: string;
   systemPrompt: string;
   /** Only present when the tenant has an explicit language — an unset one leaves the transcriber alone. */
@@ -41,9 +44,18 @@ export function planPersonaSync(businesses: Array<{ businessId: string; config: 
 
   for (const biz of businesses) {
     const name = biz.config.businessName ?? biz.businessId;
-    const assistantId = biz.config.vapiAssistantId?.trim();
+    const providerId = voiceProviderOf(biz.config);
+    const assistantId = (providerId === "elevenlabs" ? biz.config.elevenlabs?.agentId : biz.config.vapiAssistantId)?.trim();
     if (!assistantId) {
-      skipped.push({ businessId: biz.businessId, businessName: name, reason: "No Vapi assistant attached" });
+      skipped.push({ businessId: biz.businessId, businessName: name, reason: providerId === "elevenlabs" ? "No ElevenLabs agent attached" : "No Vapi assistant attached" });
+      continue;
+    }
+    if (providerId === "elevenlabs" && !process.env.ELEVENLABS_API_KEY) {
+      skipped.push({ businessId: biz.businessId, businessName: name, reason: "ElevenLabs API key is not configured" });
+      continue;
+    }
+    if (providerId === "elevenlabs" && !biz.config.elevenlabs?.phoneNumberId) {
+      skipped.push({ businessId: biz.businessId, businessName: name, reason: "No ElevenLabs phone number ID attached" });
       continue;
     }
     // A greeting-less tenant would have the assistant say ONLY the recording notice — never push that.
@@ -51,13 +63,16 @@ export function planPersonaSync(businesses: Array<{ businessId: string; config: 
       skipped.push({ businessId: biz.businessId, businessName: name, reason: "No greeting configured" });
       continue;
     }
-    const group = byAssistant.get(assistantId) ?? [];
+    const key = `${providerId}:${assistantId}`;
+    const group = byAssistant.get(key) ?? [];
     group.push(biz);
-    byAssistant.set(assistantId, group);
+    byAssistant.set(key, group);
   }
 
   const targets: PersonaSyncTarget[] = [];
-  for (const [assistantId, group] of byAssistant) {
+  for (const [key, group] of byAssistant) {
+    const providerId = voiceProviderOf(group[0].config);
+    const assistantId = key.slice(providerId.length + 1);
     if (group.length > 1) {
       // One assistant serving several tenants (e.g. the shared demo line): pushing each would let the
       // last one win. Leave it to that assistant's own owner flow (Demo Studio launch / Settings save).
@@ -88,6 +103,8 @@ export function planPersonaSync(businesses: Array<{ businessId: string; config: 
       businessId,
       businessName: config.businessName ?? businessId,
       assistantId,
+      providerId,
+      config,
       firstMessage: composeGreetingWithDisclosure(config.greeting ?? "", disclosure),
       systemPrompt,
       ...(config.agentLanguage ? { transcriberLanguage: config.agentLanguage } : {}),

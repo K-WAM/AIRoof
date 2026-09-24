@@ -5,6 +5,8 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 
 const assistantCache = new Map<string, string>();
 const phoneNumberCache = new Map<string, string>();
+const elevenLabsAgentCache = new Map<string, string>();
+const elevenLabsPhoneCache = new Map<string, string>();
 
 export async function findBusinessByVapiAssistantId(
   assistantId: string
@@ -43,5 +45,27 @@ export async function findBusinessByVapiPhoneNumberId(
   if (snap.empty) return null;
   const businessId = snap.docs[0].id;
   phoneNumberCache.set(phoneNumberId, businessId);
+  return businessId;
+}
+
+export async function findBusinessByElevenLabsAgentId(agentId: string): Promise<string | null> {
+  if (elevenLabsAgentCache.has(agentId)) return elevenLabsAgentCache.get(agentId) ?? null;
+  const db = getAdminFirestore();
+  if (!db) return null;
+  const snap = await db.collection("businesses").where("elevenlabs.agentId", "==", agentId).limit(1).get();
+  if (snap.empty) return null;
+  const businessId = snap.docs[0].id;
+  elevenLabsAgentCache.set(agentId, businessId);
+  return businessId;
+}
+
+export async function findBusinessByElevenLabsPhoneNumber(phoneNumber: string): Promise<string | null> {
+  if (elevenLabsPhoneCache.has(phoneNumber)) return elevenLabsPhoneCache.get(phoneNumber) ?? null;
+  const db = getAdminFirestore();
+  if (!db) return null;
+  const snap = await db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(1).get();
+  if (snap.empty) return null;
+  const businessId = snap.docs[0].id;
+  elevenLabsPhoneCache.set(phoneNumber, businessId);
   return businessId;
 }
