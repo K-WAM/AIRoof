@@ -340,10 +340,13 @@ export default function AdminBusinessConfigPage({
 
       setSubmitStatus({ type: "success", message: `Saved config for ${businessId}.` });
       setDirty(false);
-    } catch {
+    } catch (error) {
+      // Surface the server's reason (validation message, etc.) instead of hiding it — a generic
+      // "review the form" sent us hunting through a form that was fine when the real cause was server-side.
+      const detail = error instanceof Error && error.message && error.message !== "Failed to save config" ? ` (${error.message})` : "";
       setSubmitStatus({
         type: "error",
-        message: "The configuration could not be saved. Review the form and try again.",
+        message: `The configuration could not be saved${detail}. Review the form and try again.`,
       });
     }
   }
