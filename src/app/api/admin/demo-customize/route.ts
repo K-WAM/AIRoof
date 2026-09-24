@@ -194,7 +194,13 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
         const systemPrompt = buildAgentPrompt(mergedConfig);
         // T-102: the recording notice (default ON) is spoken first in the pushed greeting.
         const firstMessage = composeGreetingWithDisclosure(greeting, resolveRecordingDisclosure(mergedConfig));
-        await updateAssistantPersona({ assistantId: vapiAssistantId, firstMessage, systemPrompt });
+        await updateAssistantPersona({
+          assistantId: vapiAssistantId,
+          firstMessage,
+          systemPrompt,
+          transcriberLanguage: mergedConfig.agentLanguage ?? "en",
+          voiceConfig: mergedConfig,
+        });
         vapiUpdated = true;
       } catch (err) {
         vapiError = err instanceof Error ? err.message : "Vapi update failed";

@@ -127,6 +127,7 @@ export async function PUT(req: NextRequest) {
           // Only touch the transcriber when the language actually changed; a
           // disclosure-only save must not disturb the speaking configuration.
           ...(agentLanguage !== undefined ? { transcriberLanguage: agentLanguage } : {}),
+          voiceConfig: config,
         });
       }
     } catch (err) {

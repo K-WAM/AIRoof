@@ -1256,3 +1256,13 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - `buildAgentPrompt` gains a short `## Call Recording` section: calls may be recorded and transcribed, and if a caller asks, answer honestly in one short sentence — present in both the on and off states (off adds "do NOT volunteer").
 - Company Settings gets a "Call Recording Notice" panel (owner/superadmin only, matching the TeamPanel gate): toggle, wording textarea with live character count, a live preview of the composed business-hours and after-hours greetings, and a note that wording should be reviewed by counsel. `GET /api/company/settings` now also returns `greeting`/`afterHoursGreeting`/resolved `recordingDisclosure` (semiStatic tier, private — no caching change). `PUT` validates shape/text (400 on >300 chars or HTML) and 403s staff on this field only.
 - Evidence: type-check green; lint 0 errors / 32 warnings (baseline, none in touched files); `vitest run` 760/760 (36 new across three suites: recordingDisclosure module 17, agentPromptBuilder T-102 block 4, settings recording-disclosure route tests 15); `next build` green, `/company/settings` 111kB -> 116kB (the new panel). No files removed.
+
+---
+
+## T-103 — Per-tenant and per-language voice override
+
+- Date: 2026-09-23 · branch: `task/voice-override` · commit: this T-103 commit.
+- Added optional English and Spanish `VoiceRef` overrides to `BusinessConfig`. The superadmin config page can save or clear each one; the PUT route validates the exact provider, voice ID, and model shape before storage. No hardcoded Savannah default remains.
+- Persona pushes choose only the configured voice for the pushed language. With no override, the PATCH omits `voice`, preserving the dashboard-selected live voice. The existing speaking-plan readback and PATCH fields remain unchanged.
+- Tests cover no override, exact English override, Spanish/English flips, no stale voice on an unset language, speaking-plan preservation, invalid override rejection, and the superadmin gate.
+- Evidence: type-check green; lint 0 errors / 32 existing warnings; focused Vitest 12/12; full `vitest run` 739/739; `next build` green. No files removed.

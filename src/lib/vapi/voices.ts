@@ -1,19 +1,32 @@
-// Language-specific voice selection (Phase 12, Phase 6 — Spanish). Deliberately NOT wired up
-// yet: this repo has no confirmed-working Spanish voiceId to switch to. The live English voice
-// (Vapi Voices v2 "Savannah", per CLAUDE.md's 2026-09-07 rollback note) is a "vapi" provider
-// voice; picking a real Spanish equivalent needs a human pass in the Vapi dashboard's voice
-// picker to confirm an actual voiceId that exists and sounds right — guessing one here risks
-// silently breaking a live phone line the next time someone flips the Settings language toggle.
-//
-// Until this is filled in, updateAssistantPersona() only switches the transcriber's `language`
-// and the system prompt/greeting — the voice itself is left exactly as it was. Most TTS voices
-// can still render Spanish text reasonably under an English-sounding name, so this is a real,
-// working degradation rather than a broken one; it's just not the ideal native-accent voice the
-// full spec called for.
-//
-// NEEDS-HUMAN: confirm a real Vapi voiceId for Spanish (dashboard → Voice → filter by language),
-// then fill in the "es" entry below and pass `voice` through from updateAssistantPersona's caller.
-export const AGENT_VOICES: Partial<Record<"en" | "es", { provider: string; voiceId: string }>> = {
-  en: { provider: "vapi", voiceId: "Savannah" },
-  // es: not set — see the NEEDS-HUMAN note above.
-};
+import type { BusinessConfig, VoiceRef } from "@/types";
+
+/**
+ * Voice overrides are opt-in. Without an entry for the selected language,
+ * persona pushes leave the dashboard-selected Vapi voice untouched. For example,
+ * `{ en: { provider: "11labs", voiceId: "confirmed-id" } }` overrides English
+ * only. Confirm each voice ID in the provider dashboard before saving it.
+ */
+export function voiceForLanguage(
+  config: Pick<BusinessConfig, "voice">,
+  language: "en" | "es"
+): VoiceRef | undefined {
+  return config.voice?.[language];
+}
+
+const PROVIDERS = new Set(["vapi", "11labs", "cartesia", "openai"]);
+const VOICE_ID_PATTERN = /^[A-Za-z0-9_\- ]{1,100}$/;
+
+/** Validate the exact persisted shape; never persist arbitrary caller fields. */
+export function isVoiceConfig(value: unknown): value is NonNullable<BusinessConfig["voice"]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const voices = value as Record<string, unknown>;
+  if (Object.keys(voices).some((key) => key !== "en" && key !== "es")) return false;
+  return Object.values(voices).every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const voice = entry as Record<string, unknown>;
+    if (Object.keys(voice).some((key) => !["provider", "voiceId", "model"].includes(key))) return false;
+    return typeof voice.provider === "string" && PROVIDERS.has(voice.provider) &&
+      typeof voice.voiceId === "string" && VOICE_ID_PATTERN.test(voice.voiceId) &&
+      (voice.model === undefined || (typeof voice.model === "string" && voice.model.length <= 60));
+  });
+}

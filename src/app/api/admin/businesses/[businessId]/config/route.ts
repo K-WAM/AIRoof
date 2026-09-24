@@ -9,6 +9,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { isVoiceConfig } from "@/lib/vapi/voices";
 
 interface UpdateBusinessConfigRequest {
   businessName?: string;
@@ -39,6 +40,7 @@ interface UpdateBusinessConfigRequest {
   // Vapi integration
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  voice?: BusinessConfig["voice"];
   // Pricing (invoice generation)
   laborRate?: { defaultHourlyRate: number };
   defaultTaxRate?: number;
@@ -101,6 +103,10 @@ export async function PUT(
     const { businessId } = await params;
     const body: UpdateBusinessConfigRequest = await request.json();
 
+    if (body.voice !== undefined && !isVoiceConfig(body.voice)) {
+      return NextResponse.json({ error: "Invalid voice override" }, { status: 400 });
+    }
+
     if (!businessId) {
       return NextResponse.json(
         { error: "Missing businessId parameter" },
@@ -161,6 +167,7 @@ export async function PUT(
         // Vapi integration
         vapiAssistantId: body.vapiAssistantId,
         vapiPhoneNumberId: body.vapiPhoneNumberId,
+        ...(body.voice !== undefined ? { voice: body.voice } : {}),
         // Pricing
         ...(body.laborRate !== undefined ? { laborRate: body.laborRate } : {}),
         ...(body.defaultTaxRate !== undefined ? { defaultTaxRate: body.defaultTaxRate } : {}),
