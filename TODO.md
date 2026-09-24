@@ -824,7 +824,7 @@ an active queue.*
         Spanish, cost/min). Output: the decision plus, if the winner is not Vapi, a migration task behind a
         per-business `voiceProvider` flag. Feeds T-106 (bilingual line).
 
-- [ ] Phase 19 — ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) — 0/3
+- [ ] Phase 19 — ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) — 2/3 (T-111a + T-111b done; T-112 follow-ups open)
       Owner created an ElevenLabs Creator-tier account. **Independence rule:** only the *phone call* is
       provider-specific. Field notes (Whisper `whisper-1` + `gpt-4o` `parse-field-update`), summaries/classify
       (DeepSeek), invoices, reports and the 7 booking tools (`src/lib/tools/agentTools.ts`) never touch Vapi or
@@ -848,7 +848,7 @@ an active queue.*
         Vapi lookups). Superadmin config page + PUT: provider selector, agentId / phoneNumberId / phoneNumber
         fields (validated), shown only when ElevenLabs is selected; default stays Vapi. `/api/health` reports
         `elevenlabs: configured|not_configured` (env `ELEVENLABS_API_KEY`). Never log keys. Full mocked-fetch tests.
-  - [ ] T-111b — **ElevenLabs inbound webhooks + provisioning** (Deepseek wrote ~90% as WIP `16f8d5e`, then ran out of credits; **Codex A finishes it — `docs/WORKER_QUEUE.md` A1**; remaining: verify/possibly revert the Vapi-route refactor, real lookups instead of the shim, 2 failing tests, ~10 test-mock type errors, doc + build). Routes under
+  - [x] T-111b — **ElevenLabs inbound webhooks + provisioning** (Codex A). **Status: review (`task/elevenlabs-hooks`).** Routes under
         `src/app/api/webhooks/elevenlabs/`: `initiation` (auth via secret header; resolve tenant by called number /
         agent id; return per-call `dynamic_variables` + `conversation_config_override` built from
         `buildAgentPrompt` + current date/after-hours context + greeting WITH the T-102 recording notice + language +
