@@ -783,7 +783,11 @@ an active queue.*
       a **quote, invoice and report** where they can select issues, images and workers, edit everything, and
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
-  - [ ] T-107 — **Document suite unification** (start AFTER T-105a/b merge — it builds on T-105b's quote + findings).
+  - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
+        **T-107a** (Codex; worktree `air-wt-documents-core`, prompt in `docs/PENDING_WORKER_PROMPTS_WAVE2.md`) = shared
+        `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
+        technicians; **T-107b** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
+        logo fix. Contract: `src/types/documentOptions.ts`. Original spec:
         Audit (2026-09-24): `hideMaterials` works on the INVOICE only (in-app, print/PDF, email; email path
         unit-tested; a real send has not been click-verified — add to NH-8); the REPORT has no hide toggles and
         the emailed report (`report/send/route.ts`) still uses the legacy `biz.logoUrl` with a white-silhouette
