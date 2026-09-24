@@ -38,7 +38,9 @@ If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b tas
 ## Model selection (added 2026-09-24 — to conserve tokens)
 
 Owner's Codex tiers, as understood (cheapest -> strongest): **Luna < Terra < Sol < Astra**, each with **low / medium / high** effort.
-Deepseek (when credits return): **deepseek-chat** (cheap default) vs **deepseek-reasoner** (thinking; use sparingly). If this ordering is wrong,
+Deepseek V4 (owner's lineup, Sept 2026 sources — verify): **V4 Flash** (cheap default; ~3x cheaper than Pro per output token) and **V4 Pro**, each with a
+thinking level of **Non-think / Think High / Think Max** (the newer V4.1-Flash uses a single reasoning-effort dial instead). Reported rule of thumb:
+**Flash @ max ~ Pro @ high** on reasoning/coding, so prefer Flash and turn the think level up before switching to Pro. If any of this ordering is wrong,
 fix this section — every recommendation below follows from it.
 
 Pick by RISK first, size second:
@@ -50,7 +52,14 @@ Pick by RISK first, size second:
 | Bounded/mechanical: CSS tokens, copy/wording, renames, adding tests to existing code, doc edits | **Terra low** (or Luna low for pure text edits) |
 | Ambiguous design, architecture, cross-cutting refactor, deciding between approaches | **Claude (integrator), not a worker** — write the spec first, then hand the well-defined build to Terra/Sol |
 | Reviews, merges, conflict resolution, research, planning | **Claude** |
-| Deepseek (when topped up) | **chat** for self-contained UI/tests/docs. **Not** for security-sensitive or live-path work (the T-111b run showed why); use **reasoner** only for a genuinely algorithmic problem. |
+| Deepseek: mechanical (wording, renames, docs, tests on existing code) | **V4 Flash, Non-think** (V4.1-Flash: low effort) |
+| Deepseek: bounded feature or UI pass with a clear spec (e.g. T-114) | **V4 Flash, Think High** (V4.1-Flash: medium effort) |
+| Deepseek: larger multi-file feature with tests (e.g. T-113) | **V4 Flash, Think Max** (V4.1-Flash: high effort) — the "pro-strength at flash price" setting |
+| Deepseek: genuinely hard reasoning/algorithmic problem | **V4 Pro, Think High**; **Pro Max** only when Flash Max already failed |
+| Deepseek on anything security-sensitive or on a live customer path | **Don't** — give it to Codex Sol. (The T-111b run went wrong on scope and budget, not just capability; a bigger Deepseek tier does not fix that.) |
+
+Cost tip (third-party pricing page, verify): DeepSeek reportedly charges roughly half price off-peak; the listed PEAK windows are 01:00-04:00 and
+06:00-10:00 UTC on weekdays (about 9pm-midnight and 2am-6am US Eastern in summer). Long Deepseek runs are cheaper outside those windows.
 
 Token-saving habits (already in the prompts, worth repeating): point workers at exact files/line ranges (`page.tsx` is 2,250 lines — grep,
 don't read it whole); run the full gates once at the end and `next build` once; commit WIP instead of re-deriving; stop and ask on ambiguity
@@ -193,7 +202,7 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
 
 ## B1 — Deepseek: T-114 feedback fix + app-shell UX pass
 
-**Suggested model: deepseek-chat** (not reasoner). Bounded, mostly CSS tokens/a11y/wording. If you would rather use Codex, use Terra low (medium if it struggles with the modal/focus-trap work).
+**Suggested model: DeepSeek V4 Flash, Think High** (V4.1-Flash: medium effort). Bounded, mostly CSS tokens/a11y/wording — Pro is unnecessary. If it flounders on the modal/focus-trap work, go to Flash Think Max before Pro. Codex alternative: Terra low (medium if it struggles).
 
 ```
 You are Worker D (Deepseek) on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first — especially: COMMIT WIP OFTEN (your credits may run out mid-task; uncommitted work is lost), and STOP AND ASK instead of guessing. If you notice you are running low on budget, commit what you have, write a short status of what is done/not done at the top of your final message, and stop.
