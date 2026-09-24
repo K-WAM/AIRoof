@@ -25,7 +25,9 @@ export function buildRequestDeclineEmail(input: {
   const custom = input.customMessage?.trim();
   const detail = custom
     ? escapeHtml(custom)
-    : "We’re unable to move forward with this request at this time.";
+    : input.reason === "Fully booked"
+      ? "Our current availability cannot accommodate this request at this time."
+      : "We’re unable to move forward with this request at this time.";
   const business = escapeHtml(input.brand.businessName);
   const accent = escapeHtml(input.brand.brandColor || "#0f766e");
   const contact = [input.brand.contactPhone, input.brand.contactEmail]
