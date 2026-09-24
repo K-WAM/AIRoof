@@ -13,6 +13,9 @@
 // Usage:
 //   node scripts/setup-elevenlabs-agent.mjs            # DRY RUN (default)
 //   node scripts/setup-elevenlabs-agent.mjs --apply    # actually create
+//   node scripts/setup-elevenlabs-agent.mjs --apply --agent-id agent_xxx
+//       # attach the tools + initiation overrides to an EXISTING agent instead of creating the test agent
+//       # (also sets the workspace conversation-initiation webhook, best effort)
 //
 // Reads ELEVENLABS_API_KEY / ELEVENLABS_TOOL_SECRET / NEXT_PUBLIC_APP_URL from
 // the environment first, then from .env.local. Idempotent by name: existing
@@ -168,8 +171,26 @@ function buildTestAgentConfig(toolIds) {
   };
 }
 
+function argValue(flag) {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+function buildOverrides() {
+  return {
+    overrides: {
+      enable_conversation_initiation_client_data_from_webhook: true,
+      conversation_config_override: {
+        agent: { first_message: true, language: true, prompt: { prompt: true } },
+        tts: { voice_id: true },
+      },
+    },
+  };
+}
+
 async function main() {
   const apply = process.argv.includes("--apply");
+  const agentIdArg = argValue("--agent-id")?.trim();
   const env = loadEnv();
   const apiKey = env.ELEVENLABS_API_KEY?.trim();
   const toolSecret = env.ELEVENLABS_TOOL_SECRET?.trim();
@@ -200,7 +221,12 @@ async function main() {
       plan.push(`tool ${schema.name} -> ${baseUrl}${schema.path}`);
     }
     plan.push(`workspace secret ${TOOL_SECRET_NAME} (holds ELEVENLABS_TOOL_SECRET)`);
-    plan.push(`agent "${TEST_AGENT_NAME}" with conversation-initiation overrides enabled`);
+    plan.push(
+      agentIdArg
+        ? `attach the tools + enable initiation overrides on EXISTING agent ${agentIdArg}`
+        : `agent "${TEST_AGENT_NAME}" with conversation-initiation overrides enabled`
+    );
+    plan.push(`workspace conversation-initiation webhook -> ${baseUrl}/api/webhooks/elevenlabs/initiation (best effort)`);
     for (const line of plan) console.log(`  [plan] ${line}`);
     console.log("\nDry run made no writes and no network calls. Re-run with --apply to create.");
     return;
@@ -251,6 +277,23 @@ async function main() {
     }
   }
 
+  if (agentIdArg) {
+    console.log(`\n[3/4] Attach tools + overrides to existing agent ${agentIdArg}`);
+    const current = await apiFetch(apiKey, `/v1/convai/agents/${encodeURIComponent(agentIdArg)}`);
+    const currentIds = current?.conversation_config?.agent?.prompt?.tool_ids ?? [];
+    const mergedIds = [...new Set([...currentIds, ...toolIds])];
+    await apiFetch(apiKey, `/v1/convai/agents/${encodeURIComponent(agentIdArg)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        conversation_config: { agent: { prompt: { tool_ids: mergedIds } } },
+        platform_settings: buildOverrides(),
+      }),
+    });
+    results.agent = { id: agentIdArg, created: false };
+    console.log(`  agent now has ${mergedIds.length} tool id(s); initiation overrides enabled`);
+  }
+
+  if (!agentIdArg) {
   console.log("\n[3/3] Test agent");
   const agents = await listAllAgents(apiKey);
   const existingAgent = agents.find((agent) => agent.name === TEST_AGENT_NAME) ?? null;
@@ -268,13 +311,30 @@ async function main() {
     console.log(`  created agent "${TEST_AGENT_NAME}" (id ${agentId})`);
     results.agent = { id: agentId, created: true };
   }
+  }
+
+  console.log("\n[4/4] Conversation initiation webhook (workspace settings)");
+  try {
+    await apiFetch(apiKey, "/v1/convai/settings", {
+      method: "PATCH",
+      body: JSON.stringify({
+        conversation_initiation_client_data_webhook: {
+          url: `${baseUrl}/api/webhooks/elevenlabs/initiation`,
+          request_headers: { [TOOL_SECRET_HEADER]: { secret_id: secret.id } },
+        },
+      }),
+    });
+    console.log(`  set -> ${baseUrl}/api/webhooks/elevenlabs/initiation`);
+  } catch (error) {
+    console.log(`  could not set via API (${error.message}) — set it in the dashboard instead: docs/ELEVENLABS-SETUP.md step 5`);
+  }
 
   console.log("\n=== Provisioned ids ===");
   console.log(`secret (${TOOL_SECRET_NAME}): ${results.secret}`);
   for (const tool of results.tools) {
     console.log(`tool ${tool.name}: ${tool.id}${tool.created ? " (created)" : " (existing)"}`);
   }
-  console.log(`agent ("${TEST_AGENT_NAME}"): ${results.agent.id}${results.agent.created ? " (created)" : " (existing)"}`);
+  console.log(`agent: ${results.agent.id}${results.agent.created ? " (created)" : " (existing)"}`);
   console.log("\nRemaining dashboard-only steps: docs/ELEVENLABS-SETUP.md");
 }
 

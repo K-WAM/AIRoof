@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Luxor AI — Demo & Onboarding Guide</title>
+<title>Luxor AI — Demo &amp; Onboarding Guide</title>
 <style>
   /* ── Reset ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -379,7 +379,7 @@
     <p class="cover-sub">
       Everything you need to run a live demo for any service business — roofing, HVAC, dental, care homes,
       landscaping, general contractors, property management, electricians, appliance repair, childcare,
-      daycares, cleaning — and onboard new clients end-to-end.
+      daycares, cleaning, junk removal — and onboard new clients end-to-end.
     </p>
     <div class="cover-toc">
       <div class="toc-item">
@@ -394,7 +394,7 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.6 — September 2026</div>
+        <div><span>Version</span> 2.7 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
       <div><span>Self-led link</span> ai-roof.vercel.app/try/roofing</div>
@@ -421,7 +421,7 @@
     <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:2.0;color:#1e293b;">
       <li>Go to <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> → sign in as <strong>connect@luxordev.com</strong></li>
       <li>Left nav → <strong>Demo Studio</strong></li>
-      <li>Click their <strong>industry card</strong> (11 of them)</li>
+      <li>Click their <strong>industry card</strong> (13 of them)</li>
       <li>Type their <strong>company name</strong> + <strong>email</strong> → click <strong>Launch demo →</strong></li>
       <li>Hand them your phone → dial <strong style="color:#1d4ed8">+1 (754) 283-7658</strong>. The agent answers as <em>their</em> company. <strong>Works for every industry.</strong></li>
       <li>Click <strong>Open [Industry] dashboard →</strong> → show <strong>Dashboard</strong> (the after-hours booking waiting for approval) → <strong>Calendar</strong> (drag a card onto a row)</li>
@@ -603,7 +603,7 @@
   </div>
 
   <div class="highlight">
-    <strong>Dental, Property Mgmt &amp; Childcare are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
+    <strong>Dental, Care Homes, Property Mgmt, Childcare &amp; Daycares are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
   </div>
 
   <!-- ══ BEFORE THE DEMO ══ -->
@@ -647,6 +647,10 @@
       </div>
     </li>
   </ol>
+
+  <div class="highlight">
+    <strong>Call-recording notice:</strong> every tenant's greeting now opens with a recording notice (default ON, editable in <strong>Company → Settings → Call Recording Notice</strong> — the default wording is a draft pending counsel review, NH-4). The shared demo line speaks it automatically on each Demo Studio launch. For a <em>real client's own line</em>, a greeting only reaches callers once it is pushed to the voice platform — see <strong>Admin → Clients → “Sync live phone assistants” → Preview changes → Apply</strong> in Part 2, Phase 5.
+  </div>
 
   <!-- ══ ROOFING FULL DEMO SCRIPT ══ -->
   <h3>Field Service — Full Live Demo (~15 min)</h3>
@@ -751,7 +755,9 @@
       <li>Select the job → <strong>hold the 🎤</strong> and speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
       <li>Release the mic → the update transcribes, parses, and saves automatically — a green "✓" confirms with what was captured</li>
       <li>On the job detail tab → refresh → click each tab: <strong>Timeline · Materials</strong> (14 squares) <strong>· Labor</strong> (Marco, Dani, 3 hrs) <strong>· Issues</strong> (rotted decking, HIGH severity)</li>
-      <li>Click <strong>Generate Invoice</strong> → editable line items from the voice update</li>
+      <li>Click <strong>Generate Invoice</strong> → editable line items from the voice update (the "Hide materials from customer email" toggle collapses the material breakdown to one subtotal line on the emailed and printed invoice — the editor always shows every row)</li>
+      <li>Open the <strong>Findings</strong> tab → tick a finding → <strong>Add ticked findings to invoice</strong> (findings are standard problems/solutions from the Library, captured per job)</li>
+      <li>Open the <strong>Quote</strong> tab → build an estimate from the same lines and findings, then <strong>Send quote</strong>. A quote <strong>cannot be accepted or paid online</strong> — you record the customer's answer with <strong>Mark accepted / declined / expired</strong></li>
       <li>Click <strong>Generate Report</strong> → full AI-written job report</li>
     </ol>
 
@@ -782,26 +788,26 @@
   <p style="font-style:italic;color:#475569;">"That happened without any staff involvement. The booking is confirmed, they have an email with your logo on it, you have a full transcript. This runs 24/7 — nights, weekends, storm season surges."</p>
 
   <h4>Part 2 — Job Dashboard (3 min)</h4>
-  <p>On the appointment card just created: click <strong>Create Job →</strong>. Type a job title, click <strong>Create Job</strong>, click <strong>View →</strong>. Show the six tabs — all empty for now.</p>
+  <p>On the appointment card just created: click <strong>Create Job →</strong>. Type a job title, click <strong>Create Job</strong>, click <strong>View →</strong>. Show the tabs — <strong>Timeline, Materials, Labor, Issues, Findings, Photos, Invoice, Quote, Report</strong> — all empty for now.</p>
   <p style="font-style:italic;color:#475569;">"The call just became a structured job. The crew opens this on their phone."</p>
 
   <h4>Part 3 — Field Voice Input (5 min) — The Wow Moment</h4>
-  <p>Scan the QR from the Demo Studio launch panel (or open the field URL on your phone). Select the job, tap the mic, speak the script above. Submit. Show the job tabs update with extracted data, then Generate Invoice and Generate Report.</p>
+  <p>Scan the QR from the Demo Studio launch panel (or open the field URL on your phone). Select the job, tap the mic, speak the script above. Submit. Show the job tabs update with extracted data, then Generate Invoice, tick a finding, build a Quote, and Generate Report.</p>
   <p style="font-style:italic;color:#475569;font-weight:600;">"Your crew spoke for 15 seconds in plain English. The AI extracted materials, logged labor, flagged a defect, and drafted the invoice — ready to send."</p>
 
   <h4>Close</h4>
   <p style="font-style:italic;color:#475569;">"This is the full picture — AI answers the phone 24/7, books the job, your crew updates from the field by voice, and you have a report and invoice without touching a spreadsheet. Setup takes about a week. Want to talk about getting your number on this?"</p>
 
   <!-- ══ DASHBOARD-ONLY DEMO ══ -->
-  <h3>Dental, Property Mgmt &amp; Childcare — the Intake Demo</h3>
-  <p>Same live number, different story. These three have no field crews, so don't pitch Jobs or Field — their pain is <strong>the phone ringing out after hours</strong>. Their nav only shows what's relevant, which is itself worth pointing out.</p>
+  <h3>Dental, Care Homes, Property Mgmt, Childcare &amp; Daycares — the Intake Demo</h3>
+  <p>Same live number, different story. These five have no field crews, so don't pitch Jobs or Field — their pain is <strong>the phone ringing out after hours</strong>. Their nav only shows what's relevant, which is itself worth pointing out.</p>
 
   <ol class="step-list">
     <li>
       <div class="step-num blue">1</div>
       <div class="step-body">
         <strong>Launch the industry, then hand them the phone</strong>
-        <p>Dial <strong>+1 (754) 283-7658</strong>. Aria (dental), Val (property mgmt), or Nora (childcare) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> Childcare: say <em>"I need a sitter for Saturday night, my daughter is 4."</em> The agent triages, books, or escalates.</p>
+        <p>Dial <strong>+1 (754) 283-7658</strong>. Aria (dental), Elena (care homes), Val (property mgmt), Nora (childcare), or Wren (daycares) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Care Homes: say <em>"I'd like to tour an assisted living community Saturday."</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> Childcare: say <em>"I need a sitter for Saturday night, my daughter is 4."</em> Daycares: say <em>"I'd like a tour for a 2-year-old starting in January."</em> The agent triages, books, or escalates.</p>
       </div>
     </li>
     <li>
@@ -822,7 +828,7 @@
       <div class="step-num blue">4</div>
       <div class="step-body">
         <strong>Open Calendar → drag the unassigned card onto a row</strong>
-        <p>Dental rows are <strong>Dr. Rivera / Dr. Chen / Hygiene — Sam</strong>. Property Mgmt rows are <strong>Ace Plumbing / BrightSpark Electric / On-call Manager</strong>. Childcare rows are <strong>Jenna M. / Priya S. / After-hours On-call</strong>. Drag the unassigned booking onto whoever's taking it, then <strong>Confirm + email</strong>.</p>
+        <p>Dental rows are <strong>Dr. Rivera / Dr. Chen / Hygiene — Sam</strong>. Property Mgmt rows are <strong>Ace Plumbing / BrightSpark Electric / On-call Manager</strong>. Childcare rows are <strong>Jenna M. / Priya S. / After-hours On-call</strong>. Care Homes rows are the community's coordinators and Daycares rows are the center's directors (both seeded at launch — drag the tour onto one). Drag the unassigned booking onto whoever's taking it, then <strong>Confirm + email</strong>.</p>
       </div>
     </li>
     <li>
@@ -931,7 +937,7 @@
     <div class="stat-card">
       <div class="stat-value green">&lt;2s</div>
       <div class="stat-label">AI answer time vs. 2–4 hour average human callback</div>
-      <div class="stat-source">Measured on Vapi + Cartesia stack</div>
+      <div class="stat-source">Measured on the Vapi live line</div>
     </div>
     <div class="stat-card">
       <div class="stat-value blue">50%</div>
@@ -1151,10 +1157,11 @@
   <h3>Overview — What You're Setting Up</h3>
   <div class="two-col">
     <div class="col-box">
-      <h4>Vapi (voice platform)</h4>
+      <h4>Vapi (live voice platform)</h4>
       <ul style="margin-left:16px;">
         <li style="margin-bottom:4px;">One AI assistant per client</li>
         <li style="margin-bottom:4px;">7 tools attached: bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate</li>
+        <li style="margin-bottom:4px;">Live config: model <strong>gpt-4o-mini</strong>, voice <strong>Vapi Voices v2 — “Savannah”</strong>, transcriber <strong>Deepgram Flux</strong></li>
         <li style="margin-bottom:4px;">One phone number (new or forwarded)</li>
         <li>Webhook URL pointing to our server</li>
       </ul>
@@ -1168,6 +1175,14 @@
         <li>Client login provisioned so they can see their dashboard</li>
       </ul>
     </div>
+  </div>
+
+  <div class="highlight">
+    <strong>Voice providers:</strong> <strong>Vapi is the live provider</strong> for every call today. <strong>ElevenLabs Agents</strong> is an evaluated, <em>dormant</em> alternative — a per-tenant switch exists in code, but no tenant is on it and it does not answer real calls. Do not tell a client it is live.
+  </div>
+
+  <div class="highlight">
+    <strong>Call-recording notice:</strong> every tenant speaks a recording notice by default (a missing config counts as ON), editable in <strong>Company → Settings → Call Recording Notice</strong> (owner/superadmin only). The default wording is a <strong>draft, not legal advice</strong> — have counsel review it before relying on it (NH-4). A greeting or notice reaches the phone line only after it is pushed: <strong>Admin → Clients → “Sync live phone assistants” → Preview changes → Apply</strong> (see Phase 5).
   </div>
 
   <div class="highlight">
@@ -1205,8 +1220,8 @@
     <li>
       <div class="step-num">4</div>
       <div class="step-body">
-        <strong>Configure the model (native speech-to-speech)</strong>
-        <p>Provider: <strong>OpenAI</strong> — Model: <strong>gpt-realtime-2025-08-28</strong> — Voice: <strong>cedar</strong>. This is a single unified speech-to-speech model — there's no separate TTS/STT provider to pick (as of the 2026-09-05 switch, T-060). It costs more per minute than the old cascaded Cartesia/Deepgram/GPT-4o-mini stack, but reads far more natural on a phone call — an explicit quality tradeoff, not an oversight. Leave <code>startSpeakingPlan</code>/<code>stopSpeakingPlan</code>/background sound at the assistant's existing tuned defaults.</p>
+        <strong>Configure the model, voice and transcriber</strong>
+        <p>Expected live config: Provider <strong>OpenAI</strong>, model <strong>gpt-4o-mini</strong>; Voice <strong>Vapi Voices v2 — “Savannah”</strong>; Transcriber <strong>Deepgram Flux</strong>. Leave <code>startSpeakingPlan</code>/<code>stopSpeakingPlan</code> and background sound at the assistant's hand-tuned defaults (<code>numWords 2</code>, <code>backoffSeconds 0.7</code>, <code>waitSeconds 0.1</code>). Do <strong>not</strong> switch the model to a <code>gpt-realtime-*</code> speech-to-speech model — an earlier trial broke turn-taking (the assistant talked over callers); those speaking plans govern the cascaded transcriber → LLM → TTS pipeline only. A different voice (e.g. ElevenLabs) can be selected per tenant later through the dormant voice-provider seam; it is not live for callers today.</p>
       </div>
     </li>
     <li>
@@ -1315,7 +1330,7 @@
   </ol>
 
   <div class="warning-box">
-    <strong>This is a manual runbook, not yet a portal button.</strong> In-app provisioning (buy/import a number without leaving the portal) is a backlog item (T-054) — it needs a live Twilio account and API key wired into this app first, which is exactly what steps 1–4 above produce. Once that exists, automating steps 3 and 5 becomes straightforward.
+    <strong>This is a manual runbook, not yet a portal button.</strong> In-app provisioning (buy/import a number without leaving the portal) is a backlog item (T-054) — it needs a live Twilio account and API key wired into this app first, which is exactly what steps 1–4 above produce. Once that exists, automating steps 3 and 5 becomes straightforward. Twilio here is only a <em>number provider</em> imported into Vapi as bring-your-own-number; the app has no live Twilio integration of its own. The shared demo line <strong>+1 (754) 283-7658</strong> is Vapi-owned and cannot be moved to another provider — it stays the wired demo line.
   </div>
 
   <hr>
@@ -1340,7 +1355,7 @@
       <div class="step-num green">2</div>
       <div class="step-body">
         <strong>Step 2 — Template and Plan</strong>
-        <p>Industry: select the matching vertical (Roofing, HVAC, Dental, Landscaping, General Contractors, Property Management). This pre-fills services, FAQs, emergency rules, and agent personality from the template.</p>
+        <p>Industry: select the matching vertical — all thirteen are available (Roofing, HVAC, Landscaping, Cleaning, Dental, Care Homes, Property Management, General Contractors, Electricians, Appliance Repair, Childcare, Daycares, Junk Removal). This pre-fills services, FAQs, emergency rules, agent personality and the industry's intake fields from the template.</p>
         <p>Receptionist name: use the industry default or customize (e.g. "Alice" for roofing).</p>
       </div>
     </li>
@@ -1379,6 +1394,10 @@
       </div>
     </li>
   </ol>
+
+  <div class="highlight">
+    <strong>Intake fields, starter kits and the Library:</strong> the chosen industry also defines the <strong>intake fields</strong> the AI collects on a call (for example a unit number, insurance, or pet details) — they appear as labelled rows on the Pipeline request card. In the client's <strong>Library</strong>, a <strong>“Load starter kit”</strong> button seeds example materials, labor rates and the trade's <strong>Work catalog</strong> (standard problems and solutions); starter items carry a “Starter — review price” flag until someone edits them, and are never treated as final pricing without review. The <strong>Work catalog</strong> is its own Library tab, shown only for jobs-module industries.
+  </div>
 
   <hr>
 
@@ -1423,6 +1442,10 @@ superadmin: false</code>
       </div>
     </li>
   </ol>
+
+  <div class="highlight">
+    <strong>Feedback is client-only (T-114):</strong> signed-in client users see a <strong>Feedback</strong> item in the Help group of their nav and can send a message to the Luxor team — it never goes to their own company. Superadmins don't see it at all, including when previewing a client.
+  </div>
 
   <hr>
 
@@ -1481,10 +1504,39 @@ superadmin: false</code>
         <p>On Appointments page, click <strong>Send Confirmation</strong>. ✓ Email arrives with brand color and logo &nbsp; ✓ Footer says "Powered by Luxor AI"</p>
       </div>
     </li>
+    <li>
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <strong>Push the greeting and prompt to the live assistant</strong>
+        <p>Go to <strong>Admin → Clients → “Sync live phone assistants” → Preview changes → Apply</strong>. This pushes every tenant's greeting + system prompt to the voice platform. It skips tenants with no greeting and tenants that share one assistant (like the demo line — relaunch that from Demo Studio instead). Nothing changes until you click <strong>Apply</strong>.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">9</div>
+      <div class="step-body">
+        <strong>Confirm the recording notice is actually heard</strong>
+        <p>Call the client's line and listen to the opening. ✓ The recording notice is spoken first, then the greeting &nbsp; ✓ Notice matches what's saved in <strong>Company → Settings → Call Recording Notice</strong>. If it isn't there, the greeting hasn't been pushed — redo the sync above. <em>(Recording compliance itself is a legal decision tracked as NH-4 — the default wording is a draft pending counsel review.)</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">10</div>
+      <div class="step-body">
+        <strong>Smoke-test findings and a quote</strong>
+        <p>On a job: <strong>Generate Invoice</strong> → open the <strong>Findings</strong> tab → <strong>Add ticked findings to invoice</strong> → open the <strong>Quote</strong> tab → <strong>Send quote</strong> to your own email. ✓ The quote email states plainly that it cannot be accepted or paid online &nbsp; ✓ <strong>Mark accepted / declined / expired</strong> records the customer's answer without sending anything.</p>
+      </div>
+    </li>
   </ol>
 
   <div class="success-box">
-    <strong>All 7 tests passed?</strong> The client is live. Send them their login credentials and schedule a 15-minute walkthrough call to show them the dashboard.
+    <strong>All 10 tests passed?</strong> The client is live. Send them their login credentials and schedule a 15-minute walkthrough call to show them the dashboard.
+  </div>
+
+  <div class="warning-box">
+    <strong>Not yet live-tested:</strong> the recording notice, the Admin → Clients sync, quote/findings and the client-only Feedback control are built and covered by tests, but the end-to-end path on a real phone line is still tracked as an owner check (NH-4/NH-8). Say "built and ready to verify", not "proven live", until those are closed.
+  </div>
+
+  <div class="highlight">
+    <strong>Coming soon — request review &amp; decline (T-113, not shipped):</strong> a single “Review request” card (caller, what they want, intake rows, AI summary, missing-information prompts) with <strong>Accept</strong> / <strong>Decline &amp; notify</strong> and an AI call-back is being built in a separate branch and is <strong>not in the product yet</strong>. Today the admin still decides manually: review the lead/appointment in Pipeline, send the confirmation, and create the job by hand. Do not demo the review card as if it existed.
   </div>
 
   <hr>
@@ -1607,7 +1659,13 @@ superadmin: false</code>
     <li>All 7 tools added to the assistant in Vapi (bookAppointment, createLead, escalateCall, checkAvailability, lookupAppointment, cancelAppointment, getCurrentDate)</li>
     <li>Webhook URL set: <code>https://ai-roof.vercel.app/api/webhooks/vapi</code></li>
     <li>Webhook secret configured and matching between Vapi dashboard (Server URL → Secret) and Vercel (<code>VAPI_WEBHOOK_SECRET</code>); the former bypass is removed — webhook requests without a valid secret are rejected (T-010)</li>
-    <li>Model + voice configured (OpenAI gpt-realtime-2025-08-28, voice: cedar — native speech-to-speech, no separate STT/TTS provider)</li>
+    <li>Model + voice configured to the live stack: OpenAI <strong>gpt-4o-mini</strong>, voice <strong>Vapi Voices v2 — “Savannah”</strong>, transcriber <strong>Deepgram Flux</strong> (do not switch to a <code>gpt-realtime-*</code> model — it broke turn-taking)</li>
+    <li>Call-recording notice left ON (default) or edited in Company → Settings → Call Recording Notice; wording reviewed by counsel (NH-4, draft)</li>
+    <li>Greeting + prompt pushed live: Admin → Clients → “Sync live phone assistants” → Preview changes → Apply</li>
+    <li>Industry selected correctly so per-industry intake fields are active; test call shows the industry's extra questions</li>
+    <li>Library starter kit loaded and reviewed (materials, labor rates, Work catalog) — no “Starter — review price” items left unreviewed before invoicing</li>
+    <li>Quote flow checked: quote sends by email and cannot be accepted or paid online; staff record the customer's answer</li>
+    <li>Client-only Feedback confirmed (client users see it in the Help nav; superadmins do not)</li>
     <li>Phone number purchased and assigned to assistant in Vapi</li>
     <li>Call forwarding tested (if using existing number)</li>
     <li>Business created in portal at /hub/onboarding (or the "+ Client" quick-create at /admin/businesses) — correct industry selected</li>
@@ -1624,6 +1682,7 @@ superadmin: false</code>
     <li>Confirmation email sent — branded correctly</li>
     <li>Client login tested — sees only their business data, correct nav tabs visible</li>
     <li>Portal status set to <strong>Active</strong> in config edit page; this flag does not hold Vapi calls — attach the assistant and phone IDs only when ready for calls</li>
+    <li>(Coming soon — not shipped) Request review &amp; decline card (T-113) — do not demo or promise it yet</li>
   </ul>
 
   <hr>
@@ -1661,7 +1720,7 @@ superadmin: false</code>
       <tr>
         <td>Dashboard shows wrong tabs for the industry</td>
         <td>industry field not set or misspelled in businesses doc</td>
-        <td>Check Firestore → businesses/{id} → industry field matches exactly one of: roofing, hvac, landscaping, cleaning, dental, property-management, general-contractors. An unrecognised value falls back to showing every tab.</td>
+        <td>Check Firestore → businesses/{id} → industry field matches exactly one of: roofing, hvac, landscaping, cleaning, dental, care-homes, property-management, general-contractors, electricians, appliance-repair, childcare, daycares, junk-removal. An unrecognised value falls back to showing every tab.</td>
       </tr>
       <tr>
         <td>Calendar has no rows, or nothing in Unscheduled/Unassigned to drag</td>
@@ -1688,6 +1747,16 @@ superadmin: false</code>
         <td>Seat limit reached for that business</td>
         <td>Client's Config page → Subscription &amp; Billing → raise <strong>Seat limit</strong>, then save.</td>
       </tr>
+      <tr>
+        <td>Caller doesn't hear the recording notice</td>
+        <td>The tenant's greeting hasn't been pushed to the voice platform</td>
+        <td>Admin → Clients → <strong>“Sync live phone assistants”</strong> → <strong>Preview changes</strong> → <strong>Apply</strong>, then test-call again. Tenants with no greeting, or that share one assistant (the demo line), are skipped by design.</td>
+      </tr>
+      <tr>
+        <td>Customer asks how to accept a quote online</td>
+        <td>By design — quotes have no online acceptance or payment</td>
+        <td>Send the quote by email, then record the answer in the app with <strong>Mark accepted / declined / expired</strong>. Only Luxor's own invoices in <code>/admin/invoices</code> have Stripe payment links.</td>
+      </tr>
     </tbody>
   </table>
 
@@ -1697,7 +1766,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.6 — September 2026</span>
+    <span>v2.7 — September 2026</span>
   </div>
 
 </div><!-- /page -->
