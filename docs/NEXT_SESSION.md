@@ -31,8 +31,8 @@ NH-18 Care Homes/Daycares safety calls · NH-20/21/22 ElevenLabs key/number/priv
 
 ## 4. Repo state to know
 
-- `main` has T-111a merged **locally** (not pushed) — push after a quick look when you are ready; it is dormant (default Vapi) but touches the
-  paths that push greetings and place outbound calls, so it deserves a deliberate deploy.
+- `main` (pushed, CI green) has T-111a live but dormant (default Vapi). It touches the paths that push greetings and place outbound calls,
+  so if anything odd shows up in greeting pushes or callbacks, suspect it first.
 - Worktrees (all cut from main, `node_modules` junctioned): `air-wt-elevenlabs-hooks`, `air-wt-request-review`, `air-wt-ux-pass`,
   `air-wt-documents-core`.
 - Deepseek is out of credits; its unfinished work is committed as WIP `16f8d5e` on `task/elevenlabs-hooks`.

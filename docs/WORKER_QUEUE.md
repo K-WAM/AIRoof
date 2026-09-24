@@ -15,7 +15,7 @@ documents/invoice/quote/report). Every worktree already exists, has `node_module
 If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b task/<branch> main` and junction
 `node_modules` (PowerShell: `New-Item -ItemType Junction -Path "D:\Apps\<name>\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"`).
 
-**State of main when this was written:** T-111a (provider seam) is merged locally (not pushed). Cancelled: T-108
+**State of main when this was written:** T-111a (provider seam) is merged and pushed (live, dormant: default Vapi; `/api/health` reports `elevenlabs: not_configured` until a key is set). Cancelled: T-108
 (no auto job creation — owner decision). Shared contracts: `src/lib/voice/types.ts`, `src/types/documentOptions.ts`,
 `src/types/workCatalog.ts`.
 
