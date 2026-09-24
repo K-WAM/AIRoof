@@ -785,9 +785,9 @@ an active queue.*
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
   - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
-        **T-107a** (Codex B; worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
+        **T-107a** (next free Codex; worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
         `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
-        technicians; **T-107b** (Codex B, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
+        technicians; **T-107b** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
         logo fix. Contract: `src/types/documentOptions.ts`. Original spec:
         Audit (2026-09-24): `hideMaterials` works on the INVOICE only (in-app, print/PDF, email; email path
         unit-tested; a real send has not been click-verified — add to NH-8); the REPORT has no hide toggles and
@@ -898,7 +898,7 @@ an active queue.*
         what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
         strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
         Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
-  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Codex B; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). Feedback is for CLIENT users only
+  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Deepseek, deepseek-chat; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). Feedback is for CLIENT users only
         (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
         reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
         shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the

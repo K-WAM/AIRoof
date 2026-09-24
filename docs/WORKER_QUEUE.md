@@ -3,12 +3,13 @@
 Updated 2026-09-24. Replaces the old `PENDING_WORKER_PROMPTS*.md` files. Rules for every worker are in `AGENTS.md`;
 task specs are in `TODO.md`; this file only holds the **assignment queue and the paste-ready prompts**.
 
-Deepseek is out of credits, so all remaining work goes to **two Codex sessions running in parallel**:
+Deepseek's credits are limited (it ran out mid-task once), so the queue is: **one Codex session (A)** for the risky/large work, and **Deepseek** for bounded UI work while its credits last. **Update 2026-09-24: the T-114 UX pass (B1) is assigned to Deepseek.** The documents work (B2/B3) stays with Codex — assign it to whichever Codex session frees up first.
 
 | Session | Queue (one at a time, in order) | Worktree(s) |
 |---|---|---|
 | **Codex A** | **A1** finish T-111b -> **A2** T-113 request review -> A3 T-109 email intake (prompt written later) | `air-wt-elevenlabs-hooks`, then `air-wt-request-review` |
-| **Codex B** | **B1** T-114 feedback + UX pass -> **B2** T-107a document core (invoice + quote) -> B3 T-107b report (prompt written later) | `air-wt-ux-pass`, then `air-wt-documents-core` |
+| **Deepseek (was Codex B)** | **B1** T-114 feedback + UX pass, then STOP and report (do not pick up B2/B3: money math + a 2,250-line page are not Deepseek work) | `air-wt-ux-pass` |
+| **Next free Codex** | **B2** T-107a document core (invoice + quote) -> B3 T-107b report (prompt written later) | `air-wt-documents-core` |
 
 The two queues are file-disjoint by design (A: voice/webhooks/pipeline/calls/appointments/comms; B: nav/feedback/css/
 documents/invoice/quote/report). Every worktree already exists, has `node_modules` junctioned, and is cut from `main`.
@@ -167,7 +168,7 @@ Task T-113 — one shared "Request review" card + a real decline flow. Commits p
       Unable to reach you / Other + optional custom sentence <= 300 chars, plain text), preview the message, then send a
       polite, non-blaming, branded decline email when an email is on file (NEW pure, unit-tested template in a NEW file
       src/lib/comms/requestDeclineEmail.ts using the tenant's logo/colors the way send-confirmation does — do NOT edit
-      src/lib/notify.ts, Codex B changes it in parallel). Sets appointment.status "cancelled" / lead.status "lost" and
+      src/lib/notify.ts, the documents work changes it in parallel). Sets appointment.status "cancelled" / lead.status "lost" and
       records `declinedAt`, `declineReason`, `decidedBy` (ADDITIVE optional fields on Lead/Appointment — own hunk in
       src/types/index.ts). No email on file => still declines internally and shows "No email on file — nothing was sent"
       (never claim a message was sent). Idempotent; a second decline never re-sends.
@@ -177,7 +178,7 @@ Task T-113 — one shared "Request review" card + a real decline flow. Commits p
 3. Pipeline list: rows show a "New request" badge for `requested`/`new` items so the decision queue is obvious; decided
    items move to their existing tabs. The card must open from the Pipeline row AND from the Calls page.
 Do NOT touch: src/app/api/calls/outbound/**, src/lib/notify.ts, src/lib/voice/**, src/app/api/webhooks/**, agentTools.ts,
-documents/invoice/quote/report code, work-catalog code, nav/feedback components (Codex B owns T-114).
+documents/invoice/quote/report code, work-catalog code, nav/feedback components (T-114, another worker).
 HARD RULES: one-teal design system (.button variants, no #2563eb, no per-page inline button styles); escape all free text in
 the email; Cache-Control rule; RBAC: only owner/staff/superadmin can decide (verifyAuthAndRole); mobile-check at 375px.
 Tests: missing-info detector; decline handler auth + idempotency + no-email path; decline email template (escaping, reason
@@ -190,12 +191,12 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
 
 ---
 
-## B1 — Codex B: T-114 feedback fix + app-shell UX pass
+## B1 — Deepseek: T-114 feedback fix + app-shell UX pass
 
-**Suggested model: Terra, low -> medium.** Bounded, mostly CSS tokens/a11y/wording. Start Terra low; bump to medium only if it flounders on the modal/focus-trap work.
+**Suggested model: deepseek-chat** (not reasoner). Bounded, mostly CSS tokens/a11y/wording. If you would rather use Codex, use Terra low (medium if it struggles with the modal/focus-trap work).
 
 ```
-You are Codex session B on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
+You are Worker D (Deepseek) on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first — especially: COMMIT WIP OFTEN (your credits may run out mid-task; uncommitted work is lost), and STOP AND ASK instead of guessing. If you notice you are running low on budget, commit what you have, write a short status of what is done/not done at the top of your final message, and stop.
 
 Work ONLY inside: D:\Apps\air-wt-ux-pass   (branch task/ux-pass)
 This worktree ALREADY EXISTS with node_modules junctioned. Do not run npm install or git worktree add. FIRST run
@@ -238,17 +239,17 @@ Tests: FeedbackForm renders for a client user and NOT for superadmin (all three 
 class/contrast token; existing nav tests still pass.
 Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence to docs/IMPLEMENTATION_LOG.md, set T-114 to
 `review` in TODO.md. Never push/merge/touch main. If stuck >20 min: commit WIP, add HELP-NEEDED to TODO.md, end with
-"Paste this to Claude: Codex B on task/ux-pass is stuck on T-114: <question>."
+"Paste this to Claude: Worker D on task/ux-pass is stuck on T-114: <question>."
 ```
 
 ---
 
-## B2 — Codex B: T-107a document core + invoice + quote
+## B2 — next free Codex: T-107a document core + invoice + quote
 
 **Suggested model: Sol, medium.** Largest task: money math must not drift, hide-toggle correctness across 3 renderings x 2 documents, a 2,250-line page to edit safely.
 
 ```
-You are Codex session B on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
+You are a Codex session on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
 
 Work ONLY inside: D:\Apps\air-wt-documents-core   (branch task/documents-core)
 This worktree ALREADY EXISTS with node_modules junctioned. Do not run npm install or git worktree add. FIRST run
@@ -293,8 +294,7 @@ Task T-107a — a shared document layer + a modern, consistent INVOICE and QUOTE
 4. `licenseNumber?: string` (<= 40 chars) on BusinessConfig; owner edits it in Company Settings next to contact phone/email
    via the existing settings PUT (validate; plain text). Show it in the letterhead + footer.
 Do NOT touch: the report tab/ReportRenderer, report/send, src/lib/voice/**, src/app/api/webhooks/**, agentTools.ts,
-work-catalog code (except reading findings), Library pricing, nav/feedback (Codex B's T-114 owns those — it is your own
-previous item, already merged by the time you start), pipeline/calls/appointments (Codex A).
+work-catalog code (except reading findings), Library pricing, nav/feedback (T-114, done by another worker, owns those), pipeline/calls/appointments (Codex A).
 HARD RULES: never invent numbers — totals from the shared math; escape all free text; no placeholder text in any
 customer-visible string; Cache-Control rule; mobile-check the in-app documents at 375px.
 Tests: every combination of hideMaterials x hideLabor for invoice AND quote across groups.ts and BOTH email HTMLs (assert
@@ -302,7 +302,7 @@ hidden worker names/hours/rates/material names/prices are ABSENT and true totals
 default > legacy logoUrl > none); escaping; routes validate/persist new fields; legacy docs render.
 Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence to docs/IMPLEMENTATION_LOG.md, set T-107a to
 `review` in TODO.md. Never push/merge/touch main. If stuck >20 min: commit WIP, add HELP-NEEDED to TODO.md, end with
-"Paste this to Claude: Codex B on task/documents-core is stuck on T-107a: <question>."
+"Paste this to Claude: Codex on task/documents-core is stuck on T-107a: <question>."
 ```
 
 ---

@@ -10,7 +10,7 @@ Goal of the session: **pick the phone-AI voice/provider with evidence**, and kee
 2. Put your ElevenLabs API key in `.env.local` as `ELEVENLABS_API_KEY=...` (never paste it in chat). Do **not** put it in Vercel yet.
 3. Start the two Codex sessions from `docs/WORKER_QUEUE.md`:
    - **Codex A** -> prompt **A1** (finish T-111b), later **A2** (T-113)
-   - **Codex B** -> prompt **B1** (T-114), later **B2** (T-107a)
+   - **Deepseek** -> prompt **B1** (T-114; bounded UI work), then stop. **B2** (T-107a, money math) goes to the next free Codex session
    Paste each prompt into its own session; each already has its worktree. When a session reports back, paste the report to Claude
    to review/merge, then give it its next prompt.
 
