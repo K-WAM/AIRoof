@@ -889,14 +889,14 @@ an active queue.*
         (k) **port the number** to Twilio/Telnyx for full takeover (days to weeks; only when the business wants it);
         (l) provider choice for provisioned AI-line numbers: Twilio first (native ElevenLabs import, API-driven number
         purchase for in-app provisioning), Telnyx later if per-minute cost matters.
-- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — T-114 in review; T-113 assigned
+- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — T-114 and T-113 in review
       **Owner workflow decision (2026-09-24):** the AI agent takes a call, records the details, and puts a REQUEST in the
       Pipeline. The admin/user opens it (from Pipeline or by clicking the call) and sees the collected information in a
       clear card. They then either ACCEPT — send a confirmation (email and/or an AI callback) and create the job themselves,
       which unlocks scheduling on the Calendar — or DECLINE and send a polite decline. In ALL cases the admin/user creates
       the job; nothing is auto-created. (Audit: confirm, cancel, Call Back and T-083 "Create Job" already exist; missing
       are the unified review card, a real decline with customer notification, and "missing information" prompts.)
-  - [ ] T-113 — **Request review card + decline flow** (Codex A; worktree `air-wt-request-review`; prompt in
+  - [x] T-113 — **Request review card + decline flow** (Codex A; worktree `air-wt-request-review`; **status: `review`**; prompt in
         `docs/WORKER_QUEUE.md` A2). One shared `RequestReviewCard` used by Pipeline and Calls: caller,
         what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
         strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
