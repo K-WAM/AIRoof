@@ -25,7 +25,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const API_BASE = process.env.ELEVENLABS_API_BASE ?? "https://api.elevenlabs.io";
-const DEFAULT_APP_URL = "https://ai-roof.vercel.app";
 
 // Keep these in sync with src/lib/voice/elevenlabs/toolSchemas.ts.
 const TOOL_SECRET_HEADER = "x-luxor-tool-secret";
@@ -71,9 +70,8 @@ async function apiFetch(apiKey, path, options = {}) {
     },
   });
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
     throw new Error(
-      `ElevenLabs API ${options.method ?? "GET"} ${path} -> ${response.status}: ${text.slice(0, 400)}`
+      `ElevenLabs API ${options.method ?? "GET"} ${path} -> ${response.status}`
     );
   }
   return response.json();
@@ -130,6 +128,7 @@ function buildToolConfig(schema, baseUrl, toolSecretId) {
       type: "webhook",
       name: schema.name,
       description: schema.description,
+      response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
       api_schema: {
         url: `${baseUrl}${schema.path}`,
         method: "POST",
@@ -138,7 +137,6 @@ function buildToolConfig(schema, baseUrl, toolSecretId) {
           [CONVERSATION_ID_HEADER]: { variable_name: CONVERSATION_ID_VARIABLE },
         },
         request_body_schema: schema.parameters,
-        response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
       },
     },
   };
@@ -175,15 +173,19 @@ async function main() {
   const env = loadEnv();
   const apiKey = env.ELEVENLABS_API_KEY?.trim();
   const toolSecret = env.ELEVENLABS_TOOL_SECRET?.trim();
-  const baseUrl = (env.NEXT_PUBLIC_APP_URL?.trim() || DEFAULT_APP_URL).replace(/\/+$/, "");
+  const baseUrl = env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
 
   const schemas = JSON.parse(readFileSync(SCHEMAS_PATH, "utf8"));
 
   console.log(apply ? "=== ElevenLabs provisioning (APPLY) ===" : "=== ElevenLabs provisioning (DRY RUN — no writes) ===");
   console.log(`App base URL : ${baseUrl}`);
-  console.log(`Tool secret  : ${toolSecret ? `${TOOL_SECRET_NAME} (${toolSecret.length} chars)` : "MISSING — tools will fail to authenticate until set"}`);
+  console.log(`Tool secret  : ${toolSecret ? "configured" : "missing"}`);
   if (!apiKey) {
     console.error("ELEVENLABS_API_KEY is not set (env or .env.local). Nothing to do.");
+    process.exit(1);
+  }
+  if (!baseUrl || !/^https:\/\/[^/]+/i.test(baseUrl)) {
+    console.error("NEXT_PUBLIC_APP_URL must be a public HTTPS base URL. Nothing to do.");
     process.exit(1);
   }
   if (!apply) {

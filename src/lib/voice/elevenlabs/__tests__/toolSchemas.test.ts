@@ -71,7 +71,7 @@ describe("elevenLabsToolConfig (tools API payload)", () => {
       [ELEVENLABS_CONVERSATION_ID_HEADER]: { variable_name: ELEVENLABS_CONVERSATION_ID_VARIABLE },
     });
     expect(schema.request_body_schema.properties).not.toHaveProperty("businessId");
-    expect(schema.response_timeout_secs).toBeGreaterThanOrEqual(20);
+    expect(config!.tool_config.response_timeout_secs).toBeGreaterThanOrEqual(20);
   });
 
   it("returns undefined for an unknown tool name", () => {

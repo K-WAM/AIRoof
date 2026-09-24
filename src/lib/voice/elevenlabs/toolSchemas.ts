@@ -70,6 +70,7 @@ export interface ElevenLabsWebhookToolConfig {
     type: "webhook";
     name: string;
     description: string;
+    response_timeout_secs: number;
     api_schema: {
       url: string;
       method: "POST";
@@ -78,7 +79,6 @@ export interface ElevenLabsWebhookToolConfig {
         [ELEVENLABS_CONVERSATION_ID_HEADER]: { variable_name: string };
       };
       request_body_schema: ElevenLabsToolBodySchema;
-      response_timeout_secs: number;
     };
   };
 }
@@ -130,6 +130,7 @@ export function elevenLabsToolConfig(
       type: "webhook",
       name: definition.name,
       description: definition.description,
+      response_timeout_secs: ELEVENLABS_TOOL_RESPONSE_TIMEOUT_SECS,
       api_schema: {
         url: `${base}${definition.path}`,
         method: "POST",
@@ -140,7 +141,6 @@ export function elevenLabsToolConfig(
           },
         },
         request_body_schema: definition.bodySchema,
-        response_timeout_secs: ELEVENLABS_TOOL_RESPONSE_TIMEOUT_SECS,
       },
     },
   };

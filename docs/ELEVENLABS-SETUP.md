@@ -1,132 +1,73 @@
-# ElevenLabs Setup — click-by-click (T-111b)
+# ElevenLabs test agent setup (T-111b)
 
-What the **script** does vs. what needs the **dashboard**. The provisioning script
-(`node scripts/setup-elevenlabs-agent.mjs --apply`) creates the 7 webhook tools, the
-`LUXOR_TOOL_SECRET` workspace secret, and the test agent. Everything below is
-dashboard-only (the ElevenLabs UI has no public API for workspace webhooks).
+This starts with an empty ElevenLabs Creator account. Keep the production Vapi number on Vapi during the T-110 bake-off. An ElevenLabs phone number and live call are T-112 follow-up work. Use a public HTTPS app URL for the webhook fields below.
 
-Prerequisites — three values must exist in `.env.local` (and later in Vercel,
-Production, type `Secret`):
+The UI path and labels below were checked against the [agent quickstart](https://elevenlabs.io/docs/eleven-agents/quickstart), [webhook tools](https://elevenlabs.io/docs/eleven-agents/customization/tools/webhook-tools), [conversation initiation](https://elevenlabs.io/docs/eleven-agents/customization/personalization), [Twilio personalization](https://elevenlabs.io/docs/eleven-agents/phone-numbers/twilio-integration/customising-calls), [override settings](https://elevenlabs.io/docs/eleven-agents/customization/personalization/overrides), and [post-call webhooks](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks). ElevenLabs changes its UI; the exact button labels for creating a webhook and adding a workspace secret are **not shown in text in those docs**. No dashboard was accessed and no live ElevenLabs API call was made while writing this guide.
 
-| Variable | Value |
-|---|---|
-| `ELEVENLABS_API_KEY` | your ElevenLabs API key (never paste it in chat) |
-| `ELEVENLABS_WEBHOOK_SECRET` | a random 40+ char string (e.g. `openssl rand -hex 32`) |
-| `ELEVENLABS_TOOL_SECRET` | a DIFFERENT random 40+ char string |
+## 1. Create a test agent and choose a voice
 
-Generate the two secrets once and keep them — they are pasted into BOTH Vercel and
-ElevenLabs, and you can't read them back out of either.
+1. Sign in to ElevenLabs and open **ElevenAgents**. Create a new agent, name it `Luxor AI Receptionist (test)`, and select **Blank template**. The quickstart calls this a new assistant; the exact creation button wording is not verified in current docs.
+2. In the **Agent** tab, set a harmless test **First message** and **System prompt**. The live tenant text comes from the initiation webhook only on supported phone calls. Dashboard Preview does **not** invoke that webhook.
+3. Open the **Voice** tab, choose a voice from the library, and save. Use **Test AI agent** to hear the fallback voice. A tenant's T-103 voice override may replace it per call.
+4. Copy the agent ID from its dashboard URL or settings. Do not attach a production number.
 
----
+## 2. Create the API key and secrets
 
-## 1. API key
+1. Open **Developers → API Keys**. Create a key with access to Agents, Tools, and workspace Secrets. Copy it once into your local `ELEVENLABS_API_KEY` environment variable or ignored `.env.local`. The [API-key help page](https://elevenlabs.io/docs/help-center/technical/how-do-i-authorize-myself-using-an-api-key) verifies **Developers** and **API Keys**; exact permission-toggle labels were not verified.
+2. Generate a random tool secret locally (for example, `openssl rand -hex 32`). Store it as `ELEVENLABS_TOOL_SECRET` in `.env.local` and in your server's secret environment configuration. Never commit or paste its value in chat.
+3. In ElevenAgents workspace **Settings**, create a workspace secret named `LUXOR_TOOL_SECRET` with that same value. This is used for `x-luxor-tool-secret` on all seven tools and the initiation webhook. If using the script below, it creates/reuses this workspace secret for you. The [Secrets API](https://elevenlabs.io/docs/eleven-agents/api-reference/workspace/secrets/create) verifies the `name`/`value` fields; the exact dashboard button label was not verified.
+4. Set `NEXT_PUBLIC_APP_URL` to your **public HTTPS** app origin, without a trailing slash. The script requires this value and has no production-domain default.
 
-1. Sign in at https://elevenlabs.io → your profile (bottom-left avatar) → **API Keys**.
-2. If you don't already have a key, **Create API key**, copy it, and put it in
-   `.env.local` as `ELEVENLABS_API_KEY`.
+`ELEVENLABS_WEBHOOK_SECRET` is obtained **later**, when ElevenLabs creates the post-call webhook. It is different from the tool secret.
 
-## 2. Run the provisioning script (tools + secret + test agent)
+## 3. Add the seven webhook tools
 
-```bash
-# Dry run first (default — makes no writes):
-node scripts/setup-elevenlabs-agent.mjs
+**Script path:** from the repository root, with `ELEVENLABS_API_KEY`, `ELEVENLABS_TOOL_SECRET`, and `NEXT_PUBLIC_APP_URL` set:
 
-# Then apply:
-node scripts/setup-elevenlabs-agent.mjs --apply
+```text
+node scripts/setup-elevenlabs-agent.mjs          # dry run: no network or writes
+node scripts/setup-elevenlabs-agent.mjs --apply  # creates missing resources
 ```
 
-The script prints the ids of the 7 tools (`bookAppointment`, `createLead`,
-`checkAvailability`, `escalateCall`, `lookupAppointment`, `cancelAppointment`,
-`getCurrentDate`), the workspace secret `LUXOR_TOOL_SECRET`, and the agent
-`Luxor AI Receptionist (test)`. It is idempotent by name — re-running reuses
-existing resources and never duplicates.
+The script reads `src/lib/voice/elevenlabs/toolSchemas.json`, creates or reuses the workspace secret and seven tools **by name**, and creates the test agent only if that name does not already exist. It never prints secret values. If you created the agent in step 1, the script reuses it; **attach the seven printed tool IDs to that agent in its Tools section**. The script does not modify an existing agent's prompt, voice, or tool list. On a fresh script-created agent, open its **Voice** tab and choose a voice before testing. If a previous run created `LUXOR_TOOL_SECRET` with a different value, update it in the dashboard or delete/recreate it before using the tools; the script cannot read secret values back.
 
-> Note: the script creates the workspace secret from `ELEVENLABS_TOOL_SECRET`.
-> If you change that value later, delete the old `LUXOR_TOOL_SECRET` entry in
-> the secrets manager and re-run the script (secret values can't be read back,
-> so the script can't detect a stale value).
+**Dashboard path:** in the agent's **Tools** section, add seven **Webhook** tools and attach each one to the test agent. Use the exact names `bookAppointment`, `checkAvailability`, `createLead`, `escalateCall`, `lookupAppointment`, `cancelAppointment`, and `getCurrentDate`. For each tool set:
 
-## 3. Workspace settings → conversation initiation webhook
+- **Method:** `POST`.
+- **URL:** `https://<your-domain>/api/webhooks/elevenlabs/tools/<exactToolName>`.
+- **Header** `x-luxor-tool-secret`: choose the workspace secret `LUXOR_TOOL_SECRET` (Secret header type).
+- **Header** `x-luxor-conversation-id`: choose a Dynamic Variable header with `system__conversation_id` (shown in templates as `{{system__conversation_id}}`).
+- **Body parameters:** copy the corresponding `parameters` object in `src/lib/voice/elevenlabs/toolSchemas.json`. Do not add `businessId`, `callId`, `callerPhone`, or `verifiedCallerPhone`; identity comes from the stored conversation record.
 
-This is what makes inbound calls personalizable per tenant. Go to
-**ElevenAgents → Settings** (workspace settings, https://elevenlabs.io/app/agents/settings):
+The [webhook-tool guide](https://elevenlabs.io/docs/eleven-agents/customization/tools/webhook-tools) verifies the Webhook tool type, Name, Description, method, URL, headers, Secret selection, and body parameters. The [dynamic-variable guide](https://elevenlabs.io/docs/eleven-agents/customization/personalization/dynamic-variables) verifies `system__conversation_id` and header use. The exact agent Tools-section button wording was not verified.
 
-1. Find the **conversation initiation webhook** section (the settings page that
-   shows "Configure the webhook URL and add any secrets needed for
-   authentication").
-2. **Webhook URL**: `https://<your-domain>/api/webhooks/elevenlabs/initiation`
-   (e.g. `https://ai-roof.vercel.app/api/webhooks/elevenlabs/initiation`).
-3. Add the `LUXOR_TOOL_SECRET` workspace secret to the webhook's headers, sent
-   as the header `x-luxor-tool-secret`. (If the UI asks you to "modify which
-   secrets are sent in the headers", pick `LUXOR_TOOL_SECRET` and set the header
-   name exactly to `x-luxor-tool-secret`.)
-4. Save. Expected value of the secret = your `ELEVENLABS_TOOL_SECRET` — the same
-   value Vercel has.
+## 4. Enable agent Security settings
 
-> Fail-closed: a wrong/missing header value makes the initiation route return
-> 401, and the call still answers on the agent's dashboard prompt (safe, but not
-> per-tenant). Vercel logs will show `ElevenLabs webhook auth mismatch`.
+Open the test agent's **Security** tab. Enable **Fetch initiation client data from a webhook** and these override fields: **System prompt**, **First message**, **Language**, and **Voice ID**. The route returns `conversation_config_override.agent.prompt.prompt`, `agent.first_message`, `agent.language`, and sometimes `tts.voice_id`; each must be allowed. Overrides are optional per call when the tenant has no value. Save the agent. These field names are verified in the [override guide](https://elevenlabs.io/docs/eleven-agents/customization/personalization/overrides); the initiation toggle wording is verified in the [personalization guide](https://elevenlabs.io/docs/eleven-agents/customization/personalization).
 
-## 4. Workspace webhooks → post-call webhook
+## 5. Configure the conversation initiation webhook
 
-Go to **ElevenAgents → Settings → Webhooks** (workspace webhooks):
+In ElevenAgents workspace **Settings**, find **Conversation initiation webhook** (also called **Conversation Initiation Client Data Webhook** in the docs). Set:
 
-1. **Create webhook**.
-2. **URL**: `https://<your-domain>/api/webhooks/elevenlabs/post-call`.
-3. **Signing secret**: paste `ELEVENLABS_WEBHOOK_SECRET` (the same value as
-   Vercel). Keep the generated secret somewhere safe — the dashboard shows it
-   only once.
-4. **Events**: enable at least `post_call_transcription` and
-   `call_initiation_failure`. Leave **"Send audio data"** OFF for now — our
-   endpoint deliberately does not store audio yet (logged only, follow-up).
-5. Save, and make sure the webhook applies to all agents (workspace level).
+- **URL:** `https://<your-domain>/api/webhooks/elevenlabs/initiation`.
+- **Header name:** `x-luxor-tool-secret`.
+- **Header value:** select workspace secret `LUXOR_TOOL_SECRET`.
 
-The endpoint verifies the `ElevenLabs-Signature` HMAC over the raw body with a
-30-minute timestamp tolerance, dedups retries in Firestore, and writes the same
-`calls` document (transcript, summary, outcome) the Vapi path writes.
+Save, then check the agent Security toggle from step 4. ElevenLabs sends `caller_id`, `called_number`, `agent_id`, `call_sid`, and `conversation_id` for inbound Twilio calls; our endpoint records the conversation before tools run. An invalid secret gets `401`. **A failed or timed-out initiation webhook can prevent a conversation from starting** according to the [personalization guide](https://elevenlabs.io/docs/eleven-agents/customization/personalization), so verify this on a test number before assigning a real line. Dashboard Preview cannot test this webhook.
 
-## 5. Agent → Security tab (per-agent enablement)
+## 6. Configure post-call delivery and its signing secret
 
-Open the agent the script created (`Luxor AI Receptionist (test)`) or any
-production agent you'll attach to a tenant:
+In ElevenAgents workspace **Settings**, find **Post-call webhooks**. The [post-call guide](https://elevenlabs.io/docs/eleven-agents/workflows/post-call-webhooks) verifies this section and the three event types; the [environment-variable guide](https://elevenlabs.io/docs/eleven-agents/integrate/environment-variables) also refers to **Developers → Webhooks** for workspace webhook URLs. The exact navigation label in the owner's dashboard could not be verified.
 
-1. Go to **Agents → <agent> → Security** tab.
-2. Enable **"Fetch conversation initiation data"** for inbound Twilio calls
-   (the toggle the docs call "Enable fetching conversation initiation data").
-3. Under **overridable fields**, allow overriding:
-   - System prompt (`agent.prompt.prompt`)
-   - First message (`agent.first_message`)
-   - Language (`agent.language`)
-   - TTS voice (`tts.voice_id`)
-   (The script sets these same flags for the test agent it creates via
-   `platform_settings.overrides` — do it by hand for agents created in the UI.)
+1. Create a webhook with URL `https://<your-domain>/api/webhooks/elevenlabs/post-call`.
+2. Enable `post_call_transcription` and `call_initiation_failure` delivery. Leave `post_call_audio` off for now; audio storage is T-112 follow-up work.
+3. Copy the **generated signing secret** when shown and set it as `ELEVENLABS_WEBHOOK_SECRET` in the server's secret environment configuration. ElevenLabs signs the raw body in `ElevenLabs-Signature`; this secret must differ from `ELEVENLABS_TOOL_SECRET`.
+4. Save and ensure the webhook is enabled for the test agent or workspace. The exact event checkbox and save-button labels were not verified from the text docs.
 
-## 6. Tools (if the script was not used)
+The endpoint verifies the HMAC and timestamp, then applies a Firestore replay guard before writing the same call-document fields available from Vapi. `post_call_audio` remains a documented follow-up and is not stored.
 
-If you ever create the tools by hand instead of running the script, each of the
-7 tools is a **Webhook tool** with:
+## 7. Connect a test number and verify
 
-- **Method** `POST`
-- **URL** `https://<your-domain>/api/webhooks/elevenlabs/tools/<toolName>`
-- **Header** `x-luxor-tool-secret` = secret type → workspace secret
-  `LUXOR_TOOL_SECRET`
-- **Header** `x-luxor-conversation-id` = dynamic variable →
-  `{{system__conversation_id}}`
-- Parameter schemas exactly as in
-  `src/lib/voice/elevenlabs/toolSchemas.json`. **Never add** `businessId`,
-  `callId`, or `verifiedCallerPhone` parameters — the endpoint resolves all of
-  them server-side from the conversation record and ignores anything the model
-  supplies.
+Number import/assignment and the T-110 scripted call bake-off are T-112 follow-ups. Until a test number is connected, only the dashboard agent voice/tools can be previewed; **Preview does not exercise the initiation webhook**. Before the first test phone call, set the tenant's `elevenlabs.agentId` and `elevenlabs.phoneNumber` to the values ElevenLabs will send, configure the server secrets, and check the Firestore TTL policy for `elevenlabsConversations.expiresAt`. The field is stored as a Firestore Timestamp; the TTL policy itself is a console operation and was not created by this code change.
 
-## 7. Phone number (deferred — T-112)
-
-Importing the Twilio number into ElevenAgents and attaching the agent is a
-T-112 follow-up (after the bake-off). Until then, outbound calls and the live
-line stay on Vapi; nothing here affects them.
-
-## 8. Verify
-
-1. `curl -X POST https://<your-domain>/api/webhooks/elevenlabs/initiation -H "x-luxor-tool-secret: wrong"` → **401** (fail closed).
-2. In the ElevenLabs dashboard, **Test** the test agent → it should answer with the generic test greeting.
-3. After a test call completes, check **Company → Calls** in the app — the ElevenLabs call should appear with its transcript and outcome, same as a Vapi call.
-4. Check Vercel logs for `ElevenLabs webhook auth mismatch` (means the tool/initiation secret is out of sync between Vercel and ElevenLabs).
+For a test call, verify the greeting includes the recording notice, all seven tools use the stored tenant and caller number, and the post-call transcript/outcome appears in **Company → Calls**. Never place the production number on this test agent before the owner selects a provider.
