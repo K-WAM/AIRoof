@@ -24,6 +24,7 @@ import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/vertic
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { updateAssistantPersona } from "@/lib/vapi/vapiClient";
+import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
 
@@ -191,7 +192,9 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       try {
         const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
         const systemPrompt = buildAgentPrompt(mergedConfig);
-        await updateAssistantPersona({ assistantId: vapiAssistantId, firstMessage: greeting, systemPrompt });
+        // T-102: the recording notice (default ON) is spoken first in the pushed greeting.
+        const firstMessage = composeGreetingWithDisclosure(greeting, resolveRecordingDisclosure(mergedConfig));
+        await updateAssistantPersona({ assistantId: vapiAssistantId, firstMessage, systemPrompt });
         vapiUpdated = true;
       } catch (err) {
         vapiError = err instanceof Error ? err.message : "Vapi update failed";

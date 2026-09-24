@@ -24,6 +24,7 @@ import {
 } from "@/lib/tools/agentTools";
 import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AuditProviderIds, AuditResult } from "@/lib/audit";
 import type { BusinessConfig } from "@/types";
@@ -133,7 +134,9 @@ export async function POST(request: NextRequest) {
             systemPrompt = buildAgentPrompt(config, {
               runtime: { currentDate: dateStr, currentTime: timeStr, timezone: tz, afterHoursNote, callerPhone: callerNumber },
             });
-            greeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
+            const baseGreeting = (isAH && config.afterHoursGreeting) ? config.afterHoursGreeting : (config.greeting ?? "");
+            // T-102: the recording notice (default ON) is spoken first in the greeting.
+            greeting = composeGreetingWithDisclosure(baseGreeting, resolveRecordingDisclosure(config));
           }
         } catch (err) {
           console.error("assistant-request: failed to build dynamic prompt", err);

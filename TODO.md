@@ -86,7 +86,7 @@ an active queue.*
 | 13 CRM rebrand / domain migration to `luxordev.com` (owner-added, 2026-09-16) | T-095…T-097 | not CIB-weighted | 🕓 **3/3 code-side done — NH-17 (env var + DNS/console setup) is the only thing left** | `crm.luxordev.com` is live; T-096 (Google sign-in CSP fix), T-097 (Jobs search) shipped 2026-09-16; T-095 (BASE_URL → `NEXT_PUBLIC_APP_URL`) shipped 2026-09-23, committed locally (`6d9157e`), not yet pushed |
 | 14 New Verticals: Care Homes & Daycares (owner-added, 2026-09-23) | T-098, T-099 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged locally, not pushed** | Same `VerticalTemplate` pattern as T-078; only NH-18 (live-call verification of the safety boundaries) remains, human-only |
 | 15 Industry Peripherals (owner-added, 2026-09-23) | T-100, T-101 | not CIB-weighted | ✅ **done — 2/2 (2026-09-23), merged and pushed** | Same skeleton for every industry; only the peripherals (intake fields, starter kits, dashboard tiles) differ, each declared in one per-vertical record — see the Phase 15 section |
-| 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **assigned 2026-09-23** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
+| 16 Call Compliance & Voice (owner-added, 2026-09-23) | T-102, T-103 | not CIB-weighted | 🕓 **T-102 review (2026-09-24), T-103 assigned** | T-102: per-tenant recording disclosure (no disclosure exists today — NH-4); T-103: per-tenant/per-language voice override so a better voice (ElevenLabs/Cartesia) and a Spanish voice can be set without code. Click-by-click owner steps: `docs/NEEDS-HUMAN-CHECKLIST.md` |
 
 ### Checklist
 
@@ -677,7 +677,7 @@ an active queue.*
         "edit to match your rates" — never presented as real market prices.
 
 - [ ] Phase 16 — Call Compliance & Voice (owner-added, 2026-09-23) — 0/2
-  - [ ] T-102 — **Per-tenant call-recording disclosure** (Deepseek). Found 2026-09-23: nothing in the agent
+  - [x] T-102 — **Per-tenant call-recording disclosure** (Deepseek). Found 2026-09-23: nothing in the agent
         greeting/prompt tells callers a call may be recorded/transcribed (Florida is all-party consent; NH-4).
         Add `recordingDisclosure?: { enabled: boolean; text?: string }` to BusinessConfig, **default ON with a
         clearly-drafted default sentence** (owner/counsel can edit or turn off), composed into BOTH the normal and
@@ -688,6 +688,7 @@ an active queue.*
         get the default without a migration (missing field = default on). Unit tests: greeting composition per
         mode/language (Spanish variant of the default text), toggle off, custom text, fail-open for unknown
         industry. Not legal advice — the default text is a draft.
+        **Done (2026-09-24, branch `task/recording-notice`) — status: review.** New pure `src/lib/recordingDisclosure.ts` (defaults EN/ES, compose + validation), composed in the webhook assistant-request path, the settings and demo-customize persona pushes, a `## Call Recording` prompt section, and a Settings owner-only notice panel with live preview. Owner/superadmin-only save, 300-char/no-HTML validation, staff 403. Gates: tsc clean, lint 0 errors/32 warnings (baseline), vitest 760/760 (+36), next build green.
   - [ ] T-103 — **Per-tenant / per-language voice override** (Codex). `AGENT_VOICES` in `src/lib/vapi/voices.ts`
         is hardcoded (`en: Savannah`) and unwired; `updateAssistantPersona` never sends `voice`, so a voice picked in
         the Vapi dashboard survives persona pushes today — **keep that true by default**. Add optional

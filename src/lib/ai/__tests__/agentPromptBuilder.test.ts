@@ -122,3 +122,37 @@ describe("buildAgentPrompt — Intake Details section (T-100)", () => {
     }
   });
 });
+
+// T-102 — call-recording disclosure. The prompt always instructs the agent to
+// answer honestly (calls are recorded either way); when the spoken notice is
+// enabled it also notes the greeting already told the caller.
+describe("buildAgentPrompt — Call Recording section (T-102)", () => {
+  it("includes the section by default (missing recordingDisclosure = default on)", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain("## Call Recording");
+    expect(prompt).toContain("Calls may be recorded and transcribed.");
+    expect(prompt).toContain("answer honestly");
+    expect(prompt).toContain("The greeting already tells the caller this.");
+  });
+
+  it("notes the spoken notice is on when explicitly enabled", () => {
+    const prompt = buildAgentPrompt(
+      config({ recordingDisclosure: { enabled: true, text: "Calls are recorded." } })
+    );
+    expect(prompt).toContain("The greeting already tells the caller this.");
+  });
+
+  it("still answers honestly when the spoken notice is disabled — never volunteers it", () => {
+    const prompt = buildAgentPrompt(config({ recordingDisclosure: { enabled: false } }));
+    expect(prompt).toContain("## Call Recording");
+    expect(prompt).toContain("do NOT volunteer");
+    expect(prompt).toContain("answer honestly");
+    expect(prompt).not.toContain("The greeting already tells the caller this.");
+  });
+
+  it("sits between Your Role and Scope", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt.indexOf("## Call Recording")).toBeGreaterThan(prompt.indexOf("## Your Role"));
+    expect(prompt.indexOf("## Call Recording")).toBeLessThan(prompt.indexOf("## Scope"));
+  });
+});
