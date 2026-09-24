@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ModalProps {
   open: boolean;
@@ -17,20 +18,16 @@ interface ModalProps {
  * and click-outside to dismiss). Every ad hoc "position: fixed; inset: 0"
  * popup in this app (Field QR, the job-photo lightbox) predates this — new
  * modal UIs should use it instead of hand-rolling another one.
+ *
+ * Focus behavior (T-114) lives in useFocusTrap: focus enters the panel, Tab
+ * cycles inside it, and it returns to the trigger on close. A child with
+ * autoFocus keeps focus instead of the panel stealing it.
  */
 export function Modal({ open, onClose, title, children, headerLeft }: ModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    panelRef.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useFocusTrap(open, panelRef, { onEscape: onClose });
 
   if (!open) return null;
 

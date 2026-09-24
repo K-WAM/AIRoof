@@ -13,6 +13,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainLinks = [
   { href: "/hub/demo", label: "Demo Studio", Icon: Presentation },
@@ -27,6 +28,10 @@ const mainLinks = [
 export function HubNav() {
   const pathname = usePathname();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Feedback is for client users (T-114): hidden for superadmins, and never
+  // shown before the auth profile resolves.
+  const { user, loading } = useAuth();
+  const showFeedback = !loading && !user?.superadmin;
 
   return (
     <nav className="admin-nav" aria-label="Hub navigation">
@@ -43,15 +48,18 @@ export function HubNav() {
             {label}
           </Link>
         ))}
-        <button
-          type="button"
-          className="nav-link"
-          onClick={() => setFeedbackOpen(true)}
-          aria-label="Send feedback"
-        >
-          <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
-          Feedback
-        </button>
+        {showFeedback && (
+          <button
+            type="button"
+            className="nav-link"
+            data-state={feedbackOpen ? "open" : undefined}
+            onClick={() => setFeedbackOpen(true)}
+            aria-label="Send feedback"
+          >
+            <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
+            Feedback
+          </button>
+        )}
       </div>
       <div className="nav-spacer" />
       <p className="nav-section-label" style={{ marginBottom: 6 }}>Demo (Apex Roofing)</p>
@@ -67,7 +75,7 @@ export function HubNav() {
         <ArrowLeft size={13} strokeWidth={1.75} className="nav-link-icon" />
         Admin console
       </Link>
-      <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      {showFeedback && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );
 }

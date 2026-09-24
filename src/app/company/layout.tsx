@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -13,6 +13,7 @@ import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BootstrapProvider } from "@/contexts/BootstrapContext";
 import { QuickAddProvider } from "@/contexts/QuickAddContext";
@@ -35,6 +36,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+  // Focus should follow a nav-link navigation, not snap back to the hamburger.
+  const skipNavFocusReturn = useRef(false);
   const { ready: modulesReady, isEnabled, family, subscriptionStatus, disabledModules } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
@@ -82,8 +86,17 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
   // Close the mobile nav sheet whenever the route changes (link tap, back button, etc.)
   useEffect(() => {
+    skipNavFocusReturn.current = true;
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  // Mobile nav sheet behavior (T-114): Escape closes, Tab stays inside while
+  // open, and closing returns focus to the hamburger that opened it.
+  useFocusTrap(mobileMenuOpen, mobileNavRef, {
+    initialFocus: "first",
+    returnFocus: !skipNavFocusReturn.current,
+    onEscape: () => setMobileMenuOpen(false),
+  });
 
   async function handleLogout() {
     const auth = await getFirebaseAuth();
@@ -187,7 +200,11 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
               className="mobile-menu-btn"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
-              onClick={() => setMobileMenuOpen((v) => !v)}
+              aria-controls="company-mobile-nav"
+              onClick={() => {
+                skipNavFocusReturn.current = false;
+                setMobileMenuOpen((v) => !v);
+              }}
             >
               {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
             </button>
@@ -195,7 +212,12 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {mobileMenuOpen && (
-          <div className="mobile-nav-sheet">
+          <div
+            className="mobile-nav-sheet"
+            id="company-mobile-nav"
+            ref={mobileNavRef}
+            tabIndex={-1}
+          >
             <CompanyNav />
             <div className="mobile-nav-search">
               <QuickAddButton />

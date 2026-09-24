@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PhoneCall } from "lucide-react";
+import { AlertTriangle, CheckCircle2, PhoneCall } from "lucide-react";
 
 interface PlanTarget { businessId: string; businessName: string; greetingPreview: string; disclosureEnabled: boolean }
 interface PlanSkip { businessId: string; businessName: string; reason: string }
@@ -17,6 +17,7 @@ export function SyncPersonasPanel() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [appliedNames, setAppliedNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   async function call(dryRun: boolean) {
@@ -43,6 +44,8 @@ export function SyncPersonasPanel() {
     if (!preview) return;
     const n = preview.targets.length;
     if (!confirm(`Update the live phone greeting and prompt on ${n} Vapi assistant${n === 1 ? "" : "s"}? Callers will hear the change on their next call.`)) return;
+    // Keep the names for the result list below (the outcome only carries ids).
+    setAppliedNames(Object.fromEntries(preview.targets.map((t) => [t.businessId, t.businessName])));
     void call(false);
   }
 
@@ -59,7 +62,7 @@ export function SyncPersonasPanel() {
           Pushes each client&apos;s current greeting (including the call-recording notice) and prompt to its live Vapi assistant.
           Preview first — nothing changes until you apply.
         </p>
-        <div className="button-row">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button type="button" className="button" disabled={busy} onClick={() => void call(true)}>
             {busy && !preview ? "Working…" : "Preview changes"}
           </button>
@@ -69,34 +72,58 @@ export function SyncPersonasPanel() {
             </button>
           )}
         </div>
-        {error && <p role="alert" style={{ color: "var(--danger, #b91c1c)", fontSize: 13, marginTop: 12 }}>{error}</p>}
+        {error && <p role="alert" style={{ color: "var(--c-danger-fg)", fontSize: 13, margin: "12px 0 0" }}>{error}</p>}
 
-        {preview && (
-          <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
+        {preview && preview.targets.length > 0 && (
+          <ul className="sync-list" aria-label="Assistants that will be updated">
             {preview.targets.map((t) => (
-              <div key={t.businessId} style={{ fontSize: 13 }}>
-                <strong>{t.businessName}</strong>
-                <span style={{ color: "var(--text-muted)" }}> — will say: “{t.greetingPreview}”{t.disclosureEnabled ? "" : " (recording notice off)"}</span>
-              </div>
+              <li key={t.businessId} className="sync-list-item">
+                <span className="sync-list-item-name">{t.businessName}</span>
+                <span className="sync-list-item-detail">Will say: “{t.greetingPreview}”</span>
+                {!t.disclosureEnabled && <span className="chip warn">Recording notice off</span>}
+              </li>
             ))}
-            {preview.targets.length === 0 && <p style={{ fontSize: 13 }}>Nothing to sync.</p>}
-            {preview.skipped.length > 0 && (
-              <details style={{ fontSize: 13 }}>
-                <summary>{preview.skipped.length} skipped</summary>
-                <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
-                  {preview.skipped.map((s) => <li key={s.businessId}><strong>{s.businessName}</strong> — {s.reason}</li>)}
-                </ul>
-              </details>
-            )}
-          </div>
+          </ul>
+        )}
+        {preview && preview.targets.length === 0 && (
+          <p style={{ fontSize: 13, margin: "12px 0 0" }}>Nothing to sync.</p>
+        )}
+        {preview && preview.skipped.length > 0 && (
+          <details style={{ fontSize: 13, marginTop: 12 }}>
+            <summary>{preview.skipped.length} skipped</summary>
+            <ul className="sync-list">
+              {preview.skipped.map((s) => (
+                <li key={s.businessId} className="sync-list-item">
+                  <span className="sync-list-item-name">{s.businessName}</span>
+                  <span className="sync-list-item-detail">{s.reason}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         {outcome && (
           <div style={{ marginTop: 16, fontSize: 13 }}>
-            <p style={{ margin: 0 }}><strong>{outcome.synced} synced</strong>{outcome.failed > 0 ? `, ${outcome.failed} failed` : ""}.</p>
-            {outcome.results.filter((r) => !r.ok).map((r) => (
-              <p key={r.businessId} style={{ margin: "4px 0 0", color: "var(--danger, #b91c1c)" }}>{r.businessId}: {r.error}</p>
-            ))}
+            <p style={{ margin: 0, fontWeight: 600 }}>
+              {outcome.synced} synced{outcome.failed > 0 ? `, ${outcome.failed} failed` : ""}.
+            </p>
+            {outcome.results.length > 0 && (
+              <ul className="sync-list" aria-label="Sync results">
+                {outcome.results.map((r) => (
+                  <li key={r.businessId} className="sync-list-item">
+                    <span className="sync-list-item-name" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {r.ok
+                        ? <CheckCircle2 size={14} strokeWidth={2} color="var(--success)" aria-hidden />
+                        : <AlertTriangle size={14} strokeWidth={2} color="var(--danger)" aria-hidden />}
+                      {appliedNames[r.businessId] ?? r.businessId}
+                    </span>
+                    <span className={`sync-list-item-detail${r.ok ? "" : " is-error"}`}>
+                      {r.ok ? "Updated" : r.error}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
       </div>
