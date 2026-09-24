@@ -7,8 +7,8 @@ Deepseek's credits are limited (it ran out mid-task once), so the queue is: **on
 
 | Session | Queue (one at a time, in order) | Worktree(s) |
 |---|---|---|
-| **Codex A** | **A1** finish T-111b -> **A2** T-113 request review -> A3 T-109 email intake (prompt written later) | `air-wt-elevenlabs-hooks`, then `air-wt-request-review` |
-| **Deepseek (was Codex B)** | **B1** T-114 feedback + UX pass, then STOP and report (do not pick up B2/B3: money math + a 2,250-line page are not Deepseek work) | `air-wt-ux-pass` |
+| **Codex A** | ~~A1 T-111b~~ (done, merged) -> **A2b finish T-113** (mostly built) -> A3 T-109 email intake (prompt later) | `air-wt-request-review` |
+| **Deepseek** | ~~B1 T-114~~ and ~~T-116~~ (done, merged) -> **T-119** declutter admin config form (V4 Flash Think High; prompt to be written; needs a worktree) | — |
 | **Next free Codex** | **B2** T-107a document core (invoice + quote) -> B3 T-107b report (prompt written later) | `air-wt-documents-core` |
 
 The two queues are file-disjoint by design (A: voice/webhooks/pipeline/calls/appointments/comms; B: nav/feedback/css/
@@ -16,7 +16,7 @@ documents/invoice/quote/report). Every worktree already exists, has `node_module
 If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b task/<branch> main` and junction
 `node_modules` (PowerShell: `New-Item -ItemType Junction -Path "D:\Apps\<name>\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"`).
 
-**State of main when this was written:** T-111a (provider seam) is merged and pushed (live, dormant: default Vapi; `/api/health` reports `elevenlabs: not_configured` until a key is set). Cancelled: T-108
+**State (end of 2026-09-24):** T-111a/b, T-114, T-116 merged and pushed. T-113 mostly built. T-111a (provider seam) is merged and pushed (live, dormant: default Vapi; `/api/health` reports `elevenlabs: not_configured` until a key is set). Cancelled: T-108
 (no auto job creation — owner decision). Shared contracts: `src/lib/voice/types.ts`, `src/types/documentOptions.ts`,
 `src/types/workCatalog.ts`.
 
