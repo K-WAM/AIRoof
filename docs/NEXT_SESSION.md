@@ -7,7 +7,7 @@ Goal of the session: **pick the phone-AI voice/provider with evidence**, and kee
 1. Admin -> **Clients** -> "Sync live phone assistants" -> **Preview changes** -> **Apply**. This pushes the recording notice
    (T-102) to the live assistant. Then place one call to the demo line and confirm you hear the notice first.
    (If the panel looks cramped, that is T-114's job — ignore it for now.)
-2. Put your ElevenLabs API key in `.env.local` as `ELEVENLABS_API_KEY=...` (never paste it in chat). Do **not** put it in Vercel yet.
+2. ~~ElevenLabs API key~~ DONE 2026-09-24: key is in `.env.local` (gitignored, verified working against the API); MCP connected (`https://api.us.elevenlabs.io/v1/mcp` — must be the US URL or the OAuth check fails). Do **not** put the key in Vercel until T-112 needs it.
 3. Start the two Codex sessions from `docs/WORKER_QUEUE.md`:
    - **Codex A** -> prompt **A1** (finish T-111b), later **A2** (T-113)
    - **Deepseek** -> prompt **B1** (T-114; bounded UI work), then stop. **B2** (T-107a, money math) goes to the next free Codex session
@@ -33,6 +33,5 @@ NH-18 Care Homes/Daycares safety calls · NH-20/21/22 ElevenLabs key/number/priv
 
 - `main` (pushed, CI green) has T-111a live but dormant (default Vapi). It touches the paths that push greetings and place outbound calls,
   so if anything odd shows up in greeting pushes or callbacks, suspect it first.
-- Worktrees (all cut from main, `node_modules` junctioned): `air-wt-elevenlabs-hooks`, `air-wt-request-review`, `air-wt-ux-pass`,
-  `air-wt-documents-core`.
+- T-111b (ElevenLabs webhooks) and T-114 (feedback/UX) are MERGED and pushed (CI green; new routes return 401 without the secret). Open worktrees: `air-wt-request-review` (T-113), `air-wt-documents-core` (T-107a).
 - Deepseek is out of credits; its unfinished work is committed as WIP `16f8d5e` on `task/elevenlabs-hooks`.

@@ -63,3 +63,5 @@ Problems found (template leftovers from "Front Desk Receptionist"):
 3. **Overrides are all OFF** and "fetch initiation data from webhook" is OFF — required (prompt, first_message, language, voice_id + webhook) before one shared agent can serve multiple industries per call (T-111b design).
 4. **Privacy:** `record_voice: true`, `retention_days: -1` (unlimited) — NH-22: choose a retention that matches our 90-day default; revisit `record_voice` with counsel (NH-4).
 5. A second unused agent "My Agent" (blank default) exists.
+
+**Cleanup done via MCP (2026-09-24, owner-approved, each saved as its own agent version):** removed the two custom guardrails; reduced the template workflow to just its start node. Still open: retention/recording policy (NH-22), overrides + initiation webhook (needed only for the shared multi-industry agent, T-112), the unused "My Agent", and switching the shareable page on for browser demos.
