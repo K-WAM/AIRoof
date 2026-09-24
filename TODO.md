@@ -917,7 +917,7 @@ an active queue.*
         the exact script/connect/media origins the widget needs (verify against ElevenLabs docs; no wildcards), keep every existing directive, add a
         test. Also reword the widget's terms text (via the agent's widget settings, owner decision) before public use. Blocked on: the owner
         choosing the demo agent; not needed for the phone demo.
-  - [ ] T-116 — **Refresh the demo/onboarding playbook** (Deepseek, V4 Flash Think High; docs/HTML only, no code). `public/guides/onboarding-guide.html` (and
+  - [ ] T-116 — **Refresh the demo/onboarding playbook** (Deepseek, V4 Flash Think High; docs/HTML only, no code). **status: `review` (2026-09-24)** — branch `task/guide-refresh`, commits `6f4c5d0` + `a73cc24` + the evidence commit; awaiting integrator review (evidence in `docs/IMPLEMENTATION_LOG.md`). `public/guides/onboarding-guide.html` (and
         `field-operations-guide.html` where relevant) is stale: update it to what is SHIPPED through Phase 20 — recording notice + Apply-sync,
         industry intake fields, starter kits, work catalog + job findings, quotes, request-review (T-113 once merged), feedback (client-only),
         voice provider options (Vapi today; ElevenLabs is dormant/optional), demo-line + `/try` sandbox steps, and the owner's real-phone test
