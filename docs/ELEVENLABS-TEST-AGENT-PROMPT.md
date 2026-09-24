@@ -54,3 +54,12 @@ Use the 10 scripted calls and the table in `docs/VOICE-RESEARCH-2026-09-24.md`. 
 - **Speed:** GPT-4o as the agent LLM was "much better" than Gemini 3.5 Flash for response time. Keep GPT-4o class as the baseline for comparisons.
 - **Bilingual works:** system tool "Detect language" enabled; a caller who asked "¿Hablas español?" got a Spanish reply and continued in Spanish. Remaining: set the ENGLISH default first message to the recording-notice greeting, delete the dangling "Unknown tool" row (skipped Twilio tool), set timezone America/New_York, compare TTS model v3 Conversational vs Flash v2.5, then Turn V3.
 - Tool types available in "Add tool": Webhook (our 7 booking tools go here), Client, Integration (not needed).
+
+## MCP read-only audit of the test agent (2026-09-24, agent_0101m3a5z9qxenybnpjsragg7dvt)
+Confirmed OK: English default first message carries the recording notice + Spanish invitation; Spanish preset saved; LLM gpt-4o-mini; TTS eleven_v3_conversational (expressive mode on, stability 0.5, speed 1.0); turn model `turn_v3`, eagerness normal; Detect language system tool on (`only_at_conversation_start: false`); no dangling tool ids.
+Problems found (template leftovers from "Front Desk Receptionist"):
+1. A **workflow** (greeting -> transfer / take_message / answer_faq / wrap_up) that steers the agent toward routing calls to departments and taking messages — conflicts with our roofing lead-intake prompt. Remove it so the prompt is the only logic.
+2. Two **custom guardrails** ("No sharing personal/internal info", "No guessing department responsibilities") with `trigger_action: end_call` — the first can misfire when the agent reads back the CALLER'S OWN phone number and hang up on them. Disable/delete both.
+3. **Overrides are all OFF** and "fetch initiation data from webhook" is OFF — required (prompt, first_message, language, voice_id + webhook) before one shared agent can serve multiple industries per call (T-111b design).
+4. **Privacy:** `record_voice: true`, `retention_days: -1` (unlimited) — NH-22: choose a retention that matches our 90-day default; revisit `record_voice` with counsel (NH-4).
+5. A second unused agent "My Agent" (blank default) exists.
