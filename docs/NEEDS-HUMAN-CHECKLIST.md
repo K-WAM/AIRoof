@@ -151,6 +151,18 @@ Or console: **console.cloud.google.com → Firestore → Time-to-live → Create
 
 ---
 
+## Twilio number for the ElevenLabs demo agent (NH-21) — do when you want a real phone call to reach the ElevenLabs agent
+
+**Which area code:** 305 or 786 (Miami-Dade — matches the demo service area). Real clients later get their own local area code, or forward an existing number (T-112 item i).
+**Cost (verify):** roughly $1–2/month per number plus a small per-minute charge; ElevenLabs agent minutes are billed separately.
+1. Go to **twilio.com**, sign up, then **upgrade** the account (add payment). A trial account plays a trial message and can only call verified numbers.
+2. Console -> **Phone Numbers -> Manage -> Buy a number**. Country **United States**, capability **Voice**, search `305` (or `786`), buy one.
+3. Console -> **Account -> API keys & tokens -> Create API key** (type Standard). Copy the **SID** (starts `SK`) and the **Secret** — the secret is shown once.
+4. In ElevenLabs: **Deploy -> Phone Numbers -> Import number -> Twilio**. Enter a label (e.g. "Carlita Demo 305"), the number, the SID and the Secret. Assign the agent "Alice — Roofing (voice test)".
+5. **Do not paste the Twilio secret into chat.** Tell Claude "number imported".
+**Then Claude does (with your go for anything that touches production):** generate the two ElevenLabs secrets, create the 7 booking tools, switch on the agent's per-call overrides + start-of-call and post-call web addresses, set a SEPARATE test business to `voiceProvider: elevenlabs`, and run test calls; only after that do we consider pointing the shared demo line at it.
+Note: the existing Vapi number **+1 (754) 283-7658** is Vapi-owned and cannot be moved to ElevenLabs; it stays the wired demo line until the ElevenLabs path is proven.
+
 ## Voice quality — can ChatGPT/OpenAI replace Vapi? (analysis, 2026-09-23)
 
 **Short answer:** not needed, and not the best first move. Your live voice is Vapi's own **"Vapi Voices v2 – Savannah"**, which is the likely reason it sounds synthetic. Vapi is just the phone plumbing; the *voice* is a separate, swappable choice.
