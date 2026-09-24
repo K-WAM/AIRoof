@@ -38,6 +38,8 @@ describe("elevenlabsConversations records (TTL persistence)", () => {
       NOW
     );
     expect(docId).toBe("conv_1");
+    const stored = db.__peek("elevenlabsConversations", "conv_1");
+    expect(stored?.expiresAt).toHaveProperty("toMillis");
 
     const record = await getElevenLabsConversation("conv_1", NOW + 1000);
     expect(record).not.toBeNull();

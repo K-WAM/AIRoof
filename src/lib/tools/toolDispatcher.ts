@@ -46,6 +46,11 @@ export async function executeAgentTool(
 ): Promise<AgentToolResult> {
   const { businessId, callId, callerPhone, provider } = context;
   const providerIds = context.providerIds ?? {};
+  // Vapi retains its existing parameter fallback. ElevenLabs must use only
+  // caller identity recorded by the authenticated initiation webhook.
+  const trustedCallerPhone = provider === "elevenlabs"
+    ? sanitizePhone(callerPhone)
+    : sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? ""));
   const tz = await getBusinessTimezone(businessId);
   try {
     switch (name) {
@@ -55,7 +60,7 @@ export async function executeAgentTool(
         const appt = await bookAppointment({
           businessId,
           callerName: String(params.name ?? params.callerName ?? "Unknown"),
-          callerPhone: sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? "")) ?? "",
+          callerPhone: trustedCallerPhone ?? "",
           callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
@@ -77,7 +82,7 @@ export async function executeAgentTool(
         const lead = await createLead({
           businessId,
           callerName: optionalStr(params.name ?? params.callerName),
-          callerPhone: sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? "")) ?? undefined,
+          callerPhone: trustedCallerPhone,
           callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceRequested: optionalStr(params.serviceRequested ?? params.service),
           address: optionalStr(params.address),
@@ -95,7 +100,7 @@ export async function executeAgentTool(
           businessId,
           callId,
           reason,
-          callerPhone: callerPhone ?? optionalStr(params.callerPhone),
+          callerPhone: provider === "elevenlabs" ? trustedCallerPhone : callerPhone ?? optionalStr(params.callerPhone),
           summary: optionalStr(params.summary),
         });
         const actionStatus =

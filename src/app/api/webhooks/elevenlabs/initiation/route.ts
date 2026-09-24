@@ -55,14 +55,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const callSid = readString(record.call_sid);
   const conversationId = readString(record.conversation_id);
 
-  // Resolve the tenant by the called number first (the per-business discriminator
-  // for a shared agent), then by agent id (dedicated-agent tenants).
+  // Resolve by the called number when present. An unknown called number must
+  // never inherit another tenant's prompt through a shared agent-id fallback.
+  // Agent-id resolution is for integrations that omit called_number.
   let businessId: string | null = null;
   try {
     if (calledNumber) {
       businessId = await findBusinessByElevenLabsPhoneNumber(calledNumber);
     }
-    if (!businessId && agentId) {
+    if (!calledNumber && agentId) {
       businessId = await findBusinessByElevenLabsAgentId(agentId);
     }
   } catch (error) {
@@ -81,6 +82,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const config = await readBusinessConfig(businessId);
 
+  if (!config) {
+    console.error("elevenlabs initiation: business doc missing for resolved tenant", { businessId });
+    return NextResponse.json(genericInitiationResponse());
+  }
+
   // Record the conversation for the tools/post-call routes BEFORE responding —
   // the tools may be called seconds later. Best-effort: a write failure must
   // not block the call answer.
@@ -97,11 +103,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } catch (error) {
       console.error("elevenlabs initiation: failed to persist conversation record", error);
     }
-  }
-
-  if (!config) {
-    console.error("elevenlabs initiation: business doc missing for resolved tenant", { businessId });
-    return NextResponse.json(genericInitiationResponse());
   }
 
   return NextResponse.json(buildInitiationResponse(config, callerId, new Date()));

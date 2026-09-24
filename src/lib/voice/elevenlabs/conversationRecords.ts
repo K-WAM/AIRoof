@@ -8,6 +8,7 @@
 // retries), like the other replay collections in this repo.
 
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { Timestamp } from "firebase-admin/firestore";
 
 export const ELEVENLABS_CONVERSATIONS_COLLECTION = "elevenlabsConversations";
 export const ELEVENLABS_CONVERSATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -47,7 +48,8 @@ export async function persistElevenLabsConversation(
     conversationId: input.conversationId ?? null,
     callSid: input.callSid ?? null,
     createdAt: input.createdAt ?? now,
-    expiresAt: input.expiresAt ?? now + ELEVENLABS_CONVERSATION_TTL_MS,
+    // Firestore TTL policies require a timestamp field, not epoch milliseconds.
+    expiresAt: Timestamp.fromMillis(input.expiresAt ?? now + ELEVENLABS_CONVERSATION_TTL_MS),
   });
   return docId;
 }
@@ -70,14 +72,8 @@ export async function getElevenLabsConversation(
     if (!data || typeof data.businessId !== "string" || data.businessId.length === 0) {
       return null;
     }
-    const expiresAt = data.expiresAt;
-    if (
-      typeof expiresAt === "number" &&
-      Number.isFinite(expiresAt) &&
-      expiresAt <= now
-    ) {
-      return null;
-    }
+    const expiresAt = timestampMillis(data.expiresAt);
+    if (expiresAt === null || expiresAt <= now) return null;
 
     return {
       businessId: data.businessId,
@@ -87,10 +83,20 @@ export async function getElevenLabsConversation(
       conversationId: typeof data.conversationId === "string" ? data.conversationId : undefined,
       callSid: typeof data.callSid === "string" ? data.callSid : undefined,
       createdAt: typeof data.createdAt === "number" ? data.createdAt : now,
-      expiresAt: typeof expiresAt === "number" ? expiresAt : now,
+      expiresAt,
     };
   } catch (error) {
     console.error("getElevenLabsConversation error:", error);
     return null;
   }
+}
+
+function timestampMillis(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value instanceof Timestamp) return value.toMillis();
+  if (value !== null && typeof value === "object" && "toMillis" in value && typeof value.toMillis === "function") {
+    const millis = value.toMillis();
+    return typeof millis === "number" && Number.isFinite(millis) ? millis : null;
+  }
+  return null;
 }

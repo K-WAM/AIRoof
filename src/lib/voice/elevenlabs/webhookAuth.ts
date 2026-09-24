@@ -17,7 +17,7 @@
 //    (ElevenLabs retries deliver an identical payload, so an idempotent claim
 //    is the correct dedup).
 
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Timestamp, type Firestore } from "firebase-admin/firestore";
 import type { NextRequest } from "next/server";
 
@@ -69,16 +69,6 @@ export function verifyElevenLabsToolSecret(request: NextRequest): boolean {
   for (const candidate of candidates) {
     if (timingSafeStringEqual(candidate.value, expected)) return true;
   }
-
-  // Diagnostic metadata only: never log the configured or received secret.
-  console.warn("ElevenLabs webhook auth mismatch", {
-    expectedLen: expected.length,
-    receivedHeaders: candidates.map((candidate) => ({
-      source: candidate.source,
-      len: candidate.value.length,
-      matchesLen: candidate.value.length === expected.length,
-    })),
-  });
 
   return false;
 }
@@ -184,12 +174,11 @@ export async function claimElevenLabsPostCallEvent(
 // ──────────────────────────────────────────────────────────────────────────────
 
 export function timingSafeStringEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return mismatch === 0;
+  // Hash to fixed-size buffers so even differing input lengths use the
+  // platform's constant-time comparison primitive.
+  const left = createHash("sha256").update(a).digest();
+  const right = createHash("sha256").update(b).digest();
+  return timingSafeEqual(left, right);
 }
 
 function readNonEmptyString(value: unknown): string | undefined {

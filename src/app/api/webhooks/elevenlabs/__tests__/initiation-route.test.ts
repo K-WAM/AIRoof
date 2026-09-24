@@ -137,14 +137,24 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(body.dynamic_variables.callerPhone).toBe("+1 (305) 555-0100");
   });
 
-  it("falls back to the agent id when the called number resolves nothing", async () => {
+  it("uses the agent id when the called number is absent", async () => {
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue(null);
     mocks.findBusinessByElevenLabsAgentId.mockResolvedValue("biz_2");
     db.__seed("businesses", "biz_2", { ...businessConfig({ businessId: "biz_2" }) });
 
-    const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
+    const response = await POST(requestFor({ ...INITIATION_BODY, called_number: undefined }, "expected-secret"));
     expect(response.status).toBe(200);
     expect(mocks.findBusinessByElevenLabsAgentId).toHaveBeenCalledWith("agent_1");
+  });
+
+  it("does not route an unknown called number through a shared agent id", async () => {
+    mocks.findBusinessByElevenLabsAgentId.mockResolvedValue("biz_2");
+    const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
+    expect(await response.json()).toEqual({
+      type: "conversation_initiation_client_data",
+      conversation_config_override: {}, dynamic_variables: {},
+    });
+    expect(mocks.findBusinessByElevenLabsAgentId).not.toHaveBeenCalled();
   });
 
   it("persists the conversation record keyed by conversation_id for the tools", async () => {
@@ -158,7 +168,7 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(record?.businessId).toBe("biz_1");
     expect(record?.callerPhone).toBe("+1 (305) 555-0100");
     expect(record?.calledNumber).toBe("+17542837658");
-    expect(record?.expiresAt).toBeGreaterThan(Date.now());
+    expect((record?.expiresAt as { toMillis: () => number }).toMillis()).toBeGreaterThan(Date.now());
   });
 
   it("returns the generic response when the business doc is missing", async () => {

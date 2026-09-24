@@ -11,10 +11,6 @@
           "type": "string",
           "description": "The caller's full name."
         },
-        "callerPhone": {
-          "type": "string",
-          "description": "The best callback number, only if the caller asks to be reached on a different number than the one they are calling from."
-        },
         "callerEmail": {
           "type": "string",
           "description": "Optional email address. Only collect it if the caller offers one; never require it."
@@ -54,10 +50,6 @@
         "callerName": {
           "type": "string",
           "description": "The caller's full name."
-        },
-        "callerPhone": {
-          "type": "string",
-          "description": "The best callback number, only if it differs from the number the caller is calling from."
         },
         "callerEmail": {
           "type": "string",
@@ -122,10 +114,6 @@
           "type": "string",
           "description": "Why this is urgent, in one or two sentences."
         },
-        "callerPhone": {
-          "type": "string",
-          "description": "The best callback number, only if it differs from the number the caller is calling from."
-        },
         "summary": {
           "type": "string",
           "description": "Any extra context the team needs to respond, such as what the caller reported."
@@ -142,10 +130,6 @@
     "parameters": {
       "type": "object",
       "properties": {
-        "callerPhone": {
-          "type": "string",
-          "description": "The caller's phone number, only if you collected it and it differs from the number they are calling from."
-        },
         "callerName": {
           "type": "string",
           "description": "The caller's name, if they gave it."

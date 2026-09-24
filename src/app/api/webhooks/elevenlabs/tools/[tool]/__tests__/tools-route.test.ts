@@ -129,7 +129,7 @@ describe("POST /api/webhooks/elevenlabs/tools/[tool]", () => {
     expect(await response.json()).toEqual({ result: "done" });
     expect(mocks.executeAgentTool).toHaveBeenCalledWith(
       "createLead",
-      expect.objectContaining({ businessId: "biz_model_supplied", callerName: "Pat" }),
+      { callerName: "Pat" },
       {
         businessId: "biz_stored",
         callId: "call_elevenlabs_conv_1",

@@ -64,7 +64,14 @@ export async function POST(
 
   let toolParams: Record<string, unknown>;
   try {
-    toolParams = (await request.json()) as Record<string, unknown>;
+    const parsed: unknown = await request.json();
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    toolParams = { ...parsed };
+    for (const identityField of ["businessId", "callId", "callerPhone", "verifiedCallerPhone", "phone"]) {
+      delete toolParams[identityField];
+    }
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
