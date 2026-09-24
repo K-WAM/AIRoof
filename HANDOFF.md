@@ -1,3 +1,5 @@
+> **2026-09-24 — read `docs/SESSION_HANDOFF.md` (top entry) and `docs/NEXT_SESSION.md` first.** Everything below is history from earlier sessions; the live queue is `TODO.md` + `docs/WORKER_QUEUE.md`.
+
 # HANDOFF — AI Receptionist Platform
 Last updated: 2026-09-16 (`crm.luxordev.com` live + a real Google sign-in CSP bug fixed + Jobs search — see the
 "continued" session entry below); before that, same-day Phase 12 closeout (Trade roles, logo library, Spanish,

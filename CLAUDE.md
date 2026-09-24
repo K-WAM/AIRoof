@@ -4,6 +4,8 @@
 
 **Phase 12 (2026-09-16) — all 7 sub-phases shipped and pushed to `origin/main`.** A separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. Foundation/speed/the field-URL fix; Customers; Time clock (T-090); Photos (T-091); Invoice persistence + hide-materials everywhere it's promised + a letterhead redesign + the logo library (T-092, Phase 4 — only the two-pane live-preview redesign is deliberately not built); Spanish (T-093 — field-update auto-detect+translate and the phone AI's language toggle are real; voice selection is a documented **NEEDS-HUMAN** follow-up, see `TODO.md`); Trade roles (T-094). See the plan doc's per-phase "Shipped" notes for exact deviations/deferrals — every phase has honest ones, nothing is oversold as 100% complete.
 
+**Phases 13–20 (2026-09-23/24) — the current work.** Phase 13 CRM domain move (`crm.luxordev.com`, `NEXT_PUBLIC_APP_URL`); 14 Care Homes + Daycares verticals (13 industries now); 15 industry peripherals (per-vertical intake fields, starter kits, dashboard tiles); 16 call-recording notice (T-102, default ON) + per-tenant voice override (T-103) + `/api/admin/sync-personas`; 17 work catalog + job findings + quotes (T-105; T-106 bilingual line open); 18 document-suite unification (T-107), email intake (T-109), voice bake-off (T-110); 19 ElevenLabs switch-over scaffolding (T-111: `voiceProvider` per tenant, default `vapi`); 20 request-review workflow (T-113) + feedback/UX pass (T-114). **Owner decisions:** jobs are NEVER auto-created (the AI captures a request, the admin reviews and decides; T-108 cancelled); feedback is for client users only (hidden for superadmin). **Who builds what next:** `docs/WORKER_QUEUE.md` (two parallel Codex sessions; Deepseek is out of credits). **Owner's to-do list:** `docs/NEEDS-HUMAN-CHECKLIST.md`. **Voice research + bake-off plan:** `docs/VOICE-RESEARCH-2026-09-24.md`. **Tomorrow's plan:** `docs/NEXT_SESSION.md`.
+
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
 ## Code Navigation — Read Graphify Before Broad Work
@@ -120,8 +122,8 @@ Basis:
 - **Dynamic per-industry agent ✓**: webhook serves `{{systemPrompt}}`/`{{greeting}}` from each business's config; one assistant adapts to any vertical; caller-ID phone confirm + optional email.
 - **Universal demo line ✓**: each Demo Studio launch reconfigures `demo-roofing` (the live number) to the chosen vertical — one number adapts.
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
-- **Customer entity + instant search ✓ (Phase 12, T-089, on `phase1-foundation-perf-url-fix`, not yet merged)**: `businesses/{bid}/customers`, a Library "Customers" tab, a job-create combobox, and client-side zero-network search — see the Customer Entity & Search rule above.
-- **No client Firestore SDK left ✓ (Phase 12, T-088, same branch)**: the last four client-side Firestore reads/writes (AuthContext's profile doc, `useBusinessModules`/`useBusinessTimezone`, Pipeline's status writes) are gone, replaced by `/api/auth/profile` + `/api/company/bootstrap` + two new PATCH routes — confirmed by inspecting the built client chunks directly, not assumed. The field screen's address bar is now a bare `/field` (was showing a ~300-char token).
+- **Customer entity + instant search ✓ (Phase 12, T-089)**: `businesses/{bid}/customers`, a Library "Customers" tab, a job-create combobox, and client-side zero-network search — see the Customer Entity & Search rule above.
+- **No client Firestore SDK left ✓ (Phase 12, T-088)**: the last four client-side Firestore reads/writes (AuthContext's profile doc, `useBusinessModules`/`useBusinessTimezone`, Pipeline's status writes) are gone, replaced by `/api/auth/profile` + `/api/company/bootstrap` + two new PATCH routes — confirmed by inspecting the built client chunks directly, not assumed. The field screen's address bar is now a bare `/field` (was showing a ~300-char token).
 - Mobile responsiveness: done (2026-07-04). Remaining: verified RESEND_FROM domain (NH-3 in TODO.md). SMS and Google Calendar OAuth are post-MVP; Twilio integration was superseded by Vapi (T-051 removed Twilio env declarations).
 
 ## Architecture
@@ -323,6 +325,16 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/company/library/logos/route.ts + src/app/company/library/LogosSection.tsx — the logo library's GET/POST/PATCH/DELETE and its Library "Branding" tab UI (dual white/brand-bar preview, set-default, variant picker)
 - src/components/field/InstallPrompt.tsx — "Add to Home Screen" nudge on `/field` only (not `/company/field` — its manifest start_url doesn't point there, see the component's own doc comment); the one real lever over "the address bar shows on mobile," which no website can suppress in a plain browser tab
 
+## Phase 13–20 Key Files
+
+- src/lib/voice/types.ts + provider.ts + elevenlabs/ — the voice-provider seam: `voiceProviderOf(config)` (missing => "vapi"), `getVoiceProvider()`, `pushPersona`, `startOutboundCall`. **Only the phone call is provider-specific** — field notes (Whisper + gpt-4o), invoices, reports and the 7 booking tools never touch Vapi/ElevenLabs.
+- src/lib/recordingDisclosure.ts — the call-recording notice (missing config = default ON, spoken first; draft wording, not legal advice)
+- src/lib/vapi/syncPersonas.ts + src/app/api/admin/sync-personas/route.ts — one-time push of every tenant's greeting/prompt to its live assistant (dry-run by default; skips shared assistants like the demo line)
+- src/types/workCatalog.ts, quote.ts, documentOptions.ts — shared contracts for the work catalog, quotes, and hide-materials/labor options
+- src/lib/verticals/starterKits.ts, workCatalogStarter.ts — per-industry starter content (prices are EXAMPLES flagged `starter`, never placeholder text in customer-visible strings)
+- src/lib/jobs/findings.ts, src/lib/billing/jobQuote*.ts — job findings (point-in-time snapshots) and quotes (own counter; no online acceptance/payment)
+- docs/WORKER_QUEUE.md — worker assignments + paste-ready prompts; docs/NEEDS-HUMAN-CHECKLIST.md — the owner's click-by-click list
+
 ## Navigation Completeness Rule
 
 Every `page.tsx` must have a reachable UI path before being committed:
@@ -344,19 +356,16 @@ Before asking the user to verify anything, use CLI/curl first:
 
 ## Next Steps
 
-1. **Phase 12 continuation** — Spanish, Trade roles, and Phase 4's deferred logo library: fully specced in
-   `docs/PLATFORM-EXPANSION-PLAN.md`. Foundation, Customers, Time clock, Photos, and (partially) Invoice
-   persistence are already merged to `main` and pushed — pick one and build directly on `main`. Each shipped
-   phase's own deliberate deferrals (Time clock's admin time-edit sheet + Labor-tab chips; Photos' field-side
-   gallery + `comfortable` density + drag-reorder; Invoice's logo library + two-pane preview + print-view
-   hide-materials) are listed in the plan doc's per-phase "Shipped" notes if picked up later.
-2. **Authenticated production smoke** — Calendar drag/confirm, real-phone field QR + voice correction, PDF print,
-   and controlled-inbox email delivery (tracked as NH-8 in `TODO.md`).
-3. **Provider/legal sign-off** — Vapi dashboard settings, Resend DNS, retention/recording wording, and Firestore
-   TTL policies (NH-1/NH-3/NH-4/NH-11).
-4. **Major dependency upgrades** — evaluate Next.js 16, Firebase 12, and Firebase Admin 14 separately; the
-   2026-08-23 maintenance pass applied all non-breaking audit fixes but intentionally did not force majors.
-5. **Post-MVP** — Google Calendar OAuth, Stripe billing, and SMS.
+1. **Voice decision (T-110, next session)** — run the scripted bake-off in `docs/VOICE-RESEARCH-2026-09-24.md` on SEPARATE test
+   assistants (never the live line): Vapi + ElevenLabs/Cartesia voices, gpt-realtime via Vapi, then ElevenLabs Agents. The dormant
+   `voiceProvider` seam (T-111) means a winner can be switched on per tenant without a rewrite.
+2. **Build queue** — see `docs/WORKER_QUEUE.md`: finish T-111b (ElevenLabs webhooks), T-113 (request review + decline), T-114 (feedback +
+   UX pass), T-107a/b (invoice/quote/report suite with hide-materials/labor + logo everywhere), T-109 (email intake).
+3. **Owner sign-off items** — `docs/NEEDS-HUMAN-CHECKLIST.md`: Vapi console audit (NH-1), Resend domain (NH-3), recording-notice wording (NH-4),
+   real-device tests (NH-8), `crm.luxordev.com` (NH-17), Care Homes/Daycares live-call safety tests (NH-18), ElevenLabs keys/number/privacy
+   (NH-20..22), and pressing **Apply** on Admin -> Clients -> "Sync live phone assistants" so the recording notice reaches live lines.
+4. **Major dependency upgrades** — Firebase Admin 14 (T-062, blocked upstream), Next.js 16, Firebase 12: separate, deliberate tasks.
+5. **Post-MVP** — Google Calendar OAuth, Stripe billing, SMS, in-app Vapi/ElevenLabs provisioning (T-054/T-112).
 
 ## Implementation Phases
 

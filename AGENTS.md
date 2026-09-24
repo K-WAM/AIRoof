@@ -159,3 +159,7 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
   error in your own new code), don't assume it's a pre-existing repo issue and don't log it as one — first
   do `rm -rf node_modules && npm ci` in that worktree alone (no other install running anywhere else) and
   re-run the gate before concluding anything about the code.
+
+## Worker etiquette (added 2026-09-24)
+
+See `docs/WORKER_QUEUE.md`: commit WIP at least every ~45 minutes and always before stopping; stop and ask ("QUESTION FOR INTEGRATOR") instead of guessing on ambiguous specs, product decisions, new dependencies or files outside your ownership list; keep side quests out of the code (list them as "Noticed, not done"); never call live services or add keys to any file.

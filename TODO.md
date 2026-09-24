@@ -785,9 +785,9 @@ an active queue.*
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
   - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
-        **T-107a** (Codex; worktree `air-wt-documents-core`, prompt in `docs/PENDING_WORKER_PROMPTS_WAVE2.md`) = shared
+        **T-107a** (Codex B; worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
         `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
-        technicians; **T-107b** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
+        technicians; **T-107b** (Codex B, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
         logo fix. Contract: `src/types/documentOptions.ts`. Original spec:
         Audit (2026-09-24): `hideMaterials` works on the INVOICE only (in-app, print/PDF, email; email path
         unit-tested; a real send has not been click-verified — add to NH-8); the REPORT has no hide toggles and
@@ -812,7 +812,7 @@ an active queue.*
         off, offered in Settings) so `bookAppointment` also creates a linked draft job (customer resolved via
         `resolveCustomer`, address/service/intake carried in, `appointmentId` link), idempotent per appointment,
         with a Pipeline/Jobs indicator "created from call". Must not double-create when staff also tap Create Job.
-  - [ ] T-109 — **Email -> request intake** (creates a LEAD/request for review, never a job — see T-113). No inbound email exists. Design + build: a per-tenant intake address
+  - [ ] T-109 — (Codex A, after T-113) **Email -> request intake** (creates a LEAD/request for review, never a job — see T-113). No inbound email exists. Design + build: a per-tenant intake address
         (Resend inbound or forwarding), the message parsed by the existing AI layer into customer / address /
         scope / urgency, creating a LEAD (default) or draft job for one-click review; attachments become job photos
         (respecting the 24-photo cap); spam/abuse limits (rate limit, sender allowlist option); never auto-replies.
@@ -848,7 +848,7 @@ an active queue.*
         Vapi lookups). Superadmin config page + PUT: provider selector, agentId / phoneNumberId / phoneNumber
         fields (validated), shown only when ElevenLabs is selected; default stays Vapi. `/api/health` reports
         `elevenlabs: configured|not_configured` (env `ELEVENLABS_API_KEY`). Never log keys. Full mocked-fetch tests.
-  - [ ] T-111b — **ElevenLabs inbound webhooks + provisioning** (Deepseek). Routes under
+  - [ ] T-111b — **ElevenLabs inbound webhooks + provisioning** (Deepseek wrote ~90% as WIP `16f8d5e`, then ran out of credits; **Codex A finishes it — `docs/WORKER_QUEUE.md` A1**; remaining: verify/possibly revert the Vapi-route refactor, real lookups instead of the shim, 2 failing tests, ~10 test-mock type errors, doc + build). Routes under
         `src/app/api/webhooks/elevenlabs/`: `initiation` (auth via secret header; resolve tenant by called number /
         agent id; return per-call `dynamic_variables` + `conversation_config_override` built from
         `buildAgentPrompt` + current date/after-hours context + greeting WITH the T-102 recording notice + language +
@@ -893,12 +893,12 @@ an active queue.*
       which unlocks scheduling on the Calendar — or DECLINE and send a polite decline. In ALL cases the admin/user creates
       the job; nothing is auto-created. (Audit: confirm, cancel, Call Back and T-083 "Create Job" already exist; missing
       are the unified review card, a real decline with customer notification, and "missing information" prompts.)
-  - [ ] T-113 — **Request review card + decline flow** (Deepseek; worktree `air-wt-request-review`; prompt in
-        `docs/PENDING_WORKER_PROMPTS_WORKFLOW_UX.md`). One shared `RequestReviewCard` used by Pipeline and Calls: caller,
+  - [ ] T-113 — **Request review card + decline flow** (Codex A; worktree `air-wt-request-review`; prompt in
+        `docs/WORKER_QUEUE.md` A2). One shared `RequestReviewCard` used by Pipeline and Calls: caller,
         what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
         strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
         Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
-  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Codex; worktree `air-wt-ux-pass`). Feedback is for CLIENT users only
+  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Codex B; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). Feedback is for CLIENT users only
         (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
         reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
         shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the
