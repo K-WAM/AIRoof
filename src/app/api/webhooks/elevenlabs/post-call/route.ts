@@ -28,7 +28,7 @@ import {
   claimElevenLabsPostCallEvent,
   verifyElevenLabsPostCallSignature,
 } from "@/lib/voice/elevenlabs/webhookAuth";
-import { findBusinessByElevenLabsAgentId } from "@/lib/voice/elevenlabs/businessLookupShim";
+import { findBusinessByElevenLabsAgentId } from "@/lib/vapi/businessLookup";
 import { getElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import {
   normalizeProviderTranscriptMessages,

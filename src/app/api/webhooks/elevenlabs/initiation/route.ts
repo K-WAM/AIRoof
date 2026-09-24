@@ -25,7 +25,7 @@ import { verifyElevenLabsToolSecret } from "@/lib/voice/elevenlabs/webhookAuth";
 import {
   findBusinessByElevenLabsAgentId,
   findBusinessByElevenLabsPhoneNumber,
-} from "@/lib/voice/elevenlabs/businessLookupShim";
+} from "@/lib/vapi/businessLookup";
 import {
   buildInitiationResponse,
   genericInitiationResponse,

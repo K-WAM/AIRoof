@@ -16,7 +16,7 @@ vi.mock("@/lib/firebase/admin", () => ({
 vi.mock("@/lib/ai/deepseekClient", () => ({
   classifyCallOutcome: mocks.classifyCallOutcome,
 }));
-vi.mock("@/lib/voice/elevenlabs/businessLookupShim", () => ({
+vi.mock("@/lib/vapi/businessLookup", () => ({
   findBusinessByElevenLabsAgentId: mocks.findBusinessByElevenLabsAgentId,
 }));
 

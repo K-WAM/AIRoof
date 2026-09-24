@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/firebase/admin", () => ({
   getAdminFirestore: mocks.getAdminFirestore,
 }));
-vi.mock("@/lib/voice/elevenlabs/businessLookupShim", () => ({
+vi.mock("@/lib/vapi/businessLookup", () => ({
   findBusinessByElevenLabsAgentId: mocks.findBusinessByElevenLabsAgentId,
   findBusinessByElevenLabsPhoneNumber: mocks.findBusinessByElevenLabsPhoneNumber,
 }));
