@@ -946,6 +946,14 @@ an active queue.*
         (fixes T-106's prompt half too), driven by the vertical template (no per-industry `if`), A/B-tested against the dashboard Alice prompt on the
         ElevenLabs test tenant. Also fix stale UI/help text in the admin config page that still says "Vapi IDs" for provider-neutral settings
         (auto-callback help, page subtitle). Model: Terra medium (prompt builder is tested but sensitive: live behavior).
+  - [ ] T-119 — **Declutter the admin business-config form and make it provider-aware** (Deepseek, V4 Flash Think High — bounded UI, no live-path logic). Owner
+        (2026-09-24): "the form is annoying… if the agent doesn't need to be configured here, keep config in ElevenLabs." Design: with ElevenLabs per-call overrides
+        the app still owns the BUSINESS rules (industry template, services/FAQs/emergency+booking rules, greeting, agent name, recording notice, intake fields) —
+        keep those; voice/LLM/turn-taking/tools live in ElevenLabs. So: when Phone provider = ElevenLabs hide Vapi-only fields and the per-language "voice
+        overrides" block (move under a collapsed "Advanced"), drop unused Plan tier/Role controls if nothing reads them (verify with grep first), group the page
+        into 4 clear sections (Business, Phone provider, What the AI says, Routing/notifications), add a short "where things live" note, keep Save sticky at the
+        bottom, and show validation errors inline next to the field. Fixed 2026-09-24 (837a6d6): the save 500 (Firestore read-after-write in the config
+        transaction) and the page swallowing the server's message — do not regress either.
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
