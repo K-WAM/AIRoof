@@ -82,4 +82,51 @@ describe("Modal", () => {
     );
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
+
+  // T-114 focus contract (useFocusTrap): Tab cycles inside, closing returns
+  // focus to the trigger, and an autoFocus'd child is not overridden.
+  it("keeps Tab and Shift+Tab cycling inside the dialog", () => {
+    render(
+      <Modal open onClose={() => {}} title="Quick add">
+        <button>Inner</button>
+      </Modal>
+    );
+    const close = screen.getByRole("button", { name: "Close" });
+    const inner = screen.getByRole("button", { name: "Inner" });
+
+    inner.focus();
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(close).toHaveFocus();
+
+    close.focus();
+    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    expect(inner).toHaveFocus();
+  });
+
+  it("returns focus to the trigger when it closes", () => {
+    const trigger = document.createElement("button");
+    trigger.textContent = "Open quick add";
+    document.body.appendChild(trigger);
+    trigger.focus();
+
+    const { unmount } = render(
+      <Modal open onClose={() => {}} title="Quick add">
+        Hello
+      </Modal>
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    unmount();
+    expect(trigger).toHaveFocus();
+    trigger.remove();
+  });
+
+  it("does not steal focus from an autoFocus'd child control", () => {
+    render(
+      <Modal open onClose={() => {}} title="Quick add">
+        <input aria-label="Message" autoFocus />
+      </Modal>
+    );
+    expect(screen.getByLabelText("Message")).toHaveFocus();
+  });
 });

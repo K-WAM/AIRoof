@@ -90,7 +90,7 @@ an active queue.*
 | 17 Work Catalog & Bilingual Line (owner-added, 2026-09-24) | T-105 (a+b), T-106 | not CIB-weighted | 🕓 **T-105 (a+b) done + merged 2026-09-24; T-106 open (after the T-110 bake-off)** | T-105: generic problems + standard solutions in the Library, ticked per job into Report / Invoice / Quote; T-106: one phone line that serves English and Spanish callers |
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
-| 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **assigned 2026-09-24** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
+| 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **T-114 review (2026-09-24); T-113 assigned** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
 
 ### Checklist
 
@@ -886,7 +886,7 @@ an active queue.*
         (k) **port the number** to Twilio/Telnyx for full takeover (days to weeks; only when the business wants it);
         (l) provider choice for provisioned AI-line numbers: Twilio first (native ElevenLabs import, API-driven number
         purchase for in-app provisioning), Telnyx later if per-minute cost matters.
-- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — 0/2
+- [ ] Phase 20 — Request Review Workflow & UX Pass (owner-added, 2026-09-24) — T-114 in review; T-113 assigned
       **Owner workflow decision (2026-09-24):** the AI agent takes a call, records the details, and puts a REQUEST in the
       Pipeline. The admin/user opens it (from Pipeline or by clicking the call) and sees the collected information in a
       clear card. They then either ACCEPT — send a confirmation (email and/or an AI callback) and create the job themselves,
@@ -898,7 +898,7 @@ an active queue.*
         what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
         strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
         Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
-  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Deepseek, deepseek-chat; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). Feedback is for CLIENT users only
+  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Deepseek, deepseek-chat; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). **status: `review` (2026-09-24)** — branch `task/ux-pass`, commits `60e184e` + `c4f86e9` + the evidence commit; awaiting integrator review (full evidence in `docs/IMPLEMENTATION_LOG.md`). Feedback is for CLIENT users only
         (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
         reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
         shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the

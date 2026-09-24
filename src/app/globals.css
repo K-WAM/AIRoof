@@ -4,10 +4,17 @@
   --surface-muted: #f1f5f9;
   --border: #e2e8f0;
   --text: #0f172a;
-  --text-muted: #64748b;
+  /* AA on BOTH --surface (#fff, 5.1:1) and --background/--surface-muted
+     (#f1f5f9, 4.7:1) — the old #64748b was 4.34:1 on the page background,
+     just under WCAG AA for body text (T-114 contrast audit). */
+  --text-muted: #5f6f85;
   --accent: #0f766e;
   --accent-dark: #115e59;
   --accent-soft: rgba(15, 118, 110, 0.1);
+  /* The dark admin/hub sidebar needs a lighter teal for text/icons to clear
+     AA on #060c18; it stays the same hue family as --accent. */
+  --accent-on-dark: #2dd4bf;
+  --accent-soft-dark: rgba(20, 184, 166, 0.1);
   --warning: #b45309;
   --success: #15803d;
   --danger: #b91c1c;
@@ -16,6 +23,8 @@
 
   /* Keyboard focus ring — applied app-wide via :focus-visible */
   --ring: 0 0 0 3px rgba(15, 118, 110, 0.35);
+  /* Darker surfaces need a brighter ring to stay visible (T-114). */
+  --ring-dark: 0 0 0 3px rgba(45, 212, 191, 0.5);
 
   /* Border-radius scale */
   --r-sm: 6px;
@@ -37,7 +46,10 @@
   --c-success-bg: #dcfce7; --c-success-fg: #166534; --c-success-bd: #bbf7d0;
   --c-info-bg: #dbeafe;    --c-info-fg: #1e40af;    --c-info-bd: #bfdbfe;
   --c-warn-bg: #fef3c7;    --c-warn-fg: #92400e;    --c-warn-bd: #fde68a;
-  --c-neutral-bg: #f1f5f9; --c-neutral-fg: #64748b; --c-neutral-bd: #e2e8f0;
+  --c-neutral-bg: #f1f5f9; --c-neutral-fg: #5f6f85; --c-neutral-bd: #e2e8f0;
+
+  /* Shared backdrop for every overlay surface (Modal.tsx, Sheet.tsx) */
+  --backdrop: rgba(15, 23, 42, 0.55);
 }
 
 /*
@@ -80,6 +92,13 @@ textarea:focus-visible,
   outline: none;
   box-shadow: var(--ring);
   border-radius: inherit;
+}
+
+/* On the dark admin/hub sidebar the teal ring above reads dimmer — brighten it. */
+.admin-sidebar a:focus-visible,
+.admin-sidebar button:focus-visible,
+.admin-sidebar [tabindex]:focus-visible {
+  box-shadow: var(--ring-dark);
 }
 
 * {
@@ -195,15 +214,25 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 40px;
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 14.5px;
   font-weight: 500;
   color: #cbd5e1;
   transition: background 0.15s, color 0.15s;
+  /* Full reset for the <button> form of a nav item (Feedback) — without this
+     the UA button background/border rendered as a pale, low-contrast box on
+     the dark sidebar (T-114). Links are unaffected by the reset. */
+  background: none;
+  border: 0;
   border-left: 2px solid transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
   text-decoration: none;
-  line-height: 1;
+  line-height: 1.25;
   margin-bottom: 2px;
 }
 
@@ -212,10 +241,11 @@ a {
   color: #ffffff;
 }
 
-.nav-link[aria-current="page"] {
-  background: rgba(20, 184, 166, 0.08);
-  color: #2dd4bf;
-  border-left-color: #14b8a6;
+.nav-link[aria-current="page"],
+.nav-link[data-state="open"] {
+  background: var(--accent-soft-dark);
+  color: var(--accent-on-dark);
+  border-left-color: var(--accent-on-dark);
 }
 
 .nav-link-icon {
@@ -244,6 +274,7 @@ a {
   display: flex;
   align-items: center;
   gap: 7px;
+  min-height: 40px;
   padding: 8px 10px;
   border-radius: 6px;
   font-size: 13px;
@@ -281,6 +312,7 @@ a {
   font-weight: 500;
   cursor: pointer;
   padding: 0;
+  min-height: 40px;
   transition: color 0.1s;
   font-family: inherit;
 }
@@ -591,11 +623,31 @@ a.panel:hover {
   font-size: 13px;
 }
 
+/* Touch targets: compact controls grow to 40px on touch/coarse pointers
+   (desktop keeps its density). T-114. */
+@media (pointer: coarse) {
+  .button.small {
+    min-height: 40px;
+  }
+}
+
 .button:disabled,
 .button[aria-disabled="true"] {
-  opacity: 0.55;
+  /* No opacity fade: a 55%-transparent teal button left white text at ~2.3:1
+     (T-114 — the disabled "Send" was unreadable). Explicit token colors keep
+     the disabled state clearly readable in every variant. */
+  opacity: 1;
   cursor: not-allowed;
   box-shadow: none;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.button:disabled:hover,
+.button[aria-disabled="true"]:hover {
+  background: var(--surface-muted);
+  color: var(--text-muted);
 }
 
 /* Reusable low-emphasis delete/remove icon button (was near-invisible #cbd5e1) */
@@ -731,6 +783,7 @@ a.panel:hover {
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
+  min-height: 40px;
   padding: 6px 12px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -766,8 +819,8 @@ a.panel:hover {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -789,6 +842,7 @@ a.panel:hover {
   display: flex;
   align-items: center;
   gap: 9px;
+  min-height: 40px;
   color: var(--text-muted);
   padding: 9px 12px;
   border-radius: 8px;
@@ -810,10 +864,22 @@ a.panel:hover {
   color: var(--text);
 }
 
-.company-nav a[aria-current="page"] {
-  background: rgba(15, 118, 110, 0.1);
-  color: #0f766e;
+.company-nav a[aria-current="page"],
+.company-nav-trigger[data-state="open"] {
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: 600;
+}
+
+/* "Help" group inside the company nav's secondary block (Guide + Feedback). */
+.company-nav-section-label {
+  margin: 8px 0 2px;
+  padding: 0 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
 }
 
 /* ── Skeleton loaders (replace bare "Loading…" text) ─────────────────── */
@@ -1803,6 +1869,48 @@ a.metric:hover {
   font-size: 13px;
 }
 
+.chip.warn {
+  background: var(--c-warn-bg);
+  border-color: var(--c-warn-bd);
+  color: var(--c-warn-fg);
+}
+
+/* Admin → Clients "Sync live phone assistants" result rows — scannable
+   name + detail pairs instead of a single run-on line (T-114). */
+.sync-list {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.sync-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.sync-list-item-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sync-list-item-detail {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.sync-list-item-detail.is-error {
+  color: var(--c-danger-fg);
+}
+
 .faq-list {
   display: grid;
   gap: 10px;
@@ -2284,7 +2392,7 @@ a.metric:hover {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--backdrop);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -2321,14 +2429,22 @@ a.metric:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
+}
+
+@media (pointer: coarse) {
+  .modal-close,
+  .modal-back {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 .modal-close:hover,
@@ -2352,7 +2468,7 @@ a.metric:hover {
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--backdrop);
   display: flex;
   align-items: flex-end;
   justify-content: center;

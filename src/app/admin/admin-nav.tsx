@@ -11,6 +11,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainLinks = [
   { href: "/admin/businesses", label: "Clients", Icon: Building2 },
@@ -24,6 +25,10 @@ const toolLinks = [
 export function AdminNav() {
   const pathname = usePathname();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Feedback is for client users (T-114) — a superadmin never needs it, and
+  // nothing renders until the profile has resolved so the control can't flash.
+  const { user, loading } = useAuth();
+  const showFeedback = !loading && !user?.superadmin;
 
   return (
     <nav className="admin-nav" aria-label="Admin navigation">
@@ -54,15 +59,18 @@ export function AdminNav() {
             {label}
           </Link>
         ))}
-        <button
-          type="button"
-          className="nav-link"
-          onClick={() => setFeedbackOpen(true)}
-          aria-label="Send feedback"
-        >
-          <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
-          Feedback
-        </button>
+        {showFeedback && (
+          <button
+            type="button"
+            className="nav-link"
+            data-state={feedbackOpen ? "open" : undefined}
+            onClick={() => setFeedbackOpen(true)}
+            aria-label="Send feedback"
+          >
+            <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
+            Feedback
+          </button>
+        )}
       </div>
       <div className="nav-spacer" />
       {/* Demo Studio, the onboarding wizard, and Playbooks moved to their own
@@ -71,7 +79,7 @@ export function AdminNav() {
         <ArrowRight size={13} strokeWidth={1.75} className="nav-link-icon" />
         Open Hub (Demo, Onboarding, Playbooks)
       </Link>
-      <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+      {showFeedback && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );
 }

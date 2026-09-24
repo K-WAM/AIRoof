@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface SheetProps {
   open: boolean;
@@ -14,20 +15,12 @@ interface SheetProps {
  * click-outside to dismiss) — the mobile-appropriate sibling of Modal.tsx's centered dialog.
  * New mobile-style popups should use this instead of hand-rolling another
  * "position: fixed; inset: 0; align-items: flex-end" (PhotoCapture's own upload prompt and the
- * job-photo lightbox both predate this).
+ * job-photo lightbox both predate this). Same focus contract as Modal (T-114).
  */
 export function Sheet({ open, onClose, title, children }: SheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    panelRef.current?.focus();
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  useFocusTrap(open, panelRef, { onEscape: onClose });
 
   if (!open) return null;
 
