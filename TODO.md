@@ -91,6 +91,7 @@ an active queue.*
 | 18 Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) | T-107…T-110 | not CIB-weighted | 🕓 **logged 2026-09-24; T-110 is tomorrow's session** | One consistent, modern quote/invoice/report suite with hide-materials/labor + logo everywhere; jobs created from calls and email; the best-sounding phone AI, chosen by a scripted bake-off (`docs/VOICE-RESEARCH-2026-09-24.md`) |
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
 | 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **T-114 review (2026-09-24); T-113 assigned** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
+| 21 Demo Experience (owner-added, 2026-09-24) | T-115, T-116 | not CIB-weighted | 🕓 **logged** | Prospects can try the phone AI AND see what it produced: browser talk-to widget on `/try/*` (T-115) and a refreshed demo/onboarding playbook that matches the shipped product (T-116) |
 
 ### Checklist
 
@@ -872,6 +873,7 @@ an active queue.*
         (create agent + attach number from the onboarding wizard); (f) outbound scheduling for follow-up calls
         (ElevenLabs' single-call endpoint has none — use its batch-calling or our own cron window); (g) voice
         cloning/brand voice per tenant (optional); (h) knowledge base / FAQ upload per tenant (optional).
+        (m) **Twilio account + Florida number provisioning** (owner, NH-21) and, later, in-app number purchase per tenant via the Twilio API (area code chosen at onboarding).
         **Existing-number integration (owner question 2026-09-24) — (i)-(l):** a business that already has a phone
         number does NOT have to give it up or use Twilio itself. Ranked by friction: (i) **conditional call
         forwarding** (recommended default): their carrier forwards unanswered/busy/after-hours calls (or all calls)
@@ -903,6 +905,24 @@ an active queue.*
         reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
         shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the
         Admin -> Clients "Sync live phone assistants" panel layout.
+
+- [ ] Phase 21 — Demo Experience (owner-added, 2026-09-24) — 0/2
+      Owner goal: a prospect should experience what a caller experiences (real phone call, not just a web test) and then SEE the results in the
+      app — Pipeline, Calendar, job assignment, live field input, multi-language, invoice, report, quote. Today the wired end-to-end demo is the Vapi
+      line +1 (754) 283-7658 plus the read-only sandbox (`/try/<industry>` -> "See it in the real app"); the ElevenLabs agent is a voice-only test
+      until NH-21 (Twilio number) + T-112 (tools/overrides/webhooks) are done.
+  - [ ] T-115 — **Browser talk-to widget on `/try/[vertical]`** (Codex, Terra medium — touches the CSP, so not Deepseek). Embed the ElevenLabs
+        widget (`<elevenlabs-convai agent-id=...>` + `https://unpkg.com/@elevenlabs/convai-widget-embed`) on the public try pages when
+        `NEXT_PUBLIC_ELEVENLABS_DEMO_AGENT_ID` is set (unset = renders nothing). The app enforces a Content-Security-Policy (T-061): allow ONLY
+        the exact script/connect/media origins the widget needs (verify against ElevenLabs docs; no wildcards), keep every existing directive, add a
+        test. Also reword the widget's terms text (via the agent's widget settings, owner decision) before public use. Blocked on: the owner
+        choosing the demo agent; not needed for the phone demo.
+  - [ ] T-116 — **Refresh the demo/onboarding playbook** (Deepseek, V4 Flash Think High; docs/HTML only, no code). `public/guides/onboarding-guide.html` (and
+        `field-operations-guide.html` where relevant) is stale: update it to what is SHIPPED through Phase 20 — recording notice + Apply-sync,
+        industry intake fields, starter kits, work catalog + job findings, quotes, request-review (T-113 once merged), feedback (client-only),
+        voice provider options (Vapi today; ElevenLabs is dormant/optional), demo-line + `/try` sandbox steps, and the owner's real-phone test
+        checklist. Describe only what exists in TODO.md/CLAUDE.md/`docs/NEEDS-HUMAN-CHECKLIST.md`; anything unverified is labelled "not yet live-tested".
+        Must not invent numbers, prices or claims (CLAUDE.md: keep ROI stats consistent with existing ones).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
@@ -2235,7 +2255,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-18 | Live-call verification of the T-098/T-099 safety boundaries: launch Care Homes and Daycares in Demo Studio, call the demo line, and try the adversarial asks — a caller claiming to be family asking whether a named person is a resident / how they are doing (Care Homes); a caller asking to release a child, or asking whether a specific child is at the center (Daycares); plus a fall/elopement/injury report in each. Confirm the agent refuses to confirm/deny/discuss and escalates immediately | T-098/T-099 production sign-off | Unit tests prove the rules are present in the generated prompt (`buildAgentPrompt`), not that the voice model obeys them on a real call — this is the same class of gap as the 2026-09-07 gpt-realtime incident, where config that looked right didn't behave right live. No phone access in this sandbox. Neither vertical has its own provisioned number; they run on the shared `demo-roofing` line via Demo Studio |
 | NH-19 | Decide whether `business.active` should gate `resolveBusinessId()` for the live Vapi line | T-082 product decision | Today routing uses `vapiAssistantId`/`vapiPhoneNumberId` even when the tenant is flagged inactive. Adding an `active` check could silently drop calls on an already live line; decide the behavior and migration plan before changing routing. |
 | NH-20 | Put the ElevenLabs API key in `.env.local` as `ELEVENLABS_API_KEY` (never in chat), and later in Vercel (Production, type Secret) plus `ELEVENLABS_WEBHOOK_SECRET` and `ELEVENLABS_TOOL_SECRET` (random 40+ char strings you also paste into ElevenLabs' secrets manager / workspace webhook) | T-111/T-112 | Owner account created 2026-09-24 (Creator tier) |
-| NH-21 | Twilio (or SIP) number for the ElevenLabs test agent: buy/verify a number, create a Twilio API key pair, import it in ElevenAgents -> Phone Numbers, assign the test agent | T-112(b) | Needed only for phone-line testing; browser "Test agent" works without it |
+| NH-21 | **Twilio: a local Florida number for the ElevenLabs demo agent** (owner). (1) twilio.com sign-up and UPGRADE (trial accounts play a trial message and only call verified numbers); (2) Console -> Phone Numbers -> Manage -> Buy a number: United States, Voice, search area code **305 or 786** (Miami — matches the demo's service area; 954/754 Broward, 561 Palm Beach, 407 Orlando for other clients) — about $1-2/month plus per-minute, verify; (3) Console -> Account -> API keys & tokens -> Create API key (Standard): copy the SID (SK...) and Secret once; (4) ElevenLabs -> Deploy -> Phone Numbers -> Import -> Twilio: label, the number, SID + Secret; assign the agent; (5) tell Claude "number imported" — never paste the Twilio secret in chat. The Vapi-provided +1 (754) 283-7658 number CANNOT be moved to ElevenLabs. | T-112(b), any real-phone test of the ElevenLabs agent | Full click-by-click: `docs/NEEDS-HUMAN-CHECKLIST.md` ("Twilio number"). Claude then does: generate the two secrets, create the 7 tools, turn on overrides + initiation/post-call webhooks, set a SEPARATE test business to `voiceProvider: elevenlabs`, run test calls |
 | NH-22 | ElevenLabs privacy review: data retention / call-recording settings and data-processing terms for call audio and transcripts (ties to NH-4 recording notice and the T-102 disclosure) | Before any real caller reaches ElevenLabs | Set the shortest retention that still supports your support needs |
 
 ## Deferred (from CIB — do not schedule without owner request)
