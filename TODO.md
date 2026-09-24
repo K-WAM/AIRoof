@@ -92,6 +92,7 @@ an active queue.*
 | 19 ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) | T-111a/b, T-112 | not CIB-weighted | 🕓 **T-111 assigned 2026-09-24; T-112 todo list** | Per-tenant `voiceProvider` (vapi default / elevenlabs) so calls can move to ElevenLabs Agents if the T-110 bake-off says so — field notes/reports are unaffected (they use Whisper + GPT-4o, not the phone provider) |
 | 20 Request Review Workflow & UX Pass (owner-added, 2026-09-24) | T-113, T-114 | not CIB-weighted | 🕓 **T-114 review (2026-09-24); T-113 assigned** | Phone AI captures a request -> admin reviews it in one clear card -> accept (confirm + create the job yourself) or decline (polite email); never auto-create jobs. Plus feedback fix (client-only) + app-shell UX pass |
 | 21 Demo Experience (owner-added, 2026-09-24) | T-115, T-116 | not CIB-weighted | 🕓 **logged** | Prospects can try the phone AI AND see what it produced: browser talk-to widget on `/try/*` (T-115) and a refreshed demo/onboarding playbook that matches the shipped product (T-116) |
+| 22 Vapi -> ElevenLabs migration (owner direction, 2026-09-24) | T-117 | not CIB-weighted | 🕓 **P0 done; P1 next** | Tenant-by-tenant rollout behind `voiceProvider`, Vapi kept as instant rollback until ~30 stable days; owner sign-off gates demo-line switch, default-for-new-clients, and Vapi decommission |
 
 ### Checklist
 
@@ -900,13 +901,13 @@ an active queue.*
         what they want, T-100 intake rows, AI summary + transcript excerpt + recording, flags, and a "missing information"
         strip; actions Accept (confirm + notify + open the prefilled job form; appointments-mode tenants just confirm),
         Decline & notify (reasons, polite branded email in a new `requestDeclineEmail.ts`, honest no-email path), AI call back.
-  - [ ] T-114 — **Feedback fix + app-shell UX pass** (Deepseek, deepseek-chat; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). **status: `review` (2026-09-24)** — branch `task/ux-pass`, commits `60e184e` + `c4f86e9` + the evidence commit; awaiting integrator review (full evidence in `docs/IMPLEMENTATION_LOG.md`). Feedback is for CLIENT users only
+  - [x] T-114 — **Feedback fix + app-shell UX pass** (DONE + merged 2026-09-24; Deepseek; worktree `air-wt-ux-pass`; prompt in `docs/WORKER_QUEUE.md` B1). **status: `review` (2026-09-24)** — branch `task/ux-pass`, commits `60e184e` + `c4f86e9` + the evidence commit; awaiting integrator review (full evidence in `docs/IMPLEMENTATION_LOG.md`). Feedback is for CLIENT users only
         (hidden for superadmin in all three navs, incl. preview), client-facing wording ("Send feedback to Luxor", "We'll
         reply to: <email>" instead of a misleading "From"), readable disabled state, one consistent nav treatment; bounded
         shell pass: contrast (WCAG AA) via tokens, focus rings, touch targets/mobile nav, modal consistency, and tidy the
         Admin -> Clients "Sync live phone assistants" panel layout.
 
-- [ ] Phase 21 — Demo Experience (owner-added, 2026-09-24) — 0/2
+- [ ] Phase 21 — Demo Experience (owner-added, 2026-09-24) — 1/2 (T-116 done; T-115 widget open)
       Owner goal: a prospect should experience what a caller experiences (real phone call, not just a web test) and then SEE the results in the
       app — Pipeline, Calendar, job assignment, live field input, multi-language, invoice, report, quote. Today the wired end-to-end demo is the Vapi
       line +1 (754) 283-7658 plus the read-only sandbox (`/try/<industry>` -> "See it in the real app"); the ElevenLabs agent is a voice-only test
@@ -917,12 +918,26 @@ an active queue.*
         the exact script/connect/media origins the widget needs (verify against ElevenLabs docs; no wildcards), keep every existing directive, add a
         test. Also reword the widget's terms text (via the agent's widget settings, owner decision) before public use. Blocked on: the owner
         choosing the demo agent; not needed for the phone demo.
-  - [ ] T-116 — **Refresh the demo/onboarding playbook** (Deepseek, V4 Flash Think High; docs/HTML only, no code). **status: `review` (2026-09-24)** — branch `task/guide-refresh`, commits `6f4c5d0` + `a73cc24` + the evidence commit; awaiting integrator review (evidence in `docs/IMPLEMENTATION_LOG.md`). `public/guides/onboarding-guide.html` (and
+  - [x] T-116 — (DONE + merged 2026-09-24) **Refresh the demo/onboarding playbook** (Deepseek, V4 Flash Think High; docs/HTML only, no code). **status: `review` (2026-09-24)** — branch `task/guide-refresh`, commits `6f4c5d0` + `a73cc24` + the evidence commit; awaiting integrator review (evidence in `docs/IMPLEMENTATION_LOG.md`). `public/guides/onboarding-guide.html` (and
         `field-operations-guide.html` where relevant) is stale: update it to what is SHIPPED through Phase 20 — recording notice + Apply-sync,
         industry intake fields, starter kits, work catalog + job findings, quotes, request-review (T-113 once merged), feedback (client-only),
         voice provider options (Vapi today; ElevenLabs is dormant/optional), demo-line + `/try` sandbox steps, and the owner's real-phone test
         checklist. Describe only what exists in TODO.md/CLAUDE.md/`docs/NEEDS-HUMAN-CHECKLIST.md`; anything unverified is labelled "not yet live-tested".
         Must not invent numbers, prices or claims (CLAUDE.md: keep ROI stats consistent with existing ones).
+
+- [ ] Phase 22 — Vapi -> ElevenLabs migration (owner direction, 2026-09-24: "smoothly move to ElevenLabs away from Vapi") — 0/1
+  - [ ] T-117 — **Migrate phone AI from Vapi to ElevenLabs Agents, tenant by tenant, with rollback.** Both providers coexist behind
+        `voiceProvider` (T-111), so this is a rollout plan, not a rewrite. **P0 (done 2026-09-24):** ElevenLabs agent + Twilio (689) number +
+        7 tools + per-call overrides + initiation webhook wired; prod env set; separate test tenant. **P1 parity proof (before any customer or the
+        demo line):** the 10 scripted bake-off calls (`docs/VOICE-RESEARCH-2026-09-24.md`) on the test tenant; verify Pipeline/lead/appointment/
+        call-record parity with Vapi calls, recording notice spoken first, after-hours + escalation behavior, bilingual switching, request review
+        card (T-113), measured cost/minute; add ElevenLabs equivalents of the ops guards Vapi has (webhook-health alerting like T-065, call-record
+        reconciliation), decide retention/recording policy (NH-22, NH-4), outbound follow-ups (single-call endpoint cannot schedule — keep cron-window
+        approach), concurrency plan (Creator ~10 concurrent). **P2 demo line:** move the DEMO tenant (the shared universal demo tenant) to a Twilio
+        561 (Boca) number on ElevenLabs; keep Vapi +1 (754) 283-7658 as fallback/forward for 2 weeks. **P3 default:** new clients default to
+        ElevenLabs in the onboarding wizard; migrate any real tenants one at a time, each with the per-tenant flag as instant rollback and a
+        forwarded-number fallback. **P4 decommission (only after ~30 stable days and owner sign-off):** cancel Vapi numbers/plan, remove the Vapi
+        webhook + client + sync paths and dead code, update the onboarding guide + CLAUDE.md, rotate/remove Vapi env. Owner sign-off gates P2, P3, P4.
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring

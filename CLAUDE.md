@@ -259,7 +259,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/company/calls/page.tsx — Company call history/transcript (system prompt filtered)
 - src/app/company/appointments/page.tsx — Compatibility redirect to the unified Pipeline
 - src/app/company/jobs/page.tsx — Job list with status badges + create form
-- src/app/company/jobs/[jobId]/page.tsx — Job detail: 6 tabs (timeline/materials/labor/issues/invoice/report)
+- src/app/company/jobs/[jobId]/page.tsx — Job detail: 9 tabs (timeline/materials/labor/issues/photos/findings/invoice/quote/report)
 - src/app/field/page.tsx — Field QR screen: scoped exchange token + Whisper voice recording
 - src/app/company/field/page.tsx — Authenticated field screen: Whisper pipeline, job log display
 - src/app/api/jobs/route.ts — GET list + POST create (atomic J-XXXX short ID via runTransaction)
