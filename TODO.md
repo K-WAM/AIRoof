@@ -938,6 +938,14 @@ an active queue.*
         ElevenLabs in the onboarding wizard; migrate any real tenants one at a time, each with the per-tenant flag as instant rollback and a
         forwarded-number fallback. **P4 decommission (only after ~30 stable days and owner sign-off):** cancel Vapi numbers/plan, remove the Vapi
         webhook + client + sync paths and dead code, update the onboarding guide + CLAUDE.md, rotate/remove Vapi env. Owner sign-off gates P2, P3, P4.
+  - [ ] T-118 — **Carry the human speech style + Spanish invitation into the app-generated prompt (provider-neutral) and clean stale Vapi wording.**
+        Found 2026-09-24: with ElevenLabs per-call overrides ON, the tenant's app-generated greeting/prompt (`buildAgentPrompt`, greeting template,
+        recording notice) REPLACES the hand-written "Alice" prompt that tested so human in the ElevenLabs dashboard, and the app greeting lacks the
+        bilingual invitation ("Y si prefiere español, con gusto le ayudo"). Add a config-driven "How you speak" section (short turns, one question at a
+        time, natural acknowledgements, spell-back rules, honest robot/recording answers) + an optional bilingual suffix when `agentLanguages` has both
+        (fixes T-106's prompt half too), driven by the vertical template (no per-industry `if`), A/B-tested against the dashboard Alice prompt on the
+        ElevenLabs test tenant. Also fix stale UI/help text in the admin config page that still says "Vapi IDs" for provider-neutral settings
+        (auto-callback help, page subtitle). Model: Terra medium (prompt builder is tested but sensitive: live behavior).
 
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
