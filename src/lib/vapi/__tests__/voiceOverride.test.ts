@@ -59,4 +59,15 @@ describe("per-language persona voice overrides", () => {
     expect(patchBodies()[0].voice).toEqual(en);
     expect(patchBodies()[1]).not.toHaveProperty("voice");
   });
+
+  it("follows the tenant's own language when the push omits the transcriber language", async () => {
+    // e.g. a recording-notice-only settings save: no transcriberLanguage, tenant is Spanish.
+    await updateAssistantPersona({ assistantId: "assistant", firstMessage: "hola", systemPrompt: "prompt", voiceConfig: { voice: { en, es }, agentLanguage: "es" } });
+    await updateAssistantPersona({ assistantId: "assistant", firstMessage: "hi", systemPrompt: "prompt", voiceConfig: { voice: { en, es }, agentLanguage: "en" } });
+    await updateAssistantPersona({ assistantId: "assistant", firstMessage: "hi", systemPrompt: "prompt", voiceConfig: { voice: { en, es } } });
+    expect(patchBodies().map((body) => body.voice)).toEqual([es, en, en]);
+    // Spanish tenant with only an English override: no English voice forced onto a Spanish line.
+    await updateAssistantPersona({ assistantId: "assistant", firstMessage: "hola", systemPrompt: "prompt", voiceConfig: { voice: { en }, agentLanguage: "es" } });
+    expect(patchBodies()[3]).not.toHaveProperty("voice");
+  });
 });

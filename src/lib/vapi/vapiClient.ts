@@ -79,7 +79,7 @@ export interface UpdateAssistantPersonaInput {
    */
   transcriberLanguage?: "en" | "es";
   /** Optional per-language override; absent language leaves Vapi's live voice untouched. */
-  voiceConfig?: Pick<BusinessConfig, "voice">;
+  voiceConfig?: Pick<BusinessConfig, "voice" | "agentLanguage">;
 }
 
 /**
@@ -137,7 +137,11 @@ export async function updateAssistantPersona(input: UpdateAssistantPersonaInput)
   if (input.transcriberLanguage) {
     patchBody.transcriber = { ...(current.transcriber ?? {}), language: input.transcriberLanguage };
   }
-  const voice = input.voiceConfig && voiceForLanguage(input.voiceConfig, input.transcriberLanguage ?? "en");
+  // The voice follows the language being pushed; when the caller omits the transcriber language (e.g. a
+  // recording-notice-only save) fall back to the tenant's own language, never a blanket "en" — otherwise
+  // a Spanish tenant would get its English voice override on an unrelated save.
+  const voiceLanguage = input.transcriberLanguage ?? input.voiceConfig?.agentLanguage ?? "en";
+  const voice = input.voiceConfig && voiceForLanguage(input.voiceConfig, voiceLanguage);
   if (voice) patchBody.voice = voice;
 
   const patchRes = await fetch(`${VAPI_BASE_URL}/assistant/${input.assistantId}`, {
