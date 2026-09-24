@@ -1,6 +1,9 @@
 // Vapi REST API client — outbound call initiation only.
 // Webhook-delivered events are handled in /api/webhooks/vapi.
 
+import type { BusinessConfig } from "@/types";
+import { voiceForLanguage } from "./voices";
+
 const VAPI_BASE_URL = process.env.VAPI_BASE_URL ?? "https://api.vapi.ai";
 
 export interface InitiateVapiCallInput {
@@ -75,6 +78,8 @@ export interface UpdateAssistantPersonaInput {
    * this function's own file-level doc note on why.
    */
   transcriberLanguage?: "en" | "es";
+  /** Optional per-language override; absent language leaves Vapi's live voice untouched. */
+  voiceConfig?: Pick<BusinessConfig, "voice">;
 }
 
 /**
@@ -97,9 +102,8 @@ export interface UpdateAssistantPersonaInput {
  * that incident traced back to. Belt-and-suspenders, not just for the transcriber
  * change this function now also makes — every call through here preserves them.
  *
- * NOT touched here: voice. Phase 6 (Spanish) deliberately does not pick a
- * language-specific voiceId — see src/lib/vapi/voices.ts's own doc comment for why
- * (no confirmed-working Spanish voice ID exists in this codebase to switch to).
+ * Voice is sent only for an explicitly configured language override. Otherwise
+ * the live dashboard voice survives this PATCH unchanged.
  */
 export async function updateAssistantPersona(input: UpdateAssistantPersonaInput): Promise<void> {
   const apiKey = process.env.VAPI_API_KEY;
@@ -133,6 +137,8 @@ export async function updateAssistantPersona(input: UpdateAssistantPersonaInput)
   if (input.transcriberLanguage) {
     patchBody.transcriber = { ...(current.transcriber ?? {}), language: input.transcriberLanguage };
   }
+  const voice = input.voiceConfig && voiceForLanguage(input.voiceConfig, input.transcriberLanguage ?? "en");
+  if (voice) patchBody.voice = voice;
 
   const patchRes = await fetch(`${VAPI_BASE_URL}/assistant/${input.assistantId}`, {
     method: "PATCH",

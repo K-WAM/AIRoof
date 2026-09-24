@@ -1244,3 +1244,11 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - All 13 verticals declare a StarterKit and 2–3 dashboard tiles through typed Record<VerticalId, …> values. Pricing-disabled verticals have no starter material or labor entries; every price is labeled "placeholder — edit to match your rates". Every vertical has downloadable document templates; care-home and daycare copies stay at the front office.
 - Library's Load starter kit button calls an owner/staff/superadmin-gated route. A Firestore transaction merges only missing catalog and document entries, preserves tenant edits and prior deletions via import markers, and returns no-store responses. Unknown industries get no kit. The dashboard uses existing lead, appointment, and job records; unknown industries retain the generic tiles.
 - Evidence: type-check green; lint 0 errors / 32 existing warnings; full vitest run 683/683 after final edits, focused starter-kit tests 10/10; next build green with /api/company/library/starter-kit present. No files removed.
+
+## T-103 — Per-tenant and per-language voice override
+
+- Date: 2026-09-23 · branch: `task/voice-override` · commit: this T-103 commit.
+- Added optional English and Spanish `VoiceRef` overrides to `BusinessConfig`. The superadmin config page can save or clear each one; the PUT route validates the exact provider, voice ID, and model shape before storage. No hardcoded Savannah default remains.
+- Persona pushes choose only the configured voice for the pushed language. With no override, the PATCH omits `voice`, preserving the dashboard-selected live voice. The existing speaking-plan readback and PATCH fields remain unchanged.
+- Tests cover no override, exact English override, Spanish/English flips, no stale voice on an unset language, speaking-plan preservation, invalid override rejection, and the superadmin gate.
+- Evidence: type-check green; lint 0 errors / 32 existing warnings; focused Vitest 12/12; full `vitest run` 739/739; `next build` green. No files removed.

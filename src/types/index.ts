@@ -1,5 +1,11 @@
 // Core multi-tenant data types for AI Receptionist Platform
 
+export interface VoiceRef {
+  provider: "vapi" | "11labs" | "cartesia" | "openai";
+  voiceId: string;
+  model?: string;
+}
+
 // Business Configuration — source of truth for what agent can say
 export interface BusinessConfig {
   businessId: string;
@@ -33,6 +39,7 @@ export interface BusinessConfig {
   // Vapi integration (per-business voice agent on Vapi platform)
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  voice?: { en?: VoiceRef; es?: VoiceRef };
   // Per-business field access key — carried by the public /field QR link so
   // unauthenticated crews can submit voice updates (see verifyFieldAccess).
   fieldKey?: string;

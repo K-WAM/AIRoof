@@ -191,7 +191,13 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       try {
         const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
         const systemPrompt = buildAgentPrompt(mergedConfig);
-        await updateAssistantPersona({ assistantId: vapiAssistantId, firstMessage: greeting, systemPrompt });
+        await updateAssistantPersona({
+          assistantId: vapiAssistantId,
+          firstMessage: greeting,
+          systemPrompt,
+          transcriberLanguage: mergedConfig.agentLanguage ?? "en",
+          voiceConfig: mergedConfig,
+        });
         vapiUpdated = true;
       } catch (err) {
         vapiError = err instanceof Error ? err.message : "Vapi update failed";

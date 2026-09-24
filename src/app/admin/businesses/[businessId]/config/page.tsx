@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
+import type { VoiceRef } from "@/types";
 import {
   ArrowLeft,
   Bot,
@@ -48,6 +49,7 @@ interface BizData {
   timezone?: string;
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
+  voice?: { en?: VoiceRef; es?: VoiceRef };
   callbackDelayMinutes?: number;
   maxCallAttempts?: number;
   callbackWindowStart?: number;
@@ -230,6 +232,23 @@ export default function AdminBusinessConfigPage({
 
     const activeStatus = String(formData.get("active") || "draft");
 
+    const voice: { en?: VoiceRef; es?: VoiceRef } = {};
+    for (const language of ["en", "es"] as const) {
+      const provider = String(formData.get(`${language}VoiceProvider`) || "");
+      if (!provider) continue;
+      const voiceId = String(formData.get(`${language}VoiceId`) || "").trim();
+      const model = String(formData.get(`${language}VoiceModel`) || "").trim();
+      if (!/^[A-Za-z0-9_\- ]{1,100}$/.test(voiceId) || model.length > 60) {
+        setSubmitStatus({ type: "error", message: `Enter a valid ${language === "en" ? "English" : "Spanish"} voice ID (1–100 letters, numbers, spaces, _ or -) and model (up to 60 characters).` });
+        return;
+      }
+      voice[language] = {
+        provider: provider as VoiceRef["provider"],
+        voiceId,
+        ...(model ? { model } : {}),
+      };
+    }
+
     const payload = {
       businessName: String(formData.get("businessName") || "").trim(),
       industry: String(formData.get("industry") || "roofing"),
@@ -259,6 +278,7 @@ export default function AdminBusinessConfigPage({
       // Vapi
       vapiAssistantId: String(formData.get("vapiAssistantId") || "").trim(),
       vapiPhoneNumberId: String(formData.get("vapiPhoneNumberId") || "").trim(),
+      voice,
       callbackDelayMinutes: formData.get("callbackDelayMinutes") !== "" ? Number(formData.get("callbackDelayMinutes")) : undefined,
       maxCallAttempts: formData.get("maxCallAttempts") !== "" ? Number(formData.get("maxCallAttempts")) : undefined,
       callbackWindowStart: formData.get("callbackWindowStart") !== "" ? Number(formData.get("callbackWindowStart")) : undefined,
@@ -467,6 +487,36 @@ export default function AdminBusinessConfigPage({
                 Find these in your Vapi dashboard → Assistants and Phone Numbers.
                 Set them here so calls route to the correct agent.
               </p>
+
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+                <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 14 }}>Language voice overrides</p>
+                <p className="helper-text" style={{ margin: "0 0 14px" }}>
+                  Choose a provider and confirmed voice ID to override the live Vapi voice when that language is pushed.
+                  Select “Leave live voice unchanged” to clear an override. To change a voice already live, use the Vapi dashboard or set another override and push the language.
+                </p>
+                {(["en", "es"] as const).map((language) => (
+                  <div key={language} className="form-grid" style={{ marginBottom: 14 }}>
+                    <div className="field">
+                      <label htmlFor={`${language}VoiceProvider`}>{language === "en" ? "English" : "Spanish"} voice provider</label>
+                      <select id={`${language}VoiceProvider`} name={`${language}VoiceProvider`} defaultValue={biz.voice?.[language]?.provider ?? ""}>
+                        <option value="">Leave live voice unchanged</option>
+                        <option value="vapi">Vapi</option>
+                        <option value="11labs">ElevenLabs</option>
+                        <option value="cartesia">Cartesia</option>
+                        <option value="openai">OpenAI</option>
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`${language}VoiceId`}>{language === "en" ? "English" : "Spanish"} voice ID</label>
+                      <input id={`${language}VoiceId`} name={`${language}VoiceId`} maxLength={100} pattern="[A-Za-z0-9_\- ]{1,100}" defaultValue={biz.voice?.[language]?.voiceId ?? ""} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`${language}VoiceModel`}>{language === "en" ? "English" : "Spanish"} model (optional)</label>
+                      <input id={`${language}VoiceModel`} name={`${language}VoiceModel`} maxLength={60} defaultValue={biz.voice?.[language]?.model ?? ""} />
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               {/* Auto-callback config */}
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>

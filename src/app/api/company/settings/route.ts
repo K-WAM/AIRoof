@@ -80,6 +80,7 @@ export async function PUT(req: NextRequest) {
           firstMessage: config.greeting ?? "",
           systemPrompt: buildAgentPrompt(config),
           transcriberLanguage: agentLanguage,
+          voiceConfig: config,
         });
       }
     } catch (err) {
