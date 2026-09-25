@@ -16,10 +16,32 @@ const EXPECTED = {
 // Our own, credential-free messages — the only errors whose text is safe to print (see the catch at the bottom).
 class ScriptError extends Error {}
 
+function structuralEscapesToWhitespace(text) {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (c === "\\") { out += c + (text[i + 1] ?? ""); i++; continue; }
+      if (c === '"') inString = false;
+      out += c;
+    } else if (c === "\\" && text[i + 1] === "n") {
+      out += "\n";
+      i++;
+    } else {
+      if (c === '"') inString = true;
+      out += c;
+    }
+  }
+  return out;
+}
+
 function credential() {
   let raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) {
-    const env = readFileSync(resolve(".env.local"), "utf8");
+    // MIGRATION_ENV_FILE: a `vercel env pull` file (delete it right after). Node's --env-file cannot load a
+    // pretty-printed JSON value (it stops at the first inner quote), so the line is read directly here.
+    const env = readFileSync(resolve(process.env.MIGRATION_ENV_FILE ?? ".env.local"), "utf8");
     const line = env.split(/\r?\n/).find((entry) => /^FIREBASE_SERVICE_ACCOUNT_JSON=/.test(entry));
     raw = line?.slice("FIREBASE_SERVICE_ACCOUNT_JSON=".length).trim();
     if (raw?.startsWith("'")) raw = raw.slice(1, -1);
@@ -28,7 +50,10 @@ function credential() {
   if (!raw) throw new ScriptError("FIREBASE_SERVICE_ACCOUNT_JSON is unavailable");
   // Parse as-is first (the app does exactly this); a double-quoted dotenv value may carry escaped quotes. The key's
   // "\n" escapes are fixed AFTER parsing — replacing them before would put raw newlines inside a JSON string.
-  for (const candidate of [raw, raw.replace(/\\"/g, '"')]) {
+  // Other forms: an env-file loader that expanded "\n" into real newlines; and pretty-printed JSON pulled from Vercel,
+  // where the newlines BETWEEN fields also became "\n" escapes (only those outside strings turn back into whitespace).
+  const escaped = raw.replace(/\r?\n/g, "\\n");
+  for (const candidate of [raw, raw.replace(/\\"/g, '"'), escaped, structuralEscapesToWhitespace(raw), structuralEscapesToWhitespace(escaped)]) {
     try {
       const account = JSON.parse(candidate);
       if (typeof account.private_key === "string") account.private_key = account.private_key.replace(/\\n/g, "\n");
