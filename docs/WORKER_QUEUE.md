@@ -367,8 +367,13 @@ Update for these facts (verify each against the code before writing it; grep, do
 Keep the guides' existing voice and print CSS. Tag-balance-check the HTML. Commit; do not push/merge. Final message: what changed, "Noticed, not done", QUESTION FOR INTEGRATOR.
 ```
 
-### C3 — Codex, **Terra medium** — T-107b (report) — after C1 merges; prompt B3 above is still the spec
-The emailed-report logo fix that B3 lists is ALREADY DONE (report/send/route.ts now resolves the logo library default and ships images as CID attachments) — skip it; everything else in B3 stands.
+### C3 — Codex, **Sol medium** — T-107a (documents core: invoice + quote) — this is B2 above, unchanged, plus the addendum below
+T-107a was never built (worktree `D:/Apps/air-wt-documents-core` has no commits; `src/lib/documents/` does not exist). T-107b (report) still waits for it.
+Addendum to B2 (main moved on 2026-09-25 — merge it first):
+- Email plumbing is now central: `sendEmail({ to, subject, html, fromName, replyTo })` in `src/lib/comms/send.ts` converts base64 image data-URIs (logos, photos) into inline CID attachments and adds a plain-text part.
+  So `resolveEmailLogo` may keep returning a data URI. Every email you build/route you touch must pass `fromName: <business name>` and `replyTo: <business contact email>` and must check the result
+  (`status !== "delivered"` => 502, do NOT mark the invoice/quote "sent"). See `src/app/api/jobs/[jobId]/invoice/send/route.ts` for the pattern; keep it when you rewrite those routes.
+- The report email logo/photo fix is already done in `report/send/route.ts` — do not redo it (and the report is still out of scope for T-107a).
 
 ### Held (needs an owner decision first, then Sol medium — money path)
 Stripe subscriptions + monthly minutes metering + seat sync (`seatLimit` from plan) + suspend-on-nonpayment. Needs: final tiers/prices (see the pricing model in the 2026-09-24 chat), and Firebase on Blaze.
