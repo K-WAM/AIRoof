@@ -1263,5 +1263,5 @@ export function demoAgentName(verticalId: VerticalId): string {
  * what number is advertised.
  */
 export const DEMO_LINE_PHONE: Partial<Record<VerticalId, string>> = {
-  roofing: "+1 (754) 283-7658",
+  roofing: "+1 (689) 204-2643",
 };

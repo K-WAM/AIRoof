@@ -22,15 +22,18 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
-import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import { mergeWorkStarter, workCatalogStarterFor } from "@/lib/verticals/workCatalogStarter";
+import { mergeStarterKit, starterKitFor } from "@/lib/verticals/starterKits";
 import { getVoiceProvider } from "@/lib/voice/provider";
-import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
+import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
+import { MAX_LOGO_B64_BYTES, totalLogoBytes } from "@/lib/branding/logo";
+import { jsonWithCache } from "@/lib/http/cache";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
+import type { LibraryLogo } from "@/types/library";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
-const LIVE_LINE_PHONE = "+1 (754) 283-7658";
 const DEFAULT_EMAIL = "kwamwad@gmail.com";
 const ROOFING_DEFAULT_NAME = "Apex Roofing South Florida";
 
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
-  let body: { email?: string; companyName?: string; phone?: string; verticalId?: string };
+  let body: { email?: string; companyName?: string; phone?: string; verticalId?: string; contactName?: string; serviceArea?: string; logoDataUrl?: string };
   try {
     body = await request.json();
   } catch {
@@ -83,8 +86,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid phone format" }, { status: 400 });
   }
 
-  const result = await applyVertical({ verticalId, companyName, email, phone: providedPhone });
+  if (body.logoDataUrl !== undefined && !parseLogo(body.logoDataUrl)) {
+    return NextResponse.json({ error: "Logo must be a PNG, JPEG or WebP within the logo library size limit" }, { status: 400 });
+  }
+  const result = await applyVertical({ verticalId, companyName, email, phone: providedPhone,
+    contactName: body.contactName?.trim(), serviceArea: body.serviceArea?.trim(), logoDataUrl: body.logoDataUrl });
   return NextResponse.json(result);
+}
+
+function parseLogo(dataUrl: string): LibraryLogo | null {
+  const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
+  if (!match || match[2].length > MAX_LOGO_B64_BYTES) return null;
+  const logo: LibraryLogo = { logoId: `demo_${Date.now()}`, name: "Prospect logo", b64: match[2],
+    mimeType: match[1] as LibraryLogo["mimeType"], variant: "color", isDefault: true, createdAt: Date.now() };
+  return totalLogoBytes([logo]) <= MAX_LOGO_B64_BYTES ? logo : null;
+}
+
+// Backup sizing (see the reset's backup write): strings longer than this are base64 images/blobs, not data worth
+// keeping for a demo tenant; the whole backup stays well under Firestore's 1 MiB document limit.
+const BACKUP_LONG_STRING = 2_000;
+const BACKUP_MAX_CHARS = 900_000;
+
+function slimBackup(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.length > BACKUP_LONG_STRING ? `[omitted ${value.length} chars]` : value;
+  }
+  if (Array.isArray(value)) return value.map(slimBackup);
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, slimBackup(v)]));
+  }
+  return value;
+}
+
+function lineState(config: BusinessConfig, now = new Date()) {
+  if (config.voiceProvider !== "elevenlabs") return {
+    lineReady: false, lineError: "Demo line is not on ElevenLabs yet — run scripts/move-demo-line-to-elevenlabs.mjs",
+    greetingPreview: "",
+  };
+  if (!getVoiceProvider(config).isConfigured(config)) return {
+    lineReady: false, lineError: "ElevenLabs line or API key is not configured", greetingPreview: "",
+  };
+  const greetingPreview = buildInitiationResponse(config, undefined, now).conversation_config_override.agent?.first_message ?? "";
+  return greetingPreview ? { lineReady: true, lineError: undefined, greetingPreview } : {
+    lineReady: false, lineError: "Unable to render the demo greeting", greetingPreview: "",
+  };
+}
+
+function displayPhone(value?: string): string {
+  const digits = value?.replace(/\D/g, "") ?? "";
+  return digits.length === 11 && digits.startsWith("1")
+    ? `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}` : value ?? "";
+}
+
+export async function GET(request: NextRequest) {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+  const db = getAdminFirestore();
+  if (!db) return jsonWithCache({ error: "Firestore not available" }, "noStore", { status: 503 });
+  const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
+  const [business, calls] = await Promise.all([base.get(), base.collection("calls").orderBy("startedAt", "desc").limit(1).get()]);
+  if (!business.exists) return jsonWithCache({ error: "Demo tenant missing" }, "noStore", { status: 404 });
+  const config = business.data() as BusinessConfig;
+  return jsonWithCache({ businessName: config.businessName, industry: config.industry,
+    phone: displayPhone(config.elevenlabs?.phoneNumber), ...lineState(config),
+    seededAt: business.data()?.seededAt ?? null,
+    lastCallAt: calls.docs[0]?.data()?.startedAt ?? null,
+    configured: { elevenLabsApiKey: !!process.env.ELEVENLABS_API_KEY,
+      elevenLabsToolSecret: !!process.env.ELEVENLABS_TOOL_SECRET,
+      elevenLabsWebhookSecret: !!process.env.ELEVENLABS_WEBHOOK_SECRET },
+  }, "volatile");
 }
 
 export async function DELETE(request: NextRequest) {
@@ -110,7 +180,7 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({ ...result, reset: true });
 }
 
-async function applyVertical(opts: { verticalId: VerticalId; companyName: string; email: string; phone?: string }) {
+async function applyVertical(opts: { verticalId: VerticalId; companyName: string; email: string; phone?: string; contactName?: string; serviceArea?: string; logoDataUrl?: string }) {
   const db = getAdminFirestore();
   if (!db) return { ok: false, error: "Firestore not available" };
 
@@ -170,6 +240,8 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       fieldKey,
       industry: opts.verticalId,
       businessName: opts.companyName,
+      contactName: opts.contactName ?? null,
+      serviceArea: opts.serviceArea || (existing.data()?.serviceArea as string | string[] | undefined) || "Miami",
       notificationEmail: opts.email,
       // Documents/emails read contactEmail/contactPhone; set them every launch so a previous prospect's details never
       // leak onto the next demo's invoices (null clears them).
@@ -190,41 +262,13 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     };
     await base.update(configPatch);
 
-    // 1b. Push the rendered persona straight to the live Vapi assistant. Best-effort:
-    //     a Vapi outage here must not roll back the Firestore reconfiguration or block
-    //     the demo data reseed — it only means the live phone call hasn't picked up
-    //     the new persona yet, which is worth surfacing to the operator, not failing on.
-    let vapiUpdated = false;
-    let vapiError: string | undefined;
     const mergedConfig = { ...(existing.data() as BusinessConfig), ...configPatch } as BusinessConfig;
-    const provider = getVoiceProvider(mergedConfig);
-    const agentId = provider.id === "elevenlabs" ? mergedConfig.elevenlabs?.agentId : mergedConfig.vapiAssistantId;
-    if (!agentId) {
-      vapiError = provider.id === "vapi"
-        ? "No vapiAssistantId on demo-roofing — live line was not updated"
-        : "No ElevenLabs agent ID on demo-roofing — live line was not updated";
-    } else {
-      try {
-        const systemPrompt = buildAgentPrompt(mergedConfig);
-        // T-102: the recording notice (default ON) is spoken first in the pushed greeting.
-        const firstMessage = composeGreetingWithDisclosure(greeting, resolveRecordingDisclosure(mergedConfig));
-        await provider.pushPersona({
-          config: mergedConfig,
-          firstMessage,
-          systemPrompt,
-          language: mergedConfig.agentLanguage ?? "en",
-        });
-        vapiUpdated = true;
-      } catch (err) {
-        vapiError = err instanceof Error ? err.message : "Vapi update failed";
-        console.error("demo-customize: Vapi assistant push failed", err);
-      }
-    }
+    const state = lineState(mergedConfig);
 
     // 2. Backup existing data, then delete and reseed. The backup write must
     //    succeed before any document is deleted — if it fails the whole reset aborts.
     const seed = demoSeedFor(opts.verticalId, now);
-    const subs = ["calls", "leads", "appointments", "crews", "jobs"] as const;
+    const subs = ["calls", "leads", "appointments", "crews", "jobs", "customers", "quotes", "invoices", "punches", "agentActions", "schedulingLocks"] as const;
 
     const snapshots: Record<string, FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>> = {};
     const backupData: Record<string, Record<string, unknown>[]> = {};
@@ -235,21 +279,62 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       backupData[sub] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     }
 
+    // A job's child collections survive a plain document delete. Preserve them
+    // in the backup and remove the entire tree before reusing J-number IDs.
+    for (const job of snapshots.jobs.docs) {
+      for (const child of ["updates", "photos", "photoBlobs"]) {
+        const nested = await job.ref.collection(child).get();
+        backupData[`jobs/${job.id}/${child}`] = nested.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+    }
+    const conversations = await db.collection("elevenlabsConversations").where("businessId", "==", LIVE_LINE_BUSINESS_ID).get();
+    backupData.elevenlabsConversations = conversations.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const libraryDocs = await Promise.all(["logos", "workCatalog", "pricing"].map((id) => base.collection("library").doc(id).get()));
+    backupData.library = libraryDocs.filter((d) => d.exists).map((d) => ({ id: d.id, ...d.data() }));
+
+    // One Firestore doc caps at 1 MiB, and photo blobs (~900 KB each) or a logo would blow past it — a failed backup
+    // aborts the reset, which would make every launch after a demo with a photo fail. Long strings (base64 images,
+    // blobs) are replaced by a marker; if what's left is still near the cap, only per-collection counts are kept.
+    const slimmed = slimBackup(backupData) as Record<string, Record<string, unknown>[]>;
+    const tooBig = JSON.stringify(slimmed).length > BACKUP_MAX_CHARS;
     await base.collection("backups").doc(String(now)).set({
       timestamp: now,
       businessId: LIVE_LINE_BUSINESS_ID,
       operation: "reset",
       verticalId: opts.verticalId,
-      data: backupData,
+      data: tooBig
+        ? Object.fromEntries(Object.entries(slimmed).map(([k, v]) => [k, [{ truncated: true, count: v.length }]]))
+        : slimmed,
     });
 
     for (const sub of subs) {
       const snap = snapshots[sub];
       if (!snap.empty) {
-        const del = db.batch();
-        snap.docs.forEach((d) => del.delete(d.ref));
-        await del.commit();
+        if (sub === "jobs") {
+          for (const doc of snap.docs) await db.recursiveDelete(doc.ref);
+        } else {
+          for (const doc of snap.docs) await doc.ref.delete();
+        }
       }
+    }
+    for (const doc of conversations.docs) await doc.ref.delete();
+
+    // Use the same pure import helpers as the Library starter endpoints. Start
+    // empty on every launch so an earlier prospect's edits cannot leak.
+    const workItems = workCatalogStarterFor(opts.verticalId);
+    if (workItems) {
+      const { catalog } = mergeWorkStarter({ items: [] }, workItems, now);
+      await base.collection("library").doc("workCatalog").set(catalog);
+    } else {
+      await base.collection("library").doc("workCatalog").set({ items: [], starterKitImported: [] });
+    }
+    const pricingKit = starterKitFor(opts.verticalId);
+    if (pricingKit) {
+      const { library } = mergeStarterKit({ materials: [], laborRates: [], documents: [] }, pricingKit,
+        !t.disabledModules.includes("pricing"), opts.verticalId, now);
+      await base.collection("library").doc("pricing").set(library);
+    } else {
+      await base.collection("library").doc("pricing").set({ materials: [], laborRates: [], documents: [] });
     }
 
     const add = db.batch();
@@ -304,18 +389,22 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     });
     await add.commit();
 
+    await base.update({ seededAt: now });
+
+    const logo = opts.logoDataUrl ? parseLogo(opts.logoDataUrl) : null;
+    await base.collection("library").doc("logos").set({ logos: logo ? [logo] : [], updatedAt: now });
+
     const fieldGrant = mintFieldExchangeToken(LIVE_LINE_BUSINESS_ID, fieldKey);
     return {
       ok: true,
       firestoreUpdated: true,
-      vapiUpdated,
-      ...(vapiError ? { vapiError } : {}),
+      ...state,
       verticalId: opts.verticalId,
       label: t.label,
       agentName,
       appliedGreeting: greeting,
       businessId: LIVE_LINE_BUSINESS_ID,
-      phone: LIVE_LINE_PHONE,
+      phone: displayPhone(mergedConfig.elevenlabs?.phoneNumber),
       demoUrl: `${getAppUrl()}/company/dashboard?preview=${LIVE_LINE_BUSINESS_ID}`,
       // Short-lived exchange URL; the route sets an HttpOnly session then redirects
       // to /field without leaving a reusable credential in history or referrers.

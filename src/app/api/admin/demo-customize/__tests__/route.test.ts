@@ -82,7 +82,7 @@ class FakeQuery {
   ) {}
 
   where(_field: string, _operator: string, _value: unknown) {
-    void _field; void _operator; void _value;
+    this.filters.push([_field, _operator, _value]);
     return this;
   }
 
@@ -94,6 +94,7 @@ class FakeQuery {
         ([docPath]) =>
           docPath.startsWith(prefix) && docPath.split("/").length === expectedSegments,
       )
+      .filter(([, data]) => this.filters.every(([field, op, value]) => op === "==" && data[field] === value))
       .map(
         ([docPath, data]) =>
           new FakeDocumentSnapshot(new FakeDocumentReference(this.firestore, docPath), data),
@@ -149,6 +150,12 @@ class FakeFirestore {
 
   batch() {
     return new FakeBatch();
+  }
+
+  async recursiveDelete(ref: FakeDocumentReference) {
+    for (const path of [...this.documents.keys()]) {
+      if (path === ref.path || path.startsWith(`${ref.path}/`)) this.documents.delete(path);
+    }
   }
 
   runTransaction<T>(callback: (transaction: {
@@ -359,7 +366,7 @@ describe("demo-customize route", () => {
       expect(backupDoc?.data).toBeDefined();
     });
 
-    it("includes all five subcollections in backup", async () => {
+    it("includes all cleared collections in backup", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
@@ -381,7 +388,59 @@ describe("demo-customize route", () => {
       );
       const backupDoc = fs.documents.get(backupKeys[0]) as StoredDocument;
       const data = backupDoc.data as Record<string, unknown[]>;
-      expect(Object.keys(data).sort()).toEqual(["appointments", "calls", "crews", "jobs", "leads"]);
+      expect(Object.keys(data).sort()).toEqual([
+        "agentActions", "appointments", "calls", "crews", "customers", "elevenlabsConversations",
+        "invoices", "jobs", "leads", "library", "punches", "quotes", "schedulingLocks",
+      ]);
+    });
+
+    it("removes orphan job children, old customer data and occupied scheduling slots", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", { businessName: "Old", isDemo: true,
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234" });
+      for (const path of [
+        "businesses/demo-roofing/jobs/J-1001", "businesses/demo-roofing/jobs/J-1001/updates/u1",
+        "businesses/demo-roofing/jobs/J-1001/photos/p1", "businesses/demo-roofing/jobs/J-1001/photoBlobs/b1",
+        "businesses/demo-roofing/customers/c1", "businesses/demo-roofing/quotes/q1",
+        "businesses/demo-roofing/invoices/i1", "businesses/demo-roofing/punches/p1",
+        "businesses/demo-roofing/agentActions/a1", "businesses/demo-roofing/schedulingLocks/slot1",
+      ]) fs.documents.set(path, { old: true });
+      fs.documents.set("elevenlabsConversations/own", { businessId: "demo-roofing" });
+      fs.documents.set("elevenlabsConversations/other", { businessId: "another-tenant" });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const response = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await response.json()).ok).toBe(true);
+      for (const path of [...fs.documents.keys()]) {
+        expect(path).not.toMatch(/jobs\/J-1001\/(updates|photos|photoBlobs)\//);
+        expect(path).not.toMatch(/(customers|quotes|invoices|punches|agentActions|schedulingLocks)\/[^/]+$/);
+      }
+      expect(fs.documents.has("elevenlabsConversations/own")).toBe(false);
+      expect(fs.documents.has("elevenlabsConversations/other")).toBe(true);
+    });
+
+    it("keeps the backup under Firestore's 1 MiB doc limit when the last demo had photos and a logo", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", { businessName: "Old", isDemo: true,
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234" });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001", { title: "Old job" });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001/photoBlobs/b1", { fullB64: "A".repeat(950_000) });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001/photoBlobs/b2", { fullB64: "B".repeat(950_000) });
+      fs.documents.set("businesses/demo-roofing/library/logos", { logos: [{ logoId: "l1", b64: "C".repeat(150_000) }] });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const response = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await response.json()).ok).toBe(true);
+      const backupKey = [...fs.documents.keys()].find((k) =>
+        k.startsWith("businesses/demo-roofing/backups/") && k !== "businesses/demo-roofing/backups/lock")!;
+      const serialized = JSON.stringify(fs.documents.get(backupKey));
+      expect(serialized.length).toBeLessThan(1_000_000);
+      expect(serialized).toContain("[omitted 950000 chars]");
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/photoBlobs/b1")).toBe(false);
     });
 
     it("releases lock after completion", async () => {
@@ -506,16 +565,17 @@ describe("demo-customize route", () => {
     });
   });
 
-  describe("live Vapi persona push", () => {
-    it("pushes the rendered persona to Vapi and reports success when vapiAssistantId is set", async () => {
+  describe("ElevenLabs line preview", () => {
+    it("renders the next greeting without a provider network call", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      mocks.updateAssistantPersona.mockResolvedValue(undefined);
+      vi.stubEnv("ELEVENLABS_API_KEY", "test-only-key");
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
         businessName: "Old Name",
         fieldKey: "abcd1234abcd1234abcd1234abcd1234",
         isDemo: true,
-        vapiAssistantId: "assistant-123",
+        voiceProvider: "elevenlabs",
+        elevenlabs: { agentId: "agent-test", phoneNumberId: "phone-test", phoneNumber: "+16892042643" },
         approvedServices: [],
         approvedFaqs: [],
         emergencyRules: [],
@@ -537,60 +597,20 @@ describe("demo-customize route", () => {
       const res = await POST(req);
       const body = await res.json();
       expect(body.ok).toBe(true);
-      expect(body.vapiUpdated).toBe(true);
-      expect(body.vapiError).toBeUndefined();
-
-      expect(mocks.updateAssistantPersona).toHaveBeenCalledTimes(1);
-      const call = mocks.updateAssistantPersona.mock.calls[0][0];
-      expect(call.assistantId).toBe("assistant-123");
-      expect(call.firstMessage).toContain("Test Corp");
-      expect(call.systemPrompt).toContain("Test Corp");
-    });
-
-    it("reports vapiError without failing the request when no vapiAssistantId is on the business doc", async () => {
-      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      const fs = createFirestore();
-      fs.documents.set("businesses/demo-roofing", {
-        businessName: "Old Name",
-        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
-        isDemo: true,
-        // no vapiAssistantId
-      });
-      mocks.firestoreInstance = fs;
-
-      vi.resetModules();
-      const { POST } = await import("@/app/api/admin/demo-customize/route");
-      const req = makeRequest("POST", {
-        email: "test@example.com",
-        companyName: "Test Corp",
-        verticalId: "hvac",
-      });
-
-      const res = await POST(req);
-      const body = await res.json();
-      expect(body.ok).toBe(true);
-      expect(body.firestoreUpdated).toBe(true);
-      expect(body.vapiUpdated).toBe(false);
-      expect(body.vapiError).toContain("vapiAssistantId");
+      expect(body.lineReady).toBe(true);
+      expect(body.greetingPreview).toContain("Test Corp");
+      expect(body.phone).toBe("+1 (689) 204-2643");
       expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
     });
 
-    it("reports vapiError without failing the request when the Vapi API call throws", async () => {
+    it("reports that the line needs migration", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      mocks.updateAssistantPersona.mockRejectedValue(new Error("Vapi PATCH /assistant failed (500): boom"));
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
         businessName: "Old Name",
         fieldKey: "abcd1234abcd1234abcd1234abcd1234",
         isDemo: true,
-        vapiAssistantId: "assistant-123",
-        approvedServices: [],
-        approvedFaqs: [],
-        emergencyRules: [],
-        bookingRules: [],
-        disallowedTopics: [],
-        businessHours: "Mon-Fri 8-5",
-        serviceArea: "Test Area",
       });
       mocks.firestoreInstance = fs;
 
@@ -603,17 +623,12 @@ describe("demo-customize route", () => {
       });
 
       const res = await POST(req);
-      expect(res.status).toBe(200);
       const body = await res.json();
-      // The reset itself must still fully succeed — a Vapi outage is surfaced,
-      // not fatal to the Firestore reconfiguration/reseed.
       expect(body.ok).toBe(true);
       expect(body.firestoreUpdated).toBe(true);
-      expect(body.vapiUpdated).toBe(false);
-      expect(body.vapiError).toContain("boom");
-
-      const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
-      expect(lockDoc?.locked).toBe(false);
+      expect(body.lineReady).toBe(false);
+      expect(body.lineError).toContain("move-demo-line-to-elevenlabs.mjs");
+      expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
     });
   });
 });

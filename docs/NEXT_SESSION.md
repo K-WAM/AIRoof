@@ -6,6 +6,9 @@
 - Owner decisions: **ElevenLabs only, Vapi retired from demos; roofing first.** The next goal is the 20-minute roofing demo:
   spec `docs/DEMO-READINESS-PLAN.md`, three worker tasks D1/D2/D3 in `docs/WORKER_QUEUE.md` section D, tracked as TODO.md Phase 24.
 - Owner blocker: **Twilio Upgrade** (NH-21) before any prospect calls the ElevenLabs line.
+- **Later the same day:** D3 (roofing content) and D1 Part 1 (Demo Studio on ElevenLabs) are merged + deployed, and the demo line MOVED:
+  **+1 (689) 204-2643 now answers as `demo-roofing`** (Demo Studio renames it per launch; calls/bookings land in `demo-roofing`). The Vapi
+  number is no longer advertised. D1 Part 2 (call quality, live call row, audio, test call) and D2 (job loop) are still in progress — see TODO.md Phase 24.
 - The paragraph and "First 15 minutes" below predate this and are superseded where they conflict (the smoke test is done; the demo line is moving to ElevenLabs).
 
 ## Where we are in one paragraph
@@ -43,6 +46,9 @@ Do not change production code to make the test pass. Do not push or merge to mai
 
 ## Tooling facts (do not re-derive)
 - **Vercel CLI:** `vercel env add NAME production --value '...' --no-sensitive --yes --non-interactive </dev/null` (without `--no-sensitive` it defaults to Sensitive and `env pull` returns `""`; without `--value` + `</dev/null` it hangs). `vercel redeploy <url> --no-wait`. Logs: `vercel logs --environment production --since 12h --no-follow --query "elevenlabs"`.
+- **Prod Firebase key for a script:** it is NOT in `.env.local`. `vercel env pull <scratchpad file> --environment=production --yes` writes it as pretty-printed JSON whose
+  between-field newlines became `\n` escapes too; `node --env-file` cannot load it (stops at the first inner quote). `scripts/move-demo-line-to-elevenlabs.mjs` shows the
+  working pattern (`MIGRATION_ENV_FILE`, read the line directly, turn only out-of-string `\n` back into whitespace). Never print JSON.parse errors — they quote the input. Delete the file after.
 - **Never print a secret**: parse `FIREBASE_SERVICE_ACCOUNT_JSON` from a pulled env file with the dotenv-style `\n` handling and never let an exception echo the source line (that is how the key leaked). Delete pulled env files immediately.
 - **ElevenLabs MCP** is registered at user scope with the US URL (`https://api.us.elevenlabs.io/v1/mcp`); re-auth via `/mcp`. Setup script: `node scripts/setup-elevenlabs-agent.mjs --apply --agent-id <id>`.
 - Files in this repo are mostly CRLF: multi-line Python/sed replacements need `\r\n`. `docs/IMPLEMENTATION_LOG.md` has odd bytes: append with a shell `cat >>` / `printf >>`, never a patch tool.

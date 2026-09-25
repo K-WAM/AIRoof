@@ -1385,3 +1385,21 @@ px.cmd tsc --noEmit clean; changed-file eslint 0 errors (existing warnings only)
 px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Correction for the preceding checkpoint: branch task/job-loop. Evidence: npx.cmd tsc --noEmit clean; changed-file eslint had 0 errors; refresh-hook tests 2/2; full npx.cmd vitest run passed 128 files, 1,022 tests, plus 1 expected failure.
 - Status correction: despite the checkpoint commit title, D2 Stage 1 is not ready to merge. Remaining Stage 1 acceptance items are new-row highlights, Calls Live/Ended labels, and request-route coverage.
+=======
+## 2026-09-25 — D3 / T-132 South Florida roofing content (Deepseek V4 Flash, integrator-reviewed)
+- Commits f963e81 (template), 94b35bc (catalog), 7568149 (seed), 3abc104 (test) + an integrator fix commit; merged to main.
+- Roofing template: 8 services (inspection, leak, tile, flat, replacement, emergency tarping, storm damage inspection, gutter), 6 spoken-friendly FAQs
+  (roof types, insurance documentation without coverage advice, storm prep/tarping, wind-mitigation/four-point = "team decides or refers a licensed
+  inspector", inspection length, permits), 3 new emergency rules (active leak in rain, exposed deck, tree on roof). No license/code/price claims.
+- Starter catalog: +8 roofing items (slipped/missing tile, flat membrane blister + split, fascia/soffit rot, failed sealant, drip edge, emergency tarp,
+  wind-feature documentation); existing itemIds unchanged.
+- src/lib/verticals/demoSeedRoofing.ts: ROOFING_WORKED_JOB (WorkedJobSeed contract, consumed by D1 step 4) = an inspection visit, EN + ES updates,
+  3 h labor, findings tile-cracked + flashing-pipe-collar.
+- Gates: tsc clean; vitest src/lib/verticals + ai + jobs 162/162; Deepseek's full run 1025 passed (company/team load-flaky, passed alone).
+
+### D1 Part 1 checkpoint — 2026-09-25
+- Branch: task/demo-line. Steps 1, 2, 3 and 5 committed: 39dca9e, 2b0c4af, 3afa6ac, 1637d8c.
+- Step 4 pending D3's demoSeedRoofing.ts; git merge main was already up to date at 76a2042.
+- Evidence: migration defaults to dry run and was not executed; launch makes no provider request; reset keeps allowlist, isDemo, lock and backup while clearing nested and stale demo data; Studio uses the ElevenLabs line.
+- Gates: tsc noEmit passed; changed-file eslint 0 errors, 1 image warning; focused tests 21 passed; full vitest 127 files, 1019 passed and 1 expected fail.
+- Removals: replaced the two-line Demo Studio/runbook and removed obsolete provider-push status copy.
