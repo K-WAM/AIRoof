@@ -1375,3 +1375,11 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - The production client sends JSON/base64, not multipart. A multipart `NextRequest` probe is intentionally `it.fails`: the route calls `req.json()` and does not currently support multipart. This is recorded only; no production code was changed.
 - Smoke report step 6 is now pass and its superseded human-only field-audio integration-test item was removed. No files removed and no dependencies added.
 - Gates: `npx.cmd tsc --noEmit --incremental false` clean (plain `--noEmit` could not overwrite the sandbox-owned `tsconfig.tsbuildinfo`); `npx.cmd eslint src/e2e/field-audio.test.ts` clean; focused test 6 passed + 1 expected failure; full `npx.cmd vitest run` 1,018 passed + 1 expected failure with the documented `example-lib` and `company/team` load timeouts, both clean in isolated rerun (18/18).
+
+## D2 Stage 1 — Live intake to job
+
+- Branch: 	ask/job-loop. Added visibility-aware, single-flight live refresh on Dashboard, Calls, Pipeline, and job detail; hidden documents and unsaved inline edits do not refresh.
+- Added the human-triggered, idempotent request-to-job route. It preserves email and call provenance, resolves the customer server-side, and shares the manual job counter helper. Manual job creation now keeps clientEmail.
+- Evidence: 
+px.cmd tsc --noEmit clean; changed-file eslint 0 errors (existing warnings only); refresh-hook tests 2/2; full 
+px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
