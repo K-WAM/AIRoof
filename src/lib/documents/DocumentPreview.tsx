@@ -1,10 +1,10 @@
 import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 
-export function DocumentPreview({ title, brand, meta, billTo, narrative, findings, groups, totalLabel, total, className = "" }: {
+export function DocumentPreview({ title, brand, meta, billTo, narrative, findings, groups = [], sections = [], totalLabel, total, className = "" }: {
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; narrative?: string; findings?: Array<{ problem: string; solution: string }>;
-  groups: DocumentGroup[]; totalLabel: string; total: number; className?: string;
+  groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
   return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
@@ -25,7 +25,9 @@ export function DocumentPreview({ title, brand, meta, billTo, narrative, finding
     {groups.map((group) => <section key={group.title} style={{ marginTop: 20 }}><h3 style={{ fontSize: 14 }}>{group.title}</h3>
       <div style={{ borderTop: "1px solid #e2e8f0" }}>{group.rows.map((row, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}><div>{row.description}{row.detail && <small style={{ display: "block", color: "#64748b" }}>{row.detail}</small>}</div><strong>${row.amount.toFixed(2)}</strong></div>)}</div>
       <div style={{ textAlign: "right", padding: "8px 0", fontSize: 13, fontWeight: 700 }}>{group.title} subtotal: ${group.subtotal.toFixed(2)}</div></section>)}
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>${total.toFixed(2)}</span></div>
+    {sections.map((section) => <section key={section.title} style={{ marginTop: 20 }}><h3 style={{ fontSize: 14 }}>{section.title}</h3>
+      <div style={{ borderTop: "1px solid #e2e8f0" }}>{section.lines.map((line, i) => <div key={i} style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}>{line}</div>)}</div></section>)}
+    {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>${total.toFixed(2)}</span></div>}
     <footer style={{ marginTop: 32, borderTop: "1px solid #e2e8f0", paddingTop: 14, textAlign: "center", fontSize: 11, color: "#64748b" }}>{[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).join(" · ")}</footer>
   </article>;
 }

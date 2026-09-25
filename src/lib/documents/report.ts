@@ -6,33 +6,23 @@ import type { DocumentGroup } from "./groups";
 export type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
 export type ReportPhotoPair = { before?: ReportPhoto; after?: ReportPhoto };
 
-const roundMoney = (value: number) => Math.round(value * 100) / 100;
+/** A customer-copy report section: plain facts, never prices. A report says what was found and done, not what it cost. */
+export type ReportSection = { title: "Labor" | "Materials"; lines: string[] };
 
-/** Customer-copy cost rows for a report. Totals always retain the complete projection cost. */
-export function reportGroups(parsed: ParsedUpdate | undefined, defaultRate: number, options?: Partial<DocumentOptions>): DocumentGroup[] {
+/**
+ * Report sections for the customer copy. Deliberately carries NO rates, costs or totals — pricing lives on the quote and
+ * invoice only. "Hide materials" / "Hide labor details" omit the whole section.
+ */
+export function reportSections(parsed: ParsedUpdate | undefined, options?: Partial<DocumentOptions>): ReportSection[] {
   const flags = normalizeDocumentOptions(options);
   const labor = parsed?.labor ?? [];
   const materials = parsed?.materials ?? [];
-  const laborRows = labor.map((line) => {
-    const hours = line.hours ?? 0;
-    const rate = line.rate ?? defaultRate;
-    return { description: line.description, detail: `${hours} hours × $${rate.toFixed(2)}`, amount: roundMoney(hours * rate) };
-  });
-  const materialRows = materials.map((line) => ({
-    description: line.item,
-    detail: `${line.quantity ?? ""}${line.unit ? ` ${line.unit}` : ""}${line.cost != null ? ` × $${line.cost.toFixed(2)}` : ""}`.trim(),
-    amount: roundMoney(line.cost ?? 0),
-  }));
-  const laborSubtotal = laborRows.reduce((sum, row) => sum + row.amount, 0);
-  const materialSubtotal = materialRows.reduce((sum, row) => sum + row.amount, 0);
+  const laborLines = labor.map((line) => `${line.description}${line.hours ? ` — ${line.hours} h` : ""}`);
+  const materialLines = materials.map((line) => `${line.item}${line.quantity ? ` — ${line.quantity}${line.unit ? ` ${line.unit}` : ""}` : ""}`);
   return [
-    { title: "Labor" as const, rows: flags.hideLabor && laborRows.length ? [{ description: "Labor", amount: laborSubtotal }] : laborRows, subtotal: laborSubtotal },
-    { title: "Materials" as const, rows: flags.hideMaterials && materialRows.length ? [{ description: "Materials", amount: materialSubtotal }] : materialRows, subtotal: materialSubtotal },
-  ].filter((group) => group.rows.length);
-}
-
-export function reportTotal(groups: DocumentGroup[]): number {
-  return roundMoney(groups.reduce((sum, group) => sum + group.subtotal, 0));
+    { title: "Labor" as const, lines: flags.hideLabor ? [] : laborLines },
+    { title: "Materials" as const, lines: flags.hideMaterials ? [] : materialLines },
+  ].filter((section) => section.lines.length);
 }
 
 /** Deterministic draft; it deliberately uses only facts already recorded on the job. */

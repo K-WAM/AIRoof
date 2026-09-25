@@ -34,6 +34,10 @@ export function groupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${group.title}</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.description)}${row.detail ? `<div style="font-size:11px;color:#64748b">${escapeHtml(row.detail)}</div>` : ""}</td><td style="${cell};text-align:right;font-weight:600">${money(row.amount)}</td></tr>`).join("")}</tbody></table><div style="text-align:right;padding:8px 12px;font-weight:700">${group.title} subtotal: ${money(group.subtotal)}</div></section>`).join("");
 }
 
+export function sectionsBlock(sections: Array<{ title: string; lines: string[] }>): string {
+  return sections.map((section) => `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${section.lines.map((line) => `<tr><td style="${cell}">${escapeHtml(line)}</td></tr>`).join("")}</tbody></table></section>`).join("");
+}
+
 export function totalBlock(label: string, amount: number, accent?: string | null): string {
   const color = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent : "#0f766e";
   return `<div style="border:2px solid ${color};border-radius:6px;padding:12px 16px;text-align:right;font-size:17px;font-weight:800">${escapeHtml(label)}: ${money(amount)}</div>`;

@@ -14,7 +14,7 @@ import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftNarrative, pairReportPhotos, reportGroups, reportTotal } from "@/lib/documents/report";
+import { draftNarrative, pairReportPhotos, reportSections } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
 import { QuotePanel } from "./QuotePanel";
 import { reportFindings } from "@/lib/jobs/findings";
@@ -1946,7 +1946,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   reportPhotos: ReportPhoto[];
 }) {
   const options = normalizeDocumentOptions(reportOptions);
-  const groups = reportGroups(job.parsed, businessConfig?.laborRate?.defaultHourlyRate ?? 65, options);
+  const sections = reportSections(job.parsed, options);
   const brand = resolveLetterhead(businessConfig ?? {}, logos);
   const meta: [string, string][] = [["Date", new Date().toLocaleDateString("en-US")], ["Reference", jobId]];
   if (job.address) meta.push(["Service at", job.address]);
@@ -1956,7 +1956,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   return <>
     <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
       billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={reportNotes}
-      findings={findings} groups={groups} totalLabel="Estimated total" total={reportTotal(groups)} />
+      findings={findings} sections={sections} />
     {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
       <ReportSection title="Photo documentation">
         {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftNarrative, pairReportPhotos, reportGroups, reportTotal } from "./report";
+import { draftNarrative, pairReportPhotos, reportSections } from "./report";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 
 const parsed = {
@@ -11,12 +11,20 @@ const parsed = {
 };
 
 describe("report document helpers", () => {
-  it("collapses hidden labor and materials without changing the total", () => {
-    const visible = reportGroups(parsed, 65);
-    const hidden = reportGroups(parsed, 65, { hideLabor: true, hideMaterials: true });
-    expect(hidden.flatMap((group) => group.rows).map((row) => row.description)).toEqual(["Labor", "Materials"]);
-    expect(hidden.flatMap((group) => group.rows).map((row) => row.detail)).toEqual([undefined, undefined]);
-    expect(reportTotal(hidden)).toBe(reportTotal(visible));
+  it("lists labor and materials as plain facts with no prices", () => {
+    const sections = reportSections(parsed);
+    expect(sections).toEqual([
+      { title: "Labor", lines: ["Ava — 2 h"] },
+      { title: "Materials", lines: ["Flashing — 2 pcs"] },
+    ]);
+    expect(JSON.stringify(sections)).not.toMatch(/\$|75|40/);
+  });
+
+  it("omits a whole section when its hide flag is on", () => {
+    expect(reportSections(parsed, { hideLabor: true }).map((s) => s.title)).toEqual(["Materials"]);
+    expect(reportSections(parsed, { hideMaterials: true }).map((s) => s.title)).toEqual(["Labor"]);
+    expect(reportSections(parsed, { hideLabor: true, hideMaterials: true })).toEqual([]);
+    expect(reportSections(undefined)).toEqual([]);
   });
 
   it("writes a stable fact-only narrative and handles empty input", () => {
@@ -30,13 +38,12 @@ describe("report document helpers", () => {
   });
 
   for (const hideLabor of [false, true]) for (const hideMaterials of [false, true]) {
-    it(`keeps true totals while applying report email hide flags labor=${hideLabor} materials=${hideMaterials}`, () => {
-      const html = buildJobReportEmailHtml({ business: { businessName: "Business" }, logos: [], jobId: "J-1", title: "Repair", billTo: { name: "Customer" }, parsed, defaultRate: 65, options: { hideLabor, hideMaterials } });
-      expect(html).toContain("$190.00");
+    it(`report email never shows pricing (labor hidden=${hideLabor}, materials hidden=${hideMaterials})`, () => {
+      const html = buildJobReportEmailHtml({ business: { businessName: "Business" }, logos: [], jobId: "J-1", title: "Repair", billTo: { name: "Customer" }, parsed, options: { hideLabor, hideMaterials } });
+      expect(html).not.toMatch(/\$\d/);
+      expect(html).not.toMatch(/total|subtotal|estimate/i);
       expect(html.includes("Ava")).toBe(!hideLabor);
       expect(html.includes("Flashing")).toBe(!hideMaterials);
-      if (hideLabor) { expect(html).not.toContain("2 hours"); expect(html).not.toContain("$75.00"); }
-      if (hideMaterials) expect(html).not.toContain("2 pcs × $40.00");
     });
   }
 });

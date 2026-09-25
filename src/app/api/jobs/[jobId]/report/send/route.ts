@@ -50,7 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     narrative: reportNotes ?? job.reportNotes,
     options: job.reportOptions,
     technicians: job.reportTechnicians,
-    defaultRate: biz.laborRate?.defaultHourlyRate ?? 65,
     photos: Array.isArray(photos) ? photos.slice(0, MAX_EMAIL_REPORT_PHOTOS) : [],
   });
 
