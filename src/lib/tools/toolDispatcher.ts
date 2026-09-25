@@ -28,6 +28,7 @@ export type ToolProvider = "vapi" | "elevenlabs";
 
 export interface AgentToolResult {
   result?: string;
+  sayToCaller?: string;
   error?: string;
 }
 
@@ -51,12 +52,18 @@ export async function executeAgentTool(
   const trustedCallerPhone = provider === "elevenlabs"
     ? sanitizePhone(callerPhone)
     : sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? ""));
-  const tz = await getBusinessTimezone(businessId);
   try {
     switch (name) {
       case "bookAppointment": {
-        const startTime = toTimestamp(params.startTime ?? params.preferredTime, tz);
-        const endTime = toTimestamp(params.endTime, tz) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
+        const rawStart = params.startTime ?? params.preferredTime;
+        const rawEnd = params.endTime;
+        // Numeric timestamps need no preliminary business-doc read. If the model
+        // supplies a local date string, timezone resolution remains necessary.
+        const inputTimezone = typeof rawStart === "string" || typeof rawEnd === "string"
+          ? await getBusinessTimezone(businessId)
+          : "America/New_York";
+        const startTime = toTimestamp(rawStart, inputTimezone);
+        const endTime = toTimestamp(rawEnd, inputTimezone) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
         const appt = await bookAppointment({
           businessId,
           callerName: String(params.name ?? params.callerName ?? "Unknown"),
@@ -70,11 +77,15 @@ export async function executeAgentTool(
           sourceCallId: callId,
         });
         await logAction(businessId, callId, "bookAppointment", params, appt, "success");
-        const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
+        const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: appt.businessTimezone ?? inputTimezone, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
+        const sayToCaller = appt.pendingConfirmation
+          ? `You're booked for ${whenStr}. The office will confirm first thing.`
+          : `You're booked for ${whenStr}.`;
         return {
           result: appt.pendingConfirmation
             ? `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Since we're currently after hours, let the caller know it's reserved and a team member will confirm it first thing in the morning. Save this ID in case they ask to change it.`
             : `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Save this ID in case the caller asks to change it. The team will confirm shortly.`,
+          sayToCaller,
         };
       }
 
@@ -136,6 +147,7 @@ export async function executeAgentTool(
       }
 
       case "checkAvailability": {
+        const tz = await getBusinessTimezone(businessId);
         const result = await checkAvailability({
           businessId,
           preferredDate: optionalStr(params.preferredDate),
@@ -195,10 +207,14 @@ export async function executeAgentTool(
               ? "no_match"
               : "completed"
         );
-        return { result };
+        return {
+          result,
+          sayToCaller: result.replace(/\. Ask the caller[\s\S]*$/, "."),
+        };
       }
 
       case "cancelAppointment": {
+        const tz = await getBusinessTimezone(businessId);
         const verifiedCallerPhone = sanitizePhone(callerPhone);
         if (!verifiedCallerPhone) {
           const lead = await createLead({
@@ -256,9 +272,8 @@ export async function executeAgentTool(
           hour: "numeric",
           minute: "2-digit",
         });
-        return {
-          result: `Your ${cancellation.serviceType} appointment on ${appointmentTime} has been cancelled.`,
-        };
+        const sayToCaller = `Your ${cancellation.serviceType} appointment on ${appointmentTime} has been cancelled.`;
+        return { result: sayToCaller, sayToCaller };
       }
 
       case "getCurrentDate": {
