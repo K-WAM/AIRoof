@@ -102,7 +102,12 @@ export async function PATCH(
       reason: declineReason as RequestDeclineReason,
       customMessage: typeof customMessage === "string" ? customMessage : undefined,
     });
-    const result = await sendEmail({ to: email, ...message });
+    const result = await sendEmail({
+      to: email,
+      ...message,
+      fromName: typeof business.businessName === "string" ? business.businessName : null,
+      replyTo: typeof business.contactEmail === "string" ? business.contactEmail : null,
+    });
     return NextResponse.json({ ok: true, notifiedCustomer: result.status === "delivered" });
   }
   let committed:

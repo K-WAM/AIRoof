@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   verifyAuthAndRole: vi.fn(),
+  send: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
@@ -21,6 +22,7 @@ vi.mock("@/lib/firebase/admin", () => ({
     }),
   }),
 }));
+vi.mock("@/lib/comms/send", () => ({ sendEmail: mocks.send }));
 
 import { PATCH } from "@/app/api/businesses/[businessId]/leads/[leadId]/route";
 
@@ -35,6 +37,7 @@ describe("PATCH /api/businesses/[businessId]/leads/[leadId]", () => {
   beforeEach(() => {
     mocks.verifyAuthAndRole.mockReset();
     mocks.verifyAuthAndRole.mockResolvedValue({ user: { uid: "u1" } });
+    mocks.send.mockReset().mockResolvedValue({ status: "delivered" });
     leadExists = true;
     updates.length = 0;
   });
@@ -83,5 +86,10 @@ describe("PATCH /api/businesses/[businessId]/leads/[leadId]", () => {
       params: Promise.resolve({ leadId: "missing" }),
     });
     expect(response.status).toBe(404);
+  });
+
+  it("requires a valid decline reason and limits custom decline text", async () => {
+    expect((await PATCH(requestFor({ businessId: "biz-1", status: "lost" }), { params: Promise.resolve({ leadId: "lead-1" }) })).status).toBe(400);
+    expect((await PATCH(requestFor({ businessId: "biz-1", status: "lost", declineReason: "Other", customMessage: "x".repeat(301) }), { params: Promise.resolve({ leadId: "lead-1" }) })).status).toBe(400);
   });
 });
