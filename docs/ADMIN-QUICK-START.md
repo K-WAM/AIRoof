@@ -2,6 +2,27 @@
 
 Fast reference for onboarding a new service business.
 
+## 🗺️ What's where now (updated 2026-09-24)
+
+The portal has moved on since the raw-Firestore steps below. This is the fast map for day-to-day admin.
+
+| What | Where |
+|---|---|
+| All tenants; **Edit** a client's config (assistant, branding, seat limit, billing, pause) | Admin sidebar → **Clients** |
+| Calls / leads / appointments per tenant, and how each line is wired | Admin sidebar → **Usage** |
+| Luxor's own invoices + Stripe payment links | Admin sidebar → **Invoices** |
+| Run a live demo — the **“Run a demo in 5 minutes”** runbook is the panel at the top | Admin sidebar → **Demo Studio** |
+| Full playbooks (demo + client onboarding) | Admin sidebar → **Playbooks** (same as `/hub/guide`) |
+| A client's own team, branding, hours, recording notice | Company portal → **Settings** |
+
+- **Usage → “Phone line” column** shows how each tenant is wired: **Live · ElevenLabs**, **Live · Vapi**, **Demo · shared line**, or **No phone line**.
+- **Two demo lines.** **+1 (754) 283-7658** is the any-industry Vapi line (Demo Studio renames and reconfigures it for all thirteen industries). **+1 (689) 204-2643** is the roofing-only human-voice ElevenLabs test line (tenant `carlita-elevenlabs-test`, renamed via **Admin → Clients → Edit**; its calls appear under that tenant, not `demo-roofing`).
+- **Demo Studio fields are all optional** — company name, notification email, and business phone. The business phone is only the contact number printed on the prospect's invoices/quotes/emails; it is deliberately **not** the emergency/escalation number.
+- **Seats.** An owner invites teammates in **Settings → Team**; each account defaults to **5 seats**, and a superadmin raises the limit in **Admin → Clients → Edit → Seat limit**.
+- **Email.** Customer mail is sent from the **business name** with replies going to the **business contact email**; logos and job photos embed **inline**. The shared sending domain is verified (SPF/DKIM) — the one remaining owner step is confirming **`RESEND_FROM`** in Vercel (**NH-3**).
+
+> The steps below predate Vapi and the Hub. Use **Playbooks** or `public/guides/onboarding-guide.html` for the current onboarding path.
+
 ## 1️⃣ Collect Business Info
 
 - **Business ID** (slug): `apex-roofing`
