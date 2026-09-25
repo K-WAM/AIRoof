@@ -145,7 +145,7 @@ export default function DemoStudioPage() {
             <label>Company<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Test Roofing Co" /></label>
             <label>Owner name<input value={contactName} onChange={(e) => setContactName(e.target.value)} /></label>
             <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-            <label>Phone<input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+            <label>Their business phone <small style={{ color: "var(--text-muted)" }}>(optional — printed on their quotes and invoices; the AI never calls it)</small><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
             <label>City / service area<input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} /></label>
             <label>Logo (PNG, JPEG, WebP)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseLogo} />
               {logoDataUrl && <img src={logoDataUrl} alt="Logo preview" style={{ display: "block", maxWidth: 120, maxHeight: 70, objectFit: "contain" }} />}
@@ -155,7 +155,8 @@ export default function DemoStudioPage() {
           {line.error && <p role="alert" style={{ color: "var(--c-danger-fg)" }}>{line.error}</p>}
           {launched && <div style={{ marginTop: 16 }}>
             <p><strong>Next caller greeting:</strong> {line.greetingPreview}</p>
-            <label>Your phone for the test call<input type="tel" value={testPhone} onChange={(event) => setTestPhone(event.target.value)} /></label>
+            <p style={{ margin: "12px 0 4px" }}><strong>Prospects call {dial || "the demo number"}</strong> — you never need their number.</p>
+            <label>Your own cell, to hear it first <small style={{ color: "var(--text-muted)" }}>(Test call rings YOU from the demo line so you can hear the AI answer as this company; remembered on this device)</small><input type="tel" value={testPhone} onChange={(event) => setTestPhone(event.target.value)} placeholder="Your mobile number" /></label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <button className="button primary" type="button" disabled={busy || testPhone.trim().length < 7} onClick={testCall}>Test call</button>
               <Link className="button" href={preview("dashboard")}>Open dashboard</Link>

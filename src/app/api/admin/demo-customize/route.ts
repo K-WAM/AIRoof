@@ -40,6 +40,14 @@ import type { FieldUpdate } from "@/types/jobs";
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
 const DEFAULT_EMAIL = "kwamwad@gmail.com";
+
+// A demo line must always sound OPEN: a prospect who calls at 7 pm must not hear "the office is closed" mid-demo. Every
+// launch therefore sets round-the-clock hours ("HH:MM - HH:MM", 24:00 = end of day) in the Florida timezone. Real
+// tenants are untouched; the after-hours flow is still demonstrable from the seeded pending-approval booking.
+const DEMO_TIMEZONE = "America/New_York";
+const DEMO_ALWAYS_OPEN_HOURS = Object.fromEntries(
+  ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => [day, "00:00 - 24:00"]),
+);
 const ROOFING_DEFAULT_NAME = "Apex Roofing South Florida";
 
 // Hard in-code allowlist — never configurable. A destructive reset must never
@@ -252,6 +260,8 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       // leak onto the next demo's invoices (null clears them).
       contactEmail: opts.email,
       contactPhone: opts.phone ?? null,
+      businessHours: DEMO_ALWAYS_OPEN_HOURS,
+      timezone: (existing.data()?.timezone as string | undefined) || DEMO_TIMEZONE,
       agentName,
       agentIdentity: t.agentIdentity,
       agentTone: t.agentTone,

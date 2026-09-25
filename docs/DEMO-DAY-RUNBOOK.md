@@ -15,9 +15,9 @@ Every label below was checked against the code on 2026-09-25. Site: **https://cr
 
 **Screen 2 — Demo Studio** (left menu → **Demo Studio**, or `/hub/demo`)
 2. Top card shows the number and "Currently: …". If it says a different company or industry, that is the previous demo — you are about to replace it.
-3. Under **1 · Set up the prospect** ("Roofing is selected" — leave it). Fill in: **Company** (their real name, spelled the way it should be *said*), **Owner name**, **Email** (yours, for the dry run; theirs later), **Phone**, **City / service area**, and **Logo** (their PNG/JPEG/WebP).
+3. Under **1 · Set up the prospect** ("Roofing is selected" — leave it). Fill in: **Company** (their real name, spelled the way it should be *said*), **Owner name**, **Email** (yours, for the dry run; theirs later), **Their business phone** (optional — it is only printed on their quotes and invoices; the AI never calls it, and callers never need it), **City / service area**, and **Logo** (their PNG/JPEG/WebP). The prospect just dials +1 (689) 204-2643 — you never need their number.
 4. Click **Launch demo**. Wait ~5–10 seconds. The top card turns green **Ready** and shows the exact greeting a caller will hear (note: the AI reads the recording notice first — that is intentional).
-5. Type **your cell** into "Your phone for the test call" → click **Test call**. Your phone rings: answer, hear the greeting in *their* company's name, say "roof inspection tomorrow at 8", then hang up. If you hear it, you are ready.
+5. Type **your own cell** into "Your own cell, to hear it first" (this is the only place your number is used: **Test call** rings YOU from the demo line) → click **Test call**. Your phone rings: answer, hear the greeting in *their* company's name, say "roof inspection tomorrow at 8", then hang up. If you hear it, you are ready.
 6. Open a **second browser window** at `/company/dashboard?preview=demo-roofing` (or click **Open dashboard**). Keep it beside the first.
 
 ## C. The demo (20 minutes)
@@ -83,6 +83,7 @@ Every label below was checked against the code on 2026-09-25. Site: **https://cr
 
 ## F. Things to expect (so nothing surprises you)
 - The AI says the **recording notice** before the greeting. Normal (compliance default).
+- The demo line always sounds **open** (every launch sets round-the-clock hours), so a 7 pm caller never hears "the office is closed".
 - **Twilio trial** = a trial message before the AI answers. Fix in A1.
 - If ElevenLabs ever can't reach the app, the line falls back to the agent's own greeting ("Carlita Roofing") — if you hear that name, check https://crm.luxordev.com/api/health.
 - Voice takes 5–10 s to appear in the job. Say "it's processing" — don't tap again.

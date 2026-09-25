@@ -699,6 +699,33 @@ describe("demo-customize route", () => {
       vi.unstubAllEnvs();
     });
 
+    it("always sounds open — the greeting is the normal one at 3 AM, never \"the office is closed\"", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-26T07:00:00Z")); // 3:00 AM in Florida
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      vi.stubEnv("ELEVENLABS_API_KEY", "test-key");
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old", isDemo: true, fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        voiceProvider: "elevenlabs",
+        elevenlabs: { agentId: "agent-test", phoneNumberId: "phone-test", phoneNumber: "+16892042643" },
+        businessHours: { Monday: "09:00 - 17:00" }, // ordinary weekday-only hours from an earlier setup
+        approvedServices: [], approvedFaqs: [], emergencyRules: [], bookingRules: [], disallowedTopics: [], serviceArea: "Test Area",
+      });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const body = await (await POST(makeRequest("POST", { email: "test@example.com", companyName: "Roofdoctor", verticalId: "roofing" }))).json();
+      expect(body.greetingPreview).toContain("Thanks for calling Roofdoctor");
+      expect(body.greetingPreview).not.toMatch(/closed/i);
+      const stored = fs.documents.get("businesses/demo-roofing") as { data: Record<string, unknown> } | Record<string, unknown>;
+      const doc = ("data" in stored ? stored.data : stored) as { businessHours: Record<string, string>; timezone: string };
+      expect(Object.keys(doc.businessHours)).toHaveLength(7);
+      expect(doc.timezone).toBe("America/New_York");
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
     it("reports that the line needs migration", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
       const fs = createFirestore();
