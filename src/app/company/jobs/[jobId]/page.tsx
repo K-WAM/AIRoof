@@ -10,6 +10,9 @@ import { pickDefaultLogo, logoDataUri, logoStyle, needsLogoChip } from "@/lib/br
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { computeTotals, canSendInvoice } from "./jobInvoice";
+import { invoiceGroups } from "@/lib/documents/groups";
+import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { FindingsPanel } from "./FindingsPanel";
 import { QuotePanel } from "./QuotePanel";
 import { reportFindings } from "@/lib/jobs/findings";
@@ -164,6 +167,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
   const [hideMaterials, setHideMaterials] = useState(false);
+  const [hideLabor, setHideLabor] = useState(false);
+  const [showTechnicians, setShowTechnicians] = useState(false);
+  const [technicians, setTechnicians] = useState<string[]>([]);
+  const [narrative, setNarrative] = useState("");
   const [invoiceDirty, setInvoiceDirty] = useState(false);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
   // Guards the autosave effect from firing the instant hydration (GET/POST) populates the rows —
@@ -196,14 +203,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const [jobRes, updatesRes, configRes, libRes, logosRes] = await Promise.all([
         fetch(`/api/jobs/${jobId}?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
-        fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/company/settings?businessId=${businessId}`).then((r) => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/company/library?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
         fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.job as Job) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
-      if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
+      if (configRes) setBusinessConfig(configRes as BusinessConfig);
       if (logosRes?.logos) setLogos(logosRes.logos as LibraryLogo[]);
       // Distinguish "fetch failed" (libRes null) from "fetched fine, catalog is
       // just empty" (libRes.library with empty arrays) — only the former means
@@ -321,6 +328,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setOtherRows(otherLinesToRows(inv.other));
         setTaxRate(String(inv.taxRate));
         setHideMaterials(inv.hideMaterials);
+        setHideLabor(inv.hideLabor === true);
+        setShowTechnicians(inv.showTechnicians === true);
+        setTechnicians(inv.technicians ?? []);
+        setNarrative(inv.narrative ?? "");
         setInvoiceNotes(inv.notes ?? invoiceNotes);
         setInvoiceId(inv.invoiceId);
         setInvoiceStatus(inv.status);
@@ -382,6 +393,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setOtherRows(otherLinesToRows(inv.other));
       setTaxRate(String(inv.taxRate));
       setHideMaterials(inv.hideMaterials);
+      setHideLabor(inv.hideLabor === true);
+      setShowTechnicians(inv.showTechnicians === true);
+      setTechnicians(inv.technicians ?? []);
+      setNarrative(inv.narrative ?? "");
       setInvoiceId(inv.invoiceId);
       setInvoiceStatus(inv.status);
       setInvoiceLoaded(true);
@@ -609,6 +624,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               other: otherRowsToLines(otherRows),
               taxRate: parseFloat(taxRate) || 0,
               hideMaterials,
+              hideLabor,
+              showTechnicians,
+              technicians,
+              narrative,
               notes: invoiceNotes,
             }),
           });
@@ -623,7 +642,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }, 1200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, technicians, narrative, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -666,6 +685,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const invoiceBizName = businessConfig?.businessName ?? job.title;
   const defaultLogo = pickDefaultLogo(logos);
   const invoiceLogoSrc = defaultLogo ? logoDataUri(defaultLogo) : businessConfig?.logoUrl;
+  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos);
+  const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, hideMaterials, hideLabor } as JobInvoice;
 
   return (
     <>
@@ -709,7 +730,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           .company-main, .admin-main { padding: 0 !important; background: #fff !important; }
           body { background: #fff !important; }
           .panel { box-shadow: none; border: none; }
-          .invoice-doc, .report-doc {
+          .quote-panel-body > :not(.quote-preview-wrap) { display: none !important; }
+          .invoice-doc, .quote-doc, .report-doc {
             box-shadow: none !important;
             border: none !important;
             border-radius: 0 !important;
@@ -1185,7 +1207,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
-      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} onStatus={(status) => setJob((current) => current ? { ...current, status } : current)} />}
+      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} onStatus={(status) => setJob((current) => current ? { ...current, status } : current)} />}
 
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
@@ -1229,6 +1251,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       Hide materials from customer
                     </label>
                   </Tooltip>
+                  <Toggle checked={hideLabor} onChange={setHideLabor} label="Hide labor details" disabled={invoiceStatus !== "draft"} size="sm" />
+                  <Toggle checked={showTechnicians} onChange={setShowTechnicians} label="Show technicians" disabled={invoiceStatus !== "draft"} size="sm" />
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {invoiceStatus === "draft" && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
@@ -1301,7 +1325,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               )}
 
               {/* Invoice document */}
-              <div className="invoice-doc" style={{
+              <div className="invoice-editor no-print" style={{
                 background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
                 padding: "44px 52px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
@@ -1320,6 +1344,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <>{[businessConfig?.contactPhone, businessConfig?.contactEmail].filter(Boolean).join("  ·  ")}<br /></>
                         )}
                         {businessConfig?.websiteUrl && <>{businessConfig.websiteUrl}</>}
+                        {businessConfig?.licenseNumber && <><br />License #{businessConfig.licenseNumber}</>}
                       </div>
                     </div>
                   </div>
@@ -1357,6 +1382,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </div>
                 </div>
 
+                <div className="no-print" style={{ marginBottom: 20 }}>
+                  <label htmlFor="invoiceNarrative">Description of work</label>
+                  <textarea id="invoiceNarrative" maxLength={4000} rows={4} disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block" }} />
+                  {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+                </div>
                 {/* Labor */}
                 {laborRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
@@ -1599,6 +1629,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </div>
                   )}
                 </div>
+              </div>
+              <div style={{ marginTop: 24 }}>
+                <h3 className="no-print">Customer preview</h3>
+                <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
+                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceNotes], ["Reference", jobId], ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
+                  billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={narrative}
+                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal} />
               </div>
             </div>
           )}

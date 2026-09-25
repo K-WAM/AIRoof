@@ -15,6 +15,10 @@ export interface JobQuote {
   findings: JobFinding[];
   lines: QuoteLine[];
   hideMaterials: boolean;
+  hideLabor?: boolean;
+  showTechnicians?: boolean;
+  technicians?: string[];
+  narrative?: string;
   notes?: string;
   validUntil: number;
   subtotal: number;

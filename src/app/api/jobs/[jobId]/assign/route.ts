@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildCrewAssignmentEmail } from "@/lib/notify";
+import { resolveLetterhead } from "@/lib/documents/letterhead";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
   isScheduleWithinBusinessHours,
@@ -13,7 +14,7 @@ import {
   SchedulingConflictError,
   type NotificationDeliveryState,
 } from "@/lib/tools/agentTools";
-import type { Crew } from "@/types/library";
+import type { Crew, LibraryLogo } from "@/types/library";
 
 interface AssignmentBody {
   businessId?: string;
@@ -286,6 +287,8 @@ export async function POST(
       timeZone,
     });
     try {
+      const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
+      const resolvedBrand = resolveLetterhead(business, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], "brand-bar");
       const brand = {
         businessName:
           typeof business.businessName === "string"
@@ -293,7 +296,9 @@ export async function POST(
             : "Your Company",
         brandColor:
           typeof business.brandColor === "string" ? business.brandColor : undefined,
-        logoUrl: typeof business.logoUrl === "string" ? business.logoUrl : undefined,
+        logoUrl: resolvedBrand.logoUrl,
+        logoFilter: resolvedBrand.logoStyle.filter as string | undefined,
+        logoChip: resolvedBrand.logoChip,
         contactPhone:
           typeof business.contactPhone === "string"
             ? business.contactPhone

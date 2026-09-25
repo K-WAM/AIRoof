@@ -4,6 +4,8 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCustomerConfirmation } from "@/lib/notify";
 import { sendEmail } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { resolveLetterhead, escapeHtml } from "@/lib/documents/letterhead";
+import type { LibraryLogo } from "@/types/library";
 
 const BASE_URL = getAppUrl();
 
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
   const brand = {
     businessName: (biz.businessName as string) ?? "Your Company",
     brandColor: (biz.brandColor as string | undefined) ?? null,
-    logoUrl: (biz.logoUrl as string | undefined) ?? null,
+    logoUrl: resolveLetterhead(biz, ((await db.collection(`businesses/${businessId}/library`).doc("logos").get()).data()?.logos as LibraryLogo[] | undefined) ?? [], "brand-bar").logoUrl,
     contactPhone: (biz.contactPhone as string | undefined) ?? null,
     contactEmail: (biz.contactEmail as string | undefined) ?? null,
   };
@@ -66,8 +68,10 @@ export async function POST(request: NextRequest) {
     notifiedCustomer = result.status === "delivered";
   }
   if (notificationEmail) {
-    await sendEmail({
+    const notification = await sendEmail({
       to: notificationEmail,
+      fromName: brand.businessName,
+      replyTo: brand.contactEmail || undefined,
       subject: `[Appointment] Confirmed \u2014 ${appt.callerName ?? "Customer"} \u00b7 ${apptDate}`,
       html: confirmationEmailHtml({
         businessName: brand.businessName,
@@ -83,6 +87,7 @@ export async function POST(request: NextRequest) {
         appointmentId,
       }),
     });
+    if (notification.status !== "delivered") return NextResponse.json({ error: "Confirmation email could not be delivered" }, { status: 502 });
   }
 
   await db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId).update({
@@ -95,11 +100,11 @@ export async function POST(request: NextRequest) {
 }
 
 function brandHeader(p: { businessName: string; brandColor?: string | null; logoUrl?: string | null; contactPhone?: string | null; contactEmail?: string | null }): string {
-  const bg = p.brandColor ?? "#0f172a";
+  const bg = /^#[0-9a-f]{6}$/i.test(p.brandColor ?? "") ? p.brandColor : "#0f766e";
   const logo = p.logoUrl
-    ? `<img src="${p.logoUrl}" alt="${p.businessName}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
-    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;">${p.businessName}</p>`;
-  const contact = [p.contactPhone, p.contactEmail].filter(Boolean).join(" &nbsp;·&nbsp; ");
+    ? `<img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.businessName)}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;background:#fff;padding:6px;border-radius:5px;">`
+    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;">${escapeHtml(p.businessName)}</p>`;
+  const contact = [p.contactPhone, p.contactEmail].filter(Boolean).map((value) => escapeHtml(value!)).join(" &nbsp;·&nbsp; ");
   return `<td style="background:${bg};padding:28px 32px;text-align:center;">
     ${logo}
     ${contact ? `<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.7);">${contact}</p>` : ""}
@@ -108,8 +113,8 @@ function brandHeader(p: { businessName: string; brandColor?: string | null; logo
 
 function row(label: string, value: string): string {
   return `<tr>
-    <td style="padding:10px 24px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;vertical-align:top;width:110px;">${label}</td>
-    <td style="padding:10px 24px 10px 0;font-size:14px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${value}</td>
+    <td style="padding:10px 24px;font-size:12px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;vertical-align:top;width:110px;">${escapeHtml(label)}</td>
+    <td style="padding:10px 24px 10px 0;font-size:14px;color:#1e293b;font-weight:500;border-bottom:1px solid #f1f5f9;">${escapeHtml(value)}</td>
   </tr>`;
 }
 
@@ -150,7 +155,7 @@ function confirmationEmailHtml(p: {
   </td></tr>
   <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
     <p style="margin:0;font-size:10px;color:#cbd5e1;">
-      Appt ID: ${p.appointmentId} &nbsp;·&nbsp;
+      Appt ID: ${escapeHtml(p.appointmentId)} &nbsp;·&nbsp;
       <a href="${BASE_URL}/company/pipeline?tab=appointments" style="color:#94a3b8;text-decoration:none;">View appointments</a> &nbsp;·&nbsp;
       <span style="color:#e2e8f0;">Powered by Luxor AI</span>
     </p>

@@ -15,6 +15,7 @@ import type { LibraryPricing } from "@/types/library";
 import type { Customer } from "@/types/customer";
 import { addFindingsToInvoice, validFindings } from "@/lib/jobs/findings";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -133,6 +134,10 @@ interface PatchBody {
   other?: InvoiceOtherLine[];
   taxRate?: number;
   hideMaterials?: boolean;
+  hideLabor?: boolean;
+  showTechnicians?: boolean;
+  technicians?: string[];
+  narrative?: string;
   notes?: string;
   discount?: JobInvoiceDiscount | null;
 }
@@ -143,6 +148,11 @@ interface PatchBody {
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   const body = (await req.json()) as PatchBody;
+  if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return NextResponse.json({ error: "Invalid hideMaterials" }, { status: 400 });
+  if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return NextResponse.json({ error: "Invalid hideLabor" }, { status: 400 });
+  if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });
+  if (body.technicians !== undefined && !validTechnicians(body.technicians)) return NextResponse.json({ error: "Invalid technicians" }, { status: 400 });
+  if (body.narrative !== undefined && !validNarrative(body.narrative)) return NextResponse.json({ error: "Invalid narrative" }, { status: 400 });
   const { businessId } = body;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
@@ -200,6 +210,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     ...totals,
     updatedAt: Date.now(),
     ...(body.hideMaterials !== undefined ? { hideMaterials: body.hideMaterials } : {}),
+    ...(body.hideLabor !== undefined ? { hideLabor: body.hideLabor } : {}),
+    ...(body.showTechnicians !== undefined ? { showTechnicians: body.showTechnicians } : {}),
+    ...(body.technicians !== undefined ? { technicians: body.technicians } : {}),
+    ...(body.narrative !== undefined ? { narrative: body.narrative } : {}),
     ...(body.notes !== undefined ? { notes: body.notes } : {}),
   };
   await invRef.update(patch);

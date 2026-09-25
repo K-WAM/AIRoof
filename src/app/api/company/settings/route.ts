@@ -34,7 +34,12 @@ export async function GET(req: NextRequest) {
     notificationEmail: d.notificationEmail ?? "",
     contactPhone: d.contactPhone ?? "",
     contactEmail: d.contactEmail ?? "",
+    licenseNumber: d.licenseNumber ?? "",
     businessName: d.businessName ?? "",
+    address: d.address ?? "",
+    websiteUrl: d.websiteUrl ?? "",
+    brandColor: d.brandColor ?? null,
+    logoUrl: d.logoUrl ?? null,
     // Spanish (Phase 12, Phase 6)
     agentLanguage: d.agentLanguage ?? "en",
     agentLanguages: d.agentLanguages ?? ["en"],
@@ -48,9 +53,10 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, agentLanguage, agentLanguages, recordingDisclosure } = body;
+  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  if (licenseNumber !== undefined && (typeof licenseNumber !== "string" || licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(licenseNumber))) return NextResponse.json({ error: "Invalid license number" }, { status: 400 });
   if (agentLanguage !== undefined && !["en", "es"].includes(agentLanguage)) {
     return NextResponse.json({ error: 'agentLanguage must be "en" or "es"' }, { status: 400 });
   }
@@ -99,6 +105,7 @@ export async function PUT(req: NextRequest) {
   if (notificationEmail !== undefined) update.notificationEmail = notificationEmail;
   if (contactPhone !== undefined) update.contactPhone = contactPhone;
   if (contactEmail !== undefined) update.contactEmail = contactEmail;
+  if (licenseNumber !== undefined) update.licenseNumber = licenseNumber.trim();
   if (agentLanguage !== undefined) update.agentLanguage = agentLanguage;
   if (agentLanguages !== undefined) update.agentLanguages = agentLanguages;
   if (disclosureUpdate !== undefined) update.recordingDisclosure = disclosureUpdate;

@@ -3,7 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
-import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
+import { resolveLetterhead } from "@/lib/documents/letterhead";
 import type { JobInvoice } from "@/types/invoice";
 import type { LibraryLogo } from "@/types/library";
 
@@ -56,13 +56,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
-  const defaultLogo = pickDefaultLogo((logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
-  const logoUrl = defaultLogo ? logoDataUri(defaultLogo) : biz.logoUrl;
+  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
 
   const html = buildJobInvoiceEmailHtml(invoice, {
     businessName: bizName,
     brandColor: biz.brandColor,
-    logoUrl,
+    logoUrl: letterhead.logoUrl,
     address: biz.address,
     // Bug fix: this previously read `biz.phone`, a field that has never existed on
     // BusinessConfig (the branding field is `contactPhone`) — the business phone silently never
@@ -70,6 +69,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     contactPhone: biz.contactPhone,
     contactEmail: biz.contactEmail,
     websiteUrl: biz.websiteUrl,
+    licenseNumber: biz.licenseNumber,
   });
 
   const sent = await sendEmail({
