@@ -180,3 +180,43 @@ export async function PUT(req: NextRequest) {
 
   return jsonWithCache({ ok: true, catalog: { items: validated.items, updatedAt: now } }, "noStore");
 }
+
+// POST /api/company/work-catalog  { businessId, item: { category, problem, solution, severity?, lines? } }
+// Appends ONE item (the "Save to Library" checkbox on a one-off finding / custom quote item). The server assigns
+// the itemId and runs the same validation as PUT, so a job-page save can never bypass the catalog's caps.
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => ({}));
+  const businessId = typeof body?.businessId === "string" ? body.businessId.trim() : "";
+  if (!businessId) return jsonWithCache({ error: "businessId required" }, "noStore", { status: 400 });
+
+  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  if ("error" in auth) {
+    auth.error.headers.set("Cache-Control", "no-store");
+    return auth.error;
+  }
+  const rawItem = body?.item;
+  if (!rawItem || typeof rawItem !== "object" || Array.isArray(rawItem)) {
+    return jsonWithCache({ error: "item required" }, "noStore", { status: 400 });
+  }
+
+  const now = Date.now();
+  const itemId = `custom-${crypto.randomUUID()}`;
+  const validated = validateItems([{ ...(rawItem as Record<string, unknown>), itemId, starter: false, createdAt: now }], now);
+  if (!validated.ok) return jsonWithCache({ error: validated.error }, "noStore", { status: 400 });
+
+  const db = getAdminFirestore();
+  if (!db) return jsonWithCache({ error: "Database unavailable" }, "noStore", { status: 503 });
+
+  const ref = db.collection(`businesses/${businessId}/library`).doc("workCatalog");
+  const outcome = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const items = snap.exists ? ((snap.data() as WorkCatalog).items ?? []) : [];
+    if (items.length >= WORK_CATALOG_MAX_ITEMS) return { full: true as const };
+    tx.set(ref, { items: [...items, validated.items[0]], updatedAt: now }, { merge: true });
+    return { full: false as const };
+  });
+  if (outcome.full) {
+    return jsonWithCache({ error: `the catalog is limited to ${WORK_CATALOG_MAX_ITEMS} items` }, "noStore", { status: 409 });
+  }
+  return jsonWithCache({ ok: true, item: validated.items[0] }, "noStore", { status: 201 });
+}
