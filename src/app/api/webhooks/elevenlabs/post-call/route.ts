@@ -157,10 +157,11 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
   // ElevenLabs transcript entries carry `time_in_call_secs` (seconds since
   // answer) — rebase onto the call's start time for absolute ms timestamps.
   const metadata = asRecord(data.metadata);
-  const startTimeSecs =
+  const reportedStartTimeSecs =
     typeof metadata.start_time_unix_secs === "number"
       ? metadata.start_time_unix_secs
-      : Math.floor(Date.now() / 1000);
+      : undefined;
+  const transcriptStartTimeSecs = reportedStartTimeSecs ?? Math.floor(Date.now() / 1000);
   const transcriptEntries = Array.isArray(data.transcript) ? data.transcript : [];
   const messages = normalizeProviderTranscriptMessages(
     transcriptEntries.map((entry) => {
@@ -172,7 +173,7 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
         message: typeof turn.message === "string" ? turn.message : undefined,
         time:
           timeInCallSecs !== undefined
-            ? (startTimeSecs + timeInCallSecs) * 1000
+            ? (transcriptStartTimeSecs + timeInCallSecs) * 1000
             : undefined,
       };
     })
@@ -183,17 +184,29 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
     typeof analysis.transcript_summary === "string" ? analysis.transcript_summary : null;
   const durationSecs =
     typeof metadata.call_duration_secs === "number" ? metadata.call_duration_secs : undefined;
+  const callId = `call_elevenlabs_${conversationId}`;
+  const appointments = await db
+    .collection("businesses")
+    .doc(businessId)
+    .collection("appointments")
+    .where("sourceCallId", "==", callId)
+    .get();
+  const appointmentIds = appointments.docs.map((doc) => doc.id);
 
   // Same `calls` document the Vapi end-of-call-report writes (shared writer).
   await writeEndedCallReport(db, {
     businessId,
-    callId: `call_elevenlabs_${conversationId}`,
+    callId,
     callerPhone,
     messages,
     summary,
     durationSecs,
-    startedAt: startTimeSecs * 1000,
-    providerFields: { elevenLabsConversationId: conversationId },
+    ...(reportedStartTimeSecs !== undefined ? { startedAt: reportedStartTimeSecs * 1000 } : {}),
+    providerFields: {
+      elevenLabsConversationId: conversationId,
+      providerIds: { elevenLabsConversationId: conversationId },
+      appointmentIds,
+    },
   });
 }
 

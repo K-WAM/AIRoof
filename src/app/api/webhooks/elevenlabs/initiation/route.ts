@@ -105,6 +105,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  if (conversationId) {
+    try {
+      const db = getAdminFirestore();
+      const now = Date.now();
+      await db
+        ?.collection("businesses")
+        .doc(businessId)
+        .collection("calls")
+        .doc(`call_elevenlabs_${conversationId}`)
+        .set({
+          callId: `call_elevenlabs_${conversationId}`,
+          businessId,
+          callerPhone: callerId ?? null,
+          status: "in_progress",
+          provider: "elevenlabs",
+          startedAt: now,
+          createdAt: now,
+          updatedAt: now,
+          providerIds: { elevenLabsConversationId: conversationId },
+        }, { merge: true });
+    } catch (error) {
+      console.error("elevenlabs initiation: failed to create live call row", error);
+    }
+  }
+
   return NextResponse.json(buildInitiationResponse(config, callerId, new Date()));
 }
 

@@ -169,6 +169,47 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(record?.callerPhone).toBe("+1 (305) 555-0100");
     expect(record?.calledNumber).toBe("+17542837658");
     expect((record?.expiresAt as { toMillis: () => number }).toMillis()).toBeGreaterThan(Date.now());
+    expect(db.__peek("businesses/biz_1/calls", "call_elevenlabs_conv_1")).toMatchObject({
+      businessId: "biz_1",
+      callerPhone: "+1 (305) 555-0100",
+      status: "in_progress",
+      provider: "elevenlabs",
+      providerIds: { elevenLabsConversationId: "conv_1" },
+    });
+  });
+
+  it("still returns the call response when the live-row write fails", async () => {
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");
+    db.__seed("businesses", "biz_1", { ...businessConfig() });
+    const originalCollection = db.collection;
+    let callWrite = false;
+    db.collection = ((name: string) => {
+      const collection = originalCollection(name);
+      if (name !== "businesses") return collection;
+      const originalDoc = collection.doc.bind(collection);
+      collection.doc = ((id?: string) => {
+        const doc = originalDoc(id);
+        if (id !== "biz_1") return doc;
+        const originalSubcollection = doc.collection.bind(doc);
+        doc.collection = ((sub: string) => {
+          const nested = originalSubcollection(sub);
+          if (sub !== "calls") return nested;
+          const originalCallDoc = nested.doc.bind(nested);
+          nested.doc = ((callId?: string) => {
+            const callDoc = originalCallDoc(callId);
+            callDoc.set = async () => { callWrite = true; throw new Error("write failed"); };
+            return callDoc;
+          }) as typeof nested.doc;
+          return nested;
+        }) as typeof doc.collection;
+        return doc;
+      }) as typeof collection.doc;
+      return collection;
+    }) as typeof db.collection;
+
+    const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
+    expect(response.status).toBe(200);
+    expect(callWrite).toBe(true);
   });
 
   it("returns the generic response when the business doc is missing", async () => {

@@ -87,6 +87,7 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
       expiresAt: now + 24 * 60 * 60 * 1000,
     });
     db.__seed("businesses", "biz_1", { businessName: "Apex Roofing", timezone: "America/New_York" });
+    db.__seed("businesses/biz_1/appointments", "appt_1", { sourceCallId: "call_elevenlabs_conv_1" });
     _resetRateLimitState();
   });
 
@@ -123,6 +124,8 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
     expect(call?.callerPhone).toBe("+1 (305) 555-0100");
     expect(call?.status).toBe("ended");
     expect(call?.elevenLabsConversationId).toBe("conv_1");
+    expect(call?.providerIds).toEqual({ elevenLabsConversationId: "conv_1" });
+    expect(call?.appointmentIds).toEqual(["appt_1"]);
     expect(call?.summary).toBe("Caller requested a roof inspection.");
     expect(call?.durationSecs).toBe(45);
     // The calls list orders by startedAt; a doc without it never shows up (regression: "my call is missing").
@@ -143,6 +146,22 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
         timestamp: (1_750_000_000 + 2) * 1000,
       },
     ]);
+  });
+
+  it("merges into the live row and keeps startedAt when post-call omits it", async () => {
+    const liveStartedAt = Date.now() - 20_000;
+    db.__seed("businesses/biz_1/calls", "call_elevenlabs_conv_1", {
+      status: "in_progress", startedAt: liveStartedAt, provider: "elevenlabs",
+    });
+    const payload = transcriptionPayload({ metadata: { call_duration_secs: 12 } });
+    const response = await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)));
+    expect(response.status).toBe(200);
+    expect(db.__peek("businesses/biz_1/calls", "call_elevenlabs_conv_1")).toMatchObject({
+      status: "ended",
+      startedAt: liveStartedAt,
+      provider: "elevenlabs",
+      appointmentIds: ["appt_1"],
+    });
   });
 
   it("dedups a retried delivery (identical payload) without double-writing", async () => {
