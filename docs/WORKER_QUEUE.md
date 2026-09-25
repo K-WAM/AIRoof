@@ -377,3 +377,25 @@ Addendum to B2 (main moved on 2026-09-25 — merge it first):
 
 ### Held (needs an owner decision first, then Sol medium — money path)
 Stripe subscriptions + monthly minutes metering + seat sync (`seatLimit` from plan) + suspend-on-nonpayment. Needs: final tiers/prices (see the pricing model in the 2026-09-24 chat), and Firebase on Blaze.
+
+### C4 — Codex, **Terra medium** — T-107b (the REPORT on the shared document layer) — T-107a is merged (2026-09-25); run after Codex's usage limit resets
+```
+Work ONLY in a new worktree: cd "D:/Apps/6 - AI Receptionist" && git worktree add ../air-wt-report -b task/report-suite main
+Then: cd ../air-wt-report; junction node_modules from the main repo the way the other worktrees do (see docs/NEXT_SESSION.md tooling notes); before your first edit run
+`git rev-parse --show-toplevel` and `git branch --show-current` (must be D:/Apps/air-wt-report and task/report-suite). Never edit the main repo. Read docs/WORKER_QUEUE.md "Worker etiquette" and AGENTS.md first.
+Read: src/lib/documents/ (groups.ts, letterhead.ts, emailBlocks.ts, validation.ts, DocumentPreview.tsx — built in T-107a), src/types/documentOptions.ts (shared contract; optional additions only),
+the Report tab in src/app/company/jobs/[jobId]/page.tsx (grep "reportLogo"/"ReportRenderer"; the file is 2,250+ lines — grep, do not read it whole), src/app/api/jobs/[jobId]/report/send/route.ts,
+src/lib/jobs/reportFindingsHtml.ts, src/lib/photos/store.ts, src/lib/billing/jobInvoiceEmailHtml.ts (the pattern to follow), and docs/WORKER_QUEUE.md B3 line.
+Task T-107b — commits prefixed `T-107b:`:
+1. The report uses the SAME letterhead as invoice/quote (resolveLetterhead + emailBlocks) in all renderings: in-app, print/PDF twin, emailed HTML.
+2. Options: "Hide materials" and "Hide labor details" toggles on the report (same semantics as the invoice: hidden => lump row / no names, hours or rates; the editor always shows everything);
+   optional "Technicians" line (same persisted shape as invoice). Persist as optional booleans/arrays on the job's report doc/fields; validate in the route. Old reports = defaults, no migration.
+3. Photo pages: photos with phase "problem" grouped under "Problem" and "corrective" under "Corrective action" with Before/After pairing when both exist; existing includeInReport toggle still governs inclusion. Cap image count so the emailed report stays < ~15 MB (resize is already client-side; just cap and say so in the UI).
+4. `draftNarrative`: a DETERMINISTIC (no LLM) pure function that drafts the scope/resolution text from the job's findings + issues + materials + labor; add a "Draft from job" button to the report notes field (and to the invoice/quote narrative fields if T-107a left a hook). It only fills an EMPTY field or asks before overwriting.
+5. Email: report/send passes fromName/replyTo and returns 502 (nothing marked sent) on failed delivery — this already exists in report/send/route.ts; KEEP IT. Logos/photos may stay data URIs — sendEmail converts them to inline CID attachments.
+Do NOT touch: voice/webhooks, agentTools, work-catalog code, invoice/quote logic except shared helpers, pipeline/calls (T-113, merged), nav/feedback.
+Rules: never invent numbers; escape all free text; no placeholder text in customer-visible strings; Cache-Control rule; mobile-check at 375px; no new dependencies (ask instead).
+Tests: hide-toggle matrix across groups + both HTMLs (hidden names/hours/rates ABSENT, true totals PRESENT), photo grouping/pairing, draftNarrative determinism + empty inputs, route validation.
+Gates once at the end: tsc, eslint (changed files), vitest run (known load-flaky: send.test, company/team — re-run alone), `next build` once. Append evidence to docs/IMPLEMENTATION_LOG.md with a shell `cat >>` (file has odd bytes); mark T-107b `review` in TODO.md.
+Commit at least every 45 min. Never push/merge/touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+```
