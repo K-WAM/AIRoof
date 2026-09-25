@@ -43,6 +43,19 @@ describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
   });
 });
 
+describe("buildAgentPrompt — How you speak", () => {
+  it("keeps internal IDs silent and names the configured contact", () => {
+    const prompt = buildAgentPrompt(config({ contactName: "Alex", agentLanguages: ["en", "es"] }));
+    expect(prompt).toContain("## How you speak");
+    expect(prompt).toContain("Never read internal IDs");
+    expect(prompt).toContain("sayToCaller");
+    expect(prompt).toContain("Alex or someone from the team will follow up");
+    expect(prompt).toContain("One moment while I check the calendar");
+    expect(prompt).toContain("continue in Spanish");
+    expect(prompt).not.toContain("you'll receive an email");
+  });
+});
+
 // T-100 — structured per-industry intake. The section comes from the vertical
 // template (not hardcoded), instructs the agent to collect the fields
 // conversationally, never stalls on them, and records answers as parseable

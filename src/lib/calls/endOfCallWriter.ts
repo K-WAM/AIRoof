@@ -44,7 +44,7 @@ export interface EndedCallReportInput {
   recordingUrl?: string | null;
   cost?: number | null;
   /** Provider-specific id field(s) spread onto the call doc (e.g. { vapiCallId } / { elevenLabsConversationId }). */
-  providerFields?: Record<string, string>;
+  providerFields?: Record<string, unknown>;
   /** Call duration in seconds. Only ElevenLabs reports one; Vapi passes nothing. */
   durationSecs?: number;
   /** Call start (ms). Vapi's status-update writes this earlier; ElevenLabs only reports it here, and the calls list

@@ -131,6 +131,10 @@ function buildToolConfig(schema, baseUrl, toolSecretId) {
       type: "webhook",
       name: schema.name,
       description: schema.description,
+      // ElevenLabs tools API: pre_tool_speech = "force" speaks before the call.
+      // Keep this to the calendar tools to avoid adding chatter to every tool.
+      ...(schema.name === "checkAvailability" || schema.name === "bookAppointment"
+        ? { pre_tool_speech: "force" } : {}),
       response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
       api_schema: {
         url: `${baseUrl}${schema.path}`,
@@ -262,6 +266,14 @@ async function main() {
   for (const schema of schemas) {
     const existing = tools.find((tool) => tool.name === schema.name);
     if (existing) {
+      if (schema.name === "checkAvailability" || schema.name === "bookAppointment") {
+        // Existing workspace tools must get the setting too. Use the full
+        // schema-backed config so the endpoint does not drop request headers.
+        await apiFetch(apiKey, `/v1/convai/tools/${encodeURIComponent(existing.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify(buildToolConfig(schema, baseUrl, secret.id)),
+        });
+      }
       console.log(`  reuse tool ${schema.name} (id ${existing.id})`);
       toolIds.push(existing.id);
       results.tools.push({ name: schema.name, id: existing.id, created: false });

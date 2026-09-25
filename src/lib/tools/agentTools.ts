@@ -472,7 +472,9 @@ export interface BookAppointmentInput {
   sourceCallId?: string;
 }
 
-export async function bookAppointment(input: BookAppointmentInput): Promise<Appointment> {
+export type BookAppointmentOutput = Appointment & { businessTimezone: string };
+
+export async function bookAppointment(input: BookAppointmentInput): Promise<BookAppointmentOutput> {
   const db = getAdminFirestore();
   if (!db) throw new Error("Firestore not available");
   const businessRef = db.collection("businesses").doc(input.businessId);
@@ -628,7 +630,11 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Appo
     });
   }
 
-  return appointment;
+  return {
+    ...appointment,
+    businessTimezone:
+      typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ,
+  };
 }
 
 export interface CreateLeadInput {
