@@ -22,6 +22,8 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
+import { mergeWorkStarter, workCatalogStarterFor } from "@/lib/verticals/workCatalogStarter";
+import { mergeStarterKit, starterKitFor } from "@/lib/verticals/starterKits";
 import { getVoiceProvider } from "@/lib/voice/provider";
 import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
 import { MAX_LOGO_B64_BYTES, totalLogoBytes } from "@/lib/branding/logo";
@@ -250,7 +252,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     // 2. Backup existing data, then delete and reseed. The backup write must
     //    succeed before any document is deleted — if it fails the whole reset aborts.
     const seed = demoSeedFor(opts.verticalId, now);
-    const subs = ["calls", "leads", "appointments", "crews", "jobs"] as const;
+    const subs = ["calls", "leads", "appointments", "crews", "jobs", "customers", "quotes", "invoices", "punches", "agentActions", "schedulingLocks"] as const;
 
     const snapshots: Record<string, FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>> = {};
     const backupData: Record<string, Record<string, unknown>[]> = {};
@@ -260,6 +262,19 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       snapshots[sub] = snap;
       backupData[sub] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     }
+
+    // A job's child collections survive a plain document delete. Preserve them
+    // in the backup and remove the entire tree before reusing J-number IDs.
+    for (const job of snapshots.jobs.docs) {
+      for (const child of ["updates", "photos", "photoBlobs"]) {
+        const nested = await job.ref.collection(child).get();
+        backupData[`jobs/${job.id}/${child}`] = nested.docs.map((d) => ({ id: d.id, ...d.data() }));
+      }
+    }
+    const conversations = await db.collection("elevenlabsConversations").where("businessId", "==", LIVE_LINE_BUSINESS_ID).get();
+    backupData.elevenlabsConversations = conversations.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const libraryDocs = await Promise.all(["logos", "workCatalog", "pricing"].map((id) => base.collection("library").doc(id).get()));
+    backupData.library = libraryDocs.filter((d) => d.exists).map((d) => ({ id: d.id, ...d.data() }));
 
     await base.collection("backups").doc(String(now)).set({
       timestamp: now,
@@ -272,10 +287,31 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     for (const sub of subs) {
       const snap = snapshots[sub];
       if (!snap.empty) {
-        const del = db.batch();
-        snap.docs.forEach((d) => del.delete(d.ref));
-        await del.commit();
+        if (sub === "jobs") {
+          for (const doc of snap.docs) await db.recursiveDelete(doc.ref);
+        } else {
+          for (const doc of snap.docs) await doc.ref.delete();
+        }
       }
+    }
+    for (const doc of conversations.docs) await doc.ref.delete();
+
+    // Use the same pure import helpers as the Library starter endpoints. Start
+    // empty on every launch so an earlier prospect's edits cannot leak.
+    const workItems = workCatalogStarterFor(opts.verticalId);
+    if (workItems) {
+      const { catalog } = mergeWorkStarter({ items: [] }, workItems, now);
+      await base.collection("library").doc("workCatalog").set(catalog);
+    } else {
+      await base.collection("library").doc("workCatalog").set({ items: [], starterKitImported: [] });
+    }
+    const pricingKit = starterKitFor(opts.verticalId);
+    if (pricingKit) {
+      const { library } = mergeStarterKit({ materials: [], laborRates: [], documents: [] }, pricingKit,
+        !t.disabledModules.includes("pricing"), opts.verticalId, now);
+      await base.collection("library").doc("pricing").set(library);
+    } else {
+      await base.collection("library").doc("pricing").set({ materials: [], laborRates: [], documents: [] });
     }
 
     const add = db.batch();
@@ -329,6 +365,8 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       });
     });
     await add.commit();
+
+    await base.update({ seededAt: now });
 
     const logo = opts.logoDataUrl ? parseLogo(opts.logoDataUrl) : null;
     await base.collection("library").doc("logos").set({ logos: logo ? [logo] : [], updatedAt: now });

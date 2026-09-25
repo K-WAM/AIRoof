@@ -82,7 +82,7 @@ class FakeQuery {
   ) {}
 
   where(_field: string, _operator: string, _value: unknown) {
-    void _field; void _operator; void _value;
+    this.filters.push([_field, _operator, _value]);
     return this;
   }
 
@@ -94,6 +94,7 @@ class FakeQuery {
         ([docPath]) =>
           docPath.startsWith(prefix) && docPath.split("/").length === expectedSegments,
       )
+      .filter(([, data]) => this.filters.every(([field, op, value]) => op === "==" && data[field] === value))
       .map(
         ([docPath, data]) =>
           new FakeDocumentSnapshot(new FakeDocumentReference(this.firestore, docPath), data),
@@ -149,6 +150,12 @@ class FakeFirestore {
 
   batch() {
     return new FakeBatch();
+  }
+
+  async recursiveDelete(ref: FakeDocumentReference) {
+    for (const path of [...this.documents.keys()]) {
+      if (path === ref.path || path.startsWith(`${ref.path}/`)) this.documents.delete(path);
+    }
   }
 
   runTransaction<T>(callback: (transaction: {
@@ -359,7 +366,7 @@ describe("demo-customize route", () => {
       expect(backupDoc?.data).toBeDefined();
     });
 
-    it("includes all five subcollections in backup", async () => {
+    it("includes all cleared collections in backup", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
@@ -381,7 +388,37 @@ describe("demo-customize route", () => {
       );
       const backupDoc = fs.documents.get(backupKeys[0]) as StoredDocument;
       const data = backupDoc.data as Record<string, unknown[]>;
-      expect(Object.keys(data).sort()).toEqual(["appointments", "calls", "crews", "jobs", "leads"]);
+      expect(Object.keys(data).sort()).toEqual([
+        "agentActions", "appointments", "calls", "crews", "customers", "elevenlabsConversations",
+        "invoices", "jobs", "leads", "library", "punches", "quotes", "schedulingLocks",
+      ]);
+    });
+
+    it("removes orphan job children, old customer data and occupied scheduling slots", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", { businessName: "Old", isDemo: true,
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234" });
+      for (const path of [
+        "businesses/demo-roofing/jobs/J-1001", "businesses/demo-roofing/jobs/J-1001/updates/u1",
+        "businesses/demo-roofing/jobs/J-1001/photos/p1", "businesses/demo-roofing/jobs/J-1001/photoBlobs/b1",
+        "businesses/demo-roofing/customers/c1", "businesses/demo-roofing/quotes/q1",
+        "businesses/demo-roofing/invoices/i1", "businesses/demo-roofing/punches/p1",
+        "businesses/demo-roofing/agentActions/a1", "businesses/demo-roofing/schedulingLocks/slot1",
+      ]) fs.documents.set(path, { old: true });
+      fs.documents.set("elevenlabsConversations/own", { businessId: "demo-roofing" });
+      fs.documents.set("elevenlabsConversations/other", { businessId: "another-tenant" });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const response = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await response.json()).ok).toBe(true);
+      for (const path of [...fs.documents.keys()]) {
+        expect(path).not.toMatch(/jobs\/J-1001\/(updates|photos|photoBlobs)\//);
+        expect(path).not.toMatch(/(customers|quotes|invoices|punches|agentActions|schedulingLocks)\/[^/]+$/);
+      }
+      expect(fs.documents.has("elevenlabsConversations/own")).toBe(false);
+      expect(fs.documents.has("elevenlabsConversations/other")).toBe(true);
     });
 
     it("releases lock after completion", async () => {
