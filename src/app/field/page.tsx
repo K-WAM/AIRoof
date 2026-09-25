@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
+import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
 import { InstallPrompt } from "@/components/field/InstallPrompt";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
@@ -449,6 +450,14 @@ function FieldApp() {
             submittedBy={workerName.trim() || undefined}
             disabled={isBusy}
             onUploaded={() => flashSaved("Photo saved")}
+          />
+
+          {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
+          <FieldFindingsButton
+            jobId={selectedJobId || null}
+            businessId={businessId}
+            disabled={isBusy}
+            onAdded={(problem) => flashSaved(`Finding added: ${problem}`)}
           />
 
           {error && (

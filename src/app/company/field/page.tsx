@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
+import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
@@ -659,6 +660,11 @@ function FieldPageContent() {
           {/* Photo capture */}
           <div style={{ marginBottom: 20 }}>
             <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
+          </div>
+
+          {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
+          <div style={{ marginBottom: 20 }}>
+            <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
           </div>
 
           {/* One-tap correction confirm card */}

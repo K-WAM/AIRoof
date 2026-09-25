@@ -47,7 +47,7 @@ describe("/api/jobs/[jobId]/findings (field-safe)", () => {
   it("POST adds a server-side snapshot of the catalog item (with its lines) to the job", async () => {
     const res = await POST(post("J-1000", { businessId: "biz", itemId: "tile" }), ctx("J-1000"));
     expect(res.status).toBe(201);
-    const job = db.__peek("businesses/biz/jobs", "J-1000") as { findings: Array<{ itemId: string; lines: Array<{ unitPrice: number }>; includeInQuote: boolean; includeInReport: boolean }> };
+    const job = db.__peek("businesses/biz/jobs", "J-1000")! as { findings: Array<{ itemId: string; lines: Array<{ unitPrice: number }>; includeInQuote: boolean; includeInReport: boolean }> };
     expect(job.findings).toHaveLength(1);
     expect(job.findings[0]).toMatchObject({ itemId: "tile", includeInQuote: true, includeInReport: true });
     expect(job.findings[0].lines[0].unitPrice).toBe(9);
@@ -59,7 +59,7 @@ describe("/api/jobs/[jobId]/findings (field-safe)", () => {
       POST(post("J-1000", { businessId: "biz", itemId: "tile" }), ctx("J-1000")),
     ]);
     expect([a.status, b.status].sort()).toEqual([200, 201]);
-    expect((db.__peek("businesses/biz/jobs", "J-1000") as { findings: unknown[] }).findings).toHaveLength(1);
+    expect((db.__peek("businesses/biz/jobs", "J-1000")! as { findings: unknown[] }).findings).toHaveLength(1);
   });
 
   it("404s an unknown catalog item and an unknown job", async () => {
@@ -73,7 +73,7 @@ describe("/api/jobs/[jobId]/findings (field-safe)", () => {
     expect((await GET(get("J-2000"), ctx("J-2000"))).status).toBe(403);
     expect((await POST(post("J-1000", { businessId: "other", itemId: "tile" }), ctx("J-1000"))).status).toBe(403);
     expect((await POST(post("J-1000", { businessId: "biz", itemId: "tile" }, false), ctx("J-1000"))).status).toBe(401);
-    expect((db.__peek("businesses/biz/jobs", "J-2000") as { findings?: unknown[] }).findings).toBeUndefined();
+    expect((db.__peek("businesses/biz/jobs", "J-2000")! as { findings?: unknown[] }).findings).toBeUndefined();
   });
 
   it("stops at 60 findings with 409 and validates the body", async () => {

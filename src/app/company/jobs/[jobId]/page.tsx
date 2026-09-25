@@ -17,6 +17,10 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
 import { draftNarrative, pairReportPhotos, reportSections } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
+import { useWorkCatalog } from "@/hooks/useWorkCatalog";
+import { suggestFindings } from "@/lib/jobs/suggestFindings";
+import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
+import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { QuotePanel } from "./QuotePanel";
 import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -120,6 +124,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const { open: openQuickAdd } = useQuickAdd();
+  // The Library catalog is loaded once here and shared by the Findings and Quote tabs.
+  const catalog = useWorkCatalog(businessId);
 
   const [job, setJob] = useState<Job | null>(null);
   const [updates, setUpdates] = useState<FieldUpdate[]>([]);
@@ -664,12 +670,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     return () => window.removeEventListener("beforeunload", handler);
   }, [invoiceDirty]);
 
+  const suggestedCount = job ? suggestFindings(job, catalog.items).length : 0;
   const TABS = [
     { id: "timeline", label: `Timeline (${timeline.length})` },
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
     { id: "issues", label: `Issues (${issues.length})` },
-    { id: "findings", label: `Findings (${job?.findings?.length ?? 0})` },
+    { id: "findings", label: `Findings (${job?.findings?.length ?? 0})${suggestedCount > 0 ? ` · ${suggestedCount} suggested` : ""}` },
     { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
     { id: "invoice", label: "Invoice" },
     { id: "quote", label: "Quote" },
@@ -1219,9 +1226,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
-      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
-      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} onStatus={(status) => setJob((current) => current ? { ...current, status } : current)} />}
+      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
+        onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
+        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
@@ -1259,14 +1268,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }}>{invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
-                  <Tooltip content="When on, the emailed invoice and the printed/PDF view both show one 'Materials & supplies' line at the subtotal instead of the item breakdown. Materials still appear fully broken out and editable here in the app.">
-                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: invoiceStatus === "draft" ? "pointer" : "not-allowed" }}>
-                      <Toggle checked={hideMaterials} onChange={setHideMaterials} label="Hide materials from customer email" disabled={invoiceStatus !== "draft"} size="sm" />
-                      Hide materials from customer
-                    </label>
-                  </Tooltip>
-                  <Toggle checked={hideLabor} onChange={setHideLabor} label="Hide labor details" disabled={invoiceStatus !== "draft"} size="sm" />
-                  <Toggle checked={showTechnicians} onChange={setShowTechnicians} label="Show technicians" disabled={invoiceStatus !== "draft"} size="sm" />
+                  <details>
+                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
+                    <div style={{ marginTop: 8, maxWidth: 380 }}>
+                      <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
+                        onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                    </div>
+                  </details>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {invoiceStatus === "draft" && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
@@ -1692,14 +1700,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </button>
               </div>
 
-              <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-                <Toggle checked={reportOptions.hideMaterials === true} onChange={(hideMaterials) => { const next = { ...reportOptions, hideMaterials }; setReportOptions(next); void saveReportNotes(next); }} label="Hide materials" size="sm" />
-                <span style={{ fontSize: 13 }}>Hide materials</span>
-                <Toggle checked={reportOptions.hideLabor === true} onChange={(hideLabor) => { const next = { ...reportOptions, hideLabor }; setReportOptions(next); void saveReportNotes(next); }} label="Hide labor details" size="sm" />
-                <span style={{ fontSize: 13 }}>Hide labor details</span>
-                <Toggle checked={reportOptions.showTechnicians === true} onChange={(showTechnicians) => { const next = { ...reportOptions, showTechnicians }; setReportOptions(next); void saveReportNotes(next); }} label="Show technicians" size="sm" />
-                <span style={{ fontSize: 13 }}>Show technicians</span>
-              </div>
+              <details className="no-print" style={{ marginBottom: 16 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
+                <div style={{ marginTop: 8, maxWidth: 380 }}>
+                  <DocumentOptionToggles values={reportOptions}
+                    onChange={(key, next) => { const options = { ...reportOptions, [key]: next }; setReportOptions(options); void saveReportNotes(options); }} />
+                </div>
+              </details>
 
               {/* Mail panel — automation prepares the report; a human presses send */}
               {showReportSend && (

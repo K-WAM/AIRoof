@@ -30,14 +30,14 @@ describe("POST /api/company/work-catalog (append one item)", () => {
     const { item } = await res.json();
     expect(item.itemId).toMatch(/^custom-/);
     expect(item.lines[0].unitPrice).toBe(6);
-    const stored = db.__peek("businesses/biz/library", "workCatalog") as { items: Array<{ itemId: string }> };
+    const stored = db.__peek("businesses/biz/library", "workCatalog")! as { items: Array<{ itemId: string }> };
     expect(stored.items.map((i) => i.itemId)).toEqual(["starter-a", item.itemId]);
   });
 
   it("creates the catalog doc when none exists", async () => {
     const res = await POST(request({ businessId: "biz", item: ITEM }));
     expect(res.status).toBe(201);
-    expect((db.__peek("businesses/biz/library", "workCatalog") as { items: unknown[] }).items).toHaveLength(1);
+    expect((db.__peek("businesses/biz/library", "workCatalog")! as { items: unknown[] }).items).toHaveLength(1);
   });
 
   it("ignores a client-supplied itemId and starter flag", async () => {

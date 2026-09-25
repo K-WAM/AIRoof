@@ -19,35 +19,35 @@ const MAX_FINDINGS = 60;
 
 async function load(req: NextRequest, jobId: string, businessId: string) {
   const gate = await verifyFieldAccess(req, businessId);
-  if ("error" in gate) return { error: gate.error };
+  if ("error" in gate) return { ok: false as const, response: gate.error };
   const db = getAdminFirestore();
-  if (!db) return { error: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
+  if (!db) return { ok: false as const, response: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
   const [bizSnap, jobSnap, catalogSnap] = await Promise.all([
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/jobs`).doc(jobId).get(),
     db.collection(`businesses/${businessId}/library`).doc("workCatalog").get(),
   ]);
   if (getVerticalTemplate(bizSnap.data()?.industry ?? "").disabledModules.includes("jobs")) {
-    return { error: NextResponse.json({ error: "Jobs module unavailable" }, { status: 403 }) };
+    return { ok: false as const, response: NextResponse.json({ error: "Jobs module unavailable" }, { status: 403 }) };
   }
-  if (!jobSnap.exists) return { error: NextResponse.json({ error: "Job not found" }, { status: 404 }) };
+  if (!jobSnap.exists) return { ok: false as const, response: NextResponse.json({ error: "Job not found" }, { status: 404 }) };
   const catalog: WorkCatalog = catalogSnap.exists ? (catalogSnap.data() as WorkCatalog) : { items: [] };
-  return { db, job: jobSnap.data() as Job, catalog };
+  return { ok: true as const, db, job: jobSnap.data() as Job, catalog };
 }
 
-export async function GET(req: NextRequest, { params }: Context) {
+export async function GET(req: NextRequest, { params }: Context): Promise<Response> {
   const { jobId } = await params;
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   const loaded = await load(req, jobId, businessId);
-  if ("error" in loaded) return loaded.error;
+  if (!loaded.ok) return loaded.response;
   return jsonWithCache({
     items: loaded.catalog.items.map(({ itemId, category, problem, solution, severity }) => ({ itemId, category, problem, solution, severity })),
     findings: (loaded.job.findings ?? []).map((f) => ({ findingId: f.findingId, itemId: f.itemId, category: f.category, problem: f.problem })),
   }, "noStore");
 }
 
-export async function POST(req: NextRequest, { params }: Context) {
+export async function POST(req: NextRequest, { params }: Context): Promise<Response> {
   const { jobId } = await params;
   let body: { businessId?: string; itemId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: Context) {
     return NextResponse.json({ error: "businessId and itemId required" }, { status: 400 });
   }
   const loaded = await load(req, jobId, businessId);
-  if ("error" in loaded) return loaded.error;
+  if (!loaded.ok) return loaded.response;
 
   const item = loaded.catalog.items.find((candidate) => candidate.itemId === itemId);
   if (!item) return NextResponse.json({ error: "Library item not found" }, { status: 404 });
