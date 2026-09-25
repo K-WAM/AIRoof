@@ -394,9 +394,10 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.7 — September 2026</div>
+        <div><span>Version</span> 2.8 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
-      <div><span>Demo line</span> +1 (754) 283-7658 (Roofing)</div>
+      <div><span>Demo line — any industry</span> +1 (754) 283-7658</div>
+      <div><span>Human-voice line — roofing</span> +1 (689) 204-2643</div>
       <div><span>Self-led link</span> ai-roof.vercel.app/try/roofing</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
     </div>
@@ -414,6 +415,17 @@
     <p>Run a live demo for any industry. One phone number, thirteen industries, ~60 seconds of setup.</p>
   </div>
 
+  <!-- ══ WHERE IS EVERYTHING (nav after T-055, refreshed 2026-09-24) ══ -->
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px 24px;margin:0 0 24px;page-break-inside:avoid;">
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#0f172a;margin-bottom:8px;">Where is everything</div>
+    <ul style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.85;color:#1e293b;">
+      <li><strong>Admin sidebar → Platform:</strong> <strong>Clients</strong> (every tenant; <strong>Edit</strong> opens a client's config) and <strong>Usage</strong> (per-business calls/leads/appointments, with a <strong>Phone line</strong> column).</li>
+      <li><strong>Admin sidebar → Tools:</strong> <strong>Invoices</strong>, <strong>Demo Studio</strong> (<code>/hub/demo</code>) and <strong>Playbooks</strong> (<code>/hub/guide</code>). The <strong>“Run a demo in 5 minutes”</strong> runbook is the panel at the very top of Demo Studio.</li>
+      <li><strong>Company portal</strong> (the client view): Dashboard, Pipeline, Calls, Calendar, Jobs, Library, and <strong>Settings → Team</strong>.</li>
+      <li><strong>Admin → Usage → “Phone line”</strong> tells you how each tenant is wired: <em>Live · ElevenLabs</em>, <em>Live · Vapi</em>, <em>Demo · shared line</em>, or <em>No phone line</em>.</li>
+    </ul>
+  </div>
+
   <!-- ══ THE WHOLE DEMO — click by click ══ -->
   <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:18px 24px;margin:0 0 24px;page-break-inside:avoid;">
     <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;margin-bottom:4px;">⚡ Forgot everything? This is the whole demo.</div>
@@ -422,7 +434,7 @@
       <li>Go to <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> → sign in as <strong>connect@luxordev.com</strong></li>
       <li>Left nav → <strong>Demo Studio</strong></li>
       <li>Click their <strong>industry card</strong> (13 of them)</li>
-      <li>Type their <strong>company name</strong> + <strong>email</strong> → click <strong>Launch demo →</strong></li>
+      <li>Type their <strong>company name</strong> + <strong>email</strong> + <strong>business phone</strong> (all three optional) → click <strong>Launch demo →</strong></li>
       <li>Hand them your phone → dial <strong style="color:#1d4ed8">+1 (754) 283-7658</strong>. The agent answers as <em>their</em> company. <strong>Works for every industry.</strong></li>
       <li>Click <strong>Open [Industry] dashboard →</strong> → show <strong>Dashboard</strong> (the after-hours booking waiting for approval) → <strong>Calendar</strong> (drag a card onto a row)</li>
       <li>Done? Click <strong>Reset demo</strong>.</li>
@@ -446,7 +458,8 @@
     <p style="font-size:13px;margin:0 0 16px;line-height:1.8;">
       <strong>Company name</strong> — their real business name. The agent greets callers with it.<br>
       <strong>Notification email</strong> — theirs. Demo booking confirmations and lead alerts go here.<br>
-      Click <strong>Launch demo →</strong>. This reconfigures the live line and reseeds the data. Takes ~2 seconds.
+      <strong>Business phone</strong> — theirs (optional). It prints on the prospect's invoices, quotes and confirmation emails as their <em>contact</em> phone. It is deliberately <strong>not</strong> the emergency/escalation number, so an emergency test call can never ring their real phone by surprise.<br>
+      <strong>All three fields are optional</strong> — leave any blank and the demo uses a sensible default. Click <strong>Launch demo →</strong>. This reconfigures the live line and reseeds the data. Takes ~2 seconds.
     </p>
 
     <div style="font-size:11px;font-weight:700;color:#a78bfa;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">③ The launch panel</div>
@@ -606,6 +619,14 @@
     <strong>Dental, Care Homes, Property Mgmt, Childcare &amp; Daycares are intake businesses.</strong> They have no field jobs, so they don't see Jobs, Field, or the materials catalog — and you shouldn't pitch those. Their story is: the phone is answered 24/7, the booking lands in Pipeline, and the Calendar assigns it to a provider/vendor/sitter. If asked "can we track jobs?" — that's the field-service product, and it's the same platform.
   </div>
 
+  <div class="highlight">
+    <strong>Two demo lines — don’t mix them up:</strong>
+    <ul style="margin:8px 0 0 18px;">
+      <li><strong>+1 (754) 283-7658 — the any-industry line (Vapi).</strong> Works for all thirteen industries; each Demo Studio launch renames and reconfigures this one line. This is the number to dial after a Demo Studio launch, and the only one that follows industry changes automatically.</li>
+      <li><strong>+1 (689) 204-2643 — the human-voice line (ElevenLabs, roofing only).</strong> A separate, natural-sounding test tenant (<code>carlita-elevenlabs-test</code>). Demo Studio does <em>not</em> reconfigure it — change its name or greeting via <strong>Admin → Clients → Edit</strong> — and its calls appear under the <code>carlita-elevenlabs-test</code> tenant, not <code>demo-roofing</code>. The “Run a demo in 5 minutes” panel at the top of Demo Studio has a call button for each line.</li>
+    </ul>
+  </div>
+
   <!-- ══ BEFORE THE DEMO ══ -->
   <h3>Before the Demo — 5-Minute Setup</h3>
   <p>Do this the morning of the demo or right before the meeting. All you need is two browser tabs.</p>
@@ -629,7 +650,7 @@
       <div class="step-num blue">3</div>
       <div class="step-body">
         <strong>Pick their industry and personalize</strong>
-        <p>Click their industry card → enter their company name and email → click <strong>Launch demo →</strong>. The launch panel appears in under 3 seconds.</p>
+        <p>Click their industry card → optionally enter their company name, email and business phone → click <strong>Launch demo →</strong>. The launch panel appears in under 3 seconds.</p>
       </div>
     </li>
     <li>
@@ -1178,7 +1199,7 @@
   </div>
 
   <div class="highlight">
-    <strong>Voice providers:</strong> <strong>Vapi is the live provider</strong> for every call today. <strong>ElevenLabs Agents</strong> is an evaluated, <em>dormant</em> alternative — a per-tenant switch exists in code, but no tenant is on it and it does not answer real calls. Do not tell a client it is live.
+    <strong>Voice providers:</strong> <strong>Vapi is the live provider for every paying client</strong> — all client calls run on Vapi. <strong>ElevenLabs Agents</strong> is now per-tenant selectable and is proven on one isolated test tenant: <code>carlita-elevenlabs-test</code>, the human-voice demo line <strong>+1 (689) 204-2643</strong> (roofing only). It is <em>not</em> offered to clients yet — do not enroll a client on ElevenLabs or promise it on their line until the owner signs off on the provider switch.
   </div>
 
   <div class="highlight">
@@ -1221,7 +1242,7 @@
       <div class="step-num">4</div>
       <div class="step-body">
         <strong>Configure the model, voice and transcriber</strong>
-        <p>Expected live config: Provider <strong>OpenAI</strong>, model <strong>gpt-4o-mini</strong>; Voice <strong>Vapi Voices v2 — “Savannah”</strong>; Transcriber <strong>Deepgram Flux</strong>. Leave <code>startSpeakingPlan</code>/<code>stopSpeakingPlan</code> and background sound at the assistant's hand-tuned defaults (<code>numWords 2</code>, <code>backoffSeconds 0.7</code>, <code>waitSeconds 0.1</code>). Do <strong>not</strong> switch the model to a <code>gpt-realtime-*</code> speech-to-speech model — an earlier trial broke turn-taking (the assistant talked over callers); those speaking plans govern the cascaded transcriber → LLM → TTS pipeline only. A different voice (e.g. ElevenLabs) can be selected per tenant later through the dormant voice-provider seam; it is not live for callers today.</p>
+        <p>Expected live config: Provider <strong>OpenAI</strong>, model <strong>gpt-4o-mini</strong>; Voice <strong>Vapi Voices v2 — “Savannah”</strong>; Transcriber <strong>Deepgram Flux</strong>. Leave <code>startSpeakingPlan</code>/<code>stopSpeakingPlan</code> and background sound at the assistant's hand-tuned defaults (<code>numWords 2</code>, <code>backoffSeconds 0.7</code>, <code>waitSeconds 0.1</code>). Do <strong>not</strong> switch the model to a <code>gpt-realtime-*</code> speech-to-speech model — an earlier trial broke turn-taking (the assistant talked over callers); those speaking plans govern the cascaded transcriber → LLM → TTS pipeline only. A different voice (e.g. ElevenLabs) can be selected per tenant through the voice-provider seam; today it is live only on the isolated roofing test line +1 (689) 204-2643, not on client lines.</p>
       </div>
     </li>
     <li>
@@ -1382,7 +1403,8 @@
         <p><strong>Vapi assistant ID:</strong> Paste the ID from Phase 1 Step 9</p>
         <p><strong>Vapi phone number ID:</strong> Paste the <code>pn_</code> ID from Phase 2</p>
         <p><strong>Brand color:</strong> Their primary hex color (e.g. <code>#1e3a5f</code>)</p>
-        <p><strong>Contact phone:</strong> The number shown on confirmation emails</p>
+        <p><strong>Contact phone:</strong> The number shown on confirmation emails, invoices and quotes</p>
+        <p><strong>Contact email:</strong> Optional here, but set it on the client's config (<strong>Admin → Clients → Edit</strong>) — it is where customer replies go (the Reply-To on their mail)</p>
         <p><strong>Logo URL:</strong> HTTPS link to their logo image (optional but recommended)</p>
       </div>
     </li>
@@ -1397,6 +1419,10 @@
 
   <div class="highlight">
     <strong>Intake fields, starter kits and the Library:</strong> the chosen industry also defines the <strong>intake fields</strong> the AI collects on a call (for example a unit number, insurance, or pet details) — they appear as labelled rows on the Pipeline request card. In the client's <strong>Library</strong>, a <strong>“Load starter kit”</strong> button seeds example materials, labor rates and the trade's <strong>Work catalog</strong> (standard problems and solutions); starter items carry a “Starter — review price” flag until someone edits them, and are never treated as final pricing without review. The <strong>Work catalog</strong> is its own Library tab, shown only for jobs-module industries.
+  </div>
+
+  <div class="highlight">
+    <strong>How client email looks:</strong> every customer-facing email (confirmations, invoices, quotes, reports, crew notices) is sent from the client's <strong>business name</strong>, with replies going to their <strong>contact email</strong> — so customers hear back from the business, not from Luxor. Logos and job photos are embedded <strong>inline</strong> (real attachments, not broken images). The shared sending domain is verified for SPF/DKIM, so mail is deliverable; the one remaining owner step is confirming the <code>RESEND_FROM</code> address in Vercel (tracked as <strong>NH-3</strong>).
   </div>
 
   <hr>
@@ -1438,7 +1464,7 @@ superadmin: false</code>
       <div class="step-num">4</div>
       <div class="step-body">
         <strong>Tell them they can add their own team — you don't have to</strong>
-        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it's raised on that client's Config page. Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
+        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it is raised in <strong>Admin → Clients → Edit</strong> (that client's Config page → <em>Subscription &amp; Billing</em> → <strong>Seat limit</strong>). Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
       </div>
     </li>
   </ol>
@@ -1501,7 +1527,7 @@ superadmin: false</code>
       <div class="step-num">7</div>
       <div class="step-body">
         <strong>Send confirmation email</strong>
-        <p>On Appointments page, click <strong>Send Confirmation</strong>. ✓ Email arrives with brand color and logo &nbsp; ✓ Footer says "Powered by Luxor AI"</p>
+        <p>On Appointments page, click <strong>Send Confirmation</strong>. ✓ Email arrives with brand color and logo &nbsp; ✓ Sender shows the <strong>business name</strong> (replies go to their contact email) &nbsp; ✓ The logo renders <strong>inline</strong>, not as a broken image &nbsp; ✓ Footer says "Powered by Luxor AI"</p>
       </div>
     </li>
     <li>
@@ -1766,7 +1792,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.7 — September 2026</span>
+    <span>v2.8 — September 2026</span>
   </div>
 
 </div><!-- /page -->
