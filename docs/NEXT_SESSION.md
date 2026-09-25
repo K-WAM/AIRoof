@@ -1,5 +1,13 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## UPDATE 2026-09-25 (afternoon) — read this first
+- Smoke test DONE: C5 + C6 merged to local `main` (`src/e2e/demo-path.test.ts`, `src/e2e/field-audio.test.ts`; `docs/SMOKE-REPORT.md` all pass offline); `next build` passed on main.
+  Merged worktrees removed. **Local `main` is ahead of `origin/main` — not pushed yet.**
+- Owner decisions: **ElevenLabs only, Vapi retired from demos; roofing first.** The next goal is the 20-minute roofing demo:
+  spec `docs/DEMO-READINESS-PLAN.md`, three worker tasks D1/D2/D3 in `docs/WORKER_QUEUE.md` section D, tracked as TODO.md Phase 24.
+- Owner blocker: **Twilio Upgrade** (NH-21) before any prospect calls the ElevenLabs line.
+- The paragraph and "First 15 minutes" below predate this and are superseded where they conflict (the smoke test is done; the demo line is moving to ElevenLabs).
+
 ## Where we are in one paragraph
 `main` is pushed and deployed at `https://crm.luxordev.com` (health: Firestore connected, all providers configured, Stripe not). The whole customer story is BUILT and unit-tested
 (call books -> request in Pipeline -> Review request card: confirm/decline -> job -> field updates EN/ES -> report, quote, invoice with one shared letterhead/logo), but **only the first link
@@ -43,5 +51,6 @@ Do not change production code to make the test pass. Do not push or merge to mai
 - Worker prompts live in `docs/WORKER_QUEUE.md` (sections A/B/C). Every prompt needs the abs worktree path + `git worktree add` command and a suggested model + effort.
 
 ## Repo state
-`main` pushed. Worktrees still on disk (safe to remove, T-127): `air-wt-request-review`, `air-wt-documents-core`, `air-wt-report` (all merged), plus a stray `.kilo` one that is not ours. `air-wt-smoke` appears when Codex starts C5.
+Local `main` has the C5/C6 merges + the Phase 24 plan (not pushed as of 2026-09-25 afternoon). All merged worktrees removed; only the stray `.kilo` one remains (not ours).
+Phase 24 worktrees appear as workers start: `air-wt-demo-line` (D1), `air-wt-job-loop` (D2), `air-wt-roofing` (D3). Worktree policy: `docs/DEMO-READINESS-PLAN.md` §6.
 Local uncommitted: only `.claude/settings.local.json` (ignore).

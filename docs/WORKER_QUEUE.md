@@ -431,3 +431,50 @@ Also write docs/SMOKE-REPORT.md: a table of the 10 steps (pass / fail / not cove
 No new dependencies (ask instead). Gates once at the end: tsc, eslint on your files, the new test alone + full `vitest run` (known load-flaky: send.test, company/team — re-run alone), `next build` once. Commit every ~45 min. Append a short entry to docs/IMPLEMENTATION_LOG.md with a shell `cat >>`.
 Never push/merge/touch main. Final message: pass/fail table, "Noticed, not done", "QUESTION FOR INTEGRATOR: ...".
 ```
+
+---
+
+## D — roofing demo on ElevenLabs (written 2026-09-25) — THREE tasks, run in parallel
+
+Spec for all three: **`docs/DEMO-READINESS-PLAN.md` §3** (read it fully before coding; the prompts below only point to it).
+No Vapi work in any of them — Vapi is retired from demos (plan §0). Merge order: D3 first (small), then D1 Part 1 (the demo line), then D2 by stage, D1 Part 2.
+Worktree setup (PowerShell) for a new worktree `<wt>` on branch `<branch>`:
+`cd "D:/Apps/6 - AI Receptionist"; git worktree add ../<wt> -b <branch> main; New-Item -ItemType Junction -Path "D:/Apps/<wt>/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"`
+then verify `git -C D:/Apps/<wt> rev-parse --show-toplevel` and `git -C D:/Apps/<wt> branch --show-current` before the first edit.
+
+### D1 — Codex A, **Sol medium** — phone line + Demo Studio (T-120, T-129, T-118, T-125, T-130 server side, T-131)
+```
+Work ONLY in a new worktree D:/Apps/air-wt-demo-line on branch task/demo-line (create it + junction node_modules exactly as in docs/WORKER_QUEUE.md section D; verify toplevel + branch before the first edit). Never edit D:/Apps/6 - AI Receptionist.
+Read first: AGENTS.md, docs/WORKER_QUEUE.md "Worker etiquette", CLAUDE.md (Industry-Applicability + Cache-Control rules), then docs/DEMO-READINESS-PLAN.md §0, §1, §2 and §3 "D1" in full. §3 D1 is your spec: follow steps 1-9 in order.
+Stay inside the D1 "Owns" list; the "Must not touch" list is owned by another worker running in parallel — if you need one of those files, STOP and ask.
+Part 1 (steps 1-5) is what makes the demo work: finish it first. Commit after EVERY step (prefix "D1:"); after step 5 make a commit titled "D1 Part 1 complete" and append a checkpoint to docs/IMPLEMENTATION_LOG.md (shell `cat >> file <<'EOF'`; the file has odd bytes) — the integrator may merge that commit while you continue with Part 2 (steps 6-9).
+Step 4 needs D3's src/lib/verticals/demoSeedRoofing.ts: run `git merge main` first; if the file is not there yet, skip step 4 and say so.
+Hard rules: no live services or keys (mock fetch); never print secrets; the migration script defaults to --dry-run and you do NOT run --apply; keep BOTH demo-reset guards (code allowlist + isDemo) and the lock/backup; a Demo Studio launch must make NO ElevenLabs/Vapi network call; remove every Vapi mention from Demo Studio; 375px, one-teal .button variants, no inline hex; jsonWithCache/private caching only.
+Gates at the end of each Part: npx tsc --noEmit; eslint on changed files; your tests; full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build.
+Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: a step-by-step done/not-done table with commit hashes (mark the Part 1 commit), gates output, "Noticed, not done", and the exact commands the integrator must run (migration dry-run/apply, setup-elevenlabs-agent flags).
+```
+
+### D2 — Codex B, **Terra medium** — the job loop: request → job → field → findings → quote → report → invoice (T-133..T-138 + workflow cleanup)
+```
+Work ONLY in a new worktree D:/Apps/air-wt-job-loop on branch task/job-loop (create it + junction node_modules exactly as in docs/WORKER_QUEUE.md section D; verify toplevel + branch before the first edit). Never edit D:/Apps/6 - AI Receptionist.
+Read first: AGENTS.md, docs/WORKER_QUEUE.md "Worker etiquette", CLAUDE.md (Industry-Applicability, Customer Entity & Search, Cache-Control, Navigation Completeness, design-system rules), then docs/DEMO-READINESS-PLAN.md §0, §1, §2, §3 "D2" and §4 in full. §3 D2 is your spec: Stages 1-4, steps 1-11, in order.
+Stay inside the D2 "Owns" list; the "Must not touch" list is owned by another worker running in parallel — if you need one of those files, STOP and ask.
+src/app/company/jobs/[jobId]/page.tsx is ~2,360 lines: grep, don't read it whole; when you touch a tab, extract it to its own component file (like QuotePanel.tsx / FindingsPanel.tsx) with no behavior change beyond the task.
+Commit after EVERY step (prefix "D2:"). At the end of each Stage make a commit titled "D2 Stage N complete" and append a checkpoint to docs/IMPLEMENTATION_LOG.md (shell `cat >> file <<'EOF'`; odd bytes) — the integrator merges stage by stage while you continue. Run `git merge main` at the start of each Stage.
+Owner rules: jobs are never auto-created (Confirm & create job is a human tap, idempotent); reports carry no prices; no new money math (totals stay on quoteTotal/quoteGroups); one-teal .button variants, no inline hex, 375px, tap targets >= 44px; jsonWithCache/private caching only; field-grant endpoints must be narrow (one job, one action).
+Gates at the end of each Stage: npx tsc --noEmit; eslint on changed files; your tests; full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build. No new dependencies (ask instead).
+Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: a stage/step done/not-done table with commit hashes (mark each "Stage N complete" commit), gates output, "Noticed, not done".
+```
+
+### D3 — Deepseek **V4 Flash, Think High** — South Florida roofing content (T-132) — content only, no logic
+```
+Work ONLY in a new worktree D:/Apps/air-wt-roofing on branch task/roofing-content (create it + junction node_modules exactly as in docs/WORKER_QUEUE.md section D; verify toplevel + branch before the first edit). Never edit D:/Apps/6 - AI Receptionist.
+Read first: AGENTS.md, docs/WORKER_QUEUE.md "Worker etiquette", then docs/DEMO-READINESS-PLAN.md §0 and §3 "D3" in full. §3 D3 is your spec: steps 1-4.
+You may edit ONLY: the roofing block of src/lib/verticals/templates.ts (NOT DEMO_LINE_PHONE, NOT other verticals), the roofing array of src/lib/verticals/workCatalogStarter.ts, and the new files src/lib/verticals/demoSeedRoofing.ts + its test. Nothing else.
+demoSeedRoofing.ts must match the WorkedJobSeed contract in the plan EXACTLY (another worker imports it). Keep existing starter itemIds unchanged; new ones are starter-roofing-<slug>.
+Content rules: FAQ answers are spoken aloud by the phone AI — max 2 sentences, no lists/URLs/unexplained abbreviations; never claim a license number, insurance coverage, a building-code section or a price; catalog prices are EXAMPLES (keep the starter flag).
+Commit after each step (prefix "D3:"). Gates: npx tsc --noEmit; eslint on changed files; npx vitest run src/lib/verticals; then the full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build.
+Never push, merge or touch main. Final message: what changed (list the new services, FAQs, emergency rules, catalog items), gates output, "Noticed, not done", "QUESTION FOR INTEGRATOR: ..." if any.
+```

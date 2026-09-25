@@ -956,8 +956,8 @@ an active queue.*
         reconfigures `demo-roofing` (the Vapi line; allowlist `DEMO_BUSINESS_IDS` + `isDemo` marker guards). Goal: one launcher, pick a line
         (Vapi 754 / ElevenLabs 689) + an industry, and the chosen line's tenant adapts per call (the ElevenLabs initiation webhook already builds
         the prompt from the tenant, so a launch only needs to update the tenant + seed demo data). Keep BOTH guards (code allowlist AND `isDemo`);
-        add a way to mark the ElevenLabs demo tenant `isDemo` without loosening the guard for real tenants; tests for the guards. Blocked on: owner
-        sign-off for T-117 P2 (moving the demo line).
+        add a way to mark the ElevenLabs demo tenant `isDemo` without loosening the guard for real tenants; tests for the guards. **UNBLOCKED 2026-09-25**
+        (owner: ElevenLabs only, no more Vapi) and RESCOPED: the ElevenLabs number moves onto `demo-roofing` instead — see Phase 24 / D1.
   - [x] T-121 — **Demo Studio: no-friction launch + "Run a demo in 5 minutes" runbook** (DONE 2026-09-24, Claude). Company name and notification
         email are now OPTIONAL (blank -> "<Industry> Demo" + default inbox; a provided email is still validated; server + UI + 4 tests). New
         scannable `DemoRunbook` card at the top of `/hub/demo`: 6 steps with persisted pre-flight checkboxes, both demo lines with dialable numbers,
@@ -972,7 +972,7 @@ an active queue.*
         bottom, and show validation errors inline next to the field. Fixed 2026-09-24 (837a6d6): the save 500 (Firestore read-after-write in the config
         transaction) and the page swallowing the server's message — do not regress either.
 
-- [ ] Phase 23 — Launch readiness: email, calls, documents, smoke test (owner-directed, 2026-09-25) — 4/9
+- [ ] Phase 23 — Launch readiness: email, calls, documents, smoke test (owner-directed, 2026-09-25) — 5/9
       Outcome of the 2026-09-25 session. Everything marked [x] is merged to `main` and deployed.
   - [x] T-122 — **Email deliverability pass** (Claude). Found prod `RESEND_FROM` was Resend's sandbox sender (only delivers to the account owner) and that invoice/quote/report routes marked "sent" even when delivery failed.
         `src/lib/comms/prepare.ts` (base64 images -> inline CID attachments, plain-text part, tenant `From` display name); `sendEmail({fromName, replyTo})`; routes return 502 and do NOT mark sent on failed delivery;
@@ -983,12 +983,34 @@ an active queue.*
   - [x] T-107a/T-107b — **Document suite** merged (Codex + integrator): shared `src/lib/documents/` letterhead, hide materials/labor, technicians, narrative, licenseNumber; invoice + quote + report on one layout. **Reports carry NO pricing** (owner, 2026-09-25):
         `reportSections()` lists plain labor/material facts; hide toggles omit the section. The legacy `_ReportRenderer` in `jobs/[jobId]/page.tsx` is dead code that still has pricing (T-127).
   - [x] T-113 / C2 — request review + decline and the guide refresh merged (see Phase 20/21).
-  - [ ] T-124 — **End-to-end smoke test** (Codex Terra medium; prompt = `docs/WORKER_QUEUE.md` **C5**; worktree `../air-wt-smoke`, branch `task/e2e-smoke`). One offline test `src/e2e/demo-path.test.ts` walking call -> appointment -> Calls/Pipeline lists -> confirm/decline -> job -> field update (EN + ES) -> report/quote/invoice -> emails,
+  - [x] T-124 — **End-to-end smoke test** (DONE 2026-09-25 — C5 + C6 merged, see the note under T-128) (Codex Terra medium; prompt = `docs/WORKER_QUEUE.md` **C5**; worktree `../air-wt-smoke`, branch `task/e2e-smoke`). One offline test `src/e2e/demo-path.test.ts` walking call -> appointment -> Calls/Pipeline lists -> confirm/decline -> job -> field update (EN + ES) -> report/quote/invoice -> emails,
         plus `docs/SMOKE-REPORT.md`. Breaks are recorded, not patched. Then the owner does the live run-through (NH-26).
   - [ ] T-125 — **ElevenLabs call audio + escalation** (Claude, or Codex Sol medium — live call path). ElevenLabs calls store NO recording (the Calls page player is empty; the post-call webhook is transcript-only): enable/handle the audio webhook or fetch the audio. Also set an escalation phone on the test tenant so emergency transfer works.
   - [ ] T-126 — **Billing** (HELD — needs the owner's pricing decision; Codex Sol medium, money path). Stripe subscriptions, monthly minutes metering from call docs, `seatLimit` from plan, suspend on non-payment. Proposed tiers (2026-09-25 chat): Starter $149 (200 min, 2 seats), Pro $299 (500 min, 5 seats), Team $549 (1,200 min, 15 seats); overage $0.30/min; extra seat $15; setup $300-500.
   - [ ] T-127 — **Cleanup** (Terra low): delete the dead `_ReportRenderer` (+ now-unused helpers) from `src/app/company/jobs/[jobId]/page.tsx`; drop the unused `DocumentGroup` import warning; optional one-off `startedAt` backfill on `call_elevenlabs_conv_2`; remove worktrees `air-wt-request-review`, `air-wt-documents-core`, `air-wt-report` (unlink each `node_modules` junction first).
   - [ ] T-128 — **Photos -> Firebase Storage** (HELD — the owner said NOT moving Firebase to Blaze yet, 2026-09-25). `src/lib/photos/store.ts` is built to be swapped; Spark's 1 GiB / daily quotas are the ceiling for base64-in-Firestore photos.
+  - T-124 note (2026-09-25): C5 (`src/e2e/demo-path.test.ts`) + C6 (`src/e2e/field-audio.test.ts`) merged; `docs/SMOKE-REPORT.md` all 10 steps pass offline
+        (cross-tenant partial by design: public webhooks use provider secrets). Multipart audio is not accepted by `field-audio` (JSON/base64 only) — recorded as `it.fails`, not a bug in the app's own client.
+        Worktrees `air-wt-documents-core`, `air-wt-guide-2`, `air-wt-report`, `air-wt-request-review`, `air-wt-smoke` removed (T-127's worktree part done).
+
+- [ ] Phase 24 — The 20-minute roofing demo on ElevenLabs (owner-directed, 2026-09-25) — 0/3
+      Spec: `docs/DEMO-READINESS-PLAN.md` (§1 demo-breaking findings, §2 running order, §3 worker tasks). Prompts: `docs/WORKER_QUEUE.md` section **D**.
+      Owner decisions: ElevenLabs only (Vapi retired from demos; number kept 2 weeks as fallback); roofing first; typing the prospect's name in Demo Studio
+      adapts the agent on the next call (initiation webhook reads the tenant per call — no agent push). Blocker for the owner: Twilio Upgrade (NH-21).
+  - [ ] **D1** (Codex A, Sol medium, `air-wt-demo-line`) — phone line + Demo Studio: T-120 (demo line -> ElevenLabs via `scripts/move-demo-line-to-elevenlabs.mjs`),
+        T-129 (demo reset leaks: orphan job subcollections, customers/quotes/invoices/punches/schedulingLocks/logos), T-118 (no IDs read aloud, `sayToCaller`,
+        "How you speak", pre-tool filler, no false email promise), T-125 (call audio via on-demand proxy route), T-130 server side (Live call row at initiation),
+        T-131 (Demo Studio: status card, 60-second prospect form with logo, greeting preview, test call, 20-minute runbook, no Vapi).
+  - [ ] **D2** (Codex B, Terra medium, `air-wt-job-loop`) — the job loop: live refresh (Calls/Pipeline/Dashboard/job page), one-tap Confirm & create job
+        (T-133, idempotent, carries email + call link), Findings <-> Library (T-135: save to Library, suggestions from voice issues, field picker), quote rework
+        (T-134: auto-draft, + Add item from Library, explained options), field speed + Work complete (T-136), report auto-draft (T-137), derived job history +
+        next-step stepper (T-138), Customers in nav, Jobs stage filters.
+  - [ ] **D3** (Deepseek V4 Flash Think High, `air-wt-roofing`) — T-132 South Florida roofing content: services/FAQs/emergency rules, starter catalog
+        additions, `src/lib/verticals/demoSeedRoofing.ts` (the fully worked Plan-B job J-1001).
+  - [ ] Integrator (Claude): merge D3 -> D1 Part 1 -> run the migration + redeploy + escalation phone + agent audio/pre-tool settings -> 5 scripted live
+        calls -> merge D2 stages -> playbooks (`onboarding-guide.html`, `/hub/guide`, NEXT_SESSION) -> owner's 3 dry runs (plan §2 definition of demo-ready).
+  - Later (plan §11-13): T-140 onboarding slim-down + number provisioning + convert-demo; T-141 tenant sending domain; T-142 call reconciliation cron;
+        T-143 projection race + lookup-cache TTL.
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,
