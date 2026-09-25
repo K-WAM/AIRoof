@@ -6,6 +6,7 @@ import {
   createEmailOperationId,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
+import { buildFrom, extractInlineImages, htmlToText } from "@/lib/comms/prepare";
 import type { Firestore } from "firebase-admin/firestore";
 
 export type NotificationDeliveryState =
@@ -38,10 +39,17 @@ function classifyResendError(statusCode: number): {
   return { classification: "retryable", code: "provider_rejected" };
 }
 
+// Where a reply lands when the caller doesn't name one (system mail: welcome, alerts, feedback).
+const DEFAULT_REPLY_TO = "connect@luxordev.com";
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  /** Tenant business name shown as the sender ("Apex Roofing"); the address stays the verified platform one. */
+  fromName?: string | null;
+  /** Where the recipient's reply goes — for tenant mail, the tenant's own inbox. */
+  replyTo?: string | null;
 }): Promise<CommSendResult> {
   if (!isCommsConfigured()) {
     return { status: "unconfigured" };
@@ -50,16 +58,26 @@ export async function sendEmail(opts: {
     return { status: "no_recipient" };
   }
 
-  const from = requireEnv("RESEND_FROM");
+  const from = buildFrom(requireEnv("RESEND_FROM"), opts.fromName);
   const apiKey = requireEnv("RESEND_API_KEY");
   const resend = new Resend(apiKey);
+
+  // data-URI images are blocked by Gmail/Outlook — ship them as inline CID attachments instead, and always
+  // include a plain-text part (multipart mail scores better with spam filters than HTML-only).
+  const { html, attachments } = extractInlineImages(opts.html);
+  const replyTo = opts.replyTo && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(opts.replyTo) ? opts.replyTo : DEFAULT_REPLY_TO;
 
   try {
     const delivery = await resend.emails.send({
       from,
       to: opts.to,
       subject: opts.subject,
-      html: opts.html,
+      html,
+      text: htmlToText(html),
+      replyTo,
+      ...(attachments.length
+        ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType, contentId: a.contentId })) }
+        : {}),
     });
 
     if (delivery.error) {

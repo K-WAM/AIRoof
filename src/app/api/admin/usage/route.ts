@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
           industry: data.industry ?? "—",
           active: data.active ?? false,
           vapiAssistantId: data.vapiAssistantId ?? null,
+          // Provider-aware "phone line" status for the Usage table (the column used to be Vapi-only, so an
+          // ElevenLabs tenant read "Not set — fix" even with a working line).
+          voiceProvider: data.voiceProvider === "elevenlabs" ? "elevenlabs" : "vapi",
+          elevenLabsAgentId: typeof data.elevenlabs?.agentId === "string" ? data.elevenlabs.agentId : null,
+          isDemo: data.isDemo === true || id.startsWith("demo-"),
           calls: callsSnap.data().count,
           leads: leadsSnap.data().count,
           appointments: apptsSnap.data().count,

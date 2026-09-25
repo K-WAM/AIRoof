@@ -46,7 +46,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     businessName, brandColor: biz.brandColor, logoUrl: defaultLogo ? logoDataUri(defaultLogo) : biz.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl,
   });
-  await sendEmail({ to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html });
+  const sent = await sendEmail({
+    to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
+    fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
+  });
+  if (sent.status !== "delivered") {
+    return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
+  }
   const now = Date.now();
   const batch = db.batch();
   batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: to, updatedAt: now });

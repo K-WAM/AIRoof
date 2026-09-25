@@ -72,11 +72,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     websiteUrl: biz.websiteUrl,
   });
 
-  await sendEmail({
+  const sent = await sendEmail({
     to,
     subject: `[Invoice] ${invoice.invoiceId} from ${bizName}`,
     html,
+    fromName: bizName,
+    replyTo: biz.contactEmail || biz.notificationEmail,
   });
+  // Never mark an invoice "sent" that the mail provider rejected — the office would believe the customer has it.
+  if (sent.status !== "delivered") {
+    return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
+  }
 
   await invRef.update({ status: "sent", sentAt: Date.now(), sentTo: to, updatedAt: Date.now() });
 

@@ -79,6 +79,7 @@ export default function DemoStudioPage() {
   const [selectedId, setSelectedId] = useState<VerticalId | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
+  const [bizPhone, setBizPhone] = useState("");
   const [busy, setBusy] = useState<"launch" | "reset" | null>(null);
   const [result, setResult] = useState<ApplyResult | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
@@ -160,7 +161,7 @@ export default function DemoStudioPage() {
       const res = await fetch("/api/admin/demo-customize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), companyName: companyName.trim(), verticalId: selectedId }),
+        body: JSON.stringify({ email: email.trim(), companyName: companyName.trim(), phone: bizPhone.trim(), verticalId: selectedId }),
       });
       const data = (await res.json()) as ApplyResult;
       if (res.ok && data.ok) {
@@ -319,6 +320,17 @@ export default function DemoStudioPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Leave blank to use the default demo inbox"
+                disabled={!!busy}
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Business phone <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
+              <input
+                type="tel"
+                value={bizPhone}
+                onChange={(e) => setBizPhone(e.target.value)}
+                placeholder="Shown on their invoices, quotes and emails"
                 disabled={!!busy}
                 style={inputStyle}
               />
