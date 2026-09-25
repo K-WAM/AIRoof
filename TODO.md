@@ -1008,6 +1008,12 @@ an active queue.*
   - [x] **D3** (Deepseek V4 Flash Think High) — T-132 South Florida roofing content: services/FAQs/emergency rules, starter catalog
         additions, `src/lib/verticals/demoSeedRoofing.ts` (the fully worked Plan-B job J-1001). MERGED 2026-09-25 with integrator fixes (no wind-mitigation/
         four-point promise — the team decides or refers a licensed inspector; J-1001 is an inspection visit awaiting a quote). Worktree removed.
+  - D1 status 2026-09-25: **Part 1 merged + deployed** (steps 1-3, 5: migration script, line state/greeting preview, reset hygiene, Demo Studio
+        redesign) with integrator fixes (size-safe reset backup — a photo blob would have made every later launch fail; migration script parses the
+        pulled key). **Migration APPLIED:** +1 689 204 2643 -> `demo-roofing` (voiceProvider elevenlabs); `carlita-elevenlabs-test` keeps it under
+        `elevenlabsArchived`; rollback = `MIGRATION_ENV_FILE=<pulled env> node scripts/move-demo-line-to-elevenlabs.mjs --rollback`. **ElevenLabs calls
+        now land in `demo-roofing`, not carlita.** Resume prompt: `docs/WORKER_QUEUE.md` "D1 resume" (J-1001 seed, same-slot test, steps 6-9;
+        toolDispatcher.ts edit approved for sayToCaller only).
   - D2 status 2026-09-25: first session stopped after partial Stage 1 (live refresh + request→job route; double-tap race found in review) — resume prompt
         in `docs/WORKER_QUEUE.md` "D2 resume" (finish Stage 1 + Stage 2, then stop for the quote review).
   - [ ] Integrator (Claude): merge D3 -> D1 Part 1 -> run the migration + redeploy + escalation phone + agent audio/pre-tool settings -> 5 scripted live

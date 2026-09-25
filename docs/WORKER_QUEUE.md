@@ -497,3 +497,20 @@ Gates at the end of each Stage: npx tsc --noEmit; eslint on changed files; your 
 Same ownership lists and owner rules as the first D2 prompt. Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
 Final message: done/not-done table with commit hashes, gates output, "Noticed, not done".
 ```
+
+### D1 resume — Codex A, **Sol medium** — same task, after the integrator merged Part 1 (2026-09-25)
+State: Part 1 (725696c) is MERGED to main and DEPLOYED; the migration was APPLIED (the ElevenLabs number now belongs to demo-roofing).
+Integrator changes on main you must not redo: the reset backup is now size-safe (`slimBackup`, route.ts + a regression test) and the migration script was fixed and run — leave both alone.
+```
+Continue D1 in the EXISTING worktree D:/Apps/air-wt-demo-line on branch task/demo-line. Verify toplevel = D:/Apps/air-wt-demo-line and branch = task/demo-line before editing. Never edit D:/Apps/6 - AI Receptionist.
+First: `git merge main` (brings D3's src/lib/verticals/demoSeedRoofing.ts and the integrator's fixes). If docs/IMPLEMENTATION_LOG.md conflicts, keep BOTH sides.
+Answer to your question: YES, you may edit src/lib/tools/toolDispatcher.ts — ONLY to add the `sayToCaller` sentence to the appointment tool results and remove the duplicate timezone read. No change to scheduling/booking/cancel logic, and the Vapi webhook (which shares the dispatcher) must keep working; add/adjust its tests.
+Then, in order, committing after each (prefix "D1:"):
+ 1. Step 4 (worked job J-1001) exactly as the plan says, now that ROOFING_WORKED_JOB exists. It is an INSPECTION visit awaiting a quote: seed the job with status "inspection" (if writeJobProjection moves it to in_progress, accept that and say so).
+ 2. Finish step 3: a test that books the same slot again after a reset and succeeds (stale schedulingLocks are gone).
+ 3. Steps 6-9 of the plan (6: finish with the dispatcher change above; 7 live call row; 8 call audio route; 9 test-call button + route).
+Do NOT run scripts/setup-elevenlabs-agent.mjs --apply (the integrator does). Do not touch the migration script or the reset backup code.
+Gates at the end: npx tsc --noEmit; eslint on changed files; your tests; full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build.
+Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: done/not-done table with commit hashes, gates output, "Noticed, not done", and the exact setup-elevenlabs-agent command + flags the integrator must run.
+```
