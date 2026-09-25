@@ -506,16 +506,17 @@ describe("demo-customize route", () => {
     });
   });
 
-  describe("live Vapi persona push", () => {
-    it("pushes the rendered persona to Vapi and reports success when vapiAssistantId is set", async () => {
+  describe("ElevenLabs line preview", () => {
+    it("renders the next greeting without a provider network call", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      mocks.updateAssistantPersona.mockResolvedValue(undefined);
+      vi.stubEnv("ELEVENLABS_API_KEY", "test-only-key");
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
         businessName: "Old Name",
         fieldKey: "abcd1234abcd1234abcd1234abcd1234",
         isDemo: true,
-        vapiAssistantId: "assistant-123",
+        voiceProvider: "elevenlabs",
+        elevenlabs: { agentId: "agent-test", phoneNumberId: "phone-test", phoneNumber: "+16892042643" },
         approvedServices: [],
         approvedFaqs: [],
         emergencyRules: [],
@@ -537,60 +538,20 @@ describe("demo-customize route", () => {
       const res = await POST(req);
       const body = await res.json();
       expect(body.ok).toBe(true);
-      expect(body.vapiUpdated).toBe(true);
-      expect(body.vapiError).toBeUndefined();
-
-      expect(mocks.updateAssistantPersona).toHaveBeenCalledTimes(1);
-      const call = mocks.updateAssistantPersona.mock.calls[0][0];
-      expect(call.assistantId).toBe("assistant-123");
-      expect(call.firstMessage).toContain("Test Corp");
-      expect(call.systemPrompt).toContain("Test Corp");
-    });
-
-    it("reports vapiError without failing the request when no vapiAssistantId is on the business doc", async () => {
-      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      const fs = createFirestore();
-      fs.documents.set("businesses/demo-roofing", {
-        businessName: "Old Name",
-        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
-        isDemo: true,
-        // no vapiAssistantId
-      });
-      mocks.firestoreInstance = fs;
-
-      vi.resetModules();
-      const { POST } = await import("@/app/api/admin/demo-customize/route");
-      const req = makeRequest("POST", {
-        email: "test@example.com",
-        companyName: "Test Corp",
-        verticalId: "hvac",
-      });
-
-      const res = await POST(req);
-      const body = await res.json();
-      expect(body.ok).toBe(true);
-      expect(body.firestoreUpdated).toBe(true);
-      expect(body.vapiUpdated).toBe(false);
-      expect(body.vapiError).toContain("vapiAssistantId");
+      expect(body.lineReady).toBe(true);
+      expect(body.greetingPreview).toContain("Test Corp");
+      expect(body.phone).toBe("+1 (689) 204-2643");
       expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
     });
 
-    it("reports vapiError without failing the request when the Vapi API call throws", async () => {
+    it("reports that the line needs migration", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
-      mocks.updateAssistantPersona.mockRejectedValue(new Error("Vapi PATCH /assistant failed (500): boom"));
       const fs = createFirestore();
       fs.documents.set("businesses/demo-roofing", {
         businessName: "Old Name",
         fieldKey: "abcd1234abcd1234abcd1234abcd1234",
         isDemo: true,
-        vapiAssistantId: "assistant-123",
-        approvedServices: [],
-        approvedFaqs: [],
-        emergencyRules: [],
-        bookingRules: [],
-        disallowedTopics: [],
-        businessHours: "Mon-Fri 8-5",
-        serviceArea: "Test Area",
       });
       mocks.firestoreInstance = fs;
 
@@ -603,17 +564,12 @@ describe("demo-customize route", () => {
       });
 
       const res = await POST(req);
-      expect(res.status).toBe(200);
       const body = await res.json();
-      // The reset itself must still fully succeed — a Vapi outage is surfaced,
-      // not fatal to the Firestore reconfiguration/reseed.
       expect(body.ok).toBe(true);
       expect(body.firestoreUpdated).toBe(true);
-      expect(body.vapiUpdated).toBe(false);
-      expect(body.vapiError).toContain("boom");
-
-      const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
-      expect(lockDoc?.locked).toBe(false);
+      expect(body.lineReady).toBe(false);
+      expect(body.lineError).toContain("move-demo-line-to-elevenlabs.mjs");
+      expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
     });
   });
 });

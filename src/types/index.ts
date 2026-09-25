@@ -10,6 +10,7 @@ export interface VoiceRef {
 export interface BusinessConfig {
   businessId: string;
   businessName: string;
+  contactName?: string;
   industry: string;
   phoneNumber?: string;
   serviceArea: string | string[];
