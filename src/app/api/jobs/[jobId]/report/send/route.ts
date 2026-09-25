@@ -5,6 +5,8 @@ import { buildProjection } from "@/lib/jobs/projection";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import type { FieldUpdate } from "@/types/jobs";
 import { reportFindingsHtml } from "@/lib/jobs/reportFindingsHtml";
+import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
+import type { LibraryLogo } from "@/types/library";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -28,10 +30,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
 
-  const [jobSnap, bizSnap, updatesSnap] = await Promise.all([
+  const [jobSnap, bizSnap, updatesSnap, logosSnap] = await Promise.all([
     db.collection(`businesses/${businessId}/jobs`).doc(jobId).get(),
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/jobs/${jobId}/updates`).orderBy("createdAt", "asc").get(),
+    db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
@@ -39,7 +42,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const biz = bizSnap.exists ? bizSnap.data()! : {};
   const accent: string = biz.brandColor ?? "#1e3a5f";
   const bizName: string = biz.businessName ?? "Field Report";
-  const logoUrl: string | null = biz.logoUrl ?? null;
+  // Same precedence as the invoice and quote emails: the uploaded logo library's default beats the old single URL.
+  const defaultLogo = pickDefaultLogo((logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const logoUrl: string | null = defaultLogo ? logoDataUri(defaultLogo) : (biz.logoUrl ?? null);
 
   const projection = job.parsed ?? buildProjection(updatesSnap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[]);
   const issues = projection.issues ?? [];
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 <body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif">
 <div style="max-width:680px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
   <div style="background:${accent};padding:28px 40px;display:flex;align-items:center;gap:14px">
-    ${logoUrl ? `<img src="${logoUrl}" style="height:40px;filter:brightness(0) invert(1)"/>` : ""}
+    ${logoUrl ? `<img src="${logoUrl}" alt="${esc(bizName)}" style="height:40px;background:#fff;padding:6px 10px;border-radius:8px"/>` : ""}
     <div>
       <div style="color:rgba(255,255,255,0.7);font-size:10px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase">Job Report</div>
       <div style="color:#fff;font-size:20px;font-weight:800">${esc(bizName)}</div>
@@ -99,6 +104,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 </div>
 </body></html>`;
 
-  await sendEmail({ to, subject: `[Report] ${job.title ?? jobId} from ${bizName}`, html });
+  const sent = await sendEmail({
+    to, subject: `[Report] ${job.title ?? jobId} from ${bizName}`, html,
+    fromName: bizName, replyTo: biz.contactEmail || biz.notificationEmail,
+  });
+  if (sent.status !== "delivered") {
+    return NextResponse.json({ error: "The email could not be delivered — check the address and try again." }, { status: 502 });
+  }
   return NextResponse.json({ ok: true });
 }

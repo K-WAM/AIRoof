@@ -461,6 +461,51 @@ describe("demo-customize route", () => {
     });
   });
 
+  describe("optional launch fields (no-friction demos)", () => {
+    async function launch(body: Record<string, unknown>) {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+      });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const res = await POST(makeRequest("POST", body));
+      return { res, fs };
+    }
+
+    it("launches with ONLY an industry: blank name becomes '<Industry> Demo' and blank email uses the default inbox", async () => {
+      const { res, fs } = await launch({ verticalId: "hvac" });
+      expect(res.status).toBe(200);
+      const biz = fs.documents.get("businesses/demo-roofing") as Record<string, unknown>;
+      expect(biz.businessName).toBe("HVAC Demo");
+      expect(biz.notificationEmail).toBe("kwamwad@gmail.com");
+    });
+
+    it("treats whitespace-only fields as blank", async () => {
+      const { res, fs } = await launch({ verticalId: "hvac", companyName: "   ", email: "  " });
+      expect(res.status).toBe(200);
+      expect((fs.documents.get("businesses/demo-roofing") as Record<string, unknown>).businessName).toBe("HVAC Demo");
+    });
+
+    it("still rejects an email that IS provided but malformed", async () => {
+      const { res } = await launch({ verticalId: "hvac", companyName: "Acme", email: "not-an-email" });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "invalid email format" });
+    });
+
+    it("keeps a provided company name and email", async () => {
+      const { res, fs } = await launch({ verticalId: "hvac", companyName: "Acme Air", email: "boss@acme.com" });
+      expect(res.status).toBe(200);
+      const biz = fs.documents.get("businesses/demo-roofing") as Record<string, unknown>;
+      expect(biz.businessName).toBe("Acme Air");
+      expect(biz.notificationEmail).toBe("boss@acme.com");
+    });
+  });
+
   describe("live Vapi persona push", () => {
     it("pushes the rendered persona to Vapi and reports success when vapiAssistantId is set", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);

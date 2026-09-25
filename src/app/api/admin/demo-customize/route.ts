@@ -59,24 +59,31 @@ export async function POST(request: NextRequest) {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
-  let body: { email?: string; companyName?: string; verticalId?: string };
+  let body: { email?: string; companyName?: string; phone?: string; verticalId?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const email = body.email?.trim();
-  const companyName = body.companyName?.trim();
-
-  if (!email || !companyName) {
-    return NextResponse.json({ error: "email and companyName are required" }, { status: 400 });
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Both fields are OPTIONAL (owner, 2026-09-24: "no complicated forms with friction"): a demo launches with just an
+  // industry. A blank company name becomes "<Industry> Demo"; a blank email falls back to the default demo inbox.
+  // A email that IS provided must still be valid.
+  const verticalId = resolveVerticalId(body.verticalId);
+  const providedEmail = body.email?.trim();
+  if (providedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedEmail)) {
     return NextResponse.json({ error: "invalid email format" }, { status: 400 });
   }
+  const email = providedEmail || DEFAULT_EMAIL;
+  const companyName = body.companyName?.trim() || `${VERTICAL_TEMPLATES[verticalId].label} Demo`;
+  // Optional prospect business phone: shown on their invoices/quotes/confirmations (contactPhone). Deliberately NOT
+  // wired to escalationPhone — an emergency test call must never ring a prospect's real phone by surprise.
+  const providedPhone = body.phone?.trim();
+  if (providedPhone && !/^[+()\-.\s\d]{7,20}$/.test(providedPhone)) {
+    return NextResponse.json({ error: "invalid phone format" }, { status: 400 });
+  }
 
-  const result = await applyVertical({ verticalId: resolveVerticalId(body.verticalId), companyName, email });
+  const result = await applyVertical({ verticalId, companyName, email, phone: providedPhone });
   return NextResponse.json(result);
 }
 
@@ -99,11 +106,11 @@ export async function DELETE(request: NextRequest) {
   }
 
   // The line is universal, so reset always restores it to the roofing default.
-  const result = await applyVertical({ verticalId: "roofing", companyName: ROOFING_DEFAULT_NAME, email: DEFAULT_EMAIL });
+  const result = await applyVertical({ verticalId: "roofing", companyName: ROOFING_DEFAULT_NAME, email: DEFAULT_EMAIL, phone: undefined });
   return NextResponse.json({ ...result, reset: true });
 }
 
-async function applyVertical(opts: { verticalId: VerticalId; companyName: string; email: string }) {
+async function applyVertical(opts: { verticalId: VerticalId; companyName: string; email: string; phone?: string }) {
   const db = getAdminFirestore();
   if (!db) return { ok: false, error: "Firestore not available" };
 
@@ -164,6 +171,10 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       industry: opts.verticalId,
       businessName: opts.companyName,
       notificationEmail: opts.email,
+      // Documents/emails read contactEmail/contactPhone; set them every launch so a previous prospect's details never
+      // leak onto the next demo's invoices (null clears them).
+      contactEmail: opts.email,
+      contactPhone: opts.phone ?? null,
       agentName,
       agentIdentity: t.agentIdentity,
       agentTone: t.agentTone,

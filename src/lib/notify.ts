@@ -96,7 +96,7 @@ export async function sendCustomerConfirmation(
   },
 ): Promise<CommSendResult> {
   const { subject, html } = buildCustomerConfirmationEmail(opts);
-  return sendEmail({ to: opts.to, subject, html });
+  return sendEmail({ to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
 }
 
 export function buildBusinessWelcomeEmail(opts: {
@@ -188,7 +188,7 @@ export async function sendTeamInviteEmail(
     role: opts.role,
     resetLink: opts.resetLink,
   });
-  return sendEmail({ to: opts.to, subject, html });
+  return sendEmail({ to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
 }
 
 export function buildFeedbackEmail(opts: {

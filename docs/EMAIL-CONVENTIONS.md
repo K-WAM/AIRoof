@@ -48,7 +48,7 @@ All outbound emails from the platform follow a single documented convention:
 
 - **Tenant-facing emails** (crew assignment, customer confirmation, invoice, report) carry the tenant's own business name and `logoUrl` as the sender identity. Their subjects use the tenant's business name after `from`.
 - **Luxor-authored system emails** (welcome, feedback) carry the Luxor AI brand and use `from Luxor AI` or the `[Luxor AI]` prefix.
-- The `From` header for all emails is `no-reply@luxordev.com` (the single `RESEND_FROM`).
+- The `From` address for all emails is the single verified `RESEND_FROM` (owner decision 2026-09-24: `Luxor CRM <crm@luxordev.com>`). Tenant mail overrides only the display name (the tenant's business name) and sets `Reply-To` to the tenant's contact email — see `src/lib/comms/prepare.ts`.
 
 ## History
 

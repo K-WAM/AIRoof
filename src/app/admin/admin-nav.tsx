@@ -8,6 +8,8 @@ import {
   Building2,
   BarChart2,
   Receipt,
+  BookOpen,
+  Rocket,
   MessageSquareText,
 } from "lucide-react";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
@@ -18,8 +20,12 @@ const mainLinks = [
   { href: "/admin/usage", label: "Usage", Icon: BarChart2 },
 ];
 
+// Demo Studio + Playbooks live in the Hub (T-055) but are what an operator reaches for first — link them straight
+// from here so the demo runbook and the admin playbook are one click away, not behind "Open Hub".
 const toolLinks = [
   { href: "/admin/invoices", label: "Invoices", Icon: Receipt },
+  { href: "/hub/demo", label: "Demo Studio", Icon: Rocket },
+  { href: "/hub/guide", label: "Playbooks", Icon: BookOpen },
 ];
 
 export function AdminNav() {

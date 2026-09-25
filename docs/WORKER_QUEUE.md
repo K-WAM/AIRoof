@@ -7,8 +7,8 @@ Deepseek's credits are limited (it ran out mid-task once), so the queue is: **on
 
 | Session | Queue (one at a time, in order) | Worktree(s) |
 |---|---|---|
-| **Codex A** | **A1** finish T-111b -> **A2** T-113 request review -> A3 T-109 email intake (prompt written later) | `air-wt-elevenlabs-hooks`, then `air-wt-request-review` |
-| **Deepseek (was Codex B)** | **B1** T-114 feedback + UX pass, then STOP and report (do not pick up B2/B3: money math + a 2,250-line page are not Deepseek work) | `air-wt-ux-pass` |
+| **Codex A** | ~~A1 T-111b~~ (done, merged) -> **A2b finish T-113** (mostly built) -> A3 T-109 email intake (prompt later) | `air-wt-request-review` |
+| **Deepseek** | ~~B1 T-114~~ and ~~T-116~~ (done, merged) -> **T-119** declutter admin config form (V4 Flash Think High; prompt to be written; needs a worktree) | — |
 | **Next free Codex** | **B2** T-107a document core (invoice + quote) -> B3 T-107b report (prompt written later) | `air-wt-documents-core` |
 
 The two queues are file-disjoint by design (A: voice/webhooks/pipeline/calls/appointments/comms; B: nav/feedback/css/
@@ -16,7 +16,7 @@ documents/invoice/quote/report). Every worktree already exists, has `node_module
 If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b task/<branch> main` and junction
 `node_modules` (PowerShell: `New-Item -ItemType Junction -Path "D:\Apps\<name>\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"`).
 
-**State of main when this was written:** T-111a (provider seam) is merged and pushed (live, dormant: default Vapi; `/api/health` reports `elevenlabs: not_configured` until a key is set). Cancelled: T-108
+**State (end of 2026-09-24):** T-111a/b, T-114, T-116 merged and pushed. T-113 mostly built. T-111a (provider seam) is merged and pushed (live, dormant: default Vapi; `/api/health` reports `elevenlabs: not_configured` until a key is set). Cancelled: T-108
 (no auto job creation — owner decision). Shared contracts: `src/lib/voice/types.ts`, `src/types/documentOptions.ts`,
 `src/types/workCatalog.ts`.
 
@@ -323,3 +323,52 @@ Gates green: type-check, lint, `vitest run`, `next build` once. Append evidence 
   with Before/After, a deterministic `draftNarrative` + "Draft from job" buttons on invoice/quote/report, technicians on the
   report, and the emailed-report logo fix. Builds on T-107a's `src/lib/documents/`.
 - **Conditional on tomorrow's voice bake-off (T-110):** T-106 bilingual line (Sol medium: live-call turn-taking risk) and the T-112 ElevenLabs follow-ups (Sol medium for anything on the live call path, Terra for admin/onboarding UI).
+
+---
+
+## C — prompts written 2026-09-24 (evening)
+
+Context for every prompt below: `main` now has (once the integrator commits them) a deliverability pass — `src/lib/comms/prepare.ts`
+(inline CID images, plain-text part, tenant `From` display name) and `sendEmail({ fromName, replyTo })`. **Any new customer-facing email must pass
+`fromName: <business name>` and `replyTo: <business contact email>`, and must check the result (`status !== "delivered"` => do not mark "sent").**
+Merge `main` before you start. Worker etiquette + no-live-services rules above apply.
+
+### C1 — Codex, **Terra medium** — finish T-113 (request review + decline) — worktree already exists
+```
+Work ONLY in the git worktree D:/Apps/air-wt-request-review (branch task/request-review). Do not touch D:/Apps/6 - AI Receptionist directly.
+If that worktree is missing: cd "D:/Apps/6 - AI Receptionist" && git worktree add ../air-wt-request-review task/request-review
+First: git merge main. Read AGENTS.md, then `git diff main...HEAD` — the core (decline routes, requestDeclineEmail.ts, RequestReviewCard/Dialog) is built.
+Do exactly this, in order, committing after each step (WIP: commits fine):
+1. Route tests (vitest, reuse src/test-utils/fakeFirestore.ts and the mocking style in src/app/api/jobs/[jobId]/quote/route.test.ts):
+   - PATCH appointments/[appointmentId] with declineReason: 400 on bad reason; 400 on customMessage > 300 chars; 404; idempotent (second call => alreadyDeclined, sendEmail NOT called again);
+     no callerEmail => ok + noEmail, no send; with email => sendEmail called once with fromName=business name and replyTo=business contactEmail.
+   - PATCH businesses/[businessId]/leads/[leadId] status "lost": same matrix (requires declineReason).
+   Update both routes to pass `fromName`/`replyTo` to sendEmail, and to report notifiedCustomer:false (not throw) when delivery fails.
+2. src/components/requests/RequestReviewCard.tsx is one giant unreadable line of JSX. Reformat into normal readable JSX (no behavior change), then verify every CSS class it uses
+   (request-review-card, request-review-grid, request-missing, request-intake, request-review-actions, request-decline, summary-block, transcript) exists in globals.css; add missing ones using the design tokens (one teal var(--accent)); check at 375px.
+3. UI interaction tests for RequestReviewCard (only if @testing-library/react is already a dependency — if not, STOP and put it in QUESTION FOR INTEGRATOR; do not add dependencies).
+4. Gates once at the end: npx tsc --noEmit; npx eslint (changed files); npx vitest run (3 known slow/timeout tests: send, example-lib, company/team — note them, don't chase);
+   `npx next build` ONCE with a 10-minute timeout and report the tail of its output honestly, including if it did not finish.
+5. docs/IMPLEMENTATION_LOG.md contains invalid UTF-8 and your patch tool refuses it: append your entry with a shell `cat >> file <<'EOF'` instead. Set T-113 to `review` in TODO.md.
+Do not push or merge. Final message: done / not done, gates output, "Noticed, not done", and "QUESTION FOR INTEGRATOR" at the top if any.
+```
+
+### C2 — Deepseek **V4 Flash, Think High** (docs/HTML only — no src/) — refresh the playbooks for the 2026-09-24 changes
+```
+Work ONLY in a new worktree: cd "D:/Apps/6 - AI Receptionist" && git worktree add ../air-wt-guide-2 -b task/guide-refresh-2 main   (then cd ../air-wt-guide-2 && npm ci is NOT needed — docs/HTML only).
+Edit only: public/guides/onboarding-guide.html, public/guides/field-operations-guide.html, docs/ADMIN-QUICK-START.md. No src/, scripts/, or other docs.
+Update for these facts (verify each against the code before writing it; grep, don't guess):
+ 1. Demo Studio (src/app/hub/demo/page.tsx) now takes optional Company name, Notification email, Business phone; all optional. The phone shows on the prospect's invoices/quotes/emails (contactPhone), NOT as the escalation number.
+ 2. Where things are: Admin sidebar now has Demo Studio + Playbooks under Tools; the runbook "Run a demo in 5 minutes" is at the top of Demo Studio. Add a short "Where is everything" box at the top of the Demo Playbook.
+ 3. Two demo lines: Vapi +1 754 283 7658 (any of 13 industries; Demo Studio renames it) vs the ElevenLabs test line +1 689 204 2643 (roofing only; rename via Admin -> Clients -> Edit; its calls appear under tenant carlita-elevenlabs-test, not demo-roofing).
+ 4. Emails: sender shows the business name, replies go to the business's contact email, photos/logos arrive inline; NH-3 domain is verified — the remaining owner step is RESEND_FROM (docs/NEEDS-HUMAN-CHECKLIST.md NH-3).
+ 5. Admin -> Usage: the column is now "Phone line" (Live · ElevenLabs / Live · Vapi / Demo · shared line / No phone line).
+ 6. Seats: owner invites teammates in Settings -> Team; default 5 seats; superadmin raises seatLimit in Admin -> Clients -> Edit.
+Keep the guides' existing voice and print CSS. Tag-balance-check the HTML. Commit; do not push/merge. Final message: what changed, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### C3 — Codex, **Terra medium** — T-107b (report) — after C1 merges; prompt B3 above is still the spec
+The emailed-report logo fix that B3 lists is ALREADY DONE (report/send/route.ts now resolves the logo library default and ships images as CID attachments) — skip it; everything else in B3 stands.
+
+### Held (needs an owner decision first, then Sol medium — money path)
+Stripe subscriptions + monthly minutes metering + seat sync (`seatLimit` from plan) + suspend-on-nonpayment. Needs: final tiers/prices (see the pricing model in the 2026-09-24 chat), and Firebase on Blaze.

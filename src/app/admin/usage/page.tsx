@@ -11,6 +11,9 @@ interface BizUsage {
   industry: string;
   active: boolean;
   vapiAssistantId: string | null;
+  voiceProvider?: "vapi" | "elevenlabs";
+  elevenLabsAgentId?: string | null;
+  isDemo?: boolean;
   calls: number;
   leads: number;
   appointments: number;
@@ -62,7 +65,7 @@ export default function AdminUsagePage() {
       <section className="metric-grid" aria-label="Platform totals" style={{ marginBottom: 24 }}>
         <article className="metric">
           <p className="metric-label">Active tenants</p>
-          <p className="metric-value">{rows.filter((r) => r.active && r.vapiAssistantId).length}</p>
+          <p className="metric-value">{rows.filter((r) => r.active && (r.vapiAssistantId || r.elevenLabsAgentId)).length}</p>
         </article>
         <article className="metric">
           <p className="metric-label">Total calls</p>
@@ -94,7 +97,7 @@ export default function AdminUsagePage() {
                 <tr>
                   <th>Company</th>
                   <th>Industry</th>
-                  <th>Vapi</th>
+                  <th>Phone line</th>
                   <th style={{ textAlign: "right" }}>Calls</th>
                   <th style={{ textAlign: "right" }}>Leads</th>
                   <th style={{ textAlign: "right" }}>Appts</th>
@@ -110,10 +113,14 @@ export default function AdminUsagePage() {
                     </td>
                     <td style={{ textTransform: "capitalize" }}>{r.industry}</td>
                     <td>
-                      {r.vapiAssistantId ? (
-                        <span className="tag success">Active</span>
+                      {r.voiceProvider === "elevenlabs" && r.elevenLabsAgentId ? (
+                        <span className="tag success" title="Answered by an ElevenLabs agent">Live · ElevenLabs</span>
+                      ) : r.vapiAssistantId ? (
+                        <span className="tag success" title="Answered by a Vapi assistant">Live · Vapi</span>
+                      ) : r.isDemo ? (
+                        <span className="tag" title="Demo tenant — uses the shared demo line, no phone number of its own">Demo · shared line</span>
                       ) : (
-                        <a href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }} title="Set up this tenant's Vapi assistant">Not set — fix ↗</a>
+                        <a href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }} title="This client has no phone agent connected yet">No phone line — set up ↗</a>
                       )}
                     </td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.calls}</td>

@@ -45,7 +45,7 @@ beforeEach(() => {
   state = makeDb();
   mocks.firestore.mockReset().mockReturnValue(state.db);
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "staff" } });
-  mocks.send.mockReset().mockResolvedValue(undefined);
+  mocks.send.mockReset().mockResolvedValue({ status: "delivered" });
 });
 
 describe("job quote routes", () => {

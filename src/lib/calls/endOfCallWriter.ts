@@ -47,6 +47,9 @@ export interface EndedCallReportInput {
   providerFields?: Record<string, string>;
   /** Call duration in seconds. Only ElevenLabs reports one; Vapi passes nothing. */
   durationSecs?: number;
+  /** Call start (ms). Vapi's status-update writes this earlier; ElevenLabs only reports it here, and the calls list
+   *  orders by startedAt — a doc without it is silently excluded from every list (the "my call doesn't show" bug). */
+  startedAt?: number;
 }
 
 export async function writeEndedCallReport(
@@ -85,6 +88,7 @@ export async function writeEndedCallReport(
       status: "ended",
       endedAt: Date.now(),
       updatedAt: Date.now(),
+      ...(input.startedAt !== undefined ? { startedAt: input.startedAt, createdAt: input.startedAt } : {}),
       ...(input.providerFields ?? {}),
       summary: input.summary,
       endedReason: input.endedReason ?? null,

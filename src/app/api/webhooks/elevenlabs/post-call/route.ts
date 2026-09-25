@@ -192,6 +192,7 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
     messages,
     summary,
     durationSecs,
+    startedAt: startTimeSecs * 1000,
     providerFields: { elevenLabsConversationId: conversationId },
   });
 }
@@ -230,6 +231,9 @@ async function handleCallInitiationFailure(data: Record<string, unknown>): Promi
         businessId,
         callerPhone: stored?.callerPhone ?? null,
         status: "failed",
+        // startedAt/createdAt: the calls list orders by startedAt, so a failed call without it would be invisible.
+        startedAt: Date.now(),
+        createdAt: Date.now(),
         endedAt: Date.now(),
         updatedAt: Date.now(),
         elevenLabsConversationId: conversationId,

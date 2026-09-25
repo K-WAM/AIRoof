@@ -148,7 +148,13 @@ export async function PUT(
     const auditRef = db.collection("adminAuditEvents").doc(`audit_${now}`);
 
     await db.runTransaction(async (transaction) => {
-      const businessDoc = await transaction.get(businessRef);
+      // Firestore requires EVERY read in a transaction to happen before ANY write — reading the onboarding /
+      // integration docs after `transaction.update(businessRef, ...)` threw and made every save fail with a 500.
+      const [businessDoc, onboardingDoc, integrationDoc] = await Promise.all([
+        transaction.get(businessRef),
+        transaction.get(onboardingRef),
+        transaction.get(integrationRef),
+      ]);
       if (!businessDoc.exists) {
         throw new Error(`Business ${businessId} not found`);
       }
@@ -223,7 +229,6 @@ export async function PUT(
       const cleanedConfigUpdate = removeUndefined(configUpdate);
       transaction.update(businessRef, cleanedConfigUpdate);
 
-      const onboardingDoc = await transaction.get(onboardingRef);
       const onboardingUpdate: Partial<BusinessOnboardingStatus> = removeUndefined({
         ...body.onboarding,
         businessId,
@@ -266,7 +271,6 @@ export async function PUT(
         } satisfies BusinessOnboardingStatus);
       }
 
-      const integrationDoc = await transaction.get(integrationRef);
       const integrationUpdate: Partial<BusinessIntegrationStatus> = removeUndefined({
         businessId,
         calendarConfigured: body.calendarProvider

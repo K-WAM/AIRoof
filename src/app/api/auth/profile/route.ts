@@ -35,5 +35,12 @@ export async function GET(req: NextRequest) {
     if (snap.exists) Object.assign(profile, snap.data());
   }
 
+  // "superadmin" is decided ONLY by the verified token claim (the same thing verifySuperadmin trusts on every /api/admin
+  // route) — never by a field on the businessUsers doc. A stale `superadmin: true` on a client owner's doc (left over from
+  // the provisioning script) used to open the whole admin shell for them while every admin API then rejected them.
+  const isSuperadmin = (decoded as { superadmin?: unknown }).superadmin === true;
+  profile.superadmin = isSuperadmin;
+  if (!isSuperadmin && profile.role === "superadmin") profile.role = "viewer";
+
   return NextResponse.json({ profile });
 }
