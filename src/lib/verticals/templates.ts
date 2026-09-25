@@ -133,44 +133,59 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       customerNounPlural: "Customers",
       resourceNoun: "Crew",
       resourceNounPlural: "Crews",
-      voiceExample: "used 12 bundles of shingles, Kevin worked 8 to 4, found a cracked vent",
+      voiceExample: "replaced six cracked tiles on the south slope, Marco worked 8 to 3, reset the pipe boot",
       jobTitlePlaceholder: "e.g. Roof inspection — 123 Main St",
-      serviceTypePlaceholder: "Shingle replacement",
+      serviceTypePlaceholder: "Tile roof repair",
       resourcePlaceholder: "Carlos Crew",
-      materialPlaceholder: "Shingles bundle",
-      documentPlaceholder: "Shingle warranty 2026",
+      materialPlaceholder: "Roof tile",
+      documentPlaceholder: "Roof warranty 2026",
     },
     approvedServices: [
-      "Roof inspections and assessments",
-      "Shingle replacement and repairs",
-      "Metal roofing installation",
-      "Emergency water leak repairs",
-      "Flashing and valley repairs",
-      "Gutter cleaning and installation",
+      "Roof inspection",
+      "Roof leak repair",
+      "Tile roof repair",
+      "Flat roof repair",
+      "Roof replacement",
+      "Emergency tarping",
+      "Storm damage inspection",
+      "Gutter repair",
     ],
     approvedFaqs: [
       {
-        question: "Do you offer emergency services?",
+        question: "Do you work on tile, shingle, flat and metal roofs?",
         answer:
-          "Yes, we can typically respond to emergency calls same-day. Please call us immediately if you have water damage or a leak.",
+          "Yes, we work on tile, shingle, flat and metal roofs. The estimator confirms the right repair or replacement once they see the roof.",
       },
       {
-        question: "What areas do you service?",
+        question: "Do you work with insurance claims?",
         answer:
-          "We service the configured service area. Please provide your address so we can confirm availability.",
+          "We document storm damage with photos and a written report your insurer can use. We don't give coverage advice or tell you what your policy will pay.",
       },
       {
-        question: "How much does an inspection cost?",
+        question: "What should I do when a storm is coming?",
         answer:
-          "Inspection pricing depends on the business configuration. The team can confirm the current fee before booking.",
+          "Before a storm, clear your gutters and tie down anything loose, and call us if you already have a leak. If a storm damages your roof, we can place an emergency tarp to keep water out until the permanent repair.",
       },
       {
-        question: "Do you offer warranties?",
+        question: "Do you do wind mitigation or four-point inspections?",
         answer:
-          "Warranty details vary by project and materials. The team can review applicable workmanship and manufacturer warranties.",
+          "Many insurers ask for those, and who can sign them depends on the inspector's license. I'll note it on your request and the team will tell you whether we handle it or recommend a licensed inspector.",
+      },
+      {
+        question: "How long does an inspection take?",
+        answer:
+          "Most inspections take about an hour on site. We'll talk through what we found and the next step before we leave.",
+      },
+      {
+        question: "Do you pull permits?",
+        answer:
+          "Yes, we pull permits when a job requires one. The estimator confirms what your address needs during the visit.",
       },
     ],
     emergencyRules: [
+      "If caller reports an active leak while it is raining: treat it as urgent and escalate for emergency tarping",
+      "If storm damage has exposed the roof deck: escalate immediately and arrange coverage for the opening",
+      "If a tree is resting on the roof: tell everyone to stay clear of the area and escalate immediately",
       "If caller mentions active water entry, leak, or flooding: escalate immediately",
       "If caller mentions electrical hazards, fire damage, or safety risk: escalate immediately",
       "If caller mentions storm damage with exposed roof or interior damage: prioritize same-day follow-up",
