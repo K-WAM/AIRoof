@@ -83,8 +83,8 @@ export async function executeAgentTool(
           : `You're booked for ${whenStr}.`;
         return {
           result: appt.pendingConfirmation
-            ? `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Since we're currently after hours, let the caller know it's reserved and a team member will confirm it first thing in the morning. Save this ID in case they ask to change it.`
-            : `Appointment booked (ID: ${appt.appointmentId}) for ${appt.callerName} on ${whenStr}. Save this ID in case the caller asks to change it. The team will confirm shortly.`,
+            ? `Appointment booked for ${appt.callerName} on ${whenStr}. Since we're currently after hours, let the caller know it's reserved and a team member will confirm it first thing in the morning. Internal reference, NEVER read aloud or spell out: ${appt.appointmentId}. If the caller wants to change it later, look it up by their phone number instead.`
+            : `Appointment booked for ${appt.callerName} on ${whenStr}. The team will confirm shortly. Internal reference, NEVER read aloud or spell out: ${appt.appointmentId}. If the caller wants to change it later, look it up by their phone number instead.`,
           sayToCaller,
         };
       }
