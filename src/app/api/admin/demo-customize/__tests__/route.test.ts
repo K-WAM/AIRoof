@@ -171,12 +171,20 @@ class FakeFirestore {
   runTransaction<T>(callback: (transaction: {
     get: (ref: FakeDocumentReference) => Promise<FakeDocumentSnapshot>;
     set: (ref: FakeDocumentReference, data: StoredDocument, options?: { merge?: boolean }) => void;
+    create: (ref: FakeDocumentReference, data: StoredDocument) => void;
+    update: (ref: FakeDocumentReference, data: StoredDocument) => void;
   }) => Promise<T>): Promise<T> {
     const committed: Array<() => void> = [];
     const tx = {
       get: async (ref: FakeDocumentReference) => ref.get(),
       set: (ref: FakeDocumentReference, data: StoredDocument, options?: { merge?: boolean }) => {
         committed.push(() => ref.set(data, options));
+      },
+      create: (ref: FakeDocumentReference, data: StoredDocument) => {
+        committed.push(() => ref.set(data));
+      },
+      update: (ref: FakeDocumentReference, data: StoredDocument) => {
+        committed.push(() => ref.update(data));
       },
     };
     return callback(tx).then((result) => {
@@ -432,6 +440,49 @@ describe("demo-customize route", () => {
       expect(fs.documents.has("elevenlabsConversations/own")).toBe(false);
       expect(fs.documents.has("elevenlabsConversations/other")).toBe(true);
     });
+
+    it("allows the same appointment slot to be booked after reset removes its stale lock", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old", isDemo: true, fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        timezone: "America/New_York",
+        businessHours: {
+          Monday: "08:00 - 17:00", Tuesday: "08:00 - 17:00", Wednesday: "08:00 - 17:00",
+          Thursday: "08:00 - 17:00", Friday: "08:00 - 17:00", Saturday: "Closed", Sunday: "Closed",
+        },
+      });
+      mocks.firestoreInstance = fs;
+
+      const candidate = new Date(Date.now() + 24 * 60 * 60_000);
+      candidate.setUTCHours(15, 0, 0, 0);
+      while (["Sat", "Sun"].includes(candidate.toLocaleDateString("en-US", {
+        timeZone: "America/New_York", weekday: "short",
+      }))) candidate.setUTCDate(candidate.getUTCDate() + 1);
+      const startTime = candidate.getTime();
+      const endTime = startTime + 60 * 60_000;
+
+      const tools = await import("@/lib/tools/agentTools");
+      for (const bucket of tools.scheduleBucketStarts(startTime, endTime)) {
+        const lockId = tools.scheduleLockId("unassigned", bucket);
+        fs.documents.set(`businesses/demo-roofing/schedulingLocks/${lockId}`, { startTime, endTime });
+      }
+
+      vi.resetModules();
+      const { DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const reset = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await reset.json()).ok).toBe(true);
+      const business = fs.documents.get("businesses/demo-roofing") ?? {};
+      fs.documents.set("businesses/demo-roofing", { ...business, notificationEmail: null });
+
+      const { bookAppointment } = await import("@/lib/tools/agentTools");
+      const appointment = await bookAppointment({
+        businessId: "demo-roofing", callerName: "Repeat Caller", callerPhone: "+13055550199",
+        serviceType: "Roof inspection", address: "100 Test Way", startTime, endTime,
+      });
+      expect(appointment.startTime).toBe(startTime);
+      expect(appointment.status).toBe("requested");
+    }, 15_000);
 
     it("keeps the backup under Firestore's 1 MiB doc limit when the last demo had photos and a logo", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
