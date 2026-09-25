@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -146,7 +147,7 @@ export default function PipelinePage() {
     setTimeout(() => setToast(null), 4500);
   }
 
-  useEffect(() => {
+  const loadPipeline = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK reads instead of direct client Firestore
     // queries — see the leads route for the full round-trip-time rationale.
@@ -165,7 +166,9 @@ export default function PipelinePage() {
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [businessId]);
+  }, [businessId, leadParam]);
+  useEffect(() => { void loadPipeline(); }, [loadPipeline]);
+  useLiveRefresh(loadPipeline, { intervalMs: 10_000, enabled: Boolean(businessId) });
 
   // Deep link from Calendar's "Bookings" strip (?tab=appointments&appt=<id>) —
   // scroll straight to the clicked appointment instead of leaving the user to

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
@@ -101,11 +102,11 @@ export default function CompanyCallsPage() {
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
 
-  useEffect(() => {
+  const loadCalls = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK read instead of a direct client Firestore
     // query — see the leads route for the full round-trip-time rationale.
-    fetch(`/api/businesses/${businessId}/calls`)
+    return fetch(`/api/businesses/${businessId}/calls`)
       .then((r) => {
         if (!r.ok) throw new Error("Calls request failed");
         return r.json();
@@ -118,6 +119,8 @@ export default function CompanyCallsPage() {
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+  useEffect(() => { void loadCalls(); }, [loadCalls]);
+  useLiveRefresh(loadCalls, { intervalMs: 10_000, enabled: Boolean(businessId) });
 
   const intakeLabelFor = (key: string) => getVerticalTemplate(industry ?? "roofing").intakeFields.find((field) => field.key === key)?.label ?? key;
   async function callBack(targetPhone?: string, leadId?: string, appointmentId?: string) {

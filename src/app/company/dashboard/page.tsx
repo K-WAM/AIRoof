@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { countDashboardMetrics, tilesFor } from "@/lib/verticals/starterKits";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -84,7 +85,7 @@ export default function CompanyDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const loadDashboard = useCallback(async () => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
     if (!businessId || !modulesReady) return;
 
@@ -171,6 +172,8 @@ export default function CompanyDashboardPage() {
 
     load();
   }, [businessId, modulesReady, hasJobs]);
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
+  useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).
