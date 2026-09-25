@@ -9,6 +9,8 @@ import { PATCH } from "./route";
 const context = { params: Promise.resolve({ jobId: "j" }) };
 const request = (findings: unknown) => new NextRequest("http://localhost/api/jobs/j", { method: "PATCH",
   headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId: "b", findings }) });
+const reportRequest = (body: Record<string, unknown>) => new NextRequest("http://localhost/api/jobs/j", { method: "PATCH",
+  headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId: "b", ...body }) });
 beforeEach(() => {
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "staff" } });
   mocks.update.mockReset();
@@ -35,5 +37,18 @@ describe("job findings PATCH", () => {
       includeInReport: true, includeInQuote: false, addedAt: 1 }];
     expect((await PATCH(request(findings), context)).status).toBe(200);
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ findings }));
+  });
+});
+
+describe("report customer-copy PATCH", () => {
+  it("rejects invalid report options and technician content before writing", async () => {
+    expect((await PATCH(reportRequest({ reportOptions: { hideLabor: "yes" } }), context)).status).toBe(400);
+    expect((await PATCH(reportRequest({ reportTechnicians: ["<script>"] }), context)).status).toBe(400);
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+  it("persists optional report settings without a migration", async () => {
+    const reportOptions = { hideMaterials: true, hideLabor: true, showPhotos: true, showTechnicians: true };
+    expect((await PATCH(reportRequest({ reportNotes: "Completed repair.", reportOptions, reportTechnicians: ["Ava"] }), context)).status).toBe(200);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ reportNotes: "Completed repair.", reportOptions, reportTechnicians: ["Ava"] }));
   });
 });
