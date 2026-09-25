@@ -1383,3 +1383,4 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Evidence: 
 px.cmd tsc --noEmit clean; changed-file eslint 0 errors (existing warnings only); refresh-hook tests 2/2; full 
 px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
+- Correction for the preceding checkpoint: branch task/job-loop. Evidence: npx.cmd tsc --noEmit clean; changed-file eslint had 0 errors; refresh-hook tests 2/2; full npx.cmd vitest run passed 128 files, 1,022 tests, plus 1 expected failure.
