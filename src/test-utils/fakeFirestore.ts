@@ -9,7 +9,7 @@
 // "clears nothing else" contract is observable in tests.)
 
 type DocData = Record<string, unknown>;
-type WhereOp = "==" | "array-contains";
+type WhereOp = "==" | "array-contains" | "<" | "<=" | ">" | ">=";
 
 interface StoredDoc {
   id: string;
@@ -37,6 +37,13 @@ export class FakeQuery {
     return new FakeQuery(this.store, this.path, this.filters, this.order, n);
   }
 
+  count() {
+    return { get: async () => {
+      const snapshot = await this.get();
+      return { data: () => ({ count: snapshot.size }) };
+    } };
+  }
+
   async get() {
     let docs = this.store.list(this.path);
     for (const f of this.filters) {
@@ -44,6 +51,11 @@ export class FakeQuery {
         const v = d.data[f.field];
         if (f.op === "==") return v === f.value;
         if (f.op === "array-contains") return Array.isArray(v) && v.includes(f.value);
+        if (typeof v !== "number" || typeof f.value !== "number") return false;
+        if (f.op === "<") return v < f.value;
+        if (f.op === "<=") return v <= f.value;
+        if (f.op === ">") return v > f.value;
+        if (f.op === ">=") return v >= f.value;
         return false;
       });
     }
@@ -123,6 +135,10 @@ class FakeStore {
     b.set(id, { ...existing, ...patch });
   }
 
+  delete(path: string, id: string) {
+    this.bucket(path).delete(id);
+  }
+
   snapshotFor(path: string, id: string) {
     const data = this.bucket(path).get(id);
     return {
@@ -145,15 +161,19 @@ export function makeFakeDb() {
       return new FakeCollectionRef(store, name);
     },
     async runTransaction<T>(fn: (tx: {
-      get: (ref: FakeDocRef) => Promise<ReturnType<FakeStore["snapshotFor"]>>;
+      get: (ref: FakeDocRef | FakeQuery) => Promise<ReturnType<FakeStore["snapshotFor"]> | Awaited<ReturnType<FakeQuery["get"]>>>;
       set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => void;
+      create: (ref: FakeDocRef, data: DocData) => void;
       update: (ref: FakeDocRef, data: DocData) => void;
+      delete: (ref: FakeDocRef) => void;
     }) => Promise<T>): Promise<T> {
       const writes: Array<() => void> = [];
       const result = await fn({
-        get: (ref: FakeDocRef) => ref.get(),
+        get: (ref: FakeDocRef | FakeQuery) => ref.get(),
         set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data, options)); },
+        create: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
         update: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
+        delete: (ref: FakeDocRef) => { writes.push(() => store.delete(ref.path.split("/").slice(0, -1).join("/"), ref.id)); },
       });
       writes.forEach((w) => w());
       return result;
@@ -161,6 +181,9 @@ export function makeFakeDb() {
     batch() {
       const ops: Array<() => void> = [];
       return {
+        set(ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) {
+          ops.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data, options));
+        },
         update(ref: FakeDocRef, data: DocData) {
           ops.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data));
         },
@@ -174,6 +197,9 @@ export function makeFakeDb() {
     },
     __peek(collectionPath: string, id: string): DocData | undefined {
       return store.list(collectionPath).find((d) => d.id === id)?.data;
+    },
+    __list(collectionPath: string): Array<{ id: string; data: DocData }> {
+      return store.list(collectionPath).map((doc) => ({ id: doc.id, data: { ...doc.data } }));
     },
   };
   return db;
