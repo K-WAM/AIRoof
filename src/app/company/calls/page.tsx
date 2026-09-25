@@ -7,6 +7,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
@@ -91,7 +92,7 @@ export default function CompanyCallsPage() {
   const preview = searchParams?.get("preview");
 
   const [calls, setCalls] = useState<Call[]>([]);
-  const [newCallIds, setNewCallIds] = useState<Set<string>>(new Set());
+  const callRows = useNewRowIds<Call>((call) => call.callId);
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -113,14 +114,8 @@ export default function CompanyCallsPage() {
       })
       .then(({ calls }: { calls: Call[] }) => {
         const data = calls ?? [];
-        setCalls((previous) => {
-          if (previous.length) {
-            const prior = new Set(previous.map((call) => call.callId));
-            const fresh = data.filter((call) => !prior.has(call.callId)).map((call) => call.callId);
-            if (fresh.length) { setNewCallIds(new Set(fresh)); window.setTimeout(() => setNewCallIds(new Set()), 1800); }
-          }
-          return data;
-        });
+        setCalls(data);
+        callRows.track(data);
         if (data.length > 0) setSelected(data[0]);
       })
       .catch(() => setLoadError(true))
@@ -247,7 +242,7 @@ export default function CompanyCallsPage() {
                   const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
                   return (
                     <article
-                      className={`call-row${newCallIds.has(call.callId) ? " row-new" : ""}`}
+                      className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
                       key={call.callId}
                       aria-selected={selected?.callId === call.callId}
                       onClick={() => setSelected(call)}

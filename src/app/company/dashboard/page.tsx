@@ -7,6 +7,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { countDashboardMetrics, tilesFor } from "@/lib/verticals/starterKits";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -80,6 +81,9 @@ export default function CompanyDashboardPage() {
   const [leads, setLeads] = useState<LeadSnapshot[]>([]);
   const [appointments, setAppointments] = useState<ApptSnapshot[]>([]);
   const [jobs, setJobs] = useState<JobSnapshot[]>([]);
+  const leadRows = useNewRowIds<LeadSnapshot>((lead) => lead.leadId);
+  const appointmentRows = useNewRowIds<ApptSnapshot>((appointment) => appointment.appointmentId);
+  const jobRows = useNewRowIds<JobSnapshot>((job) => job.jobId);
   const [agent, setAgent] = useState<AgentSnapshot | null>(null);
   const [escalationAlerts, setEscalationAlerts] = useState<EscalationSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,9 +138,12 @@ export default function CompanyDashboardPage() {
         }
 
         setCallCount(callCountData.count);
-        setLeads((leadsData.leads ?? []) as LeadSnapshot[]);
-        setAppointments((apptsData.appointments ?? []) as ApptSnapshot[]);
-        setJobs((jobsData.jobs ?? []) as JobSnapshot[]);
+        const nextLeads = (leadsData.leads ?? []) as LeadSnapshot[];
+        const nextAppointments = (apptsData.appointments ?? []) as ApptSnapshot[];
+        const nextJobs = (jobsData.jobs ?? []) as JobSnapshot[];
+        setLeads(nextLeads); leadRows.track(nextLeads);
+        setAppointments(nextAppointments); appointmentRows.track(nextAppointments);
+        setJobs(nextJobs); jobRows.track(nextJobs);
         const latestEscalationByCall = new Map<string, EscalationSnapshot>();
         for (const action of (actionsData.actions ?? []) as Array<Record<string, unknown>>) {
           const output = action.output as { status?: unknown } | undefined;
@@ -320,7 +327,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{pendingAppts.length}</span>
               </div>
               {pendingAppts.slice(0, 6).map((appt) => (
-                <Link key={appt.appointmentId} href={`${apptTabHref}&appt=${appt.appointmentId}`} className="feed-row">
+                <Link key={appt.appointmentId} href={`${apptTabHref}&appt=${appt.appointmentId}`} className={`feed-row${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--appt" style={{ background: "#fef3c7", color: "#92400e" }}><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
@@ -340,7 +347,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{urgentLeads.length}</span>
               </div>
               {urgentLeads.slice(0, 5).map((lead) => (
-                <Link key={lead.leadId} href={`/company/pipeline${previewSuffix}`} className="feed-row">
+                <Link key={lead.leadId} href={`/company/pipeline${previewSuffix}`} className={`feed-row${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--urgent"><AlertTriangle size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
@@ -360,7 +367,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{todayAppointments.length}</span>
               </div>
               {todayAppointments.map((appt) => (
-                <Link key={appt.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`} className="feed-row">
+                <Link key={appt.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`} className={`feed-row${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--appt"><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
@@ -380,7 +387,7 @@ export default function CompanyDashboardPage() {
                 <span className="feed-section-count">{activeJobs.length}</span>
               </div>
               {activeJobs.slice(0, 5).map((job) => (
-                <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
+                <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className={`feed-row${jobRows.newIds.has(job.jobId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--job"><Wrench size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{job.jobId} — {job.title}</p>

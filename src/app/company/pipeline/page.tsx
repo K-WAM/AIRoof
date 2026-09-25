@@ -7,6 +7,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -124,6 +125,7 @@ export default function PipelinePage() {
 
   // Leads state
   const [leads, setLeads] = useState<Lead[]>([]);
+  const leadRows = useNewRowIds<Lead>((lead) => lead.leadId);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">(urgencyParam === "urgent" ? "urgent" : "all");
   const [leadCalling, setLeadCalling] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export default function PipelinePage() {
 
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
   const [apptCalling, setApptCalling] = useState<string | null>(null);
@@ -159,9 +162,11 @@ export default function PipelinePage() {
           apptsRes.json(),
         ]) as [{ leads: Lead[] }, { appointments: Appointment[] }];
         setLeads(leadsData ?? []);
+        leadRows.track(leadsData ?? []);
         const chosenLead = leadParam ? leadsData?.find((l) => l.leadId === leadParam) : undefined;
         setSelectedLead(chosenLead ?? leadsData?.[0] ?? null);
         setAppointments(apptsData ?? []);
+        appointmentRows.track(apptsData ?? []);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -370,7 +375,7 @@ export default function PipelinePage() {
     return (
       <article
         id={`appt-${appt.appointmentId}`}
-        className="appt-card"
+        className={`appt-card${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}
         style={{
           opacity: isPast ? 0.75 : 1,
           ...(isPending ? { borderLeft: "4px solid #f59e0b", background: "#fffdf7" } : {}),
@@ -552,7 +557,7 @@ export default function PipelinePage() {
                   <div className="queue-list">
                     {filteredLeads.map((lead) => (
                       <article
-                        className="lead-card"
+                        className={`lead-card${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}
                         key={lead.leadId}
                         id={`lead-${lead.leadId}`}
                         aria-selected={selectedLead?.leadId === lead.leadId}
