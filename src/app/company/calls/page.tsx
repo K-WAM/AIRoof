@@ -91,6 +91,7 @@ export default function CompanyCallsPage() {
   const preview = searchParams?.get("preview");
 
   const [calls, setCalls] = useState<Call[]>([]);
+  const [newCallIds, setNewCallIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -112,7 +113,14 @@ export default function CompanyCallsPage() {
       })
       .then(({ calls }: { calls: Call[] }) => {
         const data = calls ?? [];
-        setCalls(data);
+        setCalls((previous) => {
+          if (previous.length) {
+            const prior = new Set(previous.map((call) => call.callId));
+            const fresh = data.filter((call) => !prior.has(call.callId)).map((call) => call.callId);
+            if (fresh.length) { setNewCallIds(new Set(fresh)); window.setTimeout(() => setNewCallIds(new Set()), 1800); }
+          }
+          return data;
+        });
         if (data.length > 0) setSelected(data[0]);
       })
       .catch(() => setLoadError(true))
@@ -236,9 +244,10 @@ export default function CompanyCallsPage() {
                   const dur = callDuration(call);
                   const isOutbound = call.callType === "outbound";
                   const displayPhone = isOutbound ? (call.targetPhone ?? "Outbound") : (call.callerPhone ?? "Unknown caller");
+                  const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
                   return (
                     <article
-                      className="call-row"
+                      className={`call-row${newCallIds.has(call.callId) ? " row-new" : ""}`}
                       key={call.callId}
                       aria-selected={selected?.callId === call.callId}
                       onClick={() => setSelected(call)}
@@ -255,6 +264,7 @@ export default function CompanyCallsPage() {
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                           {call.outcome && <StatusChip status={call.outcome} />}
+                          {call.status === "in_progress" && <span className={active ? "badge-live" : "badge-ended"}>{active ? "Live" : "Ended"}</span>}
                           {call.isAfterHours && <StatusChip status="after_hours" />}
                           {!call.outcome && <StatusChip status={CATEGORY_STATUS[category] ?? "general"} label={category} />}
                         </div>
