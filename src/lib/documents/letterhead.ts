@@ -1,13 +1,13 @@
-import { logoDataUri, logoStyle, pickDefaultLogo } from "@/lib/branding/logo";
+import { logoDataUri, logoStyle, needsLogoChip, pickDefaultLogo } from "@/lib/branding/logo";
 import type { LibraryLogo } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 
 export type LetterheadBusiness = Partial<Pick<BusinessConfig, "businessName" | "brandColor" | "logoUrl" | "address" | "contactPhone" | "contactEmail" | "websiteUrl" | "licenseNumber">>;
-export interface Letterhead extends LetterheadBusiness { logoStyle: ReturnType<typeof logoStyle> }
+export interface Letterhead extends LetterheadBusiness { logoStyle: ReturnType<typeof logoStyle>; logoChip: boolean }
 
 export function resolveLetterhead(business: LetterheadBusiness, logos: LibraryLogo[] = [], surface: "light" | "brand-bar" = "light"): Letterhead {
   const logo = pickDefaultLogo(logos);
-  return { ...business, logoUrl: logo ? logoDataUri(logo) : business.logoUrl ?? null, logoStyle: logo ? logoStyle(logo, surface) : {} };
+  return { ...business, logoUrl: logo ? logoDataUri(logo) : business.logoUrl ?? null, logoStyle: logo ? logoStyle(logo, surface) : {}, logoChip: logo ? needsLogoChip(logo, surface) : surface === "brand-bar" };
 }
 
 export async function resolveEmailLogo(db: FirebaseFirestore.Firestore, businessId: string): Promise<string | null> {

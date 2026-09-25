@@ -36,6 +36,7 @@ interface Settings {
   notificationEmail: string;
   contactPhone: string;
   contactEmail: string;
+  licenseNumber: string;
   businessName: string;
   agentLanguage: "en" | "es";
   // Call-recording notice (Phase 16, T-102) — optional so an older cached
@@ -96,6 +97,10 @@ export default function CompanySettingsPage() {
     const notificationEmail = settings.notificationEmail.trim();
     const contactPhone = settings.contactPhone.trim();
     const contactEmail = settings.contactEmail.trim();
+    if (settings.licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(settings.licenseNumber)) {
+      setError("Enter a plain-text license number of 40 characters or fewer.");
+      return;
+    }
     if (!notificationEmail || !EMAIL_PATTERN.test(notificationEmail)) {
       setError("Enter a valid notification email before saving.");
       notificationEmailRef.current?.focus();
@@ -133,6 +138,7 @@ export default function CompanySettingsPage() {
         notificationEmail: settings.notificationEmail,
         contactPhone: settings.contactPhone,
         contactEmail: settings.contactEmail,
+        licenseNumber: settings.licenseNumber,
         agentLanguage: settings.agentLanguage,
         agentLanguages: [settings.agentLanguage],
       };
@@ -419,6 +425,10 @@ export default function CompanySettingsPage() {
                     onChange={e => setSettings(prev => prev ? { ...prev, contactEmail: e.target.value } : prev)}
                     placeholder="hello@yourcompany.com"
                   />
+                </div>
+                <div className="field full">
+                  <label htmlFor="licenseNumber">License number</label>
+                  <input id="licenseNumber" maxLength={40} value={settings.licenseNumber ?? ""} onChange={e => setSettings(prev => prev ? { ...prev, licenseNumber: e.target.value } : prev)} />
                 </div>
               </div>
             </div>

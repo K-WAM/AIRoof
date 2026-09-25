@@ -4,6 +4,8 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendCustomerConfirmation } from "@/lib/notify";
 import { sendEmail } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { resolveLetterhead, escapeHtml } from "@/lib/documents/letterhead";
+import type { LibraryLogo } from "@/types/library";
 
 const BASE_URL = getAppUrl();
 
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
   const brand = {
     businessName: (biz.businessName as string) ?? "Your Company",
     brandColor: (biz.brandColor as string | undefined) ?? null,
-    logoUrl: (biz.logoUrl as string | undefined) ?? null,
+    logoUrl: resolveLetterhead(biz, ((await db.collection(`businesses/${businessId}/library`).doc("logos").get()).data()?.logos as LibraryLogo[] | undefined) ?? [], "brand-bar").logoUrl,
     contactPhone: (biz.contactPhone as string | undefined) ?? null,
     contactEmail: (biz.contactEmail as string | undefined) ?? null,
   };
@@ -68,6 +70,8 @@ export async function POST(request: NextRequest) {
   if (notificationEmail) {
     await sendEmail({
       to: notificationEmail,
+      fromName: brand.businessName,
+      replyTo: brand.contactEmail || undefined,
       subject: `[Appointment] Confirmed \u2014 ${appt.callerName ?? "Customer"} \u00b7 ${apptDate}`,
       html: confirmationEmailHtml({
         businessName: brand.businessName,
@@ -97,9 +101,9 @@ export async function POST(request: NextRequest) {
 function brandHeader(p: { businessName: string; brandColor?: string | null; logoUrl?: string | null; contactPhone?: string | null; contactEmail?: string | null }): string {
   const bg = p.brandColor ?? "#0f172a";
   const logo = p.logoUrl
-    ? `<img src="${p.logoUrl}" alt="${p.businessName}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
-    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;">${p.businessName}</p>`;
-  const contact = [p.contactPhone, p.contactEmail].filter(Boolean).join(" &nbsp;·&nbsp; ");
+    ? `<img src="${escapeHtml(p.logoUrl)}" alt="${escapeHtml(p.businessName)}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;background:#fff;padding:6px;border-radius:5px;">`
+    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;">${escapeHtml(p.businessName)}</p>`;
+  const contact = [p.contactPhone, p.contactEmail].filter(Boolean).map((value) => escapeHtml(value!)).join(" &nbsp;·&nbsp; ");
   return `<td style="background:${bg};padding:28px 32px;text-align:center;">
     ${logo}
     ${contact ? `<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.7);">${contact}</p>` : ""}

@@ -1,14 +1,14 @@
 import type { JobQuote } from "@/types/quote";
-import { visibleQuoteLines } from "./jobQuote";
-import type { InvoiceEmailBusiness } from "./jobInvoiceEmailHtml";
+import { quoteGroups } from "@/lib/documents/groups";
+import { billToBlock, documentShell, footerBlock, groupsBlock, letterheadBlock, narrativeBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import { resolveLetterhead, type LetterheadBusiness } from "@/lib/documents/letterhead";
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-const money = (n: number) => `$${n.toFixed(2)}`;
-export function buildQuoteEmailHtml(quote: JobQuote, business: InvoiceEmailBusiness): string {
-  const accent = /^#[0-9a-fA-F]{6}$/.test(business.brandColor ?? "") ? business.brandColor : "#1e3a5f";
-  const name = business.businessName?.trim();
-  if (!name) throw new Error("Business name required for quote email");
-  const rows = visibleQuoteLines(quote).map((line) => `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">${esc(line.description)}</td><td style="padding:8px;text-align:right">${line.quantity}</td><td style="padding:8px;text-align:right">${money(line.unitPrice)}</td><td style="padding:8px;text-align:right">${money(line.quantity * line.unitPrice)}</td></tr>`).join("");
-  const findings = quote.findings.map((f) => `<div style="padding:10px 0;border-bottom:1px solid #e2e8f0"><strong>${esc(f.problem)}</strong>${f.severity ? ` <small>(${esc(f.severity)})</small>` : ""}<div>${esc(f.solution)}</div></div>`).join("");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="font-family:system-ui,sans-serif;background:#f8fafc;color:#1e293b"><div style="max-width:680px;margin:24px auto;background:#fff;padding:32px;border:1px solid #e2e8f0"><header style="border-bottom:3px solid ${accent};padding-bottom:18px"><div style="display:flex;justify-content:space-between"><div>${business.logoUrl ? `<img src="${esc(business.logoUrl)}" alt="${esc(name)}" style="max-width:120px;max-height:44px"/>` : ""}<h2>${esc(name)}</h2><div>${esc(business.address ?? "")}</div><div>${esc(business.contactPhone ?? "")}</div><div>${esc(business.contactEmail ?? "")}</div></div><div style="text-align:right"><h1 style="color:${accent}">Quote</h1><div>${esc(quote.quoteId)}</div><div>Valid until ${new Date(quote.validUntil).toLocaleDateString("en-US")}</div></div></div></header><section><h3>Bill to</h3><div>${esc(quote.billTo.name)}</div><div>${esc(quote.billTo.address ?? "")}</div><div>${esc(quote.billTo.phone ?? "")}</div></section>${findings ? `<section><h3>Issues found &amp; work recommended</h3>${findings}</section>` : ""}<section><h3>Estimated work</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">Description</th><th align="right">Qty</th><th align="right">Unit price</th><th align="right">Amount</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:700">Estimated total: ${money(quote.total)}</p></section>${quote.notes ? `<p style="white-space:pre-wrap">${esc(quote.notes)}</p>` : ""}<p style="border-top:1px solid #e2e8f0;padding-top:16px">This quote cannot be accepted or paid online. Please contact ${esc(name)} directly to discuss it. Acceptance is recorded by staff.</p></div></body></html>`;
+export function buildQuoteEmailHtml(quote: JobQuote, business: LetterheadBusiness): string {
+  if (!business.businessName?.trim()) throw new Error("Business name required for quote email");
+  const brand = resolveLetterhead(business);
+  const meta: [string, string][] = [["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId]];
+  if (quote.billTo.address) meta.push(["Service at", quote.billTo.address]);
+  if (quote.showTechnicians && quote.technicians?.length) meta.push(["Technicians", quote.technicians.join(", ")]);
+  const findings = quote.findings.map((finding) => `${finding.problem}\n${finding.solution}`).join("\n\n");
+  return documentShell(letterheadBlock(brand, "Quote", meta) + billToBlock(quote.billTo) + narrativeBlock(quote.narrative ?? findings) + groupsBlock(quoteGroups(quote)) + totalBlock("Estimated Total", quote.total) + (quote.notes ? narrativeBlock(quote.notes) : "") + footerBlock(brand));
 }

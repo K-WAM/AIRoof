@@ -8,6 +8,7 @@ import { quoteLinesFromFindings, quoteTotal, nextQuoteStatus, validQuoteLines } 
 import { validFindings } from "@/lib/jobs/findings";
 import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteStatus } from "@/types/quote";
+import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -95,6 +96,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (body.findings !== undefined && !validFindings(body.findings)) return err("Invalid quote findings", 400);
   if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 2000 || /[<>\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body.notes))) return err("Invalid notes", 400);
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return err("Invalid hideMaterials", 400);
+  if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return err("Invalid hideLabor", 400);
+  if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return err("Invalid showTechnicians", 400);
+  if (body.technicians !== undefined && !validTechnicians(body.technicians)) return err("Invalid technicians", 400);
+  if (body.narrative !== undefined && !validNarrative(body.narrative)) return err("Invalid narrative", 400);
   if (body.validUntil !== undefined && (typeof body.validUntil !== "number" || !Number.isFinite(body.validUntil) || body.validUntil <= Date.now() || body.validUntil > Date.now() + 10 * 365 * 86400000)) return err("Invalid validUntil", 400);
   const lines = (body.lines ?? quote.lines) as JobQuote["lines"];
   const total = quoteTotal(lines);
@@ -103,6 +108,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     ...(body.findings !== undefined ? { findings: body.findings as JobQuote["findings"] } : {}),
     ...(body.notes !== undefined ? { notes: body.notes as string } : {}),
     ...(body.hideMaterials !== undefined ? { hideMaterials: body.hideMaterials as boolean } : {}),
+    ...(body.hideLabor !== undefined ? { hideLabor: body.hideLabor as boolean } : {}),
+    ...(body.showTechnicians !== undefined ? { showTechnicians: body.showTechnicians as boolean } : {}),
+    ...(body.technicians !== undefined ? { technicians: body.technicians as string[] } : {}),
+    ...(body.narrative !== undefined ? { narrative: body.narrative as string } : {}),
     ...(body.validUntil !== undefined ? { validUntil: body.validUntil as number } : {}),
   };
   await quoteRef.update(patch);

@@ -1,5 +1,6 @@
 import { sendEmail } from "@/lib/comms/send";
 import type { CommSendResult } from "@/lib/comms/send";
+import { escapeHtml } from "@/lib/documents/letterhead";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -9,6 +10,8 @@ export interface Branding {
   businessName: string;
   brandColor?: string | null;
   logoUrl?: string | null;
+  logoFilter?: string;
+  logoChip?: boolean;
   contactPhone?: string | null;
   contactEmail?: string | null;
 }
@@ -19,7 +22,7 @@ function shell(brand: Branding, heading: string, bodyHtml: string): string {
 <body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif">
 <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
   <div style="background:${accent};padding:24px 32px;display:flex;align-items:center;gap:12px">
-    ${brand.logoUrl ? `<img src="${brand.logoUrl}" style="height:36px;filter:brightness(0) invert(1)"/>` : ""}
+    ${brand.logoUrl ? `<span style="${brand.logoChip ? "background:#fff;padding:6px;border-radius:5px;" : ""}display:inline-block"><img src="${escapeHtml(brand.logoUrl)}" alt="${esc(brand.businessName)}" style="height:36px;max-width:120px;${brand.logoFilter ? `filter:${brand.logoFilter};` : ""}"/></span>` : ""}
     <div style="color:#fff;font-size:18px;font-weight:800">${esc(brand.businessName)}</div>
   </div>
   <div style="padding:28px 32px">

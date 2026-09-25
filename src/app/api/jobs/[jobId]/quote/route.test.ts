@@ -86,4 +86,13 @@ describe("job quote routes", () => {
     expect((await SEND(bodyReq("quote/send", { businessId: "b", to: "client@example.com" }), context)).status).toBe(200);
     expect(state.docs.get("businesses/b/jobs/j")?.status).toBe("in_progress");
   });
+  it("validates and persists customer document options", async () => {
+    await POST(bodyReq("quote", { businessId: "b" }), context);
+    for (const invalid of [{ hideLabor: "yes" }, { showTechnicians: 1 }, { technicians: ["<script>"] }, { narrative: "x".repeat(4001) }]) {
+      expect((await PATCH(bodyReq("quote", { businessId: "b", ...invalid }, "PATCH"), context)).status).toBe(400);
+    }
+    const response = await PATCH(bodyReq("quote", { businessId: "b", hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Repair completed." }, "PATCH"), context);
+    expect(response.status).toBe(200);
+    expect(state.docs.get("businesses/b/quotes/Q-1000")).toMatchObject({ hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Repair completed." });
+  });
 });

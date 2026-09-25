@@ -45,7 +45,7 @@ describe("buildJobInvoiceEmailHtml", () => {
   it("collapses materials to one lump line when hideMaterials is on", () => {
     const html = buildJobInvoiceEmailHtml(invoice({ hideMaterials: true }), { businessName: "Roof Doctors" });
     expect(html).not.toContain("Modified bitumen");
-    expect(html).toContain("Materials &amp; supplies");
+    expect(html).toContain(">Materials</td>");
     expect(html).toContain("$4244.35");
   });
 

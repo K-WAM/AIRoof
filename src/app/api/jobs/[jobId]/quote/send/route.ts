@@ -4,7 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
-import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
+import { resolveLetterhead } from "@/lib/documents/letterhead";
 import type { JobQuote } from "@/types/quote";
 import type { Job } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
@@ -39,12 +39,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!quote.lines.length || !quote.billTo.name.trim()) return NextResponse.json({ error: "Quote needs bill-to and at least one line" }, { status: 400 });
   const biz = bizSnap.data()!;
   const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
-  const defaultLogo = pickDefaultLogo((logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const letterhead = resolveLetterhead(biz, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? []);
   const businessName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!businessName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
   const html = buildQuoteEmailHtml(quote, {
-    businessName, brandColor: biz.brandColor, logoUrl: defaultLogo ? logoDataUri(defaultLogo) : biz.logoUrl,
-    address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl,
+    businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
+    address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
   });
   const sent = await sendEmail({
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
