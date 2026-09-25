@@ -1375,3 +1375,10 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - The production client sends JSON/base64, not multipart. A multipart `NextRequest` probe is intentionally `it.fails`: the route calls `req.json()` and does not currently support multipart. This is recorded only; no production code was changed.
 - Smoke report step 6 is now pass and its superseded human-only field-audio integration-test item was removed. No files removed and no dependencies added.
 - Gates: `npx.cmd tsc --noEmit --incremental false` clean (plain `--noEmit` could not overwrite the sandbox-owned `tsconfig.tsbuildinfo`); `npx.cmd eslint src/e2e/field-audio.test.ts` clean; focused test 6 passed + 1 expected failure; full `npx.cmd vitest run` 1,018 passed + 1 expected failure with the documented `example-lib` and `company/team` load timeouts, both clean in isolated rerun (18/18).
+
+### D1 Part 1 checkpoint — 2026-09-25
+- Branch: task/demo-line. Steps 1, 2, 3 and 5 committed: 39dca9e, 2b0c4af, 3afa6ac, 1637d8c.
+- Step 4 pending D3's demoSeedRoofing.ts; git merge main was already up to date at 76a2042.
+- Evidence: migration defaults to dry run and was not executed; launch makes no provider request; reset keeps allowlist, isDemo, lock and backup while clearing nested and stale demo data; Studio uses the ElevenLabs line.
+- Gates: tsc noEmit passed; changed-file eslint 0 errors, 1 image warning; focused tests 21 passed; full vitest 127 files, 1019 passed and 1 expected fail.
+- Removals: replaced the two-line Demo Studio/runbook and removed obsolete provider-push status copy.
