@@ -1393,3 +1393,10 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Evidence: migration defaults to dry run and was not executed; launch makes no provider request; reset keeps allowlist, isDemo, lock and backup while clearing nested and stale demo data; Studio uses the ElevenLabs line.
 - Gates: tsc noEmit passed; changed-file eslint 0 errors, 1 image warning; focused tests 21 passed; full vitest 127 files, 1019 passed and 1 expected fail.
 - Removals: replaced the two-line Demo Studio/runbook and removed obsolete provider-push status copy.
+
+## 2026-09-25 — D1 Part 2 (Codex A Sol medium, integrator-reviewed): call quality, live call row, audio, test call, J-1001
+- Merged from task/demo-line (5e3014d..41a33ac): prompt "How you speak" rules; sayToCaller on booking/lookup/cancel results; duplicate timezone read removed; initiation webhook writes an in_progress call row (call_elevenlabs_<conversationId>) that post-call merges into (keeps startedAt, adds appointmentIds/providerIds/recordingUrl); GET /api/calls/[callId]/audio private streaming proxy (nothing stored); POST /api/admin/demo-customize/test-call (superadmin, 3 per 10 min); roofing worked job J-1001 (inspection, EN+ES ledger, 2 findings) seeded on launch, regular seeded jobs start at J-1002.
+- Integrator fixes: booking tool result no longer says "(ID: ...) Save this ID" — it now labels the reference "NEVER read aloud or spell out" and points to phone lookup; the ElevenLabs bookAppointment tool description (toolSchemas.json) said the same and was rewritten.
+- Applied to the live agent: scripts/setup-elevenlabs-agent.mjs --apply — checkAvailability + bookAppointment now pre_tool_speech "force" (verified via the MCP: force_pre_tool_speech true, headers intact); tool descriptions refreshed.
+- Gates: tsc clean; vitest 130 files / 1040 passed + 1 expected fail; next build OK.
+- Not verified: no real call has been placed since the change (needs the Twilio upgrade, NH-21, then the owner's scripted calls).

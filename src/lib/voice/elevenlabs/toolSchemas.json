@@ -1,7 +1,7 @@
 [
   {
     "name": "bookAppointment",
-    "description": "Book a new appointment for the caller. Use once you have the caller's name, the service they need, and the date and time they want. Returns the appointment ID and time — tell the caller it is booked and keep the ID in case they want to change it later.",
+    "description": "Book a new appointment for the caller. Use once you have the caller's name, the service they need, and the date and time they want. Returns a short confirmation sentence (sayToCaller) — say that to the caller. The result also carries an internal reference: never read it aloud or spell it out.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/bookAppointment",
     "parameters": {
