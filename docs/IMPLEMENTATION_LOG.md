@@ -1358,3 +1358,9 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Tests cover every hide-materials/hide-labor combination, total preservation, hidden detail exclusion, deterministic narratives, photo pairing, and report route validation/persistence. No files removed; no dependencies added.
 - Evidence: npm.cmd run type-check passed; npm.cmd run lint completed with 0 errors / 33 existing warnings; npx.cmd vitest run passed 125 files / 1,011 tests; npm.cmd run build completed and produced .next/BUILD_ID.
 - Mobile: customer-copy layout uses the shared responsive DocumentPreview padding and two-column photo grid; no live authenticated browser session was available to capture a 375px screenshot.
+
+## C5 - Offline demo-path smoke test
+
+- Branch: task/e2e-smoke (worktree D:/Apps/air-wt-smoke). Added src/e2e/demo-path.test.ts plus narrowly extended fakeFirestore query/transaction/batch operations required by the real route handlers.
+- Evidence: the shared offline database covers ElevenLabs initiation, tool booking, post-call records, lists, request confirmation/decline, job creation, Spanish typed field projection, report/quote/invoice sends, failed invoice delivery, session rejection, and cross-tenant rejection. docs/SMOKE-REPORT.md records partial/not-coverable portions honestly.
+- No production code or dependencies changed; no live services called.
