@@ -39,6 +39,8 @@ export default function DemoStudioPage() {
   const [confirm, setConfirm] = useState("");
   const [showReset, setShowReset] = useState(false);
   const [fieldUrl, setFieldUrl] = useState("");
+  const [testPhone, setTestPhone] = useState("");
+  const [testCallStatus, setTestCallStatus] = useState("");
 
   async function refresh() {
     const response = await fetch("/api/admin/demo-customize");
@@ -46,6 +48,9 @@ export default function DemoStudioPage() {
   }
 
   useEffect(() => { void refresh().catch(() => setLine({ error: "Could not load demo line" })); }, []);
+  useEffect(() => {
+    try { setTestPhone(window.localStorage.getItem("demoStudioTestPhone") ?? ""); } catch { /* storage unavailable */ }
+  }, []);
 
   function chooseLogo(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -94,6 +99,21 @@ export default function DemoStudioPage() {
     } finally { setBusy(false); }
   }
 
+  async function testCall() {
+    setBusy(true); setTestCallStatus("");
+    try {
+      try { window.localStorage.setItem("demoStudioTestPhone", testPhone); } catch { /* storage unavailable */ }
+      const response = await fetch("/api/admin/demo-customize/test-call", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: testPhone }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || "Test call failed");
+      setTestCallStatus("Calling now…");
+    } catch (error) {
+      setTestCallStatus(error instanceof Error ? error.message : "Test call failed");
+    } finally { setBusy(false); }
+  }
+
   const dial = line.phone || DEMO_LINE_PHONE.roofing || "";
   const missing = line.configured && Object.entries(line.configured).filter(([, ready]) => !ready).map(([name]) => name);
 
@@ -135,12 +155,14 @@ export default function DemoStudioPage() {
           {line.error && <p role="alert" style={{ color: "var(--c-danger-fg)" }}>{line.error}</p>}
           {launched && <div style={{ marginTop: 16 }}>
             <p><strong>Next caller greeting:</strong> {line.greetingPreview}</p>
+            <label>Your phone for the test call<input type="tel" value={testPhone} onChange={(event) => setTestPhone(event.target.value)} /></label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              <button className="button" type="button" disabled title="Test call becomes available after call setup">Test call</button>
+              <button className="button primary" type="button" disabled={busy || testPhone.trim().length < 7} onClick={testCall}>Test call</button>
               <Link className="button" href={preview("dashboard")}>Open dashboard</Link>
               {fieldUrl && <a className="button" href={fieldUrl}>Field QR</a>}
               <Link className="button" href={`/try/${verticalId}`}>Try page</Link>
             </div>
+            {testCallStatus && <p role="status">{testCallStatus}</p>}
           </div>}
         </div>
       </section>
