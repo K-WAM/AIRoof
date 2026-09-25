@@ -1364,3 +1364,14 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Branch: task/e2e-smoke (worktree D:/Apps/air-wt-smoke). Added src/e2e/demo-path.test.ts plus narrowly extended fakeFirestore query/transaction/batch operations required by the real route handlers.
 - Evidence: the shared offline database covers ElevenLabs initiation, tool booking, post-call records, lists, request confirmation/decline, job creation, Spanish typed field projection, report/quote/invoice sends, failed invoice delivery, session rejection, and cross-tenant rejection. docs/SMOKE-REPORT.md records partial/not-coverable portions honestly.
 - No production code or dependencies changed; no live services called.
+
+---
+
+## C6 — Field-audio offline smoke coverage
+
+- Date: 2026-09-25 · branch: `task/e2e-smoke`.
+- Added `src/e2e/field-audio.test.ts`, using the real `POST /api/jobs/[jobId]/field-audio` handler, real `NextRequest` objects, and the shared `makeFakeDb()` store. Auth, Whisper/OpenAI transcription, and GPT-4o field parsing are the only mocked boundaries; no provider, storage, credential, or production-data call occurred.
+- Coverage: English audio ledger + projection recomputation; Spanish source transcript retention with `rawTextEn` and canonical English projection; empty/oversized audio rejection with zero writes; transcription failure with zero writes; cross-tenant session rejection; and allowed/rejected job-scoped field-session behavior.
+- The production client sends JSON/base64, not multipart. A multipart `NextRequest` probe is intentionally `it.fails`: the route calls `req.json()` and does not currently support multipart. This is recorded only; no production code was changed.
+- Smoke report step 6 is now pass and its superseded human-only field-audio integration-test item was removed. No files removed and no dependencies added.
+- Gates: `npx.cmd tsc --noEmit --incremental false` clean (plain `--noEmit` could not overwrite the sandbox-owned `tsconfig.tsbuildinfo`); `npx.cmd eslint src/e2e/field-audio.test.ts` clean; focused test 6 passed + 1 expected failure; full `npx.cmd vitest run` 1,018 passed + 1 expected failure with the documented `example-lib` and `company/team` load timeouts, both clean in isolated rerun (18/18).

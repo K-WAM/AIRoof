@@ -9,7 +9,7 @@
 | 3. Calls and appointments lists | pass | Both list handlers return successfully from the same database after the webhook/tool writes. |
 | 4. Confirm and decline | pass | Real appointment route confirms the request, invokes the ledger-email boundary, cancels a second request, and accepts an idempotent repeat. |
 | 5. Job and customer resolution | pass | The real job POST creates `J-1000` with appointment-derived customer fields; the real non-blocking customers/resolve route creates one customer then matches it on an identical retry. |
-| 6. Field update | partial | Typed Spanish update writes the ledger and English `rawTextEn` projection. Audio upload/transcription is not covered because it requires a file-storage/audio boundary in addition to the stated AI boundary. |
+| 6. Field update | pass | Typed updates plus real field-audio route coverage: English and Spanish transcription write the immutable ledger and recompute the English projection; Spanish preserves `rawText` and stores `rawTextEn`. Empty/oversized audio, transcription failure, cross-tenant sessions, and job-scoped field grants are covered. The shipped client transport is JSON/base64; an expected-failure multipart probe records that the route does not accept multipart uploads. |
 | 7. Job and report | pass | Job GET returns the projection; report email includes CID logo, visible material/labor details, omits pricing language, and hiding either section removes its details. |
 | 8. Quote | pass | Real quote draft, edit, hide options, and send transition run; the job moves to `quoted`. |
 | 9. Invoice | pass | Real invoice create/edit/send works; a simulated mail-provider failure returns 502 instead of marking the invoice sent. |
@@ -20,4 +20,3 @@
 - Voice audio quality and live ElevenLabs/Twilio call lifecycle.
 - Inbox placement and real provider delivery/reply behavior.
 - Browser rendering and document layout at 375px.
-- A production-safe integration test of the field-audio storage/transcription path.
