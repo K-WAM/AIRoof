@@ -161,7 +161,7 @@ export function DemoRunbook() {
             <Step n={6} title="Wrap up (be straight about what’s not live yet)">
               <ul style={{ margin: "0 0 0 18px", padding: 0 }}>
                 <li>Send them the self-serve link: <code>/try/&lt;industry&gt;</code> (tap-to-call + read-only “See it in the real app”).</li>
-                <li>Quotes and invoices have <strong>no online payment/acceptance</strong> yet. The request-review card and hide-labor toggle are still being built. Recording-notice wording is a draft pending counsel review.</li>
+                <li>Quotes and invoices have <strong>no online payment/acceptance</strong> yet. Use the Review request card in Pipeline/Calls to confirm or decline a request. Recording-notice wording is a draft pending counsel review.</li>
                 <li>Tick <em>Exit demo</em> in the banner, or use <strong>Reset</strong> at the bottom of this page, before the next prospect.</li>
               </ul>
             </Step>

@@ -1422,7 +1422,7 @@
   </div>
 
   <div class="highlight">
-    <strong>How client email looks:</strong> every customer-facing email (confirmations, invoices, quotes, reports, crew notices) is sent from the client's <strong>business name</strong>, with replies going to their <strong>contact email</strong> — so customers hear back from the business, not from Luxor. Logos and job photos are embedded <strong>inline</strong> (real attachments, not broken images). The shared sending domain is verified for SPF/DKIM, so mail is deliverable; the one remaining owner step is confirming the <code>RESEND_FROM</code> address in Vercel (tracked as <strong>NH-3</strong>).
+    <strong>How client email looks:</strong> every customer-facing email (confirmations, invoices, quotes, reports, crew notices) is sent from the client's <strong>business name</strong>, with replies going to their <strong>contact email</strong> — so customers hear back from the business, not from Luxor. Logos and job photos are embedded <strong>inline</strong> (real attachments, not broken images). The shared sending domain is verified for SPF/DKIM, and the platform sender is <code>Luxor CRM &lt;crm@luxordev.com&gt;</code> (set 2026-09-25) — so mail is deliverable. Remaining: open one received test email and check Show original for dkim/spf/dmarc = pass (<strong>NH-3</strong>).
   </div>
 
   <hr>
@@ -1562,7 +1562,7 @@ superadmin: false</code>
   </div>
 
   <div class="highlight">
-    <strong>Coming soon — request review &amp; decline (T-113, not shipped):</strong> a single “Review request” card (caller, what they want, intake rows, AI summary, missing-information prompts) with <strong>Accept</strong> / <strong>Decline &amp; notify</strong> and an AI call-back is being built in a separate branch and is <strong>not in the product yet</strong>. Today the admin still decides manually: review the lead/appointment in Pipeline, send the confirmation, and create the job by hand. Do not demo the review card as if it existed.
+    <strong>Request review &amp; decline (T-113):</strong> in <strong>Pipeline</strong> or <strong>Calls</strong>, open a new request to get one “Review request” card: caller, what they want, intake rows, the AI’s call summary, a “missing information” prompt (with an optional AI call-back to collect it), and the recording. <strong>Confirm</strong> books it (and offers “Create job” with the details pre-filled — jobs are never created automatically); <strong>Decline &amp; notify</strong> sends the customer a polite, neutral email with a reason you pick. A decision is final and never sends twice. <em>Not yet tested on a live phone/email by the owner — run it once before you demo it.</em>
   </div>
 
   <hr>
@@ -1708,7 +1708,7 @@ superadmin: false</code>
     <li>Confirmation email sent — branded correctly</li>
     <li>Client login tested — sees only their business data, correct nav tabs visible</li>
     <li>Portal status set to <strong>Active</strong> in config edit page; this flag does not hold Vapi calls — attach the assistant and phone IDs only when ready for calls</li>
-    <li>(Coming soon — not shipped) Request review &amp; decline card (T-113) — do not demo or promise it yet</li>
+    <li>Request review &amp; decline card (T-113) — shipped 2026-09-25; try it once end-to-end before demoing</li>
   </ul>
 
   <hr>

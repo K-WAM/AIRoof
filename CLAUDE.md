@@ -124,7 +124,7 @@ Basis:
 - **After-hours customer-notify ✓**: email captured at booking; "Confirm & notify customer" emails the customer; dashboard surfaces pending-approval bookings.
 - **Customer entity + instant search ✓ (Phase 12, T-089)**: `businesses/{bid}/customers`, a Library "Customers" tab, a job-create combobox, and client-side zero-network search — see the Customer Entity & Search rule above.
 - **No client Firestore SDK left ✓ (Phase 12, T-088)**: the last four client-side Firestore reads/writes (AuthContext's profile doc, `useBusinessModules`/`useBusinessTimezone`, Pipeline's status writes) are gone, replaced by `/api/auth/profile` + `/api/company/bootstrap` + two new PATCH routes — confirmed by inspecting the built client chunks directly, not assumed. The field screen's address bar is now a bare `/field` (was showing a ~300-char token).
-- Mobile responsiveness: done (2026-07-04). Remaining: verified RESEND_FROM domain (NH-3 in TODO.md). SMS and Google Calendar OAuth are post-MVP; Twilio integration was superseded by Vapi (T-051 removed Twilio env declarations).
+- Mobile responsiveness: done (2026-07-04). Resend domain verified and `RESEND_FROM` set to `Luxor CRM <crm@luxordev.com>` (2026-09-25); only the header pass-check remains (NH-3). SMS and Google Calendar OAuth are post-MVP; Twilio integration was superseded by Vapi (T-051 removed Twilio env declarations).
 
 ## Architecture
 

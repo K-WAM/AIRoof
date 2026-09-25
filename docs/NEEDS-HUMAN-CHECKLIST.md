@@ -53,7 +53,9 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 
 ## NH-3 — Resend sending domain (20 min + DNS propagation)
 
-**Goal:** emails come from `no-reply@luxordev.com`, not spam.
+**STATUS 2026-09-25 — mostly done by Claude:** `luxordev.com` is verified in Resend (DKIM on `resend._domainkey`, SPF/MX on `send.`, DMARC published) and production `RESEND_FROM` is now `Luxor CRM <crm@luxordev.com>` (a test email was delivered). **Only step 7 remains** (open the test email -> Show original -> dkim/spf/dmarc = pass). Steps 1-6 below are kept for reference / a second domain.
+
+**Goal:** emails come from `crm@luxordev.com` (business name as the display name, replies to the business), not spam.
 
 1. **resend.com** → sign in → **Domains** → **Add Domain** → enter `luxordev.com` → region closest to you (US East) → **Add**.
 2. Resend shows a table of DNS records (usually 1 **MX**, 2–3 **TXT** for SPF/DKIM, sometimes a DMARC suggestion). Keep this page open.

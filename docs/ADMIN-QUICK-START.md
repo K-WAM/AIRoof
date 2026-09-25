@@ -19,7 +19,7 @@ The portal has moved on since the raw-Firestore steps below. This is the fast ma
 - **Two demo lines.** **+1 (754) 283-7658** is the any-industry Vapi line (Demo Studio renames and reconfigures it for all thirteen industries). **+1 (689) 204-2643** is the roofing-only human-voice ElevenLabs test line (tenant `carlita-elevenlabs-test`, renamed via **Admin → Clients → Edit**; its calls appear under that tenant, not `demo-roofing`).
 - **Demo Studio fields are all optional** — company name, notification email, and business phone. The business phone is only the contact number printed on the prospect's invoices/quotes/emails; it is deliberately **not** the emergency/escalation number.
 - **Seats.** An owner invites teammates in **Settings → Team**; each account defaults to **5 seats**, and a superadmin raises the limit in **Admin → Clients → Edit → Seat limit**.
-- **Email.** Customer mail is sent from the **business name** with replies going to the **business contact email**; logos and job photos embed **inline**. The shared sending domain is verified (SPF/DKIM) — the one remaining owner step is confirming **`RESEND_FROM`** in Vercel (**NH-3**).
+- **Email.** Customer mail is sent from the **business name** with replies going to the **business contact email**; logos and job photos embed **inline**. The shared sending domain is verified (SPF/DKIM) — the platform sender is `Luxor CRM <crm@luxordev.com>` (set 2026-09-25); remaining: check one received test email's headers show dkim/spf/dmarc = pass (**NH-3**).
 
 > The steps below predate Vapi and the Hub. Use **Playbooks** or `public/guides/onboarding-guide.html` for the current onboarding path.
 
