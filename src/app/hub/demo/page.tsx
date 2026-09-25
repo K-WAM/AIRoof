@@ -159,7 +159,7 @@ export default function DemoStudioPage() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               <button className="button primary" type="button" disabled={busy || testPhone.trim().length < 7} onClick={testCall}>Test call</button>
               <Link className="button" href={preview("dashboard")}>Open dashboard</Link>
-              {fieldUrl && <a className="button" href={fieldUrl}>Field QR</a>}
+              {fieldUrl && <a className="button" href={fieldUrl} title="Opens the technician screen on THIS device. To scan it with a phone, open a job and press Field QR.">Open field screen here</a>}
               <Link className="button" href={`/try/${verticalId}`}>Try page</Link>
             </div>
             {testCallStatus && <p role="status">{testCallStatus}</p>}
