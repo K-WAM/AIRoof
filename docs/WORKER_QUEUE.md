@@ -399,3 +399,35 @@ Tests: hide-toggle matrix across groups + both HTMLs (hidden names/hours/rates A
 Gates once at the end: tsc, eslint (changed files), vitest run (known load-flaky: send.test, company/team — re-run alone), `next build` once. Append evidence to docs/IMPLEMENTATION_LOG.md with a shell `cat >>` (file has odd bytes); mark T-107b `review` in TODO.md.
 Commit at least every 45 min. Never push/merge/touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
 ```
+
+### C5 — Codex, **Terra medium** — end-to-end smoke test of the whole demo path (route-level, offline)
+Goal: one automated test that walks the entire customer story through the REAL route handlers, so a regression anywhere in the chain fails CI instead of surfacing in front of a prospect.
+Story: phone call books -> call + request appear -> admin reviews/confirms -> job is created -> field update -> job shows it -> report + quote + invoice are generated, edited and "sent".
+```
+Work ONLY in a new worktree: cd "D:/Apps/6 - AI Receptionist" && git worktree add ../air-wt-smoke -b task/e2e-smoke main
+Junction node_modules from the main repo like the other worktrees. Before your first edit run `git rev-parse --show-toplevel` and `git branch --show-current`
+(must be D:/Apps/air-wt-smoke and task/e2e-smoke). Never edit the main repo. Read docs/WORKER_QUEUE.md "Worker etiquette" and AGENTS.md first.
+
+Build ONE new test file src/e2e/demo-path.test.ts (vitest already includes src/**/*.test.ts) plus, if needed, helpers in src/test-utils/. It must run OFFLINE and fast (< 20 s):
+- One shared in-memory db from src/test-utils/fakeFirestore.ts (makeFakeDb) used by EVERY step; extend the fake ONLY if a route needs API surface it lacks (say so in your notes).
+- Mock only the boundaries: `@/lib/firebase/admin` (getAdminFirestore -> the fake; verifyIdToken), `@/lib/auth/verifyRole` (an OWNER of business "e2e-roofing"; a second test asserts a request with no session is rejected),
+  the OpenAI/DeepSeek/Whisper clients (deterministic canned parse results — e.g. "used 12 bundles of shingles, Carlos worked 8 hours, found a cracked vent boot"), Resend (`resend` package or `@/lib/comms/send` — record every send: to, subject, html, fromName, replyTo, attachments),
+  and any outbound Vapi/ElevenLabs HTTP. NO live network, no keys, no env secrets. Seed the business with industry "roofing", a name, brandColor, contactEmail, contactPhone, notificationEmail and one library logo (small base64 PNG).
+Steps to drive IN ORDER, calling the exported route handlers (POST/PATCH/GET) with real NextRequest objects. After each step assert the STATE in the fake db, not just the status code:
+ 1. ElevenLabs initiation webhook, then tools/checkAvailability + tools/bookAppointment (see src/app/api/webhooks/elevenlabs/**/__tests__ for how to sign/shape requests) -> an appointment exists, status "requested", pendingConfirmation true, caller name/phone/address/service set.
+ 2. ElevenLabs post-call webhook -> a call doc exists with startedAt (REGRESSION: it was missing and hid the call), transcript messages, outcome, linked to the appointment via sourceCallId.
+ 3. GET /api/businesses/[id]/calls and /appointments (the lists the Calls and Pipeline pages use) both return the new records.
+ 4. PATCH /api/appointments/[id] confirm -> status "confirmed", customer confirmation email recorded with fromName = business name and replyTo = contactEmail. Then a SECOND appointment declined via declineReason -> status cancelled, decline email recorded, a repeat is idempotent (no second email).
+ 5. Job creation from the confirmed request (see src/lib/pipeline/jobPrefill.ts and POST /api/jobs) -> job J-xxxx exists with client name/phone/address prefilled; customers/resolve created or matched ONE customer (a second identical request must not create a duplicate).
+ 6. Field update: POST /api/jobs/[id]/updates (typed text) and, if practical with the mocked transcriber, /field-audio -> update ledger has entries; job.parsed (projection) shows materials, labor hours and the issue. A Spanish text update must produce English structured data + a transcriptEn.
+ 7. GET /api/jobs/[id] shows the projection. Report: PATCH reportNotes/reportOptions/reportTechnicians; POST report/send -> email recorded; assert the HTML has the letterhead + logo (as a cid: inline attachment, NOT a data: URI), findings, materials/labor lines, and NO "$", no "total", no "estimate" anywhere (reports carry no pricing). hideLabor / hideMaterials remove those sections.
+ 8. Quote: POST quote (draft from the job), PATCH edit lines + hide toggles, POST quote/send -> email recorded, quote status "sent", job status moves to "quoted". Assert hidden labor names/hours/rates and material names/prices are ABSENT and true totals PRESENT.
+ 9. Invoice: POST invoice, PATCH, send -> status "sent". Then make Resend FAIL and assert send returns 502 and the invoice is NOT marked sent (REGRESSION: it used to say "sent" while nothing was delivered).
+10. Cross-tenant: a user of another business gets 403/404 on every route above (one loop over the handlers).
+Also assert across ALL recorded emails: From display name is the business name, replyTo is the business contact email, an html AND text part exist, no `data:image` remains in any html.
+Rules: do NOT change production code to make the test pass. If the chain BREAKS at a step, do not fix it: mark that step `it.fails`/skipped with a precise reason, keep going with what you can, and record it in docs/SMOKE-REPORT.md
+(step, expected, actual, file:line, suspected cause, severity for a live demo). The value of this task is an HONEST map of what works. Fix nothing you were not asked to fix; small test-helper changes are fine.
+Also write docs/SMOKE-REPORT.md: a table of the 10 steps (pass / fail / not coverable offline + why), and a short "what still needs a human on a real phone/inbox" list (voice audio quality, real email inbox placement, real Twilio/ElevenLabs call, browser rendering at 375px).
+No new dependencies (ask instead). Gates once at the end: tsc, eslint on your files, the new test alone + full `vitest run` (known load-flaky: send.test, company/team — re-run alone), `next build` once. Commit every ~45 min. Append a short entry to docs/IMPLEMENTATION_LOG.md with a shell `cat >>`.
+Never push/merge/touch main. Final message: pass/fail table, "Noticed, not done", "QUESTION FOR INTEGRATOR: ...".
+```
