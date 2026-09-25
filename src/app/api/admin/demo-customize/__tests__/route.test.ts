@@ -86,6 +86,16 @@ class FakeQuery {
     return this;
   }
 
+  orderBy(_field: string, _direction?: string) {
+    void _field; void _direction;
+    return this;
+  }
+
+  limit(_count: number) {
+    void _count;
+    return this;
+  }
+
   async get() {
     const prefix = `${this.path}/`;
     const expectedSegments = this.path.split("/").length + 1;
@@ -413,8 +423,10 @@ describe("demo-customize route", () => {
       const { DELETE } = await import("@/app/api/admin/demo-customize/route");
       const response = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
       expect((await response.json()).ok).toBe(true);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/updates/u1")).toBe(false);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/photos/p1")).toBe(false);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/photoBlobs/b1")).toBe(false);
       for (const path of [...fs.documents.keys()]) {
-        expect(path).not.toMatch(/jobs\/J-1001\/(updates|photos|photoBlobs)\//);
         expect(path).not.toMatch(/(customers|quotes|invoices|punches|agentActions|schedulingLocks)\/[^/]+$/);
       }
       expect(fs.documents.has("elevenlabsConversations/own")).toBe(false);
@@ -517,6 +529,38 @@ describe("demo-customize route", () => {
 
       const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
       expect(lockDoc?.locked).toBe(false);
+    });
+
+    it("seeds the worked roofing inspection as J-1001 and shifts regular jobs", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+        timezone: "America/New_York",
+      });
+      mocks.firestoreInstance = fs;
+
+      vi.resetModules();
+      const { POST } = await import("@/app/api/admin/demo-customize/route");
+      const res = await POST(makeRequest("POST", { companyName: "Test Roofing", verticalId: "roofing" }));
+
+      expect(res.status).toBe(200);
+      const worked = fs.documents.get("businesses/demo-roofing/jobs/J-1001");
+      expect(worked).toMatchObject({
+        title: expect.stringContaining("Roof inspection"),
+        clientEmail: "maria.ortega@example.com",
+        serviceType: "Roof inspection",
+        status: "in_progress",
+      });
+      expect(worked?.findings).toHaveLength(2);
+      expect(worked?.parsed).toBeDefined();
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/updates/seed-1")).toBe(true);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/updates/seed-2")).toBe(true);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/updates/seed-3")).toBe(true);
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1002")).toBe(true);
+      expect(fs.documents.get("businesses/demo-roofing")?.jobCounter).toBeGreaterThanOrEqual(1002);
     });
   });
 

@@ -23,7 +23,11 @@ import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole"
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
 import { mergeWorkStarter, workCatalogStarterFor } from "@/lib/verticals/workCatalogStarter";
+import { WORK_CATALOG_STARTER } from "@/lib/verticals/workCatalogStarter";
 import { mergeStarterKit, starterKitFor } from "@/lib/verticals/starterKits";
+import { ROOFING_WORKED_JOB } from "@/lib/verticals/demoSeedRoofing";
+import { copyCatalogFinding } from "@/lib/jobs/findings";
+import { writeJobProjection } from "@/lib/jobs/writeProjection";
 import { getVoiceProvider } from "@/lib/voice/provider";
 import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
 import { MAX_LOGO_B64_BYTES, totalLogoBytes } from "@/lib/branding/logo";
@@ -31,6 +35,7 @@ import { jsonWithCache } from "@/lib/http/cache";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
 import type { LibraryLogo } from "@/types/library";
+import type { FieldUpdate } from "@/types/jobs";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
@@ -351,15 +356,54 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     // Job ids are handed out from the business's jobCounter (see POST /api/jobs), so
     // seeding fixed ids without advancing it would let the next real job collide
     // with — and overwrite — a seeded one.
+    const workedJobId = "J-1001";
+    let workedLedger: FieldUpdate[] | undefined;
+    if (opts.verticalId === "roofing") {
+      const catalogById = new Map(WORK_CATALOG_STARTER.roofing.map((item) => [item.itemId, item]));
+      const findings = ROOFING_WORKED_JOB.findingItemIds
+        .map((itemId) => catalogById.get(itemId))
+        .filter((item) => item !== undefined)
+        .map((item) => copyCatalogFinding(item));
+      workedLedger = ROOFING_WORKED_JOB.updates.map((update, index) => ({
+        updateId: `seed-${index + 1}`,
+        rawText: update.rawText,
+        submittedBy: update.submittedBy,
+        createdAt: now - update.minutesAgo * 60_000,
+        language: update.language,
+        ...(update.rawTextEn ? { rawTextEn: update.rawTextEn } : {}),
+        parsed: update.parsed,
+      }));
+      add.set(base.collection("jobs").doc(workedJobId), {
+        jobId: workedJobId,
+        businessId: LIVE_LINE_BUSINESS_ID,
+        title: ROOFING_WORKED_JOB.title,
+        status: "inspection",
+        clientName: ROOFING_WORKED_JOB.clientName,
+        clientPhone: ROOFING_WORKED_JOB.clientPhone,
+        clientEmail: ROOFING_WORKED_JOB.clientEmail,
+        address: ROOFING_WORKED_JOB.address,
+        serviceType: ROOFING_WORKED_JOB.serviceType,
+        notes: ROOFING_WORKED_JOB.notes,
+        findings,
+        createdAt: now - 6 * 60 * 60_000,
+        updatedAt: now,
+      });
+      workedLedger.forEach((update) => {
+        add.set(base.collection("jobs").doc(workedJobId).collection("updates").doc(update.updateId), update);
+      });
+    }
+
+    const firstRegularJobNumber = opts.verticalId === "roofing" ? 1002 : 1001;
     seed.jobs.forEach((j, i) => {
-      const jobId = `J-${1001 + i}`;
+      const jobId = `J-${firstRegularJobNumber + i}`;
       add.set(base.collection("jobs").doc(jobId), {
         ...j, jobId, businessId: LIVE_LINE_BUSINESS_ID,
         createdAt: now - (i + 1) * 86_400_000, updatedAt: now,
       });
     });
-    if (seed.jobs.length > 0) {
-      add.update(base, { jobCounter: 1000 + seed.jobs.length });
+    const lastSeededJobNumber = firstRegularJobNumber + seed.jobs.length - 1;
+    if (seed.jobs.length > 0 || workedLedger) {
+      add.update(base, { jobCounter: Math.max(1001, lastSeededJobNumber) });
     }
     seed.calls.forEach((c, i) => {
       const createdAt = now - (i + 1) * 3_600_000;
@@ -388,6 +432,10 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       });
     });
     await add.commit();
+
+    if (workedLedger) {
+      await writeJobProjection(db, LIVE_LINE_BUSINESS_ID, workedJobId, { ledger: workedLedger });
+    }
 
     await base.update({ seededAt: now });
 
