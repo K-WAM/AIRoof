@@ -114,6 +114,9 @@ export interface Job {
   customerId?: string;
   serviceType?: string;
   appointmentId?: string;
+  leadId?: string;
+  sourceCallId?: string;
+  callSummary?: string;
   notes?: string;
   invoiceId?: string;
   quoteId?: string;

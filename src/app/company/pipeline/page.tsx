@@ -7,7 +7,6 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
-import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -256,35 +255,11 @@ export default function PipelinePage() {
     }
   }
 
-  function createJob(appt: Appointment) {
-    window.location.href = buildJobPrefillUrl({
-      clientName: appt.callerName ?? "",
-      clientPhone: appt.callerPhone ?? "",
-      address: appt.address ?? "",
-      serviceType: appt.serviceType ?? "",
-      notes: appt.notes ?? undefined,
-      intake: appt.intake,
-      intakeFields,
-      appointmentId: appt.appointmentId,
-      preview: preview ?? undefined,
-    });
-  }
-
-  // The Lead-side equivalent of createJob — same Jobs prefill route, same
-  // flat point-in-time snapshot of name/phone/address, plus the lead's notes
-  // and its id as the form's auto-open trigger (no appointment involved).
-  function createJobFromLead(lead: Lead) {
-    window.location.href = buildJobPrefillUrl({
-      clientName: lead.callerName ?? "",
-      clientPhone: lead.callerPhone ?? "",
-      address: lead.address ?? "",
-      serviceType: lead.serviceRequested ?? "",
-      notes: lead.notes ?? undefined,
-      intake: lead.intake,
-      intakeFields,
-      leadId: lead.leadId,
-      preview: preview ?? undefined,
-    });
+  async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
+    const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
+    if (!res.ok) throw new Error("Job creation failed");
+    const { job } = await res.json() as { job: { jobId: string } };
+    window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`;
   }
 
   async function callBackAppt(appt: Appointment) {
@@ -470,7 +445,7 @@ export default function PipelinePage() {
             </button>
           )}
           {showJobActions && (
-            <button className="button secondary" onClick={() => createJob(appt)} style={{ fontSize: 13 }}>
+            <button className="button secondary" onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })} style={{ fontSize: 13 }}>
               Create {vocab.jobNoun}
             </button>
           )}
@@ -723,8 +698,8 @@ export default function PipelinePage() {
                         <button
                           className="button secondary"
                           type="button"
-                          onClick={() => createJobFromLead(selectedLead)}
-                          title={`Prefill a new ${vocab.jobNoun.toLowerCase()} with this lead's details`}
+                          onClick={() => void createJobFromRequest({ leadId: selectedLead.leadId })}
+                          title={`Create a ${vocab.jobNoun.toLowerCase()} from this confirmed request`}
                           style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                         >
                           <FilePlus size={14} strokeWidth={1.75} />
@@ -818,7 +793,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) createJobFromLead(reviewLead); setReviewLead(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
       />
       <RequestReviewDialog
         open={!!reviewAppt}
@@ -829,7 +804,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) createJob(reviewAppt); setReviewAppt(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );

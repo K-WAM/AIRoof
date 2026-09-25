@@ -9,7 +9,6 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
-import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -127,6 +126,12 @@ export default function CompanyCallsPage() {
     if (!targetPhone) return;
     const response = await fetch("/api/calls/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetPhone, leadId, appointmentId }) });
     if (!response.ok) throw new Error("Callback could not be started");
+  }
+  async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
+    const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
+    if (!res.ok) throw new Error("Job creation failed");
+    const { job } = await res.json() as { job: { jobId: string } };
+    window.location.href = `/company/jobs/${job.jobId}${preview ? `?preview=${preview}` : ""}`;
   }
   async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string) {
     if (!review) return;
@@ -388,7 +393,7 @@ export default function CompanyCallsPage() {
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) { const entity = review.lead ?? review.appointment; window.location.href = buildJobPrefillUrl({ clientName: entity?.callerName ?? "", clientPhone: entity?.callerPhone ?? "", address: entity?.address ?? "", serviceType: review.lead?.serviceRequested ?? review.appointment?.serviceType ?? "", notes: entity?.notes, intake: entity?.intake, intakeFields: getVerticalTemplate(industry ?? "roofing").intakeFields, leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId, preview: preview ?? undefined }); } setReview(null); }}
+        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );
