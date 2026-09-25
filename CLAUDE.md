@@ -8,7 +8,7 @@
 
 **Phases 21–23 (2026-09-24/25):** demo experience (T-115/T-116/T-121), Vapi→ElevenLabs migration (T-117; ElevenLabs test tenant `carlita-elevenlabs-test` live end-to-end), and launch readiness (Phase 23: email deliverability fix, call-visibility/superadmin fixes, document suite T-107a/b with **price-free reports**, request review T-113). **Only the first link of the customer story has been proven live — run the T-124 smoke test and the owner's NH-26 run-through before selling.** Start every session at `docs/NEXT_SESSION.md`.
 
-**Phase 24 (2026-09-25) — the 20-minute roofing demo, ElevenLabs only (Vapi retired from demos).** T-124 smoke test is done (offline, all pass). Spec: `docs/DEMO-READINESS-PLAN.md`; three worker tasks D1 (phone line + Demo Studio), D2 (job loop), D3 (roofing content) in `docs/WORKER_QUEUE.md` section D; TODO.md Phase 24.
+**Phase 24 (2026-09-25) — the 20-minute roofing demo, ElevenLabs only (Vapi retired from demos).** T-124 smoke test is done (offline, all pass). Spec + status: `docs/DEMO-READINESS-PLAN.md` (STATUS block at the top lists what shipped, what deviated and what is unproven); TODO.md Phase 24. All three tasks (D1 phone line + Demo Studio, D2 job loop, D3 roofing content) are built and deployed; the demo line is +1 (689) 204-2643 on tenant `demo-roofing`. **Not yet proven on a real phone** — owner verification (Twilio Upgrade, scripted calls, dry runs) is the next step.
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 

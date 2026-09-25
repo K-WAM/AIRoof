@@ -390,14 +390,13 @@
       <div class="toc-item">
         <div class="toc-num">Part 2</div>
         <div class="toc-title">Client Onboarding</div>
-        <div class="toc-desc">Vapi setup, portal config, phone numbers, testing</div>
+        <div class="toc-desc">Client onboarding: phone line, portal setup, testing</div>
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.8 — September 2026</div>
+        <div><span>Version</span> 2.9 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
-      <div><span>Demo line — any industry</span> +1 (754) 283-7658</div>
-      <div><span>Human-voice line — roofing</span> +1 (689) 204-2643</div>
+      <div><span>Demo line (ElevenLabs)</span> +1 (689) 204-2643</div>
       <div><span>Self-led link</span> ai-roof.vercel.app/try/roofing</div>
       <div><span>Superadmin</span> connect@luxordev.com</div>
     </div>
@@ -428,18 +427,20 @@
 
   <!-- ══ THE WHOLE DEMO — click by click ══ -->
   <div style="background:#eff6ff;border:1.5px solid #93c5fd;border-radius:10px;padding:18px 24px;margin:0 0 24px;page-break-inside:avoid;">
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;margin-bottom:4px;">⚡ Forgot everything? This is the whole demo.</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:10px;">Every click. Nothing else required.</div>
-    <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:2.0;color:#1e293b;">
-      <li>Go to <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> → sign in as <strong>connect@luxordev.com</strong></li>
-      <li>Left nav → <strong>Demo Studio</strong></li>
-      <li>Click their <strong>industry card</strong> (13 of them)</li>
-      <li>Type their <strong>company name</strong> + <strong>email</strong> + <strong>business phone</strong> (all three optional) → click <strong>Launch demo →</strong></li>
-      <li>Hand them your phone → dial <strong style="color:#1d4ed8">+1 (754) 283-7658</strong>. The agent answers as <em>their</em> company. <strong>Works for every industry.</strong></li>
-      <li>Click <strong>Open [Industry] dashboard →</strong> → show <strong>Dashboard</strong> (the after-hours booking waiting for approval) → <strong>Calendar</strong> (drag a card onto a row)</li>
-      <li>Done? Click <strong>Reset demo</strong>.</li>
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#1d4ed8;margin-bottom:4px;">⚡ The 20-minute roofing demo</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:10px;">Set up ~5 minutes before they arrive (not counted). The same running order is on the Demo Studio page, with a Plan B for every step.</div>
+    <ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:1.9;color:#1e293b;">
+      <li><strong>Before (5 min):</strong> <strong style="color:#1d4ed8">ai-roof.vercel.app/login</strong> as <strong>connect@luxordev.com</strong> → <strong>Demo Studio</strong> (Roofing is preselected) → type their company name, owner, email, phone, city, drop in their logo → <strong>Launch demo</strong>. Press <strong>Test call</strong> and hear your own phone answer as their company. Keep the dashboard open in a second window.</li>
+      <li><strong>0–2 min — hand them the number:</strong> <strong style="color:#1d4ed8">+1 (689) 204-2643</strong>. “Call this. It's your receptionist.”</li>
+      <li><strong>2–6 min — they call:</strong> ask about tile roofs and insurance, try something off-topic, then book an inspection (name, address, the problem). A <strong>Live</strong> badge appears in <strong>Calls</strong> while they are still talking.</li>
+      <li><strong>6–9 min — the dashboard:</strong> the call now has its summary, transcript and recording. <strong>Pipeline</strong> → open the request → <strong>Confirm &amp; create job</strong> (one tap — customer, email, address and reason are already filled in).</li>
+      <li><strong>9–13 min — the field:</strong> on the job, <strong>Field QR</strong> → scan with a phone → <strong>Arrived at job</strong> → hold to talk (“six cracked tiles on the south slope, the pipe boot is split…”) → one photo → <strong>＋ Finding</strong>. The office page updates by itself.</li>
+      <li><strong>13–16 min — the quote:</strong> the <strong>Findings</strong> tab suggests Library items from what the tech said — add them. The <strong>Quote</strong> tab is already drafted → <strong>＋ Add item</strong> (price fills in, edit it) → <strong>Send</strong> to their email.</li>
+      <li><strong>16–18 min — report and invoice:</strong> the <strong>Report</strong> tab opens already drafted (photos, no prices) → send. <strong>Invoice</strong> is one tap from the job.</li>
+      <li><strong>18–20 min — the story:</strong> the <strong>Timeline</strong> tab's <strong>Job history</strong> shows call → job → arrival → updates → quote → invoice. Then: keep your number, forward calls to ours, live in about 48 hours.</li>
+      <li><strong>Plan B for any step:</strong> open the seeded job <strong>J-1001</strong> (updates, photos, findings already in) — and press <strong>Reset</strong> at the bottom of Demo Studio before the next prospect.</li>
     </ol>
-    <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">Your screen is usually facing them — the pitch script is hidden behind <strong>Presenter notes → Show my script</strong>. Everything else on that page is safe for them to read.</p>
+    <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">Before the first real demo: upgrade Twilio out of trial (callers hear a trial message otherwise) and set your own cell as the demo business's emergency number (Admin → Clients → demo-roofing → Edit).</p>
   </div>
 
   <!-- ══ MASTER CHEAT SHEET ══ -->
@@ -466,7 +467,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;font-size:12px;line-height:1.7;">
       <div style="background:#1e293b;border-radius:8px;padding:14px;">
         <div style="font-weight:700;color:#34d399;margin-bottom:6px;">📞 Voice demo</div>
-        <div>The number is <strong>+1 (754) 283-7658</strong> for <em>every</em> industry — one line that reconfigures to whatever you launched.</div>
+        <div>The number is <strong>+1 (689) 204-2643</strong> — one line that becomes whatever company you launched in Demo Studio.</div>
         <div style="margin-top:6px;color:#94a3b8;">Hand them the phone. The agent answers as their company, confirms their number from caller ID, and books.</div>
       </div>
       <div style="background:#1e293b;border-radius:8px;padding:14px;">
@@ -507,7 +508,7 @@
       <tr>
         <td><strong>Roofing</strong></td>
         <td>Alice</td>
-        <td class="td-good">✓ +1 (754) 283-7658</td>
+        <td class="td-good">✓ +1 (689) 204-2643</td>
         <td>Jobs → Crews</td>
         <td class="td-good">✓</td>
         <td>—</td>
@@ -612,7 +613,7 @@
   </table>
 
   <div class="highlight">
-    <strong>Why one number covers everything:</strong> you never write a per-industry prompt. Each Demo Studio launch reconfigures the live business (<code>demo-roofing</code>) to the chosen industry, and the Vapi assistant pulls its System Prompt from <code>{{systemPrompt}}</code> and First Message from <code>{{greeting}}</code> — both served live by the webhook from that config. Do <strong>not</strong> paste literal text over those two fields in the Vapi dashboard or every vertical breaks at once.
+    <strong>Why one number covers everything:</strong> you never write a per-industry prompt. Each Demo Studio launch reconfigures the demo business (<code>demo-roofing</code>) — name, greeting, services, FAQs, demo data and logo — and at the start of <em>every call</em> the ElevenLabs line asks the app who owns the number and builds the prompt and greeting from that business. Nothing is pushed to ElevenLabs on launch, so there is nothing to keep in sync. Do <strong>not</strong> paste a custom prompt over the agent in the ElevenLabs dashboard for the demo line — the per-call prompt replaces it.
   </div>
 
   <div class="highlight">
@@ -620,10 +621,10 @@
   </div>
 
   <div class="highlight">
-    <strong>Two demo lines — don’t mix them up:</strong>
+    <strong>One demo line (ElevenLabs).</strong>
     <ul style="margin:8px 0 0 18px;">
-      <li><strong>+1 (754) 283-7658 — the any-industry line (Vapi).</strong> Works for all thirteen industries; each Demo Studio launch renames and reconfigures this one line. This is the number to dial after a Demo Studio launch, and the only one that follows industry changes automatically.</li>
-      <li><strong>+1 (689) 204-2643 — the human-voice line (ElevenLabs, roofing only).</strong> A separate, natural-sounding test tenant (<code>carlita-elevenlabs-test</code>). Demo Studio does <em>not</em> reconfigure it — change its name or greeting via <strong>Admin → Clients → Edit</strong> — and its calls appear under the <code>carlita-elevenlabs-test</code> tenant, not <code>demo-roofing</code>. The “Run a demo in 5 minutes” panel at the top of Demo Studio has a call button for each line.</li>
+      <li><strong>+1 (689) 204-2643</strong> answers as whatever you launched in Demo Studio; its calls, bookings and recordings land in the <code>demo-roofing</code> business. Twilio must be upgraded out of trial or callers hear a trial message first.</li>
+      <li>The old Vapi number is no longer used for demos. <code>carlita-elevenlabs-test</code> is a data-only sandbox now.</li>
     </ul>
   </div>
 
@@ -664,7 +665,7 @@
       <div class="step-num blue">5</div>
       <div class="step-body">
         <strong>Optional test call (any industry)</strong>
-        <p>Call <strong>+1 (754) 283-7658</strong> and say what one of their callers would say. Confirm the agent greets with <em>their</em> company name. Hang up before booking so you don't clutter the demo data.</p>
+        <p>Call <strong>+1 (689) 204-2643</strong> and say what one of their callers would say. Confirm the agent greets with <em>their</em> company name. Hang up before booking so you don't clutter the demo data.</p>
       </div>
     </li>
   </ol>
@@ -758,7 +759,7 @@
 
     <div style="font-size:11px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">② AI Receptionist Live Call</div>
     <ol style="margin:0 0 20px;padding-left:20px;line-height:2.1;font-size:13px;">
-      <li>Hand the prospect your phone → dial <strong style="color:#34d399;font-size:15px;">+1 (754) 283-7658</strong></li>
+      <li>Hand the prospect your phone → dial <strong style="color:#34d399;font-size:15px;">+1 (689) 204-2643</strong></li>
       <li>They say: <em>"Hi, I had storm damage last night and need someone to inspect my roof."</em></li>
       <li>Alice answers as <em>their</em> company and books the appointment</li>
       <li>Switch to your dashboard tab → click <strong>Pipeline</strong> → <strong>Appointments</strong> tab → the booking appears in real time</li>
@@ -794,7 +795,7 @@
   <p style="font-style:italic;color:#475569;margin-bottom:12px;">"Right now, every call that comes in while you're on a roof goes to voicemail — and studies show the first company to respond wins the job over 50% of the time. I'm going to show you what happens when your phone never goes unanswered again."</p>
 
   <p><strong>The live call (3 min):</strong></p>
-  <p>Hand the prospect your phone or dial on speaker. Call <strong>+1 (754) 283-7658</strong>. Have them say:</p>
+  <p>Hand the prospect your phone or dial on speaker. Call <strong>+1 (689) 204-2643</strong>. Have them say:</p>
   <p style="font-style:italic;background:#f8fafc;padding:10px 14px;border-left:3px solid #3b82f6;border-radius:4px;margin-bottom:12px;">"Hi, I had some storm damage last night and I need someone to come inspect my roof. Can I book something for this week?"</p>
   <p>Let Alice handle it fully — she qualifies, books, captures all contact info. Don't interrupt.</p>
 
@@ -828,7 +829,7 @@
       <div class="step-num blue">1</div>
       <div class="step-body">
         <strong>Launch the industry, then hand them the phone</strong>
-        <p>Dial <strong>+1 (754) 283-7658</strong>. Aria (dental), Elena (care homes), Val (property mgmt), Nora (childcare), or Wren (daycares) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Care Homes: say <em>"I'd like to tour an assisted living community Saturday."</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> Childcare: say <em>"I need a sitter for Saturday night, my daughter is 4."</em> Daycares: say <em>"I'd like a tour for a 2-year-old starting in January."</em> The agent triages, books, or escalates.</p>
+        <p>Dial <strong>+1 (689) 204-2643</strong>. Aria (dental), Elena (care homes), Val (property mgmt), Nora (childcare), or Wren (daycares) answers as their company. Dental: say <em>"I chipped a tooth, can I get in today?"</em> Care Homes: say <em>"I'd like to tour an assisted living community Saturday."</em> Property Mgmt: say <em>"I'm a tenant, my pipe burst."</em> Childcare: say <em>"I need a sitter for Saturday night, my daughter is 4."</em> Daycares: say <em>"I'd like a tour for a 2-year-old starting in January."</em> The agent triages, books, or escalates.</p>
       </div>
     </li>
     <li>
@@ -872,67 +873,67 @@
   <div class="vertical-grid">
     <div class="vertical-card" style="border-left:4px solid #1e3a5f;">
       <div class="v-name" style="color:#1e3a5f;">🔨 Roofing — Alice</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Jobs → Crews</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Jobs → Crews</div>
       <div class="v-script">"Hey [Prospect], imagine your customer calling after last night's storm — your AI books the inspection, sends the confirmation, and captures the lead, all while you're on the roof. Want to hear it live?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #1a5276;">
       <div class="v-name" style="color:#1a5276;">❄️ HVAC — Claire</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Service calls → Techs</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Service calls → Techs</div>
       <div class="v-script">"Hi [Prospect], imagine your customers calling — AC out in July — and your receptionist books them same-day without you lifting a finger. Want to see it live right now?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #1e8449;">
       <div class="v-name" style="color:#1e8449;">🌿 Landscaping — Maya</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Jobs → Crews</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Jobs → Crews</div>
       <div class="v-script">"Hey [Prospect], picture a homeowner calling for a lawn quote Saturday morning — your AI qualifies them, books a site visit, sends a confirmation, all while you're on another job. Sound useful?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #0d9488;">
       <div class="v-name" style="color:#0d9488;">🧽 Cleaning — Robin</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Cleans → Teams</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Cleans → Teams</div>
       <div class="v-script">"Hey [Prospect], someone calls Sunday night wanting a move-out clean Tuesday — your AI quotes it, books it, and puts it on the board before you've picked up the phone. Want to hear it?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #b45309;">
       <div class="v-name" style="color:#b45309;">🏗️ General Contractors — Rex</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Projects → Crews</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Projects → Crews</div>
       <div class="v-script">"Hey [Prospect], a homeowner just called asking for a kitchen remodel quote — your AI captured all the project details, booked a site visit, and sent a confirmation. Sound like something your crew needs?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #0e6fa7;">
       <div class="v-name" style="color:#0e6fa7;">🦷 Dental — Aria</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Patients → Providers</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Patients → Providers</div>
       <div class="v-script">"Hey [Prospect], your front desk just missed a call from a new patient with a toothache. Our AI would have booked them a same-day slot instantly. Want to hear how it sounds?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #7f3f55;">
       <div class="v-name" style="color:#7f3f55;">Care Homes — Elena</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Tours → Coordinators</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Tours → Coordinators</div>
       <div class="v-script">"Imagine a family calling after hours to ask about assisted living openings and a tour. Elena captures the inquiry, offers an admissions follow-up, and routes any resident-specific question to live staff. Want to hear it?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #5a3ea1;">
       <div class="v-name" style="color:#5a3ea1;">🏢 Property Management — Val</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Tenants → Vendors</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Tenants → Vendors</div>
       <div class="v-script">"Hey [Prospect], your tenant calls at 11pm about a burst pipe — our AI answers, escalates to your on-call, creates a work order, all before you see it in the morning. Want a live demo?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #a16207;">
       <div class="v-name" style="color:#a16207;">⚡ Electricians — Jax</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Jobs → Crews</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Jobs → Crews</div>
       <div class="v-script">"Hey [Prospect], a customer's breaker keeps tripping at 9pm — your AI captures the details, flags it as urgent, and has a job on your board before you're even up. Want to see it live?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #475569;">
       <div class="v-name" style="color:#475569;">🔧 Appliance Repair — Milo</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Repairs → Techs</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Repairs → Techs</div>
       <div class="v-script">"Hey [Prospect], a customer's fridge dies on a Sunday — your AI books the repair, captures the model number, and puts it on your board before Monday morning. Want to hear it?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #c2185b;">
       <div class="v-name" style="color:#c2185b;">👶 Childcare — Nora</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Bookings → Sitters</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Bookings → Sitters</div>
       <div class="v-script">"Hey [Prospect], a parent calls Friday at 4pm needing a sitter for Saturday night — your AI checks availability, books it, and confirms by text, all before you've seen the missed call. Want to hear it live?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #7c3aed;">
       <div class="v-name" style="color:#7c3aed;">🏫 Daycares — Wren</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Tours → Directors</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Tours → Directors</div>
       <div class="v-script">"Hey [Prospect], a parent calls after hours about infant-room openings — your AI answers the tuition questions, books a tour with the director, and adds the family to the waitlist, all before you've seen the missed call. Want to hear it live?"</div>
     </div>
     <div class="vertical-card" style="border-left:4px solid #c2410c;">
       <div class="v-name" style="color:#c2410c;">🗑️ Junk Removal — Dusty</div>
-      <div class="v-agent">Live on +1 (754) 283-7658 · Calendar: Pickups → Crews</div>
+      <div class="v-agent">Live on +1 (689) 204-2643 · Calendar: Pickups → Crews</div>
       <div class="v-script">"Hey [Prospect], a customer calls needing a same-day garage cleanout — your AI gets the item list, confirms a pickup window, and books the truck, all before you've finished your coffee. Want to hear it live?"</div>
     </div>
   </div>
@@ -958,7 +959,7 @@
     <div class="stat-card">
       <div class="stat-value green">&lt;2s</div>
       <div class="stat-label">AI answer time vs. 2–4 hour average human callback</div>
-      <div class="stat-source">Measured on the Vapi live line</div>
+      <div class="stat-source">Measured on a live voice line</div>
     </div>
     <div class="stat-card">
       <div class="stat-value blue">50%</div>
@@ -1042,7 +1043,7 @@
       <div class="step-num purple">1</div>
       <div class="step-body">
         <strong>Send the link, or just the number</strong>
-        <p><span class="url">ai-roof.vercel.app/try/roofing</span> — or skip the link entirely: <em>"Call +1 (754) 283-7658 and talk to Alice like you're a customer booking a roof inspection."</em></p>
+        <p><span class="url">ai-roof.vercel.app/try/roofing</span> — or skip the link entirely: <em>"Call +1 (689) 204-2643 and talk to Alice like you're a customer booking a roof inspection."</em></p>
       </div>
     </li>
     <li>
@@ -1199,7 +1200,7 @@
   </div>
 
   <div class="highlight">
-    <strong>Voice providers:</strong> <strong>Vapi is the live provider for every paying client</strong> — all client calls run on Vapi. <strong>ElevenLabs Agents</strong> is now per-tenant selectable and is proven on one isolated test tenant: <code>carlita-elevenlabs-test</code>, the human-voice demo line <strong>+1 (689) 204-2643</strong> (roofing only). It is <em>not</em> offered to clients yet — do not enroll a client on ElevenLabs or promise it on their line until the owner signs off on the provider switch.
+    <strong>Voice providers:</strong> <strong>ElevenLabs is the direction for every client</strong> and already runs the demo line <strong>+1 (689) 204-2643</strong>. Existing clients still on Vapi keep working until each is moved (tenant by tenant, with rollback). Do not move a paying client's line yourself until the owner has signed off on that tenant and Twilio is out of trial.
   </div>
 
   <div class="highlight">
@@ -1351,7 +1352,7 @@
   </ol>
 
   <div class="warning-box">
-    <strong>This is a manual runbook, not yet a portal button.</strong> In-app provisioning (buy/import a number without leaving the portal) is a backlog item (T-054) — it needs a live Twilio account and API key wired into this app first, which is exactly what steps 1–4 above produce. Once that exists, automating steps 3 and 5 becomes straightforward. Twilio here is only a <em>number provider</em> imported into Vapi as bring-your-own-number; the app has no live Twilio integration of its own. The shared demo line <strong>+1 (754) 283-7658</strong> is Vapi-owned and cannot be moved to another provider — it stays the wired demo line.
+    <strong>This is a manual runbook, not yet a portal button.</strong> In-app provisioning (buy/import a number without leaving the portal) is a backlog item (T-054) — it needs a live Twilio account and API key wired into this app first, which is exactly what steps 1–4 above produce. Once that exists, automating steps 3 and 5 becomes straightforward. Twilio here is only a <em>number provider</em> imported into Vapi as bring-your-own-number; the app has no live Twilio integration of its own. The shared demo line <strong>+1 (689) 204-2643</strong> is Vapi-owned and cannot be moved to another provider — it stays the wired demo line.
   </div>
 
   <hr>

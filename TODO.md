@@ -993,7 +993,7 @@ an active queue.*
         (cross-tenant partial by design: public webhooks use provider secrets). Multipart audio is not accepted by `field-audio` (JSON/base64 only) — recorded as `it.fails`, not a bug in the app's own client.
         Worktrees `air-wt-documents-core`, `air-wt-guide-2`, `air-wt-report`, `air-wt-request-review`, `air-wt-smoke` removed (T-127's worktree part done).
 
-- [ ] Phase 24 — The 20-minute roofing demo on ElevenLabs (owner-directed, 2026-09-25) — 2/3 (D1 + D3 merged; D2 in progress)
+- [ ] Phase 24 — The 20-minute roofing demo on ElevenLabs (owner-directed, 2026-09-25) — 3/3 BUILT; owner verification pending (Twilio Upgrade NH-21, scripted live calls, 3 dry runs)
       Spec: `docs/DEMO-READINESS-PLAN.md` (§1 demo-breaking findings, §2 running order, §3 worker tasks). Prompts: `docs/WORKER_QUEUE.md` section **D**.
       Owner decisions: ElevenLabs only (Vapi retired from demos; number kept 2 weeks as fallback); roofing first; typing the prospect's name in Demo Studio
       adapts the agent on the next call (initiation webhook reads the tenant per call — no agent push). Blocker for the owner: Twilio Upgrade (NH-21).
@@ -1014,7 +1014,7 @@ an active queue.*
         `elevenlabsArchived`; rollback = `MIGRATION_ENV_FILE=<pulled env> node scripts/move-demo-line-to-elevenlabs.mjs --rollback`. **ElevenLabs calls
         now land in `demo-roofing`, not carlita.** Resume prompt: `docs/WORKER_QUEUE.md` "D1 resume" (J-1001 seed, same-slot test, steps 6-9;
         toolDispatcher.ts edit approved for sayToCaller only).
-  - D2 status 2026-09-25 (late): **Stage 1 MERGED + deployed** (atomic idempotent request->job, live refresh + Live/Ended + new-row highlights; integrator fixed 3 refresh bugs). Stage 2 (Findings<->Library, quote rework) prompt in `docs/WORKER_QUEUE.md` "D2 Stage 2"; Stages 3-4 after. Earlier note: first session stopped after partial Stage 1 (live refresh + request→job route; double-tap race found in review) — resume prompt
+  - **D2 DONE 2026-09-25 (integrator built Stages 2-4 after Codex B stalled; see the STATUS block in docs/DEMO-READINESS-PLAN.md for deviations — notably the voice-model swap was NOT done, timing logs added instead).** Shipped: Findings<->Library (suggestions, picker, one-off price + Save to Library, field "＋ Finding" via a grant-scoped endpoint), quote rework (auto-draft, + Add item, Issue->Work->Price cards, intro, options copy, autosave), Work complete + statusHistory, cheap live job poll, report auto-draft + auto-open, job history, next-step guide, Customers page, action-named job filters, agent-name/Vapi wording cleanup. The old D2 notes below are superseded. Earlier note: Stage 1 MERGED + deployed (atomic idempotent request->job, live refresh + Live/Ended + new-row highlights; integrator fixed 3 refresh bugs). Stage 2 (Findings<->Library, quote rework) prompt in `docs/WORKER_QUEUE.md` "D2 Stage 2"; Stages 3-4 after. Earlier note: first session stopped after partial Stage 1 (live refresh + request→job route; double-tap race found in review) — resume prompt
         in `docs/WORKER_QUEUE.md` "D2 resume" (finish Stage 1 + Stage 2, then stop for the quote review).
   - [ ] Integrator (Claude): merge D3 -> D1 Part 1 -> run the migration + redeploy + escalation phone + agent audio/pre-tool settings -> 5 scripted live
         calls -> merge D2 stages -> playbooks (`onboarding-guide.html`, `/hub/guide`, NEXT_SESSION) -> owner's 3 dry runs (plan §2 definition of demo-ready).

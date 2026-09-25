@@ -4,6 +4,19 @@ Written 2026-09-25, revised the same day into **three worker tasks** (D1 Codex, 
 prompts are in `docs/WORKER_QUEUE.md` section **D**, and TODO.md Phase 24 tracks them. This file is the spec workers
 follow; the prompts only point here.
 
+## STATUS — end of 2026-09-25 (read this first)
+
+**Built and merged to `main` (deployed):** D1 (ElevenLabs demo line, Demo Studio redesign, reset hygiene, call-quality, live call row, call audio, test call, J-1001), D3 (roofing content) and **all of D2** (Stages 1-4). Codex B stalled after Stage 1, so the integrator (Claude) built D2 Stages 2-4 directly; the "D2 Stage 2" prompt in WORKER_QUEUE.md is obsolete.
+
+**Deviations / not built (deliberately):**
+- **Voice model swap NOT done** (D2 step 5): switching `whisper-1` for `gpt-4o-mini-transcribe` needs live latency numbers and a Spanish check (those models return no language). Instead `field-audio` now logs phase timings ("field-audio timing" in Vercel logs: transcribeMs / parseMs / saveMs / totalMs) and the field screens show elapsed-time text (Uploading -> Transcribing -> Updating the job). Read the logs after the first real field test, then decide.
+- **Quote auto-draft waits for the first finding** (or the first "+ Add item"): an empty draft would burn a quote number on every job whose tab is merely opened.
+- **Job history omits "crew assigned" as a timed event** (no timestamp is stored for it); it shows "Visit scheduled" at the scheduled time. Everything else in the history is a real, stored timestamp; nothing is invented.
+- **Customers is a top-level page** gated by the Library module (same availability as before), labelled with the industry word.
+- Integrator fixes worth knowing: booking tool result no longer invites the AI to read the appointment ID; reset backup is size-safe; the live-refresh hook's three pitfalls (selection reset, error page on a failed refresh, non-returned promise) fixed on Calls/Pipeline/Dashboard; the office job page polls ONE document (not five) so an open tab does not burn the Spark read quota.
+
+**NOT yet proven (needs the owner):** no real phone call has been placed since these changes; the field screens, voice latency, emails and the whole 20-minute run have not been done on real devices. Blockers: Twilio Upgrade (NH-21), owner's cell as the demo tenant's escalation phone. Next: the owner's scripted calls, then 3 dry runs (§2 definition of demo-ready).
+
 Owner brief (2026-09-25):
 - Make the core loop smooth, self-explanatory and repeatable in a 20-minute live demo. The loop is call → request → job →
   field → findings/photos → Library → quote → report → invoice.
