@@ -1384,3 +1384,4 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 px.cmd tsc --noEmit clean; changed-file eslint 0 errors (existing warnings only); refresh-hook tests 2/2; full 
 px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Correction for the preceding checkpoint: branch task/job-loop. Evidence: npx.cmd tsc --noEmit clean; changed-file eslint had 0 errors; refresh-hook tests 2/2; full npx.cmd vitest run passed 128 files, 1,022 tests, plus 1 expected failure.
+- Status correction: despite the checkpoint commit title, D2 Stage 1 is not ready to merge. Remaining Stage 1 acceptance items are new-row highlights, Calls Live/Ended labels, and request-route coverage.
