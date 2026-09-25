@@ -1,824 +1,166 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  HardHat,
-  Wind,
-  Leaf,
-  Smile,
-  HeartHandshake,
-  Building,
-  Hammer,
-  Sparkles,
-  Zap,
-  Wrench,
-  Baby,
-  School,
-  Trash2,
-  Presentation,
-  ExternalLink,
-  Copy,
-  Phone,
-  Eye,
-  EyeOff,
-  Rocket,
-  RotateCcw,
-  QrCode,
-  type LucideIcon,
-} from "lucide-react";
-import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
-import { getAppUrl } from "@/lib/config/appUrl";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import Link from "next/link";
+import { DEMO_LINE_PHONE, VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
 import { DemoRunbook } from "./DemoRunbook";
 
-type Step = "pick" | "prospect" | "launch";
-
-interface ApplyResult {
+interface LineState {
+  businessName?: string;
+  industry?: string;
+  phone?: string;
+  lineReady?: boolean;
+  lineError?: string;
+  greetingPreview?: string;
+  lastCallAt?: number | null;
+  seededAt?: number | null;
+  configured?: { elevenLabsApiKey: boolean; elevenLabsToolSecret: boolean; elevenLabsWebhookSecret: boolean };
   ok?: boolean;
-  firestoreUpdated?: boolean;
-  vapiUpdated?: boolean;
-  vapiError?: string;
-  appliedGreeting?: string;
-  reset?: boolean;
   error?: string;
-  businessId?: string;
   demoUrl?: string;
   fieldUrl?: string;
-  phone?: string;
-  verticalId?: string;
-  label?: string;
-  agentName?: string;
 }
 
-const VERTICAL_ICONS: Record<VerticalId, LucideIcon> = {
-  roofing: HardHat,
-  hvac: Wind,
-  landscaping: Leaf,
-  cleaning: Sparkles,
-  dental: Smile,
-  "care-homes": HeartHandshake,
-  "property-management": Building,
-  "general-contractors": Hammer,
-  electricians: Zap,
-  "appliance-repair": Wrench,
-  childcare: Baby,
-  daycares: School,
-  "junk-removal": Trash2,
-};
-
-// Field-service verticals get a field QR; others get a dashboard QR. Derived from
-// the template so a new vertical can't be forgotten here — a business has a field
-// screen exactly when it has the "jobs" module.
-function hasFieldScreen(verticalId: VerticalId): boolean {
-  return !VERTICAL_TEMPLATES[verticalId].disabledModules.includes("jobs");
-}
-
-const ORDERED_VERTICALS = Object.values(VERTICAL_TEMPLATES) as (typeof VERTICAL_TEMPLATES)[VerticalId][];
+const BUSINESS_ID = "demo-roofing";
+const preview = (path: string) => `/company/${path}?preview=${BUSINESS_ID}`;
 
 export default function DemoStudioPage() {
-  const [step, setStep] = useState<Step>("pick");
-  const [selectedId, setSelectedId] = useState<VerticalId | null>(null);
+  const [line, setLine] = useState<LineState>({});
+  const [verticalId, setVerticalId] = useState<VerticalId>("roofing");
+  const [changeIndustry, setChangeIndustry] = useState(false);
   const [companyName, setCompanyName] = useState("");
+  const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
-  const [bizPhone, setBizPhone] = useState("");
-  const [busy, setBusy] = useState<"launch" | "reset" | null>(null);
-  const [result, setResult] = useState<ApplyResult | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
-  const [tryQrDataUrl, setTryQrDataUrl] = useState<string>("");
-  const [copied, setCopied] = useState<"phone" | "script" | "link" | "tryLink" | null>(null);
-  const [scriptOpen, setScriptOpen] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [phone, setPhone] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
+  const [logoDataUrl, setLogoDataUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [launched, setLaunched] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [showReset, setShowReset] = useState(false);
+  const [fieldUrl, setFieldUrl] = useState("");
 
-  const selected = selectedId ? VERTICAL_TEMPLATES[selectedId] : null;
-
-  // Regenerate QR whenever demoUrl/businessId changes
-  useEffect(() => {
-    if (!result?.businessId) return;
-    const isFieldService = selectedId && hasFieldScreen(selectedId);
-    // fieldUrl is a short-lived server exchange link for unauthenticated crew phones.
-    const qrUrl = isFieldService
-      ? (result.fieldUrl ?? `${getAppUrl()}/field?businessId=${result.businessId}`)
-      : (result.demoUrl ?? "");
-    if (!qrUrl) return;
-    // Dynamic import, not a static top-level one, so `qrcode` only enters
-    // this page's bundle once a launch actually produces a URL to encode —
-    // same code-splitting principle T-068 applied to Calendar's dnd-kit.
-    let cancelled = false;
-    import("qrcode")
-      .then(({ default: QRCode }) =>
-        QRCode.toDataURL(qrUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
-      )
-      .then((dataUrl) => {
-        if (!cancelled) setQrDataUrl(dataUrl);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [result?.businessId, result?.demoUrl, result?.fieldUrl, selectedId]);
-
-  // QR for the public, no-login /try/<vertical> page (T-087) — safe to hand a
-  // prospect directly. Only generated post-launch, since the phone number it
-  // advertises is only accurate once this vertical is actually live on the
-  // shared demo line. Static per vertical, so it never needs Firestore state.
-  useEffect(() => {
-    if (!selectedId || !result?.ok) { setTryQrDataUrl(""); return; }
-    const tryUrl = `${getAppUrl()}/try/${selectedId}`;
-    let cancelled = false;
-    import("qrcode")
-      .then(({ default: QRCode }) =>
-        QRCode.toDataURL(tryUrl, { width: 220, margin: 2, color: { dark: "#0f172a", light: "#ffffff" } })
-      )
-      .then((dataUrl) => {
-        if (!cancelled) setTryQrDataUrl(dataUrl);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, result?.ok]);
-
-  function pickVertical(id: VerticalId) {
-    setSelectedId(id);
-    setStep("prospect");
-    setResult(null);
-    setQrDataUrl("");
-    setTryQrDataUrl("");
+  async function refresh() {
+    const response = await fetch("/api/admin/demo-customize");
+    setLine(await response.json() as LineState);
   }
 
-  function changeVertical() {
-    setStep("pick");
-    setResult(null);
-    setQrDataUrl("");
-  }
+  useEffect(() => { void refresh().catch(() => setLine({ error: "Could not load demo line" })); }, []);
 
-  async function launch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedId) return;
-    setBusy("launch");
-    setResult(null);
-    try {
-      const res = await fetch("/api/admin/demo-customize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), companyName: companyName.trim(), phone: bizPhone.trim(), verticalId: selectedId }),
-      });
-      const data = (await res.json()) as ApplyResult;
-      if (res.ok && data.ok) {
-        setResult(data);
-        setStep("launch");
-      } else {
-        setResult({ error: data.error ?? "Failed to configure demo" });
-      }
-    } catch (err) {
-      setResult({ error: err instanceof Error ? err.message : "Network error" });
-    } finally {
-      setBusy(null);
+  function chooseLogo(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setLine((old) => ({ ...old, error: "Choose a PNG, JPEG or WebP logo" }));
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = () => setLogoDataUrl(typeof reader.result === "string" ? reader.result : "");
+    reader.readAsDataURL(file);
   }
 
-  function promptReset() {
-    if (!selectedId) return;
-    setResetConfirmText("");
-    setShowResetConfirm(true);
-  }
-
-  function cancelReset() {
-    setShowResetConfirm(false);
-    setResetConfirmText("");
-  }
-
-  async function confirmReset() {
-    if (!selectedId) return;
-    setBusy("reset");
+  async function launch(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
     try {
-      const res = await fetch("/api/admin/demo-customize", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "RESET" }),
+      const response = await fetch("/api/admin/demo-customize", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verticalId, companyName, contactName, email, phone, serviceArea, logoDataUrl: logoDataUrl || undefined }),
       });
-      const data = (await res.json()) as ApplyResult;
-      if (res.ok && data.ok) {
-        setStep("pick");
-        setSelectedId(null);
-        setCompanyName("");
-        setEmail("");
-        setResult(null);
-        setQrDataUrl("");
-        setShowResetConfirm(false);
-        setResetConfirmText("");
-      } else {
-        setResult({ error: data.error ?? "Reset failed" });
-        setShowResetConfirm(false);
-        setResetConfirmText("");
-      }
-    } catch {
-      setResult({ error: "Network error" });
-      setShowResetConfirm(false);
-      setResetConfirmText("");
-    } finally {
-      setBusy(null);
-    }
+      const result = await response.json() as LineState;
+      if (!response.ok || !result.ok) throw new Error(result.error || "Launch failed");
+      setLine((old) => ({ ...old, ...result, businessName: companyName || `${VERTICAL_TEMPLATES[verticalId].label} Demo`, industry: verticalId }));
+      setFieldUrl(result.fieldUrl ?? "");
+      setLaunched(true);
+      void refresh().catch(() => {});
+    } catch (error) {
+      setLine((old) => ({ ...old, error: error instanceof Error ? error.message : "Launch failed" }));
+    } finally { setBusy(false); }
   }
 
-  function copyToClipboard(text: string, key: "phone" | "script" | "link" | "tryLink") {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(key);
-      setTimeout(() => setCopied(null), 2000);
-    });
+  async function reset() {
+    if (confirm !== "RESET") return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/admin/demo-customize", {
+        method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm }),
+      });
+      const result = await response.json() as LineState;
+      if (!response.ok || !result.ok) throw new Error(result.error || "Reset failed");
+      setLaunched(false); setShowReset(false); setConfirm(""); setLogoDataUrl("");
+      await refresh();
+    } catch (error) {
+      setLine((old) => ({ ...old, error: error instanceof Error ? error.message : "Reset failed" }));
+    } finally { setBusy(false); }
   }
 
-  // The demo runs on one universal live line — the API returns its number for every
-  // vertical (the line reconfigures to whatever you launched).
-  const phone = result?.phone ?? (selectedId ? DEMO_LINE_PHONE[selectedId] : undefined);
-  const isFieldService = selectedId ? hasFieldScreen(selectedId) : false;
-  const fieldUrl = result?.fieldUrl
-    ?? (result?.businessId ? `${getAppUrl()}/field?businessId=${result.businessId}` : "");
-  const qrTargetUrl = isFieldService ? fieldUrl : (result?.demoUrl ?? "");
+  const dial = line.phone || DEMO_LINE_PHONE.roofing || "";
+  const missing = line.configured && Object.entries(line.configured).filter(([, ready]) => !ready).map(([name]) => name);
 
   return (
-    <>
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="page-header" style={{ alignItems: "flex-start" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <Presentation size={20} strokeWidth={1.75} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-            <h1 className="page-title" style={{ margin: 0 }}>Demo Studio</h1>
-          </div>
-          <p className="page-subtitle">
-            Pick an industry, personalize, and launch — under 60 seconds.
+    <main style={{ maxWidth: 940, margin: "0 auto", padding: "1rem", overflowWrap: "anywhere" }}>
+      <header className="page-header"><div><h1 className="page-title">Demo Studio</h1><p className="page-subtitle">Set up a roofing prospect and run the 20-minute demo.</p></div></header>
+
+      <section className="panel" aria-label="Demo line status">
+        <div className="panel-body">
+          <a href={`tel:${dial.replace(/[^+\d]/g, "")}`} style={{ fontSize: "clamp(1.3rem, 6vw, 2rem)", fontWeight: 700, color: "var(--accent)" }}>{dial || "Line pending"}</a>
+          <p style={{ margin: "0.5rem 0" }}>Currently: <strong>{line.businessName || "Loading"}</strong> · {VERTICAL_TEMPLATES[(line.industry as VerticalId) || "roofing"]?.label || line.industry}</p>
+          <p role="status" style={{ color: line.lineReady ? "var(--c-success-fg)" : "var(--c-danger-fg)", fontWeight: 700 }}>
+            {line.lineReady ? "Ready" : line.lineError || "Checking line…"}
           </p>
+          {missing?.length ? <p>Missing configuration: {missing.join(", ")}</p> : null}
+          <p>Last call: {line.lastCallAt ? new Date(line.lastCallAt).toLocaleString() : "None yet"}</p>
+          {line.greetingPreview && <blockquote style={{ borderLeft: "3px solid var(--accent)", paddingLeft: 12, margin: "0.75rem 0" }}>“{line.greetingPreview}”</blockquote>}
         </div>
-      </header>
+      </section>
+
+      <section className="panel" style={{ marginTop: "1.5rem" }}>
+        <div className="panel-header"><h2 className="panel-title">1 · Set up the prospect</h2></div>
+        <div className="panel-body">
+          <p>Roofing is selected. <button type="button" className="button small" onClick={() => setChangeIndustry((old) => !old)}>Change industry</button></p>
+          {changeIndustry && <label>Industry <select value={verticalId} onChange={(e) => setVerticalId(e.target.value as VerticalId)}>
+            {Object.values(VERTICAL_TEMPLATES).map((vertical) => <option key={vertical.verticalId} value={vertical.verticalId}>{vertical.label}</option>)}
+          </select></label>}
+          <form onSubmit={launch} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 12 }}>
+            <label>Company<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Test Roofing Co" /></label>
+            <label>Owner name<input value={contactName} onChange={(e) => setContactName(e.target.value)} /></label>
+            <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label>Phone<input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+            <label>City / service area<input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} /></label>
+            <label>Logo (PNG, JPEG, WebP)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseLogo} />
+              {logoDataUrl && <img src={logoDataUrl} alt="Logo preview" style={{ display: "block", maxWidth: 120, maxHeight: 70, objectFit: "contain" }} />}
+            </label>
+            <div style={{ gridColumn: "1 / -1" }}><button className="button primary" type="submit" disabled={busy}>{busy ? "Launching…" : "Launch demo"}</button></div>
+          </form>
+          {line.error && <p role="alert" style={{ color: "var(--c-danger-fg)" }}>{line.error}</p>}
+          {launched && <div style={{ marginTop: 16 }}>
+            <p><strong>Next caller greeting:</strong> {line.greetingPreview}</p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <button className="button" type="button" disabled title="Test call becomes available after call setup">Test call</button>
+              <Link className="button" href={preview("dashboard")}>Open dashboard</Link>
+              {fieldUrl && <a className="button" href={fieldUrl}>Field QR</a>}
+              <Link className="button" href={`/try/${verticalId}`}>Try page</Link>
+            </div>
+          </div>}
+        </div>
+      </section>
 
       <DemoRunbook />
 
-      {/* ── Section 1: Vertical Picker ─────────────────────────── */}
-      <section style={{ marginTop: "1.75rem" }}>
-        <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "0.9rem" }}>
-          1 · Choose an industry
-        </p>
-        <div style={cardGridStyle}>
-          {ORDERED_VERTICALS.map((vertical) => {
-            const Icon = VERTICAL_ICONS[vertical.verticalId];
-            const isSelected = selectedId === vertical.verticalId;
-            return (
-              <button
-                key={vertical.verticalId}
-                onClick={() => pickVertical(vertical.verticalId)}
-                style={verticalCardStyle(isSelected, vertical.color)}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <Icon size={22} strokeWidth={1.75} color={vertical.color} />
-                  <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>{vertical.label}</span>
-                </div>
-                <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.45 }}>
-                  {vertical.description}
-                </p>
-              </button>
-            );
-          })}
+      <section className="panel" style={{ marginTop: "1.5rem" }}>
+        <div className="panel-header"><h2 className="panel-title">3 · Reset</h2></div>
+        <div className="panel-body">
+          <p>Back up and clear the demo before the next prospect.</p>
+          <button className="button" type="button" onClick={() => setShowReset(true)}>Reset demo</button>
+          {showReset && <div style={{ marginTop: 12 }}>
+            <label>Type RESET to confirm <input value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="button" type="button" disabled={confirm !== "RESET" || busy} onClick={reset}>Confirm reset</button>
+              <button className="button" type="button" onClick={() => { setShowReset(false); setConfirm(""); }}>Cancel</button>
+            </div>
+          </div>}
         </div>
       </section>
-
-      {/* ── Section 2: Prospect Form ───────────────────────────── */}
-      <section style={{ marginTop: "2rem", display: step === "pick" ? "none" : "block" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: "0.9rem" }}>
-          <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", margin: 0 }}>
-            2 · Personalize (optional — you can launch right away)
-          </p>
-          <button onClick={changeVertical} style={ghostLinkStyle}>
-            ← Change industry
-          </button>
-        </div>
-
-        {selected && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "1rem", padding: "0.55rem 0.9rem", background: `${selected.color}18`, border: `1px solid ${selected.color}40`, borderRadius: 8, width: "fit-content" }}>
-            {(() => { const Icon = VERTICAL_ICONS[selected.verticalId]; return <Icon size={15} strokeWidth={1.75} color={selected.color} />; })()}
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, color: selected.color }}>{selected.label}</span>
-            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>· {demoAgentName(selected.verticalId)} is your agent</span>
-          </div>
-        )}
-
-        <form onSubmit={launch} style={formStyle}>
-          <div style={fieldRowStyle}>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Company name <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder={selected ? `Leave blank for "${selected.label} Demo"` : "Leave blank for a default name"}
-                disabled={!!busy}
-                style={inputStyle}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Notification email <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Leave blank to use the default demo inbox"
-                disabled={!!busy}
-                style={inputStyle}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Business phone <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span></label>
-              <input
-                type="tel"
-                value={bizPhone}
-                onChange={(e) => setBizPhone(e.target.value)}
-                placeholder="Shown on their invoices, quotes and emails"
-                disabled={!!busy}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          {result?.error && (
-            <div style={alertStyle("error")}>{result.error}</div>
-          )}
-
-          <div>
-            <button type="submit" disabled={!!busy} style={{ ...primaryBtnStyle(!!busy), display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Rocket size={15} strokeWidth={1.75} />
-              {busy === "launch" ? "Launching…" : "Launch demo"}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* ── Section 3: Launch Panel ────────────────────────────── */}
-      {step === "launch" && result?.ok && selected && (
-        <section style={{ marginTop: "2rem" }}>
-          <p style={{ fontSize: "0.8rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "0.9rem" }}>
-            3 · Demo ready
-          </p>
-
-          <div style={{ ...alertStyle("success"), marginBottom: "1rem" }}>
-            ✓ Live — {result?.agentName ?? selected.agentName} now answers as <strong>{companyName || selected.label}</strong>{phone ? ` on ${phone}` : ""}.
-          </div>
-
-          <div style={launchGridStyle}>
-            {/* Col 1 — Call */}
-            <div style={panelStyle}>
-              <p style={panelLabelStyle}>
-                <Phone size={13} strokeWidth={1.75} />
-                Voice demo
-              </p>
-              {phone ? (
-                <>
-                  <p style={{ fontSize: "1.6rem", fontWeight: 700, margin: "0.5rem 0 0.75rem", letterSpacing: "0.02em" }}>
-                    {phone}
-                  </p>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      onClick={() => copyToClipboard(phone.replace(/\D/g, "").replace(/^/, "+"), "phone")}
-                      style={iconBtnStyle}
-                    >
-                      <Copy size={13} strokeWidth={1.75} />
-                      {copied === "phone" ? "Copied!" : "Copy number"}
-                    </button>
-                    <a
-                      href={`tel:${phone.replace(/\D/g, "").replace(/^1/, "+1")}`}
-                      style={{ ...iconBtnStyle, textDecoration: "none" }}
-                    >
-                      <Phone size={13} strokeWidth={1.75} />
-                      Call now
-                    </a>
-                  </div>
-                  <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.75rem" }}>
-                    Call this number — {result?.agentName ?? demoAgentName(selected.verticalId)} answers as <em>{companyName}</em>.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div style={pendingChipStyle}>
-                    ◐ Phone line: pending
-                  </div>
-                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "0.75rem", lineHeight: 1.5 }}>
-                    {selected.agentName} is fully industry-ready for {selected.label} — there&apos;s just no demo phone number connected yet. Show the dashboard demo (fully live); connect a Vapi number to make this vertical callable.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Col 2 — Dashboard + QR */}
-            <div style={panelStyle}>
-              <p style={panelLabelStyle}>
-                <ExternalLink size={13} strokeWidth={1.75} />
-                Dashboard preview
-              </p>
-              <a
-                href={result.demoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={dashboardBtnStyle(selected.color)}
-              >
-                Open {selected.shortLabel} dashboard →
-              </a>
-              <div style={{ marginTop: "1.25rem" }}>
-                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "0.7rem" }}>
-                  {isFieldService ? "Field update QR — scan to try voice updates on a phone" : "Dashboard QR — scan to open on mobile"}
-                </p>
-                <div style={{
-                  display: "inline-flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "16px 18px",
-                  background: "#fff",
-                  borderRadius: 10,
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.14)",
-                }}>
-                  {qrDataUrl
-                    ? <img src={qrDataUrl} alt="Demo QR code" style={{ width: 160, height: 160, display: "block" }} />
-                    : <div style={{ width: 160, height: 160, background: "#f1f5f9", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94a3b8" }}>Generating…</div>
-                  }
-                </div>
-                {qrTargetUrl && (
-                  <button
-                    onClick={() => copyToClipboard(qrTargetUrl, "link")}
-                    style={{ ...ghostLinkStyle, marginTop: 8, display: "block" }}
-                  >
-                    {copied === "link" ? "Copied!" : "Copy link"}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Col 3 — Self-led link (T-087): the one artifact from this screen
-                that's actually safe to hand a prospect directly — public, no
-                login, isolated to the demo. Unlike Col 2's preview link/QR,
-                which bounces an anonymous visitor to /login. */}
-            <div style={panelStyle}>
-              <p style={panelLabelStyle}>
-                <QrCode size={13} strokeWidth={1.75} />
-                Self-led link
-              </p>
-              <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", margin: "0.4rem 0 0.9rem", lineHeight: 1.5 }}>
-                Safe to text, email, or scan — no login, no intro needed. Send this instead of the dashboard link above.
-              </p>
-              <div style={{
-                display: "inline-flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 10,
-                padding: "14px 16px",
-                background: "#fff",
-                borderRadius: 10,
-                boxShadow: "0 2px 12px rgba(0,0,0,0.14)",
-              }}>
-                {tryQrDataUrl
-                  ? <img src={tryQrDataUrl} alt="Self-led demo QR code" style={{ width: 150, height: 150, display: "block" }} />
-                  : <div style={{ width: 150, height: 150, background: "#f1f5f9", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#94a3b8" }}>Generating…</div>
-                }
-              </div>
-              <button
-                onClick={() => copyToClipboard(`${getAppUrl()}/try/${selectedId}`, "tryLink")}
-                style={{ ...ghostLinkStyle, marginTop: 8, display: "block" }}
-              >
-                {copied === "tryLink" ? "Copied!" : "Copy link"}
-              </button>
-              {!phone && (
-                <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
-                  No phone number connected for {selected.label} yet — the page shows a &ldquo;request a walkthrough&rdquo; link instead of a call button.
-                </p>
-              )}
-            </div>
-
-            {/* Col 4 — Presenter notes (collapsed: this screen is often visible to
-                the person being demoed, and the script is written to them). */}
-            <div style={panelStyle}>
-              <p style={panelLabelStyle}>Presenter notes</p>
-              <button
-                onClick={() => setScriptOpen((v) => !v)}
-                aria-expanded={scriptOpen}
-                style={{ ...iconBtnStyle, marginTop: "0.5rem" }}
-              >
-                {scriptOpen ? <EyeOff size={13} strokeWidth={1.75} /> : <Eye size={13} strokeWidth={1.75} />}
-                {scriptOpen ? "Hide script" : "Show my script"}
-              </button>
-              {!scriptOpen && (
-                <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginTop: "0.6rem", lineHeight: 1.5 }}>
-                  Hidden by default — this screen is usually facing your guest.
-                </p>
-              )}
-              {scriptOpen && (
-                <>
-                  <blockquote style={{
-                    margin: "0.75rem 0",
-                    padding: "0.8rem 1rem",
-                    borderLeft: `3px solid ${selected.color}`,
-                    background: `${selected.color}10`,
-                    borderRadius: "0 6px 6px 0",
-                    fontStyle: "italic",
-                    fontSize: "0.88rem",
-                    lineHeight: 1.6,
-                    color: "var(--text)",
-                  }}>
-                    &ldquo;{selected.sampleCallerScript}&rdquo;
-                  </blockquote>
-                  <button
-                    onClick={() => copyToClipboard(selected.sampleCallerScript, "script")}
-                    style={iconBtnStyle}
-                  >
-                    <Copy size={13} strokeWidth={1.75} />
-                    {copied === "script" ? "Copied!" : "Copy script"}
-                  </button>
-                </>
-              )}
-
-              {result.appliedGreeting && (
-                <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
-                  <p style={{ fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Applied greeting</p>
-                  <p style={{ fontSize: "0.83rem", fontStyle: "italic", margin: 0, lineHeight: 1.5 }}>
-                    &ldquo;{result.appliedGreeting}&rdquo;
-                  </p>
-                  {result.vapiUpdated && (
-                    <p style={{ fontSize: "0.75rem", color: "var(--success)", margin: "0.5rem 0 0" }}>
-                      ✓ Live line updated — the phone will use this persona now.
-                    </p>
-                  )}
-                  {result.vapiError && (
-                    <p style={{ fontSize: "0.75rem", color: "var(--danger)", margin: "0.5rem 0 0" }}>
-                      ⚠ Firestore/company portal updated, but the live phone line was not: {result.vapiError}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Reset */}
-          <div style={{ marginTop: "1.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--border)" }}>
-            <button onClick={promptReset} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
-              <RotateCcw size={14} strokeWidth={1.75} />
-              {busy === "reset" ? "Resetting…" : "Reset demo"}
-            </button>
-            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginLeft: 12 }}>
-              Restores {selected.label} demo to default data.
-            </span>
-          </div>
-
-          {/* Reset confirm dialog */}
-          {showResetConfirm && (
-            <div style={overlayStyle}>
-              <div style={dialogStyle}>
-                <p style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>
-                  Reset demo to default data?
-                </p>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "0.83rem", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                  All current demo data will be backed up and cleared. This cannot be undone.
-                </p>
-                <div style={{ margin: "1rem 0" }}>
-                  <label style={{ ...labelStyle, marginBottom: "0.25rem" }}>
-                    Type <strong>RESET</strong> to confirm
-                  </label>
-                  <input
-                    type="text"
-                    value={resetConfirmText}
-                    onChange={(e) => setResetConfirmText(e.target.value)}
-                    placeholder="RESET"
-                    autoFocus
-                    style={inputStyle}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={confirmReset}
-                    disabled={resetConfirmText !== "RESET" || !!busy}
-                    style={{ ...dangerBtnStyle(resetConfirmText !== "RESET" || !!busy), display: "inline-flex", alignItems: "center", gap: 6 }}
-                  >
-                    <RotateCcw size={14} strokeWidth={1.75} />
-                    {busy === "reset" ? "Resetting…" : "Yes, reset demo"}
-                  </button>
-                  <button onClick={cancelReset} disabled={!!busy} style={secondaryBtnStyle(!!busy)}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-    </>
+    </main>
   );
-}
-
-// ── Styles ─────────────────────────────────────────────────────────────────
-
-const cardGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-  gap: 12,
-};
-
-function verticalCardStyle(selected: boolean, color: string): React.CSSProperties {
-  return {
-    textAlign: "left",
-    padding: "1rem 1.1rem",
-    borderRadius: 10,
-    background: selected ? `${color}14` : "var(--surface)",
-    border: selected ? `2px solid ${color}` : "1px solid var(--border)",
-    boxShadow: "var(--shadow-sm)",
-    cursor: "pointer",
-    transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-    width: "100%",
-    color: "inherit",
-  };
-}
-
-const formStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "1rem",
-  padding: "1.25rem 1.4rem",
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  maxWidth: 680,
-};
-
-const fieldRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "1rem",
-  flexWrap: "wrap",
-};
-
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "0.82rem",
-  fontWeight: 600,
-  marginBottom: "0.35rem",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "0.58rem 0.8rem",
-  fontSize: "0.92rem",
-  borderRadius: 6,
-  border: "1px solid var(--border)",
-  background: "#fff",
-  color: "var(--text)",
-  boxSizing: "border-box",
-};
-
-function primaryBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: "0.62rem 1.2rem",
-    background: disabled ? "#94a3b8" : "var(--accent)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontWeight: 600,
-    fontSize: "0.9rem",
-  };
-}
-
-function secondaryBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: "0.55rem 1rem",
-    background: "transparent",
-    color: "var(--text)",
-    border: "1px solid var(--border)",
-    borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontSize: "0.85rem",
-    opacity: disabled ? 0.5 : 1,
-  };
-}
-
-const ghostLinkStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  padding: 0,
-  cursor: "pointer",
-  color: "var(--text-muted)",
-  fontSize: "0.82rem",
-  textDecoration: "underline",
-  textUnderlineOffset: 2,
-};
-
-function alertStyle(kind: "error" | "success"): React.CSSProperties {
-  return {
-    padding: "0.7rem 0.9rem",
-    background: kind === "error" ? "var(--c-danger-bg)" : "var(--c-success-bg)",
-    border: `1px solid ${kind === "error" ? "var(--c-danger-bd)" : "var(--c-success-bd)"}`,
-    color: kind === "error" ? "var(--c-danger-fg)" : "var(--c-success-fg)",
-    borderRadius: 7,
-    fontSize: "0.85rem",
-    fontWeight: 600,
-  };
-}
-
-const launchGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 14,
-};
-
-const panelStyle: React.CSSProperties = {
-  padding: "1.1rem 1.25rem",
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  boxShadow: "var(--shadow-sm)",
-};
-
-const panelLabelStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--text-muted)",
-  margin: "0 0 0.25rem",
-};
-
-const pendingChipStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 5,
-  marginTop: "0.6rem",
-  padding: "0.3rem 0.75rem",
-  background: "rgba(217, 119, 6, 0.15)",
-  border: "1px solid rgba(217, 119, 6, 0.4)",
-  borderRadius: 20,
-  fontSize: "0.8rem",
-  fontWeight: 600,
-  color: "#d97706",
-};
-
-function dashboardBtnStyle(color: string): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    marginTop: "0.5rem",
-    padding: "0.6rem 1rem",
-    background: color,
-    color: "#fff",
-    border: "none",
-    borderRadius: 7,
-    fontWeight: 600,
-    fontSize: "0.88rem",
-    textDecoration: "none",
-    cursor: "pointer",
-  };
-}
-
-const iconBtnStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 5,
-  padding: "0.4rem 0.75rem",
-  background: "var(--surface-muted)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontSize: "0.8rem",
-  color: "var(--text)",
-  textDecoration: "none",
-};
-
-const overlayStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0, 0, 0, 0.45)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 100,
-};
-
-const dialogStyle: React.CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 12,
-  boxShadow: "var(--shadow-lg)",
-  padding: "1.5rem",
-  maxWidth: 440,
-  width: "100%",
-};
-
-function dangerBtnStyle(disabled: boolean): React.CSSProperties {
-  return {
-    padding: "0.55rem 1rem",
-    background: disabled ? "#f1f5f9" : "var(--c-danger-bg)",
-    border: `1px solid ${disabled ? "var(--border)" : "var(--c-danger-bd)"}`,
-    color: disabled ? "var(--text-muted)" : "var(--c-danger-fg)",
-    borderRadius: 6,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontWeight: 600,
-    fontSize: "0.85rem",
-  };
 }
