@@ -48,6 +48,7 @@ import { GET as callsList } from "@/app/api/businesses/[businessId]/calls/route"
 import { GET as appointmentsList } from "@/app/api/businesses/[businessId]/appointments/route";
 import { PATCH as appointmentPatch } from "@/app/api/appointments/[appointmentId]/route";
 import { POST as createJob } from "@/app/api/jobs/route";
+import { POST as resolveCustomer } from "@/app/api/company/customers/resolve/route";
 import { POST as fieldUpdate } from "@/app/api/jobs/[jobId]/updates/route";
 import { GET as jobGet, PATCH as jobPatch } from "@/app/api/jobs/[jobId]/route";
 import { POST as reportSend } from "@/app/api/jobs/[jobId]/report/send/route";
@@ -108,6 +109,12 @@ describe("offline demo-path smoke test", () => {
     const jobResponse = await createJob(json("http://localhost/api/jobs", { businessId: BUSINESS_ID, title: "Roof repair", address: "12 Palm Ave", clientName: "Mina", clientPhone: "+15550199", appointmentId: appointment.id }));
     expect(jobResponse.status).toBe(201); const { job } = await jobResponse.json() as { job: { jobId: string } };
     expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ clientName: "Mina", clientPhone: "+15550199", address: "12 Palm Ave" });
+    const resolveBody = { businessId: BUSINESS_ID, jobId: job.jobId, name: "Mina", phone: "+15550199", email: EMAIL, address: "12 Palm Ave" };
+    const firstCustomer = await resolveCustomer(json("http://localhost/api/company/customers/resolve", resolveBody));
+    const secondCustomer = await resolveCustomer(json("http://localhost/api/company/customers/resolve", resolveBody));
+    expect((await firstCustomer.json()).created).toBe(true);
+    expect(await secondCustomer.json()).toMatchObject({ created: false, customerId: "C-1000" });
+    expect(db.__list(`businesses/${BUSINESS_ID}/customers`)).toHaveLength(1);
     expect((await fieldUpdate(json(`http://localhost/api/jobs/${job.jobId}/updates`, { businessId: BUSINESS_ID, rawText: "Carlos usó 12 paquetes de tejas y encontró una bota de ventilación agrietada." }), context(job.jobId))).status).toBe(201);
     expect(db.__list(`businesses/${BUSINESS_ID}/jobs/${job.jobId}/updates`)[0].data).toMatchObject({ rawTextEn: expect.stringContaining("Used 12 bundles") });
     expect((await jobGet(new NextRequest(`http://localhost/api/jobs/${job.jobId}?businessId=${BUSINESS_ID}`, { headers: auth }), context(job.jobId))).status).toBe(200);
