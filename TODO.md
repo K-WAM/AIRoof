@@ -993,7 +993,7 @@ an active queue.*
         (cross-tenant partial by design: public webhooks use provider secrets). Multipart audio is not accepted by `field-audio` (JSON/base64 only) — recorded as `it.fails`, not a bug in the app's own client.
         Worktrees `air-wt-documents-core`, `air-wt-guide-2`, `air-wt-report`, `air-wt-request-review`, `air-wt-smoke` removed (T-127's worktree part done).
 
-- [ ] Phase 24 — The 20-minute roofing demo on ElevenLabs (owner-directed, 2026-09-25) — 1/3
+- [ ] Phase 24 — The 20-minute roofing demo on ElevenLabs (owner-directed, 2026-09-25) — 2/3 (D1 + D3 merged; D2 in progress)
       Spec: `docs/DEMO-READINESS-PLAN.md` (§1 demo-breaking findings, §2 running order, §3 worker tasks). Prompts: `docs/WORKER_QUEUE.md` section **D**.
       Owner decisions: ElevenLabs only (Vapi retired from demos; number kept 2 weeks as fallback); roofing first; typing the prospect's name in Demo Studio
       adapts the agent on the next call (initiation webhook reads the tenant per call — no agent push). Blocker for the owner: Twilio Upgrade (NH-21).
@@ -1008,7 +1008,7 @@ an active queue.*
   - [x] **D3** (Deepseek V4 Flash Think High) — T-132 South Florida roofing content: services/FAQs/emergency rules, starter catalog
         additions, `src/lib/verticals/demoSeedRoofing.ts` (the fully worked Plan-B job J-1001). MERGED 2026-09-25 with integrator fixes (no wind-mitigation/
         four-point promise — the team decides or refers a licensed inspector; J-1001 is an inspection visit awaiting a quote). Worktree removed.
-  - D1 status 2026-09-25: **Part 1 merged + deployed** (steps 1-3, 5: migration script, line state/greeting preview, reset hygiene, Demo Studio
+  - D1 status 2026-09-25: **DONE — Part 1 AND Part 2 merged + deployed** (Part 2 = call quality/sayToCaller, live call row, audio proxy, test call, J-1001; ElevenLabs agent setup applied, pre_tool_speech force verified). Part 1 detail:  (steps 1-3, 5: migration script, line state/greeting preview, reset hygiene, Demo Studio
         redesign) with integrator fixes (size-safe reset backup — a photo blob would have made every later launch fail; migration script parses the
         pulled key). **Migration APPLIED:** +1 689 204 2643 -> `demo-roofing` (voiceProvider elevenlabs); `carlita-elevenlabs-test` keeps it under
         `elevenlabsArchived`; rollback = `MIGRATION_ENV_FILE=<pulled env> node scripts/move-demo-line-to-elevenlabs.mjs --rollback`. **ElevenLabs calls
