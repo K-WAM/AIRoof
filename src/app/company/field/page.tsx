@@ -6,6 +6,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
+import { WorkCompleteButton } from "@/components/field/WorkCompleteButton";
 import { TimeClock } from "@/components/field/TimeClock";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
@@ -477,7 +478,7 @@ function FieldPageContent() {
     setJobLogData(result.updatedJob);
   }, []);
 
-  const { status: audioStatus, transcript, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording } = useFieldAudio(
+  const { status: audioStatus, progress: audioProgress, transcript, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording } = useFieldAudio(
     selectedJobId || null,
     {
       businessId,
@@ -509,7 +510,7 @@ function FieldPageContent() {
   const statusLabel =
     !selectedJobId ? "Select a job first" :
     btnStatus === "recording" ? "Listening…" :
-    btnStatus === "busy" ? "Transcribing…" :
+    btnStatus === "busy" ? (audioProgress ?? "Transcribing…") :
     btnStatus === "success" ? "✓ Logged" :
     btnStatus === "error" ? "Failed — try again" :
     "HOLD TO SPEAK";
@@ -665,6 +666,11 @@ function FieldPageContent() {
           {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
           <div style={{ marginBottom: 20 }}>
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
+          </div>
+
+          {/* Close the job out — two taps on purpose */}
+          <div style={{ marginBottom: 20 }}>
+            <WorkCompleteButton businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName || undefined} />
           </div>
 
           {/* One-tap correction confirm card */}

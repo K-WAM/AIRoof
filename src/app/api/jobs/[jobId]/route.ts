@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parsedToFieldLog } from "@/lib/jobs/projection";
@@ -81,7 +82,11 @@ export async function PATCH(
   }
 
   const update: Record<string, unknown> = { updatedAt: Date.now() };
-  if (status) update.status = status;
+  if (status) {
+    update.status = status;
+    // Append-only trail (arrayUnion: atomic, no read needed) so the job history can show who moved it and when.
+    update.statusHistory = FieldValue.arrayUnion({ status, at: Date.now(), by: gate.user.uid });
+  }
   if (reportNotes !== undefined) update.reportNotes = reportNotes;
   if (reportOptions !== undefined) update.reportOptions = reportOptions;
   if (reportTechnicians !== undefined) update.reportTechnicians = reportTechnicians;

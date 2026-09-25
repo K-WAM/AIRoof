@@ -153,38 +153,38 @@ export function TimeClock({
           {day.state === "off" && (
             <>
               <button style={btnStyle} disabled={busy} onClick={() => punch("office_in")}>
-                <Building2 size={14} strokeWidth={1.75} /> Arrived Office
+                <Building2 size={14} strokeWidth={1.75} /> Clock in (office)
               </button>
               <button style={btnStyle} disabled={busy || !jobId} onClick={() => punch("site_in")} title={!jobId ? "Select a job first" : undefined}>
-                <MapPin size={14} strokeWidth={1.75} /> Arrived Jobsite
+                <MapPin size={14} strokeWidth={1.75} /> Arrived at job
               </button>
             </>
           )}
           {day.state === "office" && (
             <>
               <button style={btnStyle} disabled={busy} onClick={() => punch("break_start")}>
-                <Coffee size={14} strokeWidth={1.75} /> Lunch Break
+                <Coffee size={14} strokeWidth={1.75} /> Start lunch
               </button>
               <button style={btnStyle} disabled={busy || !jobId} onClick={() => punch("site_in")} title={!jobId ? "Select a job first" : undefined}>
-                <MapPin size={14} strokeWidth={1.75} /> Arrived Jobsite
+                <MapPin size={14} strokeWidth={1.75} /> Arrived at job
               </button>
               <button style={btnStyle} disabled={busy} onClick={() => punch("office_out")}>
-                <LogOut size={14} strokeWidth={1.75} /> Left Office
+                <LogOut size={14} strokeWidth={1.75} /> Clock out (office)
               </button>
             </>
           )}
           {day.state === "break_office" && (
             <button style={btnStyle} disabled={busy} onClick={() => punch("break_end")}>
-              <Coffee size={14} strokeWidth={1.75} /> Back from Lunch
+              <Coffee size={14} strokeWidth={1.75} /> Back from lunch
             </button>
           )}
           {day.state === "site" && (
             <>
               <button style={btnStyle} disabled={busy} onClick={() => punch("break_start")}>
-                <Coffee size={14} strokeWidth={1.75} /> Lunch Break
+                <Coffee size={14} strokeWidth={1.75} /> Start lunch
               </button>
               <button style={btnStyle} disabled={busy} onClick={() => punch("site_out")}>
-                <LogOut size={14} strokeWidth={1.75} /> Left Jobsite
+                <LogOut size={14} strokeWidth={1.75} /> Left job
               </button>
               {jobId && jobId !== day.openJobId && (
                 <button style={btnStyle} disabled={busy} onClick={() => punch("site_in")}>
@@ -196,10 +196,10 @@ export function TimeClock({
           {day.state === "site_break" && (
             <>
               <button style={btnStyle} disabled={busy} onClick={() => punch("break_end")}>
-                <Coffee size={14} strokeWidth={1.75} /> Back from Lunch
+                <Coffee size={14} strokeWidth={1.75} /> Back from lunch
               </button>
               <button style={btnStyle} disabled={busy} onClick={() => punch("site_out")}>
-                <LogOut size={14} strokeWidth={1.75} /> Left Jobsite
+                <LogOut size={14} strokeWidth={1.75} /> Left job
               </button>
             </>
           )}

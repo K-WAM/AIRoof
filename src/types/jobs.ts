@@ -96,6 +96,12 @@ export interface FieldAuditEntry {
   changesSummary: string;
 }
 
+export interface JobStatusChange {
+  status: "open" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
+  at: number;
+  by?: string;
+}
+
 export interface Job {
   jobId: string;            // e.g. "J-1042"
   businessId: string;
@@ -117,6 +123,9 @@ export interface Job {
   leadId?: string;
   sourceCallId?: string;
   callSummary?: string;
+  // Append-only trail of status changes (written by the status PATCH and the field "Work complete" tap). Older jobs have none.
+  statusHistory?: JobStatusChange[];
+  completedAt?: number;
   notes?: string;
   invoiceId?: string;
   quoteId?: string;

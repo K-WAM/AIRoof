@@ -98,6 +98,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const biz = bizSnap.data();
   const libraryMaterialNames = ((libSnap.data() as LibraryPricing | undefined)?.materials ?? []).map((m) => m.name);
 
+  // Timings (ms) for the one log line at the end — how long a technician really waits, by phase. Durations only, no content.
+  const transcribeStart = Date.now();
+  let transcribeMs = 0;
   let transcript: string;
   let detectedLanguage: string | undefined;
   try {
@@ -123,6 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     );
 
     clearTimeout(timeout);
+    transcribeMs = Date.now() - transcribeStart;
     transcript = transcription.text.trim();
     detectedLanguage = normalizeLang(transcription.language);
   } catch (err) {
@@ -136,6 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     return NextResponse.json({ success: false, error: "No speech detected", transcript: "" });
   }
 
+  const parseStart = Date.now();
   let parsed;
   try {
     parsed = await parseFieldUpdate({
@@ -189,6 +194,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     }
   }
 
+  const writeStart = Date.now();
   const updateId = `upd_${now}`;
   await updatesCol.doc(updateId).set({
     updateId,
@@ -211,6 +217,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (parsed.labor.length) parts.push(`${parsed.labor.length} labor entry(s)`);
   if (parsed.issues.length) parts.push(`${parsed.issues.length} note(s)`);
   const changesSummary = parts.length ? `Added ${parts.join(", ")}` : "No structured data extracted";
+  console.info("field-audio timing", JSON.stringify({
+    jobId, audioKB: Math.round((audioBase64.length * 3) / 4 / 1024), language: detectedLanguage ?? "en",
+    transcribeMs, parseMs: writeStart - parseStart, saveMs: Date.now() - writeStart, totalMs: Date.now() - now,
+  }));
 
   return NextResponse.json({ success: true, transcript, changesSummary, updatedJob: log });
 }

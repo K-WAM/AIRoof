@@ -63,6 +63,15 @@ export async function getPhotoBlobs(
   return out;
 }
 
+/** Best-effort: lets the office job page notice a new/removed photo with its one-document poll (see the job page). */
+async function touchJob(db: DB, businessId: string, jobId: string): Promise<void> {
+  try {
+    await db.collection(`businesses/${businessId}/jobs`).doc(jobId).update({ updatedAt: Date.now() });
+  } catch {
+    /* the photo itself is saved; a failed touch only delays the office view until its next full load */
+  }
+}
+
 export async function putPhoto(
   db: DB,
   businessId: string,
@@ -93,6 +102,7 @@ export async function putPhoto(
   };
   await photosCol(db, businessId, jobId).doc(photoId).set(meta);
   await blobsCol(db, businessId, jobId).doc(photoId).set({ fullB64: input.fullB64 });
+  await touchJob(db, businessId, jobId);
   return { photoId };
 }
 
@@ -101,6 +111,7 @@ export async function deletePhoto(db: DB, businessId: string, jobId: string, pho
     photosCol(db, businessId, jobId).doc(photoId).delete(),
     blobsCol(db, businessId, jobId).doc(photoId).delete(),
   ]);
+  await touchJob(db, businessId, jobId);
 }
 
 export async function setIncludeInReport(db: DB, businessId: string, jobId: string, photoId: string, include: boolean): Promise<void> {

@@ -51,4 +51,13 @@ describe("report customer-copy PATCH", () => {
     expect((await PATCH(reportRequest({ reportNotes: "Completed repair.", reportOptions, reportTechnicians: ["Ava"] }), context)).status).toBe(200);
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ reportNotes: "Completed repair.", reportOptions, reportTechnicians: ["Ava"] }));
   });
+  it("a status change also appends to the status history; an edit without a status does not", async () => {
+    expect((await PATCH(reportRequest({ status: "quoted" }), context)).status).toBe(200);
+    const withStatus = mocks.update.mock.calls.at(-1)![0];
+    expect(withStatus.status).toBe("quoted");
+    expect(withStatus.statusHistory).toBeTruthy(); // FieldValue.arrayUnion sentinel: atomic append, no read needed
+    mocks.update.mockClear();
+    expect((await PATCH(reportRequest({ reportNotes: "Notes only." }), context)).status).toBe(200);
+    expect(mocks.update.mock.calls.at(-1)![0].statusHistory).toBeUndefined();
+  });
 });

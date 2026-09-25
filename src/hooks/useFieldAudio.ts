@@ -71,10 +71,29 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef("audio/webm");
 
+  // Elapsed-time status text while the server works (upload -> transcribe -> parse/update). The server does not stream
+  // its phases, so the wording follows typical timing; it exists so a 6-10 s wait reads as progress, not a hang.
+  const [progress, setProgress] = useState<string | null>(null);
+  const progressTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const stopProgress = useCallback(() => {
+    progressTimers.current.forEach(clearTimeout);
+    progressTimers.current = [];
+    setProgress(null);
+  }, []);
+  const startProgress = useCallback(() => {
+    progressTimers.current.forEach(clearTimeout);
+    setProgress("Uploading…");
+    progressTimers.current = [
+      setTimeout(() => setProgress("Transcribing…"), 1200),
+      setTimeout(() => setProgress("Updating the job…"), 5000),
+    ];
+  }, []);
+
   // Apply a correction the user confirmed on the device.
   const confirmCorrection = useCallback(async () => {
     if (!proposedCorrection || !jobId) return;
     setStatus("transcribing");
+    startProgress();
     try {
       const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
         method: "POST",
@@ -95,9 +114,10 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     } catch {
       setStatus("error");
     } finally {
+      stopProgress();
       setTimeout(() => setStatus(null), 2500);
     }
-  }, [proposedCorrection, jobId, options]);
+  }, [proposedCorrection, jobId, options, startProgress, stopProgress]);
 
   const cancelCorrection = useCallback(() => setProposedCorrection(null), []);
 
@@ -153,6 +173,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
         reader.onloadend = async () => {
           const base64 = (reader.result as string).split(",")[1];
           setStatus("transcribing");
+          startProgress();
 
           try {
             const requestBody = JSON.stringify({
@@ -188,6 +209,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
           } catch {
             setStatus("error");
           } finally {
+            stopProgress();
             setTimeout(() => setStatus(null), 3000);
             resolve();
           }
@@ -196,7 +218,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
 
       recorder.stop();
     });
-  }, [jobId, options]);
+  }, [jobId, options, startProgress, stopProgress]);
 
-  return { status, transcript, lastResult, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording };
+  return { status, progress, transcript, lastResult, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording };
 }

@@ -18,6 +18,7 @@ import { normalizeDocumentOptions, type DocumentOptions } from "@/types/document
 import { draftNarrative, pairReportPhotos, reportSections } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
+import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { suggestFindings } from "@/lib/jobs/suggestFindings";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
@@ -208,6 +209,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [sendError, setSendError] = useState<string | null>(null);
   const [showSendPanel, setShowSendPanel] = useState(false);
 
+  // The live poll below only refetches the heavy parts when this changes (see refreshLive).
+  const lastSeenUpdatedAt = useRef(0);
+  const photosLoadedRef = useRef(false);
+  photosLoadedRef.current = photosLoaded;
+
   const load = useCallback(async () => {
     if (!businessId) return;
     try {
@@ -219,6 +225,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.job as Job) ?? null;
+      lastSeenUpdatedAt.current = found?.updatedAt ?? 0;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
       if (configRes) setBusinessConfig(configRes as BusinessConfig);
@@ -276,7 +283,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const labor = view.labor;
   const issues = view.issues;
   const editing = editParsed !== null;
-  useLiveRefresh(load, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty });
+  // Live view while a technician works: poll ONE document (the job) every 5 s and pull the updates/photos only when
+  // the job actually changed. The old version re-ran the full load (5 fetches) each time — fine for a demo, a real
+  // read-quota problem on the free plan if a job page is left open. Returned so the hook never overlaps requests, and
+  // a failed background poll keeps what is on screen.
+  const refreshLive = useCallback(async () => {
+    if (!businessId) return;
+    const polled = await pollJobOnce({ businessId, jobId, lastSeenUpdatedAt: lastSeenUpdatedAt.current, includePhotos: photosLoadedRef.current });
+    if (!polled) return;
+    lastSeenUpdatedAt.current = polled.job.updatedAt;
+    setJob(polled.job);
+    if (polled.updates) setUpdates(polled.updates);
+    if (polled.photos) setPhotos(polled.photos);
+  }, [businessId, jobId]);
+  useLiveRefresh(refreshLive, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty });
   // Multi-day jobs: show the date alongside each timeline event's time.
   const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? new Date(t.dateMs).toDateString() : "")).filter(Boolean)).size > 1;
   const fmtDay = (ms?: number) => (ms ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
