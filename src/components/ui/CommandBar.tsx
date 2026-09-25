@@ -106,7 +106,7 @@ export function CommandBar() {
             id: c.customerId,
             name: c.name,
             sub: [c.phone, c.jobCount ? `${c.jobCount} job${c.jobCount === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
-            href: `/company/library${previewSuffix ? previewSuffix + "&" : "?"}section=customers&customerId=${c.customerId}`,
+            href: `/company/customers${previewSuffix ? previewSuffix + "&" : "?"}customerId=${c.customerId}`,
           });
         }
       }

@@ -214,7 +214,7 @@ export default function CompanyCallsPage() {
             Calls
           </h1>
           <p className="page-subtitle">
-            Every call Alice answered — full transcript and AI summary.
+            Every call your AI receptionist answered — full transcript and AI summary.
           </p>
         </div>
         <span className="status-pill">{calls.length} total</span>
@@ -237,7 +237,7 @@ export default function CompanyCallsPage() {
           </div>
           <div className="panel-body">
             {filteredCalls.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>No calls yet. Calls appear here after Alice answers the phone.</p>
+              <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>No calls yet. Every call your AI receptionist answers shows up here within seconds, with its transcript, summary and recording. Call your business line to see the first one.</p>
             ) : (
               <div className="call-list">
                 <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Click a call to read its transcript and play the recording.</p>
@@ -385,7 +385,7 @@ export default function CompanyCallsPage() {
                         className={msg.role === "agent" ? "message agent" : "message"}
                         key={i}
                       >
-                        <p className="message-role">{msg.role === "agent" ? "Alice" : "Caller"}</p>
+                        <p className="message-role">{msg.role === "agent" ? "Receptionist" : "Caller"}</p>
                         <p className="message-text">{msg.text}</p>
                       </article>
                     ))}

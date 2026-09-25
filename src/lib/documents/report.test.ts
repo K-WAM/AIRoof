@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftNarrative, pairReportPhotos, reportSections } from "./report";
+import { draftNarrative, draftReportNotes, pairReportPhotos, reportSections } from "./report";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 
 const parsed = {
@@ -46,4 +46,54 @@ describe("report document helpers", () => {
       expect(html.includes("Flashing")).toBe(!hideMaterials);
     });
   }
+});
+
+describe("draftReportNotes", () => {
+  const visit = {
+    serviceType: "Roof inspection", address: "1420 Palm Way",
+    parsed: {
+      timeline: [{ description: "Marco arrived on site." }, { description: "Walked the south slope and checked the vent." }, { description: "Marco left the site." }],
+      materials: [{ item: "Roof tile", quantity: "6", unit: "each", cost: 54 }],
+      labor: [{ description: "Marco", hours: 3, rate: 95, arrivalTime: "8:00 AM", departureTime: "11:00 AM" }],
+      issues: [{ description: "Six cracked tiles.", severity: "medium" as const }],
+      invoiceSuggestions: [],
+    },
+  };
+
+  it("drafts service, site visit, issues, work notes and materials from what was recorded", () => {
+    const text = draftReportNotes(visit);
+    expect(text).toContain("Service: Roof inspection at 1420 Palm Way.");
+    expect(text).toContain("Site visit: Marco on site 8:00 AM–11:00 AM (3 h).");
+    expect(text).toContain("Issues identified: Six cracked tiles..".replace("..", "."));
+    expect(text).toContain("Work notes: Walked the south slope and checked the vent.");
+    expect(text).toContain("Materials used: Roof tile (6 each).");
+  });
+
+  it("never contains a price, rate or dollar sign", () => {
+    const text = draftReportNotes(visit);
+    expect(text).not.toMatch(/\$|\b95\b|\b54\b/);
+  });
+
+  it("drops arrival/departure timeline lines (they repeat the site-visit sentence)", () => {
+    const text = draftReportNotes(visit);
+    expect(text).not.toContain("arrived on site");
+    expect(text).not.toContain("left the site");
+  });
+
+  it("with Hide labor details on, names nobody and gives no hours", () => {
+    const text = draftReportNotes(visit, { hideLabor: true });
+    expect(text).not.toContain("Marco");
+    expect(text).not.toContain("Site visit");
+    expect(text).not.toContain("3 h");
+  });
+
+  it("with Hide materials on, lists no materials", () => {
+    expect(draftReportNotes(visit, { hideMaterials: true })).not.toContain("Materials used");
+  });
+
+  it("is deterministic and empty when nothing is recorded", () => {
+    expect(draftReportNotes(visit)).toBe(draftReportNotes(visit));
+    expect(draftReportNotes({})).toBe("");
+    expect(draftReportNotes({ serviceType: "Roof inspection", parsed: { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [] } })).toBe("Service: Roof inspection.");
+  });
 });

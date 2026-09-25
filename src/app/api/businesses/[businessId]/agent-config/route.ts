@@ -57,6 +57,8 @@ export async function GET(
       escalationPhone: businessConfig.escalationPhone,
       active: businessConfig.active,
       vapiAssistantId: businessConfig.vapiAssistantId,
+      // Provider-neutral: is a phone line (Vapi OR ElevenLabs) attached? A boolean only — no provider IDs leave the server.
+      phoneLineConnected: Boolean(businessConfig.vapiAssistantId || businessConfig.elevenlabs?.agentId),
     };
 
     return NextResponse.json(publicConfig);

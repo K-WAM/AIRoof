@@ -14,6 +14,7 @@ import {
   Settings,
   Compass,
   MessageSquareText,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
@@ -33,6 +34,8 @@ const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyMod
   { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
   { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
   { path: "/company/field",     label: "Field",     Icon: Mic,             module: "jobs" },
+  // Label is replaced by the industry word (Patients, Clients…) at render time — see visibleLinks below.
+  { path: "/company/customers", label: "Customers", Icon: Users,           module: "library" },
   { path: "/company/library",   label: "Library",   Icon: BookOpen,        module: "library" },
 ];
 
@@ -42,7 +45,7 @@ export function CompanyNav() {
   const preview = searchParams?.get("preview");
   const suffix = preview ? `?preview=${preview}` : "";
 
-  const { isEnabled } = useBusinessModules();
+  const { isEnabled, vocab } = useBusinessModules();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   // Feedback is for client users only (T-114): a superadmin — including one
   // previewing a client via ?preview= — never sees the control or the form,
@@ -55,7 +58,9 @@ export function CompanyNav() {
   return (
     <nav className="company-nav" aria-label="Company navigation">
       <div className="company-nav-primary">
-        {visibleLinks.map(({ path, label, Icon }) => (
+        {visibleLinks.map(({ path, label: defaultLabel, Icon }) => {
+          const label = path === "/company/customers" ? (vocab?.customerNounPlural ?? defaultLabel) : defaultLabel;
+          return (
           <Link
             href={`${path}${suffix}`}
             key={path}
@@ -64,7 +69,8 @@ export function CompanyNav() {
             <Icon size={16} strokeWidth={1.75} />
             {label}
           </Link>
-        ))}
+          );
+        })}
       </div>
       {/* Settings isn't part of the day-to-day workflow above, and Guide +
           Feedback are the "Help" group — both pinned to the bottom of the

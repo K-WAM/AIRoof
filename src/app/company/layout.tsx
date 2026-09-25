@@ -28,6 +28,7 @@ const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
   { prefix: "/company/jobs", module: "jobs" },
   { prefix: "/company/field", module: "jobs" },
   { prefix: "/company/library", module: "library" },
+  { prefix: "/company/customers", module: "library" },
 ];
 
 function CompanyShell({ children }: { children: React.ReactNode }) {

@@ -266,12 +266,13 @@ export default function JobsPage() {
           </div>
           <div className="segmented-control" aria-label="Filter by status">
             {([
+              // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
               { key: "all",         label: "All" },
-              { key: "inspection",  label: "Inspection" },
-              { key: "quoted",      label: "Quoted" },
-              { key: "in_progress", label: "In Progress" },
+              { key: "inspection",  label: "Needs quote" },
+              { key: "quoted",      label: "Quote sent" },
+              { key: "in_progress", label: "In progress" },
+              { key: "complete",    label: "Ready to invoice" },
               { key: "invoiced",    label: "Invoiced" },
-              { key: "complete",    label: "Complete" },
             ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => {
               const count = key === "all"
                 ? jobs.length
@@ -297,7 +298,13 @@ export default function JobsPage() {
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <p style={{ color: "#888", fontSize: 14 }}>No jobs yet. Create one above or use the &ldquo;Create Job&rdquo; button on an appointment.</p>
+            <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 12px" }}>
+              No {vocab.jobNounPlural.toLowerCase()} yet. When someone calls, confirm their request in Pipeline and the {vocab.jobNoun.toLowerCase()} is created for you — or start one yourself.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a className="button primary" href={`/company/pipeline${previewSuffix}`}>Go to Pipeline</a>
+              <button type="button" className="button" onClick={() => setShowForm(true)}>New {vocab.jobNoun}</button>
+            </div>
           </div>
         </section>
       ) : (

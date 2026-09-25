@@ -50,6 +50,7 @@ interface AgentSnapshot {
   approvedFaqs?: Array<{ question: string; answer: string }>;
   active?: boolean;
   vapiAssistantId?: string;
+  phoneLineConnected?: boolean;
 }
 
 interface EscalationSnapshot {
@@ -135,6 +136,7 @@ export default function CompanyDashboardPage() {
             approvedFaqs: d.approvedFaqs,
             active: d.active,
             vapiAssistantId: d.vapiAssistantId,
+            phoneLineConnected: d.phoneLineConnected,
           });
         }
 
@@ -192,7 +194,8 @@ export default function CompanyDashboardPage() {
   const pendingAppts = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled");
   const activeJobs = jobs.filter((j) => j.status !== "complete");
   const apptTabHref = `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`;
-  const isAgentActive = agent?.vapiAssistantId ? true : (agent?.active ?? false);
+  // A phone line on EITHER provider counts (the old check looked only at Vapi, so an ElevenLabs tenant read as inactive).
+  const isAgentActive = agent?.phoneLineConnected ?? (agent?.vapiAssistantId ? true : (agent?.active ?? false));
 
   const genericMetrics = [
     { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` },
@@ -218,7 +221,7 @@ export default function CompanyDashboardPage() {
 
   const agentSettings = agent
     ? [
-        ["Agent name", agent.agentName ?? "Alice"],
+        ["Agent name", agent.agentName ?? "AI receptionist"],
         ["Status", isAgentActive ? "Active — answering calls" : "Inactive"],
         ["Escalation", agent.escalationPhone ?? "—"],
         ["Approved services", `${agent.approvedServices?.length ?? 0} configured`],

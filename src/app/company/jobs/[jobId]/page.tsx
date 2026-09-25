@@ -15,8 +15,10 @@ import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftNarrative, pairReportPhotos, reportSections } from "@/lib/documents/report";
+import { draftReportNotes, pairReportPhotos, reportSections } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
+import { JobStepper } from "./JobStepper";
+import { JobHistory } from "./JobHistory";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { suggestFindings } from "@/lib/jobs/suggestFindings";
@@ -297,6 +299,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     if (polled.photos) setPhotos(polled.photos);
   }, [businessId, jobId]);
   useLiveRefresh(refreshLive, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty });
+
+  // Opening the Report tab generates the report (and drafts its notes) straight away when there is something to report,
+  // instead of asking for a "Generate Report" click first. Once per visit; Regenerate stays available.
+  const autoReportTried = useRef(false);
+  useEffect(() => {
+    if (activeTab !== "report") { autoReportTried.current = false; return; }
+    if (report || autoReportTried.current || !job) return;
+    if (updates.length === 0 && !job.findings?.some((f) => f.includeInReport)) return;
+    autoReportTried.current = true;
+    void generateReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, report, job, updates.length]);
   // Multi-day jobs: show the date alongside each timeline event's time.
   const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? new Date(t.dateMs).toDateString() : "")).filter(Boolean)).size > 1;
   const fmtDay = (ms?: number) => (ms ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
@@ -461,8 +475,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   async function generateReport() {
     setReport("ready");
     setActiveTab("report");
-    setReportNotes(job?.reportNotes ?? "");
-    setReportOptions(job?.reportOptions ?? {});
+    // First open with no saved notes: start from a deterministic draft (facts only, no prices, honoring the hide options)
+    // so the admin reviews and edits instead of writing from scratch. Saved on the first edit/blur or when mailed.
+    const savedOptions = job?.reportOptions ?? {};
+    setReportNotes(job?.reportNotes?.trim() ? job.reportNotes : job ? draftReportNotes(job, savedOptions) : "");
+    setReportOptions(savedOptions);
     setReportTechnicians(job?.reportTechnicians ?? []);
     // Load full-res blobs for the photos marked include-in-report (≤ 8 → 2 pages).
     let metas = photos;
@@ -538,7 +555,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }
 
   function draftReportNarrative() {
-    const next = draftNarrative(job?.parsed);
+    const next = job ? draftReportNotes(job, reportOptions) : "";
     if (!next || (reportNotes.trim() && !confirm("Replace the current scope and resolution notes with the job draft?"))) return;
     setReportNotes(next);
   }
@@ -691,16 +708,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }, [invoiceDirty]);
 
   const suggestedCount = job ? suggestFindings(job, catalog.items).length : 0;
+  // Order follows the work: what happened (Timeline, Photos, Issues), what we found and quote (Findings, Quote), the detail
+  // behind the numbers (Materials, Labor), then the customer documents (Report, Invoice).
   const TABS = [
     { id: "timeline", label: `Timeline (${timeline.length})` },
-    { id: "materials", label: `Materials (${materials.length})` },
-    { id: "labor", label: `Labor (${labor.length})` },
+    { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
     { id: "issues", label: `Issues (${issues.length})` },
     { id: "findings", label: `Findings (${job?.findings?.length ?? 0})${suggestedCount > 0 ? ` · ${suggestedCount} suggested` : ""}` },
-    { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
-    { id: "invoice", label: "Invoice" },
     { id: "quote", label: "Quote" },
+    { id: "materials", label: `Materials (${materials.length})` },
+    { id: "labor", label: `Labor (${labor.length})` },
     { id: "report", label: "Report" },
+    { id: "invoice", label: "Invoice" },
   ] as const;
 
   if (loading) return <PageSkeleton rows={6} />;
@@ -874,6 +893,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         ))}
       </div>
 
+      <JobStepper job={job} onGo={(tab) => setActiveTab(tab)} />
+
       {/* Edit / Save / Cancel — data tabs only */}
       {["timeline", "materials", "labor", "issues"].includes(activeTab) && (
         <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
@@ -898,6 +919,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* ── Timeline ── */}
+      {activeTab === "timeline" && <JobHistory businessId={businessId!} jobId={jobId} version={job.updatedAt} />}
+
       {activeTab === "timeline" && (
         <section className="panel">
           <div className="panel-body">

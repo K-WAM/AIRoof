@@ -412,7 +412,7 @@ export default function PipelinePage() {
           {isPending && (
             <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45, display: "flex", gap: 8, alignItems: "flex-start" }}>
               <Clock size={13} style={{ marginTop: 1, flexShrink: 0 }} />
-              Booked by Alice after hours. Confirm to notify the customer and lock it in.
+              Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in.
             </div>
           )}
           <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
@@ -499,7 +499,7 @@ export default function PipelinePage() {
             <Workflow size={20} strokeWidth={1.75} />
             Pipeline
           </h1>
-          <p className="page-subtitle">Leads captured by Alice and upcoming inspection appointments.</p>
+          <p className="page-subtitle">Leads captured by your AI receptionist and upcoming appointments. Review a request, confirm it, and it becomes a job.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (
@@ -759,7 +759,7 @@ export default function PipelinePage() {
             </div>
             <div className="panel-body">
               {upcomingAppts.length === 0 ? (
-                <p style={{ color: "#888", fontSize: 14 }}>No upcoming appointments. They appear here when Alice books one.</p>
+                <p style={{ color: "#888", fontSize: 14 }}>No upcoming appointments. They appear here when your AI receptionist books one.</p>
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                   {upcomingAppts.map((appt) => (

@@ -400,7 +400,7 @@ export default function CompanySettingsPage() {
                     onChange={e => setSettings(prev => prev ? { ...prev, notificationEmail: e.target.value } : prev)}
                     placeholder="alerts@yourcompany.com"
                   />
-                  <p style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0 0" }}>Receives booking + lead notifications from Alice.</p>
+                  <p style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0 0" }}>Receives booking + lead notifications from your AI receptionist.</p>
                 </div>
                 <div className="field full">
                   <label htmlFor="contactPhone">Public contact phone</label>
@@ -436,7 +436,7 @@ export default function CompanySettingsPage() {
 
           <div style={{ padding: "12px 16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#64748b" }}>
             <p style={{ margin: 0, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Need to change other settings?</p>
-            <p style={{ margin: 0 }}>For services, FAQs, agent voice, or Vapi config — contact your Luxor account manager at connect@luxordev.com.</p>
+            <p style={{ margin: 0 }}>For services, FAQs, agent voice, or phone line settings — contact your Luxor account manager at connect@luxordev.com.</p>
           </div>
         </div>
       </div>
