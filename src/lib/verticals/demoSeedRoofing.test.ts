@@ -82,6 +82,6 @@ describe("roofing worked-job seed", () => {
       (sum, u) => sum + u.parsed.labor.reduce((s, l) => s + (l.hours ?? 0), 0),
       0
     );
-    expect(laborHours).toBe(7);
+    expect(laborHours).toBe(3);
   });
 });

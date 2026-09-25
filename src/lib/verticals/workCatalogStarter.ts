@@ -173,9 +173,9 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
     roof("inspection-prior-repair", "Inspection Notes", "A prior repair uses mismatched materials or incorrect fastening, and is failing early.",
       "Remove the prior repair, correct the underlying surface, and redo the work with matching materials. Note the correction in the record so the same issue is not repeated.", "medium",
       [line("Repair correction", 3, "hr", 95, "labor")]),
-    roof("inspection-wind-mitigation", "Inspection Notes", "The owner needs a wind mitigation inspection for the home's roof.",
-      "Inspect and record the roof covering, the roof-to-wall attachment, the roof deck attachment, and the roof shape. Provide the completed documentation so the owner can pass it to their insurer.", "low",
-      [line("Wind mitigation inspection", 1, "service", 175, "labor")]),
+    roof("inspection-wind-mitigation", "Inspection Notes", "The owner's insurer wants documentation of the roof's wind-resistance features.",
+      "Photograph and record the roof covering, the roof deck attachment, the roof-to-wall connections, and the roof shape, and hand the owner the photo record. If the policy needs a signed wind mitigation form, it must come from an inspector licensed to sign it.", "low",
+      [line("Roof wind-feature documentation", 1, "service", 175, "labor")]),
   ],
 
   hvac: [

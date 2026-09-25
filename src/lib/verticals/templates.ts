@@ -135,10 +135,10 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       resourceNounPlural: "Crews",
       voiceExample: "replaced six cracked tiles on the south slope, Marco worked 8 to 3, reset the pipe boot",
       jobTitlePlaceholder: "e.g. Roof inspection — 123 Main St",
-      serviceTypePlaceholder: "Shingle replacement",
+      serviceTypePlaceholder: "Tile roof repair",
       resourcePlaceholder: "Carlos Crew",
-      materialPlaceholder: "Shingles bundle",
-      documentPlaceholder: "Shingle warranty 2026",
+      materialPlaceholder: "Roof tile",
+      documentPlaceholder: "Roof warranty 2026",
     },
     approvedServices: [
       "Roof inspection",
@@ -147,7 +147,7 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       "Flat roof repair",
       "Roof replacement",
       "Emergency tarping",
-      "Wind mitigation inspection",
+      "Storm damage inspection",
       "Gutter repair",
     ],
     approvedFaqs: [
@@ -167,9 +167,9 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
           "Before a storm, clear your gutters and tie down anything loose, and call us if you already have a leak. If a storm damages your roof, we can place an emergency tarp to keep water out until the permanent repair.",
       },
       {
-        question: "What is a wind mitigation inspection?",
+        question: "Do you do wind mitigation or four-point inspections?",
         answer:
-          "A wind mitigation inspection records how the roof is built and fastened so your insurer can review those details. We also do four-point inspections, which check the roof along with the electrical, plumbing and heating systems.",
+          "Many insurers ask for those, and who can sign them depends on the inspector's license. I'll note it on your request and the team will tell you whether we handle it or recommend a licensed inspector.",
       },
       {
         question: "How long does an inspection take?",

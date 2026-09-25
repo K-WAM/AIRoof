@@ -62,9 +62,9 @@ export const ROOFING_WORKED_JOB: WorkedJobSeed = {
       language: "es",
       parsed: {
         timeline: [
-          { time: "9:30 AM", description: "Walked the south slope and checked the vent penetration." },
+          { description: "Walked the south slope and checked the vent penetration." },
         ],
-        materials: [{ item: "Roof tile", quantity: "6", unit: "each" }],
+        materials: [],
         labor: [],
         issues: [
           {
@@ -85,21 +85,22 @@ export const ROOFING_WORKED_JOB: WorkedJobSeed = {
       },
     },
     {
-      rawText: "Marco wrapped up at 3 and logged 7 hours on the job.",
+      rawText:
+        "Marco left the site at 11, three hours on the inspection. The customer wants a quote for the tiles and the pipe boot.",
       submittedBy: "Marco",
       minutesAgo: 180,
       language: "en",
       parsed: {
         timeline: [
-          { time: "3:00 PM", description: "Marco finished the repairs and left the site." },
+          { time: "11:00 AM", description: "Inspection finished; the customer asked for a quote for the tiles and the pipe boot." },
         ],
         materials: [],
         labor: [
           {
             description: "Marco",
-            hours: 7,
+            hours: 3,
             arrivalTime: "8:00 AM",
-            departureTime: "3:00 PM",
+            departureTime: "11:00 AM",
           },
         ],
         issues: [],
