@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
     contactEmail: d.contactEmail ?? "",
     licenseNumber: d.licenseNumber ?? "",
     businessName: d.businessName ?? "",
+    address: d.address ?? "",
+    websiteUrl: d.websiteUrl ?? "",
+    brandColor: d.brandColor ?? null,
+    logoUrl: d.logoUrl ?? null,
     // Spanish (Phase 12, Phase 6)
     agentLanguage: d.agentLanguage ?? "en",
     agentLanguages: d.agentLanguages ?? ["en"],

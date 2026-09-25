@@ -58,6 +58,13 @@ describe("GET /api/company/settings", () => {
     expect(await response.json()).toMatchObject({ businessName: "Apex Roofing" });
   });
 
+  it("returns the public document letterhead fields", async () => {
+    currentDoc = { ...currentDoc, address: "1 Main St", websiteUrl: "https://example.test", brandColor: "#008080", logoUrl: "legacy", licenseNumber: "LIC-42" };
+    mocks.verifyAuthAndRole.mockResolvedValue({ user: { uid: "u1" } });
+    const response = await GET(requestFor("biz-1"));
+    expect(await response.json()).toMatchObject({ address: "1 Main St", websiteUrl: "https://example.test", brandColor: "#008080", logoUrl: "legacy", licenseNumber: "LIC-42" });
+  });
+
   it("400s without checking auth when businessId is missing", async () => {
     const response = await GET(requestFor(null));
     expect(response.status).toBe(400);

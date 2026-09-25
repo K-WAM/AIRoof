@@ -203,14 +203,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const [jobRes, updatesRes, configRes, libRes, logosRes] = await Promise.all([
         fetch(`/api/jobs/${jobId}?businessId=${businessId}`).then((r) => r.json()),
         fetch(`/api/jobs/${jobId}/updates?businessId=${businessId}`).then((r) => r.json()),
-        fetch(`/api/businesses/${businessId}/agent-config`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/company/settings?businessId=${businessId}`).then((r) => r.ok ? r.json() : null).catch(() => null),
         fetch(`/api/company/library?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
         fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => r.json()).catch(() => null),
       ]);
       const found = (jobRes.job as Job) ?? null;
       setJob(found);
       setUpdates(updatesRes.updates ?? []);
-      if (configRes?.config) setBusinessConfig(configRes.config as BusinessConfig);
+      if (configRes) setBusinessConfig(configRes as BusinessConfig);
       if (logosRes?.logos) setLogos(logosRes.logos as LibraryLogo[]);
       // Distinguish "fetch failed" (libRes null) from "fetched fine, catalog is
       // just empty" (libRes.library with empty arrays) — only the former means

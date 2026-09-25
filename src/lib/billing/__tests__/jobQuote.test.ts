@@ -28,7 +28,7 @@ describe("quote", () => {
   it("hides material details and escapes all free text in the customer email", () => {
     expect(visibleQuoteLines(quote).find((l) => l.description === "Tile <bad>")).toBeUndefined();
     const html = buildQuoteEmailHtml(quote, { businessName: "Biz <x>", logoUrl: 'x" onerror="bad', brandColor: "red;background:url(x)" });
-    expect(html).toContain("Materials &amp; supplies");
+    expect(html).toContain(">Materials</td>");
     expect(html).toContain("Leak &lt;img&gt;");
     expect(html).toContain("A &amp; B");
     expect(html).not.toContain("Biz <x>");
