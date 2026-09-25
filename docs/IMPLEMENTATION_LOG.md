@@ -1343,3 +1343,9 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Gates on merged main: tsc clean; vitest 987/989 under full load (send.test + company/team are known load timeouts; both pass in isolation); Codex reported next build passed (83 static pages).
 - Integrator fixes: comms/prepare.ts (CID inline images, text part, tenant From name, Reply-To); invoice/quote/report routes no longer mark sent on failed delivery; ElevenLabs calls store startedAt (were invisible in Calls); /api/auth/profile derives superadmin from the token claim only; Usage phone-line column provider-aware; Demo Studio optional business phone; production RESEND_FROM = Luxor CRM <crm@luxordev.com>.
 - Not verified: T-113 on a live phone/email; email headers (dkim/spf/dmarc) on a received message.
+
+## 2026-09-25 — T-107a document core (invoice + quote) merged (Codex + integrator)
+- Built: src/lib/documents/ (groups, letterhead, emailBlocks, validation, DocumentPreview); hideMaterials/hideLabor/showTechnicians/technicians/narrative on invoice + quote (in-app, print, email); licenseNumber in Company Settings; library logo via the letterhead resolver in confirmation/assign/notify emails.
+- Worker stopped on its usage limit with uncommitted work; integrator committed it, then verified: tsc clean, eslint 0 errors, vitest 1002/1002 (2 known load-flaky tests passed on re-run), next build passed.
+- Email rules preserved: invoice/quote send routes pass fromName/replyTo and return 502 (not marked sent) on failed delivery.
+- Not verified: a real emailed invoice/quote received in an inbox; Report is still T-107b.

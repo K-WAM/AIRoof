@@ -787,7 +787,7 @@ an active queue.*
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
   - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
-        **T-107a** (next free Codex; worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
+        **T-107a — DONE, merged 2026-09-25 (Codex built it; integrator finished + verified after the worker hit its usage limit; owner live-check of the emailed invoice/quote pending)** (worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
         `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
         technicians; **T-107b** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
         logo fix. Contract: `src/types/documentOptions.ts`. Original spec:
