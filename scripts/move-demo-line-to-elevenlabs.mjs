@@ -13,6 +13,9 @@ const EXPECTED = {
   phoneNumber: "+16892042643",
 };
 
+// Our own, credential-free messages — the only errors whose text is safe to print (see the catch at the bottom).
+class ScriptError extends Error {}
+
 function credential() {
   let raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!raw) {
@@ -22,8 +25,19 @@ function credential() {
     if (raw?.startsWith("'")) raw = raw.slice(1, -1);
     else if (raw?.startsWith('"')) raw = raw.slice(1, -1);
   }
-  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is unavailable");
-  return JSON.parse(raw.replace(/\\n/g, "\n"));
+  if (!raw) throw new ScriptError("FIREBASE_SERVICE_ACCOUNT_JSON is unavailable");
+  // Parse as-is first (the app does exactly this); a double-quoted dotenv value may carry escaped quotes. The key's
+  // "\n" escapes are fixed AFTER parsing — replacing them before would put raw newlines inside a JSON string.
+  for (const candidate of [raw, raw.replace(/\\"/g, '"')]) {
+    try {
+      const account = JSON.parse(candidate);
+      if (typeof account.private_key === "string") account.private_key = account.private_key.replace(/\\n/g, "\n");
+      return account;
+    } catch {
+      /* try the next form; never echo the value */
+    }
+  }
+  throw new ScriptError("FIREBASE_SERVICE_ACCOUNT_JSON could not be parsed as JSON");
 }
 
 function describe(label, data) {
@@ -40,7 +54,7 @@ async function main() {
   const flags = process.argv.slice(2);
   if (flags.some((flag) => !["--dry-run", "--apply", "--rollback"].includes(flag)) ||
     (flags.includes("--apply") && flags.includes("--rollback"))) {
-    throw new Error("Use --dry-run (default), --apply, or --rollback");
+    throw new ScriptError("Use --dry-run (default), --apply, or --rollback");
   }
   admin.initializeApp({ credential: admin.credential.cert(credential()) });
   const db = admin.firestore();
@@ -48,12 +62,12 @@ async function main() {
   const demo = db.collection("businesses").doc(DEMO_ID);
   const backup = demo.collection("backups").doc(BACKUP_ID);
   const [sourceSnap, demoSnap, backupSnap] = await Promise.all([source.get(), demo.get(), backup.get()]);
-  if (!sourceSnap.exists || !demoSnap.exists) throw new Error("Migration business document missing");
+  if (!sourceSnap.exists || !demoSnap.exists) throw new ScriptError("Migration business document missing");
   const from = sourceSnap.data();
   const to = demoSnap.data();
 
   if (flags.includes("--rollback")) {
-    if (!backupSnap.exists) throw new Error("Migration backup missing; cannot roll back");
+    if (!backupSnap.exists) throw new ScriptError("Migration backup missing; cannot roll back");
     const original = backupSnap.data();
     const batch = db.batch();
     batch.update(source, {
@@ -64,6 +78,7 @@ async function main() {
       elevenlabs: original.demo.elevenlabs ?? admin.firestore.FieldValue.delete(),
       voiceProvider: original.demo.voiceProvider ?? admin.firestore.FieldValue.delete(),
     });
+    batch.delete(backup); // so a later --apply is allowed again
     await batch.commit();
     console.log("Rolled back the demo line mapping from its backup.");
     return;
@@ -71,11 +86,11 @@ async function main() {
 
   const line = from.elevenlabs;
   if (!line?.agentId || !line?.phoneNumberId || !line?.phoneNumber) {
-    throw new Error("Source ElevenLabs mapping is incomplete");
+    throw new ScriptError("Source ElevenLabs mapping is incomplete (already migrated? check the dry run)");
   }
   if (Object.entries(EXPECTED).some(([key, value]) =>
     key === "phoneNumber" ? String(line[key]).replace(/\D/g, "") !== value.replace(/\D/g, "") : line[key] !== value)) {
-    throw new Error("Source mapping differs from the expected demo line; review before applying");
+    throw new ScriptError("Source mapping differs from the expected demo line; review before applying");
   }
   describe("Before source", from);
   describe("Before demo", to);
@@ -85,7 +100,7 @@ async function main() {
     console.log("Dry run only. Pass --apply after reviewing this diff.");
     return;
   }
-  if (backupSnap.exists) throw new Error("Migration backup already exists; refusing to overwrite it");
+  if (backupSnap.exists) throw new ScriptError("Migration backup already exists; refusing to overwrite it (roll back first)");
   const batch = db.batch();
   batch.set(backup, {
     source: { elevenlabs: from.elevenlabs ?? null, elevenlabsArchived: from.elevenlabsArchived ?? null },
@@ -98,8 +113,10 @@ async function main() {
   console.log("Demo line mapping applied; rollback backup saved.");
 }
 
-main().catch(() => {
-  // Firebase and JSON parse errors can include credential fragments. Keep output fixed.
-  console.error("Migration failed. Check credentials, source mapping, and Firestore access locally.");
+main().catch((error) => {
+  // Firebase and JSON parse errors can include credential fragments: only our own ScriptError text is printed.
+  console.error(error instanceof ScriptError
+    ? `Migration failed: ${error.message}`
+    : "Migration failed. Check credentials, source mapping, and Firestore access locally.");
   process.exitCode = 1;
 });

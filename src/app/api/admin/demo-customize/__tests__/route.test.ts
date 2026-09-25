@@ -421,6 +421,28 @@ describe("demo-customize route", () => {
       expect(fs.documents.has("elevenlabsConversations/other")).toBe(true);
     });
 
+    it("keeps the backup under Firestore's 1 MiB doc limit when the last demo had photos and a logo", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", { businessName: "Old", isDemo: true,
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234" });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001", { title: "Old job" });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001/photoBlobs/b1", { fullB64: "A".repeat(950_000) });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001/photoBlobs/b2", { fullB64: "B".repeat(950_000) });
+      fs.documents.set("businesses/demo-roofing/library/logos", { logos: [{ logoId: "l1", b64: "C".repeat(150_000) }] });
+      mocks.firestoreInstance = fs;
+      vi.resetModules();
+      const { DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const response = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await response.json()).ok).toBe(true);
+      const backupKey = [...fs.documents.keys()].find((k) =>
+        k.startsWith("businesses/demo-roofing/backups/") && k !== "businesses/demo-roofing/backups/lock")!;
+      const serialized = JSON.stringify(fs.documents.get(backupKey));
+      expect(serialized.length).toBeLessThan(1_000_000);
+      expect(serialized).toContain("[omitted 950000 chars]");
+      expect(fs.documents.has("businesses/demo-roofing/jobs/J-1001/photoBlobs/b1")).toBe(false);
+    });
+
     it("releases lock after completion", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
       const fs = createFirestore();
