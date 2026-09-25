@@ -1403,3 +1403,9 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Evidence: migration defaults to dry run and was not executed; launch makes no provider request; reset keeps allowlist, isDemo, lock and backup while clearing nested and stale demo data; Studio uses the ElevenLabs line.
 - Gates: tsc noEmit passed; changed-file eslint 0 errors, 1 image warning; focused tests 21 passed; full vitest 127 files, 1019 passed and 1 expected fail.
 - Removals: replaced the two-line Demo Studio/runbook and removed obsolete provider-push status copy.
+
+## D2 Stage 1 verified
+
+- Request-to-job creation now uses an atomic request marker and shared counter transaction, with customer and call provenance retained.
+- Live refresh highlights newly arrived rows on Calls, Pipeline, and Dashboard; Calls shows Live or Ended status.
+- Gates: TypeScript passed; focused route and hook tests passed; full Vitest passed 131 files, 1,032 tests, plus 1 expected failure.
