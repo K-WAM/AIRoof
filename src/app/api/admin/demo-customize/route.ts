@@ -102,6 +102,22 @@ function parseLogo(dataUrl: string): LibraryLogo | null {
   return totalLogoBytes([logo]) <= MAX_LOGO_B64_BYTES ? logo : null;
 }
 
+// Backup sizing (see the reset's backup write): strings longer than this are base64 images/blobs, not data worth
+// keeping for a demo tenant; the whole backup stays well under Firestore's 1 MiB document limit.
+const BACKUP_LONG_STRING = 2_000;
+const BACKUP_MAX_CHARS = 900_000;
+
+function slimBackup(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value.length > BACKUP_LONG_STRING ? `[omitted ${value.length} chars]` : value;
+  }
+  if (Array.isArray(value)) return value.map(slimBackup);
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, slimBackup(v)]));
+  }
+  return value;
+}
+
 function lineState(config: BusinessConfig, now = new Date()) {
   if (config.voiceProvider !== "elevenlabs") return {
     lineReady: false, lineError: "Demo line is not on ElevenLabs yet — run scripts/move-demo-line-to-elevenlabs.mjs",
@@ -276,12 +292,19 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     const libraryDocs = await Promise.all(["logos", "workCatalog", "pricing"].map((id) => base.collection("library").doc(id).get()));
     backupData.library = libraryDocs.filter((d) => d.exists).map((d) => ({ id: d.id, ...d.data() }));
 
+    // One Firestore doc caps at 1 MiB, and photo blobs (~900 KB each) or a logo would blow past it — a failed backup
+    // aborts the reset, which would make every launch after a demo with a photo fail. Long strings (base64 images,
+    // blobs) are replaced by a marker; if what's left is still near the cap, only per-collection counts are kept.
+    const slimmed = slimBackup(backupData) as Record<string, Record<string, unknown>[]>;
+    const tooBig = JSON.stringify(slimmed).length > BACKUP_MAX_CHARS;
     await base.collection("backups").doc(String(now)).set({
       timestamp: now,
       businessId: LIVE_LINE_BUSINESS_ID,
       operation: "reset",
       verticalId: opts.verticalId,
-      data: backupData,
+      data: tooBig
+        ? Object.fromEntries(Object.entries(slimmed).map(([k, v]) => [k, [{ truncated: true, count: v.length }]]))
+        : slimmed,
     });
 
     for (const sub of subs) {

@@ -478,3 +478,39 @@ Content rules: FAQ answers are spoken aloud by the phone AI — max 2 sentences,
 Commit after each step (prefix "D3:"). Gates: npx tsc --noEmit; eslint on changed files; npx vitest run src/lib/verticals; then the full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build.
 Never push, merge or touch main. Final message: what changed (list the new services, FAQs, emergency rules, catalog items), gates output, "Noticed, not done", "QUESTION FOR INTEGRATOR: ..." if any.
 ```
+
+### D2 resume — Codex B, **Terra medium** — same task, picks up where the first session stopped (2026-09-25)
+State when it stopped: branch task/job-loop has live refresh (7f226ab) + request→job route (97c8907); commit 9a025ab "D2 Stage 1 complete" was premature (corrected by 35ed082/7ba8cbf). Integrator review found a double-tap race in /api/jobs/from-request.
+```
+Continue D2 in the EXISTING worktree D:/Apps/air-wt-job-loop on branch task/job-loop. Verify `git rev-parse --show-toplevel` = D:/Apps/air-wt-job-loop and branch = task/job-loop before editing. Never edit D:/Apps/6 - AI Receptionist.
+First: `git merge main` (main now has D3 roofing content + docs). If docs/IMPLEMENTATION_LOG.md conflicts, keep BOTH sides' entries. Re-read docs/DEMO-READINESS-PLAN.md §3 "D2".
+This session: finish Stage 1, then do Stage 2, then STOP and report (Stages 3-4 come in a later resume, so the integrator can review the quote first).
+Stage 1 remaining:
+ a. /api/jobs/from-request is not idempotent under a double tap: the "existing job?" query and the create are separate, so two concurrent POSTs make two jobs. Make it atomic: in ONE Firestore transaction, tx.get a marker doc businesses/{bid}/requestJobs/{appointment_<id>|lead_<id>}; if it exists return its jobId (created:false); otherwise allocate the counter (tx.get/tx.update on the business doc, same logic as nextJobId — refactor nextJobId so a transaction variant is shared, don't duplicate), tx.create the job and tx.create the marker. Keep resolveCustomer + the call-summary read OUTSIDE (before) the transaction. Also return 400 (not 500) on invalid JSON.
+ b. Route tests for from-request (reuse src/test-utils/fakeFirestore.ts; see src/e2e/demo-path.test.ts for the style): appointment and lead paths; carries clientEmail, notes, sourceCallId, callSummary, customerId; two concurrent POSTs => exactly one job (Promise.all); missing request => 404; wrong tenant => 403; POST /api/jobs keeps clientEmail.
+ c. Calls page: "Live" badge for status "in_progress" with startedAt < 30 min, otherwise "Ended"; brief highlight for rows new since the last refresh (Calls, Pipeline, Dashboard lists) — CSS class + tokens, no inline hex.
+ d. Job header "From call · <time> · View transcript" when sourceCallId is set (if not already done).
+ Then commit "D2 Stage 1 complete (verified)" + a plain-text checkpoint in docs/IMPLEMENTATION_LOG.md.
+Stage 2: steps 3 and 4 of the plan exactly (Findings <-> Library, then the quote rework). Commit after each step; end with "D2 Stage 2 complete" + checkpoint.
+IMPLEMENTATION_LOG.md has legacy odd bytes: append from Git Bash with a QUOTED heredoc (cat >> docs/IMPLEMENTATION_LOG.md <<'LOG' ... LOG) so backticks survive, or write plain text.
+Gates at the end of each Stage: npx tsc --noEmit; eslint on changed files; your tests; full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build. No new dependencies.
+Same ownership lists and owner rules as the first D2 prompt. Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: done/not-done table with commit hashes, gates output, "Noticed, not done".
+```
+
+### D1 resume — Codex A, **Sol medium** — same task, after the integrator merged Part 1 (2026-09-25)
+State: Part 1 (725696c) is MERGED to main and DEPLOYED; the migration was APPLIED (the ElevenLabs number now belongs to demo-roofing).
+Integrator changes on main you must not redo: the reset backup is now size-safe (`slimBackup`, route.ts + a regression test) and the migration script was fixed and run — leave both alone.
+```
+Continue D1 in the EXISTING worktree D:/Apps/air-wt-demo-line on branch task/demo-line. Verify toplevel = D:/Apps/air-wt-demo-line and branch = task/demo-line before editing. Never edit D:/Apps/6 - AI Receptionist.
+First: `git merge main` (brings D3's src/lib/verticals/demoSeedRoofing.ts and the integrator's fixes). If docs/IMPLEMENTATION_LOG.md conflicts, keep BOTH sides.
+Answer to your question: YES, you may edit src/lib/tools/toolDispatcher.ts — ONLY to add the `sayToCaller` sentence to the appointment tool results and remove the duplicate timezone read. No change to scheduling/booking/cancel logic, and the Vapi webhook (which shares the dispatcher) must keep working; add/adjust its tests.
+Then, in order, committing after each (prefix "D1:"):
+ 1. Step 4 (worked job J-1001) exactly as the plan says, now that ROOFING_WORKED_JOB exists. It is an INSPECTION visit awaiting a quote: seed the job with status "inspection" (if writeJobProjection moves it to in_progress, accept that and say so).
+ 2. Finish step 3: a test that books the same slot again after a reset and succeeds (stale schedulingLocks are gone).
+ 3. Steps 6-9 of the plan (6: finish with the dispatcher change above; 7 live call row; 8 call audio route; 9 test-call button + route).
+Do NOT run scripts/setup-elevenlabs-agent.mjs --apply (the integrator does). Do not touch the migration script or the reset backup code.
+Gates at the end: npx tsc --noEmit; eslint on changed files; your tests; full npx vitest run (send.test and company/team are load-flaky — re-run alone). No next build.
+Never push, merge or touch main. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: done/not-done table with commit hashes, gates output, "Noticed, not done", and the exact setup-elevenlabs-agent command + flags the integrator must run.
+```

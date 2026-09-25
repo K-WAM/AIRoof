@@ -74,6 +74,12 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
     roof("flashing-valley-exposed", "Flashing", "Valley metal is exposed, dented, or corroded where two roof planes meet.",
       "Remove the shingles along the valley, replace or re-bed the valley metal, and relay the shingles. Keep the cuts clean and straight along the valley line.", "medium",
       [line("Valley metal", 8, "ft", 14, "material"), line("Valley repair", 3, "hr", 95, "labor")]),
+    roof("sealant-mastic-failed", "Flashing", "Old sealant or mastic around a penetration has cracked, shrunk, or pulled away from the surface.",
+      "Remove the failed sealant and clean the joint back to sound material. Apply new sealant rated for the surface and tool it so water sheds off the repair.", "medium",
+      [line("Roof sealant cartridge", 2, "each", 18, "material"), line("Sealant replacement", 2, "hr", 85, "labor")]),
+    roof("drip-edge-damaged", "Flashing", "The drip edge along the roof edge is bent, loose, or missing, leaving the edge exposed.",
+      "Remove the damaged drip edge and install a new section tight to the fascia and under the underlayment. Fasten at the recommended spacing so wind cannot lift the edge.", "medium",
+      [line("Drip edge", 10, "ft", 6, "material"), line("Drip edge installation", 2, "hr", 85, "labor")]),
 
     // ── Shingles / Tile ───────────────────────────────────────────────────
     roof("shingles-missing", "Shingles / Tile", "Several shingles are missing or have slid out of position, exposing the underlayment.",
@@ -85,9 +91,25 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
     roof("tile-cracked", "Shingles / Tile", "Concrete or clay tiles are cracked, chipped, or broken, often from foot traffic or impact.",
       "Replace the damaged tiles with matching pieces, walking on the lower edges to avoid new breakage. Re-bed any disturbed tiles and check the underlayment beneath them.", "medium",
       [line("Matching roof tile", 6, "each", 9, "material"), line("Tile replacement", 4, "hr", 95, "labor")]),
+    roof("tile-slipped-missing", "Shingles / Tile", "Tiles have slipped out of line or come loose, exposing the underlayment beneath.",
+      "Re-seat the slipped tiles and replace any that are cracked or missing with matching pieces. Check the underlayment and the fasteners on the surrounding courses before closing the job.", "medium",
+      [line("Matching roof tile", 8, "each", 9, "material"), line("Tile re-set and replacement", 3, "hr", 95, "labor")]),
     roof("shingles-granule-loss", "Shingles / Tile", "The shingle surface has lost much of its granule coating, leaving bare or thin spots.",
       "Document the extent of the granule loss and check the gutters for collected granules. Where the loss is advanced, plan the roof section for replacement rather than spot repair.", "low",
       [line("Roof condition assessment", 1, "service", 150, "labor")]),
+
+    // ── Flat Roof ─────────────────────────────────────────────────────────
+    roof("flat-membrane-blister", "Flat Roof", "The flat-roof membrane has a raised blister where it has separated from the layer below.",
+      "Open the blister, clean and dry the area, and re-adhere the membrane with the matching bonding method. Roll the repair flat and seal the edges so water cannot travel underneath.", "medium",
+      [line("Membrane bonding adhesive", 1, "each", 65, "material"), line("Blister repair", 3, "hr", 95, "labor")]),
+    roof("flat-membrane-split", "Flat Roof", "A split in the flat-roof membrane is letting water reach the layers beneath.",
+      "Clean and dry the split, then install a reinforced patch that overlaps the surrounding membrane on every side. Seal the patch edges and check nearby seams for the same wear.", "high",
+      [line("Reinforced membrane patch", 1, "each", 85, "material"), line("Membrane patch", 2, "hr", 95, "labor")]),
+
+    // ── Fascia / Soffit ───────────────────────────────────────────────────
+    roof("fascia-soffit-rot", "Fascia / Soffit", "The fascia board or soffit is soft, cracked, or peeling from water exposure and age.",
+      "Remove the rotted section, check the framing behind it, and install primed replacement material. Seal and paint the joint so water runs off the edge instead of into the wood.", "medium",
+      [line("Fascia board", 3, "each", 22, "material"), line("Fascia and soffit repair", 3, "hr", 85, "labor")]),
 
     // ── Ventilation ───────────────────────────────────────────────────────
     roof("vent-ridge-blocked", "Ventilation", "The ridge vent is blocked by debris or undersized for the attic space.",
@@ -121,6 +143,9 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
     roof("storm-tree-contact", "Storm Damage", "A tree branch rests on the roof and has scuffed the surface.",
       "Remove the branch and check the contact area for broken shingles or punctures. Trim overhanging growth back so nothing can rub the roof again.", "medium",
       [line("Branch removal and surface check", 2, "hr", 95, "labor")]),
+    roof("emergency-tarp", "Storm Damage", "A storm has opened the roof and water is entering the home.",
+      "Cover the damaged area with a secured emergency tarp to stop further water entry. Photograph the damage before the cover goes on and record the affected area for the permanent repair.", "high",
+      [line("Emergency tarp and securing", 1, "service", 550, "labor"), line("Tarp and fasteners", 1, "each", 120, "material")]),
 
     // ── Penetrations / Skylights ──────────────────────────────────────────
     roof("skylight-cracked-lens", "Penetrations / Skylights", "The skylight lens is cracked and showing moisture between the panes.",
@@ -148,6 +173,9 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
     roof("inspection-prior-repair", "Inspection Notes", "A prior repair uses mismatched materials or incorrect fastening, and is failing early.",
       "Remove the prior repair, correct the underlying surface, and redo the work with matching materials. Note the correction in the record so the same issue is not repeated.", "medium",
       [line("Repair correction", 3, "hr", 95, "labor")]),
+    roof("inspection-wind-mitigation", "Inspection Notes", "The owner's insurer wants documentation of the roof's wind-resistance features.",
+      "Photograph and record the roof covering, the roof deck attachment, the roof-to-wall connections, and the roof shape, and hand the owner the photo record. If the policy needs a signed wind mitigation form, it must come from an inspector licensed to sign it.", "low",
+      [line("Roof wind-feature documentation", 1, "service", 175, "labor")]),
   ],
 
   hvac: [
