@@ -1014,7 +1014,7 @@ an active queue.*
         `elevenlabsArchived`; rollback = `MIGRATION_ENV_FILE=<pulled env> node scripts/move-demo-line-to-elevenlabs.mjs --rollback`. **ElevenLabs calls
         now land in `demo-roofing`, not carlita.** Resume prompt: `docs/WORKER_QUEUE.md` "D1 resume" (J-1001 seed, same-slot test, steps 6-9;
         toolDispatcher.ts edit approved for sayToCaller only).
-  - D2 status 2026-09-25: first session stopped after partial Stage 1 (live refresh + request→job route; double-tap race found in review) — resume prompt
+  - D2 status 2026-09-25 (late): **Stage 1 MERGED + deployed** (atomic idempotent request->job, live refresh + Live/Ended + new-row highlights; integrator fixed 3 refresh bugs). Stage 2 (Findings<->Library, quote rework) prompt in `docs/WORKER_QUEUE.md` "D2 Stage 2"; Stages 3-4 after. Earlier note: first session stopped after partial Stage 1 (live refresh + request→job route; double-tap race found in review) — resume prompt
         in `docs/WORKER_QUEUE.md` "D2 resume" (finish Stage 1 + Stage 2, then stop for the quote review).
   - [ ] Integrator (Claude): merge D3 -> D1 Part 1 -> run the migration + redeploy + escalation phone + agent audio/pre-tool settings -> 5 scripted live
         calls -> merge D2 stages -> playbooks (`onboarding-guide.html`, `/hub/guide`, NEXT_SESSION) -> owner's 3 dry runs (plan §2 definition of demo-ready).
