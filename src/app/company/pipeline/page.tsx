@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -126,6 +126,7 @@ export default function PipelinePage() {
   // Leads state
   const [leads, setLeads] = useState<Lead[]>([]);
   const leadRows = useNewRowIds<Lead>((lead) => lead.leadId);
+  const initialLoadDone = useRef(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">(urgencyParam === "urgent" ? "urgent" : "all");
   const [leadCalling, setLeadCalling] = useState<string | null>(null);
@@ -154,7 +155,8 @@ export default function PipelinePage() {
     // T-071: server-side admin-SDK reads instead of direct client Firestore
     // queries — see the leads route for the full round-trip-time rationale.
     const base = `/api/businesses/${businessId}`;
-    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
+    // Returned so useLiveRefresh's "never overlap requests" guard actually waits for it.
+    return Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
       .then(async ([leadsRes, apptsRes]) => {
         if (!leadsRes.ok || !apptsRes.ok) throw new Error("Pipeline data request failed");
         const [{ leads: leadsData }, { appointments: apptsData }] = await Promise.all([
@@ -163,12 +165,20 @@ export default function PipelinePage() {
         ]) as [{ leads: Lead[] }, { appointments: Appointment[] }];
         setLeads(leadsData ?? []);
         leadRows.track(leadsData ?? []);
+        // The ?lead= deep link and "first lead" default apply ONLY to the first load. A background refresh must keep
+        // whichever lead the user is looking at (matched by id, so its data still updates).
+        const firstLoad = !initialLoadDone.current;
         const chosenLead = leadParam ? leadsData?.find((l) => l.leadId === leadParam) : undefined;
-        setSelectedLead(chosenLead ?? leadsData?.[0] ?? null);
+        setSelectedLead((prev) => {
+          if (firstLoad) return chosenLead ?? leadsData?.[0] ?? null;
+          return (prev && leadsData?.find((l) => l.leadId === prev.leadId)) || leadsData?.[0] || null;
+        });
         setAppointments(apptsData ?? []);
         appointmentRows.track(apptsData ?? []);
+        initialLoadDone.current = true;
       })
-      .catch(() => setLoadError(true))
+      // A failed BACKGROUND refresh keeps the data already on screen; only a failed first load shows the error state.
+      .catch(() => { if (!initialLoadDone.current) setLoadError(true); })
       .finally(() => setLoading(false));
   }, [businessId, leadParam]);
   useEffect(() => { void loadPipeline(); }, [loadPipeline]);

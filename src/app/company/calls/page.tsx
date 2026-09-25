@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -103,6 +103,7 @@ export default function CompanyCallsPage() {
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
 
+  const initialLoadDone = useRef(false);
   const loadCalls = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK read instead of a direct client Firestore
@@ -116,9 +117,16 @@ export default function CompanyCallsPage() {
         const data = calls ?? [];
         setCalls(data);
         callRows.track(data);
-        if (data.length > 0) setSelected(data[0]);
+        // First load selects the newest call. A background refresh keeps the call the user is reading (matched by id,
+        // so a Live call's transcript still updates) instead of snapping back to the top every 10 seconds.
+        const firstLoad = !initialLoadDone.current;
+        setSelected((prev) => firstLoad
+          ? data[0] ?? null
+          : (prev && data.find((c) => c.callId === prev.callId)) ?? data[0] ?? null);
+        initialLoadDone.current = true;
       })
-      .catch(() => setLoadError(true))
+      // A failed background refresh keeps what is on screen; only a failed first load shows the error state.
+      .catch(() => { if (!initialLoadDone.current) setLoadError(true); })
       .finally(() => setLoading(false));
   }, [businessId]);
   useEffect(() => { void loadCalls(); }, [loadCalls]);

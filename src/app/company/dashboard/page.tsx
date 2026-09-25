@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -89,6 +89,7 @@ export default function CompanyDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
+  const initialLoadDone = useRef(false);
   const loadDashboard = useCallback(async () => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
     if (!businessId || !modulesReady) return;
@@ -170,14 +171,16 @@ export default function CompanyDashboardPage() {
             (item) => item.status !== "delivered"
           )
         );
+        initialLoadDone.current = true;
       } catch {
-        setLoadError(true);
+        // A failed background refresh keeps the dashboard on screen; only a failed first load shows the error state.
+        if (!initialLoadDone.current) setLoadError(true);
       } finally {
         setLoading(false);
       }
     }
 
-    load();
+    return load();
   }, [businessId, modulesReady, hasJobs]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
