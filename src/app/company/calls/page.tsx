@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
-import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -91,6 +92,7 @@ export default function CompanyCallsPage() {
   const preview = searchParams?.get("preview");
 
   const [calls, setCalls] = useState<Call[]>([]);
+  const callRows = useNewRowIds<Call>((call) => call.callId);
   const [selected, setSelected] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -101,11 +103,11 @@ export default function CompanyCallsPage() {
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
 
-  useEffect(() => {
+  const loadCalls = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK read instead of a direct client Firestore
     // query — see the leads route for the full round-trip-time rationale.
-    fetch(`/api/businesses/${businessId}/calls`)
+    return fetch(`/api/businesses/${businessId}/calls`)
       .then((r) => {
         if (!r.ok) throw new Error("Calls request failed");
         return r.json();
@@ -113,17 +115,26 @@ export default function CompanyCallsPage() {
       .then(({ calls }: { calls: Call[] }) => {
         const data = calls ?? [];
         setCalls(data);
+        callRows.track(data);
         if (data.length > 0) setSelected(data[0]);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+  useEffect(() => { void loadCalls(); }, [loadCalls]);
+  useLiveRefresh(loadCalls, { intervalMs: 10_000, enabled: Boolean(businessId) });
 
   const intakeLabelFor = (key: string) => getVerticalTemplate(industry ?? "roofing").intakeFields.find((field) => field.key === key)?.label ?? key;
   async function callBack(targetPhone?: string, leadId?: string, appointmentId?: string) {
     if (!targetPhone) return;
     const response = await fetch("/api/calls/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetPhone, leadId, appointmentId }) });
     if (!response.ok) throw new Error("Callback could not be started");
+  }
+  async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
+    const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
+    if (!res.ok) throw new Error("Job creation failed");
+    const { job } = await res.json() as { job: { jobId: string } };
+    window.location.href = `/company/jobs/${job.jobId}${preview ? `?preview=${preview}` : ""}`;
   }
   async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string) {
     if (!review) return;
@@ -228,9 +239,10 @@ export default function CompanyCallsPage() {
                   const dur = callDuration(call);
                   const isOutbound = call.callType === "outbound";
                   const displayPhone = isOutbound ? (call.targetPhone ?? "Outbound") : (call.callerPhone ?? "Unknown caller");
+                  const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
                   return (
                     <article
-                      className="call-row"
+                      className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
                       key={call.callId}
                       aria-selected={selected?.callId === call.callId}
                       onClick={() => setSelected(call)}
@@ -247,6 +259,7 @@ export default function CompanyCallsPage() {
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
                           {call.outcome && <StatusChip status={call.outcome} />}
+                          {call.status === "in_progress" && <span className={active ? "badge-live" : "badge-ended"}>{active ? "Live" : "Ended"}</span>}
                           {call.isAfterHours && <StatusChip status="after_hours" />}
                           {!call.outcome && <StatusChip status={CATEGORY_STATUS[category] ?? "general"} label={category} />}
                         </div>
@@ -385,7 +398,7 @@ export default function CompanyCallsPage() {
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) { const entity = review.lead ?? review.appointment; window.location.href = buildJobPrefillUrl({ clientName: entity?.callerName ?? "", clientPhone: entity?.callerPhone ?? "", address: entity?.address ?? "", serviceType: review.lead?.serviceRequested ?? review.appointment?.serviceType ?? "", notes: entity?.notes, intake: entity?.intake, intakeFields: getVerticalTemplate(industry ?? "roofing").intakeFields, leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId, preview: preview ?? undefined }); } setReview(null); }}
+        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );

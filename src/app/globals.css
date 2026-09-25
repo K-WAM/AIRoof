@@ -2682,3 +2682,10 @@ a.metric:hover {
     grid-template-columns: 1fr !important;
   }
 }
+/* D2: live-refresh highlight */
+.row-new { animation: row-new-fade 1.8s ease-out; }
+.badge-live, .badge-ended { border-radius: 999px; font-size: 11px; font-weight: 700; padding: 2px 7px; }
+.badge-live { background: var(--accent-soft); color: var(--accent-dark); }
+.badge-ended { background: var(--surface-muted); color: var(--text-muted); }
+@keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }

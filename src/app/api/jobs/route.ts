@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
+import { nextJobId } from "@/lib/jobs/createJob";
 
 // GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
 // (session or field key)
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 // POST /api/jobs — create job
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { businessId, title, address, clientName, clientPhone, serviceType, appointmentId, notes, customerId } = body;
+  const { businessId, title, address, clientName, clientPhone, clientEmail, serviceType, appointmentId, notes, customerId } = body;
 
   if (!businessId || !title) {
     return NextResponse.json({ error: "businessId and title required" }, { status: 400 });
@@ -61,16 +62,7 @@ export async function POST(req: NextRequest) {
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   // Atomically increment job counter to produce short human-friendly ID (J-1042, J-1043, …)
-  const bizRef = db.collection("businesses").doc(businessId);
-  let counter = 1000;
-  await db.runTransaction(async (tx) => {
-    const bizSnap = await tx.get(bizRef);
-    const current: number = bizSnap.data()?.jobCounter ?? 999;
-    counter = current + 1;
-    tx.update(bizRef, { jobCounter: counter });
-  });
-
-  const jobId = `J-${counter}`;
+  const jobId = await nextJobId(db, businessId);
   const now = Date.now();
   const job: Job = {
     jobId,
@@ -80,6 +72,7 @@ export async function POST(req: NextRequest) {
     address: address ?? undefined,
     clientName: clientName ?? undefined,
     clientPhone: clientPhone ?? undefined,
+    clientEmail: clientEmail ?? undefined,
     customerId: customerId ?? undefined,
     serviceType: serviceType ?? undefined,
     appointmentId: appointmentId ?? undefined,

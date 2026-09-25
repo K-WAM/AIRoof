@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
-import { buildJobPrefillUrl } from "@/lib/pipeline/jobPrefill";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -124,6 +125,7 @@ export default function PipelinePage() {
 
   // Leads state
   const [leads, setLeads] = useState<Lead[]>([]);
+  const leadRows = useNewRowIds<Lead>((lead) => lead.leadId);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [leadFilter, setLeadFilter] = useState<"all" | "urgent" | "new" | "contacted">(urgencyParam === "urgent" ? "urgent" : "all");
   const [leadCalling, setLeadCalling] = useState<string | null>(null);
@@ -132,6 +134,7 @@ export default function PipelinePage() {
 
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
   const [apptCalling, setApptCalling] = useState<string | null>(null);
@@ -146,7 +149,7 @@ export default function PipelinePage() {
     setTimeout(() => setToast(null), 4500);
   }
 
-  useEffect(() => {
+  const loadPipeline = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK reads instead of direct client Firestore
     // queries — see the leads route for the full round-trip-time rationale.
@@ -159,13 +162,17 @@ export default function PipelinePage() {
           apptsRes.json(),
         ]) as [{ leads: Lead[] }, { appointments: Appointment[] }];
         setLeads(leadsData ?? []);
+        leadRows.track(leadsData ?? []);
         const chosenLead = leadParam ? leadsData?.find((l) => l.leadId === leadParam) : undefined;
         setSelectedLead(chosenLead ?? leadsData?.[0] ?? null);
         setAppointments(apptsData ?? []);
+        appointmentRows.track(apptsData ?? []);
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, [businessId]);
+  }, [businessId, leadParam]);
+  useEffect(() => { void loadPipeline(); }, [loadPipeline]);
+  useLiveRefresh(loadPipeline, { intervalMs: 10_000, enabled: Boolean(businessId) });
 
   // Deep link from Calendar's "Bookings" strip (?tab=appointments&appt=<id>) —
   // scroll straight to the clicked appointment instead of leaving the user to
@@ -253,35 +260,11 @@ export default function PipelinePage() {
     }
   }
 
-  function createJob(appt: Appointment) {
-    window.location.href = buildJobPrefillUrl({
-      clientName: appt.callerName ?? "",
-      clientPhone: appt.callerPhone ?? "",
-      address: appt.address ?? "",
-      serviceType: appt.serviceType ?? "",
-      notes: appt.notes ?? undefined,
-      intake: appt.intake,
-      intakeFields,
-      appointmentId: appt.appointmentId,
-      preview: preview ?? undefined,
-    });
-  }
-
-  // The Lead-side equivalent of createJob — same Jobs prefill route, same
-  // flat point-in-time snapshot of name/phone/address, plus the lead's notes
-  // and its id as the form's auto-open trigger (no appointment involved).
-  function createJobFromLead(lead: Lead) {
-    window.location.href = buildJobPrefillUrl({
-      clientName: lead.callerName ?? "",
-      clientPhone: lead.callerPhone ?? "",
-      address: lead.address ?? "",
-      serviceType: lead.serviceRequested ?? "",
-      notes: lead.notes ?? undefined,
-      intake: lead.intake,
-      intakeFields,
-      leadId: lead.leadId,
-      preview: preview ?? undefined,
-    });
+  async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
+    const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
+    if (!res.ok) throw new Error("Job creation failed");
+    const { job } = await res.json() as { job: { jobId: string } };
+    window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`;
   }
 
   async function callBackAppt(appt: Appointment) {
@@ -392,7 +375,7 @@ export default function PipelinePage() {
     return (
       <article
         id={`appt-${appt.appointmentId}`}
-        className="appt-card"
+        className={`appt-card${appointmentRows.newIds.has(appt.appointmentId) ? " row-new" : ""}`}
         style={{
           opacity: isPast ? 0.75 : 1,
           ...(isPending ? { borderLeft: "4px solid #f59e0b", background: "#fffdf7" } : {}),
@@ -467,7 +450,7 @@ export default function PipelinePage() {
             </button>
           )}
           {showJobActions && (
-            <button className="button secondary" onClick={() => createJob(appt)} style={{ fontSize: 13 }}>
+            <button className="button secondary" onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })} style={{ fontSize: 13 }}>
               Create {vocab.jobNoun}
             </button>
           )}
@@ -574,7 +557,7 @@ export default function PipelinePage() {
                   <div className="queue-list">
                     {filteredLeads.map((lead) => (
                       <article
-                        className="lead-card"
+                        className={`lead-card${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}
                         key={lead.leadId}
                         id={`lead-${lead.leadId}`}
                         aria-selected={selectedLead?.leadId === lead.leadId}
@@ -720,8 +703,8 @@ export default function PipelinePage() {
                         <button
                           className="button secondary"
                           type="button"
-                          onClick={() => createJobFromLead(selectedLead)}
-                          title={`Prefill a new ${vocab.jobNoun.toLowerCase()} with this lead's details`}
+                          onClick={() => void createJobFromRequest({ leadId: selectedLead.leadId })}
+                          title={`Create a ${vocab.jobNoun.toLowerCase()} from this confirmed request`}
                           style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
                         >
                           <FilePlus size={14} strokeWidth={1.75} />
@@ -815,7 +798,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) createJobFromLead(reviewLead); setReviewLead(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
       />
       <RequestReviewDialog
         open={!!reviewAppt}
@@ -826,7 +809,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) createJob(reviewAppt); setReviewAppt(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );

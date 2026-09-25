@@ -156,6 +156,7 @@ class FakeStore {
 
 export function makeFakeDb() {
   const store = new FakeStore();
+  let transactionTail: Promise<void> = Promise.resolve();
   const db = {
     collection(name: string) {
       return new FakeCollectionRef(store, name);
@@ -167,16 +168,22 @@ export function makeFakeDb() {
       update: (ref: FakeDocRef, data: DocData) => void;
       delete: (ref: FakeDocRef) => void;
     }) => Promise<T>): Promise<T> {
+      const previous = transactionTail;
+      let release!: () => void;
+      transactionTail = new Promise<void>((resolve) => { release = resolve; });
+      await previous;
       const writes: Array<() => void> = [];
-      const result = await fn({
-        get: (ref: FakeDocRef | FakeQuery) => ref.get(),
-        set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data, options)); },
-        create: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
-        update: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
-        delete: (ref: FakeDocRef) => { writes.push(() => store.delete(ref.path.split("/").slice(0, -1).join("/"), ref.id)); },
-      });
-      writes.forEach((w) => w());
-      return result;
+      try {
+        const result = await fn({
+          get: (ref: FakeDocRef | FakeQuery) => ref.get(),
+          set: (ref: FakeDocRef, data: DocData, options?: { merge?: boolean }) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data, options)); },
+          create: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.set(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
+          update: (ref: FakeDocRef, data: DocData) => { writes.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data)); },
+          delete: (ref: FakeDocRef) => { writes.push(() => store.delete(ref.path.split("/").slice(0, -1).join("/"), ref.id)); },
+        });
+        writes.forEach((w) => w());
+        return result;
+      } finally { release(); }
     },
     batch() {
       const ops: Array<() => void> = [];
