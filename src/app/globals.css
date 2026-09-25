@@ -1584,6 +1584,82 @@ a.metric:hover {
   gap: 12px;
 }
 
+/* Shared Pipeline/Calls request decision surface. */
+.request-review-card {
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.request-review-heading,
+.request-review-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.request-review-heading { justify-content: space-between; }
+.request-review-heading h2,
+.request-review-heading p { margin: 0; }
+.request-review-heading p { margin-top: var(--s1); color: var(--text-muted); }
+
+.request-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.request-review-grid > div,
+.request-intake > div { display: grid; gap: var(--s1); }
+.request-review-grid b,
+.request-intake dt { color: var(--text-muted); font-size: 12px; }
+
+.request-missing,
+.request-decline {
+  display: grid;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-md);
+  background: var(--c-warn-bg);
+  color: var(--c-warn-fg);
+}
+
+.request-intake {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+  margin: 0;
+}
+
+.request-intake dd { margin: 0; }
+.request-review-actions { flex-wrap: wrap; justify-content: flex-start; }
+.request-review-actions label,
+.request-decline label { display: flex; align-items: center; gap: var(--s2); }
+
+.request-decline select,
+.request-decline textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: var(--s2);
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .request-review-card { padding: var(--s4); }
+  .request-review-heading { align-items: flex-start; }
+  .request-review-grid,
+  .request-intake { grid-template-columns: 1fr; }
+  .request-review-actions > .button { width: 100%; }
+}
+
 .message {
   max-width: 82%;
   padding: 11px 12px;
