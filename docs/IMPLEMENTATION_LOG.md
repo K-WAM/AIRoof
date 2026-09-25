@@ -1386,3 +1386,10 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - src/lib/verticals/demoSeedRoofing.ts: ROOFING_WORKED_JOB (WorkedJobSeed contract, consumed by D1 step 4) = an inspection visit, EN + ES updates,
   3 h labor, findings tile-cracked + flashing-pipe-collar.
 - Gates: tsc clean; vitest src/lib/verticals + ai + jobs 162/162; Deepseek's full run 1025 passed (company/team load-flaky, passed alone).
+
+### D1 Part 1 checkpoint — 2026-09-25
+- Branch: task/demo-line. Steps 1, 2, 3 and 5 committed: 39dca9e, 2b0c4af, 3afa6ac, 1637d8c.
+- Step 4 pending D3's demoSeedRoofing.ts; git merge main was already up to date at 76a2042.
+- Evidence: migration defaults to dry run and was not executed; launch makes no provider request; reset keeps allowlist, isDemo, lock and backup while clearing nested and stale demo data; Studio uses the ElevenLabs line.
+- Gates: tsc noEmit passed; changed-file eslint 0 errors, 1 image warning; focused tests 21 passed; full vitest 127 files, 1019 passed and 1 expected fail.
+- Removals: replaced the two-line Demo Studio/runbook and removed obsolete provider-push status copy.
