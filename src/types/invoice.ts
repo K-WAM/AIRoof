@@ -58,6 +58,10 @@ export interface JobInvoice {
   // presentational: materialSubtotal is still computed from the real lines below, which are
   // always stored and always shown in the app itself.
   hideMaterials: boolean;
+  hideLabor?: boolean;
+  showTechnicians?: boolean;
+  technicians?: string[];
+  narrative?: string;
   logoId?: string | null; // null = business.logoUrl; undefined = no logo. Logo library not shipped yet (T-092 follow-up).
   notes?: string;
   taxRate: number;

@@ -79,6 +79,7 @@ export interface BusinessConfig {
   brandColor?: string;
   logoUrl?: string | null;
   contactPhone?: string;
+  licenseNumber?: string;
   contactEmail?: string;
   websiteUrl?: string;
   active: boolean;
