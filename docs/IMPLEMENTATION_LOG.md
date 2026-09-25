@@ -1375,3 +1375,14 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - The production client sends JSON/base64, not multipart. A multipart `NextRequest` probe is intentionally `it.fails`: the route calls `req.json()` and does not currently support multipart. This is recorded only; no production code was changed.
 - Smoke report step 6 is now pass and its superseded human-only field-audio integration-test item was removed. No files removed and no dependencies added.
 - Gates: `npx.cmd tsc --noEmit --incremental false` clean (plain `--noEmit` could not overwrite the sandbox-owned `tsconfig.tsbuildinfo`); `npx.cmd eslint src/e2e/field-audio.test.ts` clean; focused test 6 passed + 1 expected failure; full `npx.cmd vitest run` 1,018 passed + 1 expected failure with the documented `example-lib` and `company/team` load timeouts, both clean in isolated rerun (18/18).
+
+## 2026-09-25 — D3 / T-132 South Florida roofing content (Deepseek V4 Flash, integrator-reviewed)
+- Commits f963e81 (template), 94b35bc (catalog), 7568149 (seed), 3abc104 (test) + an integrator fix commit; merged to main.
+- Roofing template: 8 services (inspection, leak, tile, flat, replacement, emergency tarping, storm damage inspection, gutter), 6 spoken-friendly FAQs
+  (roof types, insurance documentation without coverage advice, storm prep/tarping, wind-mitigation/four-point = "team decides or refers a licensed
+  inspector", inspection length, permits), 3 new emergency rules (active leak in rain, exposed deck, tree on roof). No license/code/price claims.
+- Starter catalog: +8 roofing items (slipped/missing tile, flat membrane blister + split, fascia/soffit rot, failed sealant, drip edge, emergency tarp,
+  wind-feature documentation); existing itemIds unchanged.
+- src/lib/verticals/demoSeedRoofing.ts: ROOFING_WORKED_JOB (WorkedJobSeed contract, consumed by D1 step 4) = an inspection visit, EN + ES updates,
+  3 h labor, findings tile-cracked + flashing-pipe-collar.
+- Gates: tsc clean; vitest src/lib/verticals + ai + jobs 162/162; Deepseek's full run 1025 passed (company/team load-flaky, passed alone).
