@@ -13,6 +13,8 @@ import { computeTotals, canSendInvoice } from "./jobInvoice";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
+import { draftNarrative, pairReportPhotos, reportGroups, reportTotal } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
 import { QuotePanel } from "./QuotePanel";
 import { reportFindings } from "@/lib/jobs/findings";
@@ -50,7 +52,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 // Phase 12, Phase 3 — report photo grid. Raised 8 → 16 (2 pages @ 8/page).
-const MAX_REPORT_PHOTOS = 16;
+const MAX_REPORT_PHOTOS = 12;
 const PHASE_ORDER: PhotoPhase[] = ["before", "after", "other"];
 
 type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
@@ -184,6 +186,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reportNotes, setReportNotes] = useState("");
   const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string; phase?: PhotoPhase }>>([]);
+  const [reportOptions, setReportOptions] = useState<Partial<DocumentOptions>>({});
+  const [reportTechnicians, setReportTechnicians] = useState<string[]>([]);
   const [showReportSend, setShowReportSend] = useState(false);
   const [reportTo, setReportTo] = useState("");
   const [reportSending, setReportSending] = useState(false);
@@ -259,7 +263,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // ledger for legacy jobs that predate job.parsed. buildProjection merges duplicate
   // materials by name, so the "2×4s 50 / 50 / 150" duplication is gone.
   const projection: ParsedUpdate = job?.parsed ?? buildProjection(updates);
-  const allParsed = [projection];
   const view = editParsed ?? projection;
   const timeline = view.timeline;
   const materials = view.materials;
@@ -431,6 +434,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setReport("ready");
     setActiveTab("report");
     setReportNotes(job?.reportNotes ?? "");
+    setReportOptions(job?.reportOptions ?? {});
+    setReportTechnicians(job?.reportTechnicians ?? []);
     // Load full-res blobs for the photos marked include-in-report (≤ 8 → 2 pages).
     let metas = photos;
     if (!photosLoaded) {
@@ -494,14 +499,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }
   }
 
-  async function saveReportNotes() {
+  async function saveReportNotes(nextOptions = reportOptions, nextTechnicians = reportTechnicians, nextNotes = reportNotes) {
     if (!businessId) return;
     await fetch(`/api/jobs/${jobId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, reportNotes }),
+      body: JSON.stringify({ businessId, reportNotes: nextNotes, reportOptions: nextOptions, reportTechnicians: nextTechnicians }),
     }).catch(() => {});
-    setJob((j) => (j ? { ...j, reportNotes } : j));
+    setJob((j) => (j ? { ...j, reportNotes: nextNotes, reportOptions: nextOptions, reportTechnicians: nextTechnicians } : j));
+  }
+
+  function draftReportNarrative() {
+    const next = draftNarrative(job?.parsed);
+    if (!next || (reportNotes.trim() && !confirm("Replace the current scope and resolution notes with the job draft?"))) return;
+    setReportNotes(next);
   }
 
   async function mailReport() {
@@ -1678,6 +1689,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </button>
               </div>
 
+              <div className="no-print" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                <Toggle checked={reportOptions.hideMaterials === true} onChange={(hideMaterials) => { const next = { ...reportOptions, hideMaterials }; setReportOptions(next); void saveReportNotes(next); }} label="Hide materials" size="sm" />
+                <span style={{ fontSize: 13 }}>Hide materials</span>
+                <Toggle checked={reportOptions.hideLabor === true} onChange={(hideLabor) => { const next = { ...reportOptions, hideLabor }; setReportOptions(next); void saveReportNotes(next); }} label="Hide labor details" size="sm" />
+                <span style={{ fontSize: 13 }}>Hide labor details</span>
+                <Toggle checked={reportOptions.showTechnicians === true} onChange={(showTechnicians) => { const next = { ...reportOptions, showTechnicians }; setReportOptions(next); void saveReportNotes(next); }} label="Show technicians" size="sm" />
+                <span style={{ fontSize: 13 }}>Show technicians</span>
+              </div>
+
               {/* Mail panel — automation prepares the report; a human presses send */}
               {showReportSend && (
                 <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
@@ -1701,10 +1721,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               {/* Scope & Resolution notes — admin-edited, persisted, included in the report */}
               <div style={{ marginBottom: 16 }} className="no-print">
                 <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
-                <textarea value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={saveReportNotes} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+                <textarea value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+                <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>
+                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
               </div>
 
-              <ReportRenderer report={report} job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} allParsed={allParsed} reportNotes={reportNotes} reportPhotos={reportPhotos} />
+              <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} />
             </div>
           )}
         </div>
@@ -1912,8 +1934,58 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
   );
 }
 
-// ── Professional branded report renderer ────────────────────────────────────────
-function ReportRenderer({
+/** Shared customer-copy renderer used by the screen and print/PDF twin. */
+function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos }: {
+  job: Job;
+  jobId: string;
+  businessConfig: BusinessConfig | null;
+  logos: LibraryLogo[];
+  reportNotes: string;
+  reportOptions: Partial<DocumentOptions>;
+  reportTechnicians: string[];
+  reportPhotos: ReportPhoto[];
+}) {
+  const options = normalizeDocumentOptions(reportOptions);
+  const groups = reportGroups(job.parsed, businessConfig?.laborRate?.defaultHourlyRate ?? 65, options);
+  const brand = resolveLetterhead(businessConfig ?? {}, logos);
+  const meta: [string, string][] = [["Date", new Date().toLocaleDateString("en-US")], ["Reference", jobId]];
+  if (job.address) meta.push(["Service at", job.address]);
+  if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
+  const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
+  const photoGroups = options.showPhotos ? pairReportPhotos(reportPhotos) : { pairs: [], other: [] };
+  return <>
+    <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
+      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={reportNotes}
+      findings={findings} groups={groups} totalLabel="Estimated total" total={reportTotal(groups)} />
+    {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
+      <ReportSection title="Photo documentation">
+        {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+          {photoGroups.pairs.flatMap((pair, index) => [
+            <ReportPhotoCard key={`problem-${index}`} title="Problem" photo={pair.before} />,
+            <ReportPhotoCard key={`corrective-${index}`} title="Corrective action" photo={pair.after} />,
+          ])}
+        </div>}
+        {photoGroups.other.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: photoGroups.pairs.length ? 16 : 0 }}>{photoGroups.other.map((photo, index) => <ReportPhotoCard key={index} title="Photo documentation" photo={photo} />)}</div>}
+      </ReportSection>
+    </section>}
+  </>;
+}
+
+function ReportPhotoCard({ title, photo }: { title: string; photo?: ReportPhoto }) {
+  if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ border: "1px dashed #cbd5e1", borderRadius: 8, minHeight: 120, padding: 12, color: "#64748b", fontSize: 12 }}>{title}: no photo recorded</div>;
+  return <figure style={{ margin: 0 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 5 }}>{title}</div>
+    {/* Full-resolution report photos are data URIs and cannot be optimized by next/image. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={`data:image/jpeg;base64,${photo.fullB64}`} alt={photo.label} style={{ width: "100%", maxHeight: 360, objectFit: "contain", border: "1px solid #e2e8f0", borderRadius: 8 }} />
+    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
+  </figure>;
+}
+
+// Legacy detailed renderer retained temporarily while report documents migrate; ReportDocument above
+// is the sole customer-copy renderer.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _ReportRenderer({
   job, jobId, businessConfig, logos, allParsed, reportNotes, reportPhotos,
 }: {
   report: string;

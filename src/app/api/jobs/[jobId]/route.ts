@@ -5,8 +5,17 @@ import { parsedToFieldLog } from "@/lib/jobs/projection";
 import type { Job, ParsedUpdate } from "@/types/jobs";
 import { validFindings } from "@/lib/jobs/findings";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import type { DocumentOptions } from "@/types/documentOptions";
+import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 
 const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced", "complete"];
+
+function validReportOptions(value: unknown): value is Partial<DocumentOptions> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, flag]) =>
+    ["hideMaterials", "hideLabor", "showPhotos", "showTechnicians"].includes(key) && typeof flag === "boolean"
+  );
+}
 
 // GET /api/jobs/[jobId]?businessId=xxx — fetch a single job (session or field key)
 export async function GET(
@@ -41,8 +50,9 @@ export async function PATCH(
 ) {
   const { jobId } = await params;
   const body = await req.json();
-  const { businessId, status, parsed, reportNotes, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId } = body as {
+  const { businessId, status, parsed, reportNotes, reportOptions, reportTechnicians, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId } = body as {
     businessId?: string; status?: string; parsed?: ParsedUpdate; reportNotes?: string;
+    reportOptions?: Partial<DocumentOptions>; reportTechnicians?: string[];
     findings?: unknown;
     assignedCrewId?: string | null; scheduledStart?: number | null; scheduledEnd?: number | null; crewConfirmed?: boolean;
     customerId?: string | null;
@@ -52,6 +62,9 @@ export async function PATCH(
   if (status && !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
+  if (reportNotes !== undefined && !validNarrative(reportNotes)) return NextResponse.json({ error: "Invalid report notes" }, { status: 400 });
+  if (reportOptions !== undefined && !validReportOptions(reportOptions)) return NextResponse.json({ error: "Invalid report options" }, { status: 400 });
+  if (reportTechnicians !== undefined && !validTechnicians(reportTechnicians)) return NextResponse.json({ error: "Invalid report technicians" }, { status: 400 });
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
@@ -70,6 +83,8 @@ export async function PATCH(
   const update: Record<string, unknown> = { updatedAt: Date.now() };
   if (status) update.status = status;
   if (reportNotes !== undefined) update.reportNotes = reportNotes;
+  if (reportOptions !== undefined) update.reportOptions = reportOptions;
+  if (reportTechnicians !== undefined) update.reportTechnicians = reportTechnicians;
   if (findings !== undefined) update.findings = findings;
   if (assignedCrewId !== undefined) update.assignedCrewId = assignedCrewId;
   if (scheduledStart !== undefined) update.scheduledStart = scheduledStart;

@@ -1349,3 +1349,12 @@ field-key-gated `/field` capture surface and receive no new management navigatio
 - Worker stopped on its usage limit with uncommitted work; integrator committed it, then verified: tsc clean, eslint 0 errors, vitest 1002/1002 (2 known load-flaky tests passed on re-run), next build passed.
 - Email rules preserved: invoice/quote send routes pass fromName/replyTo and return 502 (not marked sent) on failed delivery.
 - Not verified: a real emailed invoice/quote received in an inbox; Report is still T-107b.
+
+## T-107b — Report suite on the shared document layer
+
+- Branch: task/report-suite (worktree D:/Apps/air-wt-report). Added a shared report customer-copy model with truthful labor/material subtotals, persisted report options and technicians, and deterministic narrative drafting.
+- The in-app and print/PDF report now use resolveLetterhead + DocumentPreview; emailed reports use the shared letterhead/email blocks and preserve fromName/replyTo plus failed-delivery 502 behavior.
+- Report photos remain governed by includeInReport; established before/after metadata is rendered as paired Problem / Corrective action columns. Email selection is capped at 12 full-resolution photos to remain below approximately 15 MB under the existing photo-size cap.
+- Tests cover every hide-materials/hide-labor combination, total preservation, hidden detail exclusion, deterministic narratives, photo pairing, and report route validation/persistence. No files removed; no dependencies added.
+- Evidence: npm.cmd run type-check passed; npm.cmd run lint completed with 0 errors / 33 existing warnings; npx.cmd vitest run passed 125 files / 1,011 tests; npm.cmd run build completed and produced .next/BUILD_ID.
+- Mobile: customer-copy layout uses the shared responsive DocumentPreview padding and two-column photo grid; no live authenticated browser session was available to capture a 375px screenshot.

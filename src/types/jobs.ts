@@ -1,4 +1,5 @@
 import type { JobFinding } from "./workCatalog";
+import type { DocumentOptions } from "./documentOptions";
 
 export interface InvoiceLineItem {
   description: string;
@@ -124,6 +125,9 @@ export interface Job {
   parsed?: ParsedUpdate;
   // Free-text scope/resolution narrative for the report (admin-edited)
   reportNotes?: string;
+  // Customer-copy report controls. Missing fields retain DocumentOptions defaults.
+  reportOptions?: Partial<DocumentOptions>;
+  reportTechnicians?: string[];
   // Crew scheduling (Phase 5)
   assignedCrewId?: string;
   scheduledStart?: number;
