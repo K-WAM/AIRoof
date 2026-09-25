@@ -1,47 +1,47 @@
-# NEXT_SESSION.md — start here (written end of 2026-09-24)
+# NEXT_SESSION.md — start here (written end of 2026-09-25)
 
 ## Where we are in one paragraph
-Vapi (+1 754 283 7658) is still the wired demo line. In parallel, **ElevenLabs is wired end-to-end on a separate test business**
-(`carlita-elevenlabs-test`, saved, Active, provider = ElevenLabs): agent `agent_0101m3a5z9qxenybnpjsragg7dvt` ("Alice — Roofing (voice test)"),
-Twilio number **+1 689 204 2643** (`phnum_0801m3aknbref2w9tbhqc6ad3xzb`, Twilio is on TRIAL — callers hear a trial message until you Upgrade),
-7 booking tools attached, per-call overrides ON, initiation webhook set, tool secret + API key in Vercel prod + `.env.local`. **Not yet done:** the
-post-call webhook (transcripts back into the app) and the first real test call. Direction (owner): move from Vapi to ElevenLabs tenant by tenant (T-117).
+`main` is pushed and deployed at `https://crm.luxordev.com` (health: Firestore connected, all providers configured, Stripe not). The whole customer story is BUILT and unit-tested
+(call books -> request in Pipeline -> Review request card: confirm/decline -> job -> field updates EN/ES -> report, quote, invoice with one shared letterhead/logo), but **only the first link
+(a real ElevenLabs call booking an appointment) has ever been proven live, and nobody has run the full chain end to end** — that is the next session's job (T-124 smoke test, then the
+owner's live run-through NH-26). Email is fixed: prod `RESEND_FROM` = `Luxor CRM <crm@luxordev.com>`, business-name sender, replies to the business, logos/photos inline, failed sends no longer
+marked "sent". Reports carry NO pricing (owner decision). Vapi (+1 754 283 7658) is still the any-industry demo line; ElevenLabs (+1 689 204 2643, tenant `carlita-elevenlabs-test`) is roofing-only.
+Firebase stays on Spark by owner decision (no Blaze yet). Full task list: `TODO.md` Phase 23 (T-122..T-128) + NEEDS-HUMAN NH-24..NH-28.
 
 ## First 15 minutes
-0. **DONE 2026-09-24 (after this doc was first written): the post-call webhook exists, the secret is in Vercel prod, and prod was redeployed — skip step 1. The FIRST REAL TEST CALL WAS DONE (2026-09-24): initiation, checkAvailability, bookAppointment and post-call all returned 200, appointment ID issued, ~$0.16 for 2 min. Next: verify it shows in the Pipeline (Admin -> Clients -> Preview `carlita-elevenlabs-test`), then Twilio Upgrade and the T-118 prompt fixes (AI read the ID letter-by-letter; ~7 s dead air before tools).**
-1. ~~Post-call webhook (owner, click-by-click was given in chat):~~ ElevenLabs -> create webhook `https://ai-roof.vercel.app/api/webhooks/elevenlabs/post-call`
-   (HMAC; transcript + call-failure events) -> copy the signing secret ONCE -> put it in `.env.local` as `ELEVENLABS_WEBHOOK_SECRET=` -> tell Claude
-   "webhook secret saved" -> Claude pushes it to Vercel (`vercel env add ... production --sensitive`, from the file, never printed) and redeploys.
-2. **First test call** to +1 689 204 2643 (expect the Twilio trial message, then "Roofus" — the app-generated persona for the roofing template, NOT the hand-written
-   Alice prompt: with overrides ON the app's prompt/greeting win). Claude then reads the conversation via the ElevenLabs MCP and checks Pipeline / Calls.
-3. Compare feel: app-generated prompt vs the dashboard Alice prompt (T-118 ports the human style + Spanish invitation into the app prompt).
+1. `git status` / `git log --oneline -8` (expect main == origin/main). `curl https://crm.luxordev.com/api/health`.
+2. **Hand Codex the smoke-test prompt (T-124) — paste-ready, model Terra medium:**
+```
+Read D:/Apps/6 - AI Receptionist/docs/WORKER_QUEUE.md and follow section "C5" exactly.
+Create the worktree: cd "D:/Apps/6 - AI Receptionist" && git worktree add ../air-wt-smoke -b task/e2e-smoke main
+Junction node_modules like the other worktrees; verify toplevel and branch before your first edit.
+Do not change production code to make the test pass. Do not push or merge to main. Commit every ~45 minutes.
+```
+   When it reports: read `docs/SMOKE-REPORT.md`, fix every failed step (small = you, live-call-path = Codex Sol medium), merge, push.
+3. Deepseek: nothing queued. If it must be used: T-127 cleanup is Terra-low territory (dead `_ReportRenderer`, worktree removal) — give it to whoever is free.
+
+## Owner's list (details: `TODO.md` NEEDS-HUMAN and `docs/NEEDS-HUMAN-CHECKLIST.md`)
+- **NH-24 rotate the Firebase service-account key** (it was printed into a session transcript) + mark `RESEND_API_KEY` Sensitive in Vercel.
+- **NH-25** open the "[Test] Luxor CRM email deliverability check" email -> Show original -> dkim/spf/dmarc = pass, inbox not spam.
+- **NH-26 live run-through** (15 min): call the ElevenLabs line and book -> `/company/calls?preview=carlita-elevenlabs-test` -> Pipeline -> Review card confirm + create job -> Field QR on a phone (English + Spanish) ->
+  Report / Quote / Invoice, email each to yourself. Report must show no prices.
+- **NH-27** before selling: Vercel plan (Hobby forbids commercial use), Twilio Upgrade (NH-21), legal docs, recording wording (NH-4/NH-22). Firebase stays on Spark for now.
+- Still open from before: NH-1 Vapi audit, NH-8 real-device tests, NH-17 (crm domain is live; only Firebase Authorized-domain for Google sign-in unconfirmed), NH-18 Care Homes/Daycares safety calls, press **Apply** on Admin -> Clients -> Sync live phone assistants.
+
+## Known gaps (honest list)
+- ElevenLabs calls have **no recording** (transcript + summary only) and the test tenant has no escalation phone (T-125). The existing call `call_elevenlabs_conv_2` has no `startedAt` (invisible in Calls; new calls are fine — unverified until the next call).
+- T-118 prompt fixes still open: AI reads appointment IDs letter-by-letter; ~7 s dead air before tools. T-119 config declutter done.
+- Spanish phone voice (NH-15/16), gpt-realtime turn-taking (do not retry via Vapi), billing (T-126, held), photos on Spark (T-128, held).
 
 ## Tooling facts (do not re-derive)
-- **ElevenLabs MCP** is registered at user scope with the **US** URL: `claude mcp add --scope user --transport http elevenlabs https://api.us.elevenlabs.io/v1/mcp`
-  (the global URL fails the OAuth resource check for a US-region account). Re-auth via `/mcp` if it drops. Tools: `mcp__elevenlabs__agents_*` (deferred; load with ToolSearch).
-- **Key/secrets:** `.env.local` (gitignored) holds `ELEVENLABS_API_KEY`, `ELEVENLABS_TOOL_SECRET`, `NEXT_PUBLIC_APP_URL`; Vercel prod has the first two (sensitive). The key
-  is restricted (ElevenAgents write, Voices read, Models/User read, 5000-credit cap; NO Webhooks permission — that is why the post-call webhook is a dashboard step).
-- **Setup script:** `node scripts/setup-elevenlabs-agent.mjs --apply --agent-id <id>` (dry run without `--apply`) — already applied to Alice.
-- **Vercel CLI works** (`vercel env ls|add`, `vercel logs --environment production --since 30m --level error --expand`) — use logs to diagnose 500s.
-- Removing a worktree: UNLINK the `node_modules` junction first (`[System.IO.Directory]::Delete(path,$false)`), then `git worktree remove`.
-- Lint ignores `.kilo/**` (another tool parks repo copies there).
-
-## Build queue (see docs/WORKER_QUEUE.md for paste-ready prompts)
-| Item | Who / model | State |
-|---|---|---|
-| T-113 request review + decline | Codex A, Terra medium | mostly built on `task/request-review` (worktree `air-wt-request-review`); needs route-level + UI tests, gates, log — continuation prompt in WORKER_QUEUE "A2b" |
-| T-107a documents (invoice/quote, hide labor, logo everywhere) | next free Codex, Sol medium | queued; worktree `air-wt-documents-core`; prompt B2 |
-| T-119 declutter admin config form | Deepseek V4 Flash Think High | logged, no worktree/prompt yet |
-| T-118 human style + Spanish invite in app prompt | Codex Terra medium | logged |
-| T-115 widget on /try | Codex Terra medium | logged (touches CSP), after demo agent choice |
-| T-107b report, T-109 email intake, T-106 bilingual line, T-112 rest | later | in TODO.md |
-| T-117 Vapi -> ElevenLabs migration P1..P4 | Claude + owner | P0 done; P1 = parity calls |
-
-## Owner's list (docs/NEEDS-HUMAN-CHECKLIST.md)
-NH-23 post-call webhook + secret (above) · NH-21 Twilio: click **Upgrade** before any prospect demo; consider a 561 (Boca) number after upgrading · NH-22 ElevenLabs retention/recording
-policy (currently unlimited retention, recording on) · NH-4 recording wording with counsel · NH-1 Vapi audit · NH-3 Resend domain · NH-8 real-device tests ·
-NH-17 crm domain · NH-18 Care Homes/Daycares safety calls · press **Apply** on Admin -> Clients -> Sync live phone assistants · escalation phone + notification email on the test business.
+- **Vercel CLI:** `vercel env add NAME production --value '...' --no-sensitive --yes --non-interactive </dev/null` (without `--no-sensitive` it defaults to Sensitive and `env pull` returns `""`; without `--value` + `</dev/null` it hangs). `vercel redeploy <url> --no-wait`. Logs: `vercel logs --environment production --since 12h --no-follow --query "elevenlabs"`.
+- **Never print a secret**: parse `FIREBASE_SERVICE_ACCOUNT_JSON` from a pulled env file with the dotenv-style `\n` handling and never let an exception echo the source line (that is how the key leaked). Delete pulled env files immediately.
+- **ElevenLabs MCP** is registered at user scope with the US URL (`https://api.us.elevenlabs.io/v1/mcp`); re-auth via `/mcp`. Setup script: `node scripts/setup-elevenlabs-agent.mjs --apply --agent-id <id>`.
+- Files in this repo are mostly CRLF: multi-line Python/sed replacements need `\r\n`. `docs/IMPLEMENTATION_LOG.md` has odd bytes: append with a shell `cat >>` / `printf >>`, never a patch tool.
+- Removing a worktree: unlink the `node_modules` junction first (`[System.IO.Directory]::Delete(path,$false)`), then `git worktree remove`. Lint ignores `.kilo/**`.
+- Full `vitest run` has two load-flaky tests (`send.test`, `company/team`) — re-run them alone before believing a failure.
+- Worker prompts live in `docs/WORKER_QUEUE.md` (sections A/B/C). Every prompt needs the abs worktree path + `git worktree add` command and a suggested model + effort.
 
 ## Repo state
-`main` is pushed and CI green as of the last commit of the session. Worktrees: `air-wt-request-review`, `air-wt-documents-core` (+ a stray `.kilo` one that is not ours).
-Production health: `elevenlabs: configured`, `vapi: configured`, `stripe: not_configured`.
+`main` pushed. Worktrees still on disk (safe to remove, T-127): `air-wt-request-review`, `air-wt-documents-core`, `air-wt-report` (all merged), plus a stray `.kilo` one that is not ours. `air-wt-smoke` appears when Codex starts C5.
+Local uncommitted: only `.claude/settings.local.json` (ignore).
