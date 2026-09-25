@@ -126,6 +126,7 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
     expect(call?.elevenLabsConversationId).toBe("conv_1");
     expect(call?.providerIds).toEqual({ elevenLabsConversationId: "conv_1" });
     expect(call?.appointmentIds).toEqual(["appt_1"]);
+    expect(call?.recordingUrl).toBe("/api/calls/call_elevenlabs_conv_1/audio?businessId=biz_1");
     expect(call?.summary).toBe("Caller requested a roof inspection.");
     expect(call?.durationSecs).toBe(45);
     // The calls list orders by startedAt; a doc without it never shows up (regression: "my call is missing").

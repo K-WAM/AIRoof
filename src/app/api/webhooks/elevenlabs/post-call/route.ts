@@ -201,6 +201,7 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
     messages,
     summary,
     durationSecs,
+    recordingUrl: `/api/calls/${encodeURIComponent(callId)}/audio?businessId=${encodeURIComponent(businessId)}`,
     ...(reportedStartTimeSecs !== undefined ? { startedAt: reportedStartTimeSecs * 1000 } : {}),
     providerFields: {
       elevenLabsConversationId: conversationId,
