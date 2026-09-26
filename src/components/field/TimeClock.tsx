@@ -46,7 +46,7 @@ export function TimeClock({
   const refresh = useCallback(() => {
     if (!businessId) return;
     setLoading(true);
-    const params = new URLSearchParams({ businessId, ...(workerName.trim() ? { workerName: workerName.trim() } : {}) });
+    const params = new URLSearchParams({ businessId, ...(jobId ? { jobId } : {}), ...(workerName.trim() ? { workerName: workerName.trim() } : {}) });
     fetch(`/api/timeclock/punch?${params}`)
       .then(async (r) => {
         if (!r.ok) {
@@ -61,7 +61,7 @@ export function TimeClock({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load time clock"))
       .finally(() => setLoading(false));
-  }, [businessId, workerName]);
+  }, [businessId, jobId, workerName]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -76,7 +76,9 @@ export function TimeClock({
         body: JSON.stringify({
           businessId,
           type,
-          jobId: jobId || undefined,
+          jobId: type === "site_in" ? jobId || undefined :
+            (day.state === "site" || day.state === "site_break") && type !== "office_out"
+              ? day.openJobId : undefined,
           workerName: workerName.trim() || undefined,
           closeOpen: opts.closeOpen,
         }),

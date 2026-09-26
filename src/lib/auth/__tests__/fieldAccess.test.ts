@@ -204,6 +204,35 @@ describe("scoped field access tokens", () => {
     ))).toBe(200);
   });
 
+  it("refuses a job-pinned grant for a different time-clock job", async () => {
+    const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
+    const session = await consumeFieldExchangeToken(grant.token);
+    const token = session.ok ? session.token : "";
+    expect(statusOf(await verifyFieldAccess(
+      request(`/api/timeclock/punch?businessId=${BUSINESS_ID}`, token),
+      BUSINESS_ID,
+      { jobId: "J-200" },
+    ))).toBe(403);
+  });
+
+  it("refuses a time-clock grant for a different business or after expiry", async () => {
+    const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
+    const session = await consumeFieldExchangeToken(grant.token);
+    const token = session.ok ? session.token : "";
+    const req = request(`/api/timeclock/punch?businessId=${BUSINESS_ID}`, token);
+    expect(statusOf(await verifyFieldAccess(req, "other", { jobId: "J-100" }))).toBe(403);
+    vi.setSystemTime(NOW.getTime() + FIELD_SESSION_TTL_MS + 1);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { jobId: "J-100" }))).toBe(401);
+  });
+
+  it("allows a job-pinned grant to punch its own job or an office shift", async () => {
+    const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
+    const session = await consumeFieldExchangeToken(grant.token);
+    const req = request(`/api/timeclock/punch?businessId=${BUSINESS_ID}`, session.ok ? session.token : "");
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { jobId: "J-100" }))).toBe(200);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { allowOfficePunch: true }))).toBe(200);
+  });
+
   it("prevents a field session from crossing business boundaries", async () => {
     const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY);
     const session = await consumeFieldExchangeToken(grant.token);

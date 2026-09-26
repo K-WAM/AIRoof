@@ -529,7 +529,8 @@ export async function verifySuperadmin(
  */
 export async function verifyFieldAccess(
   req: NextRequest,
-  businessId: string
+  businessId: string,
+  options?: { jobId?: string; allowOfficePunch?: boolean },
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   if (!businessId) {
     return { error: NextResponse.json({ error: "businessId required" }, { status: 400 }) };
@@ -553,8 +554,8 @@ export async function verifyFieldAccess(
       return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
     }
 
-    const requestedJobId = requestJobId(req);
-    if (parsed.claims.jobId && requestedJobId !== parsed.claims.jobId) {
+    const requestedJobId = options?.jobId ?? requestJobId(req);
+    if (parsed.claims.jobId && requestedJobId !== parsed.claims.jobId && !options?.allowOfficePunch) {
       return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
     }
 
