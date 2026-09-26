@@ -2561,21 +2561,36 @@ a.metric:hover {
    primitive. New surfaces (PhotoEditSheet, and Phase 5's future time editor)
    should use this instead of hand-rolling another one — same relationship
    .modal-overlay/.modal-box already have to Modal.tsx. */
+/* The grey baseline is an INSET shadow, not a border, so the active tab's 2px accent underline paints over it INSIDE the box.
+   (The old trick — a -2px margin on each tab over the container's border — made the tabs overflow the box by 2px; combined
+   with overflow-x it produced the stray vertical scrollbar arrow, and overflow-y:hidden then clipped the underline.) */
 .job-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 20px;
-  border-bottom: 2px solid var(--border);
+  box-shadow: inset 0 -2px 0 var(--border);
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
 }
-.job-tab { min-height: 44px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; margin-bottom: -2px; background: none; color: var(--text-muted); cursor: pointer; padding: 8px 12px; font-size: 13px; }
+.job-tab { min-height: 44px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); cursor: pointer; padding: 8px 12px; font-size: 13px; }
 .job-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
 .job-tabs-divider { align-self: stretch; width: 1px; min-width: 1px; margin: 6px 4px; background: var(--border); }
 .job-tab-workflow { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
 .job-tab-workflow.current { box-shadow: inset 0 0 0 2px var(--accent); }
 .job-tab-workflow small { font-size: 10px; color: var(--accent); }
+
+/* Job page: one-line "this document is locked" heads-up on the record tabs. */
+.lock-note { margin: 0 0 12px; padding: 8px 12px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 5%, transparent); font-size: 13px; color: var(--text-muted); }
+.lock-note p { margin: 0; }
+.lock-note p + p { margin-top: 2px; }
+
+/* Findings: what the crew reported (each row has one action) and the numbered finding cards. */
+.crew-issues { border: 1px solid var(--accent); border-radius: 10px; padding: 12px; }
+.crew-issue-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.finding-card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.finding-card-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.finding-number { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; }
 
 .sheet-backdrop {
   position: fixed;
@@ -2598,7 +2613,9 @@ a.metric:hover {
   max-height: min(88dvh, calc(100dvh - 24px));
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* auto, not hidden: a sheet WITHOUT a .sheet-list (PhotoEditSheet, forms) must still scroll when it is taller than the
+     screen. A sheet WITH one keeps its title/search fixed and scrolls only the list (min-height:0 lets it shrink). */
+  overflow-y: auto;
 }
 
 .sheet-handle {

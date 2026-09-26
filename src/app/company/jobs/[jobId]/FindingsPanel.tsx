@@ -6,6 +6,7 @@ import type { JobFinding, WorkCatalogItem } from "@/types/workCatalog";
 import { copyCatalogFinding } from "@/lib/jobs/findings";
 import { suggestFindings } from "@/lib/jobs/suggestFindings";
 import { customFinding } from "@/lib/billing/quoteItems";
+import { normalizeName } from "@/lib/format/name";
 import { workBullet } from "@/lib/documents/workSummary";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
 import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
@@ -79,11 +80,36 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
   }, [findings, dirty]);
 
   const onJobIds = useMemo(() => new Set(findings.flatMap((f) => (f.itemId ? [f.itemId] : []))), [findings]);
-  const suggestions = useMemo(() => suggestFindings({ ...job, findings }, catalog.items), [job, findings, catalog.items]);
-  const issueFor = (item: WorkCatalogItem) => {
-    const words = new Set(`${item.category} ${item.problem}`.toLocaleLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2));
-    return (job.parsed?.issues ?? []).find((issue) => issue.description.toLocaleLowerCase().split(/[^a-z0-9]+/).some((w) => words.has(w)))?.description;
-  };
+
+  // "Reported by crew": the problems the AI pulled out of the crew's field notes (job.parsed.issues), each with the ONE
+  // action that turns it into a finding — the best Library match when there is one, otherwise a one-off. A finding can't
+  // carry a back-link to its issue (the server stores a fixed set of fields), so "Added" is worked out from what is on the
+  // job: the matched Library item is there, or a finding says the same thing.
+  const crewIssues = job.parsed?.issues ?? [];
+  const crewRows = useMemo(() => {
+    const parsed = job.parsed;
+    if (!parsed) return [];
+    const said = (text: string) => normalizeName(text).replace(/\s+/g, " ");
+    return parsed.issues.map((issue) => {
+      // findings: [] so a match is still found once its item is already on the job (that is how "Added" is known).
+      const match = suggestFindings({ ...job, findings: [], parsed: { ...parsed, issues: [issue] } }, catalog.items)[0];
+      const same = findings.some((f) => said(f.problem) === said(issue.description) || (issue.description.length >= 12 && said(f.problem).includes(said(issue.description))));
+      return { issue, match, added: match ? onJobIds.has(match.itemId) || same : same };
+    });
+  }, [job, findings, catalog.items, onJobIds]);
+
+  function addFromIssue(row: (typeof crewRows)[number]) {
+    if (row.added) return;
+    if (row.match) { addCatalogItem(row.match); return; }
+    change([...findings, {
+      ...customFinding({
+        problem: row.issue.description.slice(0, 1000),
+        solution: (row.issue.resolution ?? "").slice(0, 2000),
+        category: "Reported by crew",
+      }),
+      severity: row.issue.severity,
+    }]);
+  }
 
   const addCatalogItem = (item: WorkCatalogItem) => {
     if (onJobIds.has(item.itemId)) return;
@@ -131,19 +157,25 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
           What was found on this job. Each finding brings its standard fix and price into the quote and the report, and is saved as a snapshot of the Library wording.
         </p>
 
-        {suggestions.length > 0 && (
-          <div style={{ border: "1px solid var(--accent)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
-            <strong>From the field notes</strong>
-            {suggestions.map((item) => (
-              <div key={item.itemId} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-                <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                  {issueFor(item) && <><small style={{ color: "var(--text-muted)" }}>&ldquo;{issueFor(item)}&rdquo;</small><br /></>}
-                  <strong>{item.problem}</strong>
-                </span>
-                <button className="button small" type="button" onClick={() => addCatalogItem(item)}>＋ Add</button>
-              </div>
-            ))}
-          </div>
+        {crewIssues.length > 0 && (
+          <section className="crew-issues" aria-labelledby="crew-issues-title">
+            <h3 id="crew-issues-title" style={{ fontSize: 14, margin: 0 }}>Reported by crew ({crewIssues.length})</h3>
+            <p style={{ margin: "2px 0 8px", fontSize: 13, color: "var(--text-muted)" }}>What the crew said in their field notes. Add the ones that belong on the quote and report.</p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {crewRows.map((row, index) => (
+                <div key={index} className="crew-issue-row">
+                  <span className={row.issue.severity === "high" ? "tag urgent" : "tag"} style={{ flex: "0 0 auto", textTransform: "capitalize" }}>{row.issue.severity}</span>
+                  <span style={{ minWidth: 0, flex: "1 1 200px", overflowWrap: "anywhere" }}>
+                    {row.issue.description}
+                    {row.match && !row.added && <><br /><small style={{ color: "var(--text-muted)" }}>Library: {row.match.problem}</small></>}
+                  </span>
+                  {row.added
+                    ? <span style={{ flex: "0 0 auto", fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>Added ✓</span>
+                    : <button className="button small" type="button" onClick={() => addFromIssue(row)}>{row.match ? "＋ Add Library fix" : "＋ Add as finding"}</button>}
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         <div>
@@ -154,34 +186,38 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
         </div>
 
         {findings.length > 0 ? (
-          <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: 16 }}>
             <h3 style={{ fontSize: 14, margin: 0 }}>On this job ({findings.length})</h3>
-            {findings.map((f) => (
-              <div key={f.findingId} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <strong style={{ fontSize: 15 }}>{workBullet(f) || f.category}</strong>
+            {/* Numbered, with a tinted header band, so it is obvious where one finding ends and the next begins. */}
+            {findings.map((f, index) => (
+              <article key={f.findingId} className="finding-card" aria-label={`Finding ${index + 1}`}>
+                <header className="finding-card-head">
+                  <span className="finding-number" aria-hidden="true">{index + 1}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ fontSize: 15, overflowWrap: "anywhere" }}>{workBullet(f) || f.category}</strong>
                     <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{f.category}</div>
                   </div>
                   <button className="button small" type="button" onClick={() => change(findings.filter((v) => v.findingId !== f.findingId))}>Remove</button>
+                </header>
+                <div style={{ display: "grid", gap: 8, padding: 12 }}>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Issue
+                    <textarea aria-label="Finding problem" value={f.problem} maxLength={1000} rows={2} style={{ width: "100%", display: "block" }}
+                      onChange={(e) => patch(f.findingId, { problem: e.target.value })} />
+                  </label>
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Work
+                    <textarea aria-label="Finding solution" value={f.solution} maxLength={2000} rows={2} style={{ width: "100%", display: "block" }}
+                      onChange={(e) => patch(f.findingId, { solution: e.target.value })} />
+                  </label>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                    <label><input type="checkbox" checked={f.includeInReport} onChange={(e) => patch(f.findingId, { includeInReport: e.target.checked })} /> In report</label>
+                    <label><input type="checkbox" checked={f.includeInQuote} onChange={(e) => patch(f.findingId, { includeInQuote: e.target.checked })} /> In quote</label>
+                  </div>
                 </div>
-                <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Issue
-                  <textarea aria-label="Finding problem" value={f.problem} maxLength={1000} rows={2} style={{ width: "100%", display: "block" }}
-                    onChange={(e) => patch(f.findingId, { problem: e.target.value })} />
-                </label>
-                <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Work
-                  <textarea aria-label="Finding solution" value={f.solution} maxLength={2000} rows={2} style={{ width: "100%", display: "block" }}
-                    onChange={(e) => patch(f.findingId, { solution: e.target.value })} />
-                </label>
-                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <label><input type="checkbox" checked={f.includeInReport} onChange={(e) => patch(f.findingId, { includeInReport: e.target.checked })} /> In report</label>
-                  <label><input type="checkbox" checked={f.includeInQuote} onChange={(e) => patch(f.findingId, { includeInQuote: e.target.checked })} /> In quote</label>
-                </div>
-              </div>
+              </article>
             ))}
           </div>
         ) : (
-          <p style={{ margin: 0 }}>No findings yet. Add one from the Library, or from a suggestion once the technician reports an issue.</p>
+          <p style={{ margin: 0 }}>No findings yet. Add one from the Library, or from what the crew reported once they submit a field note.</p>
         )}
 
         <details>

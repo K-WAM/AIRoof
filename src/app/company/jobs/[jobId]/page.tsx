@@ -26,6 +26,8 @@ import { DocumentOptionToggles } from "@/components/documents/DocumentOptionTogg
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
+import { NextStepButton } from "./NextStepButton";
+import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -141,7 +143,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
   const [pageQuote, setPageQuote] = useState<JobQuote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -200,7 +202,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Report state
   const [report, setReport] = useState<string | null>(null);
-  const [reportError] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reportNotes, setReportNotes] = useState("");
   const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string; phase?: PhotoPhase }>>([]);
@@ -257,6 +258,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }, [businessId, jobId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // The quote's and the invoice's STATUS are needed on every tab (the numbered tab labels, the "locked" notes), not just when
+  // their own tab is open, so read a light summary once when the job loads. The full documents still load in their own tabs.
+  const summaryJobId = job?.jobId;
+  const summaryInvoiceId = job?.invoiceId;
+  useEffect(() => {
+    if (!businessId || !summaryJobId) return;
+    let live = true;
+    fetch(`/api/jobs/${encodeURIComponent(summaryJobId)}/quote?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { quote?: JobQuote | null } | null) => { if (live && d?.quote) setPageQuote((current) => current ?? d.quote ?? null); })
+      .catch(() => {});
+    if (summaryInvoiceId) {
+      fetch(`/api/jobs/${encodeURIComponent(summaryJobId)}/invoice?businessId=${encodeURIComponent(businessId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { invoice?: JobInvoice | null } | null) => {
+          const inv = d?.invoice;
+          if (!live || !inv) return;
+          // Never overwrite what the Invoice tab already loaded or the office just changed (sent / paid).
+          setInvoiceStatus((current) => current ?? inv.status);
+          setInvoiceMeta((current) => (current.sentAt || current.paidAt ? current : { sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt }));
+        })
+        .catch(() => {});
+    }
+    return () => { live = false; };
+  }, [businessId, summaryJobId, summaryInvoiceId]);
 
   // Picks up a material price added via the global quick-add (including from
   // this exact page's own "No price on file" prompt) without a full reload.
@@ -315,7 +342,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const timeline = view.timeline;
   const materials = view.materials;
   const labor = view.labor;
-  const issues = view.issues;
   const editing = editParsed !== null;
   // Live view while a technician works: poll ONE document (the job) every 5 s and pull the updates/photos only when
   // the job actually changed. The old version re-ran the full load (5 fetches) each time — fine for a demo, a real
@@ -778,7 +804,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // Order follows the work: what happened (Timeline, Photos, Issues), what we found and quote (Findings, Quote), the detail
   // behind the numbers (Materials, Labor), then the customer documents (Report, Invoice).
   const TABS = [
-    { id: "timeline", label: `Activity (${updates.length + timeline.length})` },
+    { id: "timeline", label: `Activity (${updates.length})` },
     { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
@@ -799,6 +825,28 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <ArrowLeft size={14} strokeWidth={1.75} />
         Back to Jobs
       </a>
+    </div>
+  );
+
+  const editBar = (
+    <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+      {!editing ? (
+        <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={startEdit} disabled={updates.length === 0 && !job?.parsed}>
+          <Pencil size={13} strokeWidth={1.75} />
+          Edit
+        </button>
+      ) : (
+        <>
+          <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={cancelEdit} disabled={savingEdit}>
+            <X size={13} strokeWidth={1.75} />
+            Cancel
+          </button>
+          <button className="button primary" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={saveEdit} disabled={savingEdit}>
+            <Save size={13} strokeWidth={1.75} />
+            {savingEdit ? "Saving…" : "Save changes"}
+          </button>
+        </>
+      )}
     </div>
   );
 
@@ -907,14 +955,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <QrCode size={15} strokeWidth={1.75} />
             Field QR
           </button>
-          <button className="button" onClick={generateReport} disabled={generatingInvoice || (updates.length === 0 && !job.findings?.some((f) => f.includeInReport))} title={updates.length === 0 && !job.findings?.some((f) => f.includeInReport) ? "Add a field update or report finding first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <FileText size={15} strokeWidth={1.75} />
-            Generate Report
-          </button>
-          <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice || (updates.length === 0 && !job.findings?.length)} title={updates.length === 0 && !job.findings?.length ? "Add a field update or finding first" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Receipt size={15} strokeWidth={1.75} />
-            {generatingInvoice ? "Generating…" : "Generate Invoice"}
-          </button>
+          {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
+          <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />
         </div>
       </header>
 
@@ -949,12 +991,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <p role="alert" className="no-print" style={{ margin: "-8px 0 12px", color: "#b91c1c", fontSize: 13 }}>{statusError}</p>
       )}
 
-      {(reportError || invoiceError) && (
-        <div style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 12, color: "#b91c1c", fontSize: 13 }} className="no-print">
-          {reportError || invoiceError}
-        </div>
-      )}
-
       {/* Tab bar */}
       <div className="job-tabs no-print">
         {TABS.map((tab) => (
@@ -964,41 +1000,51 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         ))}
         <span className="job-tabs-divider" aria-hidden="true" />
         {WORKFLOW_TABS.map((tab) => {
-          const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft" ? (pageQuote.status === "accepted" ? "Accepted" : "Sent") : null;
+          const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft"
+            ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
+            : null;
           return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
             <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
       </div>
 
-      {/* Edit / Save / Cancel — data tabs only */}
-      {["timeline", "materials", "labor"].includes(activeTab) && (
-        <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
-          {!editing ? (
-            <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={startEdit} disabled={updates.length === 0 && !job?.parsed}>
-              <Pencil size={13} strokeWidth={1.75} />
-              Edit
-            </button>
-          ) : (
-            <>
-              <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={cancelEdit} disabled={savingEdit}>
-                <X size={13} strokeWidth={1.75} />
-                Cancel
-              </button>
-              <button className="button primary" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={saveEdit} disabled={savingEdit}>
-                <Save size={13} strokeWidth={1.75} />
-                {savingEdit ? "Saving…" : "Save changes"}
-              </button>
-            </>
-          )}
-        </div>
+      {/* Edit / Save / Cancel — Materials and Labor (on Activity it sits right above the work log instead) */}
+      {["materials", "labor"].includes(activeTab) && editBar}
+
+      {/* ── Activity: field updates, then the work log, then the job history — all newest first ── */}
+      {activeTab === "timeline" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
+      {activeTab === "timeline" && (
+        <section className="panel no-print" style={{ marginBottom: 16 }}>
+          <div className="panel-header">
+            <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <ClipboardList size={16} strokeWidth={1.75} />
+              Field updates ({updates.length})
+            </h2>
+            <a className="button" href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <ExternalLink size={13} strokeWidth={1.75} />
+              Submit update
+            </a>
+          </div>
+          <div className="panel-body">
+            {updates.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 14 }}>No field updates yet. Send your foreman the field link to submit voice or text updates.</p>
+            ) : (
+              <div style={{ display: "grid", gap: 14 }}>
+                {/* The API is chronological; the newest note goes on top, and keeps its own number ("Update 3"). */}
+                {[...updates].reverse().map((u, i) => (
+                  <ParsedUpdateCard key={u.updateId} update={u} index={updates.length - 1 - i} onRetry={retryParse} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* ── Timeline ── */}
-      {activeTab === "timeline" && <JobHistory businessId={businessId!} jobId={jobId} version={job.updatedAt} />}
-
+      {activeTab === "timeline" && editBar}
       {activeTab === "timeline" && (
-        <section className="panel">
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-header"><h2 className="panel-title">Work log</h2></div>
           <div className="panel-body">
             {timeline.length === 0 ? (
               <div style={{ color: "#888", fontSize: 14 }}>
@@ -1024,9 +1070,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               </div>
             ) : (
               <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
-                {timeline.map((t, i) => (
-                  <li key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <span style={{ minWidth: 24, height: 24, borderRadius: "50%", background: "#e0e7ff", color: "#3730a3", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                {/* Newest first; the number stays the event's place in the day's order, so the top one reads "5 of 5". Editing keeps
+                    the stored (chronological) order, because its handlers address entries by index. */}
+                {[...timeline].reverse().map((t, i) => (
+                  <li key={timeline.length - 1 - i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ minWidth: 24, height: 24, borderRadius: "50%", background: "#e0e7ff", color: "#3730a3", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{timeline.length - i}</span>
                     <div>
                       {(t.time || (timelineMultiDay && t.dateMs)) && (
                         <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, display: "block" }}>
@@ -1045,7 +1093,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </section>
       )}
 
+      {activeTab === "timeline" && <JobHistory businessId={businessId!} jobId={jobId} version={job.updatedAt} />}
+
       {/* ── Materials ── */}
+      {activeTab === "materials" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "materials" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
@@ -1103,6 +1154,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* ── Labor ── */}
+      {activeTab === "labor" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "labor" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
@@ -1162,49 +1214,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </section>
       )}
 
-      {/* ── Issues ── */}
-      {activeTab === "issues" && (
-        <section className="panel">
-          <div className="panel-body">
-            {issues.length === 0 && !editing ? (
-              <div style={{ color: "#888", fontSize: 14 }}>
-                <p style={{ margin: "0 0 8px" }}>No issues extracted yet.</p>
-                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  Submit a field update
-                </a>
-              </div>
-            ) : editing ? (
-              <div style={{ display: "grid", gap: 8 }}>
-                {issues.map((issue, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 12px", borderRadius: 8, background: SEVERITY_COLOR[issue.severity] + "10", borderLeft: `3px solid ${SEVERITY_COLOR[issue.severity]}` }}>
-                    <select value={issue.severity} onChange={(e) => mutate(p => { p.issues[i].severity = e.target.value as "low" | "medium" | "high"; })} style={{ fontSize: 12, padding: "2px 6px", borderRadius: 6, border: "1px solid #e2e8f0" }}>
-                      <option value="low">low</option>
-                      <option value="medium">medium</option>
-                      <option value="high">high</option>
-                    </select>
-                    <InlineInput value={issue.description} onChange={(v) => mutate(p => { p.issues[i].description = v; })} placeholder="Issue description" />
-                    <button className="no-print" onClick={() => mutate(p => { p.issues.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
-                  </div>
-                ))}
-                <button className="no-print" onClick={() => mutate(p => { p.issues.push({ description: "", severity: "medium" }); })} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <Plus size={13} strokeWidth={1.75} />
-                  Add issue
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 12 }}>
-                {issues.map((issue, i) => (
-                  <div key={i} style={{ padding: "12px 16px", borderRadius: 8, background: SEVERITY_COLOR[issue.severity] + "10", borderLeft: `3px solid ${SEVERITY_COLOR[issue.severity]}` }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: SEVERITY_COLOR[issue.severity], textTransform: "uppercase", letterSpacing: "0.05em" }}>{issue.severity}</span>
-                    <p style={{ margin: "4px 0 0", fontSize: 14 }}>{issue.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+      {/* The crew's reported issues now live in Findings ("Reported by crew"), where each one becomes a finding. */}
 
       {/* ── Photos ── */}
       {activeTab === "photos" && (
@@ -1345,6 +1355,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
+      {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
@@ -1357,18 +1368,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <p className="no-print" style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>
             Email the invoice to your customer or print it. There is no online payment yet, so press Mark paid once they pay.
           </p>
+          {invoiceError && (
+            <div role="alert" className="no-print" style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 12, color: "#b91c1c", fontSize: 13 }}>
+              {invoiceError}
+            </div>
+          )}
           {!invoiceReady ? (
             <section className="panel">
               <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
                 <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>
                   {updates.length === 0 && !job.findings?.length
                     ? "Add a field update or finding first."
-                    : "Click Generate Invoice to build a draft from field data."}
+                    : "No invoice yet. Create a draft from this job's field notes and findings; you review it before anything is sent."}
                 </p>
                 {(updates.length > 0 || !!job.findings?.length) && (
                   <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Receipt size={15} strokeWidth={1.75} />
-                    {generatingInvoice ? "Building…" : "Generate Invoice"}
+                    {generatingInvoice ? "Creating…" : "Create invoice"}
                   </button>
                 )}
               </div>
@@ -1875,30 +1891,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
-      {/* Field updates — parsed summary cards */}
-      <section className="panel no-print" style={{ marginTop: 20 }}>
-        <div className="panel-header">
-          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <ClipboardList size={16} strokeWidth={1.75} />
-            Field Updates ({updates.length})
-          </h2>
-          <a className="button" href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <ExternalLink size={13} strokeWidth={1.75} />
-            Submit update
-          </a>
-        </div>
-        <div className="panel-body">
-          {updates.length === 0 ? (
-            <p style={{ color: "#888", fontSize: 14 }}>No field updates yet. Send your foreman the field link to submit voice or text updates.</p>
-          ) : (
-            <div style={{ display: "grid", gap: 14 }}>
-              {updates.map((u, i) => (
-                <ParsedUpdateCard key={u.updateId} update={u} index={i} onRetry={retryParse} />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
     </>
   );
 }

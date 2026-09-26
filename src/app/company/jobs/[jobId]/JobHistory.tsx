@@ -4,15 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useFormat } from "@/hooks/useFormat";
 import type { HistoryEvent } from "@/lib/jobs/history";
 
+/** How many of the latest events show before "Show all" — the recent trail is what people scan for. */
+const RECENT = 5;
+
 /**
- * Read-only "Job history" — the chronological audit trail (call -> job -> arrival -> field updates -> photos ->
- * findings -> quote -> invoice). Derived server-side from the job's own records; refetched only when the job changes
- * (`version` is job.updatedAt), so it costs nothing while nothing is happening.
+ * Read-only "Job history" — the audit trail (call -> job -> arrival -> field updates -> photos -> findings -> quote ->
+ * invoice), newest first so what just happened is at the top. Derived server-side from the job's own records (the API
+ * stays chronological; it is reversed here); refetched only when the job changes (`version` is job.updatedAt), so it costs
+ * nothing while nothing is happening.
  */
 export function JobHistory({ businessId, jobId, version }: { businessId: string; jobId: string; version: number }) {
   const { fmtDay, fmtTime } = useFormat();
   const [events, setEvents] = useState<HistoryEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -24,15 +29,18 @@ export function JobHistory({ businessId, jobId, version }: { businessId: string;
     return () => { live = false; };
   }, [businessId, jobId, version]);
 
+  const newestFirst = useMemo(() => [...(events ?? [])].reverse(), [events]);
+  const visible = showAll ? newestFirst : newestFirst.slice(0, RECENT);
+
   const days = useMemo(() => {
     const out: Array<{ day: string; events: HistoryEvent[] }> = [];
-    for (const event of events ?? []) {
+    for (const event of visible) {
       const day = fmtDay(event.at);
       const last = out[out.length - 1];
       if (last && last.day === day) last.events.push(event); else out.push({ day, events: [event] });
     }
     return out;
-  }, [events, fmtDay]);
+  }, [visible, fmtDay]);
 
   return (
     <section className="panel no-print" style={{ marginBottom: 16 }} aria-labelledby="job-history-title">
@@ -58,6 +66,11 @@ export function JobHistory({ businessId, jobId, version }: { businessId: string;
             </ol>
           </div>
         ))}
+        {events && events.length > RECENT && (
+          <button type="button" className="button small" onClick={() => setShowAll((all) => !all)}>
+            {showAll ? "Show only the latest" : `Show all ${events.length}`}
+          </button>
+        )}
       </div>
     </section>
   );
