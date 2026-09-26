@@ -12,7 +12,7 @@ import {
   getOperation,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
-import type { Firestore } from "firebase-admin/firestore";
+import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
 
@@ -61,6 +61,25 @@ export function isSlotBusy(
     entry.status !== "cancelled" &&
     scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
   );
+}
+
+/** Release only locks still owned by this appointment; old bookings may have no locks. */
+export async function releaseAppointmentLocks(
+  transaction: Transaction,
+  businessRef: DocumentReference,
+  appointmentId: string,
+  startTime: number,
+  endTime: number,
+  assignedCrewId?: string | null
+): Promise<void> {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) return;
+  const refs = scheduleBucketStarts(startTime, endTime).map((bucket) =>
+    businessRef.collection("schedulingLocks").doc(scheduleLockId(scheduleResourceKey(assignedCrewId), bucket))
+  );
+  const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+  snapshots.forEach((snapshot, index) => {
+    if (snapshot.data()?.entityId === appointmentId) transaction.delete(refs[index]);
+  });
 }
 
 export type { NotificationDeliveryState };
@@ -1260,6 +1279,8 @@ export async function cancelAppointment(input: CancelAppointmentInput): Promise<
     ) {
       throw new Error("The verified appointment is no longer available to cancel.");
     }
+
+    await releaseAppointmentLocks(transaction, businessRef, candidate.appointmentId, Number(appointment.startTime), Number(appointment.endTime), appointment.assignedCrewId);
 
     transaction.update(appointmentRef, {
       status: "cancelled",
