@@ -553,7 +553,7 @@ Model names as they appear in the owner's pickers (2026-09-26): Codex **GPT-6 So
 | 1 | E3 Job page restructure (numbered tabs, newest-first Activity, Issues -> Findings, picker sheet fix) | **Integrator (Claude)** — Codex B stopped partway; its commits are kept | `D:/Apps/air-wt-job-page` / `task/job-page` | **DONE, merged to local main 2026-09-26** (worktree can be removed) |
 | 1 | E4 AI-PROVIDERS.md, Florida notices DRAFT memo + legalNotices.ts, seeded call transcripts | Deepseek V4.1 Flash, Thinking: Hard | `D:/Apps/air-wt-docs-legal` / `task/docs-legal` | **DONE, merged to local main 2026-09-26** |
 | 2 | E2 Scheduling truth, list order, jobs paging + CSV, classify fallback | **Codex B**, GPT-6 Sol, medium (moved from A: disjoint files) | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` | ready — start now |
-| 2 | E5 Documents: invoice wording, report fixes, Include quote, Terms & notices | Codex B, GPT-6 Sol, medium | `D:/Apps/air-wt-documents-2` / `task/documents-2` | **unblocked (E3 + E4 merged)** — next free Codex |
+| 2 | E5 Documents: invoice wording, report fixes, Include quote, Terms & notices | Codex B, GPT-6 Sol, medium | `D:/Apps/air-wt-documents-2` / `task/documents-2` | **DONE 2026-09-26 — merged** (Codex steps 1–3, integrator finished notices UI/settings) |
 | 3a | E6a Photo pairs + drag-and-drop Photos tab + photoPages() (disjoint from E5) | Codex (free one), GPT-5.5 Terra, medium | `D:/Apps/air-wt-photos` / `task/photo-dnd` | ready — @dnd-kit/sortable installed on main |
 | 3b | E6b Photos on quote/invoice/report + server-side loading for email | Codex, GPT-5.5 Terra, medium | `D:/Apps/air-wt-doc-photos` / `task/doc-photos` | after E5 + E6a merge |
 
