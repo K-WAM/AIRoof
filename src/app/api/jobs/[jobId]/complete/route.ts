@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyFieldAccess } from "@/lib/auth/verifyRole";
+import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import type { Job, JobStatusChange } from "@/types/jobs";
 
-// "Work complete" tap on the field screens.
-//  - Runs under verifyFieldAccess, which pins a field grant to the job id in the URL path: one job, one action.
+// Office-only completion action.
 //  - Idempotent: a second tap (or a job already complete/invoiced) changes nothing and reports it.
 //  - Never moves a job BACKWARDS: an invoiced job stays invoiced.
 //  - Arrival/departure are NOT here — they are the time-clock punches (site_in / site_out).
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest, { params }: Context): Promise<Respo
   const { businessId } = body;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

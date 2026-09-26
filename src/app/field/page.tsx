@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
-import { WorkCompleteButton } from "@/components/field/WorkCompleteButton";
 import { TimeClock } from "@/components/field/TimeClock";
 import { InstallPrompt } from "@/components/field/InstallPrompt";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
@@ -462,15 +461,6 @@ function FieldApp() {
             businessId={businessId}
             disabled={isBusy}
             onAdded={(problem) => flashSaved(`Finding added: ${problem}`)}
-          />
-
-          {/* Close the job out — two taps on purpose */}
-          <WorkCompleteButton
-            businessId={businessId}
-            jobId={selectedJobId || null}
-            workerName={workerName}
-            disabled={isBusy}
-            onCompleted={() => flashSaved("Job marked complete")}
           />
 
           {error && (

@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb, type FakeDb } from "@/test-utils/fakeFirestore";
 
-const mocks = vi.hoisted(() => ({ grantJob: "J-1000" as string | null }));
+const mocks = vi.hoisted(() => ({ role: "owner" as "owner" | "staff" | "viewer" | "field", businessId: "biz" }));
 vi.mock("@/lib/auth/verifyRole", () => ({
-  // Same contract as the real verifyFieldAccess: a field grant is pinned to one business and one job (URL path).
-  verifyFieldAccess: async (request: NextRequest, businessId: string) => {
-    if (businessId !== "biz") return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
-    const jobInPath = request.nextUrl.pathname.split("/")[3];
-    if (mocks.grantJob && jobInPath !== mocks.grantJob) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  verifyAuthAndRole: async (request: NextRequest, businessId: string, roles: string[]) => {
     if (!request.headers.get("x-test-auth")) return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
-    return { user: { uid: "field-token", role: "viewer" } };
+    if (businessId !== mocks.businessId || !roles.includes(mocks.role)) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return { user: { uid: "office-1", role: mocks.role } };
   },
 }));
 let db: FakeDb;
@@ -27,13 +24,21 @@ const job = (id: string) => db.__peek("businesses/biz/jobs", id)! as { status: s
 
 beforeEach(() => {
   db = makeFakeDb();
-  mocks.grantJob = "J-1000";
+  mocks.role = "owner";
+  mocks.businessId = "biz";
   db.__seed("businesses", "biz", { industry: "roofing" });
   db.__seed("businesses/biz/jobs", "J-1000", { jobId: "J-1000", status: "in_progress" });
   db.__seed("businesses/biz/jobs", "J-2000", { jobId: "J-2000", status: "in_progress" });
 });
 
 describe("POST /api/jobs/[jobId]/complete", () => {
+  it("refuses field grants and logged-in viewers before reading or changing the job", async () => {
+    mocks.role = "field";
+    expect((await call("J-1000")).status).toBe(403);
+    mocks.role = "viewer";
+    expect((await call("J-1000")).status).toBe(403);
+    expect(job("J-1000").status).toBe("in_progress");
+  });
   it("marks the job complete, stamps completedAt, and appends to the status history with the worker's name", async () => {
     const res = await call("J-1000", { businessId: "biz", completedBy: "Marco" });
     expect(await res.json()).toMatchObject({ ok: true, status: "complete", changed: true });
@@ -56,16 +61,13 @@ describe("POST /api/jobs/[jobId]/complete", () => {
     expect(job("J-1000").status).toBe("invoiced");
   });
 
-  it("a grant for one job cannot complete another; wrong business / no auth are refused", async () => {
-    expect((await call("J-2000")).status).toBe(403);
-    expect(job("J-2000").status).toBe("in_progress");
+  it("wrong business / no auth are refused", async () => {
     expect((await call("J-1000", { businessId: "other" })).status).toBe(403);
     expect((await call("J-1000", { businessId: "biz" }, false)).status).toBe(401);
     expect(job("J-1000").status).toBe("in_progress");
   });
 
   it("404s an unknown job, 400s a missing businessId, refuses businesses without the Jobs module", async () => {
-    mocks.grantJob = null;
     expect((await call("J-9999")).status).toBe(404);
     expect((await call("J-1000", {})).status).toBe(400);
     db.__seed("businesses", "biz", { industry: "dental" });
