@@ -49,6 +49,10 @@ export interface JobInvoice {
   issuedAt?: number;
   dueAt?: number;
   terms?: string;
+  opening?: string;
+  closing?: string;
+  thankYou?: string;
+  poNumber?: string;
   labor: InvoiceLaborLine[];
   materials: InvoiceMaterialLine[];
   other: InvoiceOtherLine[];

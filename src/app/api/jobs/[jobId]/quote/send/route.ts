@@ -5,6 +5,7 @@ import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobQuote } from "@/types/quote";
 import type { Job } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
@@ -42,10 +43,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const letterhead = resolveLetterhead(biz, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? []);
   const businessName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!businessName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
+  // Terms & notices print only once the owner has approved the wording; statutory ones only for a residential job over the threshold.
+  const notices = noticesForDocument({ doc: "quote", total: quote.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName, licenseNumber: biz.licenseNumber } });
   const html = buildQuoteEmailHtml(quote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
-  });
+  }, notices);
   const sent = await sendEmail({
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftNarrative, draftReportNotes, pairReportPhotos, reportSections } from "./report";
+import { draftNarrative, draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "./report";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 
 const parsed = {
@@ -48,6 +48,47 @@ describe("report document helpers", () => {
   }
 });
 
+// The owner's demo: "Description of work" still said "Site visit: Kevin. Materials used: ladders (6 pieces), 2×4s (300 pieces)."
+// after Hide materials / Hide labor were ticked, because the saved notes were never re-filtered.
+describe("stripHiddenFacts", () => {
+  const notes = "Service: Cracked shingle repair at 317 West Riverbend Drive. Site visit: Kevin on site 8:00 AM–4:00 PM (7.5 h). Materials used: 0.5 in plywood (4 sheets), ladders (6 pieces), 2×4s (300 pieces). Homeowner asked us to re-check the flashing.";
+
+  it("removes the generated materials sentence — decimals and all — and keeps everything else", () => {
+    const out = stripHiddenFacts(notes, { hideMaterials: true });
+    expect(out).not.toMatch(/Materials used|plywood|ladders|2×4s/);
+    expect(out).toContain("Site visit: Kevin");
+    expect(out).toContain("Homeowner asked us to re-check the flashing.");
+  });
+
+  it("removes the generated site-visit sentence when labor is hidden, decimals in the hours included", () => {
+    const out = stripHiddenFacts(notes, { hideLabor: true });
+    expect(out).not.toMatch(/Site visit|Kevin|7\.5/);
+    expect(out).toContain("Materials used: 0.5 in plywood");
+    expect(out).toContain("Service: Cracked shingle repair");
+  });
+
+  it("removes both, and leaves the office's own paragraphs and line breaks exactly as typed", () => {
+    const typed = "Service: Roof repair.\n\nSite visit: Marco (3 h).\nMaterials used: tile (6 each).\n\nThe customer wants photos of the ridge.";
+    expect(stripHiddenFacts(typed, { hideLabor: true, hideMaterials: true })).toBe("Service: Roof repair.\n\nThe customer wants photos of the ridge.");
+  });
+
+  it("is a no-op when nothing is hidden (the text comes back untouched)", () => {
+    expect(stripHiddenFacts(notes)).toBe(notes);
+    expect(stripHiddenFacts(notes, { hideLabor: false, hideMaterials: false })).toBe(notes);
+    expect(stripHiddenFacts("", { hideMaterials: true })).toBe("");
+  });
+
+  it("does not eat later free text just because it also mentions the label", () => {
+    const out = stripHiddenFacts("Materials used: tile. Then we discussed Materials used: nothing else was billed.", { hideMaterials: true });
+    expect(out).toContain("Then we discussed");
+  });
+
+  it("a fresh draft never includes the site-visit or materials sentences at all (the sections already carry them)", () => {
+    const text = draftReportNotes({ serviceType: "Roof inspection", parsed: { timeline: [], materials: [{ item: "Tile", quantity: "6" }], labor: [{ description: "Marco", hours: 3 }], issues: [], invoiceSuggestions: [] } });
+    expect(text).toBe("Service: Roof inspection.");
+  });
+});
+
 describe("draftReportNotes", () => {
   const visit = {
     serviceType: "Roof inspection", address: "1420 Palm Way",
@@ -60,13 +101,13 @@ describe("draftReportNotes", () => {
     },
   };
 
-  it("drafts service, site visit, issues, work notes and materials from what was recorded", () => {
+  it("drafts service, issues and work notes — the Labor and Materials sections carry the crew and the materials", () => {
     const text = draftReportNotes(visit);
     expect(text).toContain("Service: Roof inspection at 1420 Palm Way.");
-    expect(text).toContain("Site visit: Marco on site 8:00 AM–11:00 AM (3 h).");
     expect(text).toContain("Issues identified: Six cracked tiles..".replace("..", "."));
     expect(text).toContain("Work notes: Walked the south slope and checked the vent.");
-    expect(text).toContain("Materials used: Roof tile (6 each).");
+    // Repeating them here is what made "Hide materials" leak: the same facts sat in the saved text AND in their own section.
+    expect(text).not.toMatch(/Site visit|Marco|Materials used|Roof tile/);
   });
 
   it("never contains a price, rate or dollar sign", () => {

@@ -18,6 +18,11 @@ export interface DocumentOptions {
   hideLabor: boolean;
   showPhotos: boolean;
   showTechnicians: boolean;
+  /**
+   * REPORT only, and opt-in: add the job's sent/accepted quote (scope + prices) to the report. Off by default — a report is
+   * otherwise price-free (owner decision 2026-09-25). The quote's own hide flags are honoured too (see reportQuote.ts).
+   */
+  includeQuote: boolean;
 }
 
 export const DEFAULT_DOCUMENT_OPTIONS: DocumentOptions = {
@@ -25,6 +30,7 @@ export const DEFAULT_DOCUMENT_OPTIONS: DocumentOptions = {
   hideLabor: false,
   showPhotos: true,
   showTechnicians: false,
+  includeQuote: false,
 };
 
 export function normalizeDocumentOptions(raw?: Partial<DocumentOptions> | null): DocumentOptions {
@@ -33,5 +39,6 @@ export function normalizeDocumentOptions(raw?: Partial<DocumentOptions> | null):
     hideLabor: raw?.hideLabor === true,
     showPhotos: raw?.showPhotos === undefined ? DEFAULT_DOCUMENT_OPTIONS.showPhotos : raw.showPhotos === true,
     showTechnicians: raw?.showTechnicians === true,
+    includeQuote: raw?.includeQuote === true,
   };
 }

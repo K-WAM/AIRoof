@@ -10,6 +10,7 @@ import {
   validateRecordingDisclosureText,
 } from "@/lib/recordingDisclosure";
 import type { BusinessConfig } from "@/types";
+import { DEFAULT_INVOICE_COPY } from "@/lib/documents/invoiceCopy";
 
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
@@ -48,17 +49,23 @@ export async function GET(req: NextRequest) {
     greeting: d.greeting ?? "",
     afterHoursGreeting: d.afterHoursGreeting ?? "",
     recordingDisclosure: resolveRecordingDisclosure(d),
+    invoiceCopy: { ...DEFAULT_INVOICE_COPY, ...d.invoiceCopy },
+    // The quote/invoice screens decide client-side whether any Terms & notices print (documents/notices.ts: only when approved).
+    documentNotices: d.documentNotices ?? null,
   }, "semiStatic");
 }
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure } = body;
+  const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure, invoiceCopy } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
   if (licenseNumber !== undefined && (typeof licenseNumber !== "string" || licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(licenseNumber))) return NextResponse.json({ error: "Invalid license number" }, { status: 400 });
   if (agentLanguage !== undefined && !["en", "es"].includes(agentLanguage)) {
     return NextResponse.json({ error: 'agentLanguage must be "en" or "es"' }, { status: 400 });
+  }
+  if (invoiceCopy !== undefined && (invoiceCopy === null || typeof invoiceCopy !== "object" || Array.isArray(invoiceCopy) || ["opening", "closing", "thankYou", "terms"].some((key) => typeof invoiceCopy[key] !== "string" || invoiceCopy[key].length > 4000 || /[<>\u0000-\u001f]/.test(invoiceCopy[key])))) {
+    return NextResponse.json({ error: "Invalid invoice copy" }, { status: 400 });
   }
 
   // T-102: shape + content validation for the recording notice. Rejects bad
@@ -109,6 +116,7 @@ export async function PUT(req: NextRequest) {
   if (agentLanguage !== undefined) update.agentLanguage = agentLanguage;
   if (agentLanguages !== undefined) update.agentLanguages = agentLanguages;
   if (disclosureUpdate !== undefined) update.recordingDisclosure = disclosureUpdate;
+  if (invoiceCopy !== undefined) update.invoiceCopy = { opening: invoiceCopy.opening, closing: invoiceCopy.closing, thankYou: invoiceCopy.thankYou, terms: invoiceCopy.terms };
 
   const businessRef = db.collection("businesses").doc(businessId);
   await businessRef.update(update);

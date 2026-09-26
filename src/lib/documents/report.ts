@@ -57,24 +57,12 @@ export function draftReportNotes(
   job: { serviceType?: string; address?: string; parsed?: ParsedUpdate },
   options?: Partial<DocumentOptions>,
 ): string {
-  const flags = normalizeDocumentOptions(options);
   const parsed = job.parsed;
   if (!parsed) return "";
   const parts: string[] = [];
 
   const service = job.serviceType?.trim();
   if (service) parts.push(`Service: ${service}${job.address?.trim() ? ` at ${job.address.trim()}` : ""}.`);
-
-  if (!flags.hideLabor) {
-    const visits = parsed.labor
-      .filter((entry) => entry.description?.trim())
-      .map((entry) => {
-        const who = entry.description.trim();
-        const hours = entry.hours ? ` (${entry.hours} h)` : "";
-        return entry.arrivalTime && entry.departureTime ? `${who} on site ${entry.arrivalTime}–${entry.departureTime}${hours}` : `${who}${hours}`;
-      });
-    if (visits.length) parts.push(`Site visit: ${visits.join("; ")}.`);
-  }
 
   const issues = parsed.issues.map((issue) => issue.description.trim()).filter(Boolean);
   if (issues.length) parts.push(`Issues identified: ${issues.join("; ")}.`);
@@ -83,11 +71,26 @@ export function draftReportNotes(
   const work = parsed.timeline.map((entry) => entry.description.trim()).filter((text) => text && !ARRIVAL_OR_DEPARTURE.test(text));
   if (work.length) parts.push(`Work notes: ${work.join("; ")}.`);
 
-  if (!flags.hideMaterials) {
-    const materials = parsed.materials
-      .filter((material) => material.item?.trim())
-      .map((material) => `${material.item.trim()}${material.quantity ? ` (${material.quantity}${material.unit ? ` ${material.unit}` : ""})` : ""}`);
-    if (materials.length) parts.push(`Materials used: ${materials.join(", ")}.`);
-  }
-  return parts.join(" ");
+  return stripHiddenFacts(parts.join(" "), options);
+}
+
+/** One generated detail sentence: from its label to the first period that ends a sentence (decimals like "0.5 in" don't). */
+const generatedSentence = (labels: string) => new RegExp(`(^|\\s)(?:${labels}):.*?\\.(?=\\s+[A-Z]|\\s*$)`, "gis");
+const LABOR_SENTENCE = generatedSentence("Site visit|Labor recorded");
+const MATERIALS_SENTENCE = generatedSentence("Materials used");
+
+/**
+ * The report's "Description of work" is saved text, so hiding labor or materials on the customer copy must also remove the
+ * detail sentences an earlier draft wrote into it ("Site visit: Kevin.", "Materials used: ladders (6 pieces)."). Only those
+ * generated sentences are removed — everything else the office wrote is left exactly as typed, paragraph breaks included.
+ * Returns the notes untouched when nothing is hidden.
+ */
+export function stripHiddenFacts(notes: string, options?: Partial<DocumentOptions>): string {
+  const flags = normalizeDocumentOptions(options);
+  if (!flags.hideLabor && !flags.hideMaterials) return notes;
+  let result = notes;
+  if (flags.hideLabor) result = result.replace(LABOR_SENTENCE, "$1");
+  if (flags.hideMaterials) result = result.replace(MATERIALS_SENTENCE, "$1");
+  // A removed sentence that filled its own line leaves an empty one behind: tidy the spaces and any stack of blank lines.
+  return result.replace(/[ \t]{2,}/g, " ").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }

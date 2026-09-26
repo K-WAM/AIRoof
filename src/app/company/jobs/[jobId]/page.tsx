@@ -15,15 +15,18 @@ import { computeTotals, canSendInvoice } from "./jobInvoice";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { noticesForDocument } from "@/lib/documents/notices";
+import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftReportNotes, pairReportPhotos, reportSections } from "@/lib/documents/report";
+import { draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "@/lib/documents/report";
+import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
 import { FindingsPanel } from "./FindingsPanel";
 import { JobHistory } from "./JobHistory";
 import { jobSteps } from "@/lib/jobs/nextStep";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
-import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
+import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { NextStepButton } from "./NextStepButton";
@@ -178,7 +181,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [otherRows, setOtherRows] = useState<OtherRow[]>([]);
   const [taxRate, setTaxRate] = useState("0");
-  const [invoiceNotes, setInvoiceNotes] = useState("Net 30. Payment due within 30 days of invoice date.");
+  const [invoiceNotes, setInvoiceNotes] = useState("");
+  const [invoiceOpening, setInvoiceOpening] = useState("");
+  const [invoiceClosing, setInvoiceClosing] = useState("");
+  const [invoiceThankYou, setInvoiceThankYou] = useState("");
+  const [invoiceTerms, setInvoiceTerms] = useState("Due upon completion");
+  const [invoicePoNumber, setInvoicePoNumber] = useState("");
+  const [invoiceIssuedAt, setInvoiceIssuedAt] = useState<number | undefined>();
+  const [invoiceDueAt, setInvoiceDueAt] = useState<number | undefined>();
 
   // Invoice persistence (Phase 12, Phase 4). invoiceId/invoiceStatus are null until a real
   // JobInvoice doc exists (GET or POST). Edits only autosave while status === "draft" — a sent
@@ -447,6 +457,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setShowTechnicians(inv.showTechnicians === true);
         setTechnicians(inv.technicians ?? []);
         setNarrative(inv.narrative ?? "");
+        setInvoiceOpening(inv.opening ?? "");
+        setInvoiceClosing(inv.closing ?? "");
+        setInvoiceThankYou(inv.thankYou ?? "");
+        setInvoiceTerms(inv.terms ?? "Due upon completion");
+        setInvoicePoNumber(inv.poNumber ?? "");
+        setInvoiceIssuedAt(inv.issuedAt ?? inv.createdAt);
+        setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
         setInvoiceNotes(inv.notes ?? invoiceNotes);
         setInvoiceId(inv.invoiceId);
         setInvoiceStatus(inv.status);
@@ -513,6 +530,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setShowTechnicians(inv.showTechnicians === true);
       setTechnicians(inv.technicians ?? []);
       setNarrative(inv.narrative ?? "");
+      setInvoiceOpening(inv.opening ?? "");
+      setInvoiceClosing(inv.closing ?? "");
+      setInvoiceThankYou(inv.thankYou ?? "");
+      setInvoiceTerms(inv.terms ?? "Due upon completion");
+      setInvoicePoNumber(inv.poNumber ?? "");
+      setInvoiceIssuedAt(inv.issuedAt ?? inv.createdAt);
+      setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
       setInvoiceId(inv.invoiceId);
       setInvoiceStatus(inv.status);
       setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
@@ -777,8 +801,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               hideLabor,
               showTechnicians,
               technicians,
-              narrative,
-              notes: invoiceNotes,
+               narrative,
+               opening: invoiceOpening,
+               closing: invoiceClosing,
+               thankYou: invoiceThankYou,
+               terms: invoiceTerms,
+               poNumber: invoicePoNumber,
+               dueAt: invoiceDueAt,
+               notes: invoiceNotes,
             }),
           });
           if (res.ok) setInvoiceDirty(false);
@@ -792,7 +822,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     }, 1200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, technicians, narrative, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -809,6 +839,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
   ] as const;
+  // "Include the quote" on the report needs a quote the customer has actually been sent (or accepted).
+  const quoteCanGoOnReport = !!pageQuote && QUOTE_SHOWABLE_STATUSES.includes(pageQuote.status);
   const steps = job ? jobSteps(job) : [];
   const WORKFLOW_TABS = [
     { id: "findings", number: "①", label: "Findings", step: steps.find((step) => step.id === "findings") },
@@ -850,8 +882,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     </div>
   );
 
-  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  const due = new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const today = fmt.fmtDate(invoiceIssuedAt ?? Date.now());
+  const due = fmt.fmtDate(invoiceDueAt ?? invoiceIssuedAt ?? Date.now());
   // Invoice letterhead branding — mirrors ReportRenderer's own accent/bizName so the invoice and
   // job report read as the same document family. The logo library's default (Phase 12, Phase 4
   // remainder) takes precedence over the older single businessConfig.logoUrl field — most
@@ -1360,7 +1392,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
-        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote} />}
+        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
+        onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
 
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
@@ -1408,6 +1441,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <div style={{ marginTop: 8, maxWidth: 380 }}>
                       <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
                         onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={invoiceStatus !== "draft"}
+                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -1524,6 +1561,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         <InvoiceMetaRow label="Date" value={today} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Invoice No." value={invoiceId ?? jobId} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Due" value={due} accent={invoiceAccent} />
+                        <InvoiceMetaRow label="Terms" value={invoiceTerms} accent={invoiceAccent} />
+                        <InvoiceMetaRow label="Work order" value={jobId} accent={invoiceAccent} />
+                        {invoicePoNumber && <InvoiceMetaRow label="PO number" value={invoicePoNumber} accent={invoiceAccent} />}
                         {job.serviceType && <InvoiceMetaRow label="Service" value={job.serviceType} accent={invoiceAccent} />}
                       </tbody>
                     </table>
@@ -1549,6 +1589,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
 
                 <div className="no-print" style={{ marginBottom: 20 }}>
+                  <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
+                  <textarea id="invoiceOpening" rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
                   <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
                   <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
                   {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
@@ -1781,8 +1823,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
                 {/* Notes / payment terms */}
                 <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Notes & Payment Terms</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Closing and payment terms</div>
+                  <label htmlFor="invoiceClosing">Closing</label>
+                  <textarea id="invoiceClosing" value={invoiceClosing} onChange={(event) => setInvoiceClosing(event.target.value)} rows={3} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceThankYou">Thank-you line</label>
+                  <textarea id="invoiceThankYou" value={invoiceThankYou} onChange={(event) => setInvoiceThankYou(event.target.value)} rows={2} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceTerms">Terms</label>
+                  <input id="invoiceTerms" value={invoiceTerms} onChange={(event) => setInvoiceTerms(event.target.value)} style={{ width: "100%" }} />
+                  <label htmlFor="invoicePoNumber">PO number (optional)</label>
+                  <input id="invoicePoNumber" value={invoicePoNumber} onChange={(event) => setInvoicePoNumber(event.target.value)} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceDueDate">Due date</label>
+                  <input id="invoiceDueDate" type="date" value={invoiceDueAt ? new Date(invoiceDueAt).toISOString().slice(0, 10) : ""} onChange={(event) => setInvoiceDueAt(event.target.value ? Date.parse(`${event.target.value}T12:00:00Z`) : undefined)} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceNotes">Other notes</label>
                   <textarea
+                    id="invoiceNotes"
                     value={invoiceNotes}
                     onChange={(e) => setInvoiceNotes(e.target.value)}
                     rows={3}
@@ -1804,9 +1858,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <div style={{ marginTop: 24 }}>
                 <h3 className="no-print">Customer preview</h3>
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
-                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceNotes], ["Reference", jobId], ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
-                  billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={narrative}
-                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal} />
+                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
+                  billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
+                  findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }))}
+                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
+                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>
             </div>
           )}
@@ -1853,7 +1909,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
                   <DocumentOptionToggles values={reportOptions}
-                    onChange={(key, next) => { const options = { ...reportOptions, [key]: next }; setReportOptions(options); void saveReportNotes(options); }} />
+                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
+                    disabledKeys={quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
+                    onChange={(key, next) => {
+                      const options = { ...reportOptions, [key]: next };
+                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
+                      // that leftover text is how "Hide materials" used to leak into the Description of work.
+                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
+                      setReportOptions(options);
+                      setReportNotes(notes);
+                      void saveReportNotes(options, reportTechnicians, notes);
+                    }} />
                 </div>
               </details>
 
@@ -1885,7 +1951,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
               </div>
 
-              <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} />
+              <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} quote={pageQuote} />
             </div>
           )}
         </div>
@@ -2090,7 +2156,7 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
 }
 
 /** Shared customer-copy renderer used by the screen and print/PDF twin. */
-function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos }: {
+function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos, quote }: {
   job: Job;
   jobId: string;
   businessConfig: BusinessConfig | null;
@@ -2099,19 +2165,24 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   reportOptions: Partial<DocumentOptions>;
   reportTechnicians: string[];
   reportPhotos: ReportPhoto[];
+  quote: JobQuote | null;
 }) {
+  const { fmtDate } = useFormat();
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
   const brand = resolveLetterhead(businessConfig ?? {}, logos);
-  const meta: [string, string][] = [["Date", new Date().toLocaleDateString("en-US")], ["Reference", jobId]];
+  const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
+  // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
+  const quoteSection = reportQuoteSection(quote, options, fmtDate);
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
   const photoGroups = options.showPhotos ? pairReportPhotos(reportPhotos) : { pairs: [], other: [] };
   return <>
     <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
-      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={reportNotes}
-      findings={findings} sections={sections} />
+      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
+      narrative={stripHiddenFacts(reportNotes, options)}
+      findings={findings} sections={sections} quoteSection={quoteSection} />
     {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
       <ReportSection title="Photo documentation">
         {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>

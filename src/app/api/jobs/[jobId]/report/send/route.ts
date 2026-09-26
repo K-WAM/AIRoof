@@ -5,6 +5,7 @@ import { buildProjection } from "@/lib/jobs/projection";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import type { FieldUpdate } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
+import type { JobQuote } from "@/types/quote";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 
 const MAX_EMAIL_REPORT_PHOTOS = 12;
@@ -36,6 +37,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
   const job = jobSnap.data()!;
+  // "Include the quote" is opt-in per report; the quote is read HERE, never taken from the browser, and only if it was sent.
+  const quoteSnap = job.reportOptions?.includeQuote === true && typeof job.quoteId === "string" && job.quoteId
+    ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get()
+    : null;
+  const quote = quoteSnap?.exists ? (quoteSnap.data() as JobQuote) : null;
   const biz = bizSnap.exists ? bizSnap.data()! : {};
   const bizName: string = biz.businessName ?? "Field Report";
   const projection = job.parsed ?? buildProjection(updatesSnap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[]);
@@ -51,6 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     options: job.reportOptions,
     technicians: job.reportTechnicians,
     photos: Array.isArray(photos) ? photos.slice(0, MAX_EMAIL_REPORT_PHOTOS) : [],
+    quote,
   });
 
   const sent = await sendEmail({

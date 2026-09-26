@@ -5,7 +5,7 @@ import type { JobQuote } from "@/types/quote";
 import { computeTotals } from "@/app/company/jobs/[jobId]/jobInvoice";
 import { quoteTotal } from "@/lib/billing/jobQuote";
 
-export interface DocumentRow { description: string; detail?: string; amount: number }
+export interface DocumentRow { item?: string; description: string; detail?: string; quantity?: number; unitPrice?: number; amount: number }
 export interface DocumentGroup { title: "Labor" | "Materials" | "Other"; rows: DocumentRow[]; subtotal: number }
 
 function collapse(title: DocumentGroup["title"], rows: DocumentRow[], subtotal: number, hidden: boolean): DocumentGroup {
@@ -16,9 +16,9 @@ export function invoiceGroups(invoice: JobInvoice, options?: Partial<DocumentOpt
   const flags = normalizeDocumentOptions({ ...invoice, ...options });
   const totals = computeTotals(invoice);
   return [
-    collapse("Labor", invoice.labor.map((line) => ({ description: line.name, detail: `${line.hours} hours × $${line.rate.toFixed(2)}`, amount: line.total })), totals.laborSubtotal, flags.hideLabor),
-    collapse("Materials", invoice.materials.map((line) => ({ description: line.item, detail: `${line.quantity} ${line.unit ?? ""} × $${line.unitPrice.toFixed(2)}`, amount: line.total })), totals.materialSubtotal, flags.hideMaterials),
-    { title: "Other" as const, rows: invoice.other.map((line) => ({ description: line.description, amount: line.amount })), subtotal: totals.otherSubtotal },
+    collapse("Labor", invoice.labor.map((line) => ({ item: "Labor", description: line.name, quantity: line.hours, unitPrice: line.rate, amount: line.total })), totals.laborSubtotal, flags.hideLabor),
+    collapse("Materials", invoice.materials.map((line) => ({ item: line.item, description: line.unit ?? "Material", quantity: line.quantity, unitPrice: line.unitPrice, amount: line.total })), totals.materialSubtotal, flags.hideMaterials),
+    { title: "Other" as const, rows: invoice.other.map((line) => ({ item: "Other", description: line.description, quantity: 1, unitPrice: line.amount, amount: line.amount })), subtotal: totals.otherSubtotal },
   ].filter((group) => group.rows.length);
 }
 

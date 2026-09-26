@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "@/types/jobs";
 import type { JobQuote } from "@/types/quote";
 import type { JobFinding, WorkCatalogItem } from "@/types/workCatalog";
+import type { BusinessConfig } from "@/types";
+import { FLORIDA_NOTICE_DEFAULTS } from "@/lib/documents/legalNotices";
+import { effectiveNotices, noticeFingerprint, type DocumentNoticeSettings } from "@/lib/documents/notices";
 import { QuotePanel } from "./QuotePanel";
 
 const TILE: WorkCatalogItem = {
@@ -133,8 +136,36 @@ describe("QuotePanel", () => {
     serverQuote = draftFrom([finding()]);
     renderPanel(jobWith([finding()]));
     await waitFor(() => expect(screen.getByText("What the customer sees")).toBeTruthy());
-    expect(screen.getByText(/Materials show as one total line/)).toBeTruthy();
+    expect(screen.getByText(/materials show as one total line/)).toBeTruthy();
     expect(screen.getByText(/no names, hours or rates/)).toBeTruthy();
     expect(screen.getByText(/Prints the crew names/)).toBeTruthy();
+  });
+});
+
+describe("QuotePanel Terms & notices", () => {
+  const approved = () => {
+    const replaced: DocumentNoticeSettings = { notices: Object.fromEntries(FLORIDA_NOTICE_DEFAULTS.filter((d) => /\[\s*DRAFT/i.test(d.text))
+      .map((d) => [d.id, { enabled: true, text: `Reviewed wording for ${d.id}.` }])) };
+    return { ...replaced, approvedAt: 1, approvedBy: "owner", approvedFingerprint: noticeFingerprint(effectiveNotices(replaced)) };
+  };
+
+  it("shows the approved notices under the customer preview, and nothing when the wording is not approved", async () => {
+    serverQuote = draftFrom([finding()]);
+    const { unmount } = renderPanel(jobWith([finding()]), { businessConfig: { businessName: "Roof", documentNotices: approved() } as BusinessConfig });
+    await waitFor(() => expect(screen.getByLabelText("Terms and notices")).toBeTruthy());
+    unmount();
+    renderPanel(jobWith([finding()]), { businessConfig: { businessName: "Roof" } as BusinessConfig });
+    await waitFor(() => expect(screen.getByText("＋ Add item")).toBeTruthy());
+    expect(screen.queryByLabelText("Terms and notices")).toBeNull();
+  });
+
+  it("the Commercial property switch saves the property type on the job", async () => {
+    serverQuote = draftFrom([finding()]);
+    const onPropertyType = vi.fn();
+    renderPanel(jobWith([finding()]), { onPropertyType });
+    fireEvent.click(await screen.findByRole("switch", { name: "Commercial property" }));
+    await waitFor(() => expect(onPropertyType).toHaveBeenCalledWith("commercial"));
+    const patch = calls.find((c) => c.method === "PATCH" && /\/api\/jobs\/J-1$/.test(c.url));
+    expect(patch?.body).toMatchObject({ businessId: "biz", propertyType: "commercial" });
   });
 });
