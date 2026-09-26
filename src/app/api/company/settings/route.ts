@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
     afterHoursGreeting: d.afterHoursGreeting ?? "",
     recordingDisclosure: resolveRecordingDisclosure(d),
     invoiceCopy: { ...DEFAULT_INVOICE_COPY, ...d.invoiceCopy },
+    // The quote/invoice screens decide client-side whether any Terms & notices print (documents/notices.ts: only when approved).
+    documentNotices: d.documentNotices ?? null,
   }, "semiStatic");
 }
 

@@ -82,6 +82,8 @@ export interface BusinessConfig {
   contactPhone?: string;
   licenseNumber?: string;
   invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
+  /** Terms & notices on quotes/invoices: per-notice edits + the owner's approval. Nothing prints until approved (documents/notices.ts). */
+  documentNotices?: import("@/lib/documents/notices").DocumentNoticeSettings;
   contactEmail?: string;
   websiteUrl?: string;
   active: boolean;

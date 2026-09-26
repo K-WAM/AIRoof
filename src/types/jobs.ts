@@ -129,6 +129,8 @@ export interface Job {
   notes?: string;
   invoiceId?: string;
   quoteId?: string;
+  /** Missing = residential. The statutory homeowner notices (documents/notices.ts) don't apply to a commercial property. */
+  propertyType?: "residential" | "commercial";
   findings?: JobFinding[];
   createdAt: number;
   updatedAt: number;

@@ -51,15 +51,19 @@ export async function PATCH(
 ) {
   const { jobId } = await params;
   const body = await req.json();
-  const { businessId, status, parsed, reportNotes, reportOptions, reportTechnicians, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId } = body as {
+  const { businessId, status, parsed, reportNotes, reportOptions, reportTechnicians, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId, propertyType } = body as {
     businessId?: string; status?: string; parsed?: ParsedUpdate; reportNotes?: string;
     reportOptions?: Partial<DocumentOptions>; reportTechnicians?: string[];
     findings?: unknown;
     assignedCrewId?: string | null; scheduledStart?: number | null; scheduledEnd?: number | null; crewConfirmed?: boolean;
     customerId?: string | null;
+    propertyType?: string;
   };
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  if (propertyType !== undefined && propertyType !== "residential" && propertyType !== "commercial") {
+    return NextResponse.json({ error: 'propertyType must be "residential" or "commercial"' }, { status: 400 });
+  }
   if (status && !VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
@@ -96,6 +100,7 @@ export async function PATCH(
   if (scheduledEnd !== undefined) update.scheduledEnd = scheduledEnd;
   if (crewConfirmed !== undefined) update.crewConfirmed = crewConfirmed;
   if (customerId !== undefined) update.customerId = customerId;
+  if (propertyType !== undefined) update.propertyType = propertyType;
   if (parsed) {
     // Admin override of the projection — keep the legacy display mirror in sync.
     const log = parsedToFieldLog(parsed);
