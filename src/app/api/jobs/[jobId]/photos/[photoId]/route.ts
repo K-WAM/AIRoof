@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
-import { getPhotoBlob, deletePhoto, setIncludeInReport, updatePhotoMeta } from "@/lib/photos/store";
+import { getPhotoBlob, deletePhoto, listPhotoMetas, setIncludeInReport, updatePhotoMeta } from "@/lib/photos/store";
 
 const VALID_PHASES = new Set(["before", "after", "other"]);
 
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 // customer-facing report (includeInReport).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string; photoId: string }> }) {
   const { jobId, photoId } = await params;
-  const { businessId, includeInReport, label, phase, sort } = await req.json();
+  const { businessId, includeInReport, label, phase, pairId, sort } = await req.json();
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
   const db = getAdminFirestore();
@@ -40,15 +40,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     await setIncludeInReport(db, businessId, jobId, photoId, !!includeInReport);
   }
 
-  if (label !== undefined || phase !== undefined || sort !== undefined) {
+  if (label !== undefined || phase !== undefined || pairId !== undefined || sort !== undefined) {
     const gate = await verifyFieldAccess(req, businessId, { write: true });
     if ("error" in gate) return gate.error;
     if (phase !== undefined && !VALID_PHASES.has(phase)) {
       return NextResponse.json({ error: "Invalid phase" }, { status: 400 });
     }
+    if (sort !== undefined && (typeof sort !== "number" || !Number.isFinite(sort))) {
+      return NextResponse.json({ error: "sort must be a finite number" }, { status: 400 });
+    }
+    if (pairId !== undefined) {
+      if (pairId !== null && (typeof pairId !== "string" || !pairId.trim())) {
+        return NextResponse.json({ error: "pairId must be a photo id or null" }, { status: 400 });
+      }
+      const photos = await listPhotoMetas(db, businessId, jobId);
+      const photo = photos.find((item) => item.photoId === photoId);
+      if (!photo) return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+      if (pairId !== null) {
+        const pairedBefore = photos.find((item) => item.photoId === pairId);
+        if (!pairedBefore || pairId === photoId || (phase ?? photo.phase ?? "other") !== "after" || pairedBefore.phase !== "before") {
+          return NextResponse.json({ error: "An After photo can only pair with a Before photo from this job" }, { status: 400 });
+        }
+      }
+    }
     await updatePhotoMeta(db, businessId, jobId, photoId, {
       ...(label !== undefined ? { label } : {}),
       ...(phase !== undefined ? { phase } : {}),
+      ...(pairId !== undefined ? { pairId } : {}),
       ...(sort !== undefined ? { sort } : {}),
     });
   }

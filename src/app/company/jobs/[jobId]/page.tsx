@@ -35,9 +35,9 @@ import type { JobQuote } from "@/types/quote";
 import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
-import { Toggle } from "@/components/ui/Toggle";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
+import { SortablePhotoGrid } from "@/components/photos/SortablePhotoGrid";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import {
@@ -56,7 +56,6 @@ import {
   RefreshCw,
   Save,
   Send,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -168,6 +167,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [photosLoaded, setPhotosLoaded] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<JobPhotoMeta | null>(null);
   const [lightbox, setLightbox] = useState<{ photoId: string; label: string; fullB64?: string } | null>(null);
+  const [photoOrderError, setPhotoOrderError] = useState<string | null>(null);
 
   // Edit buffer for the data tabs (null = read-only). Edits write to job.parsed via PATCH.
   const [editParsed, setEditParsed] = useState<ParsedUpdate | null>(null);
@@ -494,6 +494,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   async function deletePhoto(meta: JobPhotoMeta) {
     setPhotos((ps) => ps.filter((p) => p.photoId !== meta.photoId));
     await fetch(`/api/jobs/${jobId}/photos/${meta.photoId}?businessId=${businessId}`, { method: "DELETE" }).catch(() => {});
+  }
+
+  async function reorderPhotos(order: string[], pair?: { afterId: string; beforeId: string }) {
+    const previous = photos;
+    const byId = new Map(previous.map((photo) => [photo.photoId, photo]));
+    const optimistic = order.flatMap((photoId, index) => {
+      const photo = byId.get(photoId);
+      return photo ? [{ ...photo, sort: index * 1000, ...(pair?.afterId === photoId ? { pairId: pair.beforeId } : {}) }] : [];
+    });
+    setPhotoOrderError(null);
+    setPhotos(optimistic);
+    try {
+      if (pair) {
+        const pairResponse = await fetch(`/api/jobs/${jobId}/photos/${pair.afterId}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, pairId: pair.beforeId }),
+        });
+        if (!pairResponse.ok) throw new Error("Could not save the Before / After pair.");
+      }
+      const orderResponse = await fetch(`/api/jobs/${jobId}/photos/order`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, order }),
+      });
+      if (!orderResponse.ok) throw new Error("Could not save the photo order.");
+    } catch (error) {
+      setPhotos(previous);
+      setPhotoOrderError(error instanceof Error ? error.message : "Could not save the photo order. Your previous order was restored.");
+    }
   }
 
   const defaultLaborRate = String(businessConfig?.laborRate?.defaultHourlyRate ?? 65);
@@ -1265,42 +1291,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             ) : (
               <>
                 <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Tap a photo to view full size. Toggle &ldquo;In report&rdquo; to include it in the generated report (max 2 pages).</p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 14 }}>
-                  {photos.map((ph) => (
-                    <div key={ph.photoId} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
-                      <img
-                        src={`data:image/jpeg;base64,${ph.thumbB64}`}
-                        alt={ph.label}
-                        onClick={() => openLightbox(ph)}
-                        style={{ width: "100%", height: 120, objectFit: "cover", cursor: "pointer", display: "block" }}
-                      />
-                      <div style={{ padding: "8px 10px" }}>
-                        {ph.phase && ph.phase !== "other" && (
-                          <span style={{
-                            display: "inline-block", marginBottom: 6, fontSize: 9, fontWeight: 800,
-                            letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 4,
-                            color: "#fff", background: ph.phase === "before" ? "#64748b" : "var(--accent)",
-                          }}>{ph.phase}</span>
-                        )}
-                        <p style={{ margin: "0 0 6px", fontSize: 12, color: "#334155", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{ph.label}</p>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#475569" }}>
-                            <Toggle checked={!!ph.includeInReport} onChange={() => toggleInclude(ph)} label={`Include ${ph.label} in report`} size="sm" />
-                            In report
-                          </div>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            <button onClick={() => setEditingPhoto(ph)} title="Edit" aria-label={`Edit ${ph.label}`} className="icon-del">
-                              <Pencil size={14} strokeWidth={1.75} />
-                            </button>
-                            <button onClick={() => { if (confirm("Delete this photo?")) deletePhoto(ph); }} title="Delete" aria-label={`Delete ${ph.label}`} className="icon-del">
-                              <Trash2 size={15} strokeWidth={1.75} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {photoOrderError && <p role="alert" style={{ margin: "0 0 12px", color: "var(--danger)", fontSize: 13 }}>{photoOrderError}</p>}
+                <SortablePhotoGrid photos={photos} onOpen={openLightbox} onEdit={setEditingPhoto} onDelete={(photo) => { if (confirm("Delete this photo?")) void deletePhoto(photo); }} onToggle={toggleInclude} onReorder={reorderPhotos} />
               </>
             )}
           </div>
@@ -1311,9 +1303,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         photo={editingPhoto}
         jobId={jobId}
         businessId={businessId}
+        beforePhotos={photos.filter((photo) => photo.phase === "before")}
         canCurate
         onClose={() => setEditingPhoto(null)}
-        onSaved={(patch) => setPhotos((ps) => ps.map((p) => (p.photoId === editingPhoto?.photoId ? { ...p, ...patch } : p)))}
+        onSaved={(patch) => setPhotos((ps) => ps.map((p) => {
+          if (p.photoId !== editingPhoto?.photoId) return p;
+          const { pairId, ...rest } = patch;
+          return { ...p, ...rest, ...(pairId !== undefined ? { pairId: pairId ?? undefined } : {}) };
+        }))}
         onDeleted={() => setPhotos((ps) => ps.filter((p) => p.photoId !== editingPhoto?.photoId))}
       />
 
