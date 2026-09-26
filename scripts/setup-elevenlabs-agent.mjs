@@ -131,10 +131,12 @@ function buildToolConfig(schema, baseUrl, toolSecretId) {
       type: "webhook",
       name: schema.name,
       description: schema.description,
-      // ElevenLabs tools API: pre_tool_speech = "force" speaks before the call.
-      // Keep this to the calendar tools to avoid adding chatter to every tool.
-      ...(schema.name === "checkAvailability" || schema.name === "bookAppointment"
-        ? { pre_tool_speech: "force" } : {}),
+      // NEVER "force" pre-tool speech. On 2026-09-25 a live demo call with force on the calendar tools had gpt-4o-mini say
+      // "One moment while I check the calendar" and then never call the tool (tool_calls empty on every turn) — it narrated a
+      // whole booking that was never saved. The call on 2026-09-24 (auto) called checkAvailability + bookAppointment fine.
+      // Explicit values so re-running this script also RESETS a tool that was previously set to force.
+      pre_tool_speech: "auto",
+      force_pre_tool_speech: false,
       response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
       api_schema: {
         url: `${baseUrl}${schema.path}`,

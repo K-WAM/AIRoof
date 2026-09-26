@@ -30,8 +30,12 @@ export async function GET(
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const order = req.nextUrl.searchParams.get("order") === "desc" ? "desc" : "asc";
-  const fromParam = Number(req.nextUrl.searchParams.get("from"));
-  const toParam = Number(req.nextUrl.searchParams.get("to"));
+  // A range needs BOTH bounds actually present. (Number(null) is 0 — a finite number — so testing the parsed values alone
+  // treated every request WITHOUT from/to as the window 0..0, and the Pipeline, Dashboard and search saw no appointments.)
+  const fromRaw = req.nextUrl.searchParams.get("from");
+  const toRaw = req.nextUrl.searchParams.get("to");
+  const fromParam = fromRaw === null || fromRaw.trim() === "" ? NaN : Number(fromRaw);
+  const toParam = toRaw === null || toRaw.trim() === "" ? NaN : Number(toRaw);
   const hasRange = Number.isFinite(fromParam) && Number.isFinite(toParam);
 
   let queryRef = db

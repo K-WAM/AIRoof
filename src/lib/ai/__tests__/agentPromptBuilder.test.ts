@@ -50,9 +50,28 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("Never read internal IDs");
     expect(prompt).toContain("sayToCaller");
     expect(prompt).toContain("Alex or someone from the team will follow up");
-    expect(prompt).toContain("One moment while I check the calendar");
     expect(prompt).toContain("continue in Spanish");
     expect(prompt).not.toContain("you'll receive an email");
+  });
+
+  // REGRESSION (owner's live demo call, 2026-09-25): a rule telling the model to SAY "One moment while I check the
+  // calendar" before the tools made gpt-4o-mini say the line and then never call anything — it narrated a whole booking
+  // (`tool_calls: []` on every turn) and nothing was saved. The pre-tool filler is now the platform's job
+  // (pre_tool_speech: force); the prompt must instead make the tools mandatory and forbid claiming success without one.
+  it("makes the tools mandatory and never scripts a filler phrase in their place", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain("## Using your tools");
+    expect(prompt).toMatch(/call checkAvailability/);
+    expect(prompt).toMatch(/call bookAppointment/);
+    expect(prompt).toContain("Only AFTER it returns");
+    expect(prompt).toContain("Never tell the caller you checked, booked or cancelled anything unless you actually called that tool");
+    expect(prompt).toContain("do not pretend it worked");
+    expect(prompt).not.toContain("say \"One moment while I check the calendar.\"");
+  });
+
+  it("puts the tool rules before the speaking style so they are not lost at the bottom", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt.indexOf("## Using your tools")).toBeLessThan(prompt.indexOf("## How you speak"));
   });
 });
 
