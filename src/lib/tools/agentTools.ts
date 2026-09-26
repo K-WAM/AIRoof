@@ -51,6 +51,18 @@ interface ExistingSchedule {
   assignedCrewId?: string | null;
 }
 
+/** Business-wide scheduling rule shared by suggestions and the booking transaction. */
+export function isSlotBusy(
+  window: { startTime: number; endTime: number },
+  appointments: ExistingSchedule[],
+  jobs: ExistingSchedule[]
+): boolean {
+  return [...appointments, ...jobs].some((entry) =>
+    entry.status !== "cancelled" &&
+    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
+  );
+}
+
 export type { NotificationDeliveryState };
 
 export class SchedulingConflictError extends Error {
@@ -342,11 +354,7 @@ export function buildAvailableSlots(options: {
       );
       if (startTime === null || startTime <= now.getTime()) continue;
       const endTime = startTime + durationMinutes * 60 * 1000;
-      const occupied = options.existing.some(
-        (entry) =>
-          entry.status !== "cancelled" &&
-          scheduleRangesOverlap(startTime, endTime, entry.startTime, entry.endTime)
-      );
+      const occupied = isSlotBusy({ startTime, endTime }, options.existing, []);
       if (!occupied) {
         slots.push({
           startTime: new Date(startTime).toISOString(),
@@ -412,14 +420,12 @@ export async function checkAvailability(
         .collection("businesses")
         .doc(input.businessId)
         .collection("appointments")
-        .where("startTime", ">=", now.getTime())
         .where("startTime", "<", scanEnd)
         .get(),
       db
         .collection("businesses")
         .doc(input.businessId)
         .collection("jobs")
-        .where("scheduledStart", ">=", now.getTime())
         .where("scheduledStart", "<", scanEnd)
         .get(),
     ]);
@@ -521,28 +527,23 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       );
     }
 
-    const conflictQuery = businessRef
-      .collection("appointments")
-      .where("startTime", "<", input.endTime);
-    const [lockSnapshots, existingSnapshot] = await Promise.all([
+    const conflictQuery = businessRef.collection("appointments").where("startTime", "<", input.endTime);
+    const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", "<", input.endTime);
+    const [lockSnapshots, existingSnapshot, jobSnapshot] = await Promise.all([
       Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
       transaction.get(conflictQuery),
+      transaction.get(jobConflictQuery),
     ]);
     const occupiedByLock = lockSnapshots.some((snapshot) => snapshot.exists);
-    const occupiedByLegacyRecord = existingSnapshot.docs.some((document) => {
+    const appointments = existingSnapshot.docs.map((document) => {
       const data = document.data();
-      return (
-        data.status !== "cancelled" &&
-        !data.assignedCrewId &&
-        scheduleRangesOverlap(
-          input.startTime,
-          input.endTime,
-          Number(data.startTime),
-          Number(data.endTime)
-        )
-      );
+      return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
     });
-    if (occupiedByLock || occupiedByLegacyRecord) {
+    const jobs = jobSnapshot.docs.map((document) => {
+      const data = document.data();
+      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd) };
+    });
+    if (occupiedByLock || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs)) {
       throw new SchedulingConflictError(
         "slot_conflict",
         "That requested time was just taken. Please choose another opening."

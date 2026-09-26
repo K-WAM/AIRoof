@@ -294,6 +294,27 @@ describe("bookAppointment transaction", () => {
       })
     ).rejects.toMatchObject({ code: "slot_conflict" });
   });
+
+  it.each([
+    ["a Powerboard job", "jobs", { scheduledStart: Date.parse("2030-07-23T14:00:00.000Z"), scheduledEnd: Date.parse("2030-07-23T15:00:00.000Z") }],
+    ["a crew-assigned appointment", "appointments", { startTime: Date.parse("2030-07-23T14:00:00.000Z"), endTime: Date.parse("2030-07-23T15:00:00.000Z"), status: "confirmed", assignedCrewId: "crew-1" }],
+  ] as const)("refuses overlap with %s", async (_label, collection, existing) => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set(`businesses/biz-1/${collection}/existing`, { ...existing });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:30:00.000Z");
+    await expect(bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 })).rejects.toMatchObject({ code: "slot_conflict" });
+  });
+
+  it("books a free slot beside a scheduled job", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set("businesses/biz-1/jobs/existing", { scheduledStart: Date.parse("2030-07-23T14:00:00.000Z"), scheduledEnd: Date.parse("2030-07-23T15:00:00.000Z") });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T15:00:00.000Z");
+    await expect(bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 })).resolves.toMatchObject({ startTime });
+  });
 });
 
 function configuredEscalationFirestore() {
