@@ -133,7 +133,7 @@ describe("QuotePanel", () => {
     serverQuote = draftFrom([finding()]);
     renderPanel(jobWith([finding()]));
     await waitFor(() => expect(screen.getByText("What the customer sees")).toBeTruthy());
-    expect(screen.getByText(/Materials show as one total line/)).toBeTruthy();
+    expect(screen.getByText(/materials show as one total line/)).toBeTruthy();
     expect(screen.getByText(/no names, hours or rates/)).toBeTruthy();
     expect(screen.getByText(/Prints the crew names/)).toBeTruthy();
   });
