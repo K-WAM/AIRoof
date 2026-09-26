@@ -3,20 +3,22 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useFormat } from "@/hooks/useFormat";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { TEAM_ROLES, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TeamRole, type TradeTitle } from "@/types/team";
 import type { Crew } from "@/types/library";
 
 const FIELD_TRADES: TradeTitle[] = ["technician", "journeyman", "apprentice", "installer", "helper"];
 
-function dateLabel(value: number | string | null | undefined): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
-}
-
 export default function TeamPage() {
   const businessId = useBusinessId();
+  const { fmtDayTime } = useFormat();
+  // Business-timezone "Sep 25, 8:59 PM" like every other page — never the browser's locale. Sign-in times arrive as ISO strings.
+  const dateLabel = (value: number | string | null | undefined): string => {
+    if (!value) return "—";
+    const ms = typeof value === "number" ? value : Date.parse(value);
+    return Number.isNaN(ms) ? "—" : fmtDayTime(ms);
+  };
   const { user, loading: authLoading } = useAuth();
   const canManage = user?.role === "owner" || !!user?.superadmin;
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -108,63 +110,80 @@ export default function TeamPage() {
   if (authLoading) return <p>Loading team…</p>;
   if (!canManage) return <p>Only an owner can manage the team.</p>;
 
-  return (
-    <main style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
-      <h1>Team</h1>
-      <p>Invite teammates, manage access, and revoke field QR links.</p>
-      {seatLimit !== null && <p>{members.filter((member) => member.active).length} of {seatLimit} seats in use</p>}
-      {message && <p role="status">{message}</p>}
+  const th = { padding: "10px 12px", textAlign: "left" as const, fontWeight: 600, color: "var(--text-muted)", fontSize: 13, whiteSpace: "nowrap" as const };
+  const td = { padding: "10px 12px", verticalAlign: "middle" as const, fontSize: 14 };
+  const statusTag = (status: string) => (status === "Locked" ? "tag urgent" : status === "Active" ? "tag success" : "tag");
 
-      <section aria-label="Invite a teammate" style={{ margin: "24px 0" }}>
-        <h2>Invite a teammate</h2>
-        <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "end" }}>
-          <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} /></label>
-          <label>Role<select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-          <label>Title<select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
-          {FIELD_TRADES.includes(trade as TradeTitle) && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
-          <button className="button primary" disabled={busy !== null}>Send invite</button>
-        </form>
-        <label style={{ display: "block", marginTop: 12 }}>Import CSV (email, role, title)
-          <input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.target.value = ""; }} />
-        </label>
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <h1 className="page-title">Team</h1>
+          <p className="page-subtitle">Invite teammates, control who can get in, and revoke field QR links.</p>
+        </div>
+        {seatLimit !== null && <span className="status-pill">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
+      </header>
+      {message && <p role="status" style={{ margin: "0 0 12px", fontSize: 14 }}>{message}</p>}
+
+      <section className="panel" aria-label="Invite a teammate" style={{ marginBottom: 20 }}>
+        <div className="panel-header"><h2 className="panel-title">Invite a teammate</h2></div>
+        <div className="panel-body">
+          <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+            <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
+            <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} style={{ display: "block" }} /></label>
+            <label>Role<select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)} style={{ display: "block" }}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            <label>Title<select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")} style={{ display: "block" }}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
+            {FIELD_TRADES.includes(trade as TradeTitle) && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
+            <button className="button primary" disabled={busy !== null}>Send invite</button>
+          </form>
+          <label style={{ display: "block", marginTop: 14, fontSize: 13, color: "var(--text-muted)" }}>Import CSV (email, role, title)
+            <input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.target.value = ""; }} style={{ display: "block", marginTop: 4 }} />
+          </label>
+        </div>
       </section>
 
-      <section aria-label="Team members">
-        <h2>Members</h2>
-        {loading ? <p>Loading members…</p> : (
+      <section className="panel" aria-label="Team members">
+        <div className="panel-header"><h2 className="panel-title">Members</h2></div>
+        <div className="panel-body" style={{ padding: 0 }}>
+        {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
           <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-            <table style={{ width: "100%", minWidth: 900, textAlign: "left" }}>
-              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Title</th><th>Crew</th><th>Status</th><th>Last sign-in</th><th>Invited</th><th>Actions</th></tr></thead>
+            <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
+              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", "Crew", "Status", "Last sign-in", "Invited", "Actions"].map((heading) => <th key={heading} style={th}>{heading}</th>)}</tr></thead>
               <tbody>{members.map((member) => (
-                <tr key={member.uid}>
-                  <td>{member.displayName || "—"}</td><td>{member.email}</td>
-                  <td><select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy !== null || !member.active} onChange={(event) => change(member, { role: event.target.value }, "Role updated")}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></td>
-                  <td><select aria-label={`Title for ${member.email}`} value={member.trade ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { trade: event.target.value || null }, "Title updated")}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></td>
-                  <td>{FIELD_TRADES.includes(member.trade as TradeTitle) ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select> : "—"}</td>
-                  <td>{member.status ?? (member.active ? "Active" : "Locked")}</td>
-                  <td>{dateLabel(member.lastSignInTime)}</td><td>{dateLabel(member.createdAt)}</td>
-                  <td style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    <button className="button" disabled={busy !== null} onClick={() => change(member, { active: !member.active }, member.active ? "Member locked" : "Member unlocked")}>{member.active ? "Lock" : "Unlock"}</button>
-                    <button className="button" disabled={busy !== null || !member.active} onClick={() => { void send(`/api/company/team/${encodeURIComponent(member.uid)}/resend`, {}, member.uid, "Invite resent"); }}>Resend invite</button>
-                    <button className="button" disabled={busy !== null || !member.active} onClick={() => { if (window.confirm(`Remove ${member.email} from the team? Their access will be turned off.`)) change(member, { active: false }, "Member removed"); }}>Remove</button>
+                <tr key={member.uid} style={{ borderBottom: "1px solid var(--border)", ...(member.active ? {} : { opacity: 0.7 }) }}>
+                  <td style={td}>{member.displayName || "—"}</td><td style={td}>{member.email}</td>
+                  <td style={td}><select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy !== null || !member.active} onChange={(event) => change(member, { role: event.target.value }, "Role updated")}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></td>
+                  <td style={td}><select aria-label={`Title for ${member.email}`} value={member.trade ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { trade: event.target.value || null }, "Title updated")}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></td>
+                  <td style={td}>{FIELD_TRADES.includes(member.trade as TradeTitle) ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select> : "—"}</td>
+                  <td style={td}><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{member.status ?? (member.active ? "Active" : "Locked")}</span></td>
+                  <td style={td}>{dateLabel(member.lastSignInTime)}</td><td style={td}>{dateLabel(member.createdAt)}</td>
+                  <td style={td}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {/* Lock turns the login off AND revokes its sessions; Unlock restores it. (There is no separate "Remove":
+                          it did exactly what Lock does, and a locked member no longer takes a seat.) */}
+                      <button className="button small" disabled={busy !== null} onClick={() => { if (!member.active || window.confirm(`Lock ${member.email}? They are signed out and cannot get in until you unlock them.`)) change(member, { active: !member.active }, member.active ? "Member locked" : "Member unlocked"); }}>{member.active ? "Lock" : "Unlock"}</button>
+                      <button className="button small" disabled={busy !== null || !member.active} onClick={() => { void send(`/api/company/team/${encodeURIComponent(member.uid)}/resend`, {}, member.uid, "Invite resent"); }}>Resend invite</button>
+                    </div>
                   </td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
         )}
+        </div>
       </section>
 
-      <section style={{ marginTop: 32 }}>
-        <h2>Field QR links</h2>
-        <p>Revoke every existing field QR link and open field session at once.</p>
-        <button className="button" disabled={busy !== null} onClick={() => {
-          if (window.confirm("Revoke all field QR links? Every open QR screen will need a new link.")) {
-            void send("/api/company/team/revoke-field-links", {}, "revoke", "All field QR links revoked");
-          }
-        }}>Revoke all field QR links</button>
+      <section className="panel" style={{ marginTop: 20 }}>
+        <div className="panel-header"><h2 className="panel-title">Field QR links</h2></div>
+        <div className="panel-body">
+          <p style={{ margin: "0 0 12px", fontSize: 14 }}>A job&apos;s QR code lets a crew member work without an account. If a phone is lost or a link got shared, revoke every QR link and open field session at once; crews then need a fresh QR code.</p>
+          <button className="button" disabled={busy !== null} onClick={() => {
+            if (window.confirm("Revoke all field QR links? Every open QR screen will need a new link.")) {
+              void send("/api/company/team/revoke-field-links", {}, "revoke", "All field QR links revoked");
+            }
+          }}>Revoke all field QR links</button>
+        </div>
       </section>
-    </main>
+    </>
   );
 }

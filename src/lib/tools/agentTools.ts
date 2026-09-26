@@ -51,6 +51,14 @@ interface ExistingSchedule {
   assignedCrewId?: string | null;
 }
 
+/**
+ * How far BEFORE a window an existing appointment/job may have started and still overlap it. The schedule queries filter on
+ * start time only (Firestore allows one range field), so without this lower bound every availability check and every
+ * booking transaction re-read the business's whole history — a growing read bill on the free plan. A phone appointment is
+ * an hour and a Calendar job is a one-hour window at opening time; a day is generous.
+ */
+export const SCHEDULE_OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
 /** Business-wide scheduling rule shared by suggestions and the booking transaction. */
 export function isSlotBusy(
   window: { startTime: number; endTime: number },
@@ -439,12 +447,14 @@ export async function checkAvailability(
         .collection("businesses")
         .doc(input.businessId)
         .collection("appointments")
+        .where("startTime", ">=", now.getTime() - SCHEDULE_OVERLAP_LOOKBACK_MS)
         .where("startTime", "<", scanEnd)
         .get(),
       db
         .collection("businesses")
         .doc(input.businessId)
         .collection("jobs")
+        .where("scheduledStart", ">=", now.getTime() - SCHEDULE_OVERLAP_LOOKBACK_MS)
         .where("scheduledStart", "<", scanEnd)
         .get(),
     ]);
@@ -546,8 +556,9 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       );
     }
 
-    const conflictQuery = businessRef.collection("appointments").where("startTime", "<", input.endTime);
-    const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", "<", input.endTime);
+    const lookbackStart = input.startTime - SCHEDULE_OVERLAP_LOOKBACK_MS;
+    const conflictQuery = businessRef.collection("appointments").where("startTime", ">=", lookbackStart).where("startTime", "<", input.endTime);
+    const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", ">=", lookbackStart).where("scheduledStart", "<", input.endTime);
     const [lockSnapshots, existingSnapshot, jobSnapshot] = await Promise.all([
       Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
       transaction.get(conflictQuery),
