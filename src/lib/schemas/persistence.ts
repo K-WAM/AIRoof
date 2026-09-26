@@ -55,6 +55,8 @@ const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object({
   preferredTime: optionalModelText(200),
   notes: optionalModelText(2_000),
   sourceCallId: boundedText(256).optional(),
+  escalated: z.boolean().optional(),
+  escalationReason: optionalModelText(1_000),
   status: z.enum(["new", "contacted", "booked", "closed", "lost"]),
   callAttempts: finiteInteger.pipe(z.number().int().nonnegative()).optional(),
   lastCallAttemptAt: nonNegativeNumber.optional(),

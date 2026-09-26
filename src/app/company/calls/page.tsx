@@ -9,6 +9,7 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
+import { fmtPhone } from "@/lib/format";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
@@ -47,6 +48,7 @@ interface LeadRef {
   leadId: string;
   sourceCallId?: string;
   callerName?: string; callerPhone?: string; callerEmail?: string; serviceRequested?: string; address?: string; urgency?: string; preferredTime?: string; notes?: string; intake?: Record<string, string>; status?: string;
+  escalated?: boolean;
 }
 
 interface AppointmentRef {
@@ -60,6 +62,13 @@ function formatTime(ms: number, tz: string): string {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
     timeZone: tz,
   });
+}
+
+/** Providers disagree ("ended" from ElevenLabs, "completed" from seeds/Vapi) about the same thing — say it one way. */
+function callStatusLabel(status: string): string {
+  if (status === "ended" || status === "completed") return "Completed";
+  if (status === "in_progress") return "In progress";
+  return status ? status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, " ") : "";
 }
 
 function callDuration(call: Call): string {
@@ -159,7 +168,11 @@ export default function CompanyCallsPage() {
 
   // Best-effort fetch of the leads/appointments lists for the call → outcome
   // links. A failure here must never fail the page — the transcript view is
-  // the point, and the links simply don't render.
+  // the point, and the links simply don't render. Refetched when a new call
+  // arrives or a recent one ends (not on every 10 s poll — the lists are big
+  // reads on the free plan), so a call that ends while this page is open gets
+  // its "This call produced" box without a reload.
+  const linksKey = calls.slice(0, 5).map((c) => `${c.callId}:${c.status ?? ""}`).join("|");
   useEffect(() => {
     if (!businessId) return;
     const base = `/api/businesses/${businessId}`;
@@ -174,7 +187,7 @@ export default function CompanyCallsPage() {
         setLinkedAppts(appointments ?? []);
       })
       .catch(() => {});
-  }, [businessId]);
+  }, [businessId, linksKey]);
 
   if (loading) return <PageSkeleton rows={6} />;
   if (loadError) {
@@ -204,6 +217,7 @@ export default function CompanyCallsPage() {
   const apptHref = selectedLinks?.appointmentId
     ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${selectedLinks.appointmentId}`
     : null;
+  const selectedLead = selectedLinks?.leadId ? linkedLeads.find((lead) => lead.leadId === selectedLinks.leadId) : undefined;
 
   return (
     <>
@@ -246,7 +260,7 @@ export default function CompanyCallsPage() {
                   const category = guessCategory(msgs);
                   const dur = callDuration(call);
                   const isOutbound = call.callType === "outbound";
-                  const displayPhone = isOutbound ? (call.targetPhone ?? "Outbound") : (call.callerPhone ?? "Unknown caller");
+                  const displayPhone = isOutbound ? (call.targetPhone ? fmtPhone(call.targetPhone) : "Outbound") : (call.callerPhone ? fmtPhone(call.callerPhone) : "Unknown caller");
                   const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
                   return (
                     <article
@@ -273,7 +287,7 @@ export default function CompanyCallsPage() {
                         </div>
                       </div>
                       <p className="call-subtitle">
-                        {call.status}{dur ? ` · ${dur}` : ""} · {msgs.length} turns
+                        {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}
                       </p>
                     </article>
                   );
@@ -299,7 +313,7 @@ export default function CompanyCallsPage() {
                   <div>
                     <p className="call-detail-phone">
                       {selected.callType === "outbound" && <span style={{ fontSize: 12, color: "#0f766e", fontWeight: 700, marginRight: 6 }}>→ OUT</span>}
-                      {selected.callType === "outbound" ? (selected.targetPhone ?? "Outbound") : (selected.callerPhone ?? "Unknown caller")}
+                      {selected.callType === "outbound" ? (selected.targetPhone ? fmtPhone(selected.targetPhone) : "Outbound") : (selected.callerPhone ? fmtPhone(selected.callerPhone) : "Unknown caller")}
                     </p>
                     <p className="call-detail-sub">
                       {formatTime(selected.startedAt, tz)}
@@ -326,6 +340,7 @@ export default function CompanyCallsPage() {
                     <span style={{ fontSize: 12, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                       This call produced
                     </span>
+                    {selectedLead?.escalated && <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>}
                     {leadHref && (
                       <Link className="button small" href={leadHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         View lead <ArrowRight size={13} />
@@ -336,7 +351,7 @@ export default function CompanyCallsPage() {
                         View appointment <ArrowRight size={13} />
                       </Link>
                     )}
-                    <button className="button small secondary" type="button" onClick={() => setReview({ lead: selectedLinks?.leadId ? linkedLeads.find((lead) => lead.leadId === selectedLinks.leadId) : undefined, appointment: selectedLinks?.appointmentId ? linkedAppts.find((appointment) => appointment.appointmentId === selectedLinks.appointmentId) : undefined, call: selected })}>Review request</button>
+                    <button className="button small secondary" type="button" onClick={() => setReview({ lead: selectedLead, appointment: selectedLinks?.appointmentId ? linkedAppts.find((appointment) => appointment.appointmentId === selectedLinks.appointmentId) : undefined, call: selected })}>Review request</button>
                   </div>
                 )}
 
@@ -361,7 +376,9 @@ export default function CompanyCallsPage() {
                     <div>
                       <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: "#92400e" }}>Appointment not booked — after hours</p>
                       <p style={{ margin: "2px 0 0", fontSize: 12, color: "#b45309" }}>
-                        This call came in outside business hours. The request has been captured as a lead for follow-up. Call the customer back during business hours to confirm.
+                        {leadHref
+                          ? "This call came in outside business hours. The request was saved as a lead (see above). Call the customer back during business hours to confirm."
+                          : "This call came in outside business hours and no request was saved from it. Read the transcript and call the customer back if they need something."}
                       </p>
                     </div>
                   </div>

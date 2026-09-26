@@ -182,12 +182,15 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
           "Yes, we pull permits when a job requires one. The estimator confirms what your address needs during the visit.",
       },
     ],
+    // Owner's demo (2026-09-25): an unconditional "leak -> escalate immediately" rule escalated a caller who said it was
+    // "a tiny drip" and "not raining". Escalate on what is happening now, not on the word "leak".
     emergencyRules: [
       "If caller reports an active leak while it is raining: treat it as urgent and escalate for emergency tarping",
       "If storm damage has exposed the roof deck: escalate immediately and arrange coverage for the opening",
       "If a tree is resting on the roof: tell everyone to stay clear of the area and escalate immediately",
-      "If caller mentions active water entry, leak, or flooding: escalate immediately",
-      "If caller mentions electrical hazards, fire damage, or safety risk: escalate immediately",
+      "If water is actively coming inside right now (dripping steadily, pouring, running down walls, or a sagging or bulging ceiling): escalate immediately",
+      "If water is near lights, outlets or wiring, or caller mentions electrical hazards, fire damage, or safety risk: escalate immediately",
+      "A small drip, an old stain, or a leak that only happens when it rains, while it is NOT raining now: this is NOT an emergency — book the soonest inspection and tell the caller it is a priority",
       "If caller mentions storm damage with exposed roof or interior damage: prioritize same-day follow-up",
       "If caller indicates immediate danger: advise them to contact emergency services first, then escalate",
     ],

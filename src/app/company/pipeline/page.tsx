@@ -15,6 +15,7 @@ import { PageError } from "@/components/ui/PageError";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
+import { fmtPhone } from "@/lib/format";
 import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -31,7 +32,16 @@ interface Lead {
   intake?: Record<string, string>;
   status: string;
   sourceCallId?: string;
+  /** The AI escalated this call as an emergency (the lead is what puts it here). */
+  escalated?: boolean;
   createdAt: number;
+}
+
+/** Chips carry only what needs attention: Escalated / Urgent. "Normal" said nothing and read like a second status. */
+function AttentionChip({ lead }: { lead: Pick<Lead, "escalated" | "urgency"> }) {
+  if (lead.escalated) return <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>;
+  if (lead.urgency?.toLowerCase() === "urgent") return <StatusChip status="urgent" />;
+  return null;
 }
 
 interface Appointment {
@@ -415,7 +425,7 @@ export default function PipelinePage() {
               Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in.
             </div>
           )}
-          <p className="appt-detail">{appt.callerPhone ?? "—"}</p>
+          <p className="appt-detail">{appt.callerPhone ? fmtPhone(appt.callerPhone) : "—"}</p>
           {appt.callerEmail
             ? <p className="appt-detail">{appt.callerEmail}</p>
             : isPending && <p className="appt-detail" style={{ color: "#b45309" }}>No email on file — notify the customer manually</p>}
@@ -579,20 +589,18 @@ export default function PipelinePage() {
                       >
                         <div className="lead-title-row">
                           <div>
-                            <p className="lead-name">{lead.callerName ?? "Unknown caller"}</p>
-                            <p className="lead-phone">{lead.callerPhone ?? "—"}</p>
+                            <p className="lead-name">{lead.callerName || "Unknown caller"}</p>
+                            <p className="lead-phone">{lead.callerPhone ? fmtPhone(lead.callerPhone) : "—"}</p>
                           </div>
-                          {isNewRequest(lead.status) && <span className="tag">New request</span>}
-                          <StatusChip status={lead.urgency === "urgent" ? "urgent" : "normal"} />
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <AttentionChip lead={lead} />
+                            {isNewRequest(lead.status) ? <span className="tag">New request</span> : <StatusChip status={lead.status} />}
+                          </div>
                         </div>
                         <div className="lead-detail-grid">
                           <div className="detail-block">
                             <span className="detail-label">Service</span>
                             <span className="detail-value">{lead.serviceRequested ?? "—"}</span>
-                          </div>
-                          <div className="detail-block">
-                            <span className="detail-label">Status</span>
-                            <span className="detail-value">{lead.status}</span>
                           </div>
                           <div className="detail-block">
                             <span className="detail-label">Address</span>
@@ -651,12 +659,10 @@ export default function PipelinePage() {
                   <>
                     <div className="lead-title-row">
                       <div>
-                        <p className="lead-name">{selectedLead.callerName ?? "Unknown caller"}</p>
-                        <p className="lead-phone">{selectedLead.callerPhone ?? "—"}</p>
+                        <p className="lead-name">{selectedLead.callerName || "Unknown caller"}</p>
+                        <p className="lead-phone">{selectedLead.callerPhone ? fmtPhone(selectedLead.callerPhone) : "—"}</p>
                       </div>
-                      <span className={selectedLead.urgency === "urgent" ? "tag urgent" : "tag"}>
-                        {selectedLead.urgency}
-                      </span>
+                      <AttentionChip lead={selectedLead} />
                     </div>
 
                     <div className="lead-detail-grid" style={{ marginTop: 16 }}>
@@ -684,10 +690,14 @@ export default function PipelinePage() {
 
                     <IntakeRows intake={selectedLead.intake} labelFor={intakeLabelFor} />
 
+                    {/* One primary action per lead: a new request is reviewed (Confirm & create job lives there); later
+                        leads offer Create job directly. Everything else is secondary. */}
                     <div className="lead-actions" style={{ marginTop: 18 }}>
-                      <button className="button primary" type="button" onClick={() => setReviewLead(selectedLead)}>Review request</button>
+                      {isNewRequest(selectedLead.status) && (
+                        <button className="button primary" type="button" onClick={() => setReviewLead(selectedLead)}>Review request</button>
+                      )}
                       <button
-                        className="button primary"
+                        className="button secondary"
                         type="button"
                         disabled={selectedLead.status === "contacted" || leadUpdating}
                         onClick={() => markContacted(selectedLead)}
@@ -709,9 +719,9 @@ export default function PipelinePage() {
                           {leadCalling === selectedLead.leadId ? "Calling…" : "Call Back"}
                         </button>
                       )}
-                      {showJobActions && (
+                      {showJobActions && !isNewRequest(selectedLead.status) && selectedLead.status !== "lost" && (
                         <button
-                          className="button secondary"
+                          className="button primary"
                           type="button"
                           onClick={() => void createJobFromRequest({ leadId: selectedLead.leadId })}
                           title={`Create a ${vocab.jobNoun.toLowerCase()} from this confirmed request`}

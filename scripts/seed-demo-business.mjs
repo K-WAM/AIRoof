@@ -60,8 +60,10 @@ const demoBusiness = {
     },
   ],
   emergencyRules: [
-    "If caller mentions active water entry, leak, or flooding: escalate immediately",
-    "If caller mentions electrical hazards, fire damage, or safety risk: escalate immediately",
+    "If caller reports an active leak while it is raining: treat it as urgent and escalate for emergency tarping",
+    "If water is actively coming inside right now (dripping steadily, pouring, running down walls, or a sagging or bulging ceiling): escalate immediately",
+    "If water is near lights, outlets or wiring, or caller mentions electrical hazards, fire damage, or safety risk: escalate immediately",
+    "A small drip, an old stain, or a leak that only happens when it rains, while it is NOT raining now: this is NOT an emergency — book the soonest inspection and tell the caller it is a priority",
     "If caller mentions storm damage with exposed roof or interior damage: prioritize same-day follow-up",
     "If caller indicates immediate danger: advise them to contact emergency services first, then escalate",
   ],

@@ -6,6 +6,8 @@
 
 import type { Firestore } from "firebase-admin/firestore";
 import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
+import { ensureCallLead } from "@/lib/calls/callLead";
+import type { CallOutcomeOutput } from "@/lib/schemas/ai";
 import type { CallMessage } from "@/types";
 
 /** Provider transcript turns (Vapi messages / ElevenLabs transcript entries) before normalization. */
@@ -65,11 +67,12 @@ export async function writeEndedCallReport(
   // Classify outcome — non-blocking for the webhook response, non-fatal on failure.
   let outcome: string | null = null;
   let outcomeReason: string | null = null;
+  let classification: CallOutcomeOutput | null = null;
   if (input.messages.length > 1) {
     try {
       const bizSnap = await db.collection("businesses").doc(input.businessId).get();
       const businessName = bizSnap.data()?.businessName ?? input.businessId;
-      const classification = await classifyCallOutcome({
+      classification = await classifyCallOutcome({
         transcript: input.messages.map((m) => ({ role: m.role, text: m.text })),
         businessName,
       });
@@ -77,6 +80,16 @@ export async function writeEndedCallReport(
       outcomeReason = classification.reason;
     } catch {
       // non-fatal — proceed without outcome
+    }
+  }
+
+  // Safety net: a call that produced a request but no linked lead/appointment still reaches the Pipeline. It runs
+  // BEFORE the ended call is written, so by the time the call shows as ended its lead already exists.
+  if (classification) {
+    try {
+      await ensureCallLead(db, { businessId: input.businessId, callId: input.callId, callerPhone: input.callerPhone, summary: input.summary, classification });
+    } catch (error) {
+      console.error("writeEndedCallReport: end-of-call lead safety net failed", error);
     }
   }
 

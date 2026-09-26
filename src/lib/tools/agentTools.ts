@@ -650,6 +650,42 @@ export interface CreateLeadInput {
   intake?: Record<string, string>;
   sourceCallId?: string;
   callbackConsent?: boolean;
+  escalated?: boolean;
+  escalationReason?: string;
+}
+
+/**
+ * One call = one request. Every lead that came from a call lives at this id, so the AI's createLead, an escalation and
+ * the end-of-call safety net all land on the SAME lead instead of stacking duplicates in the Pipeline — and a webhook
+ * retry can never create a second one.
+ */
+export function callLeadId(callId: string): string {
+  return `lead_call_${callId}`;
+}
+
+const URGENCY_RANK: Record<Lead["urgency"], number> = { unknown: 0, low: 1, normal: 2, urgent: 3 };
+
+/** Fold a second write for the same call into the existing lead: fill blanks, never downgrade urgency or un-escalate,
+ *  keep the notes from both, and leave the lead's lifecycle (status, callback state, createdAt) alone. */
+function mergeCallLead(existing: Lead, incoming: Lead): Lead {
+  const pick = <K extends "callerName" | "callerPhone" | "callerEmail" | "serviceRequested" | "address">(key: K) =>
+    existing[key]?.trim() ? existing[key] : incoming[key];
+  const notes = [existing.notes?.trim(), incoming.notes?.trim()].filter((n, i, all): n is string => !!n && all.indexOf(n) === i);
+  const intake = existing.intake || incoming.intake ? { ...(incoming.intake ?? {}), ...(existing.intake ?? {}) } : undefined;
+  return {
+    ...existing,
+    callerName: pick("callerName"),
+    callerPhone: pick("callerPhone"),
+    callerEmail: pick("callerEmail"),
+    serviceRequested: pick("serviceRequested"),
+    address: pick("address"),
+    urgency: URGENCY_RANK[incoming.urgency] > URGENCY_RANK[existing.urgency] ? incoming.urgency : existing.urgency,
+    notes: notes.length ? notes.join("\n") : undefined,
+    intake,
+    escalated: existing.escalated || incoming.escalated || undefined,
+    escalationReason: existing.escalationReason ?? incoming.escalationReason,
+    updatedAt: incoming.updatedAt,
+  };
 }
 
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
@@ -675,7 +711,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   const callbackDueAt =
     callbackState === "pending" ? now + delayMinutes * 60 * 1000 : null;
 
-  const leadId = `lead_${now}`;
+  const leadId = input.sourceCallId ? callLeadId(input.sourceCallId) : `lead_${now}`;
   const lead: Lead & {
     callbackState: "pending" | "none";
     callbackDueAt: number | null;
@@ -696,6 +732,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
       intake: input.intake,
     }),
     sourceCallId: input.sourceCallId,
+    ...(input.escalated ? { escalated: true, escalationReason: input.escalationReason } : {}),
     status: "new",
     callbackState,
     callbackDueAt,
@@ -704,9 +741,21 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     updatedAt: now,
   };
 
-  await businessRef.collection("leads").doc(leadId).set(lead);
-
-  return lead;
+  const ref = businessRef.collection("leads").doc(leadId);
+  if (!input.sourceCallId) {
+    await ref.set(lead);
+    return lead;
+  }
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) {
+      tx.set(ref, lead);
+      return lead;
+    }
+    const merged = mergeCallLead(snap.data() as Lead, lead);
+    tx.set(ref, merged);
+    return merged;
+  });
 }
 
 export interface EscalateCallInput {
@@ -731,7 +780,31 @@ export interface EscalateCallOutput {
   callId: string;
 }
 
+/**
+ * An emergency on the line. The email alerts the owner; the LEAD is what puts the call in the Pipeline with a Review
+ * card — before 2026-09-25 an escalated call produced no lead at all, so it never appeared there (owner's demo). The
+ * lead is written first and best-effort: a Firestore hiccup must never stop the alert, and the email result never
+ * decides whether the request is recorded.
+ */
 export async function escalateCall(
+  input: EscalateCallInput
+): Promise<EscalateCallOutput> {
+  if (input.callId) {
+    await createLead({
+      businessId: input.businessId,
+      callerPhone: input.callerPhone,
+      serviceRequested: input.reason,
+      notes: input.summary,
+      urgency: "urgent",
+      sourceCallId: input.callId,
+      escalated: true,
+      escalationReason: input.reason,
+    }).catch((error) => console.error("escalateCall: could not record the escalation lead", error));
+  }
+  return notifyEscalation(input);
+}
+
+async function notifyEscalation(
   input: EscalateCallInput
 ): Promise<EscalateCallOutput> {
   const db = getAdminFirestore();

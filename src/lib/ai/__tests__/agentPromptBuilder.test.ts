@@ -43,6 +43,25 @@ describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
   });
 });
 
+// REGRESSIONS (owner's demo call, 2026-09-25): "a tiny drip, it's not raining" was escalated as an emergency, and the
+// agent confirmed only two digits of the caller's number, then refused to read the full number back "for privacy".
+describe("buildAgentPrompt — escalation and phone read-back", () => {
+  it("escalates on what is happening now, not on the word leak, and never exposes the escalation phone", () => {
+    const prompt = buildAgentPrompt(config({ escalationPhone: "+13055550000", emergencyRules: VERTICAL_TEMPLATES.roofing.emergencyRules }));
+    expect(prompt).toContain("Escalate ONLY when what the caller describes matches one of your Emergency Rules RIGHT NOW");
+    expect(prompt).toContain("small drip");
+    expect(prompt).toContain("take a message with createLead");
+    expect(prompt).not.toContain("+13055550000");
+    expect(VERTICAL_TEMPLATES.roofing.emergencyRules.some((rule) => /leak, or flooding: escalate immediately/.test(rule))).toBe(false);
+  });
+
+  it("confirms all four last digits and reads the whole number back when asked", () => {
+    const prompt = buildAgentPrompt(config(), { runtime: { callerPhone: "+18254887791" } });
+    expect(prompt).toContain("ending in 7-7-9-1");
+    expect(prompt).toContain("If the caller asks to hear the whole number, read all of it back");
+  });
+});
+
 describe("buildAgentPrompt — How you speak", () => {
   it("keeps internal IDs silent and names the configured contact", () => {
     const prompt = buildAgentPrompt(config({ contactName: "Alex", agentLanguages: ["en", "es"] }));

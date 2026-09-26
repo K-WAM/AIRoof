@@ -12,6 +12,7 @@ import {
   parseCallOutcomeOutput,
   parseFaqSuggestionsOutput,
 } from "@/lib/schemas";
+import type { CallOutcomeOutput } from "@/lib/schemas/ai";
 
 const isProduction = (): boolean => process.env.NODE_ENV === "production";
 
@@ -254,10 +255,7 @@ export async function summarizeTranscript(
 
 export async function classifyCallOutcome(
   options: ClassifyOutcomeOptions
-): Promise<{
-  outcome: "scheduled" | "escalated" | "lead_captured" | "no_action";
-  reason: string;
-}> {
+): Promise<CallOutcomeOutput> {
   const { client } = selectClient("classify");
 
   if (!client) {
@@ -281,13 +279,14 @@ export async function classifyCallOutcome(
     res = await client.chat.completions.create({
       model: selection.model,
       temperature: 0.2,
-      max_tokens: 200, // "1 sentence" reason — a defensive ceiling, not a quality lever
+      max_tokens: 300, // "1 sentence" reason + three short fields — a defensive ceiling, not a quality lever
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content:
-            'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence).',
+            'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence), ' +
+            'callerName, address, service. callerName, address and service are ONLY what the caller actually said on the call (their name, the service address, what they need done); use "" for anything they did not say. Never guess or invent them.',
         },
         {
           role: "user",

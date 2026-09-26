@@ -320,7 +320,8 @@ describe("deepseekClient — adversarial hardening", () => {
 
       const { classifyCallOutcome } = await import("@/lib/ai/deepseekClient");
       await classifyCallOutcome({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" });
-      expect(capturedParams).toMatchObject({ max_tokens: 200 });
+      // 1-sentence reason + callerName/address/service for the end-of-call safety-net lead (2026-09-25).
+      expect(capturedParams).toMatchObject({ max_tokens: 300 });
     });
   });
 

@@ -56,7 +56,10 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
           <h2>{request.callerName || "Unknown caller"}</h2>
           <p>{request.callerPhone || "No phone"}{request.callerEmail ? ` · ${request.callerEmail}` : ""}</p>
         </div>
-        <span className="tag">{request.urgency || "normal"}</span>
+        {/* Only what needs attention gets a chip — "normal" said nothing and read like a status. */}
+        {request.escalated
+          ? <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>
+          : request.urgency?.toLowerCase() === "urgent" && <span className="tag urgent">Urgent</span>}
       </div>
 
       <div className="request-review-grid">

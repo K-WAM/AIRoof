@@ -94,6 +94,10 @@ const summaryOutputSchema: z.ZodType<SummaryOutput, z.ZodTypeDef, unknown> = z.o
 export interface CallOutcomeOutput {
   outcome: "scheduled" | "escalated" | "lead_captured" | "no_action";
   reason: string;
+  /** Only what the caller actually said — fills the end-of-call safety-net lead (src/lib/calls/callLead.ts). */
+  callerName?: string;
+  address?: string;
+  service?: string;
 }
 
 const callOutcomeOutputSchema: z.ZodType<
@@ -103,6 +107,9 @@ const callOutcomeOutputSchema: z.ZodType<
 > = z.object({
   outcome: z.enum(["scheduled", "escalated", "lead_captured", "no_action"]),
   reason: modelText(1_000),
+  callerName: optionalModelText(200),
+  address: optionalModelText(500),
+  service: optionalModelText(300),
 });
 
 const scopeClassificationSchema: z.ZodType<

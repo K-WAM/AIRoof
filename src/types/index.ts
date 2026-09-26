@@ -226,6 +226,9 @@ export interface Lead {
    */
   intake?: Record<string, string>;
   sourceCallId?: string;
+  /** The AI escalated this call as an emergency (escalateCall). The lead is what puts it in the Pipeline. */
+  escalated?: boolean;
+  escalationReason?: string;
   status: "new" | "contacted" | "booked" | "closed" | "lost";
   /** T-113: a staff decision is retained for audit and idempotent customer notification. */
   declinedAt?: number;

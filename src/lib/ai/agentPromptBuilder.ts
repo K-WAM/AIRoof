@@ -72,8 +72,10 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   const rawPhone = runtime?.callerPhone ?? "";
   const phoneDigits = rawPhone.replace(/\D/g, "");
   const last4 = phoneDigits.slice(-4);
+  // Owner's demo call (2026-09-25): the agent said "ending in seven one" (two digits) and then REFUSED to read the full
+  // number back when the caller asked, "citing privacy". It is the caller's own number — reading it back is fine.
   const phoneInstruction = phoneDigits
-    ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back the last four digits, e.g. "I've got your number ending in ${last4} — is that the best one to reach you?" Only collect a different number if they ask you to.`
+    ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back ALL FOUR of the last four digits, one at a time, e.g. "I've got your number ending in ${last4.split("").join("-")} — is that the best one to reach you?" If the caller asks to hear the whole number, read all of it back in groups (area code, then three digits, then four) — it is their own number, so this is not a privacy problem. Only collect a different number if they ask you to.`
     : `- Phone number: ask for the best callback number once and read it back to confirm.`;
 
   const intakeSection = buildIntakeSection(businessConfig.industry);
@@ -140,7 +142,10 @@ ${phoneInstruction}
 - Email (OPTIONAL — never required): collecting an email by phone is awkward, so keep it light. You may offer once to send a confirmation by email; if they give it, include it as "email" when you call the booking/lead tool. If they hesitate, struggle to spell it, or decline, drop it immediately and move on. Never insist, never spell it back letter-by-letter unless they ask, and never let the email hold up the booking.
 
 ## Escalation
-If urgent or outside your scope: collect details and escalate to ${businessConfig.escalationPhone || "the team"}.
+- Escalate ONLY when what the caller describes matches one of your Emergency Rules RIGHT NOW. An escalation alerts the owner as an emergency, so a false one costs them.
+- If the caller says it is small, not active, or not getting worse (for example a small drip or an old stain when it is not raining), it is NOT an emergency: book the soonest visit and tell them it is a priority, or take a message with createLead. Believe the caller's own description over any single word like "leak".
+- If they need something you cannot handle and it is not urgent, do not escalate: take a message with createLead so the team calls back.
+- Before you call escalateCall, get the caller's name and the address if you can do it quickly. After it returns, tell them the team has been alerted and will call them back; never promise a time.
 
 ${languageSection}
 ## Using your tools (IMPORTANT)
@@ -149,7 +154,7 @@ You can NOT check the calendar, book, change or cancel anything from memory or b
 - Only if the caller asks what times are open, or has no time in mind: call checkAvailability first and offer a real opening from its answer.
 - To change or cancel: call lookupAppointment first, then cancelAppointment only after they clearly say yes.
 - If they only want a callback or a quote, or cannot be booked: call createLead.
-- For an emergency under your emergency rules: call escalateCall.
+- For an emergency under your emergency rules (see Escalation): call escalateCall. The team sees it as an urgent request, so you do not also need createLead.
 - If a tool fails or returns an error, do not pretend it worked: apologise once and say the team will call them back to confirm.
 - Only say "one moment" or "let me check" when you are calling a tool in that same reply — never as a stand-in for doing it.
 
