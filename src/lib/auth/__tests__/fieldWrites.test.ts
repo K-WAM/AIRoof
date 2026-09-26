@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({ providerReady: true }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifyFieldAccess: async (_req: NextRequest, _businessId: string, options?: { write?: true }) =>
@@ -9,7 +11,7 @@ vi.mock("@/lib/auth/verifyRole", () => ({
   verifyAuthAndRole: async () => ({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }),
 }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => ({}) }));
-vi.mock("@/lib/ai/registry", () => ({ isProviderReady: () => true }));
+vi.mock("@/lib/ai/registry", () => ({ isProviderReady: () => mocks.providerReady }));
 
 import { POST as postUpdate } from "@/app/api/jobs/[jobId]/updates/route";
 import { POST as postAudio } from "@/app/api/jobs/[jobId]/field-audio/route";
@@ -28,6 +30,7 @@ function request(path: string, body: object) {
 }
 
 describe("viewer field writes", () => {
+  beforeEach(() => { mocks.providerReady = true; });
   it.each([
     ["note", () => postUpdate(request("/api/jobs/J-1/updates", { businessId: "biz", rawText: "note" }), job)],
     ["audio", () => postAudio(request("/api/jobs/J-1/field-audio", { businessId: "biz", audioBase64: "AAAA", mimeType: "audio/webm" }), job)],
@@ -38,6 +41,12 @@ describe("viewer field writes", () => {
     ["transcription", () => postTranscribe(request("/api/transcribe", { businessId: "biz", audioBase64: "AAAA", mimeType: "audio/webm" }))],
   ])("rejects %s before a write or provider call", async (_label, call) => {
     const response = await call();
+    expect(response.status).toBe(403);
+  });
+
+  it("rejects transcription even when the speech provider is unavailable", async () => {
+    mocks.providerReady = false;
+    const response = await postTranscribe(request("/api/transcribe", { businessId: "biz", audioBase64: "AAAA", mimeType: "audio/webm" }));
     expect(response.status).toBe(403);
   });
 });
