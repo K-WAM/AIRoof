@@ -321,6 +321,19 @@ describe("bookAppointment transaction", () => {
     await expect(bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 })).resolves.toMatchObject({ startTime });
   });
 
+  it("reclaims a stale lock from an already cancelled appointment", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    firestore.documents.set("businesses/biz-1/appointments/old", { startTime, endTime: startTime + 3600000, status: "cancelled" });
+    for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/unassigned:${bucket}`, { entityId: "old" });
+    }
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/unassigned:${startTime}`)?.entityId).toBe(next.appointmentId);
+  });
+
   it("rebooks the same time after a verified cancellation releases its locks", async () => {
     const firestore = new FakeFirestore();
     firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });

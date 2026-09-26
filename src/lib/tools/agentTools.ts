@@ -553,7 +553,18 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       transaction.get(conflictQuery),
       transaction.get(jobConflictQuery),
     ]);
-    const occupiedByLock = lockSnapshots.some((snapshot) => snapshot.exists);
+    const cancelledIds = new Set(existingSnapshot.docs
+      .filter((document) => document.data().status === "cancelled")
+      .map((document) => document.id));
+    const staleLockIndexes = new Set<number>();
+    const occupiedByLock = lockSnapshots.some((snapshot, index) => {
+      if (!snapshot.exists) return false;
+      if (cancelledIds.has(snapshot.data()?.entityId)) {
+        staleLockIndexes.add(index);
+        return false;
+      }
+      return true;
+    });
     const appointments = existingSnapshot.docs.map((document) => {
       const data = document.data();
       return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
@@ -593,7 +604,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       updatedAt: now,
     };
     for (const [index, lockRef] of lockRefs.entries()) {
-      transaction.create(lockRef, {
+      const lock = {
         resourceKey: scheduleResourceKey(),
         bucketStart: lockBuckets[index],
         entityType: "appointment",
@@ -601,7 +612,9 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         startTime: input.startTime,
         endTime: input.endTime,
         updatedAt: now,
-      });
+      };
+      if (staleLockIndexes.has(index)) transaction.set(lockRef, lock);
+      else transaction.create(lockRef, lock);
     }
     transaction.create(appointmentRef, appointment);
     return appointment;
