@@ -356,35 +356,28 @@ Nothing else.
    - Rendered as a "Terms & notices" block at the end of the quote/invoice, in the preview, print and email.
 5. **Gates:** same as E1. Also re-run `src/e2e/demo-path.test.ts`; its "no $ in the report" assertion must still hold with the box off.
 
-## E6: Photos on documents + drag-and-drop (Codex B, GPT-5.5 Terra, medium, after E5 merges)
+## E6: Photos on documents + drag-and-drop — SPLIT 2026-09-26 into E6a (start now, parallel with E5) and E6b (after E5 merges)
+`@dnd-kit/sortable` 10.0.0 is installed on main (`b3b1f2c`, owner-approved). No other new dependency.
+
+### E6a: photo data model + drag-and-drop Photos tab (GPT-5.5 Terra, medium) — files disjoint from E5
 **Owns:**
-- `src/lib/photos/**`, `src/app/api/jobs/[jobId]/photos/**`, `src/types/jobs.ts` (photo fields only)
-- `src/components/field/PhotoEditSheet.tsx`
-- new `src/components/photos/**`
-- `src/lib/documents/photoPages.ts` (new) + the photo parts of `DocumentPreview.tsx`/`emailBlocks.ts`
-- the three send routes (photo loading only)
-- `jobs/[jobId]/page.tsx` (Photos tab + photo wiring)
+- `src/lib/photos/**`, `src/app/api/jobs/[jobId]/photos/**` (incl. a new `order/route.ts`), `src/types/jobs.ts` (photo fields only)
+- `src/components/field/PhotoEditSheet.tsx`, new `src/components/photos/**`
+- new `src/lib/documents/photoPages.ts` + `photoPages.test.ts` (a PURE function; do NOT edit `DocumentPreview.tsx`, `emailBlocks.ts` or any send route — E5 owns them, E6b wires them)
+- `jobs/[jobId]/page.tsx`: the **Photos tab region only** (grep for `activeTab === "photos"`; E5 is editing the Report/Invoice regions of the same file, so keep your hunks inside the Photos tab and its helpers)
 
-**New dependency approved by the owner:** `@dnd-kit/sortable` (same family as the installed `@dnd-kit/core`).
+1. **Pairs, not positions.** Optional `pairId` on `JobPhotoMeta` (an After points at its Before). The photo PATCH validates it: it must name another photo of the SAME job, that one must be phase "before" and this one phase "after"; clearing it is allowed. PhotoEditSheet gets a "Pairs with…" picker (only shown for After photos, listing the Before photos). Legacy photos with no `pairId` keep pairing by position exactly as `pairReportPhotos` does today.
+2. **Order endpoint.** `PATCH /api/jobs/[jobId]/photos/order` body `{ businessId, order: string[] }` (max 24 ids, all must belong to this job, no duplicates) writes `sort` = index * 1000 in one batch. Gate: `verifyAuthAndRole` owner/staff/superadmin (NOT a QR grant). Also make the existing single-photo PATCH validate `sort` as a finite number.
+3. **Drag-and-drop Photos tab.** Sortable grid (mouse, touch with a ~250 ms press delay so scrolling still works, keyboard via `sortableKeyboardCoordinates`, screen-reader announcements). Sections: **Before / After pairs** (each pair is two slots side by side; dropping an After on a Before pairs them, and the pairing persists through `pairId`), then **Other**. Keep everything the tab does today: lightbox, "In report" toggle, edit, delete, phase badge, caption. Optimistic reorder with rollback and a visible error if the save fails.
+4. **`photoPages(photos, { pairsPerPage: 4 })`** (pure, unit-tested): returns pages of rows. Each row is `{ before?, after? }` (Before left, After right), 4 rows per page; explicit `pairId` wins, legacy photos pair by position; unpaired photos follow, two per row; stable order by `sort ?? createdAt`. This is the contract E6b renders for all three documents.
+5. Gates: `npx tsc --noEmit`; eslint on changed files; focused tests (negative cases first for the two routes: another job's photo id, duplicate ids, >24 ids, viewer/QR session on the order route, an After paired to another After); full `npx vitest run`; Playwright on the Photos tab at 1280 and 375 px (drag with mouse and with the keyboard). No `next build`.
 
-1. **Pairs, not positions.** Add optional `pairId` to `JobPhotoMeta`: an After points at its Before. PhotoEditSheet gets a "Pairs with…" picker. Fallback for legacy photos: position pairing as today.
-2. **Drag-and-drop.**
-   - The Photos tab becomes a sortable grid (mouse, touch, keyboard). Sections: **Before / After pairs**, then Other.
-   - Dragging an After onto a Before pairs them.
-   - Order persists through a new `PATCH /api/jobs/[id]/photos/order` (tenant-scoped, staff/owner, validates finite numbers, max 24 ids).
-3. **One layout for all three documents.**
-   - `photoPages(photos, {pairsPerPage: 4})`: rows of **Before | After**, each photo with its caption underneath, 4 pairs per page, and a page break between pages. Unpaired photos go 2 per row after the pairs.
-   - Used by `DocumentPreview` (a new `photos` prop) and `emailBlocks` (`photosBlock`). Print CSS: `break-inside: avoid`, page break per 4 rows.
-4. **Per-document selection.**
-   - The report keeps `includeInReport`.
-   - Quote and invoice get `photoIds?: string[]` plus the existing `showPhotos` option exposed as a toggle ("Include photos"). The default is the report-selected photos.
-5. **Email size.**
-   - The send routes load blobs server-side with `getPhotoBlobs(ids)` (`store.ts:49`). The report stops posting base64 in the request body; this fixes the 4.5 MB limit.
-   - Cap 16 photos per email (4 pages of pairs), with a clear message if more are selected.
-6. **Gates:** same as E3, including Playwright on the Photos tab (drag works with mouse and keyboard) and a print preview of each document.
-
----
-
+### E6b: photos on the quote, invoice and report (GPT-5.5 Terra, medium) — AFTER E5 and E6a are merged
+**Owns:** the photo parts of `src/lib/documents/DocumentPreview.tsx` and `emailBlocks.ts`, the three send routes (photo loading only), quote/invoice types (`photoIds?`), the Report/Invoice/Quote photo toggles, print CSS.
+1. **One layout for all three documents.** Render `photoPages()` (E6a): rows of **Before | After**, each photo with its caption underneath, 4 pairs per page, a page break between pages (`break-inside: avoid`). `DocumentPreview` gets a `photos` prop; `emailBlocks` gets `photosBlock`.
+2. **Per-document selection.** The report keeps `includeInReport`. Quote and invoice get `photoIds?: string[]` plus the existing `showPhotos` option exposed as an "Include photos" toggle (default: the report-selected photos).
+3. **Email size.** The send routes load blobs server-side with `getPhotoBlobs(ids)` (`store.ts`); the report stops posting base64 in the request body (this fixes the 4.5 MB Vercel limit). Cap 16 photos per email (4 pages of pairs) with a clear message if more are selected.
+4. Gates: as E6a, plus a print preview of each document.
 ## Integrator (Claude) after each wave
 - Review each diff against its section, merge to `main`, run the full gates plus `npx next build`, and update `TODO.md` Phase 25.
 - Before creating the E6 worktree: `npm install @dnd-kit/sortable` on `main` (owner-approved), run the gates, commit, then create the worktree.
