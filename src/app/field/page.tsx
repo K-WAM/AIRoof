@@ -181,12 +181,12 @@ function FieldApp() {
   }, [bootstrapComplete, businessId, sessionJobId]);
 
   const refreshRecent = useCallback((jobId: string) => {
-    if (!jobId) { setRecentUpdates([]); return; }
+    if (!bootstrapComplete || !businessId || !jobId) { setRecentUpdates([]); return; }
     fetch(`/api/jobs/${encodeURIComponent(jobId)}/updates?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : { updates: [] }))
       .then((d) => setRecentUpdates(((d.updates ?? []) as FieldUpdate[]).reverse().slice(0, 8)))
       .catch(() => {});
-  }, [businessId]);
+  }, [bootstrapComplete, businessId]);
 
   // Load recent updates when job changes
   useEffect(() => {
