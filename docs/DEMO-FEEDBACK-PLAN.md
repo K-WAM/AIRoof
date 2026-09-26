@@ -228,7 +228,15 @@ Hot files and their owners:
    - Test with mocked clients.
 7. **Gates:** same as E1. No live calls. Run the agent-tool tests: `src/lib/tools`, `src/lib/vapi`, `src/app/api/webhooks`, `src/e2e`.
 
-## E3: Job page restructure (Codex B, GPT-5.5 Terra, medium; starts after step 0)
+## E3: Job page restructure (**DONE 2026-09-26, merged to local main — integrator finished it after Codex B's partial**)
+**Status / deviations (read before E5 and E6 touch `jobs/[jobId]/page.tsx`):**
+- Merged as `cb64bb3` (plus Codex B's four commits). Full vitest 1,209 green; `next build` green; the picker sheet and tab bar were measured in a real browser at 375 px and 1280 px from a CSS harness (there is no signed-in local environment for the real page). The whole page is covered by a jsdom structure test (`page.test.tsx`).
+- New sibling files: `NextStepButton.tsx`, `LockNote.tsx`, `page.test.tsx`; `JobStepper.tsx` is deleted. The Report and Invoice **document rendering was not touched** (E5 owns it). The Invoice tab got its error banner and "Create invoice" wording only.
+- **Deliberate loss:** the Issues tab could edit and add crew issues by hand. That went with the tab (owner decision: merge into Findings). "Reported by crew" is read-only; findings themselves stay editable.
+- The invoice preview's `today`/`due` dates and the report's meta date still use browser `toLocaleDateString` (document rendering, left for E5).
+- The page now loads the quote and the invoice STATUS once on open (two light GETs) so the Quote pill and the lock notes are right without opening those tabs.
+- "Added ✓" on a crew issue is derived (matched Library item is on the job, or a finding has the same text): findings cannot carry a back-link because `validFindings` allows a fixed set of keys.
+- **E5/E6:** `page.tsx` is free for you now. Codex B's original spec follows for reference.
 **Owns:**
 - `src/app/company/jobs/[jobId]/**`: `page.tsx`, `FindingsPanel.tsx`, `QuotePanel.tsx`, `JobHistory.tsx`, `JobStepper.tsx` (delete), and new sibling components
 - `src/lib/jobs/nextStep.ts`, `src/lib/jobs/projection.ts` (sort only), `src/lib/jobs/history.ts`

@@ -1030,10 +1030,10 @@ an active queue.*
         punch re-projection; `43a6aa0` escalation leads + safety net, no drip escalation, full number read-back, Pipeline/Calls chips, fmtPhone;
         `28affdd` quote answeredAt + locked-quote banner + invoice paid in history. Gates: full vitest green (flaky pair re-run alone), next build green.
   - [ ] **E1** (Codex A, GPT-6 Sol medium, `air-wt-access`; steps 1-3 committed, scope widened 2026-09-26 for steps 3-5) — QR time clock "Forbidden" fix, no field Work complete, required worker name, viewer read-only, Team page (Invited/Active/Locked, lock/unlock, revoke QR links).
-  - [ ] **E3** (integrator finishing; Codex B did tabs/CSS/sheet/time-sort, `air-wt-job-page`) — job page restructure, newest-first Activity, Issues -> Findings, numbered findings, lock notes, picker sheet cut-off.
+  - [x] **E3** (DONE 2026-09-26; integrator finished after Codex B's partial; merged to local main) — job page restructure, newest-first Activity, Issues -> Findings, numbered findings, lock notes, picker sheet cut-off.
   - [x] **E4** (Deepseek V4.1 Flash Thinking Hard; MERGED to local main 2026-09-26) — `docs/AI-PROVIDERS.md`, `docs/FLORIDA-DOCUMENT-NOTICES.md` (DRAFT) + `legalNotices.ts`, seeded call transcripts.
   - [ ] **E2** (Codex B, GPT-6 Sol medium — start now, files disjoint from E1/E3) — booking checks jobs + crew bookings, cancel frees the slot, appointment/dashboard queries, jobs paging + CSV, classify fallback to OpenAI.
-  - [ ] **E5** (Codex B, GPT-6 Sol medium, after E3 + E4) — invoice in the reference's voice, report fixes, Include quote, Terms & notices with approval gate.
+  - [ ] **E5** (GPT-6 Sol medium — UNBLOCKED, next free Codex) — invoice in the reference's voice, report fixes, Include quote, Terms & notices with approval gate.
   - [ ] **E6** (Codex B, GPT-5.5 Terra medium, after E5) — photo pairs on quote/invoice/report, drag-and-drop, server-side photo loading for email.
   - [ ] NEEDS-HUMAN: attorney review of `docs/FLORIDA-DOCUMENT-NOTICES.md` then tick "reviewed"; fill account owners in `docs/AI-PROVIDERS.md`; check OpenAI + DeepSeek balances; relaunch Demo Studio after deploy.
 
