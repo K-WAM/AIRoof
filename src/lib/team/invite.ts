@@ -26,6 +26,8 @@ export interface TeamMemberDoc {
   crewId?: string;
   active?: boolean;
   createdAt?: number;
+  lockedAt?: number | null;
+  lockedBy?: string | null;
 }
 
 export type InviteOutcome =

@@ -28,6 +28,9 @@ describe("Team page", () => {
   it("shows the required member fields and locks a member", async () => {
     render(<TeamPage />);
     expect(await screen.findByText("alex@example.com")).toBeTruthy();
+    const table = screen.getByRole("table");
+    expect(table.parentElement?.style.overflowX).toBe("auto");
+    expect(parseInt(table.style.minWidth, 10)).toBeGreaterThan(window.innerWidth);
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByLabelText("Role for alex@example.com")).toBeTruthy();
     expect(screen.getByLabelText("Title for alex@example.com")).toBeTruthy();
