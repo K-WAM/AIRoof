@@ -265,6 +265,28 @@ describe("deepseekClient — adversarial hardening", () => {
   });
 
   describe("classifyCallOutcome", () => {
+    it("retries a DeepSeek credit failure once on OpenAI", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test-deepseek");
+      vi.stubEnv("OPENAI_API_KEY", "sk-test-openai");
+      const create = vi.fn(async (params: { model: string }) => {
+        if (params.model === "deepseek-chat") throw new Error("insufficient balance");
+        return { choices: [{ message: { content: '{"outcome":"lead_captured","reason":"Needs a callback"}' } }] };
+      });
+      vi.doMock("openai", () => ({ default: class {
+        chat = { completions: { create } };
+      } }));
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        const { classifyCallOutcome } = await import("@/lib/ai/deepseekClient");
+        const result = await classifyCallOutcome({ transcript: [{ role: "caller", text: "Call me back" }], businessName: "Test" });
+        expect(result).toMatchObject({ outcome: "lead_captured", reason: "Needs a callback" });
+        expect(create.mock.calls.map(([params]) => params.model)).toEqual(["deepseek-chat", "gpt-4o-mini"]);
+        expect(warning).toHaveBeenCalledWith("classify fell back to OpenAI");
+      } finally {
+        warning.mockRestore();
+      }
+    });
+
     it("throws in production when provider not configured", async () => {
       vi.stubEnv("NODE_ENV", "production");
       const { classifyCallOutcome } = await import("@/lib/ai/deepseekClient");
