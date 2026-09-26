@@ -125,11 +125,13 @@ export async function updatePhotoMeta(
   businessId: string,
   jobId: string,
   photoId: string,
-  patch: Partial<Pick<JobPhotoMeta, "label" | "phase" | "sort">>,
+  patch: Omit<Partial<Pick<JobPhotoMeta, "label" | "phase" | "pairId" | "sort">>, "pairId"> & { pairId?: string | null },
 ): Promise<void> {
   const clean: Record<string, unknown> = {};
   if (patch.label !== undefined) clean.label = patch.label.trim();
   if (patch.phase !== undefined) clean.phase = patch.phase;
+  // null is an intentional clear. Legacy readers treat both null and omission as unpaired.
+  if (patch.pairId !== undefined) clean.pairId = patch.pairId;
   if (patch.sort !== undefined) clean.sort = patch.sort;
   if (Object.keys(clean).length === 0) return;
   await photosCol(db, businessId, jobId).doc(photoId).update(clean);

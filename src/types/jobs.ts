@@ -170,6 +170,9 @@ export interface JobPhotoMeta {
   // Phase 12, Phase 3 additions. No migration — every pre-existing doc lacks these; read them
   // with defaults (`meta.phase ?? "other"`) rather than backfilling.
   phase?: PhotoPhase;
+  // An After photo may explicitly point at the Before photo it documents. Legacy photos omit
+  // this and continue to pair by their ordered position.
+  pairId?: string;
   sort?: number;      // sparse — a drag-reorder writes midpoints between neighbors
   orientation?: "portrait" | "landscape" | "square"; // derived once at upload from w/h
 }

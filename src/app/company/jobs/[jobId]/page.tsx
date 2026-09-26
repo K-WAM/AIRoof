@@ -1279,9 +1279,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         photo={editingPhoto}
         jobId={jobId}
         businessId={businessId}
+        beforePhotos={photos.filter((photo) => photo.phase === "before")}
         canCurate
         onClose={() => setEditingPhoto(null)}
-        onSaved={(patch) => setPhotos((ps) => ps.map((p) => (p.photoId === editingPhoto?.photoId ? { ...p, ...patch } : p)))}
+        onSaved={(patch) => setPhotos((ps) => ps.map((p) => {
+          if (p.photoId !== editingPhoto?.photoId) return p;
+          const { pairId, ...rest } = patch;
+          return { ...p, ...rest, ...(pairId !== undefined ? { pairId: pairId ?? undefined } : {}) };
+        }))}
         onDeleted={() => setPhotos((ps) => ps.filter((p) => p.photoId !== editingPhoto?.photoId))}
       />
 
