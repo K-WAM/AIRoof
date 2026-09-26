@@ -2561,6 +2561,22 @@ a.metric:hover {
    primitive. New surfaces (PhotoEditSheet, and Phase 5's future time editor)
    should use this instead of hand-rolling another one — same relationship
    .modal-overlay/.modal-box already have to Modal.tsx. */
+.job-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.job-tab { min-height: 44px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; margin-bottom: -2px; background: none; color: var(--text-muted); cursor: pointer; padding: 8px 12px; font-size: 13px; }
+.job-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+.job-tabs-divider { align-self: stretch; width: 1px; min-width: 1px; margin: 6px 4px; background: var(--border); }
+.job-tab-workflow { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
+.job-tab-workflow.current { box-shadow: inset 0 0 0 2px var(--accent); }
+.job-tab-workflow small { font-size: 10px; color: var(--accent); }
+
 .sheet-backdrop {
   position: fixed;
   inset: 0;

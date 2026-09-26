@@ -18,15 +18,15 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
 import { draftReportNotes, pairReportPhotos, reportSections } from "@/lib/documents/report";
 import { FindingsPanel } from "./FindingsPanel";
-import { JobStepper } from "./JobStepper";
 import { JobHistory } from "./JobHistory";
+import { jobSteps } from "@/lib/jobs/nextStep";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
-import { suggestFindings } from "@/lib/jobs/suggestFindings";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
+import type { JobQuote } from "@/types/quote";
 import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -141,7 +141,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
+  const [pageQuote, setPageQuote] = useState<JobQuote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -774,19 +775,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     return () => window.removeEventListener("beforeunload", handler);
   }, [invoiceDirty]);
 
-  const suggestedCount = job ? suggestFindings(job, catalog.items).length : 0;
   // Order follows the work: what happened (Timeline, Photos, Issues), what we found and quote (Findings, Quote), the detail
   // behind the numbers (Materials, Labor), then the customer documents (Report, Invoice).
   const TABS = [
-    { id: "timeline", label: `Timeline (${timeline.length})` },
+    { id: "timeline", label: `Activity (${updates.length + timeline.length})` },
     { id: "photos", label: photosLoaded ? `Photos (${photos.length})` : "Photos" },
-    { id: "issues", label: `Issues (${issues.length})` },
-    { id: "findings", label: `Findings (${job?.findings?.length ?? 0})${suggestedCount > 0 ? ` · ${suggestedCount} suggested` : ""}` },
-    { id: "quote", label: "Quote" },
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
-    { id: "report", label: "Report" },
-    { id: "invoice", label: "Invoice" },
+  ] as const;
+  const steps = job ? jobSteps(job) : [];
+  const WORKFLOW_TABS = [
+    { id: "findings", number: "①", label: "Findings", step: steps.find((step) => step.id === "findings") },
+    { id: "quote", number: "②", label: "Quote", step: steps.find((step) => step.id === "quote") },
+    { id: "report", number: "③", label: "Report", step: steps.find((step) => step.id === "report") },
+    { id: "invoice", number: "④", label: "Invoice", step: steps.find((step) => step.id === "invoice") },
   ] as const;
 
   if (loading) return <PageSkeleton rows={6} />;
@@ -954,24 +956,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "2px solid #e2e8f0", overflowX: "auto" }} className="no-print">
+      <div className="job-tabs no-print">
         {TABS.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-            padding: "8px 16px", border: "none", background: "none", cursor: "pointer",
-            fontWeight: activeTab === tab.id ? 700 : 400,
-            color: activeTab === tab.id ? "var(--accent)" : "#64748b",
-            borderBottom: activeTab === tab.id ? "2px solid var(--accent)" : "2px solid transparent",
-            marginBottom: -2, fontSize: 13, flexShrink: 0,
-          }}>
+          <button className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
             {tab.label}
           </button>
         ))}
+        <span className="job-tabs-divider" aria-hidden="true" />
+        {WORKFLOW_TABS.map((tab) => {
+          const quoteLabel = tab.id === "quote" && pageQuote?.status !== "draft" ? (pageQuote.status === "accepted" ? "Accepted" : "Sent") : null;
+          return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
+            <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
+          </button>;
+        })}
       </div>
 
-      <JobStepper job={job} onGo={(tab) => setActiveTab(tab)} />
-
       {/* Edit / Save / Cancel — data tabs only */}
-      {["timeline", "materials", "labor", "issues"].includes(activeTab) && (
+      {["timeline", "materials", "labor"].includes(activeTab) && (
         <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
           {!editing ? (
             <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={startEdit} disabled={updates.length === 0 && !job?.parsed}>
@@ -1348,7 +1349,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
-        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote} />}
 
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
