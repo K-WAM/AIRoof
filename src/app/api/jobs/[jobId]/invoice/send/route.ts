@@ -8,6 +8,7 @@ import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobInvoice } from "@/types/invoice";
 import type { Job, JobStatusChange } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
+import { getPhotoBlobs, listPhotoMetas } from "@/lib/photos/store";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
 // Phase 12/Phase 4 rewrite: reads the SAVED invoice doc instead of trusting rows the client
@@ -61,6 +62,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
   const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
 
+  const metas = await listPhotoMetas(db, businessId, jobId);
+  const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
+  if (photoIds.length > 16) return NextResponse.json({ error: "A document email can include at most 16 photos. Remove photos and try again." }, { status: 400 });
+  if (new Set(photoIds).size !== photoIds.length || !photoIds.every((id) => metas.some((photo) => photo.photoId === id))) return NextResponse.json({ error: "Selected photos must belong to this job and be unique." }, { status: 400 });
+  const blobs = await getPhotoBlobs(db, businessId, jobId, photoIds);
+  if (photoIds.some((id) => !blobs[id])) return NextResponse.json({ error: "One or more selected photos no longer exist." }, { status: 400 });
   const html = buildJobInvoiceEmailHtml(invoice, {
     businessName: bizName,
     brandColor: biz.brandColor,
@@ -77,7 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     timezone: biz.timezone,
   }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
-  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }));
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), metas.filter((photo) => photoIds.includes(photo.photoId)).map((photo) => ({ ...photo, fullB64: blobs[photo.photoId] })));
 
   const sent = await sendEmail({
     to,
