@@ -417,11 +417,18 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     }
     seed.calls.forEach((c, i) => {
       const createdAt = now - (i + 1) * 3_600_000;
-      const duration = 60 + i * 25;
-      add.set(base.collection("calls").doc(), {
+      // Deterministic transcript: the seed's 3–5 turns become CallMessage[] so the
+      // Calls page renders a real conversation and "This call produced" links work.
+      const messages = c.messages.map((message, index) => ({
+        messageId: `seed-message-${index + 1}`,
+        role: message.role,
+        text: message.text,
+        timestamp: createdAt + index * 5_000,
+      }));
+      add.set(base.collection("calls").doc(c.callId), {
         ...c, businessId: LIVE_LINE_BUSINESS_ID, status: "completed",
-        startedAt: createdAt, endedAt: createdAt + duration * 1000, duration,
-        createdAt, updatedAt: now, messages: [],
+        startedAt: createdAt, endedAt: createdAt + c.durationSecs * 1000, durationSecs: c.durationSecs,
+        createdAt, updatedAt: now, messages,
       });
     });
     seed.leads.forEach((l, i) => {
