@@ -17,6 +17,7 @@ export interface JobQuote {
   hideMaterials: boolean;
   hideLabor?: boolean;
   showTechnicians?: boolean;
+  photoIds?: string[];
   technicians?: string[];
   narrative?: string;
   notes?: string;
