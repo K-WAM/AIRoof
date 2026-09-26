@@ -46,4 +46,8 @@ export interface TeamMember {
   crewId?: string;
   active: boolean;
   createdAt: number;
+  status?: "Invited" | "Active" | "Locked";
+  lastSignInTime?: string | null;
+  lockedAt?: number | null;
+  lockedBy?: string | null;
 }

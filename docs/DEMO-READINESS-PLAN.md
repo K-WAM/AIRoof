@@ -342,8 +342,8 @@ aren't touching.
    - On the client, show elapsed-time status text: "Uploading…", then "Transcribing…", then "Updating the job…".
 6. The office job page (Stage 1 refresh) must show a new field update across Timeline, Materials, Labor, Issues and the
    finding suggestions **without a reload**. Add a component test that mocks the fetch sequence.
-7. **Work complete** on both field screens, with a confirm. It calls a narrow `POST /api/jobs/[jobId]/complete` that
-   accepts field grants, is idempotent and appends `statusHistory`.
+7. **Work complete** is an office action. The narrow `POST /api/jobs/[jobId]/complete` requires owner/staff access,
+   is idempotent and appends `statusHistory`.
    - Arrival and departure stay the existing `site_in`/`site_out` punches. Relabel the TimeClock buttons in plain words
      ("Arrived at job", "Left job", "Start lunch", "Back from lunch", "Clock in at office", "Clock out at office"); the
      punch types don't change.
@@ -389,7 +389,7 @@ aren't touching.
 - `suggestFindings`, `draftQuoteIntro` and `buildJobHistory` have unit tests.
 - Save to Library appends to the catalog.
 - The quote picker adds a finding and its lines with Library prices.
-- `/complete` accepts a field grant and rejects a grant for another job.
+- `/complete` rejects field grants and accepts owner/staff access.
 - The field-audio EN/ES paths still pass.
 
 ### D3 — Deepseek · **V4 Flash, Think High** · "South Florida roofing content" (T-132)
@@ -451,7 +451,7 @@ Worktree `D:/Apps/air-wt-roofing`, branch `task/roofing-content`. Content only, 
 | Clients / CRM | Customers entity + instant search ✓ (a Library tab) | Top-level Customers page (D2) | — |
 | Quotes | Draft, send, record the answer ✓ | Library picker, auto-draft, explained options (D2) | Online approval, optional line items |
 | Jobs, scheduling, dispatch | Jobs, Calendar Powerboard, crew email ✓ | Next-step stepper, stage filters (D2) | Recurring jobs |
-| Tech mobile app | Field QR, **voice notes EN/ES**, photos, time clock ✓ | Live office view, findings from the field, Work complete (D2) | Checklists / forms |
+| Tech mobile app | Field QR, **voice notes EN/ES**, photos, time clock ✓ | Live office view, findings from the field (D2) | Checklists / forms |
 | Invoices and payments | Invoices ✓ | — | Online payment and reminders (Stripe, T-126, held) |
 | Timesheets | Punch ledger ✓ | Arrival and departure in report and history (D2) | Payroll export |
 | Customer portal, reviews, follow-ups | — | — | Client hub, review requests, quote follow-ups |

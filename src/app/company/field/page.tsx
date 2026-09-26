@@ -6,7 +6,6 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
-import { WorkCompleteButton } from "@/components/field/WorkCompleteButton";
 import { TimeClock } from "@/components/field/TimeClock";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
@@ -666,11 +665,6 @@ function FieldPageContent() {
           {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
           <div style={{ marginBottom: 20 }}>
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
-          </div>
-
-          {/* Close the job out — two taps on purpose */}
-          <div style={{ marginBottom: 20 }}>
-            <WorkCompleteButton businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName || undefined} />
           </div>
 
           {/* One-tap correction confirm card */}

@@ -17,8 +17,8 @@ import type { JobFinding, WorkCatalog } from "@/types/workCatalog";
 type Context = { params: Promise<{ jobId: string }> };
 const MAX_FINDINGS = 60;
 
-async function load(req: NextRequest, jobId: string, businessId: string) {
-  const gate = await verifyFieldAccess(req, businessId);
+async function load(req: NextRequest, jobId: string, businessId: string, write = false) {
+  const gate = await verifyFieldAccess(req, businessId, write ? { write: true } : undefined);
   if ("error" in gate) return { ok: false as const, response: gate.error };
   const db = getAdminFirestore();
   if (!db) return { ok: false as const, response: NextResponse.json({ error: "Database unavailable" }, { status: 503 }) };
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: Context): Promise<Respo
   if (!businessId || typeof itemId !== "string" || !itemId) {
     return NextResponse.json({ error: "businessId and itemId required" }, { status: 400 });
   }
-  const loaded = await load(req, jobId, businessId);
+  const loaded = await load(req, jobId, businessId, true);
   if (!loaded.ok) return loaded.response;
 
   const item = loaded.catalog.items.find((candidate) => candidate.itemId === itemId);

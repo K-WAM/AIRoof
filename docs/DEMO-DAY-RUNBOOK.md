@@ -65,7 +65,7 @@ Every label below was checked against the code on 2026-09-25. Site: **https://cr
 *Show the email arriving on your phone/laptop.*
 
 **16–18 min — report and invoice**
-- On the phone tap **✔ Work complete** twice ("Tap again to mark this job complete").
+- On the laptop, mark the job complete from the office status controls.
 - Laptop: **Report** tab → it opens **already generated and drafted** (photos, findings, no prices) → **Mail report** → email → **Send report**.
 - **Invoice** tab → **Generate Invoice** → **Send to Customer** → email → **Send Invoice**.
 

@@ -4,6 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
 import { countActiveTeamMembers, inviteTeamMember, DEFAULT_SEAT_LIMIT } from "@/lib/team/invite";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { jsonWithCache } from "@/lib/http/cache";
 
 interface TeamMemberDoc {
   uid: string;
@@ -15,6 +16,8 @@ interface TeamMemberDoc {
   crewId?: string;
   active?: boolean;
   createdAt?: number;
+  lockedAt?: number | null;
+  lockedBy?: string | null;
 }
 
 // GET /api/company/team?businessId=xxx — list the business's team + its seat limit.
@@ -27,14 +30,15 @@ export async function GET(req: NextRequest) {
   if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const auth = getAdminAuth();
+  if (!db || !auth) return NextResponse.json({ error: "Admin SDK unavailable" }, { status: 503 });
 
   const [teamSnap, bizSnap] = await Promise.all([
     db.collection("businessUsers").where("businessId", "==", businessId).get(),
     db.collection("businesses").doc(businessId).get(),
   ]);
 
-  const members = teamSnap.docs
+  const memberDocs = teamSnap.docs
     .map((d) => {
       const data = d.data() as Partial<TeamMemberDoc>;
       return {
@@ -46,13 +50,30 @@ export async function GET(req: NextRequest) {
         crewId: data.crewId,
         active: data.active !== false,
         createdAt: data.createdAt ?? 0,
+        lockedAt: data.lockedAt ?? null,
+        lockedBy: data.lockedBy ?? null,
       };
     })
     .sort((a, b) => a.createdAt - b.createdAt);
 
+  const authUsers = new Map<string, string | null>();
+  for (let offset = 0; offset < memberDocs.length; offset += 100) {
+    const batch = memberDocs.slice(offset, offset + 100);
+    const result = await auth.getUsers(batch.map((member) => ({ uid: member.uid })));
+    for (const user of result.users) authUsers.set(user.uid, user.metadata.lastSignInTime ?? null);
+  }
+  const members = memberDocs.map((member) => {
+    const lastSignInTime = authUsers.get(member.uid) ?? null;
+    return {
+      ...member,
+      lastSignInTime,
+      status: !member.active ? "Locked" : lastSignInTime ? "Active" : "Invited",
+    };
+  });
+
   const seatLimit = (bizSnap.data()?.seatLimit as number | undefined) ?? DEFAULT_SEAT_LIMIT;
 
-  return NextResponse.json({ members, seatLimit });
+  return jsonWithCache({ members, seatLimit }, "noStore");
 }
 
 // POST /api/company/team  body: { businessId, email, role }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { getAdminFirestore } from "@/lib/firebase/admin";
+import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { invalidateCachedMember } from "@/lib/auth/memberCache";
 import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
@@ -25,6 +25,9 @@ export async function PATCH(
   if (role !== undefined && !TEAM_ROLES.includes(role as TeamRole)) {
     return NextResponse.json({ error: `Role must be one of: ${TEAM_ROLES.join(", ")}` }, { status: 400 });
   }
+  if (active !== undefined && typeof active !== "boolean") {
+    return NextResponse.json({ error: "active must be a boolean" }, { status: 400 });
+  }
   if (trade != null && !TRADE_TITLES.includes(trade as TradeTitle)) {
     return NextResponse.json({ error: `Title must be one of: ${TRADE_TITLES.join(", ")}` }, { status: 400 });
   }
@@ -37,6 +40,8 @@ export async function PATCH(
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const auth = active === undefined ? null : getAdminAuth();
+  if (active !== undefined && !auth) return NextResponse.json({ error: "Auth unavailable" }, { status: 503 });
 
   const memberRef = db.collection("businessUsers").doc(uid);
   const memberSnap = await memberRef.get();
@@ -66,13 +71,22 @@ export async function PATCH(
 
   const update: Record<string, unknown> = { updatedAt: Date.now() };
   if (role !== undefined) update.role = role;
-  if (active !== undefined) update.active = active;
+  if (active !== undefined) {
+    update.active = active;
+    update.lockedAt = active ? null : Date.now();
+    update.lockedBy = active ? null : gate.user.uid;
+  }
   // null clears the field (e.g. "no title set" / unassign the crew) — undefined leaves it alone.
   if (trade !== undefined) update.trade = trade === null ? FieldValue.delete() : trade;
   if (displayName !== undefined) update.displayName = displayName === null ? FieldValue.delete() : displayName;
   if (crewId !== undefined) update.crewId = crewId === null ? FieldValue.delete() : crewId;
+  if (active === true) await auth!.updateUser(uid, { disabled: false });
   await memberRef.update(update);
   invalidateCachedMember(uid);
+  if (active === false) {
+    await auth!.updateUser(uid, { disabled: true });
+    await auth!.revokeRefreshTokens(uid);
+  }
 
   return NextResponse.json({ ok: true });
 }
