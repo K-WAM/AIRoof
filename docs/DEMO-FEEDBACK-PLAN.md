@@ -122,9 +122,9 @@ Model names as they appear in the owner's pickers. Codex: **GPT-6 Sol** (risky: 
 | Wave | Task | Worker, model | Worktree / branch |
 |---|---|---|---|
 | 1 | **E1** Field access + Team page | Codex A, **GPT-6 Sol, medium** (auth) | `D:/Apps/air-wt-access` / `task/access-team` |
-| 1 | **E3** Job page restructure | Codex B, **GPT-5.5 Terra, medium** (spec'd UI; the integrator takes over if it stalls once). Starts after step 0. | `D:/Apps/air-wt-job-page` / `task/job-page` |
+| 1 | **E3** Job page restructure | ~~Codex B~~ **Integrator (Claude) finishes it** (2026-09-26: Codex B stopped after tabs/CSS/sheet/time-sort; the remainder is the hot 2,450-line page). Codex B's partial commits are kept. | `D:/Apps/air-wt-job-page` / `task/job-page` |
 | 1 | **E4** Docs, legal memo, AI providers, seeded call transcripts | Deepseek **V4.1 Flash, Thinking: Hard** | `D:/Apps/air-wt-docs-legal` / `task/docs-legal` |
-| 2 (after E1) | **E2** Scheduling truth + lists + jobs log | Codex A, **GPT-6 Sol, medium** (live call path) | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` |
+| 2 (**start now**, 2026-09-26) | **E2** Scheduling truth + lists + jobs log | **Codex B**, **GPT-6 Sol, medium** (live call path). Moved from Codex A: its files do not overlap E1's or E3's, and Codex B is free. | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` |
 | 2 (after E3 + E4) | **E5** Documents: invoice wording, report fixes, Terms & notices | Codex B, **GPT-6 Sol, medium** (legal wording, customer documents) | `D:/Apps/air-wt-documents-2` / `task/documents-2` |
 | 3 (after E5) | **E6** Photos on documents + drag-and-drop | Codex B, **GPT-5.5 Terra, medium** | `D:/Apps/air-wt-photos` / `task/doc-photos` |
 
@@ -150,8 +150,13 @@ Hot files and their owners:
 - `src/app/company/layout.tsx` (only the locked-out message and MODULE_ROUTES if needed)
 - `src/components/field/fieldButtons.test.tsx` (remove only the WorkComplete block)
 - tests next to each of these
+- **Widened 2026-09-26 (owner-integrator decision, after E1's question):** for steps 3-5 you may also make **one-line / minimal edits** to exactly these files and no others:
+  - `src/types/jobs.ts` (the stale comment near `:126` only)
+  - `docs/DEMO-DAY-RUNBOOK.md` (line ~68) and `docs/DEMO-READINESS-PLAN.md` (the "Work complete" lines only; do NOT touch the D5 row)
+  - `src/app/api/jobs/[jobId]/updates/route.ts`, `field-audio/route.ts`, `findings/route.ts`, `photos/route.ts`, `photos/[photoId]/route.ts`, `src/app/api/transcribe/route.ts`: the "Crew (no name given)" label and the viewer-write gate only
+  - Design for step 5: add `options.write?: true` to `verifyFieldAccess`. A real logged-in session then needs owner/staff/superadmin. A `field:` QR grant still passes if pinned to that job. **Do not decide by role alone: the QR grant's synthetic user has role "viewer".** Read-only handlers (GET) stay open to viewers.
 
-**Must not touch:** `jobs/[jobId]/page.tsx`, `globals.css`, `Sheet.tsx`/`FindingPickerSheet.tsx`, anything under `src/lib/documents`.
+**Must not touch:** `jobs/[jobId]/page.tsx`, `globals.css`, `Sheet.tsx`/`FindingPickerSheet.tsx`, anything under `src/lib/documents`, `agentTools.ts`.
 
 1. **Time clock works from a QR phone.**
    - Add an explicit option to `verifyFieldAccess(req, businessId, { jobId })`.
@@ -337,6 +342,8 @@ Nothing else.
 4. **Terms & notices** (Settings → Documents).
    - Import `FLORIDA_NOTICE_DEFAULTS`. Per notice: on/off, "show on" (quote/invoice), and editable text.
    - One **"I have had these reviewed" approval** stores `noticesApprovedAt` and `noticesApprovedBy`. **Nothing renders on any document until approved.**
+   - **Approval is refused (button disabled, server refuses too) while any enabled notice text still contains a `[DRAFT` marker.** The statutory defaults in `legalNotices.ts` ship with "[DRAFT — replace with the current statutory wording…]" placeholders; they must be replaced by the attorney's wording (or the notice switched off) first, so a draft marker can never print on a customer document. Add a test.
+   - Decided 2026-09-26 (E4's question): the nine notice ids stay as-is. §489.119(5)(b) (license number) is met by the letterhead "License #" (step 1), and §489.126 (deposits) lives inside `payment-terms`. No tenth id.
    - Statutory notices render only when total > `thresholdUsd` and the job is not marked **Commercial property** (a new job checkbox; default residential).
    - Rendered as a "Terms & notices" block at the end of the quote/invoice, in the preview, print and email.
 5. **Gates:** same as E1. Also re-run `src/e2e/demo-path.test.ts`; its "no $ in the report" assertion must still hold with the box off.

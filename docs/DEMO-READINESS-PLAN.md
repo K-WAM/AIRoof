@@ -35,7 +35,7 @@ Owner brief (2026-09-25):
 | D2 | **"Type their name and the agent adapts" works by design on ElevenLabs.** At the start of *every* call, the initiation webhook reads the tenant owning the called number fresh from Firestore and builds the prompt and greeting from it (`src/app/api/webhooks/elevenlabs/initiation/route.ts` → `buildInitiationResponse`). A Demo Studio launch writes the name, so the **next call greets as that company**, with no push to ElevenLabs and no dashboard edit. Only the number → tenant mapping is cached, and it doesn't change between launches. |
 | D3 | A launch must **not** PATCH the shared ElevenLabs agent. Per-call overrides already carry the tenant prompt, and a PATCH overwrites the agent's hand-tuned base prompt. |
 | D4 | Jobs are never auto-created. "One tap" means a human taps **Confirm & create job**. |
-| D5 | Reports carry no prices. Firebase stays on Spark for demos (§13 explains why it isn't enough for paying customers; that's the owner's decision). |
+| D5 | Reports carry no prices unless the owner ticks Include quote (2026-09-25). Firebase stays on Spark for demos (§13 explains why it isn't enough for paying customers; that's the owner's decision). |
 | D6 | Roofing only for now. Other industries keep working as they do today, and their demo content comes later using D3's pattern. |
 
 ## 1. Demo-breaking findings (verified in code, 2026-09-25)

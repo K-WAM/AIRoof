@@ -1,6 +1,7 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
 ## UPDATE 2026-09-25 (afternoon) — read this first
+- **Round-2 demo feedback plan:** `docs/DEMO-FEEDBACK-PLAN.md` (E1–E6 worker tasks; tracked as TODO.md Phase 25) supersedes the older D-series prompts for the next wave.
 - Smoke test DONE: C5 + C6 merged to local `main` (`src/e2e/demo-path.test.ts`, `src/e2e/field-audio.test.ts`; `docs/SMOKE-REPORT.md` all pass offline); `next build` passed on main.
   Merged worktrees removed. **Local `main` is ahead of `origin/main` — not pushed yet.**
 - Owner decisions: **ElevenLabs only, Vapi retired from demos; roofing first.** The next goal is the 20-minute roofing demo:
