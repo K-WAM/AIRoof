@@ -1439,3 +1439,13 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Suggested findings: an item must share a noun with its own PROBLEM text (condition words like "cracked" and the tech's resolution wording can rank but never create a suggestion) — the skylight lens no longer appears for "six cracked tiles".
 - Invoice: Description of work is pre-filled with short blunt bullets from the findings' labor-line names ("• Tile replacement"); Other charges got the × remove button and the $ now aligns with its amount; quote intro uses the same bullets.
 - Explained to the owner: J-1001's Marco notes (1:53-4:53 PM) are the seeded demo story; the field-worker notes at 8:02/8:03 PM were the owner's own tests.
+
+## 2026-09-26 - G3: owner-facing guides refreshed for Phase 25 (Worker D, deepseek-flash, branch task/guide-3)
+
+- Files: public/guides/onboarding-guide.html, docs/DEMO-DAY-RUNBOOK.md, this log. Every label verified against src/app/company/** and src/components/**.
+- Guide: record tabs Activity / Photos / Materials / Labor; numbered 1 Findings 2 Quote 3 Report 4 Invoice; Issues merged into Findings; Activity newest-first; one Next action (Mark work complete on the Work step); office-only completion; field name Your name (required); viewers read-only; time clock works from the QR link; Team page Invited / Active / Locked + Lock/Unlock + Revoke all field QR links; Complete -> Invoiced on send then Mark paid; sent invoice and answered quote locked; Settings -> Documents wording; report price-free unless Include the quote; Terms and notices DRAFT and OFF until I have had these reviewed (attorney review NEEDS-HUMAN); Commercial property switch; Photos Before/After pairing (Pairs with...) + drag-and-drop, with real-browser drag-and-drop marked [verify]; photos on documents listed as coming next (E6b not merged); escalation creates an Urgent lead never a job; Load older jobs + Export CSV; no booking over a scheduled job; cancelling frees the slot.
+- Corrected the self-led sandbox section: the guest is a read-only viewer, so field writes are blocked.
+- Runbook: 20-minute running order updated to the same flow; label date bumped to 2026-09-26.
+- Version bumped to 3.0 on the guide cover and footer (was 2.9 / 2.8, reconciled).
+- Checks: HTML tag balance unchanged (div 285/285, section 0/0, table 5/5; ul/li/ol/p/code/strong/h3 balanced); the guide has no hrefs, so no relative links to resolve; no phone number, URL, price or ROI figure changed.
+- Removals: none.
