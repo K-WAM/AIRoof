@@ -76,6 +76,12 @@ export function CompanyNav() {
           Feedback are the "Help" group — both pinned to the bottom of the
           nav, set off by a divider. */}
       <div className="company-nav-secondary">
+        {!loading && (user?.role === "owner" || user?.superadmin) && (
+          <Link href={`/company/team${suffix}`} aria-current={pathname === "/company/team" ? "page" : undefined}>
+            <Users size={16} strokeWidth={1.75} />
+            Team
+          </Link>
+        )}
         <Link
           href={`/company/settings${suffix}`}
           aria-current={pathname === "/company/settings" ? "page" : undefined}

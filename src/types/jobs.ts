@@ -123,7 +123,7 @@ export interface Job {
   leadId?: string;
   sourceCallId?: string;
   callSummary?: string;
-  // Append-only trail of status changes (written by the status PATCH and the field "Work complete" tap). Older jobs have none.
+  // Append-only trail of status changes (written by the status PATCH and office completion). Older jobs have none.
   statusHistory?: JobStatusChange[];
   completedAt?: number;
   notes?: string;

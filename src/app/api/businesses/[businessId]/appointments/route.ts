@@ -37,12 +37,16 @@ export async function GET(
   const fromParam = fromRaw === null || fromRaw.trim() === "" ? NaN : Number(fromRaw);
   const toParam = toRaw === null || toRaw.trim() === "" ? NaN : Number(toRaw);
   const hasRange = Number.isFinite(fromParam) && Number.isFinite(toParam);
+  const pendingOnly = req.nextUrl.searchParams.get("pending") === "1";
 
-  let queryRef = db
-    .collection(`businesses/${businessId}/appointments`)
+  let queryRef = db.collection(`businesses/${businessId}/appointments`)
     .orderBy("startTime", hasRange ? "asc" : order);
 
-  if (hasRange) {
+  if (pendingOnly) {
+    // No start-time limit: overdue requests still need an office decision.
+    queryRef = db.collection(`businesses/${businessId}/appointments`)
+      .where("pendingConfirmation", "==", true);
+  } else if (hasRange) {
     queryRef = queryRef.where("startTime", ">=", fromParam).where("startTime", "<=", toParam);
   } else {
     const limitParam = Number(req.nextUrl.searchParams.get("limit"));

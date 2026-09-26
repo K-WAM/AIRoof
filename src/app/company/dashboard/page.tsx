@@ -103,23 +103,28 @@ export default function CompanyDashboardPage() {
         // each read (connection setup + security-rule evaluation on top of the
         // query itself, over whatever network the browser is on).
         const base = `/api/businesses/${businessId}`;
-        const [callCountRes, leadsRes, apptsRes, bizRes, jobsRes, actionsRes] = await Promise.all([
+        // A two-day margin covers the tenant's local day across timezones and DST;
+        // isToday below selects the exact local day. The range has no oldest-first cap.
+        const now = Date.now();
+        const [callCountRes, leadsRes, apptsRes, pendingRes, bizRes, jobsRes, actionsRes] = await Promise.all([
           fetch(`${base}/calls?countOnly=1`),
           fetch(`${base}/leads?limit=20`),
-          fetch(`${base}/appointments?limit=200&order=asc`),
+          fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`),
+          fetch(`${base}/appointments?pending=1`),
           fetch(`${base}/agent-config`),
           hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
           fetch(`${base}/agent-actions?limit=50`),
         ]);
 
-        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
+        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
           throw new Error("Dashboard data request failed");
         }
 
-        const [callCountData, leadsData, apptsData, jobsData, actionsData] = await Promise.all([
+        const [callCountData, leadsData, apptsData, pendingData, jobsData, actionsData] = await Promise.all([
           callCountRes.json(),
           leadsRes.json(),
           apptsRes.json(),
+          pendingRes.json(),
           jobsRes ? jobsRes.json() : Promise.resolve({ jobs: [] }),
           actionsRes.json(),
         ]);
@@ -142,7 +147,10 @@ export default function CompanyDashboardPage() {
 
         setCallCount(callCountData.count);
         const nextLeads = (leadsData.leads ?? []) as LeadSnapshot[];
-        const nextAppointments = (apptsData.appointments ?? []) as ApptSnapshot[];
+        const nextAppointments = [...new Map(
+          ([...((apptsData.appointments ?? []) as ApptSnapshot[]), ...((pendingData.appointments ?? []) as ApptSnapshot[])])
+            .map((appt) => [appt.appointmentId, appt] as const)
+        ).values()].sort((a, b) => a.startTime - b.startTime);
         const nextJobs = (jobsData.jobs ?? []) as JobSnapshot[];
         setLeads(nextLeads); leadRows.track(nextLeads);
         setAppointments(nextAppointments); appointmentRows.track(nextAppointments);

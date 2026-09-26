@@ -118,6 +118,16 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+  if ((user as typeof user & { locked?: boolean }).locked) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <h1 style={{ fontSize: 20 }}>Your access has been turned off — contact your administrator</h1>
+          <button className="button" onClick={handleLogout}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
   // Don't paint a module this industry doesn't use while the redirect lands.
   if (blockedModule) return null;
   if (paused) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -32,6 +32,9 @@ export default function JobsPage() {
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   // Prefill from the Pipeline's "Create <jobNoun>" buttons (appointments and
   // leads share this one handshake — see src/lib/pipeline/jobPrefill.ts).
@@ -53,19 +56,25 @@ export default function JobsPage() {
   const [address, setAddress] = useState(prefillAddress);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
-  function fetchJobs() {
+  const fetchJobs = useCallback(async (before?: number) => {
     if (!businessId) return;
-    fetch(`/api/jobs?businessId=${businessId}`)
+    if (before !== undefined) setLoadingOlder(true);
+    fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}${statusFilter !== "all" ? `&status=${statusFilter}` : ""}${before !== undefined ? `&before=${before}` : ""}`)
       .then((r) => {
         if (!r.ok) throw new Error("Jobs request failed");
         return r.json();
       })
-      .then((d) => setJobs(d.jobs ?? []))
-      .catch(() => setLoadError(true))
-      .finally(() => setLoading(false));
-  }
+      .then((d) => {
+        setJobs((current) => before === undefined ? (d.jobs ?? []) : [...new Map([...current, ...(d.jobs ?? [])].map((job: Job) => [job.jobId, job])).values()]);
+        setHasMore(Boolean(d.hasMore));
+        setNextBefore(typeof d.nextBefore === "number" ? d.nextBefore : null);
+        setLoadError(false);
+      })
+      .catch(() => before === undefined ? setLoadError(true) : setActionError("Older jobs could not be loaded. Try again."))
+      .finally(() => { setLoading(false); setLoadingOlder(false); });
+  }, [businessId, statusFilter]);
 
-  useEffect(fetchJobs, [businessId]);
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
   // Picks up a job created via the global quick-add while sitting on this page.
   useQuickAddRefresh("job", fetchJobs);
@@ -161,6 +170,7 @@ export default function JobsPage() {
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
+          {businessId && <a className="button" href={`/api/jobs/export?businessId=${encodeURIComponent(businessId)}`}>Export CSV</a>}
           <a className="button" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <ExternalLink size={15} strokeWidth={1.75} />
             Field view
@@ -251,8 +261,7 @@ export default function JobsPage() {
         </div>
       )}
 
-      {jobs.length > 0 && (
-        <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ position: "relative", maxWidth: 340 }}>
             <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
             <input
@@ -292,14 +301,15 @@ export default function JobsPage() {
               );
             })}
           </div>
-        </div>
-      )}
+      </div>
 
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 12px" }}>
-              No {vocab.jobNounPlural.toLowerCase()} yet. When someone calls, confirm their request in Pipeline and the {vocab.jobNoun.toLowerCase()} is created for you — or start one yourself.
+              {statusFilter === "all"
+                ? `No ${vocab.jobNounPlural.toLowerCase()} yet. Start one here or review requests in Pipeline.`
+                : "No jobs match this status in the loaded pages. Choose another status to continue."}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a className="button primary" href={`/company/pipeline${previewSuffix}`}>Go to Pipeline</a>
@@ -326,6 +336,7 @@ export default function JobsPage() {
                   <tr>
                     <td colSpan={6} style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
                       {query.trim() ? `No jobs match "${query}".` : "No jobs match this filter."}
+                      {query.trim() && hasMore && nextBefore !== null && <button type="button" className="button small" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)} style={{ marginLeft: 8 }}>{loadingOlder ? "Searching…" : "Search older jobs"}</button>}
                     </td>
                   </tr>
                 )}
@@ -368,6 +379,7 @@ export default function JobsPage() {
               </tbody>
             </table>
           </div>
+          {hasMore && nextBefore !== null && <div style={{ padding: 16, textAlign: "center" }}><button type="button" className="button" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)}>{loadingOlder ? "Loading…" : "Load older jobs"}</button></div>}
         </section>
       )}
     </>

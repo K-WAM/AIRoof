@@ -166,13 +166,19 @@ export default function PipelinePage() {
     // queries — see the leads route for the full round-trip-time rationale.
     const base = `/api/businesses/${businessId}`;
     // Returned so useLiveRefresh's "never overlap requests" guard actually waits for it.
-    return Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
-      .then(async ([leadsRes, apptsRes]) => {
-        if (!leadsRes.ok || !apptsRes.ok) throw new Error("Pipeline data request failed");
-        const [{ leads: leadsData }, { appointments: apptsData }] = await Promise.all([
-          leadsRes.json(),
-          apptsRes.json(),
-        ]) as [{ leads: Lead[] }, { appointments: Appointment[] }];
+    const now = Date.now();
+    return Promise.all([
+      fetch(`${base}/leads`),
+      fetch(`${base}/appointments?from=${now}&to=8640000000000000`),
+      fetch(`${base}/appointments?order=desc&limit=500`),
+      fetch(`${base}/appointments?pending=1`),
+    ])
+      .then(async ([leadsRes, upcomingRes, recentRes, pendingRes]) => {
+        if ([leadsRes, upcomingRes, recentRes, pendingRes].some((res) => !res.ok)) throw new Error("Pipeline data request failed");
+        const [{ leads: leadsData }, ...appointmentPages] = await Promise.all([
+          leadsRes.json(), upcomingRes.json(), recentRes.json(), pendingRes.json(),
+        ]) as [{ leads: Lead[] }, ...Array<{ appointments: Appointment[] }>];
+        const apptsData = [...new Map(appointmentPages.flatMap((page) => page.appointments ?? []).map((appt) => [appt.appointmentId, appt])).values()];
         setLeads(leadsData ?? []);
         leadRows.track(leadsData ?? []);
         // The ?lead= deep link and "first lead" default apply ONLY to the first load. A background refresh must keep
@@ -183,8 +189,8 @@ export default function PipelinePage() {
           if (firstLoad) return chosenLead ?? leadsData?.[0] ?? null;
           return (prev && leadsData?.find((l) => l.leadId === prev.leadId)) || leadsData?.[0] || null;
         });
-        setAppointments(apptsData ?? []);
-        appointmentRows.track(apptsData ?? []);
+        setAppointments(apptsData);
+        appointmentRows.track(apptsData);
         initialLoadDone.current = true;
       })
       // A failed BACKGROUND refresh keeps the data already on screen; only a failed first load shows the error state.
@@ -364,14 +370,14 @@ export default function PipelinePage() {
   // under "Past & Cancelled" — see the Calendar deep-link fix above).
   const needsConfirmation = appointments.filter(
     (a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled"
-  );
+  ).sort((a, b) => a.startTime - b.startTime);
   const needsConfirmationIds = new Set(needsConfirmation.map((a) => a.appointmentId));
   const upcomingAppts = appointments.filter(
     (a) => !needsConfirmationIds.has(a.appointmentId) && a.startTime > Date.now() && a.status !== "cancelled"
-  );
+  ).sort((a, b) => a.startTime - b.startTime);
   const pastAppts = appointments.filter(
     (a) => !needsConfirmationIds.has(a.appointmentId) && (a.startTime <= Date.now() || a.status === "cancelled")
-  );
+  ).sort((a, b) => b.startTime - a.startTime);
   const pendingCount = needsConfirmation.length;
 
   if (loading) return <PageSkeleton rows={6} />;

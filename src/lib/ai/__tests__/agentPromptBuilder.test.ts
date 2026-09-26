@@ -62,6 +62,15 @@ describe("buildAgentPrompt — escalation and phone read-back", () => {
   });
 });
 
+describe("buildAgentPrompt — moving an appointment", () => {
+  it("checks the new time before cancelling and never leaves the caller with nothing", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain("To move an appointment to a new time");
+    expect(prompt.indexOf("call checkAvailability for that time first")).toBeLessThan(prompt.indexOf("call cancelAppointment and then bookAppointment"));
+    expect(prompt).toContain("never leave them with no appointment and no follow-up");
+  });
+});
+
 describe("buildAgentPrompt — How you speak", () => {
   it("keeps internal IDs silent and names the configured contact", () => {
     const prompt = buildAgentPrompt(config({ contactName: "Alex", agentLanguages: ["en", "es"] }));

@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
   const workerNameParam = req.nextUrl.searchParams.get("workerName");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const jobId = req.nextUrl.searchParams.get("jobId");
+  const gate = await verifyFieldAccess(req, businessId, jobId ? { jobId } : { allowOfficePunch: true });
   if ("error" in gate) return gate.error;
 
   const worker = resolveWorker(gate.user.uid, workerNameParam);
@@ -94,11 +95,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid punch type" }, { status: 400 });
   }
   const punchType = type as PunchType;
-  if (isSitePunch(punchType) && !jobId) {
+  if (isSitePunch(punchType) && (typeof jobId !== "string" || !jobId)) {
     return NextResponse.json({ error: "jobId required for a jobsite punch" }, { status: 400 });
   }
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const gate = await verifyFieldAccess(
+    req,
+    businessId,
+    jobId && typeof jobId === "string" ? { jobId, write: true } : { allowOfficePunch: true, write: true },
+  );
   if ("error" in gate) return gate.error;
 
   const worker = resolveWorker(gate.user.uid, workerName);
@@ -115,6 +120,17 @@ export async function POST(req: NextRequest) {
   const existing = await loadTodaysPunches(db, businessId, worker.workerKey, todayKey);
   const day = foldPunches(existing, now, tz).find((d) => d.dayKey === todayKey)
     ?? emptyDay(worker.workerKey, worker.workerName, todayKey);
+
+  // Breaks are office actions only while the worker is in the office. At a
+  // jobsite they must carry the open job so a pinned QR grant cannot act on
+  // another job by omitting jobId from the body.
+  if (day.state === "site" || day.state === "site_break") {
+    if (punchType === "site_out" || punchType === "break_start" || punchType === "break_end") {
+      if (jobId !== day.openJobId) {
+        return NextResponse.json({ error: "Current jobId required" }, { status: 403 });
+      }
+    }
+  }
 
   const makePunch = (t: PunchType, at: number, extra: Partial<Punch> = {}): Punch => ({
     punchId: `pn_${at}_${randomUUID().slice(0, 8)}`,

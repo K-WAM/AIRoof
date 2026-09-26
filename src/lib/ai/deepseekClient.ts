@@ -256,9 +256,10 @@ export async function summarizeTranscript(
 export async function classifyCallOutcome(
   options: ClassifyOutcomeOptions
 ): Promise<CallOutcomeOutput> {
-  const { client } = selectClient("classify");
+  const primary = selectClient("classify");
+  const fallback = selectClient("classify", { backOfficeModel: "gpt-4o-mini" });
 
-  if (!client) {
+  if (!primary.client && !fallback.client) {
     if (isProduction()) {
       throw new Error("classifyCallOutcome: DeepSeek provider not configured");
     }
@@ -272,30 +273,38 @@ export async function classifyCallOutcome(
     .map((m) => `${m.role}: ${m.text}`)
     .join("\n");
 
-  const { selection } = selectClient("classify");
-
-  let res;
-  try {
-    res = await client.chat.completions.create({
-      model: selection.model,
+  const request = {
       temperature: 0.2,
       max_tokens: 300, // "1 sentence" reason + three short fields — a defensive ceiling, not a quality lever
-      response_format: { type: "json_object" },
+      response_format: { type: "json_object" as const },
       messages: [
         {
-          role: "system",
+          role: "system" as const,
           content:
             'Classify this service-business call. Return JSON with keys: outcome (one of: "scheduled", "escalated", "lead_captured", "no_action"), reason (1 sentence), ' +
             'callerName, address, service. callerName, address and service are ONLY what the caller actually said on the call (their name, the service address, what they need done); use "" for anything they did not say. Never guess or invent them.',
         },
         {
-          role: "user",
+          role: "user" as const,
           content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
         },
       ],
-    });
+    };
+
+  let res;
+  try {
+    if (!primary.client) throw new Error("DeepSeek provider not configured");
+    res = await primary.client.chat.completions.create({ ...request, model: primary.selection.model });
   } catch (err) {
-    throw new Error(`classifyCallOutcome: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+    if (!fallback.client) {
+      throw new Error(`classifyCallOutcome: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+    }
+    console.warn("classify fell back to OpenAI");
+    try {
+      res = await fallback.client.chat.completions.create({ ...request, model: fallback.selection.model });
+    } catch (fallbackError) {
+      throw new Error(`classifyCallOutcome: AI provider error — ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+    }
   }
 
   const rawContent = res.choices[0]?.message?.content ?? "{}";

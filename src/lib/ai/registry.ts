@@ -94,6 +94,12 @@ export function selectModel(
   if (overrides?.liveModel && operation === "parse-field-update") {
     return { provider: "openai", model: overrides.liveModel };
   }
+  if (overrides?.backOfficeModel && operation === "parse-field-update") {
+    return {
+      provider: overrides.backOfficeModel.startsWith("gpt-") ? "openai" : "deepseek",
+      model: overrides.backOfficeModel,
+    };
+  }
   if (openaiModelEnv) {
     return { provider: "openai", model: openaiModelEnv };
   }

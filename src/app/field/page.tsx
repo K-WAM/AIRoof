@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { useFieldAudio, type FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
-import { WorkCompleteButton } from "@/components/field/WorkCompleteButton";
 import { TimeClock } from "@/components/field/TimeClock";
 import { InstallPrompt } from "@/components/field/InstallPrompt";
 import type { Job, FieldUpdate, ProposedCorrection } from "@/types/jobs";
@@ -44,7 +43,7 @@ function FieldApp() {
   const urlKey = searchParams?.get("key");
   const prefillJobId = searchParams?.get("jobId") ?? "";
 
-  const [businessId, setBusinessId] = useState(urlBusinessId ?? "demo-roofing");
+  const [businessId, setBusinessId] = useState(urlBusinessId ?? "");
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   // The businessId/jobId a job-scoped QR grant resolves to now arrive via the
   // HttpOnly field-session cookie instead of URL query params (so the address
@@ -157,7 +156,7 @@ function FieldApp() {
 
   // Load jobs
   useEffect(() => {
-    if (!bootstrapComplete) return;
+    if (!bootstrapComplete || !businessId) return;
     setLoadingJobs(true);
     const jobsUrl = sessionJobId
       ? `/api/jobs/${encodeURIComponent(sessionJobId)}?businessId=${encodeURIComponent(businessId)}`
@@ -182,12 +181,12 @@ function FieldApp() {
   }, [bootstrapComplete, businessId, sessionJobId]);
 
   const refreshRecent = useCallback((jobId: string) => {
-    if (!jobId) { setRecentUpdates([]); return; }
+    if (!bootstrapComplete || !businessId || !jobId) { setRecentUpdates([]); return; }
     fetch(`/api/jobs/${encodeURIComponent(jobId)}/updates?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : { updates: [] }))
       .then((d) => setRecentUpdates(((d.updates ?? []) as FieldUpdate[]).reverse().slice(0, 8)))
       .catch(() => {});
-  }, [businessId]);
+  }, [bootstrapComplete, businessId]);
 
   // Load recent updates when job changes
   useEffect(() => {
@@ -203,6 +202,7 @@ function FieldApp() {
   }, [workerName]);
 
   const selectedJob = jobs.find((j) => j.jobId === selectedJobId);
+  const hasWorkerName = workerName.trim().length > 0;
   const jobContext = selectedJob
     ? { title: selectedJob.title, address: selectedJob.address, serviceType: selectedJob.serviceType, clientName: selectedJob.clientName }
     : undefined;
@@ -237,7 +237,7 @@ function FieldApp() {
 
   // ── Typed fallback (posts raw text to the updates endpoint) ──
   async function saveTyped() {
-    if (!text.trim() || !selectedJobId || savingText) return;
+    if (!text.trim() || !selectedJobId || !hasWorkerName || savingText) return;
     setSavingText(true);
     setError(null);
     try {
@@ -266,7 +266,7 @@ function FieldApp() {
   }
 
   async function confirmTypedCorrection() {
-    if (!textProposed || !selectedJobId) return;
+    if (!textProposed || !selectedJobId || !hasWorkerName) return;
     setSavingText(true);
     setError(null);
     try {
@@ -301,7 +301,9 @@ function FieldApp() {
   const transcribing = audioStatus === "transcribing";
   const isBusy = transcribing || savingText;
 
-  const micLabel = !selectedJobId
+  const micLabel = !hasWorkerName
+    ? "Enter your name above to start"
+    : !selectedJobId
     ? "Select a job first"
     : recording
     ? "Listening… release when done"
@@ -392,9 +394,11 @@ function FieldApp() {
 
           {/* Worker name */}
           <input
+            aria-label="Your name"
+            required
             value={workerName}
             onChange={e => setWorkerName(e.target.value)}
-            placeholder="Your name (optional)"
+            placeholder="Your name (required)"
             disabled={isBusy}
             style={{
               width: "100%", padding: "11px 16px", borderRadius: 12,
@@ -403,7 +407,15 @@ function FieldApp() {
             }}
           />
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} />
+          {!hasWorkerName && (
+            <p role="status" style={{ margin: 0, fontSize: 13, color: "#fbbf24" }}>
+              Enter your name to use the time clock, record an update, add a finding, or upload a photo.
+            </p>
+          )}
+
+          {bootstrapComplete && businessId && !accessDenied && hasWorkerName && (
+            <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} />
+          )}
 
           {/* Mic button — hold to speak, release to save (one step) */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>
@@ -415,7 +427,7 @@ function FieldApp() {
                 onPointerUp={stopRecording}
                 onPointerLeave={stopRecording}
                 onPointerCancel={stopRecording}
-                disabled={!selectedJobId || isBusy}
+                disabled={!selectedJobId || !hasWorkerName || isBusy}
                 style={{
                   position: "relative", zIndex: 1,
                   width: 110, height: 110, borderRadius: "50%",
@@ -450,7 +462,7 @@ function FieldApp() {
             jobId={selectedJobId || null}
             businessId={businessId}
             submittedBy={workerName.trim() || undefined}
-            disabled={isBusy}
+            disabled={isBusy || !hasWorkerName}
             onUploaded={() => flashSaved("Photo saved")}
           />
 
@@ -458,17 +470,8 @@ function FieldApp() {
           <FieldFindingsButton
             jobId={selectedJobId || null}
             businessId={businessId}
-            disabled={isBusy}
+            disabled={isBusy || !hasWorkerName}
             onAdded={(problem) => flashSaved(`Finding added: ${problem}`)}
-          />
-
-          {/* Close the job out — two taps on purpose */}
-          <WorkCompleteButton
-            businessId={businessId}
-            jobId={selectedJobId || null}
-            workerName={workerName}
-            disabled={isBusy}
-            onCompleted={() => flashSaved("Job marked complete")}
           />
 
           {error && (
@@ -496,7 +499,7 @@ function FieldApp() {
               </p>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={cancelActive} disabled={isBusy} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Cancel</button>
-                <button onClick={confirmActive} disabled={isBusy} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{isBusy ? "Applying…" : "Confirm change"}</button>
+                <button onClick={confirmActive} disabled={isBusy || !hasWorkerName} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>{isBusy ? "Applying…" : "Confirm change"}</button>
               </div>
             </div>
           )}
@@ -544,7 +547,7 @@ function FieldApp() {
                 </button>
                 <button
                   onClick={saveTyped}
-                  disabled={!text.trim() || !selectedJobId || isBusy}
+                  disabled={!text.trim() || !selectedJobId || !hasWorkerName || isBusy}
                   style={{
                     flex: 2, padding: "13px", borderRadius: 12, border: "none",
                     background: text.trim() && selectedJobId && !isBusy ? "#1e2a4a" : "#0f172a",

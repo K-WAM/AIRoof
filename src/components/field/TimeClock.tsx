@@ -23,6 +23,13 @@ function emptyDay(): WorkerDay {
   return { workerKey: "", workerName: "", dayKey: "", state: "off", officeMs: 0, jobs: {}, anomalies: [] };
 }
 
+function clockError(status: number, message?: string): string {
+  if (status === 401 || status === 403 || message === "Field access revoked" || message === "Field access token expired") {
+    return "This link has expired — ask the office for a new QR code.";
+  }
+  return message || "Time clock unavailable — please try again.";
+}
+
 export function TimeClock({
   businessId,
   jobId,
@@ -45,14 +52,15 @@ export function TimeClock({
 
   const refresh = useCallback(() => {
     if (!businessId) return;
+    setError(null);
     setLoading(true);
-    const params = new URLSearchParams({ businessId, ...(workerName.trim() ? { workerName: workerName.trim() } : {}) });
+    const params = new URLSearchParams({ businessId, ...(jobId ? { jobId } : {}), ...(workerName.trim() ? { workerName: workerName.trim() } : {}) });
     fetch(`/api/timeclock/punch?${params}`)
       .then(async (r) => {
         if (!r.ok) {
           const body = await r.json().catch(() => ({}));
           if (body.error === "workerName required") { setNeedsName(true); return; }
-          throw new Error(body.error || "Failed to load time clock");
+          throw new Error(clockError(r.status, body.error));
         }
         setNeedsName(false);
         const body = await r.json();
@@ -61,7 +69,7 @@ export function TimeClock({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load time clock"))
       .finally(() => setLoading(false));
-  }, [businessId, workerName]);
+  }, [businessId, jobId, workerName]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -76,7 +84,9 @@ export function TimeClock({
         body: JSON.stringify({
           businessId,
           type,
-          jobId: jobId || undefined,
+          jobId: type === "site_in" ? jobId || undefined :
+            (day.state === "site" || day.state === "site_break") && type !== "office_out"
+              ? day.openJobId : undefined,
           workerName: workerName.trim() || undefined,
           closeOpen: opts.closeOpen,
         }),
@@ -88,7 +98,7 @@ export function TimeClock({
         return;
       }
       if (!res.ok) {
-        setError(body.error || "Punch failed");
+        setError(clockError(res.status, body.error));
         return;
       }
       setConflict(null);

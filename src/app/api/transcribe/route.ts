@@ -35,6 +35,9 @@ export async function POST(req: NextRequest) {
   const audioCheck = validateAudioInput(audioBase64, mimeType);
   if (audioCheck.error) return NextResponse.json({ error: audioCheck.error }, { status: 400 });
 
+  const gate = await verifyFieldAccess(req, businessId, { write: true });
+  if ("error" in gate) return gate.error;
+
   const openaiReady = isProviderReady("openai");
   if (!openaiReady) {
     return NextResponse.json(
@@ -42,9 +45,6 @@ export async function POST(req: NextRequest) {
       { status: 503 },
     );
   }
-
-  const gate = await verifyFieldAccess(req, businessId);
-  if ("error" in gate) return gate.error;
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
