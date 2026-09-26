@@ -11,7 +11,7 @@ const csp = [
   // from the browser. Without this, connect-src falls back to default-src
   // 'self' and every fetch/XHR to them is silently blocked (this was a live
   // incident: "Firebase: Error (auth/network-request-failed)" on /login).
-  "connect-src 'self' https://*.googleapis.com",
+  `connect-src 'self' https://*.googleapis.com${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL ? ` ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL}` : ""}`,
   // Firebase Auth's redirect-sign-in flow (signInWithRedirect/getRedirectResult)
   // relays its result back to the app through a hidden iframe it embeds from the
   // project's authDomain (business-expense-trackin-ef659.firebaseapp.com). With no

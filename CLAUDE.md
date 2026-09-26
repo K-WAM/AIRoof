@@ -12,6 +12,12 @@
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
 
+## Smoke harness — test the real product locally (2026-09-26)
+
+`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` → Firebase Auth/Firestore emulators + the app with 3 seeded tenants and 6 accounts (password `E2e-Passw0rd!`, e.g. `owner@roofing.e2e.test`);
+`npm run e2e:test` (Playwright, desktop + 375 px phone, screenshots in `test-results/screens/`); `npm run e2e:call` (phone call → pipeline → job → quote → report → invoice via the real webhooks/API, emails captured).
+Keyless, cannot reach live services. Every screen/flow change should be checked with it.
+
 ## Code Navigation — Read Graphify Before Broad Work
 
 `graphify-out/graph.json` is the project knowledge graph — **882 nodes, 1639 edges, 75 communities** (rebuilt 2026-07-15). Read it before opening many files. `graphify-out/GRAPH_REPORT.md` is the human-readable audit (god nodes, surprising connections, suggested questions).

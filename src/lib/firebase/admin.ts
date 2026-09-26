@@ -1,10 +1,23 @@
 // Firebase Admin SDK initialization (server-side only)
 import * as admin from "firebase-admin";
+import { isE2EHarness } from "@/lib/e2e/harness";
 
 let adminApp: admin.app.App | null = null;
 
 function initializeAdmin() {
   if (adminApp) return adminApp;
+
+  // Local smoke harness: talk to the Auth/Firestore emulators with no credentials (see src/lib/e2e/harness.ts).
+  if (isE2EHarness()) {
+    // `next dev` compiles each route into its own module instance, so the default app may already exist.
+    if (admin.apps.length) {
+      adminApp = admin.app();
+      return adminApp;
+    }
+    adminApp = admin.initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "demo-luxor-e2e" });
+    admin.firestore(adminApp).settings({ ignoreUndefinedProperties: true });
+    return adminApp;
+  }
 
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 

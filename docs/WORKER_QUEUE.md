@@ -29,6 +29,7 @@ If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b tas
   message ("QUESTION FOR INTEGRATOR: ...") and do the safe part of the task; do not expand scope.
 - **Do not chase side quests.** Anything you notice but that is not in your task goes in your final message under
   "Noticed, not done" — not into the code.
+- **Test screens and flows with the smoke harness** (`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` from your worktree, then `npm run e2e:test` / `npm run e2e:call`; screenshots in `test-results/screens/`). It needs no keys. Do not report "browser tool failed" — fix or report the harness.
 - You have **no ElevenLabs/Vapi/Resend/OpenAI keys** and must not call live services. Use mocked `fetch`. Never add keys
   to any file. `.env.example` holds names only.
 - Mobile-check UI at 375 px; one-teal design system; Cache-Control rule (`jsonWithCache`, never `public`/`s-maxage`).

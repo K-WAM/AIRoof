@@ -8,6 +8,8 @@ import {
 } from "@/lib/ops/ledger";
 import { buildFrom, extractInlineImages, htmlToText } from "@/lib/comms/prepare";
 import type { Firestore } from "firebase-admin/firestore";
+import { E2E_OUTBOX_COLLECTION, isE2EHarness } from "@/lib/e2e/harness";
+import { getAdminFirestore } from "@/lib/firebase/admin";
 
 export type NotificationDeliveryState =
   | "delivered"
@@ -23,7 +25,7 @@ export interface CommSendResult {
 }
 
 export function isCommsConfigured(): boolean {
-  return getCapabilityStatus("resend") === "configured";
+  return isE2EHarness() || getCapabilityStatus("resend") === "configured";
 }
 
 function classifyResendError(statusCode: number): {
@@ -56,6 +58,17 @@ export async function sendEmail(opts: {
   }
   if (!opts.to) {
     return { status: "no_recipient" };
+  }
+
+  // Local smoke harness: capture instead of sending, so agents can read exactly what a customer would get.
+  if (isE2EHarness()) {
+    const { html, attachments } = extractInlineImages(opts.html);
+    const id = `mail_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    await getAdminFirestore()?.collection(E2E_OUTBOX_COLLECTION).doc(id).set({
+      id, to: opts.to, subject: opts.subject, fromName: opts.fromName ?? null, replyTo: opts.replyTo ?? null,
+      html, text: htmlToText(html), attachmentCount: attachments.length, createdAt: Date.now(),
+    });
+    return { status: "delivered", providerId: id };
   }
 
   const from = buildFrom(requireEnv("RESEND_FROM"), opts.fromName);
