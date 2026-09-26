@@ -10,7 +10,11 @@ import {
   type SchemaParseResult,
 } from "@/lib/schemas/common";
 
-const optionalModelText = (maxLength: number) => modelText(maxLength).optional();
+// The model answers "" (or null) for an optional field it has nothing to put in — the field-update prompt even ASKS for
+// transcriptEn: "" when the note is already English. Blank means absent; it must never fail the whole parse.
+const blankToUndefined = (value: unknown) =>
+  value === null || (typeof value === "string" && value.trim() === "") ? undefined : value;
+const optionalModelText = (maxLength: number) => z.preprocess(blankToUndefined, modelText(maxLength).optional());
 const nonNegativeNumber = finiteNumber.pipe(z.number().nonnegative());
 
 const timelineEntrySchema = z.object({

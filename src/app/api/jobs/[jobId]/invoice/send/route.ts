@@ -5,6 +5,7 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import type { JobInvoice } from "@/types/invoice";
+import type { Job, JobStatusChange } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
 
-  const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
+  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
+  const jobSnap = await jobRef.get();
   const invoiceId = jobSnap.data()?.invoiceId;
   if (!invoiceId) return NextResponse.json({ error: "No invoice exists for this job yet" }, { status: 404 });
 
@@ -84,7 +86,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
   }
 
-  await invRef.update({ status: "sent", sentAt: Date.now(), sentTo: to, updatedAt: Date.now() });
+  const now = Date.now();
+  // A resend of a paid invoice must not knock it back to "sent".
+  await invRef.update({ ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
+
+  // Sending — not drafting — is what bills the customer, so this is the moment the job becomes Invoiced.
+  const job = jobSnap.data() as Job;
+  if (job.status !== "invoiced") {
+    const change: JobStatusChange = { status: "invoiced", at: now, by: gate.user.uid };
+    await jobRef.update({ status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), change] });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -135,6 +135,29 @@ describe("AI structured output schemas", () => {
     }
   });
 
+  // The owner's 2026-09-25 demo: an English note came back with transcriptEn "" — exactly what the prompt asks for —
+  // and the whole update was stored as "Parse failed". Blank optional text means absent, never a failure.
+  it("treats blank or null optional text as absent instead of failing the parse", () => {
+    const result = parseFieldUpdateOutput({
+      timeline: [{ time: "", description: "Arrived at the job site" }],
+      materials: [{ item: "Vacuum cleaners", quantity: "11", unit: " " }],
+      labor: [{ description: "Kevin", arrivalTime: "", departureTime: null }],
+      issues: [],
+      invoiceSuggestions: [],
+      correction: null,
+      transcriptEn: "",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).not.toHaveProperty("transcriptEn");
+      expect(result.data.timeline[0].time).toBeUndefined();
+      expect(result.data.materials[0]).toMatchObject({ item: "Vacuum cleaners", quantity: "11" });
+      expect(result.data.materials[0].unit).toBeUndefined();
+      expect(result.data.labor[0].arrivalTime).toBeUndefined();
+    }
+  });
+
   it("parses summaries, call outcomes, scope classifications, FAQs, and transcripts", () => {
     expect(
       parseSummaryOutput(

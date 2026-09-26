@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
-import { loadBusinessTz } from "@/lib/jobs/writeProjection";
+import { loadBusinessTz, writeJobProjection } from "@/lib/jobs/writeProjection";
 import { foldPunches } from "@/lib/timeclock/fold";
 import { applyPunch, isSitePunch } from "@/lib/timeclock/machine";
 import { dayKey, normalizeName } from "@/lib/format";
@@ -21,6 +21,14 @@ import type { Punch, PunchType, WorkerDay } from "@/types/timeclock";
 const PUNCH_TYPES: ReadonlySet<PunchType> = new Set([
   "office_in", "site_in", "break_start", "break_end", "site_out", "office_out",
 ]);
+
+/** Punched labor is part of each job's projection (the Labor tab and the invoice draft read it), so re-project every job
+ *  a punch touched — before this, a punch only reached the Labor tab on the job's NEXT field update. Best effort: the
+ *  punch itself is already saved, so a failed re-projection must not turn it into an error. */
+async function reprojectJobs(db: FirebaseFirestore.Firestore, businessId: string, jobIds: Array<string | undefined>) {
+  const ids = [...new Set(jobIds.filter((id): id is string => typeof id === "string" && id.length > 0))];
+  await Promise.all(ids.map((id) => writeJobProjection(db, businessId, id).catch(() => undefined)));
+}
 
 function emptyDay(workerKey: string, workerName: string, dk: string): WorkerDay {
   return { workerKey, workerName, dayKey: dk, state: "off", officeMs: 0, jobs: {}, anomalies: [] };
@@ -143,6 +151,7 @@ export async function POST(req: NextRequest) {
       batch.set(punchesCol.doc(closePunch.punchId), closePunch);
       batch.set(punchesCol.doc(openPunch.punchId), openPunch);
       await batch.commit();
+      await reprojectJobs(db, businessId, [closePunch.jobId, openPunch.jobId]);
       const newDay = foldPunches([...existing, closePunch, openPunch], now, tz)
         .find((d) => d.dayKey === todayKey)!;
       return NextResponse.json({ ok: true, day: newDay, switched: true, tz });
@@ -168,6 +177,7 @@ export async function POST(req: NextRequest) {
   const batch = db.batch();
   for (const w of writes) batch.set(punchesCol.doc(w.punchId), w);
   await batch.commit();
+  await reprojectJobs(db, businessId, [...writes.map((w) => w.jobId), day.openJobId]);
 
   const newDay = foldPunches([...existing, ...writes], now, tz).find((d) => d.dayKey === todayKey)!;
   return NextResponse.json({ ok: true, day: newDay, tz });

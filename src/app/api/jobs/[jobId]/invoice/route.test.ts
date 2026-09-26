@@ -18,6 +18,18 @@ beforeEach(() => {
   mocks.firestore.mockReset().mockReturnValue(db);
 });
 
+describe("Mark paid", () => {
+  it("only a sent invoice can be marked paid, and nothing else may ride along", async () => {
+    expect((await PATCH(request({ businessId: "b", status: "paid" }), context)).status).toBe(409); // still a draft
+    db.__seed("businesses/b/invoices", "INV-1", { status: "sent", labor: [], materials: [], other: [], taxRate: 0, total: 120 });
+    expect((await PATCH(request({ businessId: "b", status: "paid", total: 0 }), context)).status).toBe(400);
+    expect((await PATCH(request({ businessId: "b", status: "void" }), context)).status).toBe(400);
+    expect((await PATCH(request({ businessId: "b", status: "paid" }), context)).status).toBe(200);
+    expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ status: "paid", paidAt: expect.any(Number), total: 120 });
+    expect((await PATCH(request({ businessId: "b", status: "paid" }), context)).status).toBe(409);
+  });
+});
+
 describe("invoice document options", () => {
   it("rejects invalid options before writing", async () => {
     for (const invalid of [{ hideMaterials: "true" }, { hideLabor: "true" }, { showTechnicians: 1 }, { technicians: ["<script>"] }, { narrative: "x".repeat(4001) }]) {

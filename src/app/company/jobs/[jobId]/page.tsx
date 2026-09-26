@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useFormat } from "@/hooks/useFormat";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { buildProjection } from "@/lib/jobs/projection";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta, PhotoPhase } from "@/types/jobs";
@@ -128,6 +129,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const { open: openQuickAdd } = useQuickAdd();
+  // Business-timezone formatters ("Sep 25, 8:59 PM") — the same format as Calls and Pipeline, never the browser locale.
+  const fmt = useFormat();
   // The Library catalog is loaded once here and shared by the Findings and Quote tabs.
   const catalog = useWorkCatalog(businessId);
 
@@ -140,6 +143,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // No-login field QR: a one-time, ten-minute grant for a crew member who
@@ -179,6 +183,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // the UI never fires a PATCH the server would just reject.
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
+  const [invoiceMeta, setInvoiceMeta] = useState<Pick<JobInvoice, "sentAt" | "sentTo" | "paidAt">>({});
+  const [markingPaid, setMarkingPaid] = useState(false);
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
   const [showTechnicians, setShowTechnicians] = useState(false);
@@ -264,16 +270,40 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   async function updateStatus(newStatus: string) {
     if (!businessId || !job || updatingStatus) return;
     setUpdatingStatus(newStatus);
+    setStatusError(null);
     try {
-      await fetch(`/api/jobs/${jobId}`, {
+      const res = await fetch(`/api/jobs/${jobId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, status: newStatus }),
       });
+      // Only move the bar when the server actually saved it — a failed PATCH used to leave the screen lying.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setStatusError(data.error ?? "Could not change the status. Try again.");
+        return;
+      }
       setJob((j) => j ? { ...j, status: newStatus as Job["status"] } : j);
+    } catch {
+      setStatusError("Could not change the status. Check the connection and try again.");
     } finally {
       setUpdatingStatus(null);
     }
+  }
+
+  // "Retry" on a field update stored as Parse failed: the raw note was kept, so read it again and refresh the job.
+  async function retryParse(updateId: string): Promise<string | null> {
+    if (!businessId) return "No business selected.";
+    const res = await fetch(`/api/jobs/${jobId}/updates/${updateId}/reparse`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res?.ok) return data.error ?? "Could not read the note again. Try again.";
+    if (data.update) setUpdates((list) => list.map((u) => (u.updateId === updateId ? (data.update as FieldUpdate) : u)));
+    if (data.projection) setJob((j) => (j ? { ...j, parsed: data.projection as ParsedUpdate } : j));
+    return null;
   }
 
   // Single source of truth: the job's authoritative projection. Backfill from the
@@ -325,8 +355,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, report, job, updates.length]);
   // Multi-day jobs: show the date alongside each timeline event's time.
-  const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? new Date(t.dateMs).toDateString() : "")).filter(Boolean)).size > 1;
-  const fmtDay = (ms?: number) => (ms ? new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "");
+  const timelineMultiDay = new Set(timeline.map((t) => (t.dateMs ? fmt.dayKey(t.dateMs) : "")).filter(Boolean)).size > 1;
+  const fmtDay = fmt.fmtDay;
 
   function startEdit() {
     setEditParsed(JSON.parse(JSON.stringify(projection)) as ParsedUpdate);
@@ -393,6 +423,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceNotes(inv.notes ?? invoiceNotes);
         setInvoiceId(inv.invoiceId);
         setInvoiceStatus(inv.status);
+        setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
         setInvoiceReady(true);
       })
       .catch(() => {})
@@ -457,6 +488,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setNarrative(inv.narrative ?? "");
       setInvoiceId(inv.invoiceId);
       setInvoiceStatus(inv.status);
+      setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
+      setJob((j) => (j && !j.invoiceId ? { ...j, invoiceId: inv.invoiceId } : j));
       setInvoiceLoaded(true);
       setInvoiceReady(true);
       setActiveTab("invoice");
@@ -637,8 +670,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
       if (res.ok) {
         setSendSuccess(true);
+        const to = sendEmail.trim();
         setSendEmail("");
-        setInvoiceStatus("sent");
+        setInvoiceStatus((s) => (s === "paid" ? s : "sent"));
+        setInvoiceMeta((m) => ({ ...m, sentAt: Date.now(), sentTo: to }));
+        // The server moved the job to Invoiced on the send; mirror it so the status bar agrees without a reload.
+        setJob((j) => (j ? { ...j, status: "invoiced" } : j));
         setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
@@ -648,6 +685,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setSendError("Network error. Try again.");
     } finally {
       setSending(false);
+    }
+  }
+
+  // "Mark paid": the office records the payment (there is no online payment on job invoices).
+  async function markInvoicePaid() {
+    if (!businessId || invoiceStatus !== "sent" || markingPaid) return;
+    setMarkingPaid(true); setInvoiceError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/invoice`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status: "paid" }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setInvoiceError(data.error ?? "Could not mark the invoice paid."); return; }
+      setInvoiceStatus("paid");
+      setInvoiceMeta((m) => ({ ...m, paidAt: (data.invoice as JobInvoice | undefined)?.paidAt ?? Date.now() }));
+    } catch {
+      setInvoiceError("Could not mark the invoice paid. Check the connection and try again.");
+    } finally {
+      setMarkingPaid(false);
     }
   }
 
@@ -770,6 +824,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
            at its default display — i.e. always visible, duplicating the on-screen content. */
         .print-only { display: none; }
 
+        /* A sent/paid invoice: no add/remove/picker controls, no "editable" dashed underlines. */
+        .invoice-locked button, .invoice-locked select { display: none !important; }
+        .invoice-locked input, .invoice-locked textarea { border-bottom-color: transparent !important; background: transparent; color: inherit; }
+
         /* Report photo grid (Phase 12, Phase 3) — a fixed-aspect card slot + object-fit: contain
            + a blurred scaled copy of the same image as the backdrop. No crop (the old bug: a
            fixed-height box with object-fit: cover), no distortion, no dead letterbox space. */
@@ -884,6 +942,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           );
         })}
       </div>
+
+      {statusError && (
+        <p role="alert" className="no-print" style={{ margin: "-8px 0 12px", color: "#b91c1c", fontSize: 13 }}>{statusError}</p>
+      )}
 
       {(reportError || invoiceError) && (
         <div style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 12, color: "#b91c1c", fontSize: 13 }} className="no-print">
@@ -1292,7 +1354,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "invoice" && (
         <div>
           <p className="no-print" style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>
-            This job invoice can be emailed to your customer; online payment is not available here. Luxor payment links apply only to invoices Luxor sends your business.
+            Email the invoice to your customer or print it. There is no online payment yet, so press Mark paid once they pay.
           </p>
           {!invoiceReady ? (
             <section className="panel">
@@ -1319,9 +1381,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <span style={{
                       fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10,
                       padding: "2px 8px", borderRadius: 10,
-                      background: invoiceStatus === "draft" ? "#eff6ff" : "#f0fdf4",
+                      background: invoiceStatus === "paid" ? "#dcfce7" : invoiceStatus === "draft" ? "#eff6ff" : "#f0fdf4",
                       color: invoiceStatus === "draft" ? "#3b82f6" : "#15803d",
-                    }}>{invoiceStatus}</span>
+                    }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
                   <details>
@@ -1336,8 +1398,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   {invoiceStatus === "draft" && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
                   <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
-                    Send to Customer
+                    {invoiceStatus === "draft" ? "Send to Customer" : "Send again"}
                   </button>
+                  {invoiceStatus === "sent" && (
+                    <button className="button primary" onClick={() => void markInvoicePaid()} disabled={markingPaid} style={{ fontSize: 13 }}>
+                      {markingPaid ? "Saving…" : "Mark paid"}
+                    </button>
+                  )}
                   <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Printer size={14} strokeWidth={1.75} />
                     Print / Save as PDF
@@ -1353,7 +1420,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
               {invoiceStatus && invoiceStatus !== "draft" && (
                 <div className="no-print" style={{ marginBottom: 16, padding: "10px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, color: "#15803d" }}>
-                  This invoice has been {invoiceStatus} and can no longer be edited. Void/reissue isn&apos;t built yet — contact support if it needs to change.
+                  🔒 {invoiceStatus === "paid"
+                    ? `Paid${invoiceMeta.paidAt ? ` on ${fmt.fmtDayTime(invoiceMeta.paidAt)}` : ""}.`
+                    : `Sent${invoiceMeta.sentTo ? ` to ${invoiceMeta.sentTo}` : ""}${invoiceMeta.sentAt ? ` on ${fmt.fmtDayTime(invoiceMeta.sentAt)}` : ""}.`}
+                  {" "}This invoice is locked: new field updates or edits on the job won&apos;t change it.
                 </div>
               )}
 
@@ -1379,7 +1449,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               {/* Send invoice panel */}
               {showSendPanel && (
                 <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
-                  <p style={{ margin: "0 0 10px", fontWeight: 600, fontSize: 14, color: "#0369a1" }}>Send draft invoice by email</p>
+                  <p style={{ margin: "0 0 10px", fontWeight: 600, fontSize: 14, color: "#0369a1" }}>Email this invoice</p>
                   {sendSuccess ? (
                     <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Invoice sent successfully!</p>
                   ) : (
@@ -1398,13 +1468,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </div>
                   )}
                   {sendError && <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 13 }}>{sendError}</p>}
-                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Sends the current invoice totals as a draft. Customer can reply to discuss.</p>
+                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Sending locks the invoice and marks the job Invoiced. The customer can reply to your email to discuss it.</p>
                 </div>
               )}
 
-              {/* Invoice document */}
-              <div className="invoice-editor no-print" style={{
-                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10,
+              {/* Invoice document — a sent/paid invoice is immutable server-side, so the whole editor is a disabled
+                  fieldset: typing into a locked invoice used to look like it worked and was silently never saved. */}
+              <fieldset disabled={invoiceStatus !== "draft"} className={`invoice-editor no-print${invoiceStatus !== "draft" ? " invoice-locked" : ""}`} style={{
+                background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, margin: 0, minWidth: 0,
                 padding: "44px 52px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
               }}>
@@ -1712,7 +1783,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </div>
                   )}
                 </div>
-              </div>
+              </fieldset>
               <div style={{ marginTop: 24 }}>
                 <h3 className="no-print">Customer preview</h3>
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
@@ -1821,7 +1892,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           ) : (
             <div style={{ display: "grid", gap: 14 }}>
               {updates.map((u, i) => (
-                <ParsedUpdateCard key={u.updateId} update={u} index={i} />
+                <ParsedUpdateCard key={u.updateId} update={u} index={i} onRetry={retryParse} />
               ))}
             </div>
           )}
@@ -1832,24 +1903,34 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 }
 
 // ── Job status steps ─────────────────────────────────────────────────────────
+// Work is finished (Complete) before it is billed (Invoiced) — the same order the jobs list ("Ready to invoice") and
+// the crew's "Work complete" button assume. A job becomes Invoiced when its invoice is SENT, not when a draft exists.
 const JOB_STEPS = [
   { key: "inspection", label: "Inspection" },
   { key: "quoted",     label: "Quoted" },
   { key: "in_progress", label: "Working" },
-  { key: "invoiced",   label: "Invoiced" },
   { key: "complete",   label: "Complete" },
+  { key: "invoiced",   label: "Invoiced" },
 ] as const;
 
 function statusToStepIdx(status: string): number {
   const map: Record<string, number> = {
-    open: 0, inspection: 0, quoted: 1, in_progress: 2, invoiced: 3, complete: 4,
+    open: 0, inspection: 0, quoted: 1, in_progress: 2, complete: 3, invoiced: 4,
   };
   return map[status] ?? 0;
 }
 
 // ── Parsed field update card ──────────────────────────────────────────────────
-function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: number }) {
+function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; index: number; onRetry?: (updateId: string) => Promise<string | null> }) {
   const [showRaw, setShowRaw] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  async function retry() {
+    if (!onRetry || retrying) return;
+    setRetrying(true);
+    setRetryError(await onRetry(update.updateId));
+    setRetrying(false);
+  }
   // Spanish (Phase 12, Phase 6) — "View original" defaults to the English rendering when the
   // source wasn't English; this second toggle flips to the verbatim spoken text. Pure client
   // state, zero fetch: rawText/rawTextEn both already arrive in the updates payload.
@@ -1887,6 +1968,12 @@ function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: numbe
           )}
           {update.parseError && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#b91c1c", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 4, padding: "1px 6px" }}>Parse failed</span>
+          )}
+          {update.parseError && onRetry && (
+            <button type="button" className="button small" onClick={() => void retry()} disabled={retrying} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <RefreshCw size={12} strokeWidth={1.75} />
+              {retrying ? "Reading again…" : "Retry"}
+            </button>
           )}
         </div>
         <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>
@@ -1957,8 +2044,11 @@ function ParsedUpdateCard({ update, index }: { update: FieldUpdate; index: numbe
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "#94a3b8" }}>Parsing…</p>
       )}
       {update.parseError && (
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "#b91c1c" }}>Parse error: {update.parseError}</p>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "#b91c1c" }}>
+          The AI could not read this note, so nothing from it reached the job yet. The note is saved; press Retry.
+        </p>
       )}
+      {retryError && <p role="alert" style={{ margin: "4px 0 0", fontSize: 13, color: "#b91c1c" }}>{retryError}</p>}
 
       {/* View original disclosure */}
       <button

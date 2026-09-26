@@ -4,6 +4,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from "@/lib/auth/profileCache";
+import { installSessionRetry, safeExpiry, writeSessionCookie } from "@/lib/auth/sessionFetch";
+
+/** Refresh the ID token this long before it expires. */
+const REFRESH_AHEAD_MS = 5 * 60_000;
 
 interface AuthUser {
   uid: string;
@@ -43,6 +47,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let unsub: (() => void) | undefined;
+    let uninstallRetry: (() => void) | undefined;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let tokenExpiresAt = 0;
+    let onWake: (() => void) | undefined;
 
     (async () => {
       const [auth, { onIdTokenChanged }] = await Promise.all([
@@ -55,10 +63,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // onIdTokenChanged fires on sign-in, sign-out, and automatic token refresh (~every hour).
-      // Storing the actual ID token in __session lets server-side API routes verify auth.
+      // Force a fresh token and write the cookie right away (don't wait for onIdTokenChanged, which re-runs the
+      // profile fetch) — the retry wrapper replays its request the moment this resolves.
+      const forceRefresh = async (): Promise<string | null> => {
+        const current = auth.currentUser;
+        if (!current) return null;
+        const result = await current.getIdTokenResult(true);
+        tokenExpiresAt = safeExpiry(result.expirationTime);
+        writeSessionCookie(result.token, tokenExpiresAt);
+        return result.token;
+      };
+      uninstallRetry = installSessionRetry(forceRefresh);
+      // Background tabs throttle timers and a sleeping laptop skips them, so also check when the tab comes back.
+      onWake = () => {
+        if (document.visibilityState !== "visible" || !auth.currentUser) return;
+        if (tokenExpiresAt - Date.now() < REFRESH_AHEAD_MS) void forceRefresh().catch(() => {});
+      };
+      document.addEventListener("visibilitychange", onWake);
+      window.addEventListener("focus", onWake);
+
+      // onIdTokenChanged fires on sign-in, sign-out, and every token refresh (the timer below and forceRefresh cause
+      // those — Firebase does not refresh on its own here). __session holds the ID token so API routes can verify it.
       unsub = onIdTokenChanged(auth, async (firebaseUser: User | null) => {
+        clearTimeout(refreshTimer);
         if (!firebaseUser) {
+          tokenExpiresAt = 0;
           setUser(null);
           setIdToken(null);
           setLoading(false);
@@ -79,13 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-          const token = await firebaseUser.getIdToken();
+          // The cached token may already be most of the way through its hour: the cookie gets the token's REAL
+          // remaining life, and a refresh is scheduled ahead of its expiry (immediately if it is already close).
+          const result = await firebaseUser.getIdTokenResult();
+          const token = result.token;
+          tokenExpiresAt = safeExpiry(result.expirationTime);
           setIdToken(token);
-          // Store actual ID token so server routes can verify with Firebase Admin SDK.
-          // Expires in 1h matching Firebase token lifetime; onIdTokenChanged refreshes it.
-          // Secure only on HTTPS to allow localhost dev over HTTP.
-          const secureFlag = location.protocol === "https:" ? "; Secure" : "";
-          document.cookie = `__session=${token}; path=/; max-age=3600; SameSite=Lax${secureFlag}`;
+          writeSessionCookie(token, tokenExpiresAt);
+          refreshTimer = setTimeout(() => {
+            void firebaseUser.getIdToken(true).catch(() => {});
+          }, Math.max(0, tokenExpiresAt - Date.now() - REFRESH_AHEAD_MS));
 
           let profile: AuthUser = {
             uid: firebaseUser.uid,
@@ -119,6 +151,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       unsub?.();
+      uninstallRetry?.();
+      clearTimeout(refreshTimer);
+      if (onWake) {
+        document.removeEventListener("visibilitychange", onWake);
+        window.removeEventListener("focus", onWake);
+      }
     };
   }, []);
 

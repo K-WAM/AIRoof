@@ -78,4 +78,6 @@ export interface JobInvoice {
   createdBy: string;
   sentAt?: number;
   sentTo?: string;
+  /** Set by the office's "Mark paid" (sent -> paid). There is no online payment on job invoices. */
+  paidAt?: number;
 }

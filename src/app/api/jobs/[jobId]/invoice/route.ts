@@ -60,7 +60,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 
 // POST /api/jobs/[jobId]/invoice — create the (one) invoice for this job from its current
 // projection. Allocates a job-scoped invoice number, writes the invoice doc, and in the same
-// WriteBatch sets job.invoiceId + job.status = "invoiced" — closing the dangling field.
+// WriteBatch sets job.invoiceId. It does NOT move the job to "invoiced": a draft bills nobody, and
+// the job becomes Invoiced only when invoice/send actually emails it (owner decision 2026-09-25).
 // body: { businessId, force? } — force rebuilds a still-draft invoice's labor/materials/other
 // from the CURRENT projection ("Regenerate" after new field updates came in), refusing once the
 // invoice has been sent (same immutability rule PATCH enforces).
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const batch = db.batch();
   batch.set(db.collection(`businesses/${businessId}/invoices`).doc(invoiceId), invoice);
-  batch.update(jobRef, { invoiceId, status: "invoiced", updatedAt: now });
+  batch.update(jobRef, { invoiceId, updatedAt: now });
   await batch.commit();
 
   return NextResponse.json({ invoice }, { status: 201 });
@@ -128,6 +129,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
 interface PatchBody {
   businessId?: string;
+  /** Only "paid", and only from "sent" — the office's "Mark paid". */
+  status?: string;
   addFindings?: boolean;
   labor?: InvoiceLaborLine[];
   materials?: InvoiceMaterialLine[];
@@ -170,6 +173,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const invSnap = await invRef.get();
   if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const current = invSnap.data() as JobInvoice;
+
+  // "Mark paid": the one change a sent invoice still accepts. Nothing else may ride along with it.
+  if (body.status !== undefined) {
+    if (body.status !== "paid" || Object.keys(body).some((key) => !["businessId", "status"].includes(key))) {
+      return NextResponse.json({ error: "Invalid status change" }, { status: 400 });
+    }
+    if (current.status !== "sent") {
+      return NextResponse.json({ error: current.status === "paid" ? "This invoice is already marked paid" : "Send the invoice before marking it paid" }, { status: 409 });
+    }
+    const now = Date.now();
+    const patch = { status: "paid" as const, paidAt: now, updatedAt: now };
+    await invRef.update(patch);
+    return NextResponse.json({ invoice: { ...current, ...patch } });
+  }
 
   if (current.status !== "draft") {
     return NextResponse.json({ error: `Invoice is ${current.status} and can no longer be edited` }, { status: 409 });
