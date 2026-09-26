@@ -14,9 +14,49 @@ import type {
 } from "@/types/jobs";
 import type { PunchedLaborEntry } from "@/types/timeclock";
 import { dayKey, normalizeName } from "@/lib/format";
+import { parseClock, tidyClock } from "@/lib/format/clock";
 
 function normalizeItem(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Several field notes about the same worker on the same day become ONE labor line: hours are summed, the earliest arrival
+ * and the latest departure win, and clock times are shown as "8:00 AM". Without this, "Marco arrived at 8" followed by
+ * "Marco worked 3 hours" produced two Marco rows (one with no hours) on the invoice and the report. Punched entries are
+ * never merged here — they are authoritative and arrive through their own path.
+ */
+function mergeVoiceLabor(entries: ParsedUpdate["labor"]): ParsedUpdate["labor"] {
+  const merged: ParsedUpdate["labor"] = [];
+  const at = new Map<string, number>();
+  for (const entry of entries) {
+    const key = `${entry.workerKey}|${entry.dayKey}`;
+    const index = at.get(key);
+    const tidy = { ...entry, arrivalTime: tidyClock(entry.arrivalTime), departureTime: tidyClock(entry.departureTime) };
+    if (tidy.arrivalTime === undefined) delete tidy.arrivalTime;
+    if (tidy.departureTime === undefined) delete tidy.departureTime;
+    if (index === undefined) { at.set(key, merged.length); merged.push(tidy); continue; }
+    const into = merged[index];
+    if (into.hours != null || tidy.hours != null) into.hours = (into.hours ?? 0) + (tidy.hours ?? 0);
+    if (into.rate == null && tidy.rate != null) into.rate = tidy.rate;
+    const earlier = (a?: string, b?: string) => {
+      const ma = parseClock(a), mb = parseClock(b);
+      if (ma === null) return b ?? a;
+      if (mb === null) return a;
+      return ma <= mb ? a : b;
+    };
+    const later = (a?: string, b?: string) => {
+      const ma = parseClock(a), mb = parseClock(b);
+      if (ma === null) return b ?? a;
+      if (mb === null) return a;
+      return ma >= mb ? a : b;
+    };
+    const arrival = earlier(into.arrivalTime, tidy.arrivalTime);
+    const departure = later(into.departureTime, tidy.departureTime);
+    if (arrival) into.arrivalTime = arrival;
+    if (departure) into.departureTime = departure;
+  }
+  return merged;
 }
 
 function toNum(v: unknown): number {
@@ -36,7 +76,7 @@ function ovKey(updateId: string, field: string, item: string): string {
 /**
  * Fold the ledger into the authoritative ParsedUpdate.
  * - Materials: grouped by normalized name, quantities SUMMED across entries (with corrections applied first).
- * - Labor: each worker-shift kept as its own line (hours corrected where overridden).
+ * - Labor: one line per worker per day (hours summed across that day's notes, corrections applied first).
  * - Timeline / issues / invoiceSuggestions: concatenated in ledger order (timeline sorted by time when present).
  */
 // `punchedLabor`/`tz` are Phase 12/Phase 5 (time clock) additions — omitting both keeps every
@@ -90,14 +130,14 @@ export function buildProjection(
   //    punchedLabor comes from foldPunches — pure arithmetic over button-tap timestamps — so
   //    there is no code path where a model-produced number is added to a punch-produced one.
   const punchedKeys = new Set(punchedLabor.map((p) => `${p.workerKey}|${p.dayKey}`));
-  const labor: ParsedUpdate["labor"] = [];
+  const voiceLabor: ParsedUpdate["labor"] = [];
   for (const u of normal) {
     for (const l of u.parsed!.labor) {
       const workerKey = `name:${normalizeName(l.description)}`;
       const entryDayKey = dayKey(u.createdAt, tz);
       if (punchedKeys.has(`${workerKey}|${entryDayKey}`)) continue; // the punch wins
       const ov = overrides.get(ovKey(u.updateId, "labor", l.description));
-      labor.push({
+      voiceLabor.push({
         ...(ov != null ? { ...l, hours: ov } : { ...l }),
         source: "voice",
         dayKey: entryDayKey,
@@ -105,6 +145,7 @@ export function buildProjection(
       });
     }
   }
+  const labor: ParsedUpdate["labor"] = mergeVoiceLabor(voiceLabor);
   for (const p of punchedLabor) {
     labor.push({
       description: p.workerName,

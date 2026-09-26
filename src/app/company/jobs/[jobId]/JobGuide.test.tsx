@@ -16,15 +16,13 @@ vi.mock("@/hooks/useFormat", () => ({
 const job = (over: Partial<Job> = {}): Job => ({ jobId: "J-1", businessId: "biz", title: "Roof", status: "inspection", createdAt: 1, updatedAt: 1, ...over });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-describe("JobStepper", () => {
-  it("shows the five steps, marks the current one, and its button opens the right tab", () => {
+describe("JobStepper (next-step line)", () => {
+  it("shows ONE next action with its hint — and no second row of step chips duplicating the progress bar", () => {
     const onGo = vi.fn();
     render(<JobStepper job={job()} onGo={onGo} />);
-    const chips = screen.getAllByRole("listitem").map((li) => li.textContent);
-    ["Findings", "Quote", "Work", "Report", "Invoice"].forEach((label, index) => expect(chips[index]).toContain(label));
-    expect(chips).toHaveLength(5);
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.getByText(/Record what was found/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Next: Findings"));
+    fireEvent.click(screen.getByText("Next: Findings →"));
     expect(onGo).toHaveBeenCalledWith("findings");
   });
 
@@ -32,16 +30,16 @@ describe("JobStepper", () => {
     const finding = { findingId: "f", category: "c", problem: "p", solution: "s", includeInReport: true, includeInQuote: true, addedAt: 1 };
     const onGo = vi.fn();
     const { rerender } = render(<JobStepper job={job({ findings: [finding] })} onGo={onGo} />);
-    fireEvent.click(screen.getByText("Next: Quote"));
+    fireEvent.click(screen.getByText("Next: Quote →"));
     expect(onGo).toHaveBeenLastCalledWith("quote");
     rerender(<JobStepper job={job({ findings: [finding], status: "quoted", quoteId: "Q-1" })} onGo={onGo} />);
-    fireEvent.click(screen.getByText("Next: Work"));
+    fireEvent.click(screen.getByText("Next: Work →"));
     expect(onGo).toHaveBeenLastCalledWith("timeline");
   });
 
   it("says so when everything is done and offers no button", () => {
     render(<JobStepper job={job({ status: "invoiced", quoteId: "Q-1", reportNotes: "x", findings: [{ findingId: "f", category: "c", problem: "p", solution: "s", includeInReport: true, includeInQuote: true, addedAt: 1 }] })} onGo={vi.fn()} />);
-    expect(screen.getByText(/All steps are done/)).toBeTruthy();
+    expect(screen.getByText(/Every step is done/)).toBeTruthy();
     expect(screen.queryByText(/^Next:/)).toBeNull();
   });
 });

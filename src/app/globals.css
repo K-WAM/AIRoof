@@ -125,6 +125,27 @@ textarea {
   font: inherit;
 }
 
+/* ── Modern baseline for plain form controls ──────────────────────────────────────────────────────────────────────────
+   Bare <input>/<textarea>/<select> used to fall through to the browser default (square, beveled, "1998"). This gives every
+   control that has NO styling of its own a rounded, quiet, tokenised look. It uses :where() so its specificity is ZERO:
+   any class rule (.field input, .button, ...) or inline style still wins, so nothing already styled changes. */
+:where(input:not([type]), input[type="text"], input[type="email"], input[type="tel"], input[type="number"],
+       input[type="date"], input[type="time"], input[type="search"], input[type="url"], input[type="password"], textarea, select) {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  line-height: 1.4;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+:where(textarea) { line-height: 1.5; resize: vertical; min-height: 44px; }
+:where(select) { padding-right: 28px; }
+:where(input, textarea, select):hover:not(:disabled) { border-color: #cbd5e1; }
+:where(input, textarea, select):focus-visible { border-color: var(--accent); }
+:where(input, textarea, select):disabled { background: var(--surface-muted); color: var(--text-muted); cursor: not-allowed; }
+:where(input, textarea)::placeholder { color: #94a3b8; }
+
 a {
   color: inherit;
   text-decoration: none;

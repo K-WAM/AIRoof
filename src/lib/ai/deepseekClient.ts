@@ -1,4 +1,5 @@
 import type { ParsedUpdate } from "@/types/jobs";
+import { dropUnspokenTimes } from "./spokenTimes";
 import {
   selectClient,
   canUseMock,
@@ -110,6 +111,7 @@ LABOR RULES (most important for invoicing):
 - "Kevin and John were here" → two entries: {description:"Kevin"}, {description:"John"}.
 - Arrival time: "we got there at 8", "arrived 8 AM", "left the shop at 7:30" → arrivalTime: "08:00".
 - Departure time: "left at 4", "done by 3:30 PM", "finished around 4" → departureTime: "16:00".
+- ONLY set arrivalTime/departureTime when the speaker actually states a time. "We just arrived", "we are here now", "on site" with no time → leave both EMPTY (never copy a time from the job context or another worker).
 - If arrival + departure given, calculate hours = departure minus arrival (subtract 0.5 for unpaid lunch if >5h).
 - If hours explicitly stated: "worked 6 hours" → hours: 6.
 - Do NOT invent rates. Leave rate null unless stated.
@@ -183,7 +185,8 @@ If a section is empty, return []. Never fabricate data not explicitly stated. Ne
     );
   }
 
-  return schemaResult.data;
+  // A model must never invent a clock time: drop arrival/departure times when the speaker said none (see spokenTimes.ts).
+  return dropUnspokenTimes(schemaResult.data, options.rawText);
 }
 
 export interface GenerateFaqSuggestionsOptions {

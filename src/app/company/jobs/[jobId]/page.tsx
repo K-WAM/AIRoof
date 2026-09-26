@@ -24,6 +24,7 @@ import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { suggestFindings } from "@/lib/jobs/suggestFindings";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
+import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { reportFindings } from "@/lib/jobs/findings";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -299,6 +300,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     if (polled.photos) setPhotos(polled.photos);
   }, [businessId, jobId]);
   useLiveRefresh(refreshLive, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty });
+
+  // Description of work starts as short, blunt bullets built from the job's findings ("• Tile replacement"), so nobody types it
+  // from scratch. Once per invoice, only into an EMPTY draft, and it saves through the normal invoice autosave.
+  const narrativePrefilledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!invoiceReady || invoiceStatus !== "draft" || !invoiceId) return;
+    if (narrativePrefilledFor.current === invoiceId) return;
+    narrativePrefilledFor.current = invoiceId;
+    if (narrative.trim()) return;
+    const bullets = draftWorkDescription(job?.findings);
+    if (bullets) setNarrative(bullets);
+  }, [invoiceReady, invoiceStatus, invoiceId, narrative, job?.findings]);
 
   // Opening the Report tab generates the report (and drafts its notes) straight away when there is something to report,
   // instead of asking for a "Generate Report" click first. Once per visit; Regenerate stays available.
@@ -1448,8 +1461,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
 
                 <div className="no-print" style={{ marginBottom: 20 }}>
-                  <label htmlFor="invoiceNarrative">Description of work</label>
-                  <textarea id="invoiceNarrative" maxLength={4000} rows={4} disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block" }} />
+                  <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
+                  <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
                   {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
                 </div>
                 {/* Labor */}
@@ -1629,9 +1642,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Other Charges</div>
                     {otherRows.map((row, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
-                        <InlineInput value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
-                        <span>$<InlineInput value={row.amount} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, amount: v } : x))} placeholder="0.00" align="right" width={80} /></span>
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <InlineInput value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
+                        </div>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flex: "0 0 auto" }}>
+                          $<InlineInput value={row.amount} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, amount: v } : x))} placeholder="0.00" align="right" width={80} />
+                        </span>
+                        <button className="no-print" type="button" onClick={() => setOtherRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove" aria-label="Remove charge">×</button>
                       </div>
                     ))}
                   </div>

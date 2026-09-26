@@ -6,6 +6,7 @@ import type { JobFinding, WorkCatalogItem } from "@/types/workCatalog";
 import { copyCatalogFinding } from "@/lib/jobs/findings";
 import { suggestFindings } from "@/lib/jobs/suggestFindings";
 import { customFinding } from "@/lib/billing/quoteItems";
+import { workBullet } from "@/lib/documents/workSummary";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
 import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
 
@@ -158,7 +159,10 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
             {findings.map((f) => (
               <div key={f.findingId} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <strong>{f.category}</strong>
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={{ fontSize: 15 }}>{workBullet(f) || f.category}</strong>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{f.category}</div>
+                  </div>
                   <button className="button small" type="button" onClick={() => change(findings.filter((v) => v.findingId !== f.findingId))}>Remove</button>
                 </div>
                 <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Issue

@@ -1430,3 +1430,12 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - **Pipeline/Dashboard/search showed NO appointments** (since 2026-09-06): GET /api/businesses/[id]/appointments treated a request without from/to as a range because Number(null) === 0 is finite (window 0..0). Fixed + regression tests (fail without the fix). The offline smoke test missed it.
 - Demo line now always sounds open (round-the-clock hours on every launch).
 - Verified working on the live call: initiation webhook (per-call business name), Live call row, post-call summary/transcript, recording proxy. NOT yet verified: an appointment actually created by a call (needs a re-test).
+
+## 2026-09-25 (late night) — owner review of J-1001: UX + data-quality pass
+- Global modern baseline for bare form controls (`:where()` → zero specificity, so styled controls are untouched): rounded, tokenised, focus ring.
+- Removed the duplicate step-chip row from the job page (the clickable status progress bar already shows position); kept one "Next: X →" line.
+- Labor: one line per worker per day (`mergeVoiceLabor` in projection.ts: hours summed, earliest arrival / latest departure, clock text tidied to "8:00 AM"); no more duplicate "Marco" rows.
+- Field parser can no longer invent clock times: `dropUnspokenTimes` strips arrival/departure when the transcript contains no time expression (Kevin's "we just arrived" got an invented 08:00), plus a prompt rule.
+- Suggested findings: an item must share a noun with its own PROBLEM text (condition words like "cracked" and the tech's resolution wording can rank but never create a suggestion) — the skylight lens no longer appears for "six cracked tiles".
+- Invoice: Description of work is pre-filled with short blunt bullets from the findings' labor-line names ("• Tile replacement"); Other charges got the × remove button and the $ now aligns with its amount; quote intro uses the same bullets.
+- Explained to the owner: J-1001's Marco notes (1:53-4:53 PM) are the seeded demo story; the field-worker notes at 8:02/8:03 PM were the owner's own tests.

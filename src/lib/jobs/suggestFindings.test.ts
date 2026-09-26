@@ -54,3 +54,24 @@ describe("suggestFindings", () => {
     expect(suggestFindings(job([{ description: "cracked tile" }]), many)).toHaveLength(5);
   });
 });
+
+describe("suggestFindings — the owner's real demo job", () => {
+  // J-1001: "Six cracked tiles on the south slope." + "Split pipe boot at the vent penetration."
+  // The old scorer suggested the SKYLIGHT LENS and flashing at the skylight curb because the single word "cracked" matched.
+  it("does not suggest unrelated items just because they share a condition word like 'cracked'", async () => {
+    const { WORK_CATALOG_STARTER } = await import("@/lib/verticals/workCatalogStarter");
+    const catalog = WORK_CATALOG_STARTER.roofing;
+    const demoJob = job([
+      { description: "Six cracked tiles on the south slope.", resolution: "Replace the damaged tiles with matching pieces and re-bed them." },
+      { description: "Split pipe boot at the vent penetration.", resolution: "Replace the pipe boot flashing and seal the joint." },
+    ]);
+    const suggested = suggestFindings(demoJob, catalog).map((i) => i.itemId);
+    expect(suggested.some((id) => id.includes("skylight"))).toBe(false);
+    // and it still finds genuinely related work: the tile and pipe-boot items themselves when not yet on the job
+    expect(suggested.some((id) => /tile|pipe|penetration/.test(id))).toBe(true);
+  });
+
+  it("a lone condition word no longer produces a suggestion", () => {
+    expect(suggestFindings(job([{ description: "Cracked" }]), CATALOG)).toEqual([]);
+  });
+});
