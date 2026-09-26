@@ -68,6 +68,12 @@ const RESOURCES: Record<VerticalId, string[]> = {
   "junk-removal": ["Truck 1 Crew", "Truck 2 Crew", "Cleanout Crew", "Heavy Haul Team", "Same-Day Crew"],
 };
 
+/** One turn of a seeded demo call transcript. Expanded to CallMessage[] by the demo route. */
+export interface DemoCallTurn {
+  role: "caller" | "agent";
+  text: string;
+}
+
 export interface DemoSeed {
   resources: Array<{ name: string; email: string; color: string }>;
   jobs: Array<{
@@ -79,12 +85,18 @@ export interface DemoSeed {
     status: string;
   }>;
   calls: Array<{
+    /** Deterministic id: the call doc id AND what linked leads/appointments store as `sourceCallId`. */
+    callId: string;
+    /** Deterministic call length in seconds (the real writer's field). */
+    durationSecs: number;
     callerName: string;
     callerPhone: string;
     serviceType: string;
     outcome: "scheduled" | "lead_captured" | "escalated" | "no_action";
     summary: string;
     isAfterHours: boolean;
+    /** 3–5 realistic turns, in each vertical's own service vocabulary. */
+    messages: DemoCallTurn[];
   }>;
   leads: Array<{
     callerName: string;
@@ -93,6 +105,8 @@ export interface DemoSeed {
     urgency: "low" | "normal" | "urgent";
     status: "new" | "contacted";
     address: string;
+    /** The seeded call whose transcript produced this lead (for "This call produced"). */
+    sourceCallId?: string;
   }>;
   appointments: Array<{
     callerName: string;
@@ -103,6 +117,8 @@ export interface DemoSeed {
     status: "requested" | "confirmed";
     pendingConfirmation?: boolean;
     address: string;
+    /** The seeded call whose transcript produced this appointment. */
+    sourceCallId?: string;
     // Index into `resources`, or undefined to leave it in the Calendar's
     // "Unassigned" rail as the thing you drag during a demo.
     resourceIndex?: number;
@@ -155,22 +171,119 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
   // Build a roster of calls, leads, and appointments so the Dashboard, Pipeline,
   // and Calendar all read populated at a glance. Caller/address/progression are
   // distributed across the pool so no vertical looks like a copy-paste.
+  //
+  // Each seeded call carries a deterministic `callId`, a `durationSecs`, and a
+  // 3–5 turn transcript written from THIS vertical's own services (never another
+  // industry's words). A few leads/appointments carry that callId as
+  // `sourceCallId`, so the Calls page's "This call produced" link works in a demo.
+  const agentName = t.agentName;
+  const turn = (role: DemoCallTurn["role"], text: string): DemoCallTurn => ({ role, text });
+  const firstName = (full: string) => full.split(" ")[0];
+  const intro = `Thanks for calling — this is ${agentName}. How can I help?`;
+  const afterHoursIntro = `Thanks for calling — this is ${agentName}. The office is closed, but I can still help.`;
+
   const calls: DemoSeed["calls"] = [
-    { callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone, serviceType: s(0), outcome: "scheduled", summary: `${s(0)} — appointment booked.`, isAfterHours: false },
-    { callerName: CALLERS[1].name, callerPhone: CALLERS[1].phone, serviceType: s(1), outcome: "lead_captured", summary: `${s(1)} — lead captured, team to follow up.`, isAfterHours: false },
-    { callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone, serviceType: s(2), outcome: "scheduled", summary: `${s(2)} — appointment set.`, isAfterHours: false },
-    { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, serviceType: s(1), outcome: "escalated", summary: "After-hours urgent call — booked and flagged for confirmation.", isAfterHours: true },
-    { callerName: "Unknown caller", callerPhone: CALLERS[4].phone, serviceType: "General inquiry", outcome: "no_action", summary: "Caller hung up before leaving details.", isAfterHours: false },
-    { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceType: s(0), outcome: "scheduled", summary: `${s(0)} — same-day slot booked.`, isAfterHours: false },
-    { callerName: CALLERS[6].name, callerPhone: CALLERS[6].phone, serviceType: s(3), outcome: "lead_captured", summary: `${s(3)} — callback requested.`, isAfterHours: false },
-    { callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone, serviceType: s(1), outcome: "scheduled", summary: `${s(1)} — morning slot confirmed.`, isAfterHours: false },
+    {
+      callId: "call_demo_1", durationSecs: 132,
+      callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone,
+      serviceType: s(0), outcome: "scheduled", summary: `${s(0)} — appointment booked.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `Hi, I need to schedule ${s(0)}.`),
+        turn("agent", "Of course. Can I get your full name and the service address?"),
+        turn("caller", `It's ${CALLERS[0].name}, at ${ADDRESSES[0]}.`),
+        turn("agent", `Thanks, ${firstName(CALLERS[0].name)}. I've booked that for tomorrow morning and sent your confirmation.`),
+      ],
+    },
+    {
+      callId: "call_demo_2", durationSecs: 96,
+      callerName: CALLERS[1].name, callerPhone: CALLERS[1].phone,
+      serviceType: s(1), outcome: "lead_captured", summary: `${s(1)} — lead captured, team to follow up.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `Hello, I'd like to ask about ${s(1)}.`),
+        turn("agent", "Happy to help. Can I take your name and the best number to reach you?"),
+        turn("caller", `${CALLERS[1].name}, and this number is fine.`),
+        turn("agent", `Thanks, ${firstName(CALLERS[1].name)}. I've passed your details to the team and they'll follow up on ${s(1)}.`),
+      ],
+    },
+    {
+      callId: "call_demo_3", durationSecs: 145,
+      callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone,
+      serviceType: s(2), outcome: "scheduled", summary: `${s(2)} — appointment set.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `Hi, do you handle ${s(2)}?`),
+        turn("agent", "We do. What's the address, and when would suit you?"),
+        turn("caller", `${CALLERS[2].name}, at ${ADDRESSES[1]}. Any time this week works.`),
+        turn("agent", `Great, ${firstName(CALLERS[2].name)}. I've booked ${s(2)} for tomorrow morning and sent your confirmation.`),
+      ],
+    },
+    {
+      callId: "call_demo_4", durationSecs: 78,
+      callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone,
+      serviceType: s(1), outcome: "escalated", summary: "After-hours urgent call — booked and flagged for confirmation.", isAfterHours: true,
+      messages: [
+        turn("agent", afterHoursIntro),
+        turn("caller", `I need someone tonight for ${s(1)} — this is ${CALLERS[3].name}.`),
+        turn("agent", "I'm sorry you're dealing with that. What's the service address?"),
+        turn("caller", `${ADDRESSES[0]}. Please send someone as soon as you can.`),
+        turn("agent", "I've flagged this as urgent for our on-call team. Someone will call you back shortly."),
+      ],
+    },
+    {
+      callId: "call_demo_5", durationSecs: 41,
+      callerName: "Unknown caller", callerPhone: CALLERS[4].phone,
+      serviceType: "General inquiry", outcome: "no_action", summary: "Caller hung up before leaving details.", isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", "Is this the right number? Sorry, never mind — I'll call back later."),
+        turn("agent", "No problem. We're here whenever you're ready."),
+      ],
+    },
+    {
+      callId: "call_demo_6", durationSecs: 118,
+      callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone,
+      serviceType: s(0), outcome: "scheduled", summary: `${s(0)} — same-day slot booked.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `Hi, can anyone come out for ${s(0)} today or tomorrow?`),
+        turn("agent", "Let me check. Can I get your name and address?"),
+        turn("caller", `${CALLERS[5].name}, at ${ADDRESSES[3]}.`),
+        turn("agent", `Thanks, ${firstName(CALLERS[5].name)}. I have a same-day slot and I've put you in for ${s(0)}.`),
+      ],
+    },
+    {
+      callId: "call_demo_7", durationSecs: 102,
+      callerName: CALLERS[6].name, callerPhone: CALLERS[6].phone,
+      serviceType: s(3), outcome: "lead_captured", summary: `${s(3)} — callback requested.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `I want to get a price for ${s(3)}.`),
+        turn("agent", "Certainly. May I have your name and a number for the team?"),
+        turn("caller", `${CALLERS[6].name}. You can use this number.`),
+        turn("agent", `Thank you, ${firstName(CALLERS[6].name)}. The team will call you back about ${s(3)}.`),
+      ],
+    },
+    {
+      callId: "call_demo_8", durationSecs: 126,
+      callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone,
+      serviceType: s(1), outcome: "scheduled", summary: `${s(1)} — morning slot confirmed.`, isAfterHours: false,
+      messages: [
+        turn("agent", intro),
+        turn("caller", `Hello, I'd like to book ${s(1)} for next week.`),
+        turn("agent", "Sure — your name and the address, please?"),
+        turn("caller", `${CALLERS[7].name}, at ${ADDRESSES[5]}.`),
+        turn("agent", `Perfect, ${firstName(CALLERS[7].name)}. I've booked ${s(1)} for tomorrow morning and sent the confirmation.`),
+      ],
+    },
   ];
 
   const leads: DemoSeed["leads"] = [
-    { callerName: CALLERS[1].name, callerPhone: CALLERS[1].phone, serviceRequested: s(1), urgency: "normal", status: "new", address: ADDRESSES[0] },
+    { callerName: CALLERS[1].name, callerPhone: CALLERS[1].phone, serviceRequested: s(1), urgency: "normal", status: "new", address: ADDRESSES[0], sourceCallId: "call_demo_2" },
     { callerName: CALLERS[4].name, callerPhone: CALLERS[4].phone, serviceRequested: s(3), urgency: "urgent", status: "new", address: ADDRESSES[1] },
     { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceRequested: s(2), urgency: "normal", status: "contacted", address: ADDRESSES[2] },
-    { callerName: CALLERS[6].name, callerPhone: CALLERS[6].phone, serviceRequested: s(0), urgency: "low", status: "new", address: ADDRESSES[3] },
+    { callerName: CALLERS[6].name, callerPhone: CALLERS[6].phone, serviceRequested: s(3), urgency: "low", status: "new", address: ADDRESSES[3], sourceCallId: "call_demo_7" },
     { callerName: CALLERS[9].name, callerPhone: CALLERS[9].phone, serviceRequested: s(1), urgency: "normal", status: "contacted", address: ADDRESSES[4] },
   ];
 
@@ -183,10 +296,10 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
   //  - one after-hours pending-confirmation booking with email (Dashboard approval demo)
   const appointments: DemoSeed["appointments"] = [
     // Confirmed, assigned — opens a populated board.
-    { callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone, serviceType: s(0), startTime: now + 0.5 * day, status: "confirmed", address: ADDRESSES[0], resourceIndex: apptMode ? 0 : 0 },
-    { callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone, serviceType: s(2), startTime: now + 1 * day, status: "confirmed", address: ADDRESSES[1], resourceIndex: apptMode ? 1 : 1 },
-    { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceType: s(2), startTime: now + 1.5 * day, status: "confirmed", address: ADDRESSES[3], resourceIndex: apptMode ? 2 : 0 },
-    { callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone, serviceType: s(0), startTime: now + 2.5 * day, status: "confirmed", address: ADDRESSES[5], resourceIndex: apptMode ? 3 : 2 },
+    { callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone, serviceType: s(0), startTime: now + 0.5 * day, status: "confirmed", address: ADDRESSES[0], resourceIndex: apptMode ? 0 : 0, sourceCallId: "call_demo_1" },
+    { callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone, serviceType: s(2), startTime: now + 1 * day, status: "confirmed", address: ADDRESSES[1], resourceIndex: apptMode ? 1 : 1, sourceCallId: "call_demo_3" },
+    { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceType: s(0), startTime: now + 1.5 * day, status: "confirmed", address: ADDRESSES[3], resourceIndex: apptMode ? 2 : 0, sourceCallId: "call_demo_6" },
+    { callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone, serviceType: s(1), startTime: now + 2.5 * day, status: "confirmed", address: ADDRESSES[5], resourceIndex: apptMode ? 3 : 2, sourceCallId: "call_demo_8" },
     { callerName: CALLERS[8].name, callerPhone: CALLERS[8].phone, serviceType: s(3) ?? s(1), startTime: now + 3 * day, status: "confirmed", address: ADDRESSES[6], resourceIndex: apptMode ? 4 : 1 },
     { callerName: CALLERS[10].name, callerPhone: CALLERS[10].phone, serviceType: s(0), startTime: now + 4 * day, status: "confirmed", address: ADDRESSES[7], resourceIndex: apptMode ? 0 : undefined },
     { callerName: CALLERS[11].name, callerPhone: CALLERS[11].phone, serviceType: s(1), startTime: now + 4.5 * day, status: "confirmed", address: ADDRESSES[8], resourceIndex: apptMode ? 1 : undefined },
@@ -201,7 +314,7 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
     // After-hours, pending approval, WITH a captured email — showcases the
     // dashboard "Pending Your Approval" section + "Confirm & notify customer".
     // Left unassigned so it's also the card you drag on the Calendar.
-    { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, callerEmail: "dana.cole@example.com", serviceType: s(1), startTime: now + 2 * day, status: "requested", pendingConfirmation: true, address: ADDRESSES[0], resourceIndex: undefined },
+    { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, callerEmail: "dana.cole@example.com", serviceType: s(1), startTime: now + 2 * day, status: "requested", pendingConfirmation: true, address: ADDRESSES[0], resourceIndex: undefined, sourceCallId: "call_demo_4" },
   ];
 
   return {

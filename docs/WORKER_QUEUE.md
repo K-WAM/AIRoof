@@ -549,10 +549,10 @@ Model names as they appear in the owner's pickers (2026-09-26): Codex **GPT-6 So
 
 | Wave | Task | Worker, model | Worktree / branch | State |
 |---|---|---|---|---|
-| 1 | E1 Field access (QR time clock, no field "Work complete", required name, viewer read-only) + Team page (lock/unlock, revoke QR links) | Codex A, GPT-6 Sol, medium | `D:/Apps/air-wt-access` / `task/access-team` | ready |
-| 1 | E3 Job page restructure (numbered tabs, newest-first Activity, Issues -> Findings, picker sheet fix) | Codex B, GPT-5.5 Terra, medium | `D:/Apps/air-wt-job-page` / `task/job-page` | ready |
-| 1 | E4 AI-PROVIDERS.md, Florida notices DRAFT memo + legalNotices.ts, seeded call transcripts | Deepseek V4.1 Flash, Thinking: Hard | `D:/Apps/air-wt-docs-legal` / `task/docs-legal` | ready |
-| 2 | E2 Scheduling truth, list order, jobs paging + CSV, classify fallback | Codex A, GPT-6 Sol, medium | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` | after E1 merges |
+| 1 | E1 Field access (QR time clock, no field "Work complete", required name, viewer read-only) + Team page (lock/unlock, revoke QR links) | Codex A, GPT-6 Sol, medium | `D:/Apps/air-wt-access` / `task/access-team` | steps 1-3 done (in-scope), scope widened for 3-5, continuing 2026-09-26 |
+| 1 | E3 Job page restructure (numbered tabs, newest-first Activity, Issues -> Findings, picker sheet fix) | **Integrator (Claude)** — Codex B stopped partway; its commits are kept | `D:/Apps/air-wt-job-page` / `task/job-page` | in progress (integrator) |
+| 1 | E4 AI-PROVIDERS.md, Florida notices DRAFT memo + legalNotices.ts, seeded call transcripts | Deepseek V4.1 Flash, Thinking: Hard | `D:/Apps/air-wt-docs-legal` / `task/docs-legal` | **DONE, merged to local main 2026-09-26** |
+| 2 | E2 Scheduling truth, list order, jobs paging + CSV, classify fallback | **Codex B**, GPT-6 Sol, medium (moved from A: disjoint files) | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` | ready — start now |
 | 2 | E5 Documents: invoice wording, report fixes, Include quote, Terms & notices | Codex B, GPT-6 Sol, medium | `D:/Apps/air-wt-documents-2` / `task/documents-2` | after E3 + E4 merge |
 | 3 | E6 Photos on documents (Before/After pairs, 4 per page) + drag-and-drop | Codex B, GPT-5.5 Terra, medium | `D:/Apps/air-wt-photos` / `task/doc-photos` | after E5; integrator installs @dnd-kit/sortable on main first |
 
