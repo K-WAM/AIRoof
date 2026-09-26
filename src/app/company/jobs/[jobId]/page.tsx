@@ -893,7 +893,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </h1>
           {job.address && <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>{job.address}</p>}
           {job.clientName && <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}</p>}
-          {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {new Date(job.createdAt).toLocaleString()} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
+          {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="button" title="Copies a field-log link you can text or email to your crew" onClick={() => {
@@ -1310,7 +1310,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             )}
             {qrExpiresAt && !qrLoading && !qrError && (
               <p style={{ fontSize: 11, color: "#94a3b8", margin: "12px 0 0" }}>
-                Expires {new Date(qrExpiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} — one scan only
+                Expires {fmt.fmtTime(qrExpiresAt)} — one scan only
               </p>
             )}
             {qrFieldUrl && !qrLoading && (
@@ -1923,6 +1923,7 @@ function statusToStepIdx(status: string): number {
 
 // ── Parsed field update card ──────────────────────────────────────────────────
 function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; index: number; onRetry?: (updateId: string) => Promise<string | null> }) {
+  const { fmtDayTime } = useFormat();
   const [showRaw, setShowRaw] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -1947,7 +1948,7 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
         </span>
         {update.submittedBy && <span style={{ fontSize: 12, color: "#94a3b8" }}>by {update.submittedBy}</span>}
         <span style={{ marginLeft: "auto", fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>
-          {new Date(update.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          {fmtDayTime(update.createdAt)}
         </span>
       </div>
     );
@@ -1978,7 +1979,7 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
           )}
         </div>
         <span style={{ fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>
-          {new Date(update.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          {fmtDayTime(update.createdAt)}
         </span>
       </div>
 
