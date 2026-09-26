@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
   if (!label?.trim()) return NextResponse.json({ error: "A description is required." }, { status: 400 });
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const gate = await verifyFieldAccess(req, businessId, { write: true });
   if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();

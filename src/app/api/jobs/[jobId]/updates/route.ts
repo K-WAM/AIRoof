@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const gate = await verifyFieldAccess(req, businessId, { write: true });
   if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();

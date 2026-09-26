@@ -41,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   }
 
   if (label !== undefined || phase !== undefined || sort !== undefined) {
-    const gate = await verifyFieldAccess(req, businessId);
+    const gate = await verifyFieldAccess(req, businessId, { write: true });
     if ("error" in gate) return gate.error;
     if (phase !== undefined && !VALID_PHASES.has(phase)) {
       return NextResponse.json({ error: "Invalid phase" }, { status: 400 });

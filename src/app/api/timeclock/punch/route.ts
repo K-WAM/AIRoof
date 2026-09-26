@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
   const gate = await verifyFieldAccess(
     req,
     businessId,
-    jobId && typeof jobId === "string" ? { jobId } : { allowOfficePunch: true },
+    jobId && typeof jobId === "string" ? { jobId, write: true } : { allowOfficePunch: true, write: true },
   );
   if ("error" in gate) return gate.error;
 

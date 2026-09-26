@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const gate = await verifyFieldAccess(req, businessId);
+  const gate = await verifyFieldAccess(req, businessId, { write: true });
   if ("error" in gate) return gate.error;
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

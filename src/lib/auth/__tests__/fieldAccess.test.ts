@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { verifyIdToken } from "@/lib/firebase/admin";
+import { invalidateCachedMember } from "@/lib/auth/memberCache";
 
 type StoredDocument = Record<string, unknown>;
 
@@ -231,6 +233,29 @@ describe("scoped field access tokens", () => {
     const req = request(`/api/timeclock/punch?businessId=${BUSINESS_ID}`, session.ok ? session.token : "");
     expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { jobId: "J-100" }))).toBe(200);
     expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { allowOfficePunch: true }))).toBe(200);
+  });
+
+  it("denies logged-in viewers on writes while preserving reads and staff writes", async () => {
+    vi.mocked(verifyIdToken).mockResolvedValue({ uid: "member-1" } as never);
+    mocks.firestore!.documents.set("businessUsers/member-1", { businessId: BUSINESS_ID, role: "viewer", active: true });
+    const req = request(`/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`, undefined, { cookie: "__session=test" });
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID))).toBe(200);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true }))).toBe(403);
+    mocks.firestore!.documents.set("businessUsers/member-1", { businessId: BUSINESS_ID, role: "staff", active: true });
+    invalidateCachedMember("member-1");
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true }))).toBe(200);
+  });
+
+  it("allows a pinned QR write only for its own job", async () => {
+    const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
+    const session = await consumeFieldExchangeToken(grant.token);
+    const token = session.ok ? session.token : "";
+    expect(statusOf(await verifyFieldAccess(
+      request(`/api/jobs/J-200/updates?businessId=${BUSINESS_ID}`, token), BUSINESS_ID, { write: true },
+    ))).toBe(403);
+    expect(statusOf(await verifyFieldAccess(
+      request(`/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`, token), BUSINESS_ID, { write: true },
+    ))).toBe(200);
   });
 
   it("prevents a field session from crossing business boundaries", async () => {

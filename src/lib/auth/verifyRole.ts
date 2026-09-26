@@ -530,16 +530,21 @@ export async function verifySuperadmin(
 export async function verifyFieldAccess(
   req: NextRequest,
   businessId: string,
-  options?: { jobId?: string; allowOfficePunch?: boolean },
+  options?: { jobId?: string; allowOfficePunch?: boolean; write?: true },
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   if (!businessId) {
     return { error: NextResponse.json({ error: "businessId required" }, { status: 400 }) };
   }
 
   // Path 1: session (staff/owner/viewer of this business, or superadmin)
+  let sessionError: NextResponse<{ error: string }> | undefined;
   if (req.cookies.get("__session")?.value) {
-    const byRole = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+    const byRole = await verifyAuthAndRole(
+      req, businessId,
+      options?.write ? ["owner", "staff", "superadmin"] : ["owner", "staff", "viewer", "superadmin"],
+    );
     if ("user" in byRole) return byRole;
+    sessionError = byRole.error;
     // fall through — a stale/foreign session may still carry a valid field key
   }
 
@@ -592,5 +597,5 @@ export async function verifyFieldAccess(
     }
   }
 
-  return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
+  return { error: sessionError ?? NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
 }
