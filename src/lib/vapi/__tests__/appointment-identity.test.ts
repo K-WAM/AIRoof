@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getAdminFirestore: vi.fn(),
@@ -43,9 +43,13 @@ interface FakeSnapshot {
   data: () => Record<string, unknown> | undefined;
 }
 
+interface FakeQueryResult { empty: boolean; docs: Array<{ id: string; data: () => Record<string, unknown> }> }
+
 interface FakeCollection {
   doc: (id: string) => FakeRef;
-  get: () => Promise<{ empty: boolean; docs: Array<{ id: string; data: () => Record<string, unknown> }> }>;
+  get: () => Promise<FakeQueryResult>;
+  /** Only the single ">=" range filter the lookup uses. */
+  where?: (field: string, op: ">=", value: number) => { get: () => Promise<FakeQueryResult> };
 }
 
 function createFirestore(seed: Record<string, BusinessSeed>) {
@@ -127,6 +131,15 @@ function createFirestore(seed: Record<string, BusinessSeed>) {
               }));
               return { empty: docs.length === 0, docs };
             },
+            where: (field, _op, minimum) => ({
+              get: async () => {
+                const appointments = businesses.get(businessId)?.appointments ?? new Map();
+                const docs = Array.from(appointments.entries())
+                  .filter(([, value]) => Number((value as unknown as Record<string, unknown>)[field]) >= minimum)
+                  .map(([appointmentId, value]) => ({ id: appointmentId, data: () => ({ ...value }) }));
+                return { empty: docs.length === 0, docs };
+              },
+            }),
           };
         }
         if (name === "vapiAppointmentConfirmations") {
@@ -207,7 +220,11 @@ describe("verified appointment identity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // The seeds are dated 22 July 2026. lookupAppointment only offers UPCOMING appointments, so pin "now" just before them.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 6, 20, 12, 0, 0)));
   });
+  afterEach(() => { vi.useRealTimers(); });
 
   it("reveals nothing when caller ID is unavailable, despite name/address guesses", async () => {
     const { db } = createFirestore(baseSeed());

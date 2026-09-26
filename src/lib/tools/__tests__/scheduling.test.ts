@@ -19,6 +19,7 @@ import {
   buildAvailableSlots,
   cancelAppointment,
   escalateCall,
+  lookupAppointment,
   isScheduleWithinBusinessHours,
   scheduleRangesOverlap,
   zonedDateTimeToUtc,
@@ -107,6 +108,10 @@ class FakeDocumentReference {
 
   async get() {
     return new FakeDocumentSnapshot(this, this.firestore.documents.get(this.path));
+  }
+
+  async set(value: StoredDocument) {
+    this.firestore.documents.set(this.path, { ...value });
   }
 }
 
@@ -371,6 +376,41 @@ const escalationInput = {
   callerPhone: "+15555550199",
   summary: "Immediate assistance requested",
 };
+
+describe("lookupAppointment (change or cancel an existing booking)", () => {
+  const phone = "+15555550123";
+  const day = 24 * 60 * 60 * 1000;
+
+  it("finds the real appointment next week even when the caller has older bookings nobody closed out", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    // Three stale past bookings still marked "requested" — they used to fill the three lookup slots ahead of the real one.
+    for (const [index, ago] of [30, 20, 10].entries()) {
+      const startTime = Date.now() - ago * day;
+      firestore.documents.set(`businesses/biz-1/appointments/stale-${index}`, { callerPhone: phone, serviceType: "Old inspection", startTime, endTime: startTime + 3600000, status: "requested" });
+    }
+    const nextWeek = Date.now() + 7 * day;
+    firestore.documents.set("businesses/biz-1/appointments/upcoming", { callerPhone: phone, serviceType: "Roof inspection", startTime: nextWeek, endTime: nextWeek + 3600000, status: "confirmed" });
+    // Someone else's upcoming booking must never be offered.
+    firestore.documents.set("businesses/biz-1/appointments/other", { callerPhone: "+15555559999", serviceType: "Other person", startTime: nextWeek, endTime: nextWeek + 3600000, status: "confirmed" });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+
+    const result = await lookupAppointment({ businessId: "biz-1", callId: "call-1", verifiedCallerPhone: phone });
+    expect(result).toContain("Roof inspection");
+    expect(result).not.toContain("Old inspection");
+    expect(result).not.toContain("Other person");
+    expect(result).toContain("Ask the caller to confirm cancellation");
+  });
+
+  it("says there is nothing to change when the caller only has past bookings", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    const startTime = Date.now() - 5 * day;
+    firestore.documents.set("businesses/biz-1/appointments/past", { callerPhone: phone, serviceType: "Old inspection", startTime, endTime: startTime + 3600000, status: "requested" });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    await expect(lookupAppointment({ businessId: "biz-1", callId: "call-2", verifiedCallerPhone: phone })).resolves.toContain("No active appointment");
+  });
+});
 
 describe("truthful emergency escalation", () => {
   beforeEach(() => {

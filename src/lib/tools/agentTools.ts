@@ -59,6 +59,9 @@ interface ExistingSchedule {
  */
 export const SCHEDULE_OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 
+/** How long after its start an appointment still counts as "upcoming" when a caller asks to change or cancel it. */
+const LOOKUP_GRACE_MS = 2 * 60 * 60 * 1000;
+
 /** Business-wide scheduling rule shared by suggestions and the booking transaction. */
 export function isSlotBusy(
   window: { startTime: number; endTime: number },
@@ -1147,8 +1150,12 @@ export async function lookupAppointment(input: LookupAppointmentInput): Promise<
 
   try {
     const businessRef = db.collection("businesses").doc(input.businessId);
+    // UPCOMING appointments only (a 2 h grace covers one that is under way). Before, this read EVERY appointment the
+    // business ever had and kept the earliest three that were still "requested"/"confirmed" — past ones nobody closed out
+    // came first, so a caller with a few stale old bookings could not reach the real one next week to change or cancel it.
+    const upcomingFrom = Date.now() - LOOKUP_GRACE_MS;
     const [snap, timezone] = await Promise.all([
-      businessRef.collection("appointments").get(),
+      businessRef.collection("appointments").where("startTime", ">=", upcomingFrom).get(),
       getBusinessTimezone(input.businessId),
     ]);
 
