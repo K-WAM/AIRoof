@@ -44,7 +44,7 @@ function FieldApp() {
   const urlKey = searchParams?.get("key");
   const prefillJobId = searchParams?.get("jobId") ?? "";
 
-  const [businessId, setBusinessId] = useState(urlBusinessId ?? "demo-roofing");
+  const [businessId, setBusinessId] = useState(urlBusinessId ?? "");
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   // The businessId/jobId a job-scoped QR grant resolves to now arrive via the
   // HttpOnly field-session cookie instead of URL query params (so the address
@@ -157,7 +157,7 @@ function FieldApp() {
 
   // Load jobs
   useEffect(() => {
-    if (!bootstrapComplete) return;
+    if (!bootstrapComplete || !businessId) return;
     setLoadingJobs(true);
     const jobsUrl = sessionJobId
       ? `/api/jobs/${encodeURIComponent(sessionJobId)}?businessId=${encodeURIComponent(businessId)}`
@@ -403,7 +403,9 @@ function FieldApp() {
             }}
           />
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} />
+          {bootstrapComplete && businessId && !accessDenied && (
+            <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} />
+          )}
 
           {/* Mic button — hold to speak, release to save (one step) */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, paddingTop: 8 }}>
