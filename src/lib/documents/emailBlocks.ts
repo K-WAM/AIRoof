@@ -13,9 +13,9 @@ export function letterheadBlock(brand: Letterhead, title: string, meta: [string,
   return `<table style="width:100%;border-bottom:3px solid ${accent};padding-bottom:20px"><tr><td style="vertical-align:top">${logo}<div style="font-size:18px;font-weight:800">${name}</div><div style="font-size:12px;line-height:1.6;color:#475569">${lines}</div></td><td style="vertical-align:top;text-align:right"><div style="font-size:28px;font-weight:800;color:${accent}">${escapeHtml(title)}</div>${meta.map(([key, value]) => `<div style="font-size:12px;line-height:1.6"><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</div>`).join("")}</td></tr></table>`;
 }
 
-export function billToBlock(billTo: { name: string; address?: string; phone?: string }): string {
+export function billToBlock(billTo: { name: string; address?: string; phone?: string }, label = "Bill to"): string {
   if (!billTo.name && !billTo.address) return "";
-  return `<section style="padding:20px 0;border-bottom:1px solid #e2e8f0"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b">Bill to</div><strong>${escapeHtml(billTo.name)}</strong>${billTo.address ? `<div>${escapeHtml(billTo.address)}</div>` : ""}${billTo.phone ? `<div>${escapeHtml(billTo.phone)}</div>` : ""}</section>`;
+  return `<section style="padding:20px 0;border-bottom:1px solid #e2e8f0"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b">${escapeHtml(label)}</div><strong>${escapeHtml(billTo.name)}</strong>${billTo.address ? `<div>${escapeHtml(billTo.address)}</div>` : ""}${billTo.phone ? `<div>${escapeHtml(billTo.phone)}</div>` : ""}</section>`;
 }
 
 export function narrativeBlock(narrative?: string): string {

@@ -8,7 +8,7 @@ export const OPTIONS_SUBHEADING = "These change the customer's copy only. You al
 export const OPTION_COPY = {
   hideMaterials: {
     label: "Hide materials",
-    hint: "Materials show as one total line instead of an item list.",
+    hint: "On quotes and invoices, materials show as one total line. Reports omit the materials section.",
   },
   hideLabor: {
     label: "Hide labor details",
