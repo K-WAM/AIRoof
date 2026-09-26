@@ -14,6 +14,8 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { useFormat } from "@/hooks/useFormat";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
+import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
+import { noticesForDocument } from "@/lib/documents/notices";
 import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
 import type { BusinessConfig } from "@/types";
@@ -35,7 +37,7 @@ function NumberField({ value, onCommit, label, width, disabled, min = 0, step = 
   );
 }
 
-export function QuotePanel({ job, businessId, businessConfig, logos, catalog, onStatus, onFindingsChanged, onQuoteChange }: {
+export function QuotePanel({ job, businessId, businessConfig, logos, catalog, onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
   job: Job;
   businessId: string;
   businessConfig: BusinessConfig | null;
@@ -45,6 +47,8 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
   onFindingsChanged: (findings: JobFinding[]) => void;
   /** The job page mirrors the quote's status (tab label, lock notes, the report's optional quote section). */
   onQuoteChange?: (quote: JobQuote | null) => void;
+  /** The job page keeps the job's property type (residential/commercial) — it decides which statutory notices print. */
+  onPropertyType?: (propertyType: NonNullable<Job["propertyType"]>) => void;
 }) {
   const [quote, setQuote] = useState<JobQuote | null>(null);
   const fmt = useFormat();
@@ -351,12 +355,14 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
                 onChange={(event) => change({ technicians: event.target.value.split(",").slice(0, 10).map((name) => name.trim()) })} />
               <datalist id="quote-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist>
             </label>}
+            <PropertyTypeToggle jobId={job.jobId} businessId={businessId} value={job.propertyType} disabled={!draft} onChange={(next) => onPropertyType?.(next)} />
           </div>
         </details>
 
         <div className="quote-preview-wrap"><h3 className="no-print">Customer preview</h3><DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
-          billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(quote)} totalLabel="Estimated Total" total={total} /></div>
+          billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(quote)} totalLabel="Estimated Total" total={total}
+          notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} /></div>
         <button className="button no-print" type="button" onClick={() => window.print()}>Print / Save as PDF</button>
         <label className="no-print">Notes<textarea disabled={!draft} value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>
 

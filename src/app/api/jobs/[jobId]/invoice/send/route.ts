@@ -4,6 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobInvoice } from "@/types/invoice";
 import type { Job, JobStatusChange } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
@@ -74,7 +75,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     licenseNumber: biz.licenseNumber,
     industry: biz.industry,
     timezone: biz.timezone,
-  }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution })) ?? []);
+  }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution })) ?? [],
+  // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }));
 
   const sent = await sendEmail({
     to,

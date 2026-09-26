@@ -1,13 +1,16 @@
 import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import type { ReportQuoteSection } from "./reportQuote";
+import type { RenderedNotice } from "./notices";
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, totalLabel, total, className = "" }: {
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, className = "" }: {
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ problem: string; solution: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
   /** REPORT only: the optional "Include the quote" block (a sent/accepted quote's work and prices). Built by reportQuoteSection(). */
   quoteSection?: ReportQuoteSection | null;
+  /** QUOTE / INVOICE only: "Terms & notices" — pass what noticesForDocument() approved (nothing until the owner approves the wording). */
+  notices?: RenderedNotice[];
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
   return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
@@ -43,6 +46,13 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
     {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>${total.toFixed(2)}</span></div>}
     {closing && <p style={{ whiteSpace: "pre-wrap", marginTop: 24 }}>{closing}</p>}
     {thankYou && <p style={{ whiteSpace: "pre-wrap", marginTop: 16 }}>{thankYou}</p>}
+    {notices.length > 0 && <section aria-label="Terms and notices" style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", breakInside: "avoid-page" }}>
+      <h3 style={{ fontSize: 13, color: "#334155", margin: "0 0 8px" }}>Terms &amp; notices</h3>
+      {notices.map((notice) => <div key={notice.id} style={{ margin: "0 0 12px", ...(notice.statutory ? { border: "1px solid #94a3b8", padding: "10px 12px" } : {}) }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{notice.title}</div>
+        <div style={{ fontSize: 12, lineHeight: 1.55, color: "#475569", whiteSpace: "pre-wrap", ...(notice.statutory ? { fontWeight: 700 } : {}) }}>{notice.text}</div>
+      </div>)}
+    </section>}
     <footer style={{ marginTop: 32, borderTop: "1px solid #e2e8f0", paddingTop: 14, textAlign: "center", fontSize: 11, color: "#64748b" }}>{[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).join(" · ")}</footer>
   </article>;
 }

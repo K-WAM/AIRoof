@@ -15,6 +15,8 @@ import { computeTotals, canSendInvoice } from "./jobInvoice";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
+import { noticesForDocument } from "@/lib/documents/notices";
+import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
 import { draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "@/lib/documents/report";
 import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
@@ -1390,7 +1392,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
-        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote} />}
+        onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
+        onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
 
       {/* ── Invoice ── */}
       {activeTab === "invoice" && (
@@ -1438,6 +1441,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <div style={{ marginTop: 8, maxWidth: 380 }}>
                       <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
                         onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={invoiceStatus !== "draft"}
+                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
+                      </div>
                     </div>
                   </details>
                 </div>
@@ -1854,7 +1861,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }))}
-                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal} />
+                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
+                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>
             </div>
           )}

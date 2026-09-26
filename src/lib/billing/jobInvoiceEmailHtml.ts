@@ -1,6 +1,7 @@
 import type { JobInvoice } from "@/types/invoice";
 import { invoiceGroups } from "@/lib/documents/groups";
-import { billToBlock, documentShell, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, notesBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import { billToBlock, documentShell, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import type { RenderedNotice } from "@/lib/documents/notices";
 import { resolveLetterhead, type LetterheadBusiness } from "@/lib/documents/letterhead";
 import { DEFAULT_INVOICE_COPY, fillInvoiceCopy } from "@/lib/documents/invoiceCopy";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
@@ -9,7 +10,8 @@ import { escapeHtml } from "@/lib/documents/letterhead";
 
 export type InvoiceEmailBusiness = LetterheadBusiness & { industry?: string; timezone?: string };
 
-export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceEmailBusiness, findings: Array<{ problem: string; solution: string }> = []): string {
+/** `notices` are only what noticesForDocument() approved for an invoice (empty until the owner approves the wording). */
+export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceEmailBusiness, findings: Array<{ problem: string; solution: string }> = [], notices: RenderedNotice[] = []): string {
   if (!business.businessName?.trim()) throw new Error("Business name required for invoice email");
   const brand = resolveLetterhead(business);
   const issued = fmtDate(invoice.issuedAt ?? invoice.createdAt, business.timezone ?? "America/New_York");
@@ -23,5 +25,5 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   const closing = invoice.closing ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.closing, values);
   const thankYou = invoice.thankYou ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.thankYou, values);
   const findingLines = findings.length ? `<section style="padding:18px 0"><h3>Findings and corrective action</h3>${findings.map((finding) => `<p><strong>Problem:</strong> ${escapeHtml(finding.problem)}<br/><strong>Corrective action:</strong> ${escapeHtml(finding.solution)}</p>`).join("")}</section>` : "";
-  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(invoiceGroups(invoice)) + totalBlock("Total Due", invoice.total, brand.brandColor) + notesBlock(closing) + notesBlock(thankYou) + notesBlock(invoice.notes) + footerBlock(brand));
+  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(invoiceGroups(invoice)) + totalBlock("Total Due", invoice.total, brand.brandColor) + notesBlock(closing) + notesBlock(thankYou) + notesBlock(invoice.notes) + noticesBlock(notices) + footerBlock(brand));
 }

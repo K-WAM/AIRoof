@@ -2,6 +2,7 @@ import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import { escapeHtml } from "./letterhead";
 import type { ReportQuoteSection } from "./reportQuote";
+import type { RenderedNotice } from "./notices";
 
 const money = (value: number) => `$${value.toFixed(2)}`;
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
@@ -37,6 +38,15 @@ export function groupsBlock(groups: DocumentGroup[]): string {
 
 export function invoiceGroupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${escapeHtml(group.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${["Item", "Description", "Qty", "Unit price", "Amount"].map((heading) => `<th style="${cell};text-align:left">${heading}</th>`).join("")}</tr></thead><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.item ?? group.title)}</td><td style="${cell}">${escapeHtml(row.description)}</td><td style="${cell}">${row.quantity ?? ""}</td><td style="${cell}">${row.unitPrice === undefined ? "" : money(row.unitPrice)}</td><td style="${cell}">${money(row.amount)}</td></tr>`).join("")}</tbody></table><div style="text-align:right;padding:8px 12px;font-weight:700">${escapeHtml(group.title)} subtotal: ${money(group.subtotal)}</div></section>`).join("");
+}
+
+/**
+ * "Terms & notices" at the end of a quote or invoice. Callers pass only what noticesForDocument() approved for THIS document
+ * (nothing at all until the owner has approved the wording), so an empty list prints nothing. Statutory notices are boxed and bold.
+ */
+export function noticesBlock(notices: RenderedNotice[] | undefined): string {
+  if (!notices?.length) return "";
+  return `<section style="margin-top:28px;padding-top:16px;border-top:1px solid #e2e8f0"><h3 style="font-size:13px;color:#334155;margin:0 0 8px">Terms &amp; notices</h3>${notices.map((notice) => `<div style="margin:0 0 12px;${notice.statutory ? "border:1px solid #94a3b8;padding:10px 12px;" : ""}"><div style="font-size:12px;font-weight:700;color:#334155">${escapeHtml(notice.title)}</div><div style="font-size:12px;line-height:1.55;color:#475569;white-space:pre-wrap;${notice.statutory ? "font-weight:700;" : ""}">${escapeHtml(notice.text)}</div></div>`).join("")}</section>`;
 }
 
 /** The report's optional "Include the quote" block: heading, the (possibly collapsed) price groups, and the quoted total. */

@@ -8,6 +8,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Toggle } from "@/components/ui/Toggle";
 import { TeamPanel } from "./TeamPanel";
+import { NoticesPanel } from "./NoticesPanel";
 import {
   composeGreetingWithDisclosure,
   defaultRecordingDisclosureText,
@@ -220,6 +221,7 @@ export default function CompanySettingsPage() {
             <p style={{ fontSize: 12 }}>Use {"{businessName}"}, {"{address}"}, {"{visitDate}"}, and {"{industryNoun}"} for invoice-specific details.</p>
           </div>
         </section>
+        <NoticesPanel businessId={businessId} />
         {/* Business hours */}
         <section className="panel">
           <div className="panel-header">
