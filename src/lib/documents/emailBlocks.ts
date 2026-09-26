@@ -1,6 +1,7 @@
 import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import { escapeHtml } from "./letterhead";
+import type { ReportQuoteSection } from "./reportQuote";
 
 const money = (value: number) => `$${value.toFixed(2)}`;
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
@@ -36,6 +37,12 @@ export function groupsBlock(groups: DocumentGroup[]): string {
 
 export function invoiceGroupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${escapeHtml(group.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${["Item", "Description", "Qty", "Unit price", "Amount"].map((heading) => `<th style="${cell};text-align:left">${heading}</th>`).join("")}</tr></thead><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.item ?? group.title)}</td><td style="${cell}">${escapeHtml(row.description)}</td><td style="${cell}">${row.quantity ?? ""}</td><td style="${cell}">${row.unitPrice === undefined ? "" : money(row.unitPrice)}</td><td style="${cell}">${money(row.amount)}</td></tr>`).join("")}</tbody></table><div style="text-align:right;padding:8px 12px;font-weight:700">${escapeHtml(group.title)} subtotal: ${money(group.subtotal)}</div></section>`).join("");
+}
+
+/** The report's optional "Include the quote" block: heading, the (possibly collapsed) price groups, and the quoted total. */
+export function quoteSectionBlock(section: ReportQuoteSection | null, accent?: string | null): string {
+  if (!section) return "";
+  return `<section style="margin-top:28px"><h3 style="font-size:14px;color:#334155;margin:0 0 4px">${escapeHtml(section.heading)}</h3>${groupsBlock(section.groups)}${totalBlock("Quoted total", section.total, accent)}</section>`;
 }
 
 export function sectionsBlock(sections: Array<{ title: string; lines: string[] }>): string {

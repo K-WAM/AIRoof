@@ -1,10 +1,13 @@
 import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
+import type { ReportQuoteSection } from "./reportQuote";
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], totalLabel, total, className = "" }: {
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, totalLabel, total, className = "" }: {
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ problem: string; solution: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
+  /** REPORT only: the optional "Include the quote" block (a sent/accepted quote's work and prices). Built by reportQuoteSection(). */
+  quoteSection?: ReportQuoteSection | null;
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
   return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
@@ -29,6 +32,14 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       <div style={{ textAlign: "right", padding: "8px 0", fontSize: 13, fontWeight: 700 }}>{group.title} subtotal: ${group.subtotal.toFixed(2)}</div></section>)}
     {sections.map((section) => <section key={section.title} style={{ marginTop: 20 }}><h3 style={{ fontSize: 14 }}>{section.title}</h3>
       <div style={{ borderTop: "1px solid #e2e8f0" }}>{section.lines.map((line, i) => <div key={i} style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}>{line}</div>)}</div></section>)}
+    {quoteSection && <section style={{ marginTop: 28 }}>
+      <h3 style={{ fontSize: 15, margin: "0 0 4px" }}>{quoteSection.heading}</h3>
+      {quoteSection.groups.map((group) => <div key={group.title} style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#334155" }}>{group.title}</div>
+        <div style={{ borderTop: "1px solid #e2e8f0" }}>{group.rows.map((row, i) => <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #e2e8f0", padding: "8px 0", fontSize: 13 }}><div>{row.description}{row.detail && <small style={{ display: "block", color: "#64748b" }}>{row.detail}</small>}</div><strong>${row.amount.toFixed(2)}</strong></div>)}</div>
+      </div>)}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 16, fontWeight: 800 }}><span>Quoted total</span><span>${quoteSection.total.toFixed(2)}</span></div>
+    </section>}
     {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>${total.toFixed(2)}</span></div>}
     {closing && <p style={{ whiteSpace: "pre-wrap", marginTop: 24 }}>{closing}</p>}
     {thankYou && <p style={{ whiteSpace: "pre-wrap", marginTop: 16 }}>{thankYou}</p>}

@@ -14,7 +14,7 @@ const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced
 function validReportOptions(value: unknown): value is Partial<DocumentOptions> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   return Object.entries(value).every(([key, flag]) =>
-    ["hideMaterials", "hideLabor", "showPhotos", "showTechnicians"].includes(key) && typeof flag === "boolean"
+    ["hideMaterials", "hideLabor", "showPhotos", "showTechnicians", "includeQuote"].includes(key) && typeof flag === "boolean"
   );
 }
 

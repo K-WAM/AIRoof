@@ -16,14 +16,15 @@ import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftReportNotes, pairReportPhotos, reportSections } from "@/lib/documents/report";
+import { draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "@/lib/documents/report";
+import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
 import { FindingsPanel } from "./FindingsPanel";
 import { JobHistory } from "./JobHistory";
 import { jobSteps } from "@/lib/jobs/nextStep";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
-import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
+import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { NextStepButton } from "./NextStepButton";
@@ -836,6 +837,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     { id: "materials", label: `Materials (${materials.length})` },
     { id: "labor", label: `Labor (${labor.length})` },
   ] as const;
+  // "Include the quote" on the report needs a quote the customer has actually been sent (or accepted).
+  const quoteCanGoOnReport = !!pageQuote && QUOTE_SHOWABLE_STATUSES.includes(pageQuote.status);
   const steps = job ? jobSteps(job) : [];
   const WORKFLOW_TABS = [
     { id: "findings", number: "①", label: "Findings", step: steps.find((step) => step.id === "findings") },
@@ -1898,7 +1901,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
                   <DocumentOptionToggles values={reportOptions}
-                    onChange={(key, next) => { const options = { ...reportOptions, [key]: next }; setReportOptions(options); void saveReportNotes(options); }} />
+                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
+                    disabledKeys={quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
+                    onChange={(key, next) => {
+                      const options = { ...reportOptions, [key]: next };
+                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
+                      // that leftover text is how "Hide materials" used to leak into the Description of work.
+                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
+                      setReportOptions(options);
+                      setReportNotes(notes);
+                      void saveReportNotes(options, reportTechnicians, notes);
+                    }} />
                 </div>
               </details>
 
@@ -1930,7 +1943,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
               </div>
 
-              <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} />
+              <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} quote={pageQuote} />
             </div>
           )}
         </div>
@@ -2135,7 +2148,7 @@ function InlineInput({ value, onChange, placeholder, align, width }: {
 }
 
 /** Shared customer-copy renderer used by the screen and print/PDF twin. */
-function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos }: {
+function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, reportOptions, reportTechnicians, reportPhotos, quote }: {
   job: Job;
   jobId: string;
   businessConfig: BusinessConfig | null;
@@ -2144,19 +2157,24 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   reportOptions: Partial<DocumentOptions>;
   reportTechnicians: string[];
   reportPhotos: ReportPhoto[];
+  quote: JobQuote | null;
 }) {
+  const { fmtDate } = useFormat();
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
   const brand = resolveLetterhead(businessConfig ?? {}, logos);
-  const meta: [string, string][] = [["Date", new Date().toLocaleDateString("en-US")], ["Reference", jobId]];
+  const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
+  // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
+  const quoteSection = reportQuoteSection(quote, options, fmtDate);
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
   const photoGroups = options.showPhotos ? pairReportPhotos(reportPhotos) : { pairs: [], other: [] };
   return <>
     <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
-      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} narrative={reportNotes}
-      findings={findings} sections={sections} />
+      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
+      narrative={stripHiddenFacts(reportNotes, options)}
+      findings={findings} sections={sections} quoteSection={quoteSection} />
     {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
       <ReportSection title="Photo documentation">
         {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
