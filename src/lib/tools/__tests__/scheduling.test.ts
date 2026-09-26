@@ -17,6 +17,7 @@ import {
   SchedulingConflictError,
   bookAppointment,
   buildAvailableSlots,
+  cancelAppointment,
   escalateCall,
   isScheduleWithinBusinessHours,
   scheduleRangesOverlap,
@@ -137,6 +138,10 @@ class FakeTransaction {
 
   set(reference: FakeDocumentReference, value: StoredDocument) {
     this.writes.push(() => this.firestore.documents.set(reference.path, { ...value }));
+  }
+
+  delete(reference: FakeDocumentReference) {
+    this.writes.push(() => this.firestore.documents.delete(reference.path));
   }
 
   commit() {
@@ -293,6 +298,57 @@ describe("bookAppointment transaction", () => {
         endTime: occupiedStart + 90 * 60 * 1000,
       })
     ).rejects.toMatchObject({ code: "slot_conflict" });
+  });
+
+  it.each([
+    ["a Powerboard job", "jobs", { scheduledStart: Date.parse("2030-07-23T14:00:00.000Z"), scheduledEnd: Date.parse("2030-07-23T15:00:00.000Z") }],
+    ["a crew-assigned appointment", "appointments", { startTime: Date.parse("2030-07-23T14:00:00.000Z"), endTime: Date.parse("2030-07-23T15:00:00.000Z"), status: "confirmed", assignedCrewId: "crew-1" }],
+  ] as const)("refuses overlap with %s", async (_label, collection, existing) => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set(`businesses/biz-1/${collection}/existing`, { ...existing });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:30:00.000Z");
+    await expect(bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 })).rejects.toMatchObject({ code: "slot_conflict" });
+  });
+
+  it("books a free slot beside a scheduled job", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set("businesses/biz-1/jobs/existing", { scheduledStart: Date.parse("2030-07-23T14:00:00.000Z"), scheduledEnd: Date.parse("2030-07-23T15:00:00.000Z") });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T15:00:00.000Z");
+    await expect(bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 })).resolves.toMatchObject({ startTime });
+  });
+
+  it("reclaims a stale lock from an already cancelled appointment", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    firestore.documents.set("businesses/biz-1/appointments/old", { startTime, endTime: startTime + 3600000, status: "cancelled" });
+    for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/unassigned:${bucket}`, { entityId: "old" });
+    }
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/unassigned:${startTime}`)?.entityId).toBe(next.appointmentId);
+  });
+
+  it("rebooks the same time after a verified cancellation releases its locks", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    const first = await bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 });
+    firestore.documents.set("businesses/biz-1/vapiAppointmentConfirmations/call-1", {
+      status: "pending", businessId: "biz-1", callId: "call-1", callerPhoneNormalized: "15555550123",
+      expiresAt: new Date(Date.now() + 60000),
+      candidates: [{ appointmentId: first.appointmentId, callerPhoneNormalized: "15555550123", serviceType: "Inspection", startTime }],
+    });
+    await cancelAppointment({ businessId: "biz-1", callId: "call-1", verifiedCallerPhone: "+15555550123", confirmCancellation: true });
+    const second = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
+    expect(second.appointmentId).not.toBe(first.appointmentId);
+    expect(firestore.documents.get(`businesses/biz-1/appointments/${first.appointmentId}`)?.status).toBe("cancelled");
   });
 });
 

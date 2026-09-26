@@ -8,6 +8,7 @@ import {
   DEFAULT_SCHEDULE_DURATION_MS,
   isScheduleWithinBusinessHours,
   runLedgeredEmail,
+  releaseAppointmentLocks,
   scheduleBucketStarts,
   scheduleLockId,
   scheduleRangesOverlap,
@@ -79,16 +80,25 @@ export async function PATCH(
     if (typeof customMessage !== "undefined" && (typeof customMessage !== "string" || customMessage.length > 300)) {
       return NextResponse.json({ error: "customMessage must be plain text up to 300 characters" }, { status: 400 });
     }
-    const [appointmentSnapshot, businessSnapshot] = await Promise.all([appointmentRef.get(), businessRef.get()]);
-    if (!appointmentSnapshot.exists) return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
-    if (!businessSnapshot.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
-    const appointment = appointmentSnapshot.data() ?? {};
-    if (appointment.declinedAt) return NextResponse.json({ ok: true, alreadyDeclined: true, notifiedCustomer: false });
-    const now = Date.now();
-    await appointmentRef.update({ status: "cancelled", pendingConfirmation: false, declinedAt: now, declineReason, decidedBy: gate.user.uid, updatedAt: now });
+    const decision = await db.runTransaction(async (transaction) => {
+      const [appointmentSnapshot, businessSnapshot] = await Promise.all([
+        transaction.get(appointmentRef), transaction.get(businessRef),
+      ]);
+      if (!appointmentSnapshot.exists) return { missing: "Appointment" } as const;
+      if (!businessSnapshot.exists) return { missing: "Business" } as const;
+      const appointment = appointmentSnapshot.data() ?? {};
+      const business = businessSnapshot.data() ?? {};
+      if (appointment.declinedAt) return { alreadyDeclined: true } as const;
+      await releaseAppointmentLocks(transaction, businessRef, appointmentId, Number(appointment.startTime), Number(appointment.endTime), typeof appointment.assignedCrewId === "string" ? appointment.assignedCrewId : null);
+      const now = Date.now();
+      transaction.update(appointmentRef, { status: "cancelled", pendingConfirmation: false, declinedAt: now, declineReason, decidedBy: gate.user.uid, updatedAt: now });
+      return { appointment, business };
+    });
+    if ("missing" in decision) return NextResponse.json({ error: `${decision.missing} not found` }, { status: 404 });
+    if ("alreadyDeclined" in decision) return NextResponse.json({ ok: true, alreadyDeclined: true, notifiedCustomer: false });
+    const { appointment, business } = decision;
     const email = typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
     if (!email) return NextResponse.json({ ok: true, notifiedCustomer: false, noEmail: true });
-    const business = businessSnapshot.data() ?? {};
     const message = buildRequestDeclineEmail({
       brand: {
         businessName: typeof business.businessName === "string" ? business.businessName : "Your Company",

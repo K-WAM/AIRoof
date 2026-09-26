@@ -50,6 +50,17 @@ describe("GET /api/businesses/[businessId]/appointments", () => {
     expect((await call("?from=abc&to=def")).body.appointments).toHaveLength(4);
   });
 
+  it("keeps upcoming bookings visible beyond 500 older appointments", async () => {
+    for (let i = 0; i < 501; i++) db.__seed("businesses/biz/appointments", `old-${i}`, { startTime: i });
+    expect((await call("?order=asc")).body.appointments).toHaveLength(500);
+    expect((await call("?from=1000&to=8640000000000000")).body.appointments!.map((a) => a.appointmentId)).toContain("d");
+  });
+
+  it("returns overdue pending confirmations without a start-time cap", async () => {
+    db.__seed("businesses/biz/appointments", "pending-old", { startTime: 1, pendingConfirmation: true });
+    expect((await call("?pending=1")).body.appointments!.map((a) => a.appointmentId)).toEqual(["pending-old"]);
+  });
+
   it("refuses an unauthorised caller", async () => {
     mocks.allowed = false;
     expect((await call()).status).toBe(403);

@@ -13,9 +13,26 @@ function makeDb() {
   const ref = (path: string) => ({
     get: async () => ({ exists: docs.has(path), data: () => docs.get(path) }),
     update: async (patch: Record<string, unknown>) => docs.set(path, { ...docs.get(path), ...patch }),
+    delete: async () => { docs.delete(path); },
     collection: (name: string) => ({ doc: (id: string) => ref(`${path}/${name}/${id}`) }),
   });
-  return { db: { collection: (name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) }) }, docs };
+  return { db: {
+    collection: (name: string) => ({ doc: (id: string) => ref(`${name}/${id}`) }),
+    runTransaction: async <T,>(fn: (tx: {
+      get: (reference: ReturnType<typeof ref>) => ReturnType<ReturnType<typeof ref>["get"]>;
+      update: (reference: ReturnType<typeof ref>, data: Record<string, unknown>) => void;
+      delete: (reference: ReturnType<typeof ref>) => void;
+    }) => Promise<T>) => {
+      const writes: Array<() => Promise<unknown>> = [];
+      const result = await fn({
+        get: (reference) => reference.get(),
+        update: (reference, data) => { writes.push(() => reference.update(data)); },
+        delete: (reference) => { writes.push(() => reference.delete()); },
+      });
+      for (const write of writes) await write();
+      return result;
+    },
+  }, docs };
 }
 
 const context = { params: Promise.resolve({ appointmentId: "appt" }) };
@@ -68,5 +85,16 @@ describe("PATCH /api/appointments/[appointmentId] decline", () => {
     expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({
       to: "mina@example.com", fromName: "Roof Co", replyTo: "hello@roof.example",
     }));
+  });
+
+  it("deletes only the declined appointment's scheduling locks", async () => {
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    state.docs.set("businesses/biz/appointments/appt", { startTime, endTime: startTime + 3600000 });
+    for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
+      state.docs.set(`businesses/biz/schedulingLocks/unassigned:${bucket}`, { entityId: "appt" });
+    }
+    const response = await PATCH(requestFor({ businessId: "biz", declineReason: "Fully booked" }), context);
+    expect(response.status).toBe(200);
+    expect([...state.docs.keys()].filter((key) => key.includes("schedulingLocks"))).toHaveLength(0);
   });
 });

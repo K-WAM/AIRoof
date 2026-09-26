@@ -12,7 +12,7 @@ import {
   getOperation,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
-import type { Firestore } from "firebase-admin/firestore";
+import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
 
@@ -49,6 +49,37 @@ interface ExistingSchedule {
   endTime: number;
   status?: string;
   assignedCrewId?: string | null;
+}
+
+/** Business-wide scheduling rule shared by suggestions and the booking transaction. */
+export function isSlotBusy(
+  window: { startTime: number; endTime: number },
+  appointments: ExistingSchedule[],
+  jobs: ExistingSchedule[]
+): boolean {
+  return [...appointments, ...jobs].some((entry) =>
+    entry.status !== "cancelled" &&
+    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
+  );
+}
+
+/** Release only locks still owned by this appointment; old bookings may have no locks. */
+export async function releaseAppointmentLocks(
+  transaction: Transaction,
+  businessRef: DocumentReference,
+  appointmentId: string,
+  startTime: number,
+  endTime: number,
+  assignedCrewId?: string | null
+): Promise<void> {
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) return;
+  const refs = scheduleBucketStarts(startTime, endTime).map((bucket) =>
+    businessRef.collection("schedulingLocks").doc(scheduleLockId(scheduleResourceKey(assignedCrewId), bucket))
+  );
+  const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+  snapshots.forEach((snapshot, index) => {
+    if (snapshot.data()?.entityId === appointmentId) transaction.delete(refs[index]);
+  });
 }
 
 export type { NotificationDeliveryState };
@@ -342,11 +373,7 @@ export function buildAvailableSlots(options: {
       );
       if (startTime === null || startTime <= now.getTime()) continue;
       const endTime = startTime + durationMinutes * 60 * 1000;
-      const occupied = options.existing.some(
-        (entry) =>
-          entry.status !== "cancelled" &&
-          scheduleRangesOverlap(startTime, endTime, entry.startTime, entry.endTime)
-      );
+      const occupied = isSlotBusy({ startTime, endTime }, options.existing, []);
       if (!occupied) {
         slots.push({
           startTime: new Date(startTime).toISOString(),
@@ -412,14 +439,12 @@ export async function checkAvailability(
         .collection("businesses")
         .doc(input.businessId)
         .collection("appointments")
-        .where("startTime", ">=", now.getTime())
         .where("startTime", "<", scanEnd)
         .get(),
       db
         .collection("businesses")
         .doc(input.businessId)
         .collection("jobs")
-        .where("scheduledStart", ">=", now.getTime())
         .where("scheduledStart", "<", scanEnd)
         .get(),
     ]);
@@ -521,28 +546,34 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       );
     }
 
-    const conflictQuery = businessRef
-      .collection("appointments")
-      .where("startTime", "<", input.endTime);
-    const [lockSnapshots, existingSnapshot] = await Promise.all([
+    const conflictQuery = businessRef.collection("appointments").where("startTime", "<", input.endTime);
+    const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", "<", input.endTime);
+    const [lockSnapshots, existingSnapshot, jobSnapshot] = await Promise.all([
       Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
       transaction.get(conflictQuery),
+      transaction.get(jobConflictQuery),
     ]);
-    const occupiedByLock = lockSnapshots.some((snapshot) => snapshot.exists);
-    const occupiedByLegacyRecord = existingSnapshot.docs.some((document) => {
-      const data = document.data();
-      return (
-        data.status !== "cancelled" &&
-        !data.assignedCrewId &&
-        scheduleRangesOverlap(
-          input.startTime,
-          input.endTime,
-          Number(data.startTime),
-          Number(data.endTime)
-        )
-      );
+    const cancelledIds = new Set(existingSnapshot.docs
+      .filter((document) => document.data().status === "cancelled")
+      .map((document) => document.id));
+    const staleLockIndexes = new Set<number>();
+    const occupiedByLock = lockSnapshots.some((snapshot, index) => {
+      if (!snapshot.exists) return false;
+      if (cancelledIds.has(snapshot.data()?.entityId)) {
+        staleLockIndexes.add(index);
+        return false;
+      }
+      return true;
     });
-    if (occupiedByLock || occupiedByLegacyRecord) {
+    const appointments = existingSnapshot.docs.map((document) => {
+      const data = document.data();
+      return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
+    });
+    const jobs = jobSnapshot.docs.map((document) => {
+      const data = document.data();
+      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd) };
+    });
+    if (occupiedByLock || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs)) {
       throw new SchedulingConflictError(
         "slot_conflict",
         "That requested time was just taken. Please choose another opening."
@@ -573,7 +604,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       updatedAt: now,
     };
     for (const [index, lockRef] of lockRefs.entries()) {
-      transaction.create(lockRef, {
+      const lock = {
         resourceKey: scheduleResourceKey(),
         bucketStart: lockBuckets[index],
         entityType: "appointment",
@@ -581,7 +612,9 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         startTime: input.startTime,
         endTime: input.endTime,
         updatedAt: now,
-      });
+      };
+      if (staleLockIndexes.has(index)) transaction.set(lockRef, lock);
+      else transaction.create(lockRef, lock);
     }
     transaction.create(appointmentRef, appointment);
     return appointment;
@@ -1259,6 +1292,8 @@ export async function cancelAppointment(input: CancelAppointmentInput): Promise<
     ) {
       throw new Error("The verified appointment is no longer available to cancel.");
     }
+
+    await releaseAppointmentLocks(transaction, businessRef, candidate.appointmentId, Number(appointment.startTime), Number(appointment.endTime), appointment.assignedCrewId);
 
     transaction.update(appointmentRef, {
       status: "cancelled",

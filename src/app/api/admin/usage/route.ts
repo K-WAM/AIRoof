@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       })
     );
 
+    results.sort((a, b) => String(a.businessName).localeCompare(String(b.businessName), undefined, { sensitivity: "base" }));
     return NextResponse.json({ businesses: results });
   } catch (err) {
     console.error("Usage fetch failed:", err);

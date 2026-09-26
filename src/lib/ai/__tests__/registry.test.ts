@@ -84,6 +84,10 @@ describe("registry", () => {
   });
 
   describe("selectModel", () => {
+    it("honors backOfficeModel for field parsing", async () => {
+      const { selectModel } = await import("@/lib/ai/registry");
+      expect(selectModel("parse-field-update", { backOfficeModel: "gpt-4o-mini" })).toEqual({ provider: "openai", model: "gpt-4o-mini" });
+    });
     it("returns default model for each operation", async () => {
       const { selectModel } = await import("@/lib/ai/registry");
       const result = selectModel("summarize");
