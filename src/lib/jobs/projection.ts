@@ -164,7 +164,13 @@ export function buildProjection(
     .flatMap((u) => u.parsed!.timeline.map((t) => ({ ...t, dateMs: t.dateMs ?? u.createdAt })))
     .sort((a, b) => {
       const d = (a.dateMs ?? 0) - (b.dateMs ?? 0);
-      return d !== 0 ? d : (a.time ?? "").localeCompare(b.time ?? "");
+      if (d !== 0) return d;
+      const aMinutes = parseClock(a.time);
+      const bMinutes = parseClock(b.time);
+      if (aMinutes !== null && bMinutes !== null) return aMinutes - bMinutes;
+      if (aMinutes !== null) return -1;
+      if (bMinutes !== null) return 1;
+      return (a.time ?? "").localeCompare(b.time ?? "");
     });
 
   // 5. Issues — concat, dedupe identical descriptions (keep first, preserve resolution).
