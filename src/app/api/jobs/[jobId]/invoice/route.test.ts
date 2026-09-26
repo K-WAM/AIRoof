@@ -42,4 +42,11 @@ describe("invoice document options", () => {
     expect(result.status).toBe(200);
     expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Roof repair.", total: 0 });
   });
+  it("persists edited customer wording and due date without changing totals", async () => {
+    const dueAt = Date.parse("2026-10-01T12:00:00Z");
+    const result = await PATCH(request({ businessId: "b", opening: "Opening", closing: "Closing", thankYou: "Thank you", terms: "Due upon completion", poNumber: "PO-7", dueAt }), context);
+    expect(result.status).toBe(200);
+    expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ opening: "Opening", closing: "Closing", thankYou: "Thank you", terms: "Due upon completion", poNumber: "PO-7", dueAt, total: 0 });
+    expect((await PATCH(request({ businessId: "b", opening: "<script>" }), context)).status).toBe(400);
+  });
 });

@@ -16,6 +16,8 @@ import type { Customer } from "@/types/customer";
 import { addFindingsToInvoice, validFindings } from "@/lib/jobs/findings";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
+import { DEFAULT_INVOICE_COPY, fillInvoiceCopy } from "@/lib/documents/invoiceCopy";
+import { fmtDate } from "@/lib/format";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -33,7 +35,7 @@ async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string,
     businessConfig: biz ? { laborRate: biz.laborRate, defaultTaxRate: biz.defaultTaxRate } : null,
     customer,
   });
-  return { draft, totals: computeTotals(draft) };
+  return { draft, totals: computeTotals(draft), business: biz };
 }
 
 // GET /api/jobs/[jobId]/invoice?businessId=xxx — fetch the job's saved invoice, if any
@@ -101,9 +103,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     }
   }
 
-  const { draft, totals } = await rebuildDraft(db, businessId, job);
+  const { draft, totals, business } = await rebuildDraft(db, businessId, job);
   const invoiceId = await allocateJobInvoiceNumber(db, businessId);
   const now = Date.now();
+  const name = typeof business?.businessName === "string" ? business.businessName : "";
+  const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.jobNoun };
+  const copy = business?.invoiceCopy ?? {};
   const invoice: JobInvoice = {
     invoiceId,
     businessId,
@@ -111,6 +116,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     customerId: job.customerId,
     billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: job.address },
     status: "draft",
+    issuedAt: now,
+    dueAt: now,
+    opening: fillInvoiceCopy(copy.opening ?? DEFAULT_INVOICE_COPY.opening, values),
+    closing: fillInvoiceCopy(copy.closing ?? DEFAULT_INVOICE_COPY.closing, values),
+    thankYou: fillInvoiceCopy(copy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, values),
+    terms: copy.terms ?? DEFAULT_INVOICE_COPY.terms,
     ...draft,
     hideMaterials: false,
     ...totals,
@@ -141,6 +152,12 @@ interface PatchBody {
   showTechnicians?: boolean;
   technicians?: string[];
   narrative?: string;
+  opening?: string;
+  closing?: string;
+  thankYou?: string;
+  terms?: string;
+  poNumber?: string;
+  dueAt?: number;
   notes?: string;
   discount?: JobInvoiceDiscount | null;
 }
@@ -156,6 +173,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });
   if (body.technicians !== undefined && !validTechnicians(body.technicians)) return NextResponse.json({ error: "Invalid technicians" }, { status: 400 });
   if (body.narrative !== undefined && !validNarrative(body.narrative)) return NextResponse.json({ error: "Invalid narrative" }, { status: 400 });
+  for (const key of ["opening", "closing", "thankYou", "terms", "poNumber"] as const) {
+    if (body[key] !== undefined && (typeof body[key] !== "string" || body[key]!.length > 4000 || /[<>\u0000-\u001f]/.test(body[key]!))) return NextResponse.json({ error: `Invalid ${key}` }, { status: 400 });
+  }
+  if (body.dueAt !== undefined && (!Number.isFinite(body.dueAt) || body.dueAt < 0)) return NextResponse.json({ error: "Invalid dueAt" }, { status: 400 });
   const { businessId } = body;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
@@ -231,6 +252,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     ...(body.showTechnicians !== undefined ? { showTechnicians: body.showTechnicians } : {}),
     ...(body.technicians !== undefined ? { technicians: body.technicians } : {}),
     ...(body.narrative !== undefined ? { narrative: body.narrative } : {}),
+    ...(body.opening !== undefined ? { opening: body.opening } : {}),
+    ...(body.closing !== undefined ? { closing: body.closing } : {}),
+    ...(body.thankYou !== undefined ? { thankYou: body.thankYou } : {}),
+    ...(body.terms !== undefined ? { terms: body.terms } : {}),
+    ...(body.poNumber !== undefined ? { poNumber: body.poNumber } : {}),
+    ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
     ...(body.notes !== undefined ? { notes: body.notes } : {}),
   };
   await invRef.update(patch);

@@ -72,7 +72,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     contactEmail: biz.contactEmail,
     websiteUrl: biz.websiteUrl,
     licenseNumber: biz.licenseNumber,
-  });
+    industry: biz.industry,
+    timezone: biz.timezone,
+  }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution })) ?? []);
 
   const sent = await sendEmail({
     to,

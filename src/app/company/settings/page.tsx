@@ -14,6 +14,7 @@ import {
   RECORDING_DISCLOSURE_MAX_LENGTH,
 } from "@/lib/recordingDisclosure";
 import { Bell, Clock3, Globe2, Languages, Mic, Save, Settings } from "lucide-react";
+import { DEFAULT_INVOICE_COPY, type InvoiceCopyDefaults } from "@/lib/documents/invoiceCopy";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -38,6 +39,7 @@ interface Settings {
   contactEmail: string;
   licenseNumber: string;
   businessName: string;
+  invoiceCopy?: InvoiceCopyDefaults;
   agentLanguage: "en" | "es";
   // Call-recording notice (Phase 16, T-102) — optional so an older cached
   // response can never crash this page.
@@ -143,6 +145,7 @@ export default function CompanySettingsPage() {
         agentLanguages: [settings.agentLanguage],
       };
       if (canManageTeam) payload.recordingDisclosure = settings.recordingDisclosure;
+      payload.invoiceCopy = settings.invoiceCopy ?? DEFAULT_INVOICE_COPY;
       const res = await fetch("/api/company/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -206,6 +209,17 @@ export default function CompanySettingsPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
         <div style={{ display: "grid", gap: 20 }}>
+        <section className="panel">
+          <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
+          <div className="panel-body">
+            <p>Default invoice wording. Each draft invoice can be edited before it is sent.</p>
+            {(["opening", "closing", "thankYou", "terms"] as const).map((key) => <div className="field" key={key}>
+              <label htmlFor={`invoice-${key}`}>{key === "thankYou" ? "Thank-you line" : key[0].toUpperCase() + key.slice(1)}</label>
+              <textarea id={`invoice-${key}`} rows={key === "terms" ? 2 : 3} value={(settings.invoiceCopy ?? DEFAULT_INVOICE_COPY)[key]} onChange={(event) => setSettings((prev) => prev ? { ...prev, invoiceCopy: { ...(prev.invoiceCopy ?? DEFAULT_INVOICE_COPY), [key]: event.target.value } } : prev)} />
+            </div>)}
+            <p style={{ fontSize: 12 }}>Use {"{businessName}"}, {"{address}"}, {"{visitDate}"}, and {"{industryNoun}"} for invoice-specific details.</p>
+          </div>
+        </section>
         {/* Business hours */}
         <section className="panel">
           <div className="panel-header">

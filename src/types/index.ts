@@ -81,6 +81,7 @@ export interface BusinessConfig {
   logoUrl?: string | null;
   contactPhone?: string;
   licenseNumber?: string;
+  invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
   contactEmail?: string;
   websiteUrl?: string;
   active: boolean;
