@@ -74,8 +74,11 @@ describe("job quote routes", () => {
     expect((await SEND(bodyReq("quote/send", { businessId: "b", to: "client@example.com" }), context)).status).toBe(200);
     expect(state.docs.get("businesses/b/jobs/j")?.status).toBe("quoted");
     expect(mocks.send).toHaveBeenCalledOnce();
+    const beforeAnswer = Date.now();
     expect((await PATCH(bodyReq("quote", { businessId: "b", status: "accepted" }, "PATCH"), context)).status).toBe(200);
     expect(state.docs.get("businesses/b/quotes/Q-1000")?.status).toBe("accepted");
+    // "Accepted on Sep 25" on the locked-quote banner and in the job history comes from answeredAt, not updatedAt.
+    expect(state.docs.get("businesses/b/quotes/Q-1000")?.answeredAt).toBeGreaterThanOrEqual(beforeAnswer);
   });
   it("blocks unauthorized sending and never downgrades a job already in progress", async () => {
     await POST(bodyReq("quote", { businessId: "b" }), context);

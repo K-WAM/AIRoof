@@ -96,7 +96,7 @@ export function buildJobHistory(src: HistorySources): HistoryEvent[] {
     add({ id: `quote-${quote.quoteId}-created`, at: quote.createdAt, kind: "quote", title: `Quote ${quote.quoteId} drafted` });
     if (isTime(quote.sentAt)) add({ id: `quote-${quote.quoteId}-sent`, at: quote.sentAt, kind: "quote", title: "Quote sent", detail: quote.sentTo });
     if (quote.status === "accepted" || quote.status === "declined" || quote.status === "expired") {
-      add({ id: `quote-${quote.quoteId}-answer`, at: quote.updatedAt, kind: "quote", title: `Quote ${quote.status}` });
+      add({ id: `quote-${quote.quoteId}-answer`, at: quote.answeredAt ?? quote.updatedAt, kind: "quote", title: `Quote ${quote.status}` });
     }
   }
 
@@ -104,6 +104,7 @@ export function buildJobHistory(src: HistorySources): HistoryEvent[] {
   if (invoice) {
     add({ id: `inv-${invoice.invoiceId}-created`, at: invoice.createdAt, kind: "invoice", title: `Invoice ${invoice.invoiceId} created` });
     if (isTime(invoice.sentAt)) add({ id: `inv-${invoice.invoiceId}-sent`, at: invoice.sentAt, kind: "invoice", title: "Invoice sent", detail: invoice.sentTo });
+    if (isTime(invoice.paidAt)) add({ id: `inv-${invoice.invoiceId}-paid`, at: invoice.paidAt, kind: "invoice", title: "Invoice paid" });
   }
 
   return events.sort((a, b) => a.at - b.at || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.id.localeCompare(b.id));

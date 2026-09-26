@@ -87,7 +87,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (body.status !== undefined) {
     const next = body.status as QuoteStatus;
     if (!nextQuoteStatus(quote.status, next)) return err("Invalid quote status transition", 409);
-    const patch = { status: next, updatedAt: Date.now() };
+    const now = Date.now();
+    // answeredAt: the "Accepted on Sep 25" the office sees; updatedAt alone moves with any later write.
+    const patch = { status: next, answeredAt: now, updatedAt: now };
     await quoteRef.update(patch);
     return NextResponse.json({ quote: { ...quote, ...patch } });
   }

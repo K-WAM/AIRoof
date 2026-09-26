@@ -28,4 +28,6 @@ export interface JobQuote {
   createdBy: string;
   sentAt?: number;
   sentTo?: string;
+  /** When the office recorded the customer's answer (Mark accepted / declined / expired). */
+  answeredAt?: number;
 }

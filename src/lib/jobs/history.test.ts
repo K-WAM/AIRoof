@@ -59,6 +59,16 @@ describe("buildJobHistory", () => {
     expect(events.map((e) => e.title)).toContain("Quote accepted");
   });
 
+  it("dates a quote answer by answeredAt (not a later edit) and records a paid invoice", () => {
+    const events = buildJobHistory({
+      job: job(),
+      quote: { quoteId: "Q-1", createdAt: min(40), sentAt: min(41), status: "accepted", answeredAt: min(50), updatedAt: min(70) } as never,
+      invoice: { invoiceId: "INV-1", createdAt: min(80), sentAt: min(81), sentTo: "a@b.co", paidAt: min(95) } as never,
+    });
+    expect(events.find((e) => e.title === "Quote accepted")?.at).toBe(min(50));
+    expect(events.find((e) => e.title === "Invoice paid")?.at).toBe(min(95));
+  });
+
   it("labels where the job came from and clips long text", () => {
     const long = "word ".repeat(200);
     const events = buildJobHistory({ job: job({ leadId: "l1" }), call: { callId: "c", startedAt: min(0), summary: long } });

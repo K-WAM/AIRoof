@@ -12,6 +12,7 @@ import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { useFormat } from "@/hooks/useFormat";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
@@ -34,7 +35,7 @@ function NumberField({ value, onCommit, label, width, disabled, min = 0, step = 
   );
 }
 
-export function QuotePanel({ job, businessId, businessConfig, logos, catalog, onStatus, onFindingsChanged }: {
+export function QuotePanel({ job, businessId, businessConfig, logos, catalog, onStatus, onFindingsChanged, onQuoteChange }: {
   job: Job;
   businessId: string;
   businessConfig: BusinessConfig | null;
@@ -42,8 +43,11 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
   catalog: CatalogState;
   onStatus: (status: Job["status"]) => void;
   onFindingsChanged: (findings: JobFinding[]) => void;
+  /** The job page mirrors the quote's status (tab label, lock notes, the report's optional quote section). */
+  onQuoteChange?: (quote: JobQuote | null) => void;
 }) {
   const [quote, setQuote] = useState<JobQuote | null>(null);
+  const fmt = useFormat();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -70,6 +74,13 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [businessId, job.jobId]);
+
+  // Only the saved/sent state matters to the page, not every keystroke of a draft.
+  const reportedStatus = quote ? `${quote.quoteId}:${quote.status}:${quote.answeredAt ?? ""}:${quote.sentAt ?? ""}:${quote.updatedAt}` : "none";
+  useEffect(() => {
+    if (!loading) onQuoteChange?.(quote);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportedStatus, loading]);
 
   const commit = (next: JobQuote) => { version.current += 1; setQuote(next); setDirty(true); setSaveState("idle"); setError(""); };
   const change = (patch: Partial<JobQuote>) => { if (quote) commit({ ...quote, ...patch }); };
@@ -178,7 +189,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
     try {
       const r = await fetch(`/api/jobs/${job.jobId}/quote/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, to: to.trim() }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not send quote");
-      setQuote((current) => (current ? { ...current, status: "sent", sentTo: to.trim() } : current));
+      setQuote((current) => (current ? { ...current, status: "sent", sentTo: to.trim(), sentAt: Date.now() } : current));
       if (["open", "inspection"].includes(job.status)) onStatus("quoted");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not send quote"); }
     finally { setBusy(false); }
@@ -232,9 +243,27 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
       </span>}
     </div>
     <div className="panel-body quote-panel-body" style={{ display: "grid", gap: 16 }}>
-      <p className="no-print" style={{ margin: 0, color: "var(--text-muted)" }}>
-        Quotes cannot be accepted or paid online. Send the quote to the customer, then record their response here.
-      </p>
+      {(!quote || draft) && (
+        <p className="no-print" style={{ margin: 0, color: "var(--text-muted)" }}>
+          Send the quote to the customer, then record their answer here. There is no online acceptance yet.
+        </p>
+      )}
+      {/* Once sent, a quote is locked (the server refuses edits). Say so plainly, with the date it happened. */}
+      {quote && !draft && (
+        <div className="no-print" role="status" style={{
+          padding: "10px 14px", borderRadius: 8, fontSize: 14, lineHeight: 1.45,
+          ...(quote.status === "accepted"
+            ? { background: "#f0fdf4", border: "1px solid #86efac", color: "#166534" }
+            : quote.status === "sent"
+              ? { background: "#eff6ff", border: "1px solid #bfdbfe", color: "#1e40af" }
+              : { background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b" }),
+        }}>
+          {quote.status === "accepted" && <>✓ <strong>Accepted</strong>{quote.answeredAt ? ` on ${fmt.fmtDate(quote.answeredAt)}` : ""}. This is the agreed price and the quote is locked. New findings go on the invoice, not this quote.</>}
+          {quote.status === "sent" && <>🔒 <strong>Sent</strong>{quote.sentTo ? ` to ${quote.sentTo}` : ""}{quote.sentAt ? ` on ${fmt.fmtDate(quote.sentAt)}` : ""}. Locked while you wait for the customer&apos;s answer — record it at the bottom.</>}
+          {quote.status === "declined" && <>✕ <strong>Declined</strong>{quote.answeredAt ? ` on ${fmt.fmtDate(quote.answeredAt)}` : ""}. The quote is locked.</>}
+          {quote.status === "expired" && <>⌛ <strong>Expired</strong>{quote.answeredAt ? ` on ${fmt.fmtDate(quote.answeredAt)}` : ""}. The quote is locked.</>}
+        </div>
+      )}
 
       {!quote ? (
         <>
