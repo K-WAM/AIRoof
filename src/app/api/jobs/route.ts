@@ -30,12 +30,30 @@ export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const customerId = req.nextUrl.searchParams.get("customerId");
+  const status = req.nextUrl.searchParams.get("status");
+  const validStatuses = new Set(["open", "inspection", "quoted", "in_progress", "invoiced", "complete"]);
+  if (status && !validStatuses.has(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  const beforeRaw = req.nextUrl.searchParams.get("before");
+  const before = beforeRaw === null ? null : Number(beforeRaw);
+  if (beforeRaw !== null && (!Number.isFinite(before) || before! <= 0)) {
+    return NextResponse.json({ error: "Invalid before cursor" }, { status: 400 });
+  }
   let query = db.collection(`businesses/${businessId}/jobs`) as FirebaseFirestore.Query;
   if (customerId) query = query.where("customerId", "==", customerId);
-  query = query.orderBy("createdAt", "desc").limit(100);
+  if (status) {
+    // Status-only reads use Firestore's automatic single-field index. Sorting
+    // after the read avoids requiring a new composite index for every status.
+    query = status === "inspection"
+      ? query.where("status", "in", ["inspection", "open"])
+      : query.where("status", "==", status);
+  } else {
+    if (before !== null) query = query.where("createdAt", "<", before);
+    query = query.orderBy("createdAt", "desc").limit(101);
+  }
 
   const snap = await query.get();
   let jobs = snap.docs.map((d) => ({ jobId: d.id, ...d.data() })) as Job[];
+  if (status) jobs = jobs.filter((job) => before === null || job.createdAt < before).sort((a, b) => b.createdAt - a.createdAt);
 
   const crewId = req.nextUrl.searchParams.get("crewId");
   if (crewId) {
@@ -43,7 +61,9 @@ export async function GET(req: NextRequest) {
     jobs = jobs.filter((j) => j.assignedCrewId === crewId || (includeUnassigned && !j.assignedCrewId));
   }
 
-  return NextResponse.json({ jobs });
+  const hasMore = jobs.length > 100;
+  jobs = jobs.slice(0, 100);
+  return NextResponse.json({ jobs, hasMore, nextBefore: hasMore ? jobs.at(-1)?.createdAt : null });
 }
 
 // POST /api/jobs — create job
