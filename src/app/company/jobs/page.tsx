@@ -261,8 +261,7 @@ export default function JobsPage() {
         </div>
       )}
 
-      {jobs.length > 0 && (
-        <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ position: "relative", maxWidth: 340 }}>
             <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
             <input
@@ -302,14 +301,15 @@ export default function JobsPage() {
               );
             })}
           </div>
-        </div>
-      )}
+      </div>
 
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 12px" }}>
-              No {vocab.jobNounPlural.toLowerCase()} yet. When someone calls, confirm their request in Pipeline and the {vocab.jobNoun.toLowerCase()} is created for you — or start one yourself.
+              {statusFilter === "all"
+                ? `No ${vocab.jobNounPlural.toLowerCase()} yet. Start one here or review requests in Pipeline.`
+                : "No jobs match this status in the loaded pages. Choose another status to continue."}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a className="button primary" href={`/company/pipeline${previewSuffix}`}>Go to Pipeline</a>
