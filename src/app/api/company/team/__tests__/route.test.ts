@@ -114,6 +114,9 @@ const mockSendTeamInviteEmail = vi.hoisted(() => vi.fn());
 const mockGetUserByEmail = vi.hoisted(() => vi.fn());
 const mockCreateUser = vi.hoisted(() => vi.fn());
 const mockGeneratePasswordResetLink = vi.hoisted(() => vi.fn());
+const mockGetUsers = vi.hoisted(() => vi.fn());
+const mockUpdateUser = vi.hoisted(() => vi.fn());
+const mockRevokeRefreshTokens = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifyAuthAndRole: mockVerifyAuthAndRole,
@@ -129,6 +132,9 @@ function createFakeAuth() {
     getUserByEmail: mockGetUserByEmail,
     createUser: mockCreateUser,
     generatePasswordResetLink: mockGeneratePasswordResetLink,
+    getUsers: mockGetUsers,
+    updateUser: mockUpdateUser,
+    revokeRefreshTokens: mockRevokeRefreshTokens,
   };
 }
 
@@ -160,6 +166,9 @@ describe("/api/company/team", () => {
     mockGetUserByEmail.mockReset();
     mockCreateUser.mockReset();
     mockGeneratePasswordResetLink.mockReset();
+    mockGetUsers.mockReset().mockResolvedValue({ users: [] });
+    mockUpdateUser.mockReset().mockResolvedValue({});
+    mockRevokeRefreshTokens.mockReset().mockResolvedValue(undefined);
 
     firestore = new FakeFirestore();
     const auth = createFakeAuth();
@@ -177,6 +186,20 @@ describe("/api/company/team", () => {
   });
 
   describe("GET", () => {
+    it("derives Invited and Active from Auth last sign-in and Locked from membership", async () => {
+      firestore.seed("businessUsers/new", { businessId: "biz-1", email: "new@example.com", role: "staff", active: true });
+      firestore.seed("businessUsers/seen", { businessId: "biz-1", email: "seen@example.com", role: "staff", active: true });
+      firestore.seed("businessUsers/locked", { businessId: "biz-1", email: "locked@example.com", role: "viewer", active: false });
+      mockGetUsers.mockResolvedValue({ users: [
+        { uid: "new", metadata: { lastSignInTime: null } },
+        { uid: "seen", metadata: { lastSignInTime: "2026-09-25T12:00:00Z" } },
+        { uid: "locked", metadata: { lastSignInTime: "2026-09-24T12:00:00Z" } },
+      ] });
+      const { GET } = await import("@/app/api/company/team/route");
+      const { members } = await (await GET(getRequest("biz-1"))).json();
+      expect(members.map((m: { status: string }) => m.status)).toEqual(["Invited", "Active", "Locked"]);
+      expect(mockGetUsers).toHaveBeenCalledOnce();
+    });
     it("returns 400 without businessId", async () => {
       const { GET } = await import("@/app/api/company/team/route");
       const res = await GET(new NextRequest("http://localhost/api/company/team"));
@@ -289,7 +312,7 @@ describe("/api/company/team", () => {
     });
 
     it("reactivates a previously-removed member on the same business", async () => {
-      mockGetUserByEmail.mockResolvedValue({ uid: "returning-uid", customClaims: {} });
+      mockGetUserByEmail.mockResolvedValue({ uid: "returning-uid", customClaims: {}, disabled: true });
       firestore.seed("businessUsers/returning-uid", { businessId: "biz-1", role: "viewer", active: false });
       mockGeneratePasswordResetLink.mockResolvedValue("https://example.com/reset");
       mockSendTeamInviteEmail.mockResolvedValue({ status: "delivered" });
@@ -299,6 +322,7 @@ describe("/api/company/team", () => {
       expect(res.status).toBe(200);
       const stored = firestore.documents.get("businessUsers/returning-uid");
       expect(stored).toMatchObject({ active: true, role: "owner" });
+      expect(mockUpdateUser).toHaveBeenCalledWith("returning-uid", { disabled: false });
     });
   });
 });
@@ -307,6 +331,8 @@ describe("/api/company/team/[uid]", () => {
   beforeEach(() => {
     vi.resetModules();
     mockVerifyAuthAndRole.mockReset();
+    mockUpdateUser.mockReset().mockResolvedValue({});
+    mockRevokeRefreshTokens.mockReset().mockResolvedValue(undefined);
     firestore = new FakeFirestore();
     vi.doMock("@/lib/firebase/admin", () => ({
       getAdminAuth: vi.fn(() => createFakeAuth()),
@@ -342,6 +368,24 @@ describe("/api/company/team/[uid]", () => {
       params: Promise.resolve({ uid: "target" }),
     });
     expect(res.status).toBe(400);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("locks a member in Firestore and Auth and revokes refresh tokens", async () => {
+    firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", active: true });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    expect((await PATCH(patchRequest({ businessId: "biz-1", active: false }), { params: Promise.resolve({ uid: "target" }) })).status).toBe(200);
+    expect(firestore.documents.get("businessUsers/target")).toMatchObject({ active: false, lockedBy: "owner-1", lockedAt: expect.any(Number) });
+    expect(mockUpdateUser).toHaveBeenCalledWith("target", { disabled: true });
+    expect(mockRevokeRefreshTokens).toHaveBeenCalledWith("target");
+  });
+
+  it("unlocks a member in Firestore and Auth", async () => {
+    firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", active: false, lockedAt: 100, lockedBy: "owner-1" });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    expect((await PATCH(patchRequest({ businessId: "biz-1", active: true }), { params: Promise.resolve({ uid: "target" }) })).status).toBe(200);
+    expect(firestore.documents.get("businessUsers/target")).toMatchObject({ active: true, lockedAt: null, lockedBy: null });
+    expect(mockUpdateUser).toHaveBeenCalledWith("target", { disabled: false });
   });
 
   it("allows demoting an owner when another active owner remains", async () => {
@@ -363,5 +407,39 @@ describe("/api/company/team/[uid]", () => {
     });
     expect(res.status).toBe(200);
     expect(firestore.documents.get("businessUsers/target")?.role).toBe("staff");
+  });
+});
+
+describe("Team follow-up actions", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    firestore = new FakeFirestore();
+    firestore.seed("businesses/biz-1", { businessName: "Biz One", fieldKey: "old-field-key-0123456789" });
+    firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", email: "target@example.com", active: true });
+    mockVerifyAuthAndRole.mockReset().mockResolvedValue(OWNER_GATE);
+    mockGeneratePasswordResetLink.mockReset().mockResolvedValue("https://example.test/reset");
+    mockSendTeamInviteEmail.mockReset().mockResolvedValue({ status: "delivered" });
+    vi.doMock("@/lib/firebase/admin", () => ({
+      getAdminAuth: vi.fn(() => createFakeAuth()),
+      getAdminFirestore: vi.fn(() => firestore),
+    }));
+  });
+
+  it("resends an invite only to an active member of this business", async () => {
+    const { POST } = await import("@/app/api/company/team/[uid]/resend/route");
+    const context = { params: Promise.resolve({ uid: "target" }) };
+    expect((await POST(postRequest({ businessId: "biz-1" }), context)).status).toBe(200);
+    expect(mockSendTeamInviteEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "target@example.com" }));
+    firestore.seed("businessUsers/target", { businessId: "other", role: "staff", email: "target@example.com", active: true });
+    expect((await POST(postRequest({ businessId: "biz-1" }), context)).status).toBe(404);
+  });
+
+  it("rotates the business field key only for an owner", async () => {
+    const { POST } = await import("@/app/api/company/team/revoke-field-links/route");
+    mockVerifyAuthAndRole.mockResolvedValueOnce({ error: new Response("Forbidden", { status: 403 }) });
+    expect((await POST(postRequest({ businessId: "biz-1" }))).status).toBe(403);
+    expect(firestore.documents.get("businesses/biz-1")?.fieldKey).toBe("old-field-key-0123456789");
+    expect((await POST(postRequest({ businessId: "biz-1" }))).status).toBe(200);
+    expect(firestore.documents.get("businesses/biz-1")?.fieldKey).not.toBe("old-field-key-0123456789");
   });
 });

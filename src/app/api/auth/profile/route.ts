@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
+import { jsonWithCache } from "@/lib/http/cache";
 
 // GET /api/auth/profile — the current session's businessUsers/{uid} doc,
 // merged over { uid, email } from the verified ID token.
@@ -32,7 +33,10 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (db) {
     const snap = await db.collection("businessUsers").doc(decoded.uid).get();
-    if (snap.exists) Object.assign(profile, snap.data());
+    if (snap.exists) {
+      Object.assign(profile, snap.data());
+      if (snap.data()?.active === false) profile.locked = true;
+    }
   }
 
   // "superadmin" is decided ONLY by the verified token claim (the same thing verifySuperadmin trusts on every /api/admin
@@ -42,5 +46,5 @@ export async function GET(req: NextRequest) {
   profile.superadmin = isSuperadmin;
   if (!isSuperadmin && profile.role === "superadmin") profile.role = "viewer";
 
-  return NextResponse.json({ profile });
+  return jsonWithCache({ profile }, "noStore");
 }

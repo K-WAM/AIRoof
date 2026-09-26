@@ -37,6 +37,13 @@ describe("GET /api/auth/profile — superadmin comes from the token claim only",
     expect(profile.role).toBe("viewer");
   });
 
+  it("marks an inactive member as locked", async () => {
+    mocks.verify.mockResolvedValue({ uid: "u4", email: "locked@x.com" });
+    mocks.doc.mockResolvedValue({ exists: true, data: () => ({ role: "staff", businessId: "b1", active: false }) });
+    const { profile } = await (await GET(req())).json();
+    expect(profile.locked).toBe(true);
+  });
+
   it("keeps a real (claim-backed) superadmin", async () => {
     mocks.verify.mockResolvedValue({ uid: "u3", email: "connect@luxordev.com", superadmin: true });
     mocks.doc.mockResolvedValue({ exists: true, data: () => ({ role: "superadmin", superadmin: true }) });

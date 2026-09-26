@@ -258,6 +258,24 @@ describe("scoped field access tokens", () => {
     ))).toBe(200);
   });
 
+  it("refuses a locked member on both reads and writes", async () => {
+    vi.mocked(verifyIdToken).mockResolvedValue({ uid: "member-locked" } as never);
+    mocks.firestore!.documents.set("businessUsers/member-locked", { businessId: BUSINESS_ID, role: "staff", active: false });
+    const req = request(`/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`, undefined, { cookie: "__session=locked" });
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID))).toBe(403);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true }))).toBe(403);
+  });
+
+  it("refuses the next request even when the member was previously cached active", async () => {
+    vi.mocked(verifyIdToken).mockResolvedValue({ uid: "member-newly-locked" } as never);
+    const path = "businessUsers/member-newly-locked";
+    mocks.firestore!.documents.set(path, { businessId: BUSINESS_ID, role: "staff", active: true });
+    const req = request(`/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`, undefined, { cookie: "__session=member" });
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID))).toBe(200);
+    mocks.firestore!.documents.set(path, { businessId: BUSINESS_ID, role: "staff", active: false });
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID))).toBe(403);
+  });
+
   it("prevents a field session from crossing business boundaries", async () => {
     const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY);
     const session = await consumeFieldExchangeToken(grant.token);

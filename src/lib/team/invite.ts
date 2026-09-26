@@ -102,9 +102,10 @@ export async function inviteTeamMember(opts: {
     uid = created.uid;
   }
 
+  if (existingUser?.disabled) await auth.updateUser(uid, { disabled: false });
   await db.collection("businessUsers").doc(uid).set(
     {
-      uid, businessId, email: normalizedEmail, role, active: true, createdAt: Date.now(),
+      uid, businessId, email: normalizedEmail, role, active: true, lockedAt: null, lockedBy: null, createdAt: Date.now(),
       ...(trade ? { trade } : {}),
       ...(displayName ? { displayName } : {}),
       ...(crewId ? { crewId } : {}),
