@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       updateId: corrId,
       kind: "correction",
       rawText: confirmCorrection.rawText ?? "",
-      submittedBy: submittedBy ?? undefined,
+      submittedBy: submittedBy || "Crew (no name given)",
       createdAt: now,
       targetUpdateId: confirmCorrection.targetUpdateId,
       correctionField: confirmCorrection.field === "labor" ? "labor" : "materials",
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   } catch (err) {
     // Store raw so nothing is lost; projection unchanged
     const updateId = `upd_${now}`;
-    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: detectedLanguage ?? "en", submittedBy: submittedBy ?? undefined, createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
+    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: detectedLanguage ?? "en", submittedBy: submittedBy || "Crew (no name given)", createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
     return NextResponse.json({ update: { updateId, rawText: rawText.trim(), parseError: true } }, { status: 201 });
   }
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     rawText: rawText.trim(),
     language: detectedLanguage ?? "en",
     ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
-    submittedBy: submittedBy ?? undefined,
+    submittedBy: submittedBy || "Crew (no name given)",
     createdAt: now,
     parsed,
   };

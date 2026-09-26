@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       updateId: corrId,
       kind: "correction",
       rawText: confirmCorrection.rawText ?? "",
-      submittedBy: submittedBy ?? undefined,
+      submittedBy: submittedBy || "Crew (no name given)",
       createdAt: now,
       targetUpdateId: confirmCorrection.targetUpdateId,
       correctionField: confirmCorrection.field === "labor" ? "labor" : "materials",
@@ -162,7 +162,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
         kind: "normal",
         rawText: transcript,
         language: detectedLanguage ?? "en",
-        submittedBy: submittedBy || "field-worker",
+        submittedBy: submittedBy || "Crew (no name given)",
         createdAt: now,
         parseError: err.message,
       } as FieldUpdate);
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     rawText: transcript,
     language: detectedLanguage ?? "en",
     ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
-    submittedBy: submittedBy || "field-worker",
+    submittedBy: submittedBy || "Crew (no name given)",
     createdAt: now,
     parsed,
   } as FieldUpdate);
