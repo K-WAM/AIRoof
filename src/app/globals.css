@@ -2595,8 +2595,10 @@ a.metric:hover {
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
   padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
-  max-height: 88vh;
-  overflow-y: auto;
+  max-height: min(88dvh, calc(100dvh - 24px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sheet-handle {
@@ -2614,6 +2616,13 @@ a.metric:hover {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.sheet-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ── Quick add (global "+") ─────────────────────────────────────────────── */

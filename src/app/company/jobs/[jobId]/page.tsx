@@ -141,7 +141,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [library, setLibrary] = useState<LibraryPricing | null>(null);
   const [libraryLoadFailed, setLibraryLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "materials" | "labor" | "issues" | "findings" | "photos" | "invoice" | "quote" | "report">("timeline");
   const [pageQuote, setPageQuote] = useState<JobQuote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -964,7 +964,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         ))}
         <span className="job-tabs-divider" aria-hidden="true" />
         {WORKFLOW_TABS.map((tab) => {
-          const quoteLabel = tab.id === "quote" && pageQuote?.status !== "draft" ? (pageQuote.status === "accepted" ? "Accepted" : "Sent") : null;
+          const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft" ? (pageQuote.status === "accepted" ? "Accepted" : "Sent") : null;
           return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
             <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;

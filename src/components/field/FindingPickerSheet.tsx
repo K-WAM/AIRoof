@@ -71,6 +71,7 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
         <p style={{ color: "var(--text-muted)" }}>The Library has no items yet. Add some under Library → Work catalog.</p>
       )}
       {!loading && items.length > 0 && groups.length === 0 && <p style={{ color: "var(--text-muted)" }}>Nothing matches &ldquo;{query}&rdquo;.</p>}
+      <div className="sheet-list">
       {groups.map(([category, list]) => (
         <div key={category} style={{ marginBottom: 14 }}>
           <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)" }}>{category}</p>
@@ -99,6 +100,7 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
           </div>
         </div>
       ))}
+      </div>
     </Sheet>
   );
 }
