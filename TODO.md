@@ -1020,6 +1020,23 @@ an active queue.*
         calls -> merge D2 stages -> playbooks (`onboarding-guide.html`, `/hub/guide`, NEXT_SESSION) -> owner's 3 dry runs (plan §2 definition of demo-ready).
   - Later (plan §11-13): T-140 onboarding slim-down + number provisioning + convert-demo; T-141 tenant sending domain; T-142 call reconciliation cron;
         T-143 projection race + lookup-cache TTL.
+
+- [ ] Phase 25 — Demo feedback round 2 (owner-directed, 2026-09-25/26). Spec + prompts: `docs/DEMO-FEEDBACK-PLAN.md`; queue: `docs/WORKER_QUEUE.md` section **E**.
+      Owner decisions: numbered workflow tabs (Findings, Quote, Report, Invoice); Issues merge into Findings; the crew can NOT mark a job complete (office only);
+      Complete -> Invoiced, Invoiced = invoice SENT, then Mark paid; escalations + end-of-call safety net create leads (never jobs); reports price-free unless
+      "Include quote" is ticked (amends D5); Florida legal notices are editable DRAFT defaults, OFF until the owner ticks "reviewed"; document photos are
+      Before | After pairs, 4 per page, drag-and-drop.
+  - [x] Integrator slices (local `main`, NOT pushed): `58ed94b` parse fix + Retry, session refresh, Complete->Invoiced + Mark paid, locked sent invoice,
+        punch re-projection; `43a6aa0` escalation leads + safety net, no drip escalation, full number read-back, Pipeline/Calls chips, fmtPhone;
+        `28affdd` quote answeredAt + locked-quote banner + invoice paid in history. Gates: full vitest green (flaky pair re-run alone), next build green.
+  - [ ] **E1** (Codex A, GPT-6 Sol medium, `air-wt-access`) — QR time clock "Forbidden" fix, no field Work complete, required worker name, viewer read-only, Team page (Invited/Active/Locked, lock/unlock, revoke QR links).
+  - [ ] **E3** (Codex B, GPT-5.5 Terra medium, `air-wt-job-page`) — job page restructure, newest-first Activity, Issues -> Findings, numbered findings, lock notes, picker sheet cut-off.
+  - [ ] **E4** (Deepseek V4.1 Flash Thinking Hard, `air-wt-docs-legal`) — `docs/AI-PROVIDERS.md`, `docs/FLORIDA-DOCUMENT-NOTICES.md` (DRAFT) + `legalNotices.ts`, seeded call transcripts.
+  - [ ] **E2** (Codex A, GPT-6 Sol medium, after E1) — booking checks jobs + crew bookings, cancel frees the slot, appointment/dashboard queries, jobs paging + CSV, classify fallback to OpenAI.
+  - [ ] **E5** (Codex B, GPT-6 Sol medium, after E3 + E4) — invoice in the reference's voice, report fixes, Include quote, Terms & notices with approval gate.
+  - [ ] **E6** (Codex B, GPT-5.5 Terra medium, after E5) — photo pairs on quote/invoice/report, drag-and-drop, server-side photo loading for email.
+  - [ ] NEEDS-HUMAN: attorney review of `docs/FLORIDA-DOCUMENT-NOTICES.md` then tick "reviewed"; fill account owners in `docs/AI-PROVIDERS.md`; check OpenAI + DeepSeek balances; relaunch Demo Studio after deploy.
+
 - [x] Phase 10 — Client Management (owner-added, 2026-09-07) — 2/2
   - [x] T-079 — Superadmin client management: fast client creation, seat-capped team invites (+ CSV), recurring
         Luxor billing with a dashboard-only pause (owner: "add a really smooth way for me set up new clients,

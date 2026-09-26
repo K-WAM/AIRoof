@@ -538,3 +538,22 @@ Gates: npx tsc --noEmit; eslint on changed files; your tests; FULL npx vitest ru
 Same ownership lists/owner rules as before (jobs are never auto-created; reports carry no prices; one-teal tokens, no inline hex, 375px, tap targets >= 44px). Never push, merge or touch main.
 Final message: done/not-done table with commit hashes, gates output with full-suite counts, "Noticed, not done".
 ```
+
+---
+
+## E — demo feedback round 2 (written 2026-09-26) — six tasks in three waves
+
+**Spec and paste-ready prompts: `docs/DEMO-FEEDBACK-PLAN.md`** (sections "E1".."E6" are the specs; "Paste-ready prompts" holds the prompts). This section only tracks the queue. D1/D2/D3 prompts above are obsolete (done).
+
+Model names as they appear in the owner's pickers (2026-09-26): Codex **GPT-6 Sol** (auth, live calls, legal wording, money) or **GPT-5.5 Terra** (spec'd UI), each with an effort level; Deepseek **V4.1 Flash, Thinking: Hard** (owner's default).
+
+| Wave | Task | Worker, model | Worktree / branch | State |
+|---|---|---|---|---|
+| 1 | E1 Field access (QR time clock, no field "Work complete", required name, viewer read-only) + Team page (lock/unlock, revoke QR links) | Codex A, GPT-6 Sol, medium | `D:/Apps/air-wt-access` / `task/access-team` | ready |
+| 1 | E3 Job page restructure (numbered tabs, newest-first Activity, Issues -> Findings, picker sheet fix) | Codex B, GPT-5.5 Terra, medium | `D:/Apps/air-wt-job-page` / `task/job-page` | ready |
+| 1 | E4 AI-PROVIDERS.md, Florida notices DRAFT memo + legalNotices.ts, seeded call transcripts | Deepseek V4.1 Flash, Thinking: Hard | `D:/Apps/air-wt-docs-legal` / `task/docs-legal` | ready |
+| 2 | E2 Scheduling truth, list order, jobs paging + CSV, classify fallback | Codex A, GPT-6 Sol, medium | `D:/Apps/air-wt-schedule-lists` / `task/schedule-lists` | after E1 merges |
+| 2 | E5 Documents: invoice wording, report fixes, Include quote, Terms & notices | Codex B, GPT-6 Sol, medium | `D:/Apps/air-wt-documents-2` / `task/documents-2` | after E3 + E4 merge |
+| 3 | E6 Photos on documents (Before/After pairs, 4 per page) + drag-and-drop | Codex B, GPT-5.5 Terra, medium | `D:/Apps/air-wt-photos` / `task/doc-photos` | after E5; integrator installs @dnd-kit/sortable on main first |
+
+File ownership is disjoint per wave (see the plan's "Hot files" list): page.tsx is E3 -> E5 -> E6 in sequence; verifyRole.ts is E1 only; agentTools.ts is E2 only.
