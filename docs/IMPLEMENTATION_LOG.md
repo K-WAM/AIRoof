@@ -1473,3 +1473,9 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Full Playwright smoke suite (not just the touched pages) re-run on the merged tree: 82 passed, 2 intentional phone skips, 0 failures (9.1 min) - confirms T-129's CSS pass and E6b's new photo-selector UI landing in the same files do not collide.
 - Spot-checked T-127's own claims: air-wt-documents-2 and air-wt-photos really had zero commits ahead of main (git log main..<branch> empty) before it removed them; air-wt-guide-3 really does still carry unmerged 2026-09-26 content main lacks, correctly left alone.
 - Fast-forwarded local main to this merge (not pushed - owner approval still required for any push). TODO.md updated: T-127/E6b/T-129 all marked MERGED; Phase 23 header 5/9 -> 6/9.
+
+## 2026-09-27 — T-144 empty states and first-run setup
+- Commits: 1a45f5a, b73a5af, 1cf044c, d925884, a1e6fc1, 838d614, 610bc18, 6e028b0, e1d30d4, 332a8ca, 8c720c6, 5dd25e5, 544c5c7.
+- Added shared EmptyState coverage across Pipeline, Calls, Calendar, Jobs, Customers, Library, Team, and Field; actions are role-aware where the page has a write path.
+- Added e2e-empty / owner@empty.e2e.test and desktop + phone smoke coverage for new-account guidance.
+- Verification: npx tsc --noEmit passed before commits; browser harness seeded 4 tenants and 7 accounts.
