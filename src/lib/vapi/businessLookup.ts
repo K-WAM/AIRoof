@@ -63,7 +63,10 @@ export async function findBusinessByElevenLabsPhoneNumber(phoneNumber: string): 
   if (elevenLabsPhoneCache.has(phoneNumber)) return elevenLabsPhoneCache.get(phoneNumber) ?? null;
   const db = getAdminFirestore();
   if (!db) return null;
-  const snap = await db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(1).get();
+  const primarySnap = await db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(1).get();
+  const snap = primarySnap.empty
+    ? await db.collection("businesses").where("elevenlabs.extraPhoneNumbers", "array-contains", phoneNumber).limit(1).get()
+    : primarySnap;
   if (snap.empty) return null;
   const businessId = snap.docs[0].id;
   elevenLabsPhoneCache.set(phoneNumber, businessId);
