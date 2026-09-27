@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { VERTICAL_TEMPLATES, type VerticalId } from "../templates";
 import { demoSeedFor } from "../demoSeed";
+import { buildAvailableSlots, isScheduleWithinBusinessHours } from "@/lib/tools/agentTools";
+import { zonedDateTimeToUtc } from "@/lib/scheduling/hours";
 
 const VERTICAL_IDS = Object.keys(VERTICAL_TEMPLATES) as VerticalId[];
 
@@ -71,5 +73,41 @@ describe("demoSeedFor call transcripts", () => {
     const second = demoSeedFor("hvac", at);
     expect(first.calls).toEqual(second.calls);
     expect(first.appointments).toEqual(second.appointments);
+  });
+
+  it("keeps roofing seed data inside hours and leaves six morning openings across launch hours", () => {
+    const businessHours = {
+      Monday: "08:00 - 17:00", Tuesday: "08:00 - 17:00", Wednesday: "08:00 - 17:00",
+      Thursday: "08:00 - 17:00", Friday: "08:00 - 17:00", Saturday: "Closed", Sunday: "Closed",
+    };
+    const timeZone = "America/New_York";
+    for (let launchHour = 0; launchHour < 24; launchHour++) {
+      const now = zonedDateTimeToUtc({ year: 2026, month: 9, day: 27, hour: launchHour, minute: 0 }, timeZone)!;
+      const seed = demoSeedFor("roofing", now);
+      const existing = seed.appointments.map((appointment) => ({
+        startTime: appointment.startTime,
+        endTime: appointment.startTime + 60 * 60_000,
+        status: appointment.status,
+      }));
+      expect(existing.every((appointment) => isScheduleWithinBusinessHours(
+        appointment.startTime, appointment.endTime, businessHours, timeZone
+      )), `launch hour ${launchHour}`).toBe(true);
+
+      for (const preferredDate of ["2026-09-28", "2026-09-29", "2026-09-30"]) {
+        const slots = buildAvailableSlots({
+          businessHours, timeZone, preferredDate, existing,
+          capacity: seed.resources.length, now: new Date(now), maxSlots: 100,
+        }).filter((slot) => new Intl.DateTimeFormat("en-CA", {
+          timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+        }).format(new Date(slot.startTime)).replace(/\//g, "-") === preferredDate);
+        const morning = slots.filter((slot) => {
+          const hour = Number(new Intl.DateTimeFormat("en-US", {
+            timeZone, hour: "2-digit", hourCycle: "h23",
+          }).format(new Date(slot.startTime)));
+          return hour >= 8 && hour < 12;
+        });
+        expect(morning.length, `launch hour ${launchHour}, ${preferredDate}`).toBeGreaterThanOrEqual(6);
+      }
+    }
   });
 });

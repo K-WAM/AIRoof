@@ -10,6 +10,7 @@
 //    the Calendar board always has rows and a live drag to show.
 
 import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
+import { zonedDateTimeToUtc, zonedParts } from "@/lib/scheduling/hours";
 
 const CALLERS = [
   { name: "Jordan Blake", phone: "+13055550110" },
@@ -140,8 +141,24 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
   const t = VERTICAL_TEMPLATES[verticalId];
   const svc = t.approvedServices;
   const s = (i: number) => svc[i] ?? svc[0];
-  const day = 86_400_000;
   const apptMode = t.calendarMode === "appointments";
+  const appointmentTimes = Array.from({ length: 14 }, (_, index) => {
+    const localNow = zonedParts(now, "America/New_York");
+    let date = new Date(Date.UTC(localNow.year, localNow.month - 1, localNow.day));
+    let businessDays = 0;
+    const wantedBusinessDay = 1 + Math.floor(index / 3);
+    while (businessDays < wantedBusinessDay) {
+      date = new Date(date.getTime() + 86_400_000);
+      const weekday = date.getUTCDay();
+      if (weekday !== 0 && weekday !== 6) businessDays++;
+    }
+    const times = [{ hour: 9, minute: 0 }, { hour: 11, minute: 0 }, { hour: 13, minute: 30 }, { hour: 15, minute: 0 }];
+    const time = times[index % times.length];
+    return zonedDateTimeToUtc({
+      year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(),
+      hour: time.hour, minute: time.minute,
+    }, "America/New_York")!;
+  });
 
   const resources = RESOURCES[verticalId].map((name, i) => ({
     name,
@@ -296,25 +313,25 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
   //  - one after-hours pending-confirmation booking with email (Dashboard approval demo)
   const appointments: DemoSeed["appointments"] = [
     // Confirmed, assigned — opens a populated board.
-    { callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone, serviceType: s(0), startTime: now + 0.5 * day, status: "confirmed", address: ADDRESSES[0], resourceIndex: apptMode ? 0 : 0, sourceCallId: "call_demo_1" },
-    { callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone, serviceType: s(2), startTime: now + 1 * day, status: "confirmed", address: ADDRESSES[1], resourceIndex: apptMode ? 1 : 1, sourceCallId: "call_demo_3" },
-    { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceType: s(0), startTime: now + 1.5 * day, status: "confirmed", address: ADDRESSES[3], resourceIndex: apptMode ? 2 : 0, sourceCallId: "call_demo_6" },
-    { callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone, serviceType: s(1), startTime: now + 2.5 * day, status: "confirmed", address: ADDRESSES[5], resourceIndex: apptMode ? 3 : 2, sourceCallId: "call_demo_8" },
-    { callerName: CALLERS[8].name, callerPhone: CALLERS[8].phone, serviceType: s(3) ?? s(1), startTime: now + 3 * day, status: "confirmed", address: ADDRESSES[6], resourceIndex: apptMode ? 4 : 1 },
-    { callerName: CALLERS[10].name, callerPhone: CALLERS[10].phone, serviceType: s(0), startTime: now + 4 * day, status: "confirmed", address: ADDRESSES[7], resourceIndex: apptMode ? 0 : undefined },
-    { callerName: CALLERS[11].name, callerPhone: CALLERS[11].phone, serviceType: s(1), startTime: now + 4.5 * day, status: "confirmed", address: ADDRESSES[8], resourceIndex: apptMode ? 1 : undefined },
-    { callerName: CALLERS[12].name, callerPhone: CALLERS[12].phone, serviceType: s(2), startTime: now + 5 * day, status: "confirmed", address: ADDRESSES[9], resourceIndex: apptMode ? 2 : undefined },
+    { callerName: CALLERS[0].name, callerPhone: CALLERS[0].phone, serviceType: s(0), startTime: appointmentTimes[0], status: "confirmed", address: ADDRESSES[0], resourceIndex: apptMode ? 0 : 0, sourceCallId: "call_demo_1" },
+    { callerName: CALLERS[2].name, callerPhone: CALLERS[2].phone, serviceType: s(2), startTime: appointmentTimes[1], status: "confirmed", address: ADDRESSES[1], resourceIndex: apptMode ? 1 : 1, sourceCallId: "call_demo_3" },
+    { callerName: CALLERS[5].name, callerPhone: CALLERS[5].phone, serviceType: s(0), startTime: appointmentTimes[2], status: "confirmed", address: ADDRESSES[3], resourceIndex: apptMode ? 2 : 0, sourceCallId: "call_demo_6" },
+    { callerName: CALLERS[7].name, callerPhone: CALLERS[7].phone, serviceType: s(1), startTime: appointmentTimes[3], status: "confirmed", address: ADDRESSES[5], resourceIndex: apptMode ? 3 : 2, sourceCallId: "call_demo_8" },
+    { callerName: CALLERS[8].name, callerPhone: CALLERS[8].phone, serviceType: s(3) ?? s(1), startTime: appointmentTimes[4], status: "confirmed", address: ADDRESSES[6], resourceIndex: apptMode ? 4 : 1 },
+    { callerName: CALLERS[10].name, callerPhone: CALLERS[10].phone, serviceType: s(0), startTime: appointmentTimes[5], status: "confirmed", address: ADDRESSES[7], resourceIndex: apptMode ? 0 : undefined },
+    { callerName: CALLERS[11].name, callerPhone: CALLERS[11].phone, serviceType: s(1), startTime: appointmentTimes[6], status: "confirmed", address: ADDRESSES[8], resourceIndex: apptMode ? 1 : undefined },
+    { callerName: CALLERS[12].name, callerPhone: CALLERS[12].phone, serviceType: s(2), startTime: appointmentTimes[7], status: "confirmed", address: ADDRESSES[9], resourceIndex: apptMode ? 2 : undefined },
     // Provisional / grey-dashed — these read as "unconfirmed" on the Calendar.
-    { callerName: CALLERS[13].name, callerPhone: CALLERS[13].phone, serviceType: s(1), startTime: now + 6 * day, status: "requested", address: ADDRESSES[10], resourceIndex: apptMode ? 0 : undefined },
-    { callerName: CALLERS[14].name, callerPhone: CALLERS[14].phone, serviceType: s(0), startTime: now + 6.5 * day, status: "requested", address: ADDRESSES[11], resourceIndex: apptMode ? undefined : undefined },
-    { callerName: CALLERS[15].name, callerPhone: CALLERS[15].phone, serviceType: s(2), startTime: now + 7 * day, status: "requested", address: ADDRESSES[12], resourceIndex: apptMode ? undefined : undefined },
+    { callerName: CALLERS[13].name, callerPhone: CALLERS[13].phone, serviceType: s(1), startTime: appointmentTimes[8], status: "requested", address: ADDRESSES[10], resourceIndex: apptMode ? 0 : undefined },
+    { callerName: CALLERS[14].name, callerPhone: CALLERS[14].phone, serviceType: s(0), startTime: appointmentTimes[9], status: "requested", address: ADDRESSES[11], resourceIndex: apptMode ? undefined : undefined },
+    { callerName: CALLERS[15].name, callerPhone: CALLERS[15].phone, serviceType: s(2), startTime: appointmentTimes[10], status: "requested", address: ADDRESSES[12], resourceIndex: apptMode ? undefined : undefined },
     // Unassigned — these sit in the Unscheduled/Unassigned rail as drag targets.
-    { callerName: CALLERS[16].name, callerPhone: CALLERS[16].phone, serviceType: s(0), startTime: now + 1 * day, status: "requested", pendingConfirmation: false, address: ADDRESSES[2], resourceIndex: undefined },
-    { callerName: CALLERS[17].name, callerPhone: CALLERS[17].phone, serviceType: s(1), startTime: now + 3.5 * day, status: "requested", pendingConfirmation: false, address: ADDRESSES[4], resourceIndex: undefined },
+    { callerName: CALLERS[16].name, callerPhone: CALLERS[16].phone, serviceType: s(0), startTime: appointmentTimes[11], status: "requested", pendingConfirmation: false, address: ADDRESSES[2], resourceIndex: undefined },
+    { callerName: CALLERS[17].name, callerPhone: CALLERS[17].phone, serviceType: s(1), startTime: appointmentTimes[12], status: "requested", pendingConfirmation: false, address: ADDRESSES[4], resourceIndex: undefined },
     // After-hours, pending approval, WITH a captured email — showcases the
     // dashboard "Pending Your Approval" section + "Confirm & notify customer".
     // Left unassigned so it's also the card you drag on the Calendar.
-    { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, callerEmail: "dana.cole@example.com", serviceType: s(1), startTime: now + 2 * day, status: "requested", pendingConfirmation: true, address: ADDRESSES[0], resourceIndex: undefined, sourceCallId: "call_demo_4" },
+    { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, callerEmail: "dana.cole@example.com", serviceType: s(1), startTime: appointmentTimes[13], status: "requested", pendingConfirmation: true, address: ADDRESSES[0], resourceIndex: undefined, sourceCallId: "call_demo_4" },
   ];
 
   return {

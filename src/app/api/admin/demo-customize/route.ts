@@ -58,7 +58,7 @@ const DEMO_BUSINESS_HOURS = {
   Wednesday: "08:00 - 17:00",
   Thursday: "08:00 - 17:00",
   Friday: "08:00 - 17:00",
-  Saturday: "09:00 - 13:00",
+  Saturday: "Closed",
   Sunday: "Closed",
 };
 const ROOFING_DEFAULT_NAME = "Apex Roofing South Florida";
