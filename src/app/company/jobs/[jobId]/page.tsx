@@ -18,7 +18,7 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { noticesForDocument } from "@/lib/documents/notices";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "@/lib/documents/report";
+import { draftReportNotes, reportSections, stripHiddenFacts } from "@/lib/documents/report";
 import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
 import { FindingsPanel } from "./FindingsPanel";
 import { JobHistory } from "./JobHistory";
@@ -67,7 +67,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 // Phase 12, Phase 3 — report photo grid. Raised 8 → 16 (2 pages @ 8/page).
-const MAX_REPORT_PHOTOS = 12;
+const MAX_REPORT_PHOTOS = 16;
 const PHASE_ORDER: PhotoPhase[] = ["before", "after", "other"];
 
 type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
@@ -216,7 +216,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [report, setReport] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reportNotes, setReportNotes] = useState("");
-  const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string; phase?: PhotoPhase }>>([]);
+  const [reportPhotos, setReportPhotos] = useState<Array<JobPhotoMeta & { fullB64: string }>>([]);
   const [reportOptions, setReportOptions] = useState<Partial<DocumentOptions>>({});
   const [reportTechnicians, setReportTechnicians] = useState<string[]>([]);
   const [showReportSend, setShowReportSend] = useState(false);
@@ -618,10 +618,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     // Sort before → after → other (interleaved is useless), then cap at 2 pages (8/page).
     const included = metas
       .filter((p) => p.includeInReport)
-      .sort((a, b) => {
-        const order = PHASE_ORDER.indexOf(a.phase ?? "other") - PHASE_ORDER.indexOf(b.phase ?? "other");
-        return order !== 0 ? order : (a.sort ?? a.createdAt) - (b.sort ?? b.createdAt);
-      })
+      .sort((a, b) => (a.sort ?? a.createdAt) - (b.sort ?? b.createdAt))
       .slice(0, MAX_REPORT_PHOTOS);
 
     // Batched blob fetch (≤12 ids/request) — was one GET per photo.
@@ -636,7 +633,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setReportPhotos(
       included
         .filter((p) => blobsById[p.photoId])
-        .map((p) => ({ label: p.label, fullB64: blobsById[p.photoId], phase: p.phase ?? "other" }))
+        .map((p) => ({ ...p, fullB64: blobsById[p.photoId] }))
     );
   }
 
@@ -696,7 +693,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/report/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes, photos: reportPhotos }),
+        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes }),
       });
       if (res.ok) {
         setReportSent(true);
@@ -2170,7 +2167,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   reportNotes: string;
   reportOptions: Partial<DocumentOptions>;
   reportTechnicians: string[];
-  reportPhotos: ReportPhoto[];
+  reportPhotos: Array<JobPhotoMeta & { fullB64: string }>;
   quote: JobQuote | null;
 }) {
   const { fmtDate } = useFormat();
@@ -2183,35 +2180,11 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
-  const photoGroups = options.showPhotos ? pairReportPhotos(reportPhotos) : { pairs: [], other: [] };
-  return <>
-    <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
-      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
-      narrative={stripHiddenFacts(reportNotes, options)}
-      findings={findings} sections={sections} quoteSection={quoteSection} />
-    {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
-      <ReportSection title="Photo documentation">
-        {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-          {photoGroups.pairs.flatMap((pair, index) => [
-            <ReportPhotoCard key={`problem-${index}`} title="Problem" photo={pair.before} />,
-            <ReportPhotoCard key={`corrective-${index}`} title="Corrective action" photo={pair.after} />,
-          ])}
-        </div>}
-        {photoGroups.other.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: photoGroups.pairs.length ? 16 : 0 }}>{photoGroups.other.map((photo, index) => <ReportPhotoCard key={index} title="Photo documentation" photo={photo} />)}</div>}
-      </ReportSection>
-    </section>}
-  </>;
-}
-
-function ReportPhotoCard({ title, photo }: { title: string; photo?: ReportPhoto }) {
-  if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ border: "1px dashed #cbd5e1", borderRadius: 8, minHeight: 120, padding: 12, color: "#64748b", fontSize: 12 }}>{title}: no photo recorded</div>;
-  return <figure style={{ margin: 0 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 5 }}>{title}</div>
-    {/* Full-resolution report photos are data URIs and cannot be optimized by next/image. */}
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={`data:image/jpeg;base64,${photo.fullB64}`} alt={photo.label} style={{ width: "100%", maxHeight: 360, objectFit: "contain", border: "1px solid #e2e8f0", borderRadius: 8 }} />
-    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
-  </figure>;
+  return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
+    billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
+    narrative={stripHiddenFacts(reportNotes, options)}
+    findings={findings} sections={sections} quoteSection={quoteSection}
+    photos={options.showPhotos ? reportPhotos : []} />;
 }
 
 // Legacy detailed renderer retained temporarily while report documents migrate; ReportDocument above
