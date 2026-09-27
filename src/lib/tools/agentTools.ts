@@ -15,6 +15,14 @@ import {
 import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import {
+  parseBusinessHours,
+  zonedDateTimeToUtc,
+  zonedParts,
+  type ZonedParts,
+} from "@/lib/scheduling/hours";
+
+export { zonedDateTimeToUtc } from "@/lib/scheduling/hours";
 
 export interface CheckAvailabilityInput {
   businessId: string;
@@ -33,16 +41,6 @@ const SCHEDULE_BUCKET_MS = 15 * 60 * 1000;
 export const DEFAULT_SCHEDULE_DURATION_MS = 60 * 60 * 1000;
 const AVAILABILITY_STEP_MINUTES = 30;
 const AVAILABILITY_SCAN_DAYS = 14;
-
-interface ZonedParts {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-  weekday: string;
-}
 
 interface ExistingSchedule {
   startTime: number;
@@ -109,91 +107,6 @@ export class SchedulingConflictError extends Error {
     this.name = "SchedulingConflictError";
     this.code = code;
   }
-}
-
-function zonedParts(timestamp: number, timeZone: string): ZonedParts {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    weekday: "long",
-  }).formatToParts(new Date(timestamp));
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value;
-  return {
-    year: Number(value("year")),
-    month: Number(value("month")),
-    day: Number(value("day")),
-    hour: Number(value("hour")),
-    minute: Number(value("minute")),
-    second: Number(value("second")),
-    weekday: value("weekday") ?? "",
-  };
-}
-
-/** Convert a wall-clock time in an IANA timezone to its UTC epoch, including DST. */
-export function zonedDateTimeToUtc(
-  input: Omit<ZonedParts, "second" | "weekday"> & { second?: number },
-  timeZone: string
-): number | null {
-  const targetAsUtc = Date.UTC(
-    input.year,
-    input.month - 1,
-    input.day,
-    input.hour,
-    input.minute,
-    input.second ?? 0
-  );
-  let guess = targetAsUtc;
-  try {
-    for (let iteration = 0; iteration < 4; iteration++) {
-      const actual = zonedParts(guess, timeZone);
-      const actualAsUtc = Date.UTC(
-        actual.year,
-        actual.month - 1,
-        actual.day,
-        actual.hour,
-        actual.minute,
-        actual.second
-      );
-      const adjustment = targetAsUtc - actualAsUtc;
-      guess += adjustment;
-      if (adjustment === 0) break;
-    }
-    const roundTrip = zonedParts(guess, timeZone);
-    if (
-      roundTrip.year !== input.year ||
-      roundTrip.month !== input.month ||
-      roundTrip.day !== input.day ||
-      roundTrip.hour !== input.hour ||
-      roundTrip.minute !== input.minute
-    ) {
-      return null;
-    }
-    return guess;
-  } catch {
-    return null;
-  }
-}
-
-function parseBusinessHours(value: unknown): Record<string, string> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, string>;
-}
-
-function parseDayHours(value: string | undefined): { open: number; close: number } | null {
-  if (!value || value.trim().toLowerCase() === "closed") return null;
-  const match = value.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const open = Number(match[1]) * 60 + Number(match[2]);
-  const close = Number(match[3]) * 60 + Number(match[4]);
-  if (open < 0 || close > 24 * 60 || close <= open) return null;
-  return { open, close };
 }
 
 export function scheduleRangesOverlap(
@@ -303,7 +216,7 @@ export function isScheduleWithinBusinessHours(
     if (start.year !== end.year || start.month !== end.month || start.day !== end.day) {
       return false;
     }
-    const dayHours = parseDayHours(hours[start.weekday]);
+    const dayHours = hours[start.weekday];
     if (!dayHours) return false;
     const startMinutes = start.hour * 60 + start.minute;
     const endMinutes = end.hour * 60 + end.minute;
@@ -370,7 +283,7 @@ export function buildAvailableSlots(options: {
     const noon = zonedDateTimeToUtc({ ...date, hour: 12, minute: 0 }, options.timeZone);
     if (noon === null) continue;
     const weekday = zonedParts(noon, options.timeZone).weekday;
-    const dayHours = parseDayHours(hours[weekday]);
+    const dayHours = hours[weekday];
     if (!dayHours) continue;
 
     for (
