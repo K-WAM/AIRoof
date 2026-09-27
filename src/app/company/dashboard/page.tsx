@@ -15,7 +15,9 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { setupChecklist, type SetupChecklistInput } from "@/lib/onboarding/setupChecklist";
 import { useAuth } from "@/contexts/AuthContext";
-import { AlertTriangle, Bot, Clock, LayoutDashboard, PhoneCall, Settings, Wrench } from "lucide-react";
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { fmtPhone } from "@/lib/format";
+import { AlertTriangle, Bot, CheckCircle2, Circle, Clock, LayoutDashboard, PhoneCall, Settings, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
   leadId: string;
@@ -93,6 +95,8 @@ export default function CompanyDashboardPage() {
   const [escalationAlerts, setEscalationAlerts] = useState<EscalationSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const canSeeChecklist = user?.role === "owner" || !!user?.superadmin;
+  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
   const [setup, setSetup] = useState<SetupChecklistInput | null>(null);
   const [checklistHidden, setChecklistHidden] = useState(false);
   const hideKey = user?.uid ? `setup-checklist-hidden:${user.uid}` : null;
@@ -130,7 +134,8 @@ export default function CompanyDashboardPage() {
           fetch(`${base}/agent-config`),
           hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
           fetch(`${base}/agent-actions?limit=50`),
-          fetch(`/api/company/setup-status?businessId=${businessId}`),
+          // Only the owner (or a superadmin previewing) sees the checklist — nobody else pays for its count queries.
+          canSeeChecklist ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
         ]);
 
         if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
@@ -163,7 +168,7 @@ export default function CompanyDashboardPage() {
         }
 
         setCallCount(callCountData.count);
-        if (setupRes.ok) setSetup(await setupRes.json() as SetupChecklistInput);
+        if (setupRes?.ok) setSetup(await setupRes.json() as SetupChecklistInput);
         const nextLeads = (leadsData.leads ?? []) as LeadSnapshot[];
         const nextAppointments = [...new Map(
           ([...((apptsData.appointments ?? []) as ApptSnapshot[]), ...((pendingData.appointments ?? []) as ApptSnapshot[])])
@@ -209,7 +214,7 @@ export default function CompanyDashboardPage() {
     }
 
     return load();
-  }, [businessId, modulesReady, hasJobs]);
+  }, [businessId, modulesReady, hasJobs, canSeeChecklist]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
 
@@ -259,8 +264,10 @@ export default function CompanyDashboardPage() {
   const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
   const checklistDone = checklist.filter((item) => item.done).length;
-  const showsChecklist = (user?.role === "owner" || !!user?.superadmin) && checklist.length > 0 && checklistDone < checklist.length;
+  const nextItemId = checklist.find((item) => !item.done && item.href)?.id;
+  const showsChecklist = canSeeChecklist && checklist.length > 0 && checklistDone < checklist.length;
   const neverHadCall = callCount === 0;
+  const lineConnected = setup ? setup.phoneConfigured : !!agent?.phoneLineConnected;
 
   if (loading) {
     return <PageSkeleton metrics={4} rows={4} />;
@@ -288,7 +295,22 @@ export default function CompanyDashboardPage() {
             <h2 className="panel-title">Get your business ready — {checklistDone}/{checklist.length}</h2>
             <button type="button" className="button ghost small" onClick={() => toggleChecklist(true)}>Hide for now</button>
           </div>
-          <div className="panel-body"><div className="setup-checklist">{checklist.map((item) => <div key={item.id} className="setup-checklist-row"><span aria-hidden="true">{item.done ? "✓" : "○"}</span><span>{item.label}</span>{!item.done && item.href && item.cta && <Link className="button primary small" href={item.href}>{item.cta}</Link>}</div>)}</div></div>
+          <div className="panel-body">
+            <ul className="setup-checklist" data-testid="setup-checklist">
+              {checklist.map((item) => (
+                <li key={item.id} className={`setup-checklist-row${item.done ? " is-done" : ""}`}>
+                  {item.done
+                    ? <CheckCircle2 size={18} strokeWidth={1.75} aria-label="Done" />
+                    : <Circle size={18} strokeWidth={1.75} aria-label="Not done" />}
+                  <span>{item.label}</span>
+                  {/* Only the next step is primary, so the card never shows a row of competing teal buttons. */}
+                  {!item.done && item.href && item.cta && (
+                    <Link className={`button small${item.id === nextItemId ? " primary" : ""}`} href={item.href}>{item.cta}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
       )}
       <header className="page-header">
@@ -455,17 +477,24 @@ export default function CompanyDashboardPage() {
           {allClear && !neverHadCall && (
             <div className="feed-empty">All caught up — nothing urgent right now.</div>
           )}
-          {allClear && neverHadCall && !showsChecklist && (
+          {allClear && neverHadCall && !showsChecklist && (lineConnected ? (
             <EmptyState
               icon={PhoneCall}
               title="Your phone line is ready"
-              body={setup?.phoneNumber
-                ? `Call ${setup.phoneNumber} to hear your AI receptionist. The call shows up here in seconds.`
+              body={phoneLine
+                ? `Call ${fmtPhone(phoneLine)} to hear your AI receptionist. The call shows up here in seconds.`
                 : "Call your business line to hear your AI receptionist. The call shows up here in seconds."}
-              action={setup?.phoneNumber ? { label: "Call your line", href: `tel:${setup.phoneNumber}` } : undefined}
+              action={phoneLine && user?.role !== "viewer" ? { label: "Call your line", href: `tel:${phoneLine}` } : undefined}
               testId="dashboard-empty-phone"
             />
-          )}
+          ) : (
+            <EmptyState
+              icon={PhoneCall}
+              title="Your phone line is being connected"
+              body="Calls show up here as soon as it's live."
+              testId="dashboard-empty-connecting"
+            />
+          ))}
         </div>
 
         {/* Agent Setup panel - unchanged */}
