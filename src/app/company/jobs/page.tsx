@@ -9,6 +9,8 @@ import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
 import { Briefcase, ExternalLink, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
@@ -18,6 +20,7 @@ type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced"
 
 export default function JobsPage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -306,15 +309,14 @@ export default function JobsPage() {
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 12px" }}>
-              {statusFilter === "all"
-                ? `No ${vocab.jobNounPlural.toLowerCase()} yet. Start one here or review requests in Pipeline.`
-                : "No jobs match this status in the loaded pages. Choose another status to continue."}
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <a className="button primary" href={`/company/pipeline${previewSuffix}`}>Go to Pipeline</a>
-              <button type="button" className="button" onClick={() => setShowForm(true)}>New {vocab.jobNoun}</button>
-            </div>
+            <EmptyState
+              title={statusFilter === "all" ? `No ${vocab.jobNounPlural.toLowerCase()} yet` : "Nothing here right now"}
+              body={statusFilter === "all" ? "Accept a request in Pipeline, or add one yourself." : undefined}
+              action={user?.role === "viewer" ? undefined : statusFilter === "all"
+                ? { label: "Review requests", href: `/company/pipeline${previewSuffix}` }
+                : { label: "Clear filter", onClick: () => setStatusFilter("all") }}
+              secondary={user?.role === "viewer" || statusFilter !== "all" ? undefined : { label: `New ${vocab.jobNoun}`, onClick: () => setShowForm(true) }}
+            />
           </div>
         </section>
       ) : (
