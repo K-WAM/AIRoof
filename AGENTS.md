@@ -88,6 +88,15 @@ Remove only with evidence: repo-wide grep (including string/dynamic references),
 green after removal. Log every removal + rationale in `docs/IMPLEMENTATION_LOG.md`. Keep types that describe
 live Firestore collections even if unreferenced in TS. Never mix cleanup commits with functional commits.
 
+## Browser and end-to-end testing (added 2026-09-26) — READ `docs/SMOKE-HARNESS.md`
+
+A local, keyless copy of the whole product exists: `npm run e2e:up:bg` (from YOUR worktree) starts the app on Firebase emulators with seeded
+tenants and accounts; `npm run e2e:test` runs Playwright on desktop + phone; `npm run e2e:call` walks call → pipeline → job → quote → report → invoice
+over the real API. **Any task that changes a screen, a button, a list or a document must be checked with it** — write or extend a spec in `e2e/`,
+look at the screenshots in `test-results/screens/`, and put the result in your final message. "I could not check it in a browser" is only acceptable
+if the harness itself is broken, and then say exactly what failed. Also list what the harness cannot cover (real phone audio, real inbox, `next build`).
+Never point a browser test at production or at any account that is not in `scripts/e2e/config.cjs`.
+
 ## Test expectations
 
 - vitest (from T-000). Unit-test auth boundaries with **negative cases first** (missing/wrong/expired/replayed).
@@ -161,5 +170,7 @@ live Firestore collections even if unreferenced in TS. Never mix cleanup commits
   re-run the gate before concluding anything about the code.
 
 ## Worker etiquette (added 2026-09-24)
+
+**Testing UI/flow changes: use the smoke harness** (`docs/SMOKE-HARNESS.md`) — `npm run e2e:up:bg`, then `npm run e2e:test`. It needs no keys. Do not report "browser tool failed."
 
 See `docs/WORKER_QUEUE.md`: commit WIP at least every ~45 minutes and always before stopping; stop and ask ("QUESTION FOR INTEGRATOR") instead of guessing on ambiguous specs, product decisions, new dependencies or files outside your ownership list; keep side quests out of the code (list them as "Noticed, not done"); never call live services or add keys to any file.

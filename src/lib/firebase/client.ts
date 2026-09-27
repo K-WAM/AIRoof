@@ -47,7 +47,15 @@ let authPromise: Promise<Auth | null> | null = null;
 export function getFirebaseAuth(): Promise<Auth | null> {
   if (!authPromise) {
     authPromise = appPromise.then((app) =>
-      app ? import("firebase/auth").then(({ getAuth }) => getAuth(app)) : null
+      app
+        ? import("firebase/auth").then(({ getAuth, connectAuthEmulator }) => {
+            const auth = getAuth(app);
+            // Local smoke harness only (scripts/e2e/up.mjs sets this; never set in production builds).
+            const emulator = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL;
+            if (emulator) connectAuthEmulator(auth, emulator, { disableWarnings: true });
+            return auth;
+          })
+        : null
     );
   }
   return authPromise;

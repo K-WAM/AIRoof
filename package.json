@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:up": "node scripts/e2e/up.mjs",
+    "e2e:up:bg": "node scripts/e2e/up.mjs --detach",
+    "e2e:down": "node scripts/e2e/down.mjs",
+    "e2e:seed": "node scripts/e2e/seed.mjs --reset",
+    "e2e:test": "playwright test",
+    "e2e:call": "node scripts/e2e/scenarios/call-to-cash.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -28,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^20.10.0",

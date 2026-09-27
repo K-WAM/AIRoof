@@ -29,6 +29,7 @@ If one is missing, from the main repo: `git worktree add "D:/Apps/<name>" -b tas
   message ("QUESTION FOR INTEGRATOR: ...") and do the safe part of the task; do not expand scope.
 - **Do not chase side quests.** Anything you notice but that is not in your task goes in your final message under
   "Noticed, not done" — not into the code.
+- **Test screens and flows with the smoke harness** (`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` from your worktree, then `npm run e2e:test` / `npm run e2e:call`; screenshots in `test-results/screens/`). It needs no keys. Do not report "browser tool failed" — fix or report the harness.
 - You have **no ElevenLabs/Vapi/Resend/OpenAI keys** and must not call live services. Use mocked `fetch`. Never add keys
   to any file. `.env.example` holds names only.
 - Mobile-check UI at 375 px; one-teal design system; Cache-Control rule (`jsonWithCache`, never `public`/`s-maxage`).
@@ -558,3 +559,112 @@ Model names as they appear in the owner's pickers (2026-09-26): Codex **GPT-6 So
 | 3b | E6b Photos on quote/invoice/report + server-side loading for email | Codex, GPT-5.5 Terra, medium | `D:/Apps/air-wt-doc-photos` / `task/doc-photos` | after E5 + E6a merge |
 
 File ownership is disjoint per wave (see the plan's "Hot files" list): page.tsx is E3 -> E5 -> E6 in sequence; verifyRole.ts is E1 only; agentTools.ts is E2 only.
+
+**State 2026-09-26 (evening):** E1/E2/E3/E4/E5/E6a all DONE and merged to local `main`. G3 (guide refresh, see below) DONE. **The smoke harness now exists** (`docs/SMOKE-HARNESS.md`, `npm run e2e:up:bg` / `e2e:test` / `e2e:call`) — every prompt below uses it; "I couldn't check it in a browser" is no longer an acceptable excuse from a worker. E6b is IN PROGRESS (partial, see below). New: **T-129** UX declutter pass, spec `docs/ROOFING-DEMO-UX-REVIEW.md`.
+
+### G3 — Deepseek: guide + runbook refresh — DONE 2026-09-26
+
+`public/guides/onboarding-guide.html` v3.0 and `docs/DEMO-DAY-RUNBOOK.md` updated to match Phase 25's shipped changes (numbered tabs, Issues->Findings, office-only completion, Team page, Complete->Invoiced->Paid, price-free report, Terms & notices DRAFT, photo pairs). Merged to local `main`. No further action.
+
+---
+
+### E6b continuation — Codex: finish photos on quote/invoice/report
+
+**Suggested model: GPT-6 Sol, medium** (touches the invoice/quote/report send routes and money-adjacent document content — matches this task's original tier; do not drop to Terra for the finish).
+
+```
+You are Codex, continuing task E6b on the AI Receptionist platform. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
+
+Work ONLY inside: D:\Apps\air-wt-doc-photos   (branch task/doc-photos)
+This worktree ALREADY EXISTS with your own prior commits (d0edf72, 9769069). Do not run npm install or git worktree add.
+FIRST run `git merge main` inside it — main has moved (it now includes E6a merged, T-127 not yet, and a new local smoke-test
+harness you will use below). Resolve any doc conflicts in favor of main's docs. BEFORE YOUR FIRST EDIT run
+`git rev-parse --show-toplevel` and `git branch --show-current`; they must be D:/Apps/air-wt-doc-photos and task/doc-photos.
+Re-check before every commit. Never edit "D:\Apps\6 - AI Receptionist" (main repo).
+
+CONTEXT: you (or a prior session on this branch) already built the shared layout (DocumentPreview's `photos` prop +
+photoPages(), photosBlock() email helper, optional photoIds on quote/invoice types, and server-side blob loading in all
+three send routes). tsc/lint/vitest src/lib/documents were green at that checkpoint. Read your own prior commits first
+(`git log --oneline main..HEAD`, `git diff main..HEAD`), then docs/DEMO-FEEDBACK-PLAN.md section "E6b" (your original
+spec) end to end, then TODO.md's Phase 25 E6b entry (records exactly what is done vs not).
+
+REMAINING WORK, in order, committing after each (prefix "E6b:"):
+1. UI toggles: add "Include photos" to the Quote and Invoice panels (QuotePanel.tsx and the Invoice tab region of
+   src/app/company/jobs/[jobId]/page.tsx — grep for the Invoice tab anchor, do not read the whole file), defaulting to the
+   report-selected photos, wired to the photoIds field you already added to the types.
+2. Server-side validation of photoIds on save/send: every id must belong to THIS job (tenant-scoped), cap at 16, reject if
+   a blob is missing. Write the negative tests FIRST: another job's photo id, another tenant's photo id, >16 ids, duplicate
+   ids, a deleted photo's id — all must be rejected with a clear 400, not a 500 or a silently-dropped id.
+3. Convert the report send route to use photosBlock() the same way quote/invoice now do, for one consistent layout across
+   all three documents. The report's price-free rule must still hold with photos on (add a test: a report with photos
+   selected still contains no price, even a caption that happens to include a number).
+4. USE THE SMOKE HARNESS to actually look at your work — this was not possible on your first pass; it is now.
+   Read docs/SMOKE-HARNESS.md. From your worktree: `npm run e2e:up:bg` (first run ~3 min while pages compile), then extend
+   e2e/photos.spec.ts or add e2e/doc-photos.spec.ts: seed a job with Before/After photos via the api() helper
+   (scripts/e2e/lib.cjs), select them on the Quote and Invoice tabs, send, and assert (a) the UI shows the toggle and the
+   selected photos, (b) outbox() shows the sent email's HTML actually contains the photos in Before|After pairs, (c) a
+   report send with photos on still has no price in its text. Run `npm run e2e:test` and put real screenshot paths (from
+   test-results/screens/) in your final message — not a description of what you assume renders.
+5. Gates: npx tsc --noEmit; eslint on changed files; the full npx vitest run (send.test and company/team are load-flaky —
+   re-run alone before believing a failure); npx next build once. Append evidence to docs/IMPLEMENTATION_LOG.md via a
+   shell append (the file has odd bytes; never a patch tool). Set E6b to `review` in TODO.md Phase 25.
+Do NOT touch: src/lib/auth/**, agentTools.ts, webhooks, voice, Team page, notices.ts approval logic, src/lib/photos/**,
+src/components/photos/** (T-129 owns that file), src/app/company/jobs/page.tsx (the LIST page — you own only the
+[jobId] detail page's Photos/Report/Invoice regions). No new dependencies.
+Never push/merge/touch main. Commit at least every 45 minutes. If stuck >20 min: commit WIP and end with
+"QUESTION FOR INTEGRATOR: ...". Final message: step table with commit hashes, full gate output, real screenshot paths,
+"Noticed, not done".
+```
+
+---
+
+### T-129 — Codex or Deepseek: demo-ready UX declutter pass
+
+**Suggested model: GPT-5.5 Terra, medium** (bounded CSS/responsive layout across several files, no auth/money logic — Sol is unnecessary; Deepseek V4.1 Flash Thinking Hard is a fine alternative if Codex is busy on E6b).
+
+```
+You are Codex on the AI Receptionist platform. Task T-129: fix the phone-layout and small clarity issues the new local
+smoke harness found. Read docs/WORKER_QUEUE.md's "Worker etiquette" first.
+
+Create your worktree first (PowerShell):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-ux-declutter -b task/ux-declutter main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-ux-declutter/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-ux-declutter. Verify `git rev-parse --show-toplevel` = D:/Apps/air-wt-ux-declutter and
+`git branch --show-current` = task/ux-declutter before your first edit and before each commit. Never edit
+"D:/Apps/6 - AI Receptionist".
+
+Read first: AGENTS.md, docs/WORKER_QUEUE.md "Worker etiquette", CLAUDE.md's design-system rule (one teal var(--accent),
+.button variants, never hardcode a color or reintroduce #2563eb), docs/SMOKE-HARNESS.md (how to run the harness), then
+docs/ROOFING-DEMO-UX-REVIEW.md in full — it is your spec, especially "What decluttered and modern means as a pass/fail".
+
+Setup: `npm run e2e:up:bg` (first run ~3 min), then `npx playwright test e2e/smoke.spec.ts --project=phone` once BEFORE
+you change anything, and look at the screenshots in test-results/screens/phone/ for every page in KNOWN_PHONE_OVERFLOW
+(e2e/smoke.spec.ts) — that is your reproduction of each bug, not a description.
+
+Fix each of these (CSS/layout only — no new components unless a screen genuinely needs one, no logic changes, tokens in
+globals.css over per-page inline styles):
+1. Dashboard (src/app/company/dashboard/page.tsx) — the Needs Attention feed rows overflow a 375px screen.
+2. Jobs LIST page (src/app/company/jobs/page.tsx — NOT the [jobId] detail page, which E6b owns) — the table overflows;
+   give it a card layout on narrow screens (same data, stacked instead of columned) rather than horizontal scroll.
+3. Settings (src/app/company/settings/page.tsx) — a panel overflows.
+4. Field screens (src/app/field/page.tsx, src/app/company/field/page.tsx) — content overflows; everything must be
+   reachable without horizontal scroll on a phone.
+5. Hub (src/app/hub/page.tsx, src/app/hub/demo/page.tsx) and Playbooks (src/app/hub/guide/page.tsx) — overflow.
+6. Admin Luxor Invoices (src/app/admin/invoices/page.tsx) — overflow.
+7. Photo card icon buttons (src/components/photos/SortablePhotoGrid.tsx) — the reorder/edit/delete icon buttons are
+   ~20px; make them >=40px tap targets (WCAG/mobile guidance) without breaking the desktop density; on the "Other"
+   section a delete icon gets squeezed out on some widths — fix that overlap too.
+8. Company sidebar Feedback link — on a short desktop window it sits partly behind the "Add" button; fix the stacking/
+   spacing so both are always fully visible and clickable.
+For EACH fix, delete that page's line from KNOWN_PHONE_OVERFLOW in e2e/smoke.spec.ts (the test then fails if the
+overflow ever comes back) and, for the photo-button fix, update or remove the "known-issue" annotation in
+e2e/photos.spec.ts. Do not delete a line unless `npx playwright test e2e/smoke.spec.ts --project=phone` actually passes
+clean for that page afterward.
+Do NOT touch: src/app/company/jobs/[jobId]/page.tsx (E6b owns it this wave), src/lib/documents/**, src/lib/photos/**
+(logic, not the grid component's CSS), agentTools.ts, webhooks, auth. No new dependencies.
+Gates: npx tsc --noEmit; eslint on changed files; npm run e2e:test (full desktop + phone) — must be fully green with the
+known-issue list shrunk exactly as described; full npx vitest run; npx next build once. Append evidence to
+docs/IMPLEMENTATION_LOG.md via a shell append. Update your row in TODO.md's T-129.
+Never push/merge/touch main. Commit at least every 45 minutes, one commit per numbered item (prefix "T-129:"). If stuck
+>20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...". Final message: a table of the 8 items with before/after
+screenshot paths and which KNOWN_PHONE_OVERFLOW lines you removed.
+```

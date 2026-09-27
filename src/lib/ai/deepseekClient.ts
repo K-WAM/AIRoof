@@ -1,4 +1,6 @@
 import type { ParsedUpdate } from "@/types/jobs";
+import { isE2EHarness } from "@/lib/e2e/harness";
+import { fixtureParseFieldUpdate } from "@/lib/e2e/fixtureAi";
 import { dropUnspokenTimes } from "./spokenTimes";
 import {
   selectClient,
@@ -67,6 +69,7 @@ export async function parseFieldUpdate(
   const { client, selection } = selectClient("parse-field-update", options.modelOverrides);
 
   if (!client) {
+    if (isE2EHarness()) return fixtureParseFieldUpdate(options.rawText, options.language);
     if (isProduction()) {
       throw new ParseFieldUpdateError("parseFieldUpdate: no AI provider configured");
     }
