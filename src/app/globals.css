@@ -1217,6 +1217,59 @@ a.metric:hover {
   }
 
   .feed-chevron { margin-top: 8px; }
+
+  /* The jobs list keeps its table semantics for assistive technology, while
+     presenting each result as a compact, labelled card on phones. */
+  .jobs-list-table,
+  .jobs-list-table tbody,
+  .jobs-list-table tr,
+  .jobs-list-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .jobs-list-table thead { display: none; }
+
+  .jobs-list-table tbody {
+    padding: 10px;
+  }
+
+  .jobs-list-table tbody > tr {
+    margin-bottom: 10px;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+
+  .jobs-list-table tbody > tr:last-child { margin-bottom: 0; }
+
+  .jobs-list-table tbody > tr > td {
+    display: grid;
+    grid-template-columns: minmax(76px, 0.38fr) minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 10px !important;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+
+  .jobs-list-table tbody > tr > td:last-child { border-bottom: 0; }
+
+  .jobs-list-table tbody > tr > td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .jobs-list-table .jobs-list-action {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .jobs-list-table .jobs-list-action::before { display: none; }
 }
 
 .feed-empty {
