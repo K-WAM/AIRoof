@@ -15,6 +15,7 @@ import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
 import { Briefcase, ExternalLink, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { matchesJobSearch } from "@/lib/jobs/search";
+import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
@@ -78,6 +79,11 @@ export default function JobsPage() {
   }, [businessId, statusFilter]);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
+
+  const readOnly = user?.role === "viewer";
+  const listEmpty = !loading && !loadError && jobs.length === 0 && statusFilter === "all";
+
+  const waitingRequests = useWaitingRequests(businessId, listEmpty && !readOnly);
 
   // Picks up a job created via the global quick-add while sitting on this page.
   useQuickAddRefresh("job", fetchJobs);
@@ -178,10 +184,13 @@ export default function JobsPage() {
             <ExternalLink size={15} strokeWidth={1.75} />
             Field view
           </a>
-          <button className="button primary" onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {!showForm && <Plus size={15} strokeWidth={1.75} />}
-            {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
-          </button>
+          {/* While the list is empty its EmptyState holds the one primary action. */}
+          {!readOnly && (
+            <button className={`button${listEmpty ? "" : " primary"}`} onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {!showForm && <Plus size={15} strokeWidth={1.75} />}
+              {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
+            </button>
+          )}
         </div>
       </header>
 
@@ -309,14 +318,20 @@ export default function JobsPage() {
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <EmptyState
-              title={statusFilter === "all" ? `No ${vocab.jobNounPlural.toLowerCase()} yet` : "Nothing here right now"}
-              body={statusFilter === "all" ? "Accept a request in Pipeline, or add one yourself." : undefined}
-              action={user?.role === "viewer" ? undefined : statusFilter === "all"
-                ? { label: "Review requests", href: `/company/pipeline${previewSuffix}` }
-                : { label: "Clear filter", onClick: () => setStatusFilter("all") }}
-              secondary={user?.role === "viewer" || statusFilter !== "all" ? undefined : { label: `New ${vocab.jobNoun}`, onClick: () => setShowForm(true) }}
-            />
+            {statusFilter !== "all" ? (
+              <EmptyState compact title="Nothing here right now" secondary={{ label: "Clear filter", onClick: () => setStatusFilter("all") }} />
+            ) : (
+              <EmptyState
+                title={`No ${vocab.jobNounPlural.toLowerCase()} yet`}
+                body={readOnly
+                  ? `Ask the owner to add your first ${vocab.jobNoun.toLowerCase()}.`
+                  : "Accept a request in Pipeline, or add one yourself."}
+                action={readOnly ? undefined : waitingRequests > 0
+                  ? { label: `Review requests (${waitingRequests})`, href: `/company/pipeline${previewSuffix}` }
+                  : { label: `New ${vocab.jobNoun}`, onClick: () => setShowForm(true) }}
+                testId="jobs-empty"
+              />
+            )}
           </div>
         </section>
       ) : (
