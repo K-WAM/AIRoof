@@ -532,12 +532,12 @@ function FieldPageContent() {
       `}</style>
 
       {/* Dark full-bleed wrapper that overrides company-main padding */}
-      <div style={{
+      <div className="company-field-page" style={{
         margin: "-28px",
         background: "#0f172a",
         minHeight: "calc(100vh - 64px)",
       }}>
-        <div style={{
+        <div className="company-field-content" style={{
           maxWidth: 480,
           margin: "0 auto",
           padding: "20px 16px 80px",

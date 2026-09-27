@@ -340,7 +340,7 @@ function FieldApp() {
         .pulse2 { animation-delay: 0.5s; }
       `}</style>
 
-      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", background: "#0a0e1a", padding: "0 0 env(safe-area-inset-bottom,0)" }}>
+      <div className="field-public-page" style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", background: "#0a0e1a", padding: "0 0 env(safe-area-inset-bottom,0)" }}>
 
         {/* Header */}
         <div style={{ padding: "16px 20px 12px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #1e2a4a" }}>
@@ -352,7 +352,7 @@ function FieldApp() {
 
         <InstallPrompt />
 
-        <div style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="field-public-content" style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Access denied — expired/missing key */}
           {accessDenied && (
