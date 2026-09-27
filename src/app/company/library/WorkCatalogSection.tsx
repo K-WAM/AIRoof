@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -39,7 +38,6 @@ function blankItem(): WorkCatalogItem {
 }
 
 export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Props) {
-  const { vocab } = useBusinessModules();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [editing, setEditing] = useState<WorkCatalogItem | null>(null);
