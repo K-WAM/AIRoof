@@ -240,6 +240,49 @@ describe("scheduling ranges and business time", () => {
     expect(slots.every((slot) => slot.startTime.startsWith("2026-07-27"))).toBe(true);
     expect(slots[0].startTime).toBe("2026-07-27T15:00:00.000Z");
   });
+
+  // Regression, live bug found 2026-09-27: the demo line used to set round-the-clock hours
+  // ("00:00 - 24:00" every day, see demo-customize/route.ts's old DEMO_ALWAYS_OPEN_HOURS) so a
+  // prospect testing the line after hours would never hear "the office is closed". A real caller
+  // (Carla Snyder) asked for an 8am inspection on three different days and was offered the same
+  // three near-midnight slots each time. Root cause: buildAvailableSlots has no notion of a
+  // PREFERRED TIME, only a preferred DATE — it always offers the first N slots starting from the
+  // day's OPEN minute, and "open" was midnight, so every day's first three slots were identical.
+  it("regression: round-the-clock business hours suggest near-midnight slots no matter what day is asked", () => {
+    const roundTheClock = Object.fromEntries(
+      ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => [day, "00:00 - 24:00"])
+    );
+    const localTimesFor = (preferredDate: string) =>
+      buildAvailableSlots({
+        businessHours: roundTheClock,
+        timeZone: "America/New_York",
+        preferredDate,
+        existing: [],
+        maxSlots: 3,
+        now: new Date("2026-07-20T12:00:00.000Z"),
+      }).map((s) =>
+        new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
+      );
+    // Monday, Tuesday, Wednesday — exactly what Carla asked for, in order.
+    expect(localTimesFor("2026-07-27")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
+    expect(localTimesFor("2026-07-28")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
+    expect(localTimesFor("2026-07-29")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
+  });
+
+  it("realistic weekday hours suggest sensible daytime slots instead (the actual fix)", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours,
+      timeZone: "America/New_York",
+      preferredDate: "2026-07-27", // Monday
+      existing: [],
+      maxSlots: 3,
+      now: new Date("2026-07-20T12:00:00.000Z"),
+    });
+    const localTimes = slots.map((s) =>
+      new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
+    );
+    expect(localTimes).toEqual(["9:00 AM", "9:30 AM", "10:00 AM"]);
+  });
 });
 
 describe("bookAppointment transaction", () => {

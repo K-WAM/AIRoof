@@ -41,13 +41,26 @@ import type { FieldUpdate } from "@/types/jobs";
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
 const DEFAULT_EMAIL = "kwamwad@gmail.com";
 
-// A demo line must always sound OPEN: a prospect who calls at 7 pm must not hear "the office is closed" mid-demo. Every
-// launch therefore sets round-the-clock hours ("HH:MM - HH:MM", 24:00 = end of day) in the Florida timezone. Real
-// tenants are untouched; the after-hours flow is still demonstrable from the seeded pending-approval booking.
+// 2026-09-27 fix: this used to set round-the-clock hours ("00:00 - 24:00" every day) so a prospect calling at 7 pm
+// would never hear "the office is closed" mid-demo. That broke checkAvailability's suggested slots instead —
+// buildAvailableSlots() has no notion of a preferred TIME (only a preferred DATE), so it always offers the first N
+// slots starting from the day's OPEN minute; with open=midnight every day, it offered midnight/12:30am/1am no matter
+// what day or time a real caller asked for (confirmed live 2026-09-27: a caller asking for 8am on three different
+// days was offered the same three near-midnight slots each time). Real, realistic hours below fix the suggested
+// slots. The "always sounds open" goal is delivered by the EXISTING after-hours flow instead (isAfterHoursNow() +
+// afterHoursNote(), already used by every real tenant): a call outside these hours gets the (rewritten, see below)
+// afterHoursGreeting and the AI is instructed to book anyway, never turn the caller away — that is a *better* demo
+// moment (it shows off the real 24/7-booking feature) than pretending the business has no hours at all.
 const DEMO_TIMEZONE = "America/New_York";
-const DEMO_ALWAYS_OPEN_HOURS = Object.fromEntries(
-  ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => [day, "00:00 - 24:00"]),
-);
+const DEMO_BUSINESS_HOURS = {
+  Monday: "08:00 - 17:00",
+  Tuesday: "08:00 - 17:00",
+  Wednesday: "08:00 - 17:00",
+  Thursday: "08:00 - 17:00",
+  Friday: "08:00 - 17:00",
+  Saturday: "09:00 - 13:00",
+  Sunday: "Closed",
+};
 const ROOFING_DEFAULT_NAME = "Apex Roofing South Florida";
 
 // Hard in-code allowlist — never configurable. A destructive reset must never
@@ -206,7 +219,9 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   const t = VERTICAL_TEMPLATES[opts.verticalId];
   const agentName = demoAgentName(opts.verticalId);
   const greeting = `Thanks for calling ${opts.companyName}, this is ${agentName}. How can I help?`;
-  const afterHoursGreeting = `Thanks for calling ${opts.companyName}. The office is closed, but I'm ${agentName} — I can take your details and the team will follow up first thing.`;
+  // Booking-forward, not "closed" — matches afterHoursNote()'s actual instruction to the model (book anyway, never
+  // turn the caller away), and never sounds like a rejection mid-demo.
+  const afterHoursGreeting = `Thanks for calling ${opts.companyName}, this is ${agentName}. We're outside our normal hours right now, but I can still get you booked — the team will confirm first thing.`;
   const now = Date.now();
 
   // 0. Ensure the business has a stable field-key mint secret. It never leaves
@@ -260,7 +275,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
       // leak onto the next demo's invoices (null clears them).
       contactEmail: opts.email,
       contactPhone: opts.phone ?? null,
-      businessHours: DEMO_ALWAYS_OPEN_HOURS,
+      businessHours: DEMO_BUSINESS_HOURS,
       timezone: (existing.data()?.timezone as string | undefined) || DEMO_TIMEZONE,
       agentName,
       agentIdentity: t.agentIdentity,

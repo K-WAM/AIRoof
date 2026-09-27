@@ -1483,3 +1483,37 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Browser evidence: local emulator config save confirmed; phone smoke 34/34 passed at 375px. Screenshots: test-results/screens/desktop/ca-number-config-saved.png and test-results/screens/phone/superadmin_admin_businesses_e2e-roofing_config.png.
 - Gates: npx tsc --noEmit clean; changed-file ESLint clean; full Vitest 172 files, 1328 passed + 1 expected fail (1329 total). One documented company/team aggregate-load timeout passed alone 21/21, then the warmed full suite passed. npx next build green (BUILD_ID 2YfQPhC88vvOVbQa9rddq; 88 app route artifacts).
 - Removals: none. No live provider calls, secrets, pushes, merges, or changes to the called-number no-agent-fallback rule.
+
+## 2026-09-27 (evening) - live bug found and fixed: demo line offered near-midnight appointment slots
+- Real call, Carla Snyder (owner's tester): asked for an 8am inspection on Monday, Tuesday and Wednesday and was
+  offered the same three near-midnight slots (12:00am/12:30am/1:00am) every time.
+- Root cause: the demo line's businessHours were set round-the-clock ("00:00 - 24:00" every day,
+  DEMO_ALWAYS_OPEN_HOURS in demo-customize/route.ts) so a prospect calling the line after hours would never hear
+  "the office is closed" mid-demo. That broke checkAvailability's suggested slots: buildAvailableSlots() has no
+  notion of a preferred TIME (only a preferred DATE), so it always offers the first N slots starting from the day's
+  OPEN minute; with open = midnight every day, every day's first three slots were the same three near-midnight ones,
+  regardless of what day or time the caller actually asked for.
+- Fix: businessHours reverted to real daytime hours (Mon-Fri 8-5, Sat 9-1, Sun Closed - the same hours the roofing
+  seed already uses). "Always sounds open" is instead delivered by the EXISTING after-hours flow (isAfterHoursNow +
+  afterHoursNote, already used by every real tenant): the demo's afterHoursGreeting was rewritten to drop "the
+  office is closed" wording and match afterHoursNote's actual instruction to the model (book anyway, never turn the
+  caller away) - a call outside hours now gets a booking-forward greeting instead of a rejection-sounding one, and
+  checkAvailability suggests sane daytime slots again.
+- Regression tests added: src/lib/tools/__tests__/scheduling.test.ts reproduces the exact bug (round-the-clock hours
+  -> midnight/12:30/1am for Mon/Tue/Wed, matching Carla's report) and proves realistic hours fix it (9:00/9:30/10:00
+  for the same Monday); src/app/api/admin/demo-customize/__tests__/route.test.ts now asserts the actual stored hour
+  values (Monday 08:00-17:00, Sunday Closed), not just the key count. The existing "always sounds open... never the
+  office is closed" 3am test needed no changes - it now passes because the after-hours greeting genuinely doesn't
+  say "closed" anymore, not because hours are faked.
+- Also this session: merged T-130 (Canadian demo number code, task/ca-number) into local main after independent
+  verification (tsc clean, full vitest 172 files/1,328 passed + 1 expected fail, re-run before merge). Owner bought
+  +1 (778) 907-9769 (West Vancouver BC), upgraded the Twilio account out of trial, imported the number into
+  ElevenLabs and assigned it to the existing "Alice - Roofing" agent. Still needed: add the number under Admin ->
+  Clients -> demo-roofing -> Edit -> Additional phone numbers, then one test call.
+- Gates: tsc clean; eslint 0 errors on changed files; full vitest run 172 files / 1,330 passed + 1 expected fail (no
+  flake this run); next build green.
+- Not yet done: the deeper structural gap this bug exposed - checkAvailability's tool schema has no preferred-TIME
+  parameter at all, only preferred-DATE, so even a normal (non-24/7) business fully booked in the morning would
+  offer slots that ignore what time the caller actually asked for. Fixing that needs a live ElevenLabs/Vapi tool
+  schema change (an operational redeploy to the live agent, not just a code change) - tracked as a follow-up, not
+  done tonight.

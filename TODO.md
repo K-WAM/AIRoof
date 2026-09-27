@@ -1044,9 +1044,7 @@ an active queue.*
   - [ ] NEEDS-HUMAN: attorney review of `docs/FLORIDA-DOCUMENT-NOTICES.md` then tick "reviewed"; fill account owners in `docs/AI-PROVIDERS.md`; check OpenAI + DeepSeek balances; relaunch Demo Studio after deploy.
 
 - [ ] Phase 26 — Sell-readiness: a Canadian demo number and the first-client runbook (owner-directed, 2026-09-26)
-  - [x] **T-130 — Provision a Canadian number for demos.** **Status: review (worker code complete on `task/ca-number`; owner provisioning/test call still required).** Spec: `docs/CANADIAN-DEMO-NUMBER.md`. Buy a Canadian local number in Twilio, import it into ElevenLabs
-        the same way `scripts/move-demo-line-to-elevenlabs.mjs` moved the US number, point it at a tenant (either `demo-roofing` with a second
-        `elevenlabs.phoneNumber`-mapped business doc, or a dedicated `demo-roofing-ca` tenant so US and CA demos never collide), and confirm one test call.
+  - [x] **T-130 — Provision a Canadian number for demos.** **MERGED to local main 2026-09-27** (integrator: reviewed independently — tsc clean, full `vitest run` 172 files/1,328 passed + 1 expected fail, re-verified before merge). Code side: `extraPhoneNumbers` on `BusinessConfig.elevenlabs`, lookup checks primary then extra numbers (no agent-id fallback preserved), admin config validation + collision guard, Demo Studio reset preserves it. Owner side: bought `+1 (778) 907-9769` (West Vancouver, BC — a 604-area overlay code, same market), Twilio account upgraded out of trial, imported into ElevenLabs and assigned to the existing "Alice — Roofing" agent (confirmed in dashboard, Voice/Messaging webhooks now point at `elevenlabs.io`, not `demo.twilio.com`). **Still needed:** add `+17789079769` under Admin → Clients → `demo-roofing` → Edit → Additional phone numbers, then one test call.
         Needs the owner's Twilio account (billing + area code choice); a voice-only number needs no A2P 10DLC/CNAM registration (that's SMS-only), so this
         is materially simpler than the US number was.
         **Decided 2026-09-27 (owner): Option A — the Canadian number answers as `demo-roofing` (US content is fine; the point is functionality); area code
@@ -1058,6 +1056,25 @@ an active queue.*
         set escalation/notification contacts, invite the team, set the recording-notice/legal-notice state, and the first-week check-ins. References the
         existing `docs/ADMIN-ONBOARDING.md` and `public/guides/onboarding-guide.html` rather than duplicating them — this doc is the owner's own sequence,
         those are the client-facing/step-reference material.
+
+- [x] Phase 27a — Live-call bug found and fixed (2026-09-27, integrator) — the demo line's round-the-clock hours
+      ("00:00 - 24:00" every day, meant to make the demo phone "always sound open") broke checkAvailability's
+      suggested slots: a real caller (Carla Snyder) asked for an 8am inspection on Monday/Tuesday/Wednesday and was
+      offered the same three near-midnight slots every time. Root cause: `buildAvailableSlots()` has no notion of a
+      preferred TIME, only a preferred DATE — with "open" at midnight, the first 3 offered slots are always
+      midnight/12:30am/1am regardless of the day asked. Fixed: `demo-customize/route.ts` now sets real daytime hours
+      (Mon-Fri 8-5, Sat 9-1, Sun Closed, matching the roofing seed) and the demo's `afterHoursGreeting` was rewritten
+      to drop "the office is closed" wording (booking-forward instead, matching what `afterHoursNote()` already
+      instructs the model to do) — the existing after-hours flow delivers "always sounds open," not faked hours.
+      Regression tests added (`src/lib/tools/__tests__/scheduling.test.ts`, `demo-customize/__tests__/route.test.ts`).
+      Merged to local main; not pushed. Evidence: `docs/IMPLEMENTATION_LOG.md`.
+  - [ ] **T-147 — `checkAvailability` ignores the caller's requested TIME** (found while fixing Phase 27a; Codex Sol
+        medium — touches the live call path + needs a live tool-schema redeploy, not just a code change). The tool
+        only takes a preferred DATE; it always offers the day's earliest open slots, so even a normal (non-24/7)
+        business that's fully booked in the morning would offer slots that ignore what time the caller actually
+        asked for. Fix: add an optional `preferredTime` param, have `buildAvailableSlots` center suggestions on it
+        when given; requires updating `src/lib/voice/elevenlabs/toolSchemas.json` AND re-pushing that tool
+        definition to the live ElevenLabs agent (`scripts/setup-elevenlabs-agent.mjs`, or by hand in the dashboard).
 
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly

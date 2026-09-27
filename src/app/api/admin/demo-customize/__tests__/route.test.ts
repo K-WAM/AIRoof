@@ -756,6 +756,11 @@ describe("demo-customize route", () => {
       const stored = fs.documents.get("businesses/demo-roofing") as { data: Record<string, unknown> } | Record<string, unknown>;
       const doc = ("data" in stored ? stored.data : stored) as { businessHours: Record<string, string>; timezone: string };
       expect(Object.keys(doc.businessHours)).toHaveLength(7);
+      // Regression 2026-09-27: hours must be REAL daytime hours, not round-the-clock — round-the-clock
+      // hours broke checkAvailability's suggested slots (see src/lib/tools/__tests__/scheduling.test.ts).
+      // "Always sounds open" is delivered by the after-hours greeting above, not by faking business hours.
+      expect(doc.businessHours.Monday).toBe("08:00 - 17:00");
+      expect(doc.businessHours.Sunday).toBe("Closed");
       expect(doc.timezone).toBe("America/New_York");
       vi.useRealTimers();
       vi.unstubAllEnvs();
