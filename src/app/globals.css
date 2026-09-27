@@ -2929,6 +2929,11 @@ a.metric:hover {
 .empty-state-title { margin: 0; color: var(--text); font-size: 16px; }
 .empty-state-body { max-width: 520px; margin: 0; font-size: 14px; line-height: 1.5; }
 .empty-state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+.setup-checklist { display: grid; gap: 8px; }
+.setup-checklist-row { display: flex; align-items: center; gap: 10px; min-height: 44px; flex-wrap: wrap; }
+.setup-checklist-row > span:first-child { color: var(--accent); font-weight: 700; width: 18px; text-align: center; }
+.setup-checklist-row > span:nth-child(2) { flex: 1 1 160px; }
+.setup-checklist-collapsed { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; }
 
 @media (max-width: 900px) {
   .mobile-nav-search .quickadd-trigger {
