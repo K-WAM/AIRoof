@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { guideNudgeStorageKey } from "@/app/company/guide-nudge-storage";
 
 interface WorkflowClickPath {
   flow: string;
@@ -89,8 +88,4 @@ describe("company workflow click-path audit", () => {
     // this navigation pass does not expose management actions to that surface.
   });
 
-  it("scopes the one-time Guide marker per signed-in user", () => {
-    expect(guideNudgeStorageKey("user-a")).toBe("luxor:company-guide-nudge:v1:user-a");
-    expect(guideNudgeStorageKey("user-b")).not.toBe(guideNudgeStorageKey("user-a"));
-  });
 });

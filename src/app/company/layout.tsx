@@ -9,7 +9,6 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Briefcase, CalendarDays, Menu, Phone, Users, X } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
-import { FirstLoginGuideNudge } from "./first-login-guide-nudge";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -274,12 +273,6 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
                 ← Exit demo
               </Link>
             </div>
-          )}
-          {!user.superadmin && (
-            <FirstLoginGuideNudge
-              userId={user.uid}
-              guideHref={`/company/guide${previewSuffix}`}
-            />
           )}
           {children}
         </main>
