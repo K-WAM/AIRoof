@@ -130,7 +130,7 @@ export default function TeamPage() {
         <div className="panel-header"><h2 className="panel-title">Invite a teammate</h2></div>
         <div className="panel-body">
           <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
-            <label>Email<input id="invite-email" aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
+            <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
             <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} style={{ display: "block" }} /></label>
             <label>Role<select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)} style={{ display: "block" }}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             <label>Title<select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")} style={{ display: "block" }}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
@@ -147,7 +147,8 @@ export default function TeamPage() {
         <div className="panel-header"><h2 className="panel-title">Members</h2></div>
         <div className="panel-body" style={{ padding: 0 }}>
         {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
-          members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew to get started." action={{ label: "Invite someone", href: "#invite-email" }} /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          // The invite form right above is the one action, so this carries no second "Invite" button.
+          members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", "Crew", "Status", "Last sign-in", "Invited", "Actions"].map((heading) => <th key={heading} style={th}>{heading}</th>)}</tr></thead>
               <tbody>{members.map((member) => (

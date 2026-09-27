@@ -604,7 +604,7 @@ function FieldPageContent() {
 
           {/* Job Selector */}
           {!loadingJobs && jobs.length === 0 && (
-            <EmptyState compact title="No jobs for you today" body="When the office assigns one, it appears here." />
+            <EmptyState compact tone="dark" title="No jobs for you today" body="When the office assigns one, it appears here." testId="field-empty" />
           )}
           <div style={{ marginBottom: 20 }}>
             <JobSelector
