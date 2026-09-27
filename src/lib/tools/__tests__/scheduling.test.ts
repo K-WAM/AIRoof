@@ -17,6 +17,7 @@ import {
   SchedulingConflictError,
   bookAppointment,
   buildAvailableSlots,
+  checkAvailability,
   cancelAppointment,
   escalateCall,
   lookupAppointment,
@@ -465,6 +466,19 @@ describe("bookAppointment transaction", () => {
     const second = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
     expect(second.appointmentId).not.toBe(first.appointmentId);
     expect(firestore.documents.get(`businesses/biz-1/appointments/${first.appointmentId}`)?.status).toBe("cancelled");
+  });
+});
+
+describe("checkAvailability configuration", () => {
+  it("reports missing hours explicitly instead of calling them no openings", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: "garbage" });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    await expect(checkAvailability({ businessId: "biz-1" })).resolves.toEqual({
+      available: false,
+      suggestedSlots: [],
+      hoursStatus: "missing_or_invalid",
+    });
   });
 });
 

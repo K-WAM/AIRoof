@@ -101,4 +101,18 @@ describe("ElevenLabs tool caller identity", () => {
       startTime: Date.parse("2026-11-03T14:00:00.000Z"),
     }));
   });
+
+  it("captures a lead when hours are not set up and never says no openings", async () => {
+    mocks.checkAvailability.mockResolvedValue({
+      available: false, suggestedSlots: [], hoursStatus: "missing_or_invalid",
+    });
+    const result = await executeAgentTool("checkAvailability", {
+      name: "Pat", serviceType: "Inspection", preferredDate: "2026-09-28",
+    }, { ...context, callerPhone: "+15551234567" });
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "biz-stored", callerName: "Pat", callerPhone: "+15551234567", serviceRequested: "Inspection",
+    }));
+    expect(result.result).toContain("hours are not set up");
+    expect(result.result).not.toContain("No openings");
+  });
 });

@@ -35,6 +35,7 @@ export interface CheckAvailabilityInput {
 export interface CheckAvailabilityOutput {
   available: boolean;
   suggestedSlots: Array<{ startTime: string; endTime: string }>;
+  hoursStatus?: "ok" | "missing_or_invalid";
   preferred?: {
     requestedStartTime: string;
     status: "open" | "unavailable" | "outside_business_hours" | "closed" | "past";
@@ -453,6 +454,9 @@ export async function checkAvailability(
     const businessDoc = await db.collection("businesses").doc(input.businessId).get();
     if (!businessDoc.exists) return { available: false, suggestedSlots: [] };
     const businessData = businessDoc.data() ?? {};
+    if (!parseBusinessHours(businessData.businessHours)) {
+      return { available: false, suggestedSlots: [], hoursStatus: "missing_or_invalid" };
+    }
     const timeZone =
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const now = new Date();
@@ -509,6 +513,7 @@ export async function checkAvailability(
     return {
       available: slots.length > 0,
       suggestedSlots: slots,
+      hoursStatus: "ok",
       preferred: preferredAvailability({
         preferredDate: input.preferredDate,
         preferredTime: input.preferredTime,

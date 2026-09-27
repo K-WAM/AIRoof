@@ -155,6 +155,24 @@ export async function executeAgentTool(
           preferredTime: optionalStr(params.preferredTime),
           serviceType: optionalStr(params.serviceType ?? params.service),
         });
+        if (result.hoursStatus === "missing_or_invalid") {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.name ?? params.callerName),
+            callerPhone: trustedCallerPhone,
+            callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: parseUrgency(params.urgency),
+            notes: optionalStr(params.notes) ?? "Availability requested, but business hours are not set up.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return {
+            result: "Business hours are not set up yet. I've saved your details so the team can contact you about a time.",
+            sayToCaller: "Business hours are not set up yet. I've saved your details so the team can contact you about a time.",
+          };
+        }
         if (!result.available || result.suggestedSlots.length === 0) {
           return { result: "No openings in the next few days. I can take a message and have someone reach out." };
         }
