@@ -13,7 +13,8 @@ import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { BlockedAction } from "@/components/ui/BlockedAction";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
@@ -126,6 +127,7 @@ function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number 
 // so page.tsx can lazy-load it via next/dynamic (T-068) instead of shipping it in
 // every route's initial bundle. No logic changed in this move, file split only.
 export default function CalendarBoard() {
+  const { user } = useAuth();
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
@@ -623,10 +625,11 @@ export default function CalendarBoard() {
               {/* Crew rows */}
               {crews.length === 0 ? (
                 <div style={{ gridColumn: `1 / -1`, padding: 24 }}>
-                  <BlockedAction
-                    message={`No ${vocab.resourceNounPlural.toLowerCase()} yet — add one to start scheduling on the Calendar.`}
-                    actionLabel={`+ Add ${vocab.resourceNoun.toLowerCase()}`}
-                    onAction={() => openQuickAdd("crew")}
+                  <EmptyState
+                    compact
+                    title={`Add your first ${vocab.resourceNoun.toLowerCase()}`}
+                    body={`Then drag ${vocab.jobNounPlural.toLowerCase()} onto their day.`}
+                    action={user?.role === "viewer" ? undefined : { label: `Add ${vocab.resourceNoun.toLowerCase()}`, onClick: () => openQuickAdd("crew") }}
                   />
                 </div>
               ) : (
