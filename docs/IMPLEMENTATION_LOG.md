@@ -1479,3 +1479,4 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Added shared EmptyState coverage across Pipeline, Calls, Calendar, Jobs, Customers, Library, Team, and Field; actions are role-aware where the page has a write path.
 - Added e2e-empty / owner@empty.e2e.test and desktop + phone smoke coverage for new-account guidance.
 - Verification: npx tsc --noEmit passed before commits; browser harness seeded 4 tenants and 7 accounts.
+- Follow-up: T-144 is not review-ready. The full Vitest gate exposed two Team tests after the initial empty-state condition; the focused rerun passed after the condition was limited to the actual owner, but the full suite, full Playwright suite, Job-tab inventory, and checklist-action assertions still need completion before review.

@@ -1063,7 +1063,7 @@ an active queue.*
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
       `docs/WORKER_QUEUE.md` section **F**. Run T-144 then T-145 (same pages); F3 (T-130 code) can run in parallel with either.
-  - [review] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`). Shared `EmptyState`, `BlockedAction`
+  - [ ] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`). Shared `EmptyState`, `BlockedAction`
         gains `href`, pure `setupChecklist()` + `GET /api/company/setup-status`, a Dashboard "Get your business ready" checklist (owner/superadmin) replacing the
         "take the Guide tour" nudge, every empty list/tab on the plan's inventory, a new empty `e2e-empty` harness tenant + `e2e/empty-states.spec.ts`.
   - [ ] **T-145 — Page-by-page roofing UX pass** (Codex, GPT-6 Sol medium, `air-wt-ux-workflow` / `task/ux-workflow`, cut from main AFTER T-144 merges). Golden-path
