@@ -147,7 +147,7 @@ export default function TeamPage() {
         <div className="panel-header"><h2 className="panel-title">Members</h2></div>
         <div className="panel-body" style={{ padding: 0 }}>
         {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
-          members.length <= 1 ? <EmptyState compact title="Just you so far" body="Invite your office and crew to get started." action={{ label: "Invite someone", href: "#invite-email" }} /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew to get started." action={{ label: "Invite someone", href: "#invite-email" }} /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", "Crew", "Status", "Last sign-in", "Invited", "Actions"].map((heading) => <th key={heading} style={th}>{heading}</th>)}</tr></thead>
               <tbody>{members.map((member) => (
