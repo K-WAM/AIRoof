@@ -60,4 +60,30 @@ describe("ElevenLabs tool caller identity", () => {
     expect(lookup.sayToCaller).toBe("Appointment 1: inspection on Tuesday.");
     expect(cancel.sayToCaller).toContain("has been cancelled");
   });
+
+  it("returns closest openings with a booking conflict instead of making the caller guess", async () => {
+    const conflict = Object.assign(new Error("That requested time was just taken."), { code: "slot_conflict" });
+    mocks.bookAppointment.mockRejectedValue(conflict);
+    mocks.checkAvailability.mockResolvedValue({
+      available: true,
+      suggestedSlots: [
+        { startTime: "2026-09-28T13:00:00.000Z", endTime: "2026-09-28T14:00:00.000Z" },
+        { startTime: "2026-09-28T13:30:00.000Z", endTime: "2026-09-28T14:30:00.000Z" },
+        { startTime: "2026-09-28T14:00:00.000Z", endTime: "2026-09-28T15:00:00.000Z" },
+      ],
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await executeAgentTool("bookAppointment", {
+      name: "Pat", startTime: "2026-09-28T08:00", serviceType: "Inspection",
+    }, { ...context, callerPhone: "+15551234567" });
+
+    expect(result).toEqual({
+      result: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
+      sayToCaller: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
+    });
+    expect(mocks.checkAvailability).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "biz-stored", preferredDate: "2026-09-28", preferredTime: "8:00 AM",
+    }));
+  });
 });

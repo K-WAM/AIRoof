@@ -305,6 +305,47 @@ export async function executeAgentTool(
     }
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
+    if (name === "bookAppointment" && err instanceof Error &&
+      ((err as { code?: unknown }).code === "slot_conflict" || (err as { code?: unknown }).code === "outside_business_hours")) {
+      const tz = await getBusinessTimezone(businessId);
+      const requestedStart = toTimestamp(params.startTime ?? params.preferredTime, tz);
+      if (requestedStart !== undefined) {
+        const requestedDate = localDateKey(requestedStart, tz);
+        const preferredTime = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, hour: "numeric", minute: "2-digit",
+        }).format(new Date(requestedStart));
+        const availability = await checkAvailability({
+          businessId,
+          preferredDate: requestedDate,
+          preferredTime,
+          serviceType: optionalStr(params.serviceType ?? params.service),
+        });
+        const requestedTimeLabel = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, hour: "numeric", minute: "2-digit",
+        }).format(new Date(requestedStart));
+        const requestedDayLabel = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, weekday: "long",
+        }).format(new Date(requestedStart));
+        const requestedLabel = `${requestedTimeLabel} ${requestedDayLabel}`;
+        const alternatives = availability.suggestedSlots
+          .filter((slot) => Date.parse(slot.startTime) !== requestedStart)
+          .slice(0, 3)
+          .map((slot) => new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "numeric",
+            minute: "2-digit",
+            ...(localDateKey(Date.parse(slot.startTime), tz) === requestedDate
+              ? {}
+              : { weekday: "long" as const }),
+          }).format(new Date(slot.startTime)));
+        const reason = (err as { code?: unknown }).code === "slot_conflict" ? "is booked" : "is outside business hours";
+        const result = alternatives.length > 0
+          ? `${requestedLabel} ${reason}. The closest openings are ${joinSpokenList(alternatives)}.`
+          : `${requestedLabel} ${reason}. I can take your details and have the team follow up.`;
+        await logAction(businessId, callId, name, params, { error: err.message, alternatives }, "failed");
+        return { result, sayToCaller: result };
+      }
+    }
     if (name === "lookupAppointment" || name === "cancelAppointment") {
       await recordProviderToolAudit(
         businessId,
@@ -319,6 +360,20 @@ export async function executeAgentTool(
     await logAction(businessId, callId, name, params, { error: String(err) }, "failed");
     return { error: err instanceof Error ? err.message : "Tool execution failed" };
   }
+}
+
+function joinSpokenList(values: string[]): string {
+  if (values.length <= 1) return values[0] ?? "";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")} or ${values.at(-1)}`;
+}
+
+function localDateKey(timestamp: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
