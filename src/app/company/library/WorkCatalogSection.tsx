@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,6 +12,7 @@ interface Props {
   businessId: string | null;
   catalog: WorkCatalog;
   onCatalogChange: (c: WorkCatalog) => void;
+  readOnly?: boolean;
 }
 
 const SEVERITIES: readonly { value: WorkSeverity; label: string }[] = [
@@ -37,7 +39,8 @@ function blankItem(): WorkCatalogItem {
   return { itemId: "", category: "", problem: "", solution: "", lines: [], createdAt: Date.now() };
 }
 
-export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Props) {
+export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readOnly = false }: Props) {
+  const { vocab } = useBusinessModules();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [editing, setEditing] = useState<WorkCatalogItem | null>(null);
@@ -194,7 +197,16 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Pro
       {catalog.items.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <EmptyState icon={ClipboardList} title="Add your prices once" body="Quotes and invoices fill in from these automatically." action={{ label: loadingKit ? "Loading…" : "Load example prices", onClick: loadStarterKit }} />
+            {/* The work catalog is common problems + their fixes, not the price list (that's the Pricing section). */}
+            <EmptyState
+              icon={ClipboardList}
+              title="Save your common fixes once"
+              body={readOnly
+                ? "Ask the owner to add your common fixes."
+                : `Tick one on a ${vocab.jobNoun.toLowerCase()}; it fills the report, quote and invoice.`}
+              action={readOnly ? undefined : { label: loadingKit ? "Loading…" : "Load starter kit", onClick: loadStarterKit }}
+              testId="library-work-catalog-empty"
+            />
           </div>
         </section>
       ) : filtered.length === 0 ? (

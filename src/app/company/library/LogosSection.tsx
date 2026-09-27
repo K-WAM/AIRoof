@@ -28,11 +28,12 @@ const VARIANT_HINT: Record<LibraryLogo["variant"], string> = {
  * can see, not guess, whether "color" or "mono-dark" is the right variant.
  */
 export function LogosSection({
-  businessId, logos, setLogos,
+  businessId, logos, setLogos, readOnly = false,
 }: {
   businessId: string | null;
   logos: LibraryLogo[];
   setLogos: (l: LibraryLogo[]) => void;
+  readOnly?: boolean;
 }) {
   const { data: bootstrap } = useBootstrap();
   const brandColor = bootstrap?.business.brandColor || "#0f172a";
@@ -158,7 +159,13 @@ export function LogosSection({
         )}
 
         {logos.length === 0 ? (
-          <EmptyState compact title="Upload your logo" body="It goes on every quote, invoice and report." action={{ label: "Upload logo", onClick: () => fileInputRef.current?.click() }} />
+          <EmptyState
+            compact
+            title="Upload your logo"
+            body={readOnly ? "Ask the owner to upload your logo." : "It goes on every quote, invoice and report."}
+            action={readOnly ? undefined : { label: "Upload logo", onClick: () => fileInputRef.current?.click() }}
+            testId="library-logos-empty"
+          />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, marginBottom: 22 }}>
             {logos.map((logo) => (
