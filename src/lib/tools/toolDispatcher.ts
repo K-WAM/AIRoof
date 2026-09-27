@@ -151,16 +151,35 @@ export async function executeAgentTool(
         const result = await checkAvailability({
           businessId,
           preferredDate: optionalStr(params.preferredDate),
+          preferredTime: optionalStr(params.preferredTime),
           serviceType: optionalStr(params.serviceType ?? params.service),
         });
         if (!result.available || result.suggestedSlots.length === 0) {
           return { result: "No openings in the next few days. I can take a message and have someone reach out." };
         }
+        const formatSlot = (value: string, withDate = true) => new Date(value).toLocaleString("en-US", {
+          timeZone: tz,
+          ...(withDate ? { weekday: "long" as const } : {}),
+          hour: "numeric",
+          minute: "2-digit",
+        });
         const slots = result.suggestedSlots
           .slice(0, 3)
-          .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
+          .map((s) => formatSlot(s.startTime))
           .join("; ");
-        return { result: `Available slots: ${slots}` };
+        const preferred = result.preferred;
+        if (!preferred) return { result: `Available openings: ${slots}` };
+        const requested = formatSlot(preferred.requestedStartTime);
+        const firstSentence = preferred.status === "open"
+          ? `${requested} is open.`
+          : preferred.status === "closed"
+            ? `The business is closed at ${requested}.`
+            : preferred.status === "outside_business_hours"
+              ? `${requested} is outside business hours.`
+              : preferred.status === "past"
+                ? `${requested} has already passed.`
+                : `${requested} is not open.`;
+        return { result: `${firstSentence} Closest openings: ${slots}` };
       }
 
       case "lookupAppointment": {

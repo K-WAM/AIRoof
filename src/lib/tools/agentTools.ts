@@ -27,6 +27,7 @@ export { zonedDateTimeToUtc } from "@/lib/scheduling/hours";
 export interface CheckAvailabilityInput {
   businessId: string;
   preferredDate?: string;
+  preferredTime?: string;
   serviceType?: string;
   durationMinutes?: number;
 }
@@ -34,6 +35,10 @@ export interface CheckAvailabilityInput {
 export interface CheckAvailabilityOutput {
   available: boolean;
   suggestedSlots: Array<{ startTime: string; endTime: string }>;
+  preferred?: {
+    requestedStartTime: string;
+    status: "open" | "unavailable" | "outside_business_hours" | "closed" | "past";
+  };
 }
 
 const DEFAULT_TZ = "America/New_York";
@@ -282,7 +287,27 @@ function preferredLocalDate(
     }
   }
   const localNow = zonedParts(now.getTime(), timeZone);
-  return addLocalDays(localNow, 1);
+  return localNow;
+}
+
+export function parsePreferredTime(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "morning") return 8 * 60;
+  if (normalized === "afternoon") return 13 * 60;
+  const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  if (minute > 59) return null;
+  if (match[3]) {
+    if (hour < 1 || hour > 12) return null;
+    if (hour === 12) hour = 0;
+    if (match[3] === "pm") hour += 12;
+  } else if (hour > 23) {
+    return null;
+  }
+  return hour * 60 + minute;
 }
 
 export function buildAvailableSlots(options: {
@@ -291,6 +316,7 @@ export function buildAvailableSlots(options: {
   existing: ExistingSchedule[];
   capacity?: number;
   preferredDate?: string;
+  preferredTime?: string;
   durationMinutes?: number;
   now?: Date;
   maxSlots?: number;
@@ -304,6 +330,8 @@ export function buildAvailableSlots(options: {
   const now = options.now ?? new Date();
   const firstDate = preferredLocalDate(options.preferredDate, now, options.timeZone);
   const maxSlots = options.maxSlots ?? 3;
+  const preferredMinutes = parsePreferredTime(options.preferredTime);
+  const allowOvernight = preferredMinutes !== null && (preferredMinutes < 7 * 60 || preferredMinutes >= 21 * 60);
   const slots: Array<{ startTime: string; endTime: string }> = [];
 
   for (let offset = 0; offset < AVAILABILITY_SCAN_DAYS && slots.length < maxSlots; offset++) {
@@ -314,11 +342,13 @@ export function buildAvailableSlots(options: {
     const dayHours = hours[weekday];
     if (!dayHours) continue;
 
-    for (
-      let minute = dayHours.open;
-      minute + durationMinutes <= dayHours.close && slots.length < maxSlots;
-      minute += AVAILABILITY_STEP_MINUTES
-    ) {
+    const candidates: Array<{ startTime: string; endTime: string; minute: number }> = [];
+    const localNow = zonedParts(now.getTime(), options.timeZone);
+    const isToday = date.year === localNow.year && date.month === localNow.month && date.day === localNow.day;
+    const roundedNow = Math.ceil((localNow.hour * 60 + localNow.minute + (localNow.second > 0 ? 1 : 0)) / AVAILABILITY_STEP_MINUTES) * AVAILABILITY_STEP_MINUTES;
+    for (let minute = dayHours.open; minute + durationMinutes <= dayHours.close; minute += AVAILABILITY_STEP_MINUTES) {
+      if (!allowOvernight && (minute < 7 * 60 || minute >= 21 * 60)) continue;
+      if (isToday && minute < roundedNow) continue;
       const startTime = zonedDateTimeToUtc(
         { ...date, hour: Math.floor(minute / 60), minute: minute % 60 },
         options.timeZone
@@ -327,14 +357,55 @@ export function buildAvailableSlots(options: {
       const endTime = startTime + durationMinutes * 60 * 1000;
       const occupied = isSlotBusy({ startTime, endTime }, options.existing, [], options.capacity ?? 1);
       if (!occupied) {
-        slots.push({
+        candidates.push({
           startTime: new Date(startTime).toISOString(),
           endTime: new Date(endTime).toISOString(),
+          minute,
         });
       }
     }
+    if (offset === 0 && preferredMinutes !== null) {
+      candidates.sort((left, right) => Math.abs(left.minute - preferredMinutes) - Math.abs(right.minute - preferredMinutes) || left.minute - right.minute);
+      const preferredInsideHours = preferredMinutes >= dayHours.open && preferredMinutes + durationMinutes <= dayHours.close;
+      slots.push(...candidates.slice(0, preferredInsideHours ? maxSlots - slots.length : Math.min(1, maxSlots - slots.length)));
+    } else {
+      slots.push(...candidates.slice(0, maxSlots - slots.length));
+    }
   }
   return slots;
+}
+
+function preferredAvailability(options: {
+  preferredDate?: string;
+  preferredTime?: string;
+  businessHours: unknown;
+  timeZone: string;
+  existing: ExistingSchedule[];
+  capacity: number;
+  durationMinutes: number;
+  now: Date;
+}): CheckAvailabilityOutput["preferred"] {
+  const preferredMinutes = parsePreferredTime(options.preferredTime);
+  if (preferredMinutes === null) return undefined;
+  const date = preferredLocalDate(options.preferredDate, options.now, options.timeZone);
+  const startTime = zonedDateTimeToUtc({ ...date, hour: Math.floor(preferredMinutes / 60), minute: preferredMinutes % 60 }, options.timeZone);
+  if (startTime === null) return undefined;
+  const requestedStartTime = new Date(startTime).toISOString();
+  if (startTime <= options.now.getTime()) return { requestedStartTime, status: "past" };
+  const hours = parseBusinessHours(options.businessHours);
+  if (!hours) return undefined;
+  const noon = zonedDateTimeToUtc({ ...date, hour: 12, minute: 0 }, options.timeZone);
+  if (noon === null) return undefined;
+  const dayHours = hours[zonedParts(noon, options.timeZone).weekday];
+  if (!dayHours) return { requestedStartTime, status: "closed" };
+  if (preferredMinutes < dayHours.open || preferredMinutes + options.durationMinutes > dayHours.close) {
+    return { requestedStartTime, status: "outside_business_hours" };
+  }
+  const endTime = startTime + options.durationMinutes * 60 * 1000;
+  return {
+    requestedStartTime,
+    status: isWindowFree({ startTime, endTime }, options.existing, [], options.capacity) ? "open" : "unavailable",
+  };
 }
 
 export async function runLedgeredEmail(options: {
@@ -420,18 +491,35 @@ export async function checkAvailability(
         ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd, status: typeof data.status === "string" ? data.status : undefined }]
         : [];
     });
+    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
+    const durationMinutes = input.durationMinutes ?? 60;
+    const existing = [...existingAppointments, ...existingJobs];
     const slots = buildAvailableSlots({
       businessHours: businessData.businessHours,
       timeZone,
       // Availability remains advisory (D-1), but never suggests a period already
       // represented on either scheduling collection.
-      existing: [...existingAppointments, ...existingJobs],
-      capacity: schedulingCapacity(crewSnapshot.docs.map((document) => document.data())),
+      existing,
+      capacity,
       preferredDate: input.preferredDate,
-      durationMinutes: input.durationMinutes,
+      preferredTime: input.preferredTime,
+      durationMinutes,
       now,
     });
-    return { available: slots.length > 0, suggestedSlots: slots };
+    return {
+      available: slots.length > 0,
+      suggestedSlots: slots,
+      preferred: preferredAvailability({
+        preferredDate: input.preferredDate,
+        preferredTime: input.preferredTime,
+        businessHours: businessData.businessHours,
+        timeZone,
+        existing,
+        capacity,
+        durationMinutes,
+        now,
+      }),
+    };
   } catch (error) {
     console.error("checkAvailability error:", error);
     return { available: false, suggestedSlots: [] };

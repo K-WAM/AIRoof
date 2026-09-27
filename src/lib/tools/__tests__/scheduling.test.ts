@@ -22,6 +22,7 @@ import {
   lookupAppointment,
   isScheduleWithinBusinessHours,
   isWindowFree,
+  parsePreferredTime,
   scheduleCapacityResourceKey,
   scheduleLockId,
   scheduleRangesOverlap,
@@ -257,32 +258,16 @@ describe("scheduling ranges and business time", () => {
     expect(slots[0].startTime).toBe("2026-07-27T15:00:00.000Z");
   });
 
-  // Regression, live bug found 2026-09-27: the demo line used to set round-the-clock hours
-  // ("00:00 - 24:00" every day, see demo-customize/route.ts's old DEMO_ALWAYS_OPEN_HOURS) so a
-  // prospect testing the line after hours would never hear "the office is closed". A real caller
-  // (Carla Snyder) asked for an 8am inspection on three different days and was offered the same
-  // three near-midnight slots each time. Root cause: buildAvailableSlots has no notion of a
-  // PREFERRED TIME, only a preferred DATE — it always offers the first N slots starting from the
-  // day's OPEN minute, and "open" was midnight, so every day's first three slots were identical.
-  it("regression: round-the-clock business hours suggest near-midnight slots no matter what day is asked", () => {
+  it("never suggests overnight slots for a round-the-clock tenant unless requested", () => {
     const roundTheClock = Object.fromEntries(
       ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => [day, "00:00 - 24:00"])
     );
-    const localTimesFor = (preferredDate: string) =>
-      buildAvailableSlots({
-        businessHours: roundTheClock,
-        timeZone: "America/New_York",
-        preferredDate,
-        existing: [],
-        maxSlots: 3,
-        now: new Date("2026-07-20T12:00:00.000Z"),
-      }).map((s) =>
-        new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
-      );
-    // Monday, Tuesday, Wednesday — exactly what Carla asked for, in order.
-    expect(localTimesFor("2026-07-27")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
-    expect(localTimesFor("2026-07-28")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
-    expect(localTimesFor("2026-07-29")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
+    const localTimesFor = (preferredTime?: string) => buildAvailableSlots({
+      businessHours: roundTheClock, timeZone: "America/New_York", preferredDate: "2026-07-27",
+      preferredTime, existing: [], maxSlots: 3, now: new Date("2026-07-20T12:00:00.000Z"),
+    }).map((slot) => new Date(slot.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }));
+    expect(localTimesFor()).toEqual(["7:00 AM", "7:30 AM", "8:00 AM"]);
+    expect(localTimesFor("2:00 AM")[0]).toBe("2:00 AM");
   });
 
   it("realistic weekday hours suggest sensible daytime slots instead (the actual fix)", () => {
@@ -298,6 +283,45 @@ describe("scheduling ranges and business time", () => {
       new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
     );
     expect(localTimes).toEqual(["9:00 AM", "9:30 AM", "10:00 AM"]);
+  });
+
+  it.each([["8am", 480], ["08:00", 480], ["2:30 PM", 870], ["morning", 480], ["afternoon", 780]])(
+    "parses preferred time %s",
+    (value, expected) => expect(parsePreferredTime(value)).toBe(expected)
+  );
+
+  it("puts an exact open preferred time first", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "10:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots[0].startTime).toBe("2026-09-28T14:00:00.000Z");
+  });
+
+  it("moves a closed Saturday request to Monday daytime", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-10-03",
+      preferredTime: "10:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.every((slot) => slot.startTime.startsWith("2026-10-05"))).toBe(true);
+  });
+
+  it("gives the last same-day opening then the next business day when a request is after closing", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "18:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.map((slot) => slot.startTime)).toEqual([
+      "2026-09-28T20:00:00.000Z", "2026-09-29T13:00:00.000Z", "2026-09-29T13:30:00.000Z",
+    ]);
+  });
+
+  it("never offers a past time when today was requested", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "9:00 AM", existing: [], now: new Date("2026-09-28T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.every((slot) => Date.parse(slot.startTime) > Date.parse("2026-09-28T20:59:21.000Z"))).toBe(true);
   });
 });
 
