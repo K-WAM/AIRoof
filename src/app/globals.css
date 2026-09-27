@@ -741,6 +741,8 @@ a.panel:hover {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .company-sidebar-footer {
@@ -842,6 +844,7 @@ a.panel:hover {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   align-items: stretch;
 }
 
@@ -857,6 +860,13 @@ a.panel:hover {
   margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* On short laptops, keep the Help actions in the scrollable nav area instead
+   of allowing them to slide underneath the fixed Quick Add footer. */
+@media (max-height: 760px) and (min-width: 901px) {
+  .company-nav-secondary { margin-top: 8px; }
 }
 
 .mobile-menu-btn {
