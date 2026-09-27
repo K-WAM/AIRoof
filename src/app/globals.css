@@ -2921,6 +2921,15 @@ a.metric:hover {
   max-width: 420px;
 }
 
+/* Shared blank-slate treatment (T-144). Every workflow area says what belongs
+   there and presents a single reachable next step instead of a blank panel. */
+.empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; text-align: center; color: var(--text-muted); }
+.empty-state-compact { padding: 20px 16px; }
+.empty-state-icon { color: var(--accent); }
+.empty-state-title { margin: 0; color: var(--text); font-size: 16px; }
+.empty-state-body { max-width: 520px; margin: 0; font-size: 14px; line-height: 1.5; }
+.empty-state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+
 @media (max-width: 900px) {
   .mobile-nav-search .quickadd-trigger {
     width: 100%;
