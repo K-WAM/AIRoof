@@ -668,3 +668,126 @@ Never push/merge/touch main. Commit at least every 45 minutes, one commit per nu
 >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...". Final message: a table of the 8 items with before/after
 screenshot paths and which KNOWN_PHONE_OVERFLOW lines you removed.
 ```
+
+**E-wave state 2026-09-27:** T-127, E6b and T-129 all MERGED to local `main` (`c090310`). Section E is complete.
+
+---
+
+## F — "No training needed" (written 2026-09-27) — spec: `docs/NO-TRAINING-UX-PLAN.md`
+
+Order: **F1 (T-144) → merge → F2 (T-145)** — they touch the same pages. **F3 (T-130 code)** is file-disjoint and can run in parallel with either.
+Lessons carried forward from the last wave: run `npm run e2e:down` BEFORE `npx next build` (the harness dev server shares `.next`; T-129's build failed on
+this); append to `docs/IMPLEMENTATION_LOG.md` with a shell heredoc only; edit only your own row in `TODO.md` (both files conflict on every merge otherwise).
+
+### F1 — Codex, **GPT-5.5 Terra, medium** — T-144 empty states + first-run setup
+```
+You are Codex on the AI Receptionist platform. Task T-144. Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree (PowerShell):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-empty-states -b task/empty-states main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-empty-states/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-empty-states. Before your first edit and before every commit, `git rev-parse --show-toplevel` must be
+D:/Apps/air-wt-empty-states and `git branch --show-current` must be task/empty-states. Never edit "D:/Apps/6 - AI Receptionist".
+
+Read first, in full: AGENTS.md; docs/NO-TRAINING-UX-PLAN.md sections 1, 2 and 3 (section 3 is your spec — the rules in section 2 are pass/fail);
+CLAUDE.md's Industry-Applicability, Cache-Control and design-system rules; docs/SMOKE-HARNESS.md. Then the code you will change:
+src/components/ui/BlockedAction.tsx, src/components/ui/Tooltip.tsx (read its doc comment — it is why prerequisites never use tooltips),
+src/app/company/layout.tsx + first-login-guide-nudge.tsx + guide-nudge-storage.ts, src/app/company/dashboard/page.tsx, the useBusinessModules hook
+(vocab / isEnabled / calendarMode), src/contexts/QuickAddContext.tsx, and each screen in the plan's section 3.3 table.
+src/app/company/jobs/[jobId]/page.tsx is ~2,200 lines: grep for each empty-state string, never read it whole.
+
+Do, in order, one commit per step (prefix "T-144:"):
+1. EmptyState component + .empty-state tokens in globals.css + tests (plan 3.1).
+2. BlockedAction optional href (backwards compatible — CalendarBoard still works) + tests.
+3. src/lib/onboarding/setupChecklist.ts (pure, industry/vocab-aware) + unit tests.
+4. GET /api/company/setup-status (verifyAuthAndRole owner/staff/superadmin; Firestore count() aggregations and single doc reads only;
+   jsonWithCache(..., "noStore")) + route tests (auth, wrong tenant, empty tenant, counts -> booleans).
+5. Dashboard: remove FirstLoginGuideNudge (component, storage helper, its test references); add the SetupChecklist card (owner + superadmin preview only,
+   "Hide for now" collapse via try/catch localStorage, disappears when complete); replace the unconditional "All caught up" with the three cases in plan 3.2.
+6. Every row of the plan 3.3 inventory, using EmptyState, vocab-driven, role-gated (viewer: "Ask the owner to…", no button). Remove the inline hex colors
+   (#888, #94a3b8) the old empty states used. Commit per screen group (Pipeline+Calls, Calendar, Jobs list, Job tabs, Customers+Library, Team, Field).
+7. Test rig (plan 3.4): add the e2e-empty tenant + owner@empty.e2e.test to scripts/e2e/config.cjs and the seed WITHOUT changing the other tenants' data;
+   write e2e/empty-states.spec.ts (desktop + phone): every screen shows its EmptyState title + button, each primary action lands on the right place,
+   viewer sees no create/send buttons, one dental vocab spot-check, the checklist count rises after loading the starter kit.
+Rules: copy lines <= 12 words, buttons are verbs; one teal var(--accent), .button variants, no inline hex; 375px with no horizontal scroll
+(KNOWN_PHONE_OVERFLOW in e2e/smoke.spec.ts must stay empty); tap targets >= 44px; never set public/s-maxage. OUT of scope (T-145 owns them): button
+hierarchy on populated screens, Pipeline card clutter, the Guide page, the Agent Setup panel. Do NOT touch money math, auth logic, webhooks, voice,
+agentTools.ts, document content rules. No new dependencies (ask instead).
+Gates at the end: npx tsc --noEmit; eslint on changed files; full npx vitest run (send.test, example-lib and company/team are load-flaky — re-run alone
+before believing a failure); npm run e2e:up:bg then npm run e2e:test (full, desktop + phone) green; npm run e2e:down; THEN npx next build once.
+Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc (never a patch tool — the file has odd bytes); set only the T-144 row in TODO.md to review.
+Never push, merge or touch main. Commit at least every 45 minutes. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: step table with commit hashes, gate output, screenshot paths for every empty state (test-results/screens/{desktop,phone}/empty-*.png),
+"Noticed, not done", QUESTION FOR INTEGRATOR if any.
+```
+
+### F2 — Codex, **GPT-6 Sol, medium** — T-145 page-by-page roofing UX pass (start ONLY after T-144 is merged to main)
+```
+You are Codex on the AI Receptionist platform. Task T-145: make the roofing workflow explain itself — no training, no tooltips, no dead ends.
+Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree from CURRENT main (it must already contain T-144 — check that src/components/ui/EmptyState.tsx exists; if not, STOP and say so):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-ux-workflow -b task/ux-workflow main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-ux-workflow/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-ux-workflow. Before your first edit and before every commit, `git rev-parse --show-toplevel` must be
+D:/Apps/air-wt-ux-workflow and `git branch --show-current` must be task/ux-workflow. Never edit "D:/Apps/6 - AI Receptionist".
+
+Read first, in full: AGENTS.md; docs/NO-TRAINING-UX-PLAN.md (all of it — section 4 is your spec, section 2 is pass/fail, 4.2 lists decisions already
+made: apply them, do not re-open them); docs/ROOFING-DEMO-UX-REVIEW.md (per-screen jobs-to-be-done + its reject list);
+"D:/Apps/0 - Coding Standards & Specs/App Design Specification for Clear, Minimal, High-Trust Products.md"; CLAUDE.md's Industry-Applicability,
+Navigation Completeness and design-system rules; docs/SMOKE-HARNESS.md. jobs/[jobId]/page.tsx (~2,200 lines) and pipeline/page.tsx are large: grep,
+never read them whole; when you change a tab, extracting it to its own component file with no behavior change is welcome.
+
+Design for the user in plan section 1: reads nothing, taps the biggest button, is on a phone outside or juggling calls, and decides "it's broken" at the
+first blank screen, dead button or unfamiliar word.
+
+Do, in order (prefix "T-145:"):
+1. npm run e2e:up:bg, then npm run e2e:call (gives the roofing tenant a busy job). Walk the golden path in plan 4.1 as owner, staff, crew (phone) and
+   viewer at 375px and 1280px. Take real before-screenshots with the harness (shot() in a spec under e2e/, or a Playwright script) — not descriptions.
+2. Write docs/UX-PASS-FINDINGS.md (screen, persona, finding, severity blocks-path/confusing/clutter/polish, fix, before/after screenshot paths). Commit it.
+3. Apply every decision in plan 4.2, then fix every blocks-path, confusing and clutter finding; polish only if one line. ONE commit per screen.
+   Prerequisites are inline BlockedAction cards (fix in place, or a link to the exact place) — NEVER a disabled button explained by a hover Tooltip,
+   which phones never show. Hide any button the current role would get a 403 from.
+4. Add the one-primary-button guard to e2e/smoke.spec.ts (plan 4.3) with a KNOWN_MULTI_PRIMARY allow-list; shrink it to empty or justify each remaining
+   line in UX-PASS-FINDINGS.md.
+5. Rewrite /company/guide to "How it works — 5 steps" + "Talk to us" exactly as plan 4.2 says (vocab/module-gated; no invented phone number).
+6. Walk the golden path again; add after-screenshots to UX-PASS-FINDINGS.md; confirm every step's next action is a visible button on the screen before it.
+Guardrails (plan 4.4): no new pages; never remove a nav destination; no changes to money math, auth/role logic (hiding a button is UI, changing who may
+do something is not), webhooks, voice, agentTools.ts, the price-free report rule, notices approval; no global restyle — KNOWN_PHONE_OVERFLOW stays empty;
+no new dependencies; smallest change that satisfies the rules. A finding that needs a product decision: do the safe part, list it under
+"QUESTION FOR INTEGRATOR", keep going — do not stop the whole task for it.
+Gates at the end: npx tsc --noEmit; eslint on changed files; full npx vitest run (send.test, example-lib and company/team are load-flaky — re-run alone);
+full npm run e2e:test green (desktop + phone); npm run e2e:down; THEN npx next build once. Append evidence to docs/IMPLEMENTATION_LOG.md with a shell
+heredoc; set only the T-145 row in TODO.md to review. Never push, merge or touch main. Commit at least every 45 minutes. If stuck >20 min: commit WIP and
+end with "QUESTION FOR INTEGRATOR: ...". Final message: findings summary (counts by severity, fixed vs deferred), commit hashes per screen, gate output,
+before/after screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### F3 — Codex, **GPT-6 Sol, medium** — T-130 code: a second (Canadian) number on the same tenant (Option A, owner decision 2026-09-27)
+Small diff, but it is the live call path and tenant resolution (a cross-tenant leak risk) — hence Sol.
+```
+You are Codex on the AI Receptionist platform. Task T-130 (code part). Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree (PowerShell):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-ca-number -b task/ca-number main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-ca-number/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-ca-number; verify toplevel and branch (task/ca-number) before the first edit and every commit. Never edit the main repo.
+
+Read: AGENTS.md; docs/CANADIAN-DEMO-NUMBER.md (Option A is chosen: the new Vancouver 604 number answers as demo-roofing on the same agent); TODO.md T-130;
+src/lib/vapi/businessLookup.ts; src/app/api/webhooks/elevenlabs/initiation/route.ts (it resolves by the CALLED number first and deliberately never falls
+back to agent id for an unknown called number — keep that rule); the tools and post-call routes (they resolve from the stored conversation record);
+src/types/index.ts (BusinessConfig.elevenlabs); the admin config page + PUT route (src/app/admin/businesses/[businessId]/config/**,
+src/app/api/admin/businesses/[businessId]/config/route.ts); src/app/api/admin/demo-customize/route.ts (Demo Studio launch/reset).
+
+Do (prefix "T-130:"), one commit each:
+1. BusinessConfig.elevenlabs gains optional `extraPhoneNumbers?: string[]` (E.164, max 5). findBusinessByElevenLabsPhoneNumber: the existing
+   `elevenlabs.phoneNumber ==` query first; if empty, `elevenlabs.extraPhoneNumbers array-contains`; same cache behavior. Unknown number -> null, still
+   no agent-id fallback. Unit tests: primary, extra, unknown, cache.
+2. The admin config PUT validates extraPhoneNumbers (E.164, <= 5, no duplicates) and rejects with 409 a number already used by ANOTHER business as its
+   primary or extra number. The config page gets an "Additional phone numbers" field in the ElevenLabs section (one per line). Route tests 400/409/200.
+3. A Demo Studio launch/reset of demo-roofing must PRESERVE elevenlabs.extraPhoneNumbers (test it).
+4. Initiation route test: called_number = an extra number -> the tenant-specific response for demo-roofing and a conversation record carrying its
+   businessId; a tools call on that conversation uses demo-roofing.
+No live calls, no ElevenLabs/Twilio API calls, no secrets; do not touch the migration script, the reset backup code or the voice-provider seam.
+Gates: npx tsc --noEmit; eslint on changed files; full npx vitest run (load-flaky: send.test, example-lib, company/team — re-run alone); npx next build once.
+Append to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the T-130 row in TODO.md to review. Never push/merge/touch main.
+Final message: commit table, gate output, and the owner's exact steps after merge (buy a 604 voice number in Twilio -> import into ElevenLabs -> assign to
+the demo agent -> Admin -> Clients -> demo-roofing -> Edit -> Additional phone numbers -> test call).
+```
