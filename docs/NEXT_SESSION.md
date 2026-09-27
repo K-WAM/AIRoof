@@ -1,6 +1,21 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## UPDATE 2026-09-25 (afternoon) — read this first
+## CURRENT STATE 2026-09-27 (night) — read this first; everything below is older
+- **Live booking is broken on the demo line** (real call `conv_2901m3jamh7yfz6raa84jqg2rxzs`): midnight suggestions + "8 AM just taken".
+  Spec/evidence: `docs/BOOKING-RELIABILITY-PLAN.md`. Hotfix `6fcbe12` (real hours) covers half and is NOT deployed. Owner stopgap: Settings hours
+  via `?preview=demo-roofing`, and don't relaunch Demo Studio until the fix deploys.
+- **Worker queue = `docs/WORKER_QUEUE.md` section H (4 prompts):** H0 finish T-144 (Codex A, in progress) · H1 G1 booking engine (Codex B) ·
+  H2 booking tests + canary (Deepseek, after H1) · H3 hours at setup + roofing UX pass (Codex, after H0 + H1). Then only billing + cost panel,
+  once the owner approves pricing.
+- **Integrator next:** review/merge H0 and H1 the same way as T-127/E6b/T-129 (merge together in a scratch worktree, full gates + full smoke
+  suite on the combined tree). After H1: read-only `scripts/check-booking-data.mjs` (owner OK: it needs the prod key),
+  `setup-elevenlabs-agent.mjs --update-tools`, ElevenLabs agent tests via the MCP, then push + deploy (owner approval), relaunch Demo Studio,
+  place the test calls, read each transcript (AGENTS.md "Booking-change gate").
+- Local `main` is far ahead of `origin/main` (T-127, E6b, T-129, T-130, hotfix, docs). Not pushed.
+- Done today: T-127/E6b/T-129/T-130 merged; Twilio upgraded; +1 (778) 907-9769 on the agent (still to add under Admin → Clients → demo-roofing →
+  Additional phone numbers). Pricing proposal + billing terms are in TODO T-126.
+
+## UPDATE 2026-09-25 (afternoon)
 - **Round-2 demo feedback plan:** `docs/DEMO-FEEDBACK-PLAN.md` (E1–E6 worker tasks; tracked as TODO.md Phase 25) supersedes the older D-series prompts for the next wave.
 - Smoke test DONE: C5 + C6 merged to local `main` (`src/e2e/demo-path.test.ts`, `src/e2e/field-audio.test.ts`; `docs/SMOKE-REPORT.md` all pass offline); `next build` passed on main.
   Merged worktrees removed. **Local `main` is ahead of `origin/main` — not pushed yet.**

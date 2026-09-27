@@ -967,3 +967,90 @@ on changed files; full npx vitest run (load-flaky: send.test, example-lib, compa
 docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the G4 row in TODO.md to review. Never push/merge/touch main. Commit at least every 45 minutes.
 If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...". Final message: commit table, gate output, "Noticed, not done".
 ```
+
+---
+
+## H — THE REMAINING QUEUE (2026-09-27 night) — 4 prompts, this section supersedes F2, G2, G3, G4
+
+The owner asked for as few prompts as possible, each complete enough that the worker just executes. The detailed specs
+are unchanged (F1/F2/G1–G4 above, `docs/NO-TRAINING-UX-PLAN.md`, `docs/BOOKING-RELIABILITY-PLAN.md`). The prompts below
+combine them and point to them. Two AGENTS.md rules added tonight apply to everyone: **run to the end** (no check-ins
+between steps) and **CRLF/non-ASCII patch mismatches: edit by hand, no permission needed**.
+
+| # | Worker / model | Task | Starts when | Worktree |
+|---|---|---|---|---|
+| H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | now (in progress, steps 1–4 done) | `air-wt-empty-states` (exists) |
+| H1 | Codex B · GPT-6 Sol, medium | G1 booking engine (section G, unchanged) | now, in parallel with H0 | `air-wt-booking` |
+| H2 | Deepseek · V4.1 Flash, Thinking: Hard | G3 + G4: booking tests, live test script, daily canary | after H1 merges | `air-wt-booking-verify` |
+| H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | after H0 AND H1 merge | `air-wt-setup-ux` |
+
+After H3 there is one more prompt, and only when the owner approves pricing: billing + the superadmin cost panel
+(T-126 + T-146). Everything else is integrator work (reviews, merges, live agent tests, deploy) or owner items.
+
+### H0 — Codex A, **GPT-5.5 Terra, medium** — finish T-144 (paste into the SAME Codex session if it's still open)
+```
+Continue T-144 in the EXISTING worktree D:/Apps/air-wt-empty-states (branch task/empty-states). Verify `git rev-parse --show-toplevel` and
+`git branch --show-current` before your first edit. Never edit "D:/Apps/6 - AI Receptionist".
+Answer to your question: YES, reconcile by hand. src/app/company/dashboard/page.tsx is 100% CRLF and contains non-ASCII characters (the "—" in
+"All caught up — nothing urgent right now."), which is why the patch context never matched. Re-read the lines (allClear near line 241, the
+feed-empty block near lines 417–419), then edit them keeping CRLF and the "—" byte-for-byte, or use a small `node -e` exact-string replace.
+See AGENTS.md "Known hiccups". The same applies to any other file — don't ask again.
+Done already: steps 1–4 and the Guide-nudge removal (b73a5af…a1e6fc1). In ONE run, with no check-ins, do the rest of docs/WORKER_QUEUE.md F1:
+step 5 (Dashboard SetupChecklist card + the three feed cases in docs/NO-TRAINING-UX-PLAN.md §3.2), step 6 (every row of §3.3, one commit per
+screen group), step 7 (e2e-empty tenant + e2e/empty-states.spec.ts), then F1's gates (npm run e2e:down BEFORE npx next build). Another Codex
+session is editing src/lib/tools/**, src/lib/scheduling/**, demo-customize and demoSeed.ts at the same time — don't touch those.
+Final message: F1's final-message format. Never push or merge.
+```
+
+### H1 — Codex B, **GPT-6 Sol, medium** — G1 booking engine
+```
+Read D:/Apps/6 - AI Receptionist/docs/WORKER_QUEUE.md section "G1" and follow it exactly — it has you create your own worktree first. Run every step
+to the end in this one session (AGENTS.md "Run to the end"). Another Codex session is editing company UI pages and scripts/e2e/** at the same time —
+don't touch those. The main repo is read-only for you; never push or merge.
+```
+
+### H2 — Deepseek, **V4.1 Flash, Thinking: Hard** — booking verification (G3 + G4), after H1 merges
+```
+You are Worker D (Deepseek) on the AI Receptionist platform. Task H2 = sections G3 and G4 of docs/WORKER_QUEUE.md, done by you in ONE worktree.
+Read docs/WORKER_QUEUE.md "Worker etiquette" and AGENTS.md (the Booking-change gate, and "Run to the end") first. Commit WIP often; if your budget runs low,
+commit, list done/not-done at the top of your final message and stop.
+
+Create your worktree from CURRENT main — it must contain G1 (src/lib/scheduling/hours.ts exists); if not, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-booking-verify -b task/booking-verify main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-booking-verify/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-booking-verify; verify toplevel and branch (task/booking-verify) before the first edit and every commit. Never edit the main repo.
+Ignore the worktree lines inside G3/G4; use this one.
+
+Part A = G3 steps 1–3 exactly (smoke-harness booking scenarios, e2e/booking.spec.ts, docs/BOOKING-TEST-SCRIPT.md). In Part A, change only test files,
+scripts/e2e/scenarios/booking.cjs, package.json (the one npm script), and that doc. Commit "H2 Part A complete".
+Part B = G4 steps 1–5 exactly (the daily booking canary: cron route, owner email, vercel.json, Admin Usage "Booking" column, tests). In Part B you may
+change only the files G4 names. Reuse src/lib/auth/cronGuard.ts; never invent an email address — find the one existing platform alerts use.
+If a Part A scenario FAILS, do NOT change production code — record row / expected / actual / file:line in your final message (it is a G1 bug).
+Gates at the end: npx tsc --noEmit; eslint on changed files; full npx vitest run (send.test, example-lib, company/team are load-flaky — re-run alone);
+npm run e2e:up:bg, then npm run e2e:booking and npm run e2e:test green, then npm run e2e:down; THEN npx next build once.
+Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the H2 row in TODO.md to review. Never push/merge/touch main.
+Final message: per-row pass/fail table (S1–S8), canary test results, gate output, screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### H3 — Codex (first free), **GPT-6 Sol, medium** — hours at setup, then the roofing UX pass (G2 + T-145), after H0 AND H1 merge
+```
+You are Codex on the AI Receptionist platform. Task H3 = section G2, then section F2, of docs/WORKER_QUEUE.md, in ONE worktree and ONE run
+(AGENTS.md "Run to the end"; CRLF/non-ASCII "Known hiccups" — edit by hand, no permission needed).
+
+Create your worktree from CURRENT main — it must contain G1 (src/lib/scheduling/hours.ts) AND T-144 (src/components/ui/EmptyState.tsx);
+if either is missing, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-setup-ux -b task/setup-ux main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-setup-ux/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-setup-ux; verify toplevel and branch (task/setup-ux) before the first edit and every commit. Never edit the main repo.
+Ignore the worktree lines inside G2/F2; use this one.
+
+Part 1 = G2 steps 1–6 exactly (HoursEditor, Settings, the required onboarding "Hours" step + admin client create/config, CalendarBoard on the shared
+parser, "Set your hours" checklist item, validation tests). Commit "H3 Part 1 complete" and append a checkpoint to docs/IMPLEMENTATION_LOG.md —
+the integrator may merge Part 1 while you continue.
+Part 2 = F2 steps 1–6 exactly (golden-path walk as owner/staff/crew/viewer at 375 + 1280 px with real screenshots, docs/UX-PASS-FINDINGS.md, the
+decisions in docs/NO-TRAINING-UX-PLAN.md §4.2, the one-primary-button guard, the Guide rewrite, the re-walk). Part 1's hours editor is part of the
+walk. Booking behavior is G1's — if the walk finds a booking bug, record it; don't change src/lib/tools/** or src/lib/scheduling/**.
+Gates at the end of EACH part: npx tsc --noEmit; eslint on changed files; full npx vitest run (load-flaky: send.test, example-lib, company/team —
+re-run alone). At the very end also: npm run e2e:up:bg, npm run e2e:test green (desktop + phone), npm run e2e:down, THEN npx next build once.
+Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the H3 row in TODO.md to review. Never push/merge/touch main.
+Final message: Part 1 and Part 2 commit tables (mark "H3 Part 1 complete"), findings summary (counts by severity, fixed vs deferred), gate output,
+screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```

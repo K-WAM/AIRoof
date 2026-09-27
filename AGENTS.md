@@ -186,6 +186,14 @@ Never point a browser test at production or at any account that is not in `scrip
   error in your own new code), don't assume it's a pre-existing repo issue and don't log it as one — first
   do `rm -rf node_modules && npm ci` in that worktree alone (no other install running anywhere else) and
   re-run the gate before concluding anything about the code.
+- **Patch "context mismatch" = line endings, not a real conflict (2026-09-27).** Almost every source file is CRLF, and
+  many contain non-ASCII characters (`—`, `’`, `·`). A patch tool that writes LF or ASCII context will not apply.
+  Re-read the exact lines, then edit them by hand, keeping CRLF and those characters byte-for-byte. If your tool
+  can't, use a tiny `node -e` script that reads the file, replaces an exact string, and writes it back unchanged
+  otherwise. Never normalize line endings or reformat a file. You do not need to ask permission to do this.
+- **Run to the end (2026-09-27).** A prompt's numbered steps are ONE job. Don't stop between steps to report progress
+  or ask permission. Send one message when everything is done, or when you are truly blocked after finishing
+  everything you can (then use "QUESTION FOR INTEGRATOR").
 
 ## Worker etiquette (added 2026-09-24)
 
