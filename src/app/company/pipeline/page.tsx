@@ -12,6 +12,8 @@ import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
@@ -107,6 +109,7 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
 
 export default function PipelinePage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab, isEnabled, ready: modulesReady, industry } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -148,6 +151,15 @@ export default function PipelinePage() {
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!businessId) return;
+    fetch(`/api/company/setup-status?businessId=${encodeURIComponent(businessId)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: { phoneNumber?: string } | null) => setPhoneNumber(data?.phoneNumber ?? null))
+      .catch(() => {});
+  }, [businessId]);
   const [apptCalling, setApptCalling] = useState<string | null>(null);
   const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
 
@@ -578,7 +590,7 @@ export default function PipelinePage() {
               </div>
               <div className="panel-body">
                 {filteredLeads.length === 0 ? (
-                  <p style={{ color: "#888", fontSize: 14 }}>No leads in this category yet.</p>
+                  <EmptyState compact title="Nothing here right now" action={leads.length > 0 && leadFilter !== "all" ? { label: "Show all", onClick: () => setLeadFilter("all") } : undefined} />
                 ) : (
                   <div className="queue-list">
                     {filteredLeads.map((lead) => (
@@ -775,7 +787,7 @@ export default function PipelinePage() {
             </div>
             <div className="panel-body">
               {upcomingAppts.length === 0 ? (
-                <p style={{ color: "#888", fontSize: 14 }}>No upcoming appointments. They appear here when your AI receptionist books one.</p>
+                <EmptyState compact title="Nothing here right now" />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                   {upcomingAppts.map((appt) => (
@@ -807,13 +819,11 @@ export default function PipelinePage() {
       )}
 
       {leads.length === 0 && appointments.length === 0 && (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-          No leads or appointments yet.{" "}
-          <Link href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>
-            View call history
-          </Link>{" "}
-          to see incoming activity.
-        </div>
+        <EmptyState
+          title="New requests land here"
+          body="When a customer calls, their request waits here for you."
+          action={user?.role === "viewer" || !phoneNumber ? undefined : { label: "Make a test call", href: `tel:${phoneNumber}` }}
+        />
       )}
       <RequestReviewDialog
         open={!!reviewLead}
