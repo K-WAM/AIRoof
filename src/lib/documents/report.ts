@@ -1,7 +1,6 @@
 import type { DocumentOptions } from "@/types/documentOptions";
 import { normalizeDocumentOptions } from "@/types/documentOptions";
 import type { ParsedUpdate, PhotoPhase } from "@/types/jobs";
-import type { DocumentGroup } from "./groups";
 
 export type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
 export type ReportPhotoPair = { before?: ReportPhoto; after?: ReportPhoto };
