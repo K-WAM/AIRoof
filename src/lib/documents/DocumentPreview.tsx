@@ -2,8 +2,12 @@ import type { DocumentGroup } from "./groups";
 import type { Letterhead } from "./letterhead";
 import type { ReportQuoteSection } from "./reportQuote";
 import type { RenderedNotice } from "./notices";
+import { photoPages } from "./photoPages";
+import type { JobPhotoMeta } from "@/types/jobs";
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, className = "" }: {
+export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
+
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "" }: {
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ problem: string; solution: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
@@ -11,6 +15,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   quoteSection?: ReportQuoteSection | null;
   /** QUOTE / INVOICE only: "Terms & notices" — pass what noticesForDocument() approved (nothing until the owner approves the wording). */
   notices?: RenderedNotice[];
+  photos?: DocumentPhoto[];
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
   return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
@@ -53,6 +58,21 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
         <div style={{ fontSize: 12, lineHeight: 1.55, color: "#475569", whiteSpace: "pre-wrap", ...(notice.statutory ? { fontWeight: 700 } : {}) }}>{notice.text}</div>
       </div>)}
     </section>}
+    {photoPages(photos).map((page, pageIndex) => <section key={pageIndex} className="document-photo-page" style={{ marginTop: 28, ...(pageIndex ? { breakBefore: "page", pageBreakBefore: "always" } : {}) }}>
+      <h3 style={{ fontSize: 14 }}>Photo documentation</h3>{page.rows.map((row, rowIndex) => <div key={rowIndex} className="document-photo-row" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, breakInside: "avoid", pageBreakInside: "avoid", marginTop: 12 }}><PhotoCard title={row.before?.phase === "before" ? "Before" : "Photo"} photo={row.before as DocumentPhoto | undefined} /><PhotoCard title={row.after?.phase === "after" ? "After" : "Photo"} photo={row.after as DocumentPhoto | undefined} /></div>)}
+    </section>)}
     <footer style={{ marginTop: 32, borderTop: "1px solid #e2e8f0", paddingTop: 14, textAlign: "center", fontSize: 11, color: "#64748b" }}>{[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).join(" · ")}</footer>
   </article>;
+}
+
+function PhotoCard({ title, photo }: { title: string; photo?: DocumentPhoto }) {
+  if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ minHeight: 80 }} />;
+  const src = photo.src ?? (photo.fullB64 ? `data:image/jpeg;base64,${photo.fullB64}` : `data:image/jpeg;base64,${photo.thumbB64}`);
+  return <figure style={{ margin: 0 }}>
+    <strong style={{ fontSize: 11, color: "#475569" }}>{title}</strong>
+    {/* Full-resolution document photos are data URIs and cannot use next/image. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={src} alt={photo.label} style={{ display: "block", width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 5, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
+  </figure>;
 }

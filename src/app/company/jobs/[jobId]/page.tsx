@@ -18,7 +18,7 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { noticesForDocument } from "@/lib/documents/notices";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
-import { draftReportNotes, pairReportPhotos, reportSections, stripHiddenFacts } from "@/lib/documents/report";
+import { draftReportNotes, reportSections, stripHiddenFacts } from "@/lib/documents/report";
 import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/reportQuote";
 import { FindingsPanel } from "./FindingsPanel";
 import { JobHistory } from "./JobHistory";
@@ -26,6 +26,7 @@ import { jobSteps } from "@/lib/jobs/nextStep";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
+import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
 import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
@@ -65,7 +66,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 };
 
 // Phase 12, Phase 3 — report photo grid. Raised 8 → 16 (2 pages @ 8/page).
-const MAX_REPORT_PHOTOS = 12;
+const MAX_REPORT_PHOTOS = 16;
 const PHASE_ORDER: PhotoPhase[] = ["before", "after", "other"];
 
 type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
@@ -181,6 +182,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
   const [showTechnicians, setShowTechnicians] = useState(false);
+  const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
   const [invoiceDirty, setInvoiceDirty] = useState(false);
@@ -194,7 +196,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [report, setReport] = useState<string | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [reportNotes, setReportNotes] = useState("");
-  const [reportPhotos, setReportPhotos] = useState<Array<{ label: string; fullB64: string; phase?: PhotoPhase }>>([]);
+  const [reportPhotos, setReportPhotos] = useState<Array<JobPhotoMeta & { fullB64: string }>>([]);
   const [reportOptions, setReportOptions] = useState<Partial<DocumentOptions>>({});
   const [reportTechnicians, setReportTechnicians] = useState<string[]>([]);
   const [showReportSend, setShowReportSend] = useState(false);
@@ -406,9 +408,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     });
   }
 
-  // Lazy-load photo thumbnails the first time the Photos tab is opened.
+  // Lazy-load photo thumbnails the first time a photo-aware tab is opened.
   useEffect(() => {
-    if (activeTab !== "photos" || photosLoaded || !businessId) return;
+    if (!["photos", "quote", "invoice", "report"].includes(activeTab) || photosLoaded || !businessId) return;
     fetch(`/api/jobs/${jobId}/photos?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => setPhotos((d.photos ?? []) as JobPhotoMeta[]))
@@ -435,6 +437,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setHideMaterials(inv.hideMaterials);
         setHideLabor(inv.hideLabor === true);
         setShowTechnicians(inv.showTechnicians === true);
+        setInvoicePhotoIds(inv.photoIds);
         setTechnicians(inv.technicians ?? []);
         setNarrative(inv.narrative ?? "");
         setInvoiceOpening(inv.opening ?? "");
@@ -534,6 +537,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setHideMaterials(inv.hideMaterials);
       setHideLabor(inv.hideLabor === true);
       setShowTechnicians(inv.showTechnicians === true);
+      setInvoicePhotoIds(inv.photoIds);
       setTechnicians(inv.technicians ?? []);
       setNarrative(inv.narrative ?? "");
       setInvoiceOpening(inv.opening ?? "");
@@ -594,10 +598,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     // Sort before → after → other (interleaved is useless), then cap at 2 pages (8/page).
     const included = metas
       .filter((p) => p.includeInReport)
-      .sort((a, b) => {
-        const order = PHASE_ORDER.indexOf(a.phase ?? "other") - PHASE_ORDER.indexOf(b.phase ?? "other");
-        return order !== 0 ? order : (a.sort ?? a.createdAt) - (b.sort ?? b.createdAt);
-      })
+      .sort((a, b) => (a.sort ?? a.createdAt) - (b.sort ?? b.createdAt))
       .slice(0, MAX_REPORT_PHOTOS);
 
     // Batched blob fetch (≤12 ids/request) — was one GET per photo.
@@ -612,7 +613,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     setReportPhotos(
       included
         .filter((p) => blobsById[p.photoId])
-        .map((p) => ({ label: p.label, fullB64: blobsById[p.photoId], phase: p.phase ?? "other" }))
+        .map((p) => ({ ...p, fullB64: blobsById[p.photoId] }))
     );
   }
 
@@ -672,7 +673,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/report/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes, photos: reportPhotos }),
+        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes }),
       });
       if (res.ok) {
         setReportSent(true);
@@ -806,6 +807,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               hideMaterials,
               hideLabor,
               showTechnicians,
+              photoIds: selectedDocumentPhotoIds(photos, invoicePhotoIds),
               technicians,
                narrative,
                opening: invoiceOpening,
@@ -827,7 +829,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -1367,6 +1369,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
+        photos={photos}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
         onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
         onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
@@ -1417,6 +1420,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <div style={{ marginTop: 8, maxWidth: 380 }}>
                       <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
                         onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
+                      </div>
                       <div style={{ marginTop: 12 }}>
                         <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={invoiceStatus !== "draft"}
                           onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
@@ -1838,6 +1844,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
+                  photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>
             </div>
@@ -2140,7 +2147,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   reportNotes: string;
   reportOptions: Partial<DocumentOptions>;
   reportTechnicians: string[];
-  reportPhotos: ReportPhoto[];
+  reportPhotos: Array<JobPhotoMeta & { fullB64: string }>;
   quote: JobQuote | null;
 }) {
   const { fmtDate } = useFormat();
@@ -2153,35 +2160,11 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
-  const photoGroups = options.showPhotos ? pairReportPhotos(reportPhotos) : { pairs: [], other: [] };
-  return <>
-    <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
-      billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
-      narrative={stripHiddenFacts(reportNotes, options)}
-      findings={findings} sections={sections} quoteSection={quoteSection} />
-    {(photoGroups.pairs.length > 0 || photoGroups.other.length > 0) && <section className="report-doc" style={{ marginTop: 20, pageBreakBefore: "always" }}>
-      <ReportSection title="Photo documentation">
-        {photoGroups.pairs.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
-          {photoGroups.pairs.flatMap((pair, index) => [
-            <ReportPhotoCard key={`problem-${index}`} title="Problem" photo={pair.before} />,
-            <ReportPhotoCard key={`corrective-${index}`} title="Corrective action" photo={pair.after} />,
-          ])}
-        </div>}
-        {photoGroups.other.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: photoGroups.pairs.length ? 16 : 0 }}>{photoGroups.other.map((photo, index) => <ReportPhotoCard key={index} title="Photo documentation" photo={photo} />)}</div>}
-      </ReportSection>
-    </section>}
-  </>;
-}
-
-function ReportPhotoCard({ title, photo }: { title: string; photo?: ReportPhoto }) {
-  if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ border: "1px dashed #cbd5e1", borderRadius: 8, minHeight: 120, padding: 12, color: "#64748b", fontSize: 12 }}>{title}: no photo recorded</div>;
-  return <figure style={{ margin: 0 }}>
-    <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", marginBottom: 5 }}>{title}</div>
-    {/* Full-resolution report photos are data URIs and cannot be optimized by next/image. */}
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={`data:image/jpeg;base64,${photo.fullB64}`} alt={photo.label} style={{ width: "100%", maxHeight: 360, objectFit: "contain", border: "1px solid #e2e8f0", borderRadius: 8 }} />
-    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
-  </figure>;
+  return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
+    billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
+    narrative={stripHiddenFacts(reportNotes, options)}
+    findings={findings} sections={sections} quoteSection={quoteSection}
+    photos={options.showPhotos ? reportPhotos : []} />;
 }
 
 function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {

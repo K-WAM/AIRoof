@@ -21,6 +21,8 @@ import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClien
 import type { BusinessConfig } from "@/types";
 import type { LibraryLogo } from "@/types/library";
 import type { CatalogState } from "./FindingsPanel";
+import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
+import type { JobPhotoMeta } from "@/types/jobs";
 
 const AUTOSAVE_MS = 800;
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -37,12 +39,13 @@ function NumberField({ value, onCommit, label, width, disabled, min = 0, step = 
   );
 }
 
-export function QuotePanel({ job, businessId, businessConfig, logos, catalog, onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
+export function QuotePanel({ job, businessId, businessConfig, logos, catalog, photos = [], onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
   job: Job;
   businessId: string;
   businessConfig: BusinessConfig | null;
   logos: LibraryLogo[];
   catalog: CatalogState;
+  photos?: JobPhotoMeta[];
   onStatus: (status: Job["status"]) => void;
   onFindingsChanged: (findings: JobFinding[]) => void;
   /** The job page mirrors the quote's status (tab label, lock notes, the report's optional quote section). */
@@ -130,7 +133,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
         body: JSON.stringify({
           businessId, lines: quote.lines, findings: quote.findings, notes: quote.notes ?? "", hideMaterials: quote.hideMaterials,
           hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true, technicians: quote.technicians ?? [],
-          narrative: quote.narrative ?? "",
+          narrative: quote.narrative ?? "", photoIds: selectedDocumentPhotoIds(photos, quote.photoIds),
           // The server refuses a past date; an old quote keeps its stored date instead of failing every autosave.
           ...(quote.validUntil > Date.now() ? { validUntil: quote.validUntil } : {}),
         }) });
@@ -350,6 +353,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
             <DocumentOptionToggles disabled={!draft}
               values={{ hideMaterials: quote.hideMaterials, hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true }}
               onChange={(key, next) => change({ [key]: next } as Partial<JobQuote>)} />
+            <DocumentPhotoSelector photos={photos} photoIds={quote.photoIds} disabled={!draft} onChange={(photoIds) => change({ photoIds })} />
             {quote.showTechnicians && <label>Technicians (comma separated, up to 10)
               <input list="quote-technicians" disabled={!draft} value={(quote.technicians ?? []).join(", ")} style={{ width: "100%", display: "block" }}
                 onChange={(event) => change({ technicians: event.target.value.split(",").slice(0, 10).map((name) => name.trim()) })} />
@@ -362,6 +366,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, on
         <div className="quote-preview-wrap"><h3 className="no-print">Customer preview</h3><DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
           billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(quote)} totalLabel="Estimated Total" total={total}
+          photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} /></div>
         <button className="button no-print" type="button" onClick={() => window.print()}>Print / Save as PDF</button>
         <label className="no-print">Notes<textarea disabled={!draft} value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>

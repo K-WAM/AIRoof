@@ -9,6 +9,7 @@ import { validFindings } from "@/lib/jobs/findings";
 import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteStatus } from "@/types/quote";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
+import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -102,6 +103,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return err("Invalid showTechnicians", 400);
   if (body.technicians !== undefined && !validTechnicians(body.technicians)) return err("Invalid technicians", 400);
   if (body.narrative !== undefined && !validNarrative(body.narrative)) return err("Invalid narrative", 400);
+  if (body.photoIds !== undefined) {
+    const selected = await loadDocumentPhotos(db, businessId, jobId, body.photoIds);
+    if ("error" in selected) return err(selected.error, 400);
+  }
   if (body.validUntil !== undefined && (typeof body.validUntil !== "number" || !Number.isFinite(body.validUntil) || body.validUntil <= Date.now() || body.validUntil > Date.now() + 10 * 365 * 86400000)) return err("Invalid validUntil", 400);
   const lines = (body.lines ?? quote.lines) as JobQuote["lines"];
   const total = quoteTotal(lines);
@@ -114,6 +119,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     ...(body.showTechnicians !== undefined ? { showTechnicians: body.showTechnicians as boolean } : {}),
     ...(body.technicians !== undefined ? { technicians: body.technicians as string[] } : {}),
     ...(body.narrative !== undefined ? { narrative: body.narrative as string } : {}),
+    ...(body.photoIds !== undefined ? { photoIds: body.photoIds as string[] } : {}),
     ...(body.validUntil !== undefined ? { validUntil: body.validUntil as number } : {}),
   };
   await quoteRef.update(patch);

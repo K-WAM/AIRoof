@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), firestore: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), firestore: vi.fn(), listPhotoMetas: vi.fn(), getPhotoBlobs: vi.fn() }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.verify }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.firestore }));
+vi.mock("@/lib/photos/store", () => ({ listPhotoMetas: mocks.listPhotoMetas, getPhotoBlobs: mocks.getPhotoBlobs }));
 import { PATCH } from "./route";
 
 const context = { params: Promise.resolve({ jobId: "j" }) };
@@ -16,6 +17,8 @@ beforeEach(() => {
   db.__seed("businesses/b/invoices", "INV-1", { status: "draft", labor: [], materials: [], other: [], taxRate: 0, hideMaterials: false });
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "u" } });
   mocks.firestore.mockReset().mockReturnValue(db);
+  mocks.listPhotoMetas.mockReset().mockResolvedValue([]);
+  mocks.getPhotoBlobs.mockReset().mockResolvedValue({});
 });
 
 describe("Mark paid", () => {
@@ -48,5 +51,17 @@ describe("invoice document options", () => {
     expect(result.status).toBe(200);
     expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ opening: "Opening", closing: "Closing", thankYou: "Thank you", terms: "Due upon completion", poNumber: "PO-7", dueAt, total: 0 });
     expect((await PATCH(request({ businessId: "b", opening: "<script>" }), context)).status).toBe(400);
+  });
+  it("persists only validated photo ids", async () => {
+    const meta = { photoId: "after", label: "After", phase: "after", thumbB64: "thumb", createdAt: 1, includeInReport: true };
+    mocks.listPhotoMetas.mockResolvedValue([meta]);
+    mocks.getPhotoBlobs.mockResolvedValue({ after: "blob" });
+    expect((await PATCH(request({ businessId: "b", photoIds: ["after"] }), context)).status).toBe(200);
+    expect(db.__peek("businesses/b/invoices", "INV-1")?.photoIds).toEqual(["after"]);
+
+    mocks.getPhotoBlobs.mockResolvedValue({});
+    const response = await PATCH(request({ businessId: "b", photoIds: ["after"] }), context);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/no longer exist/i);
   });
 });

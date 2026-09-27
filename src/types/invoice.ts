@@ -64,6 +64,7 @@ export interface JobInvoice {
   hideMaterials: boolean;
   hideLabor?: boolean;
   showTechnicians?: boolean;
+  photoIds?: string[];
   technicians?: string[];
   narrative?: string;
   logoId?: string | null; // null = business.logoUrl; undefined = no logo. Logo library not shipped yet (T-092 follow-up).

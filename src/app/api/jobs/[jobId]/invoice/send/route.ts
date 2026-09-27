@@ -8,6 +8,8 @@ import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobInvoice } from "@/types/invoice";
 import type { Job, JobStatusChange } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
+import { listPhotoMetas } from "@/lib/photos/store";
+import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
 // Phase 12/Phase 4 rewrite: reads the SAVED invoice doc instead of trusting rows the client
@@ -61,6 +63,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
   const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
 
+  const metas = await listPhotoMetas(db, businessId, jobId);
+  const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
+  const selected = await loadDocumentPhotos(db, businessId, jobId, photoIds, metas);
+  if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
   const html = buildJobInvoiceEmailHtml(invoice, {
     businessName: bizName,
     brandColor: biz.brandColor,
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     timezone: biz.timezone,
   }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
-  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }));
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos);
 
   const sent = await sendEmail({
     to,

@@ -46,6 +46,22 @@ describe("report document helpers", () => {
       expect(html.includes("Flashing")).toBe(!hideMaterials);
     });
   }
+
+  it("stays price-free with selected photos, even when a caption contains a number", () => {
+    const html = buildJobReportEmailHtml({
+      business: { businessName: "Business" }, logos: [], jobId: "J-1", title: "Repair", billTo: { name: "Customer" }, parsed,
+      options: { showPhotos: true },
+      photos: [
+        { photoId: "before", label: "Crack at section 12", phase: "before", includeInReport: true, createdAt: 1, thumbB64: "thumb", fullB64: "before-blob" },
+        { photoId: "after", label: "Section 12 repaired", phase: "after", includeInReport: true, createdAt: 2, thumbB64: "thumb", fullB64: "after-blob", pairId: "before" },
+      ],
+    });
+    expect(html).toContain("Crack at section 12");
+    expect(html).toContain("Before");
+    expect(html).toContain("After");
+    expect(html).not.toMatch(/\$\s*\d/);
+    expect(html).not.toMatch(/total|subtotal|estimate/i);
+  });
 });
 
 // The owner's demo: "Description of work" still said "Site visit: Kevin. Materials used: ladders (6 pieces), 2×4s (300 pieces)."

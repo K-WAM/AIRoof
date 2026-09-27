@@ -3,6 +3,8 @@ import type { Letterhead } from "./letterhead";
 import { escapeHtml } from "./letterhead";
 import type { ReportQuoteSection } from "./reportQuote";
 import type { RenderedNotice } from "./notices";
+import { photoPages } from "./photoPages";
+import type { JobPhotoMeta } from "@/types/jobs";
 
 const money = (value: number) => `$${value.toFixed(2)}`;
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
@@ -66,6 +68,12 @@ export function totalBlock(label: string, amount: number, accent?: string | null
 
 export function footerBlock(brand: Letterhead): string {
   return `<footer style="margin-top:32px;padding-top:14px;border-top:1px solid #e2e8f0;text-align:center;font-size:11px;color:#64748b">${[brand.businessName, brand.licenseNumber, brand.websiteUrl].filter(Boolean).map((v) => escapeHtml(v!)).join(" &middot; ")}</footer>`;
+}
+
+export function photosBlock(photos: Array<JobPhotoMeta & { fullB64?: string; cid?: string }> = []): string {
+  if (!photos.length) return "";
+  const image = (photo: (JobPhotoMeta & { fullB64?: string; cid?: string }) | undefined, heading: string) => !photo ? '<td style="width:50%;padding:6px"></td>' : `<td style="width:50%;padding:6px;vertical-align:top"><strong style="font-size:11px;color:#475569">${heading}</strong><img src="${photo.cid ? `cid:${photo.cid}` : photo.fullB64 ? `data:image/jpeg;base64,${photo.fullB64}` : `data:image/jpeg;base64,${photo.thumbB64}`}" alt="${escapeHtml(photo.label)}" style="display:block;width:100%;margin-top:5px;border:1px solid #e2e8f0;border-radius:6px"/><div style="font-size:12px;color:#475569;margin-top:4px">${escapeHtml(photo.label)}</div></td>`;
+  return photoPages(photos).map((page, index) => `<section style="margin-top:24px;${index ? "page-break-before:always;" : ""}"><h3 style="font-size:13px">Photo documentation</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:6px">Before</th><th style="text-align:left;padding:6px">After</th></tr></thead><tbody>${page.rows.map((row) => `<tr style="break-inside:avoid;page-break-inside:avoid">${image(row.before, row.before?.phase === "before" ? "Before" : "Photo")}${image(row.after, row.after?.phase === "after" ? "After" : "Photo")}</tr>`).join("")}</tbody></table></section>`).join("");
 }
 
 export function documentShell(content: string): string {
