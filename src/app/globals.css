@@ -1201,6 +1201,24 @@ a.metric:hover {
 
 .feed-chevron { color: #cbd5e1; flex-shrink: 0; }
 
+/* Dashboard attention rows often contain caller-entered names and addresses.
+   On a narrow screen, favor readable wrapped text over a row-wide layout. */
+@media (max-width: 480px) {
+  .feed-row {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .feed-name,
+  .feed-sub {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .feed-chevron { margin-top: 8px; }
+}
+
 .feed-empty {
   text-align: center;
   padding: 32px 16px;
