@@ -9,6 +9,7 @@ import type { CustomerSlim } from "@/types/customer";
 import type { WorkCatalog } from "@/types/workCatalog";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CustomersSection } from "./CustomersSection";
@@ -462,10 +463,10 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
               )}
             </div>
           ))}
-          {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No {resources.toLowerCase()} yet. Add your first below.</p>}
+          {crews.length === 0 && <EmptyState compact title={`Add your first ${resource.toLowerCase()}`} action={{ label: `Add ${resource.toLowerCase()}`, onClick: () => document.querySelector<HTMLInputElement>("#resource-name")?.focus() }} />}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
-          <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
+          <div className="field"><label>{resource} name</label><input id="resource-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
           <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
           <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
           <div className="field">
@@ -523,10 +524,10 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
               </Tooltip>
             </div>
           ))}
-          {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}
+          {docs.length === 0 && <EmptyState compact title="No documents yet" action={{ label: "Add document", onClick: () => document.querySelector<HTMLInputElement>("#document-name")?.focus() }} />}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
-          <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>
+          <div className="field"><label>Document name</label><input id="document-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>
           <div className="field"><label>Link (URL)</label><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
           <div className="field">
             <button className="button primary" onClick={addLink} disabled={!name.trim() || !url.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

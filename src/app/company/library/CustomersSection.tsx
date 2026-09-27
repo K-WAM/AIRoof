@@ -7,6 +7,8 @@ import { matchesQuery } from "@/lib/customers/search";
 import { fmtDay } from "@/lib/format";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { Plus, Search, Users, X } from "lucide-react";
 import type { CustomerSlim, Customer, CustomerKind } from "@/types/customer";
 import type { Job } from "@/types/jobs";
@@ -27,6 +29,7 @@ const BLANK_DRAFT: DraftFields = { name: "", kind: "residential", phone: "", ema
 
 export function CustomersSection({ businessId, customers, setCustomers, initialCustomerId }: Props) {
   const { vocab } = useBusinessModules();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(initialCustomerId ?? null);
@@ -85,11 +88,14 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
           </div>
           <div style={{ maxHeight: 520, overflowY: "auto" }}>
             {filtered.length === 0 ? (
-              <p style={{ padding: "16px 14px", fontSize: 13, color: "#94a3b8" }}>
-                {customers.length === 0
-                  ? `No ${vocab.customerNounPlural.toLowerCase()} yet. Add your first with the + button above.`
-                  : `No match for "${query}".`}
-              </p>
+              customers.length === 0 ? (
+                <EmptyState
+                  compact
+                  title={`No ${vocab.customerNounPlural.toLowerCase()} yet`}
+                  body="They're added automatically when you accept a request."
+                  action={user?.role === "viewer" ? undefined : { label: `Add ${vocab.customerNoun.toLowerCase()}`, onClick: () => { setCreating(true); setSelectedId(null); } }}
+                />
+              ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for "{query}".</p>
             ) : (
               filtered.slice(0, 200).map((c) => (
                 <button

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ChevronDown, ChevronRight, ClipboardList, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { WorkCatalog, WorkCatalogItem, WorkCatalogLine, WorkSeverity } from "@/types/workCatalog";
 
@@ -195,15 +196,8 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Pro
 
       {catalog.items.length === 0 ? (
         <section className="panel">
-          <div className="panel-body" style={{ textAlign: "center", padding: "48px 20px", color: "#94a3b8" }}>
-            <ClipboardList size={28} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.6 }} />
-            <p style={{ fontSize: 13.5, margin: "0 0 6px" }}>No work catalog items yet.</p>
-            <p style={{ fontSize: 13, margin: "0 0 18px", maxWidth: 440, marginInline: "auto" }}>
-              Add common problems and their standard resolutions here. Tick them on a {jobNoun} to flow them into the report, quote, or invoice.
-            </p>
-            <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
-              {loadingKit ? "Loading…" : "Load starter kit"}
-            </button>
+          <div className="panel-body">
+            <EmptyState icon={ClipboardList} title="Add your prices once" body="Quotes and invoices fill in from these automatically." action={{ label: loadingKit ? "Loading…" : "Load example prices", onClick: loadStarterKit }} />
           </div>
         </section>
       ) : filtered.length === 0 ? (

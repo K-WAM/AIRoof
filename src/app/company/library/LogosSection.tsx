@@ -7,6 +7,7 @@ import { logoDataUri, logoStyle, needsLogoChip, MAX_LOGOS } from "@/lib/branding
 import { processLogo } from "@/lib/photos/clientResize";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const VARIANT_LABEL: Record<LibraryLogo["variant"], string> = {
   color: "Full color",
@@ -157,7 +158,7 @@ export function LogosSection({
         )}
 
         {logos.length === 0 ? (
-          <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 18 }}>No logos yet — upload one below.</p>
+          <EmptyState compact title="Upload your logo" body="It goes on every quote, invoice and report." action={{ label: "Upload logo", onClick: () => fileInputRef.current?.click() }} />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, marginBottom: 22 }}>
             {logos.map((logo) => (
