@@ -688,6 +688,29 @@ a.panel:hover {
   background: var(--c-danger-bg);
 }
 
+/* Photo cards use a second row for their actions so every control keeps a
+   dependable 40px target, even in the narrow "Other" grid cards. */
+.photo-card-footer {
+  display: grid !important;
+  gap: 6px;
+}
+
+.photo-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-card-actions .icon-del {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  flex: 0 0 40px;
+}
+
 .company-shell {
   display: grid;
   grid-template-columns: 236px 1fr;
