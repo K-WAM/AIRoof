@@ -26,6 +26,7 @@ import { jobSteps } from "@/lib/jobs/nextStep";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
+import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
 import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
@@ -201,6 +202,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
   const [showTechnicians, setShowTechnicians] = useState(false);
+  const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
   const [invoiceDirty, setInvoiceDirty] = useState(false);
@@ -426,9 +428,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     });
   }
 
-  // Lazy-load photo thumbnails the first time the Photos tab is opened.
+  // Lazy-load photo thumbnails the first time a photo-aware tab is opened.
   useEffect(() => {
-    if (activeTab !== "photos" || photosLoaded || !businessId) return;
+    if (!["photos", "quote", "invoice", "report"].includes(activeTab) || photosLoaded || !businessId) return;
     fetch(`/api/jobs/${jobId}/photos?businessId=${businessId}`)
       .then((r) => r.json())
       .then((d) => setPhotos((d.photos ?? []) as JobPhotoMeta[]))
@@ -455,6 +457,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setHideMaterials(inv.hideMaterials);
         setHideLabor(inv.hideLabor === true);
         setShowTechnicians(inv.showTechnicians === true);
+        setInvoicePhotoIds(inv.photoIds);
         setTechnicians(inv.technicians ?? []);
         setNarrative(inv.narrative ?? "");
         setInvoiceOpening(inv.opening ?? "");
@@ -554,6 +557,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setHideMaterials(inv.hideMaterials);
       setHideLabor(inv.hideLabor === true);
       setShowTechnicians(inv.showTechnicians === true);
+      setInvoicePhotoIds(inv.photoIds);
       setTechnicians(inv.technicians ?? []);
       setNarrative(inv.narrative ?? "");
       setInvoiceOpening(inv.opening ?? "");
@@ -826,6 +830,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               hideMaterials,
               hideLabor,
               showTechnicians,
+              photoIds: selectedDocumentPhotoIds(photos, invoicePhotoIds),
               technicians,
                narrative,
                opening: invoiceOpening,
@@ -847,8 +852,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -1388,6 +1392,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
+        photos={photos}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
         onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
         onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
@@ -1438,6 +1443,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <div style={{ marginTop: 8, maxWidth: 380 }}>
                       <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
                         onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
+                      </div>
                       <div style={{ marginTop: 12 }}>
                         <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={invoiceStatus !== "draft"}
                           onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
@@ -1859,6 +1867,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
+                  photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>
             </div>
