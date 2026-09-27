@@ -17,6 +17,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Clock, Headphones, History, PhoneCall } from "lucide-react";
 
@@ -114,15 +115,7 @@ export default function CompanyCallsPage() {
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!businessId) return;
-    fetch(`/api/company/setup-status?businessId=${encodeURIComponent(businessId)}`)
-      .then((response) => response.ok ? response.json() : null)
-      .then((data: { phoneNumber?: string } | null) => setPhoneNumber(data?.phoneNumber ?? null))
-      .catch(() => {});
-  }, [businessId]);
+  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
 
   const initialLoadDone = useRef(false);
   const loadCalls = useCallback(async () => {
@@ -267,7 +260,7 @@ export default function CompanyCallsPage() {
                 compact
                 title="No calls yet"
                 body="Every call shows up here within seconds, with a summary."
-                action={user?.role === "viewer" || !phoneNumber ? undefined : { label: "Call your line", href: `tel:${phoneNumber}` }}
+                action={user?.role === "viewer" || !phoneLine ? undefined : { label: "Call your line", href: `tel:${phoneLine}` }}
               />
             ) : (
               <div className="call-list">

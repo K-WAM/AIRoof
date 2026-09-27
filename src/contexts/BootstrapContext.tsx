@@ -13,7 +13,7 @@ interface BootstrapContextValue {
 
 const BootstrapContext = createContext<BootstrapContextValue>({ data: null, ready: false, refresh: () => {} });
 
-const CACHE_VERSION = 2; // bump to invalidate all cached entries on shape changes
+const CACHE_VERSION = 3; // bump to invalidate all cached entries on shape changes
 const SOFT_TTL_MS = 10 * 60 * 1000;
 
 interface CacheEnvelope {

@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
       subscriptionStatus,
       brandColor: typeof d.brandColor === "string" ? d.brandColor : null,
       logoUrl: typeof d.logoUrl === "string" ? d.logoUrl : null,
+      phoneLine: (typeof d.elevenlabs?.phoneNumber === "string" && d.elevenlabs.phoneNumber)
+        || (typeof d.phoneNumber === "string" && d.phoneNumber)
+        || null,
     },
     modules: {
       disabled: (template?.disabledModules ?? []) as CompanyModule[],

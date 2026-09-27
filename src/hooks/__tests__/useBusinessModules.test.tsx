@@ -30,6 +30,7 @@ function bootstrapFor(industry: string | null, subscriptionStatus: CompanyBootst
       subscriptionStatus,
       brandColor: null,
       logoUrl: null,
+      phoneLine: null,
     },
     modules: { disabled: [], calendarMode: "jobs", family: null },
     serverNow: Date.now(),
@@ -86,7 +87,7 @@ describe("useBusinessModules — family (T-056)", () => {
   });
 
   it("reads a cached bootstrap from sessionStorage without waiting on fetch", () => {
-    sessionStorage.setItem("lx:bootstrap:biz-1", JSON.stringify({ v: 2, at: Date.now(), data: bootstrapFor("property-management") }));
+    sessionStorage.setItem("lx:bootstrap:biz-1", JSON.stringify({ v: 3, at: Date.now(), data: bootstrapFor("property-management") }));
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const { result } = renderHook(() => useBusinessModules(), { wrapper });
@@ -131,7 +132,7 @@ describe("useBusinessModules — subscriptionStatus (paused-dashboard gate)", ()
   });
 
   it("reads a cached subscriptionStatus without waiting on fetch", () => {
-    sessionStorage.setItem("lx:bootstrap:biz-1", JSON.stringify({ v: 2, at: Date.now(), data: bootstrapFor("roofing", "paused") }));
+    sessionStorage.setItem("lx:bootstrap:biz-1", JSON.stringify({ v: 3, at: Date.now(), data: bootstrapFor("roofing", "paused") }));
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const { result } = renderHook(() => useBusinessModules(), { wrapper });

@@ -19,6 +19,8 @@ export interface CompanyBootstrap {
     subscriptionStatus: "active" | "paused" | "trial" | null;
     brandColor: string | null;
     logoUrl: string | null;
+    /** The AI phone line (E.164) — what empty states' "Call your line" dials. */
+    phoneLine: string | null;
   };
   modules: {
     disabled: CompanyModule[];
