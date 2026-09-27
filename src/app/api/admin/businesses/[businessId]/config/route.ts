@@ -154,8 +154,8 @@ export async function PUT(
         .filter((phoneNumber): phoneNumber is string => Boolean(phoneNumber));
       for (const phoneNumber of phoneNumbers) {
         const [primaryMatches, extraMatches] = await Promise.all([
-          db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(1).get(),
-          db.collection("businesses").where("elevenlabs.extraPhoneNumbers", "array-contains", phoneNumber).limit(1).get(),
+          db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(2).get(),
+          db.collection("businesses").where("elevenlabs.extraPhoneNumbers", "array-contains", phoneNumber).limit(2).get(),
         ]);
         const conflicts = [...primaryMatches.docs, ...extraMatches.docs]
           .some((doc) => doc.id !== businessId);

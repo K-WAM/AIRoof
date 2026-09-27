@@ -127,4 +127,20 @@ describe("admin voice config route", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "Phone number is already assigned to another business" });
   });
+
+  it("rejects a collision even when the current business is the first query result", async () => {
+    const get = vi.fn()
+      .mockResolvedValueOnce({ empty: false, docs: [{ id: "biz-1" }, { id: "other-business" }] })
+      .mockResolvedValueOnce({ empty: true, docs: [] });
+    mocks.getAdminFirestore.mockReturnValue({
+      collection: () => ({ where: () => ({ limit: () => ({ get }) }) }),
+    });
+    const { PUT } = await import("../route");
+    const response = await PUT(providerRequest({
+      voiceProvider: "elevenlabs",
+      elevenlabs: { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567" },
+    }), params);
+
+    expect(response.status).toBe(409);
+  });
 });
