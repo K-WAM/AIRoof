@@ -68,5 +68,11 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
 function PhotoCard({ title, photo }: { title: string; photo?: DocumentPhoto }) {
   if (!photo) return <div aria-label={`${title}: no photo recorded`} style={{ minHeight: 80 }} />;
   const src = photo.src ?? (photo.fullB64 ? `data:image/jpeg;base64,${photo.fullB64}` : `data:image/jpeg;base64,${photo.thumbB64}`);
-  return <figure style={{ margin: 0 }}><strong style={{ fontSize: 11, color: "#475569" }}>{title}</strong>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={src} alt={photo.label} style={{ display: "block", width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 5, border: "1px solid #e2e8f0", borderRadius: 6 }} /><figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption></figure>;
+  return <figure style={{ margin: 0 }}>
+    <strong style={{ fontSize: 11, color: "#475569" }}>{title}</strong>
+    {/* Full-resolution document photos are data URIs and cannot use next/image. */}
+    {/* eslint-disable-next-line @next/next/no-img-element */}
+    <img src={src} alt={photo.label} style={{ display: "block", width: "100%", maxHeight: 300, objectFit: "contain", marginTop: 5, border: "1px solid #e2e8f0", borderRadius: 6 }} />
+    <figcaption style={{ fontSize: 12, color: "#475569", marginTop: 4 }}>{photo.label}</figcaption>
+  </figure>;
 }

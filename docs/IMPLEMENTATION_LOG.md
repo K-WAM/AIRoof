@@ -1439,3 +1439,12 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Suggested findings: an item must share a noun with its own PROBLEM text (condition words like "cracked" and the tech's resolution wording can rank but never create a suggestion) — the skylight lens no longer appears for "six cracked tiles".
 - Invoice: Description of work is pre-filled with short blunt bullets from the findings' labor-line names ("• Tile replacement"); Other charges got the × remove button and the $ now aligns with its amount; quote intro uses the same bullets.
 - Explained to the owner: J-1001's Marco notes (1:53-4:53 PM) are the seeded demo story; the field-worker notes at 8:02/8:03 PM were the owner's own tests.
+
+## 2026-09-27 — E6b document photos complete
+- Commits: d0edf72 shared document/photo layout; 9769069 server-side blob loading; 51ca5af quote/invoice selectors; 0cbe061 tenant/job-scoped validation; d281fd3 shared report email layout; c12594f shared report preview and no base64 send body; 169dfcb end-to-end smoke coverage.
+- Quote and invoice now expose Include photos, default to photos marked In report, allow an explicit selection of up to 16, persist photoIds, and render the same Before | After pages in preview, print and email.
+- Shared server validation rejects cross-job/cross-tenant ids, more than 16 ids, duplicates, stale metadata and missing blobs with HTTP 400 on save/send. The report loads blobs server-side and uses photosBlock/photoPages like quote and invoice.
+- Negative route evidence: quote/invoice focused tests 12/12; document tests 67/67, including a report caption containing section 12 while the price-free report contains no dollar amount/total/estimate.
+- Browser evidence: full smoke harness 82 passed, 2 intentional phone skips, 0 failed (desktop + 375px phone). Captured quote/invoice/report emails contain the paired photos; report capture remains price-free. Screenshots: test-results/screens/{desktop,phone}/doc-photos-{quote,invoice,report}.png.
+- Gates: npx tsc --noEmit clean; changed-file eslint 0 errors (existing page.tsx warnings only); full Vitest 1314 passed, 1 expected fail, with the two documented load-time timeouts rerun alone 41/41; npx next build compiled successfully and generated 90/90 static pages.
+- Harness limitations: no real inbox/DKIM, phone audio, production Vercel body limit, Firebase production indexes/quotas, or Google sign-in. The existing 375px invoice editor overflow remains tracked by the smoke harness and was not changed in E6b.
