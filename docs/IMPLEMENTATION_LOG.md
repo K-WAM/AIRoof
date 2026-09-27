@@ -1439,3 +1439,10 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Suggested findings: an item must share a noun with its own PROBLEM text (condition words like "cracked" and the tech's resolution wording can rank but never create a suggestion) — the skylight lens no longer appears for "six cracked tiles".
 - Invoice: Description of work is pre-filled with short blunt bullets from the findings' labor-line names ("• Tile replacement"); Other charges got the × remove button and the $ now aligns with its amount; quote intro uses the same bullets.
 - Explained to the owner: J-1001's Marco notes (1:53-4:53 PM) are the seeded demo story; the field-worker notes at 8:02/8:03 PM were the owner's own tests.
+
+## T-129 — Demo-ready UX declutter pass (2026-09-27)
+
+- Commits: 0e33a4f, c5b3218, e1c0e26, 86c390e, 6582209, 0be34d2, e250aed, cfde255.
+- Evidence: focused Playwright phone smoke checks passed for Dashboard, Jobs, Settings, Field, Hub, Demo Studio, Playbooks, and Admin Invoices after removing each KNOWN_PHONE_OVERFLOW entry. Phone photos spec now asserts 40px action targets; desktop Feedback visibility smoke check passed.
+- Gates: npx tsc --noEmit completed without output; changed-file ESLint completed with 0 errors (5 pre-existing warnings).
+
