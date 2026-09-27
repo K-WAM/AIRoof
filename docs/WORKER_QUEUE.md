@@ -791,3 +791,179 @@ Append to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the T-130 ro
 Final message: commit table, gate output, and the owner's exact steps after merge (buy a 604 voice number in Twilio -> import into ElevenLabs -> assign to
 the demo agent -> Admin -> Clients -> demo-roofing -> Edit -> Additional phone numbers -> test call).
 ```
+
+**F3 state 2026-09-27:** T-130 MERGED to local `main` (`a13b2ea`). Owner bought +1 (778) 907-9769 and assigned it to the agent; still needed: add it
+under Additional phone numbers + one test call. **F2 (T-145) now waits for section G's G2** — booking comes first.
+
+---
+
+## G — Booking must be flawless (written 2026-09-27) — spec: `docs/BOOKING-RELIABILITY-PLAN.md`
+
+A real caller's booking failed on 2026-09-27 (transcript evidence in the spec, §1). Order: **G1 now** (files disjoint from T-144, run in parallel) →
+merge → **G3 + G4** in parallel → **G2** after both G1 and T-144 are merged → then F2 (T-145).
+Every G task is under the new **booking-change gate** in AGENTS.md: your offline scenario tests must cover the spec's §4 rows you touch.
+
+### G1 — Codex, **GPT-6 Sol, medium** — booking engine (live call path, money-adjacent trust: do not go lower than Sol)
+```
+You are Codex on the AI Receptionist platform. Task G1 (Phase 28): make booking correct. A real caller asked for 8:00 AM on three days and was told
+"just taken" or offered midnight. Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree (PowerShell):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-booking -b task/booking-engine main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-booking/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-booking. Before your first edit and before every commit, `git rev-parse --show-toplevel` must be D:/Apps/air-wt-booking
+and `git branch --show-current` must be task/booking-engine. Never edit "D:/Apps/6 - AI Receptionist".
+
+Read first, in full: AGENTS.md (including the new "Booking-change gate"); docs/BOOKING-RELIABILITY-PLAN.md (ALL of it — §1 is the real transcript,
+§3 are decisions you apply without re-opening, §4 is the truth table your tests must prove); CLAUDE.md's Industry-Applicability and Cache-Control
+rules. Then read the code: src/lib/tools/agentTools.ts (parseBusinessHours, parseDayHours, buildAvailableSlots, checkAvailability, bookAppointment,
+isSlotBusy, scheduleResourceKey, zonedDateTimeToUtc, zonedParts), src/lib/tools/toolDispatcher.ts (bookAppointment/checkAvailability cases,
+toTimestamp), src/lib/voice/elevenlabs/initiationConfig.ts (isAfterHoursNow, afterHoursNote), src/lib/voice/elevenlabs/toolSchemas.json,
+scripts/setup-elevenlabs-agent.mjs, src/app/api/admin/demo-customize/route.ts, src/lib/verticals/demoSeed.ts + demoSeedRoofing.ts, the agent prompt
+builder (grep buildAgentPrompt and its "Using your tools" section), src/app/api/appointments/[appointmentId]/route.ts (lock release on cancel/decline),
+src/lib/tools/__tests__/scheduling.test.ts, src/app/api/admin/demo-customize/__tests__/route.test.ts. Do NOT touch src/app/company/calendar/** or any
+page UI (T-144 owns those right now; G2 does the UI later).
+
+Do, in order, one commit per step (prefix "G1:"):
+0. scripts/check-booking-data.mjs — read-only, dry-run only, never writes, never prints credentials (copy the credential-loading pattern from
+   scripts/move-demo-line-to-elevenlabs.mjs). For one --business id (default demo-roofing): print whether its hours parse, its timezone, crew count,
+   and every appointment/job/scheduling lock in the next 7 days with local start time, status, source (seed/call). You do NOT run it against
+   production; the integrator will. Unit-test its pure formatting helpers.
+1. src/lib/scheduling/hours.ts — the ONE business-hours module: parse (tolerant: "08:00 - 17:00", "8:00-17:00", "8am-5pm", "8:00 AM - 5:00 PM",
+   "Closed"; object form per weekday), validate (returns field-level errors), canonicalize to "HH:MM - HH:MM" / "Closed", dayWindow(date, tz),
+   isOpenAt(ts, tz). A string-form whole-week value (e.g. "Mon-Fri 8-5") is parsed if unambiguous, otherwise invalid. Replace parseBusinessHours/
+   parseDayHours in agentTools.ts and the parser inside isAfterHoursNow with it (no behavior change for valid canonical input). Exhaustive unit tests.
+2. Capacity (plan §3): capacity = number of crew/resource docs for the business (exclude ones with active === false), minimum 1. One shared
+   function decides "is this window free" for BOTH checkAvailability and bookAppointment: free when overlapping non-cancelled appointments + scheduled
+   jobs < capacity. Replace the single "unassigned" lock per 30-min bucket with capacity-aware locks (lock id carries a unit index 0..capacity-1; the
+   booking transaction claims the first free unit for every bucket it spans; the existing cancel/decline release in appointments/[appointmentId]
+   must release the right unit — update it and its tests). Keep the stale-lock reclaim for cancelled appointments; ALSO reclaim a lock whose
+   appointment no longer exists. Tests: S11, S12, S13.
+3. Preferred time: checkAvailability accepts optional preferredTime ("8am", "08:00", "2:30 PM", "morning" = 08:00, "afternoon" = 13:00). The result
+   first states whether that exact time is open, then lists up to 3 openings ordered by closeness to the requested time on the requested day, then
+   the next business days. With no preferred time, list from the day's opening (today: from now, rounded up). Never offer 21:00–07:00 local unless
+   that was the requested time. Never offer the past. Tests: S2, S5, S6, S7, S8.
+4. Conflicts never make the caller guess: when bookAppointment hits slot_conflict or outside_business_hours, the dispatcher result includes the
+   closest openings (reuse step 3) in plain words, e.g. "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM." Test S3.
+5. DST-correct local times: toTimestamp must convert a bare local date-time with zonedDateTimeToUtc for THAT date's offset, not today's. Test S10.
+6. Hours not set up: when a tenant's hours are missing or invalid, checkAvailability returns an explicit result telling the agent to take the
+   caller's details (the dispatcher creates a lead) — never "No openings". Test S9.
+7. Demo: DEMO hours = Monday–Friday 08:00–17:00, Saturday and Sunday Closed (owner decision; current main has Saturday 09:00–13:00 — change it).
+   Keep the booking-forward after-hours greeting already on main (no "closed" wording). Seeded demo appointments and jobs are placed at
+   business-hour times on business days (e.g. 09:00, 11:00, 13:30, 15:00), never at launch-time offsets, never outside hours, leaving most of each
+   morning free. Test S14: launch at every hour 0–23 → next 3 business days each have >= 6 free slots 08:00–12:00 and no seeded item outside hours.
+8. Tool schema + prompt: add optional preferredTime (string) to checkAvailability in src/lib/voice/elevenlabs/toolSchemas.json (and wherever the Vapi
+   tool params are declared in code, if any — never touch the Vapi dashboard); update both tools' descriptions. In the agent prompt's tool section,
+   add "How to book": when the caller names a day/time, call checkAvailability with preferredDate + preferredTime; if that exact time is open,
+   confirm it and call bookAppointment for exactly that time; if not, offer the two closest openings; if bookAppointment reports a conflict, offer the
+   openings it returns — never ask the caller to pick blindly. Keep the existing "tools are mandatory / never claim booked before bookAppointment
+   returns" rules. Extend scripts/setup-elevenlabs-agent.mjs with --update-tools: dry-run by default prints a diff of each existing tool's schema vs
+   toolSchemas.json; with --apply updates only tools whose schema changed; never prints secrets; keeps pre_tool_speech "auto". You do NOT run it.
+9. The booking scenario suite: src/lib/scheduling/__tests__/booking-scenarios.test.ts runs EVERY row S1–S14 of plan §4 through the real
+   toolDispatcher + agentTools against src/test-utils/fakeFirestore.ts seeded with the real roofing demo seed and demo hours, clock fixed at
+   2026-09-27T20:59:21Z. S1 replays Carla's exact tool calls from plan §1 and must now end booked for Monday 8:00 AM, with no response containing a
+   time between 9 PM and 7 AM. Extend the fake only if needed (say so).
+Rules: plain words in every string the agent will speak; no new dependencies; jsonWithCache/private only; mobile/UI untouched. Do NOT change: the
+Vapi dashboard, ElevenLabs settings, pre_tool_speech, the migration script, the reset backup logic, auth.
+Gates at the end: npx tsc --noEmit; eslint on changed files; full npx vitest run (send.test, example-lib, company/team are load-flaky — re-run alone
+before believing a failure); npm run e2e:up:bg then npm run e2e:call (must still pass) then npm run e2e:down; THEN npx next build once.
+Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc (never a patch tool — odd bytes); set only the G1 row in TODO.md to review.
+Never push, merge or touch main. Commit at least every 45 minutes. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...".
+Final message: step table with commit hashes, the S1–S14 results table (pass/fail each), gate output, the exact commands the integrator must run
+(check-booking-data, setup-elevenlabs-agent --update-tools), "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### G2 — Codex, **GPT-5.5 Terra, medium** — operating hours chosen at setup (start ONLY after G1 and T-144 are both merged)
+```
+You are Codex on the AI Receptionist platform. Task G2 (Phase 28): every client chooses its operating hours at setup, in a form that cannot produce
+bad data. Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree from CURRENT main — it must contain G1 (src/lib/scheduling/hours.ts exists) and T-144 (src/components/ui/EmptyState.tsx
+exists); if either is missing, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-hours-setup -b task/hours-setup main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-hours-setup/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-hours-setup; verify toplevel and branch (task/hours-setup) before the first edit and every commit. Never edit the main repo.
+
+Read first: AGENTS.md (incl. the Booking-change gate); docs/BOOKING-RELIABILITY-PLAN.md §3 and §4 (S9); docs/NO-TRAINING-UX-PLAN.md §2 (the UI rules:
+plain words, one primary button, 375px, tokens); src/lib/scheduling/hours.ts (G1's module — use it, never write another parser);
+src/app/company/settings/page.tsx (the current free-text per-day hours inputs) + its API route; src/app/hub/onboarding/page.tsx + its API;
+src/app/admin/businesses/[businessId]/config/page.tsx + route.ts; src/app/api/admin/businesses/route.ts (client create); src/app/company/calendar/
+CalendarBoard.tsx (its own hours parsing near dayAtBusinessOpen); src/lib/onboarding/setupChecklist.ts (T-144).
+
+Do, one commit each (prefix "G2:"):
+1. src/components/scheduling/HoursEditor.tsx: one row per weekday — a Closed toggle, then Open and Close selects in 15-minute steps (12-hour labels,
+   stores canonical "HH:MM - HH:MM"), inline error if close <= open. Presets above the rows: "Mon–Fri 8–5", "Mon–Sat 7–6", "Every day 8–8",
+   "Open 24 hours (emergency service)". Accessible labels, keyboard usable, 44px targets, works at 375px. Component tests.
+2. Company Settings: replace the free-text hours inputs with HoursEditor; the settings PUT validates with hours.ts and returns field errors (never
+   saves invalid hours).
+3. Onboarding wizard: a required "Hours" step using HoursEditor, defaulting to "Mon–Fri 8–5" pre-selected but visibly confirmable; the wizard cannot
+   finish without valid hours; its API validates too. Admin client create + admin client config: same editor and validation.
+4. CalendarBoard uses hours.ts instead of its own parsing (no visual change).
+5. setupChecklist gains "Set your hours" (done when hours are valid) — first item after the phone line.
+6. Tests: every route that writes hours rejects invalid input with a 400 and field errors; the editor round-trips canonical values; a tenant with old
+   free-text hours ("8am-5pm") loads into the editor correctly (hours.ts is tolerant) and saves back canonical.
+Rules: plain words; one teal var(--accent), .button variants, no inline hex; 375px; no new dependencies; do not touch scheduling logic (G1 owns it),
+webhooks, agentTools.ts, auth. Gates: npx tsc --noEmit; eslint on changed files; full npx vitest run (load-flaky: send.test, example-lib, company/team —
+re-run alone); npm run e2e:up:bg then npm run e2e:test (desktop + phone) green, screenshots of the editor at 375 and 1280; npm run e2e:down; THEN npx next
+build once. Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the G2 row in TODO.md to review. Never push/merge/touch main.
+Commit at least every 45 minutes. If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...". Final message: commit table, gate output,
+screenshot paths, "Noticed, not done".
+```
+
+### G3 — Deepseek, **V4.1 Flash, Thinking: Hard** — booking regression tests in the smoke harness + the live test-call script (after G1 merges)
+Tests and docs only — no production code.
+```
+You are Worker D (Deepseek) on the AI Receptionist platform. Task G3 (Phase 28). Read docs/WORKER_QUEUE.md "Worker etiquette" first — commit WIP often,
+stop and ask instead of guessing. You write TESTS and ONE DOC only. You must not change anything under src/ except test files you create.
+
+Create your worktree from CURRENT main — it must contain G1 (src/lib/scheduling/hours.ts exists); if not, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-booking-tests -b task/booking-tests main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-booking-tests/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-booking-tests; verify toplevel and branch (task/booking-tests) before the first edit and every commit. Never edit the main repo.
+
+Read first: AGENTS.md (incl. the Booking-change gate); docs/BOOKING-RELIABILITY-PLAN.md (all — §1 real transcript, §4 truth table); docs/SMOKE-HARNESS.md;
+scripts/e2e/lib.cjs (api(), outbox()), scripts/e2e/scenarios/call-to-cash.cjs, e2e/call-to-cash.spec.ts, and G1's
+src/lib/scheduling/__tests__/booking-scenarios.test.ts (so you don't duplicate it — yours runs through the REAL HTTP webhooks on the emulators).
+
+Do, one commit each (prefix "G3:"):
+1. scripts/e2e/scenarios/booking.cjs + npm script "e2e:booking": against the running harness, drive the ElevenLabs tool webhook exactly the way
+   call-to-cash.cjs does, for these rows of plan §4: S1 (Carla replay: the same tool calls in the same order), S2, S3, S4, S5, S6, S8. Use the
+   existing e2e-roofing tenant; set its hours and crews through the app's own API (api() helper), NOT by editing scripts/e2e/config.cjs or the seed
+   (T-144 owns those files). Assert on the tool responses the agent would speak: exact times in plain words, never a time between 9 PM and 7 AM,
+   never "No openings" when hours are set, conflicts always list alternatives.
+2. e2e/booking.spec.ts (desktop + phone): after the scenario, the booked appointments appear in Pipeline and on the Calendar at the right local
+   times; screenshot each.
+3. docs/BOOKING-TEST-SCRIPT.md — the owner's live test calls, one per row S1–S8 (S7/S9–S14 are offline-only, say so): what to say on the phone word
+   for word, what the agent must answer, what to check in the app afterwards, and a pass/fail box. Written for a non-technical owner.
+Gates: npx tsc --noEmit; eslint on files you changed; npm run e2e:up:bg, then npm run e2e:booking and npm run e2e:test green, then npm run e2e:down.
+If a scenario FAILS, do NOT change production code: record it in your final message (row, expected, actual, file:line) — that is a bug for G1.
+Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the G3 row in TODO.md to review. Never push/merge/touch main.
+If you are running low on budget: commit, list done/not done at the top of your final message, stop.
+Final message: per-row pass/fail table, screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### G4 — Codex, **GPT-5.5 Terra, medium** — daily booking canary (after G1 merges)
+```
+You are Codex on the AI Receptionist platform. Task G4 (Phase 28): a daily check that booking still works, so a broken calendar is caught by us,
+not by a caller. Read docs/WORKER_QUEUE.md "Worker etiquette" first.
+
+Create your worktree from CURRENT main — it must contain G1 (src/lib/scheduling/hours.ts exists); if not, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-booking-canary -b task/booking-canary main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-booking-canary/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-booking-canary; verify toplevel and branch (task/booking-canary) before the first edit and every commit. Never edit the main repo.
+
+Read first: AGENTS.md (incl. the Booking-change gate); docs/BOOKING-RELIABILITY-PLAN.md §5; src/lib/auth/cronGuard.ts and an existing cron
+(src/app/api/cron/close-punches/route.ts) for the pattern; vercel.json; src/lib/comms/send.ts (sendEmail); src/lib/scheduling/hours.ts and
+checkAvailability (G1); src/app/admin/usage/page.tsx + src/app/api/admin/usage/route.ts.
+
+Do, one commit each (prefix "G4:"):
+1. GET /api/cron/booking-canary (cronGuard; never public caching): for demo-roofing and every business with a phone line (elevenlabs.agentId or
+   vapiAssistantId), call checkAvailability for the next business day with no preferred time and with preferredTime "10:00". A business FAILS if:
+   hours missing/invalid, zero openings on a business day that has hours, any slot in the past, outside hours, or between 21:00 and 07:00. Write the
+   result to businesses/{id}.bookingCheck = { ok, checkedAt, problems: string[] } (additive field). Read-only otherwise — never books.
+2. When any business fails, email the platform owner (superadmin/notification address already used for platform alerts — find it, don't invent
+   one) with one plain line per problem; fromName "Luxor CRM"; check the send result.
+3. vercel.json: run it daily at 11:00 UTC (7 AM Eastern). Hobby allows daily crons; keep the existing ones.
+4. Admin → Usage: a "Booking" column — green "OK" / red "Check failed" with the problems on hover-free inline text (no tooltip-only info).
+5. Tests: guard (401 without the secret), each failure rule, a healthy tenant passes, email sent once per run only on failure, usage column renders.
+Rules: no new dependencies; jsonWithCache/private only; plain words; do not change scheduling logic (G1), webhooks, auth. Gates: npx tsc --noEmit; eslint
+on changed files; full npx vitest run (load-flaky: send.test, example-lib, company/team — re-run alone); npx next build once. Append evidence to
+docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the G4 row in TODO.md to review. Never push/merge/touch main. Commit at least every 45 minutes.
+If stuck >20 min: commit WIP and end with "QUESTION FOR INTEGRATOR: ...". Final message: commit table, gate output, "Noticed, not done".
+```

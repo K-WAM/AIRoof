@@ -60,6 +60,24 @@ plan depends on.
 4. Append an entry to `docs/IMPLEMENTATION_LOG.md` (task, commit, evidence, removals if any).
 5. Update your batch row in `TODO.md` (status → `review`), nothing else in that file.
 
+## Booking-change gate (added 2026-09-27 — a real caller's booking failed)
+
+Booking is the product's first impression; a caller who can't book hangs up and calls the next company. On 2026-09-27
+two separate changes (round-the-clock demo hours `d1bee4e`, a business-wide overlap rule `e9caef0`) each passed their
+own unit tests and together broke every booking on the demo line. Neither was tried with a real call. From now on:
+
+- **Scope:** any change to scheduling or booking (`src/lib/tools/agentTools.ts` scheduling functions,
+  `src/lib/tools/toolDispatcher.ts` booking cases, `src/lib/scheduling/**`), business hours, the demo seed or Demo
+  Studio's launch/reset (`src/lib/verticals/demoSeed*.ts`, `src/app/api/admin/demo-customize/**`), the voice tool
+  schemas (`src/lib/voice/elevenlabs/toolSchemas.json`), the agent prompt's tool/booking instructions, or appointment
+  cancel/decline/lock code.
+- **A worker's change in scope is not `review`-ready** until the booking scenario suite
+  (`src/lib/scheduling/__tests__/booking-scenarios.test.ts`, the truth table in `docs/BOOKING-RELIABILITY-PLAN.md` §4)
+  is green and every §4 row the change touches has a test.
+- **The integrator does not call it done** until, after deploy: the ElevenLabs agent tests pass, and one real phone call
+  books through the change and its transcript (tool calls + results, via the ElevenLabs conversation API) has been read.
+  A bug report about a live call starts with that transcript — never a diagnosis from code alone.
+
 ## Credentials and external services
 
 - Company: Luxor Developments LLC · contact `connect@luxordev.com` · transactional sender

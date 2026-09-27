@@ -1057,24 +1057,41 @@ an active queue.*
         existing `docs/ADMIN-ONBOARDING.md` and `public/guides/onboarding-guide.html` rather than duplicating them — this doc is the owner's own sequence,
         those are the client-facing/step-reference material.
 
-- [x] Phase 27a — Live-call bug found and fixed (2026-09-27, integrator) — the demo line's round-the-clock hours
-      ("00:00 - 24:00" every day, meant to make the demo phone "always sound open") broke checkAvailability's
-      suggested slots: a real caller (Carla Snyder) asked for an 8am inspection on Monday/Tuesday/Wednesday and was
-      offered the same three near-midnight slots every time. Root cause: `buildAvailableSlots()` has no notion of a
-      preferred TIME, only a preferred DATE — with "open" at midnight, the first 3 offered slots are always
-      midnight/12:30am/1am regardless of the day asked. Fixed: `demo-customize/route.ts` now sets real daytime hours
-      (Mon-Fri 8-5, Sat 9-1, Sun Closed, matching the roofing seed) and the demo's `afterHoursGreeting` was rewritten
-      to drop "the office is closed" wording (booking-forward instead, matching what `afterHoursNote()` already
-      instructs the model to do) — the existing after-hours flow delivers "always sounds open," not faked hours.
-      Regression tests added (`src/lib/tools/__tests__/scheduling.test.ts`, `demo-customize/__tests__/route.test.ts`).
-      Merged to local main; not pushed. Evidence: `docs/IMPLEMENTATION_LOG.md`.
-  - [ ] **T-147 — `checkAvailability` ignores the caller's requested TIME** (found while fixing Phase 27a; Codex Sol
-        medium — touches the live call path + needs a live tool-schema redeploy, not just a code change). The tool
-        only takes a preferred DATE; it always offers the day's earliest open slots, so even a normal (non-24/7)
-        business that's fully booked in the morning would offer slots that ignore what time the caller actually
-        asked for. Fix: add an optional `preferredTime` param, have `buildAvailableSlots` center suggestions on it
-        when given; requires updating `src/lib/voice/elevenlabs/toolSchemas.json` AND re-pushing that tool
-        definition to the live ElevenLabs agent (`scripts/setup-elevenlabs-agent.mjs`, or by hand in the dashboard).
+- [ ] Phase 28 — **Booking must be flawless** (owner-directed, 2026-09-27: "that can never happen"). Spec + evidence:
+      **`docs/BOOKING-RELIABILITY-PLAN.md`**. Prompts: `docs/WORKER_QUEUE.md` section **G**. Takes priority over Phase 27's T-145.
+      **What happened** (real call `conv_2901m3jamh7yfz6raa84jqg2rxzs`, Carla Snyder, 2026-09-27 16:59 EDT, transcript read via the ElevenLabs API):
+      two separate failures — (1) `checkAvailability` offered 12:00/12:30/1:00 AM for Monday and Wednesday (round-the-clock demo hours + a slot
+      finder that only knows a date, never a time); (2) `bookAppointment` rejected Monday 8:00 AM and Tuesday 8:00 AM as "just taken" (booking
+      treats the whole company as one calendar, and seeded demo bookings/earlier test bookings sit on it — live data not yet inspected).
+      **Drift:** 09-25 the number moved from a clean test tenant to the seeded `demo-roofing`; `d1bee4e` (09-25, integrator) set round-the-clock
+      hours; `e9caef0` (E2, 09-26) made every appointment and job block the whole company. Each had passing isolated unit tests; no real booking
+      call was made after either. **Decisions:** demo hours Mon–Fri 8–5, weekends closed; every client picks hours at setup (structured,
+      validated, one parser); capacity = number of crews (min 1); the agent books the exact requested time when free and otherwise names the
+      closest openings; never offer 21:00–07:00 unless asked; after-hours calls still offer real next-day times.
+  - [~] **Hotfix `6fcbe12` (integrator, 2026-09-27) — PARTIAL, not deployed.** Real daytime demo hours + a booking-forward after-hours greeting
+        (no "office is closed"), with regression tests. Fixes failure (1) only; does NOT fix the "8 AM just taken" failure; on local `main`,
+        not pushed; the live Firestore doc keeps the round-the-clock hours until the owner edits Settings or Demo Studio is relaunched on
+        deployed code. My earlier note calling this "fixed" was wrong.
+  - [ ] **G1 — Booking engine** (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`, start now — disjoint from T-144). Shared
+        hours module (one parser), capacity model + capacity-aware locks, `preferredTime` (was T-147), closest alternatives on conflict,
+        overnight guard, DST-correct local times, demo hours Mon–Fri 8–5 + seeded items at business-hour times, tool schema + agent prompt
+        "How to book", `setup-elevenlabs-agent.mjs --update-tools`, the §4 booking scenario suite (incl. a replay of Carla's exact tool calls),
+        read-only `scripts/check-booking-data.mjs` (hours that don't parse, what occupies the next 7 days).
+  - [ ] **G2 — Operating hours at setup** (Codex, GPT-5.5 Terra medium, `air-wt-hours-setup` / `task/hours-setup`, after G1 AND T-144 merge,
+        before T-145). Structured hours editor (per-day open/close selects, Closed toggle, presets) in Company Settings, a required "Hours"
+        step in the onboarding wizard, admin client config; server-side validation in every route that writes hours; Calendar uses the shared
+        parser; setup-checklist item "Set your hours".
+  - [ ] **G3 — Booking regression tests in the smoke harness + live test-call script** (Deepseek V4.1 Flash Thinking: Hard,
+        `air-wt-booking-tests` / `task/booking-tests`, after G1). `e2e/booking.spec.ts` + a booking scenario in the simulated call;
+        `docs/BOOKING-TEST-SCRIPT.md` (the calls the owner and the ElevenLabs agent tests make, with the exact expected answers).
+  - [ ] **G4 — Daily booking canary** (Codex, GPT-5.5 Terra medium, `air-wt-booking-canary` / `task/booking-canary`, after G1). A 7 AM ET
+        cron checks next-business-day availability for `demo-roofing` and every tenant with a phone line; emails the owner and flags Admin
+        when a slot is overnight/past/outside hours or hours don't parse.
+  - [ ] Integrator after G1 merges: read-only live-data check (with owner OK), push the tool schema (`--update-tools`, needs the key), create +
+        run ElevenLabs agent tests via the MCP (Carla replay, taken time, after hours, weekend), push + deploy with owner approval, relaunch
+        Demo Studio, place the test calls in `docs/BOOKING-TEST-SCRIPT.md`, read each transcript.
+  - [ ] NEEDS-HUMAN (now, 2 min, no deploy): `/company/settings?preview=demo-roofing` → hours Mon–Fri `08:00 - 17:00`, Sat/Sun `Closed` → Save;
+        do NOT relaunch Demo Studio until the fix is deployed.
 
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
@@ -1083,7 +1100,7 @@ an active queue.*
   - [ ] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`). Shared `EmptyState`, `BlockedAction`
         gains `href`, pure `setupChecklist()` + `GET /api/company/setup-status`, a Dashboard "Get your business ready" checklist (owner/superadmin) replacing the
         "take the Guide tour" nudge, every empty list/tab on the plan's inventory, a new empty `e2e-empty` harness tenant + `e2e/empty-states.spec.ts`.
-  - [ ] **T-145 — Page-by-page roofing UX pass** (Codex, GPT-6 Sol medium, `air-wt-ux-workflow` / `task/ux-workflow`, cut from main AFTER T-144 merges). Golden-path
+  - [ ] **T-145 — Page-by-page roofing UX pass** (Codex, GPT-6 Sol medium, `air-wt-ux-workflow` / `task/ux-workflow`, cut from main AFTER T-144 **and Phase 28's G2** merge — booking comes first). Golden-path
         walk as owner/staff/crew/viewer at 375 + 1280 px → `docs/UX-PASS-FINDINGS.md`; one primary button per screen (+ an automated `KNOWN_MULTI_PRIMARY` guard);
         prerequisite guards as inline `BlockedAction`, never hover tooltips (seat-limit copy, missing customer email, "no price on file" tooltip, crew-less assign);
         Pipeline card down to two buttons; Dashboard Agent Setup panel demoted; Guide rewritten to "How it works — 5 steps" + "Talk to us".
