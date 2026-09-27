@@ -44,7 +44,7 @@ export default function AdminGuidePage() {
           </h1>
           <p className="page-subtitle">{current.description}</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="hub-guide-actions" style={{ display: "flex", gap: 8 }}>
           {active === "pitch" && (
             <a
               className="button"
@@ -69,7 +69,7 @@ export default function AdminGuidePage() {
         </div>
       </header>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
+      <div className="hub-guide-tabs" style={{ display: "flex", gap: 4, marginBottom: 12 }}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -94,7 +94,7 @@ export default function AdminGuidePage() {
       </div>
 
       <div
-        className="panel"
+        className="panel hub-guide-frame"
         style={{
           padding: 0,
           overflow: "hidden",

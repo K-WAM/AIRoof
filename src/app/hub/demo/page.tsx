@@ -118,7 +118,7 @@ export default function DemoStudioPage() {
   const missing = line.configured && Object.entries(line.configured).filter(([, ready]) => !ready).map(([name]) => name);
 
   return (
-    <main style={{ maxWidth: 940, margin: "0 auto", padding: "1rem", overflowWrap: "anywhere" }}>
+    <main className="hub-demo-page" style={{ maxWidth: 940, margin: "0 auto", padding: "1rem", overflowWrap: "anywhere" }}>
       <header className="page-header"><div><h1 className="page-title">Demo Studio</h1><p className="page-subtitle">Set up a roofing prospect and run the 20-minute demo.</p></div></header>
 
       <section className="panel" aria-label="Demo line status">

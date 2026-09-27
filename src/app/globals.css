@@ -1291,6 +1291,30 @@ a.metric:hover {
   .field-public-page * {
     max-width: 100%;
   }
+
+  .admin-main { padding: 16px; overflow-x: hidden; }
+
+  .hub-demo-page {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 0 !important;
+  }
+
+  .hub-guide-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  .hub-guide-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hub-guide-tabs button {
+    min-width: 0;
+    padding: 8px !important;
+    overflow-wrap: anywhere;
+  }
 }
 
 .feed-empty {
