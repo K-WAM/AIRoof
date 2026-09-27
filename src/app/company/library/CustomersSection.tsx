@@ -95,7 +95,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
                   body="They're added automatically when you accept a request."
                   action={user?.role === "viewer" ? undefined : { label: `Add ${vocab.customerNoun.toLowerCase()}`, onClick: () => { setCreating(true); setSelectedId(null); } }}
                 />
-              ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for "{query}".</p>
+              ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for &ldquo;{query}&rdquo;.</p>
             ) : (
               filtered.slice(0, 200).map((c) => (
                 <button

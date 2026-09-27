@@ -40,7 +40,6 @@ function blankItem(): WorkCatalogItem {
 
 export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Props) {
   const { vocab } = useBusinessModules();
-  const jobNoun = vocab.jobNoun.toLowerCase();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [editing, setEditing] = useState<WorkCatalogItem | null>(null);
