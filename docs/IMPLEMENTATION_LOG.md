@@ -1458,3 +1458,9 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Browser evidence: full smoke harness 82 passed, 2 intentional phone skips, 0 failed (desktop + 375px phone). Captured quote/invoice/report emails contain the paired photos; report capture remains price-free. Screenshots: test-results/screens/{desktop,phone}/doc-photos-{quote,invoice,report}.png.
 - Gates: npx tsc --noEmit clean; changed-file eslint 0 errors (existing page.tsx warnings only); full Vitest 1314 passed, 1 expected fail, with the two documented load-time timeouts rerun alone 41/41; npx next build compiled successfully and generated 90/90 static pages.
 - Harness limitations: no real inbox/DKIM, phone audio, production Vercel body limit, Firebase production indexes/quotas, or Google sign-in. The existing 375px invoice editor overflow remains tracked by the smoke harness and was not changed in E6b.
+## T-129 — Demo-ready UX declutter pass (2026-09-27)
+
+- Commits: 0e33a4f, c5b3218, e1c0e26, 86c390e, 6582209, 0be34d2, e250aed, cfde255.
+- Evidence: focused Playwright phone smoke checks passed for Dashboard, Jobs, Settings, Field, Hub, Demo Studio, Playbooks, and Admin Invoices after removing each KNOWN_PHONE_OVERFLOW entry. Phone photos spec now asserts 40px action targets; desktop Feedback visibility smoke check passed.
+- Gates: npx tsc --noEmit completed without output; changed-file ESLint completed with 0 errors (5 pre-existing warnings).
+

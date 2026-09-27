@@ -320,7 +320,7 @@ export default function JobsPage() {
       ) : (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <table className="jobs-list-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                   <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Job ID</th>
@@ -348,24 +348,24 @@ export default function JobsPage() {
                     onMouseEnter={(e) => { if (job.jobId !== justCreatedId) (e.currentTarget as HTMLTableRowElement).style.background = "#f8fafc"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = job.jobId === justCreatedId ? "#f0fdf4" : ""; }}
                   >
-                    <td style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
+                    <td data-label="Job ID" style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
                       {job.jobId}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td data-label="Job" style={{ padding: "12px 16px" }}>
                       <div style={{ fontWeight: 600 }}>{job.title}</div>
                       {job.address && <div style={{ fontSize: 12, color: "#64748b" }}>{job.address}</div>}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td data-label="Client" style={{ padding: "12px 16px" }}>
                       {job.clientName ?? <span style={{ color: "#94a3b8" }}>—</span>}
                       {job.clientPhone && <div style={{ fontSize: 12, color: "#64748b" }}>{job.clientPhone}</div>}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td data-label="Status" style={{ padding: "12px 16px" }}>
                       <StatusChip status={job.status} />
                     </td>
-                    <td style={{ padding: "12px 16px", color: "#64748b", fontSize: 13 }}>
+                    <td data-label="Created" style={{ padding: "12px 16px", color: "#64748b", fontSize: 13 }}>
                       {formatDate(job.createdAt)}
                     </td>
-                    <td style={{ padding: "12px 16px" }}>
+                    <td data-label="" className="jobs-list-action" style={{ padding: "12px 16px" }}>
                       <a
                         href={`/company/jobs/${job.jobId}${previewSuffix}`}
                         className="button"

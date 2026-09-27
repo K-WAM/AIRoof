@@ -208,7 +208,7 @@ export default function CompanySettingsPage() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+      <div className="settings-page-layout">
         <div style={{ display: "grid", gap: 20 }}>
         <section className="panel">
           <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
@@ -243,7 +243,7 @@ export default function CompanySettingsPage() {
                 const close = parts ? parts[2] : "17:00";
 
                 return (
-                  <div key={day} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
+                  <div key={day} className="settings-hours-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
                     <span style={{ width: 90, fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{day}</span>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#64748b" }}>
                       <Toggle checked={isClosed} onChange={(next) => toggleClosed(day, next)} label={`${day} closed`} size="sm" />

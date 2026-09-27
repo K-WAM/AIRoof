@@ -53,9 +53,9 @@ function DraggablePhoto({ photo, onOpen, onEdit, onDelete, onToggle }: {
       <div style={{ padding: "8px 10px" }}>
         {photo.phase && photo.phase !== "other" && <span style={{ display: "inline-block", marginBottom: 6, fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 4, color: "#fff", background: photo.phase === "before" ? "#64748b" : "var(--accent)" }}>{photo.phase}</span>}
         <p style={{ margin: "0 0 6px", fontSize: 12, color: "#334155", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{photo.label}</p>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="photo-card-footer" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#475569" }}><Toggle checked={!!photo.includeInReport} onChange={() => onToggle(photo)} label={`Include ${photo.label} in report`} size="sm" />In report</div>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div className="photo-card-actions" style={{ display: "flex", gap: 4 }}>
             <button type="button" {...attributes} {...listeners} title="Reorder" aria-label={`Reorder ${photo.label}`} className="icon-del"><GripVertical size={14} strokeWidth={1.75} /></button>
             <button type="button" onClick={() => onEdit(photo)} title="Edit" aria-label={`Edit ${photo.label}`} className="icon-del"><Pencil size={14} strokeWidth={1.75} /></button>
             <button type="button" onClick={() => onDelete(photo)} title="Delete" aria-label={`Delete ${photo.label}`} className="icon-del"><Trash2 size={15} strokeWidth={1.75} /></button>

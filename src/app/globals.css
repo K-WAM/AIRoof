@@ -688,6 +688,29 @@ a.panel:hover {
   background: var(--c-danger-bg);
 }
 
+/* Photo cards use a second row for their actions so every control keeps a
+   dependable 40px target, even in the narrow "Other" grid cards. */
+.photo-card-footer {
+  display: grid !important;
+  gap: 6px;
+}
+
+.photo-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.photo-card-actions .icon-del {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  padding: 0;
+  flex: 0 0 40px;
+}
+
 .company-shell {
   display: grid;
   grid-template-columns: 236px 1fr;
@@ -718,6 +741,8 @@ a.panel:hover {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .company-sidebar-footer {
@@ -819,6 +844,7 @@ a.panel:hover {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   align-items: stretch;
 }
 
@@ -834,6 +860,13 @@ a.panel:hover {
   margin-top: auto;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* On short laptops, keep the Help actions in the scrollable nav area instead
+   of allowing them to slide underneath the fixed Quick Add footer. */
+@media (max-height: 760px) and (min-width: 901px) {
+  .company-nav-secondary { margin-top: 8px; }
 }
 
 .mobile-menu-btn {
@@ -1200,6 +1233,136 @@ a.metric:hover {
 }
 
 .feed-chevron { color: #cbd5e1; flex-shrink: 0; }
+
+/* Dashboard attention rows often contain caller-entered names and addresses.
+   On a narrow screen, favor readable wrapped text over a row-wide layout. */
+@media (max-width: 480px) {
+  .feed-row {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .feed-name,
+  .feed-sub {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .feed-chevron { margin-top: 8px; }
+
+  /* The jobs list keeps its table semantics for assistive technology, while
+     presenting each result as a compact, labelled card on phones. */
+  .jobs-list-table,
+  .jobs-list-table tbody,
+  .jobs-list-table tr,
+  .jobs-list-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .jobs-list-table thead { display: none; }
+
+  .jobs-list-table tbody {
+    padding: 10px;
+  }
+
+  .jobs-list-table tbody > tr {
+    margin-bottom: 10px;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+
+  .jobs-list-table tbody > tr:last-child { margin-bottom: 0; }
+
+  .jobs-list-table tbody > tr > td {
+    display: grid;
+    grid-template-columns: minmax(76px, 0.38fr) minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 10px !important;
+    border-bottom: 1px solid var(--border);
+    overflow-wrap: anywhere;
+  }
+
+  .jobs-list-table tbody > tr > td:last-child { border-bottom: 0; }
+
+  .jobs-list-table tbody > tr > td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .jobs-list-table .jobs-list-action {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .jobs-list-table .jobs-list-action::before { display: none; }
+
+  .company-field-page {
+    margin: -20px !important;
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .company-field-content,
+  .field-public-content {
+    box-sizing: border-box;
+    max-width: calc(100vw - 32px) !important;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .field-public-page,
+  .field-public-page * {
+    max-width: 100%;
+  }
+
+  .admin-main { padding: 16px; overflow-x: hidden; }
+
+  .hub-demo-page {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 0 !important;
+  }
+
+  .hub-guide-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+  }
+
+  .hub-guide-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hub-guide-tabs button {
+    min-width: 0;
+    padding: 8px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-invoices-layout,
+  .admin-invoice-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-invoice-document {
+    padding: 24px 16px !important;
+    overflow-x: hidden;
+  }
+
+  .admin-invoice-document table {
+    font-size: 12px !important;
+  }
+}
 
 .feed-empty {
   text-align: center;
@@ -1926,6 +2089,20 @@ a.metric:hover {
   align-items: start;
 }
 
+.settings-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-invoices-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  gap: 24px;
+  align-items: start;
+}
+
 .rule-section {
   display: grid;
   gap: 14px;
@@ -2392,6 +2569,7 @@ a.metric:hover {
   .schedule-grid,
   .appointment-card,
   .settings-grid,
+  .settings-page-layout,
   .config-grid {
     grid-template-columns: 1fr;
   }
@@ -2414,6 +2592,19 @@ a.metric:hover {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-hours-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px !important;
+  }
+
+  .settings-hours-row > :last-child {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
   }
 }
 

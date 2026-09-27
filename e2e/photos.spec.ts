@@ -82,10 +82,9 @@ test.describe("Photos tab", () => {
     await expect(page.getByRole("region", { name: "Before and After pairs" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Other photos" })).toBeVisible();
     await shot(page, "photos-pairs");
-    // Touch targets: reported, not failed (icon buttons are ~20px today; the design target is 40px).
+    // Icon controls must remain tappable at the mobile target size.
     const box = await page.getByRole("button", { name: "Reorder Cracked tile" }).boundingBox();
-    if (!box || box.width < 40 || box.height < 40) {
-      test.info().annotations.push({ type: "known-issue", description: `photo card icon buttons are ${Math.round(box?.width ?? 0)}x${Math.round(box?.height ?? 0)}px (target 40px)` });
-    }
+    expect(box?.width).toBeGreaterThanOrEqual(40);
+    expect(box?.height).toBeGreaterThanOrEqual(40);
   });
 });
