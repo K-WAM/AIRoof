@@ -661,6 +661,41 @@ describe("demo-customize route", () => {
   });
 
   describe("ElevenLabs line preview", () => {
+    it("preserves additional phone numbers across launch and reset", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      vi.stubEnv("ELEVENLABS_API_KEY", "test-only-key");
+      const fs = createFirestore();
+      const extraPhoneNumbers = ["+16045550123"];
+      fs.documents.set("businesses/demo-roofing", {
+        businessName: "Old Name",
+        fieldKey: "abcd1234abcd1234abcd1234abcd1234",
+        isDemo: true,
+        voiceProvider: "elevenlabs",
+        elevenlabs: {
+          agentId: "agent-test",
+          phoneNumberId: "phone-test",
+          phoneNumber: "+16892042643",
+          extraPhoneNumbers,
+        },
+        approvedServices: [], approvedFaqs: [], emergencyRules: [], bookingRules: [],
+        disallowedTopics: [], businessHours: "Mon-Fri 8-5", serviceArea: "Test Area",
+      });
+      mocks.firestoreInstance = fs;
+
+      vi.resetModules();
+      const { POST, DELETE } = await import("@/app/api/admin/demo-customize/route");
+      const launch = await POST(makeRequest("POST", { companyName: "Test Corp", verticalId: "roofing" }));
+      expect((await launch.json()).ok).toBe(true);
+      expect((fs.documents.get("businesses/demo-roofing")?.elevenlabs as { extraPhoneNumbers?: string[] }).extraPhoneNumbers)
+        .toEqual(extraPhoneNumbers);
+
+      const reset = await DELETE(makeRequest("DELETE", { confirm: "RESET" }));
+      expect((await reset.json()).ok).toBe(true);
+      expect((fs.documents.get("businesses/demo-roofing")?.elevenlabs as { extraPhoneNumbers?: string[] }).extraPhoneNumbers)
+        .toEqual(extraPhoneNumbers);
+      vi.unstubAllEnvs();
+    });
+
     it("renders the next greeting without a provider network call", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);
       vi.stubEnv("ELEVENLABS_API_KEY", "test-only-key");
