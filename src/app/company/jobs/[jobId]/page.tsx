@@ -39,6 +39,8 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
 import { SortablePhotoGrid } from "@/components/photos/SortablePhotoGrid";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import {
   AlertCircle,
@@ -111,6 +113,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const { open: openQuickAdd } = useQuickAdd();
+  const readOnly = useAuth().user?.role === "viewer";
   // Business-timezone formatters ("Sep 25, 8:59 PM") — the same format as Calls and Pipeline, never the browser locale.
   const fmt = useFormat();
   // The Library catalog is loaded once here and shared by the Findings and Quote tabs.
@@ -332,6 +335,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const materials = view.materials;
   const labor = view.labor;
   const editing = editParsed !== null;
+  // Same rule as the Edit button: a job with no notes and no saved data has nothing to edit yet.
+  const canManualAdd = !readOnly && (updates.length > 0 || !!job?.parsed);
   // Live view while a technician works: poll ONE document (the job) every 5 s and pull the updates/photos only when
   // the job actually changed. The old version re-ran the full load (5 fetches) each time — fine for a demo, a real
   // read-quota problem on the free plan if a job page is left open. Returned so the hook never overlaps requests, and
@@ -1030,7 +1035,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {/* Tab bar */}
       <div className="job-tabs no-print">
         {TABS.map((tab) => (
-          <button className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
+          <button className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
             {tab.label}
           </button>
         ))}
@@ -1039,7 +1044,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft"
             ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
             : null;
-          return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} onClick={() => setActiveTab(tab.id)}>
+          return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
             <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
@@ -1064,7 +1069,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </div>
           <div className="panel-body">
             {updates.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>No field updates yet. Send your foreman the field link to submit voice or text updates.</p>
+              <EmptyState
+                compact
+                title="No field notes yet"
+                body={readOnly ? "The crew's notes appear here as they work." : "Send the field link; the crew talks, it fills in here."}
+                secondary={readOnly ? undefined : { label: "Show field QR", onClick: () => void openFieldQr() }}
+                testId="job-activity-empty"
+              />
             ) : (
               <div style={{ display: "grid", gap: 14 }}>
                 {/* The API is chronological; the newest note goes on top, and keeps its own number ("Update 3"). */}
@@ -1082,14 +1093,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel" style={{ marginBottom: 16 }}>
           <div className="panel-header"><h2 className="panel-title">Work log</h2></div>
           <div className="panel-body">
-            {timeline.length === 0 ? (
-              <div style={{ color: "#888", fontSize: 14 }}>
-                <p style={{ margin: "0 0 8px" }}>No timeline events yet.</p>
-                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  Submit a field update
-                </a>
-              </div>
+            {timeline.length === 0 && !editing ? (
+              <EmptyState compact title="Nothing logged yet" body="It fills in from the crew's field notes." />
             ) : editing ? (
               <div style={{ display: "grid", gap: 8 }}>
                 {timeline.map((t, i) => (
@@ -1137,13 +1142,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
             {materials.length === 0 && !editing ? (
-              <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
-                <p style={{ margin: "0 0 8px" }}>No materials extracted yet.</p>
-                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  Submit a field update
-                </a>
-              </div>
+              <EmptyState
+                compact
+                title="Filled in from field notes"
+                body="When the crew mentions a material, it appears here."
+                secondary={canManualAdd ? { label: "Add manually", onClick: () => { startEdit(); mutate((p) => { p.materials.push({ item: "", quantity: "1", unit: "" }); }); } } : undefined}
+                testId="job-materials-empty"
+              />
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
@@ -1195,13 +1200,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
             {labor.length === 0 && !editing ? (
-              <div style={{ color: "#888", fontSize: 14, padding: 20 }}>
-                <p style={{ margin: "0 0 8px" }}>No labor extracted yet.</p>
-                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  Submit a field update
-                </a>
-              </div>
+              <EmptyState
+                compact
+                title="Filled in from field notes"
+                body="When the crew mentions hours worked, they appear here."
+                secondary={canManualAdd ? { label: "Add manually", onClick: () => { startEdit(); mutate((p) => { p.labor.push({ description: "" }); }); } } : undefined}
+                testId="job-labor-empty"
+              />
             ) : (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
@@ -1259,13 +1264,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             {!photosLoaded ? (
               <p style={{ color: "#888", fontSize: 14 }}>Loading photos…</p>
             ) : photos.length === 0 ? (
-              <div style={{ color: "#888", fontSize: 14 }}>
-                <p style={{ margin: "0 0 8px" }}>No photos yet.</p>
-                <a href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ExternalLink size={13} strokeWidth={1.75} />
-                  Add from field
-                </a>
-              </div>
+              <EmptyState
+                compact
+                title="No photos yet"
+                body={readOnly ? "The crew adds them on site." : "The crew adds them on site, or add one here."}
+                secondary={readOnly ? undefined : { label: "Add photo", href: `/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}` }}
+                testId="job-photos-empty"
+              />
             ) : (
               <>
                 <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Tap a photo to view full size. Toggle &ldquo;In report&rdquo; to include it in the generated report (max 2 pages).</p>
@@ -1363,7 +1368,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
-      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
+      {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         photos={photos}
@@ -1384,19 +1389,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           )}
           {!invoiceReady ? (
             <section className="panel">
-              <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
-                <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>
-                  {updates.length === 0 && !job.findings?.length
-                    ? "Add a field update or finding first."
-                    : "No invoice yet. Create a draft from this job's field notes and findings; you review it before anything is sent."}
-                </p>
-                {(updates.length > 0 || !!job.findings?.length) && (
-                  <button className="button primary" onClick={() => generateInvoice()} disabled={generatingInvoice} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Receipt size={15} strokeWidth={1.75} />
-                    {generatingInvoice ? "Creating…" : "Create invoice"}
-                  </button>
-                )}
-              </div>
+              {updates.length === 0 && !job.findings?.length ? (
+                <EmptyState
+                  icon={Receipt}
+                  title="No invoice yet"
+                  body="Add a field note or a finding first."
+                  secondary={readOnly ? undefined : { label: "Add a finding", onClick: () => setActiveTab("findings") }}
+                  testId="job-invoice-empty"
+                />
+              ) : (
+                <EmptyState
+                  icon={Receipt}
+                  title="No invoice yet"
+                  body="Draft it from this job's notes and findings. You review before sending."
+                  action={readOnly ? undefined : { label: generatingInvoice ? "Creating…" : "Create invoice", onClick: () => void generateInvoice(), disabled: generatingInvoice }}
+                  testId="job-invoice-empty"
+                />
+              )}
             </section>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
@@ -1854,19 +1863,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <div>
           {!report ? (
             <section className="panel">
-              <div className="panel-body" style={{ textAlign: "center", padding: "40px 20px" }}>
-                <p style={{ color: "#888", fontSize: 14, marginBottom: 16 }}>
-                  {updates.length === 0 && !job.findings?.some((f) => f.includeInReport)
-                    ? "No field updates or report findings yet."
-                    : "Click Generate Report to produce a job summary."}
-                </p>
-                {(updates.length > 0 || !!job.findings?.some((f) => f.includeInReport)) && (
-                  <button className="button" onClick={generateReport} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <FileText size={15} strokeWidth={1.75} />
-                    Generate Report
-                  </button>
-                )}
-              </div>
+              {updates.length === 0 && !job.findings?.some((f) => f.includeInReport) ? (
+                <EmptyState
+                  icon={FileText}
+                  title="No report yet"
+                  body="Add a field note or a finding first."
+                  secondary={readOnly ? undefined : { label: "Add a finding", onClick: () => setActiveTab("findings") }}
+                  testId="job-report-empty"
+                />
+              ) : (
+                <EmptyState
+                  icon={FileText}
+                  title="Ready for a report"
+                  body="Turn this job's notes and findings into a summary."
+                  secondary={readOnly ? undefined : { label: "Generate Report", onClick: () => void generateReport() }}
+                  testId="job-report-empty"
+                />
+              )}
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
