@@ -37,6 +37,11 @@ describe("admin voice config route", () => {
     { voiceProvider: "elevenlabs", elevenlabs: { agentId: "bad/id", phoneNumberId: "pn_1", phoneNumber: "+15551234567" } },
     { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "555-123-4567" } },
     { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", secret: "extra" } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", extraPhoneNumbers: "+16045550123" } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", extraPhoneNumbers: ["604-555-0123"] } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", extraPhoneNumbers: Array.from({ length: 6 }, (_, index) => `+1604555012${index}`) } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", extraPhoneNumbers: ["+16045550123", "+16045550123"] } },
+    { voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_1", phoneNumberId: "pn_1", phoneNumber: "+15551234567", extraPhoneNumbers: ["+15551234567"] } },
   ])("rejects invalid provider config before database access", async (body) => {
     const { PUT } = await import("../route");
     const response = await PUT(providerRequest(body), params);
@@ -69,6 +74,7 @@ describe("admin voice config route", () => {
         path: `${name}/${id}`,
         get: async () => ({ exists: documents.has(`${name}/${id}`), data: () => documents.get(`${name}/${id}`) }),
       }),
+      where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }),
     });
     const db = {
       collection,
@@ -89,10 +95,36 @@ describe("admin voice config route", () => {
     expect(documents.get("businesses/biz-1")?.voice).toEqual(voice);
     expect((await PUT(request({}), params)).status).toBe(200);
     expect(documents.get("businesses/biz-1")?.voice).toEqual({});
-    const elevenlabs = { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567" };
+    const elevenlabs = { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567", extraPhoneNumbers: ["+16045550123"] };
     expect((await PUT(providerRequest({ voiceProvider: "elevenlabs", elevenlabs }), params)).status).toBe(200);
     expect(documents.get("businesses/biz-1")).toMatchObject({ voiceProvider: "elevenlabs", elevenlabs, vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" });
     expect((await PUT(providerRequest({ voiceProvider: "vapi" }), params)).status).toBe(200);
     expect(documents.get("businesses/biz-1")).toMatchObject({ voiceProvider: "vapi", elevenlabs, vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" });
+  });
+
+  it.each(["primary", "extra"] as const)("rejects a phone number used by another business as its %s number", async (field) => {
+    const conflict = { empty: false, docs: [{ id: "other-business" }] };
+    const empty = { empty: true, docs: [] };
+    const get = vi.fn()
+      .mockResolvedValueOnce(field === "primary" ? conflict : empty)
+      .mockResolvedValueOnce(field === "extra" ? conflict : empty);
+    mocks.getAdminFirestore.mockReturnValue({
+      collection: () => ({
+        where: () => ({ limit: () => ({ get }) }),
+      }),
+    });
+    const { PUT } = await import("../route");
+    const response = await PUT(providerRequest({
+      voiceProvider: "elevenlabs",
+      elevenlabs: {
+        agentId: "agent_11",
+        phoneNumberId: "phone_11",
+        phoneNumber: "+15551234567",
+        extraPhoneNumbers: ["+16045550123"],
+      },
+    }), params);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "Phone number is already assigned to another business" });
   });
 });
