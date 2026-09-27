@@ -1997,6 +1997,13 @@ a.metric:hover {
   align-items: start;
 }
 
+.settings-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
 .rule-section {
   display: grid;
   gap: 14px;
@@ -2463,6 +2470,7 @@ a.metric:hover {
   .schedule-grid,
   .appointment-card,
   .settings-grid,
+  .settings-page-layout,
   .config-grid {
     grid-template-columns: 1fr;
   }
@@ -2485,6 +2493,19 @@ a.metric:hover {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-hours-row {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px !important;
+  }
+
+  .settings-hours-row > :last-child {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
   }
 }
 
