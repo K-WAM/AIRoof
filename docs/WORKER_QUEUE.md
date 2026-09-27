@@ -987,18 +987,20 @@ between steps) and **CRLF/non-ASCII patch mismatches: edit by hand, no permissio
 After H3 there is one more prompt, and only when the owner approves pricing: billing + the superadmin cost panel
 (T-126 + T-146). Everything else is integrator work (reviews, merges, live agent tests, deploy) or owner items.
 
-### H0 — Codex A, **GPT-5.5 Terra, medium** — finish T-144 (paste into the SAME Codex session if it's still open)
+### H0 — Codex A, **GPT-5.5 Terra, medium** — finish T-144 (fresh session is fine; everything it needs is here)
+Step 5 was finished and committed by the integrator (`838d614`) after the worker's patch tool failed twice on CRLF.
 ```
 Continue T-144 in the EXISTING worktree D:/Apps/air-wt-empty-states (branch task/empty-states). Verify `git rev-parse --show-toplevel` and
 `git branch --show-current` before your first edit. Never edit "D:/Apps/6 - AI Receptionist".
-Answer to your question: YES, reconcile by hand. src/app/company/dashboard/page.tsx is 100% CRLF and contains non-ASCII characters (the "—" in
-"All caught up — nothing urgent right now."), which is why the patch context never matched. Re-read the lines (allClear near line 241, the
-feed-empty block near lines 417–419), then edit them keeping CRLF and the "—" byte-for-byte, or use a small `node -e` exact-string replace.
-See AGENTS.md "Known hiccups". The same applies to any other file — don't ask again.
-Done already: steps 1–4 and the Guide-nudge removal (b73a5af…a1e6fc1). In ONE run, with no check-ins, do the rest of docs/WORKER_QUEUE.md F1:
-step 5 (Dashboard SetupChecklist card + the three feed cases in docs/NO-TRAINING-UX-PLAN.md §3.2), step 6 (every row of §3.3, one commit per
-screen group), step 7 (e2e-empty tenant + e2e/empty-states.spec.ts), then F1's gates (npm run e2e:down BEFORE npx next build). Another Codex
-session is editing src/lib/tools/**, src/lib/scheduling/**, demo-customize and demoSeed.ts at the same time — don't touch those.
+Done: F1 steps 1–5 (step 5 = Dashboard checklist, "Hide for now", first-run feed states — committed by the integrator as 838d614; don't redo it).
+Why your edits kept failing: the working tree is CRLF but git stores LF (core.autocrlf=true). Fix it ONCE, before any edit, from the worktree root
+in PowerShell:
+git ls-files src e2e scripts/e2e | ForEach-Object { $p = (Resolve-Path $_).Path; $t = [IO.File]::ReadAllText($p); if ($t.Contains("`r`n")) { [IO.File]::WriteAllText($p, $t.Replace("`r`n", "`n")) } }; git add -u
+Afterwards `git status` is clean and nothing is committed by it (the integrator verified this), and your patch tool matches normally.
+Then, in ONE run with no check-ins: F1 step 6 (every row of docs/NO-TRAINING-UX-PLAN.md §3.3 except the Dashboard — one commit per screen group:
+Pipeline+Calls, Calendar, Jobs list, Job tabs, Customers+Library, Team, Field) and step 7 (the e2e-empty tenant + e2e/empty-states.spec.ts, which
+also covers the Dashboard checklist, "Hide for now" and the first-run feed), then F1's gates (npm run e2e:down BEFORE npx next build).
+Another Codex session edits src/lib/tools/**, src/lib/scheduling/**, demo-customize and demoSeed.ts — don't touch those.
 Final message: F1's final-message format. Never push or merge.
 ```
 

@@ -1099,8 +1099,8 @@ an active queue.*
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
       `docs/WORKER_QUEUE.md` section **F**. Run T-144 then T-145 (same pages); F3 (T-130 code) can run in parallel with either.
-  - [ ] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`) — **in progress 2026-09-27: steps 1–4 +
-        Guide-nudge removal committed (`b73a5af`…`a1e6fc1`); it stalled on a CRLF patch mismatch in dashboard/page.tsx; continuation = WORKER_QUEUE H0.** Shared `EmptyState`, `BlockedAction`
+  - [ ] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`) — **in progress 2026-09-27: steps 1–5 done (worker `b73a5af`…`a1e6fc1`;
+        step 5 finished by the integrator `838d614` after the worker's patch tool failed twice on CRLF). Steps 6–7 + gates remain = WORKER_QUEUE H0.** Shared `EmptyState`, `BlockedAction`
         gains `href`, pure `setupChecklist()` + `GET /api/company/setup-status`, a Dashboard "Get your business ready" checklist (owner/superadmin) replacing the
         "take the Guide tour" nudge, every empty list/tab on the plan's inventory, a new empty `e2e-empty` harness tenant + `e2e/empty-states.spec.ts`.
   - [ ] **T-145 — Page-by-page roofing UX pass** → runs as **WORKER_QUEUE H3 Part 2** (Codex, GPT-6 Sol medium, `air-wt-setup-ux`, after T-144 and G1 merge; G2 is H3 Part 1 — booking comes first). Golden-path
