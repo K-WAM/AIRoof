@@ -1044,7 +1044,7 @@ an active queue.*
   - [ ] NEEDS-HUMAN: attorney review of `docs/FLORIDA-DOCUMENT-NOTICES.md` then tick "reviewed"; fill account owners in `docs/AI-PROVIDERS.md`; check OpenAI + DeepSeek balances; relaunch Demo Studio after deploy.
 
 - [ ] Phase 26 — Sell-readiness: a Canadian demo number and the first-client runbook (owner-directed, 2026-09-26)
-  - [ ] **T-130 — Provision a Canadian number for demos.** Spec: `docs/CANADIAN-DEMO-NUMBER.md`. Buy a Canadian local number in Twilio, import it into ElevenLabs
+  - [x] **T-130 — Provision a Canadian number for demos.** **Status: review (worker code complete on `task/ca-number`; owner provisioning/test call still required).** Spec: `docs/CANADIAN-DEMO-NUMBER.md`. Buy a Canadian local number in Twilio, import it into ElevenLabs
         the same way `scripts/move-demo-line-to-elevenlabs.mjs` moved the US number, point it at a tenant (either `demo-roofing` with a second
         `elevenlabs.phoneNumber`-mapped business doc, or a dedicated `demo-roofing-ca` tenant so US and CA demos never collide), and confirm one test call.
         Needs the owner's Twilio account (billing + area code choice); a voice-only number needs no A2P 10DLC/CNAM registration (that's SMS-only), so this

@@ -115,11 +115,19 @@ export async function PUT(
       const value = body.elevenlabs as unknown;
       const fields = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
       const idPattern = /^[A-Za-z0-9_-]{1,100}$/;
-      if (!fields || Object.keys(fields).some((key) => !["agentId", "phoneNumberId", "phoneNumber"].includes(key)) ||
+      const e164Pattern = /^\+[1-9]\d{1,14}$/;
+      const extraPhoneNumbers = fields?.extraPhoneNumbers;
+      if (!fields || Object.keys(fields).some((key) => !["agentId", "phoneNumberId", "phoneNumber", "extraPhoneNumbers"].includes(key)) ||
           typeof fields.agentId !== "string" || !idPattern.test(fields.agentId) ||
           typeof fields.phoneNumberId !== "string" || !idPattern.test(fields.phoneNumberId) ||
-          typeof fields.phoneNumber !== "string" || !/^\+[1-9]\d{1,14}$/.test(fields.phoneNumber)) {
+          typeof fields.phoneNumber !== "string" || !e164Pattern.test(fields.phoneNumber) ||
+          (extraPhoneNumbers !== undefined && (!Array.isArray(extraPhoneNumbers) || extraPhoneNumbers.length > 5 ||
+            extraPhoneNumbers.some((phoneNumber) => typeof phoneNumber !== "string" || !e164Pattern.test(phoneNumber))))) {
         return NextResponse.json({ error: "ElevenLabs requires a valid agent ID, phone number ID, and E.164 phone number" }, { status: 400 });
+      }
+      const allPhoneNumbers = [fields.phoneNumber, ...(extraPhoneNumbers ?? [])] as string[];
+      if (new Set(allPhoneNumbers).size !== allPhoneNumbers.length) {
+        return NextResponse.json({ error: "ElevenLabs phone numbers must not contain duplicates" }, { status: 400 });
       }
     }
     if (body.voiceProvider === "elevenlabs" && body.elevenlabs === undefined) {
@@ -139,6 +147,25 @@ export async function PUT(
         { error: "Firestore not available" },
         { status: 500 }
       );
+    }
+
+    if (body.elevenlabs) {
+      const phoneNumbers = [body.elevenlabs.phoneNumber, ...(body.elevenlabs.extraPhoneNumbers ?? [])]
+        .filter((phoneNumber): phoneNumber is string => Boolean(phoneNumber));
+      for (const phoneNumber of phoneNumbers) {
+        const [primaryMatches, extraMatches] = await Promise.all([
+          db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(2).get(),
+          db.collection("businesses").where("elevenlabs.extraPhoneNumbers", "array-contains", phoneNumber).limit(2).get(),
+        ]);
+        const conflicts = [...primaryMatches.docs, ...extraMatches.docs]
+          .some((doc) => doc.id !== businessId);
+        if (conflicts) {
+          return NextResponse.json(
+            { error: "Phone number is already assigned to another business" },
+            { status: 409 },
+          );
+        }
+      }
     }
 
     const now = Date.now();

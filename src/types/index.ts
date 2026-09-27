@@ -50,6 +50,8 @@ export interface BusinessConfig {
     phoneNumberId?: string;
     /** The E.164 number itself — lets inbound calls resolve to this tenant by "called number". */
     phoneNumber?: string;
+    /** Additional inbound E.164 numbers routed to the same tenant (maximum 5). */
+    extraPhoneNumbers?: string[];
   };
   // Per-business field access key — carried by the public /field QR link so
   // unauthenticated crews can submit voice updates (see verifyFieldAccess).

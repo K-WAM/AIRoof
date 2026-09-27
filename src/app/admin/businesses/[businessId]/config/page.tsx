@@ -50,7 +50,7 @@ interface BizData {
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
   voiceProvider?: "vapi" | "elevenlabs";
-  elevenlabs?: { agentId: string; phoneNumberId?: string; phoneNumber?: string };
+  elevenlabs?: { agentId: string; phoneNumberId?: string; phoneNumber?: string; extraPhoneNumbers?: string[] };
   voice?: { en?: VoiceRef; es?: VoiceRef };
   callbackDelayMinutes?: number;
   maxCallAttempts?: number;
@@ -289,6 +289,10 @@ export default function AdminBusinessConfigPage({
           agentId: String(formData.get("elevenlabsAgentId") || "").trim(),
           phoneNumberId: String(formData.get("elevenlabsPhoneNumberId") || "").trim(),
           phoneNumber: String(formData.get("elevenlabsPhoneNumber") || "").trim(),
+          extraPhoneNumbers: String(formData.get("elevenlabsExtraPhoneNumbers") || "")
+            .split("\n")
+            .map((phoneNumber) => phoneNumber.trim())
+            .filter(Boolean),
         },
       }),
       voice,
@@ -520,6 +524,17 @@ export default function AdminBusinessConfigPage({
                   <div className="field full">
                     <label htmlFor="elevenlabsPhoneNumber">ElevenLabs phone number (E.164)</label>
                     <input id="elevenlabsPhoneNumber" name="elevenlabsPhoneNumber" type="tel" required placeholder="+15551234567" defaultValue={biz.elevenlabs?.phoneNumber ?? ""} />
+                  </div>
+                  <div className="field full">
+                    <label htmlFor="elevenlabsExtraPhoneNumbers">Additional phone numbers</label>
+                    <textarea
+                      id="elevenlabsExtraPhoneNumbers"
+                      name="elevenlabsExtraPhoneNumbers"
+                      rows={3}
+                      placeholder={"+16045550123\n+14165550123"}
+                      defaultValue={biz.elevenlabs?.extraPhoneNumbers?.join("\n") ?? ""}
+                    />
+                    <span className="helper-text">One E.164 number per line, up to 5.</span>
                   </div>
                 </div>
               )}

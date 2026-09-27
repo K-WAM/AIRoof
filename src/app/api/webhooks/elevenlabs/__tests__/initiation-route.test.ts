@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getAdminFirestore: vi.fn(),
   findBusinessByElevenLabsAgentId: vi.fn(),
   findBusinessByElevenLabsPhoneNumber: vi.fn(),
+  executeAgentTool: vi.fn(),
 }));
 
 vi.mock("@/lib/firebase/admin", () => ({
@@ -18,8 +19,12 @@ vi.mock("@/lib/vapi/businessLookup", () => ({
   findBusinessByElevenLabsAgentId: mocks.findBusinessByElevenLabsAgentId,
   findBusinessByElevenLabsPhoneNumber: mocks.findBusinessByElevenLabsPhoneNumber,
 }));
+vi.mock("@/lib/tools/toolDispatcher", () => ({
+  executeAgentTool: mocks.executeAgentTool,
+}));
 
 import { POST } from "@/app/api/webhooks/elevenlabs/initiation/route";
+import { POST as toolsPOST } from "@/app/api/webhooks/elevenlabs/tools/[tool]/route";
 
 function requestFor(body: Record<string, unknown>, secret?: string): NextRequest {
   return new NextRequest("http://localhost/api/webhooks/elevenlabs/initiation", {
@@ -81,6 +86,7 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     mocks.getAdminFirestore.mockReturnValue(db);
     mocks.findBusinessByElevenLabsAgentId.mockResolvedValue(null);
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue(null);
+    mocks.executeAgentTool.mockResolvedValue({ result: "ok" });
     _resetRateLimitState();
   });
 
@@ -135,6 +141,55 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     );
     expect(body.conversation_config_override.agent.language).toBe("en");
     expect(body.dynamic_variables.callerPhone).toBe("+1 (305) 555-0100");
+  });
+
+  it("routes an additional called number through the stored demo-roofing conversation into tools", async () => {
+    const canadianNumber = "+16045550123";
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("demo-roofing");
+    db.__seed("businesses", "demo-roofing", {
+      ...businessConfig({
+        businessId: "demo-roofing",
+        businessName: "Apex Roofing",
+        elevenlabs: {
+          agentId: "agent_1",
+          phoneNumber: "+16892042643",
+          extraPhoneNumbers: [canadianNumber],
+        },
+      }),
+    });
+
+    const initiation = await POST(requestFor({
+      ...INITIATION_BODY,
+      called_number: canadianNumber,
+      conversation_id: "conv_ca",
+    }, "expected-secret"));
+    const initiationBody = await initiation.json();
+
+    expect(initiation.status).toBe(200);
+    expect(mocks.findBusinessByElevenLabsPhoneNumber).toHaveBeenCalledWith(canadianNumber);
+    expect(initiationBody.conversation_config_override.agent.prompt.prompt).toContain("Apex Roofing");
+    expect(db.__peek("elevenlabsConversations", "conv_ca")).toMatchObject({
+      businessId: "demo-roofing",
+      calledNumber: canadianNumber,
+    });
+
+    const toolRequest = new NextRequest("http://localhost/api/webhooks/elevenlabs/tools/createLead", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-luxor-tool-secret": "expected-secret",
+        "x-luxor-conversation-id": "conv_ca",
+      },
+      body: JSON.stringify({ callerName: "Canadian Prospect", businessId: "wrong-tenant" }),
+    });
+    const toolResponse = await toolsPOST(toolRequest, { params: Promise.resolve({ tool: "createLead" }) });
+
+    expect(toolResponse.status).toBe(200);
+    expect(mocks.executeAgentTool).toHaveBeenCalledWith(
+      "createLead",
+      { callerName: "Canadian Prospect" },
+      expect.objectContaining({ businessId: "demo-roofing", callId: "call_elevenlabs_conv_ca" }),
+    );
   });
 
   it("uses the agent id when the called number is absent", async () => {

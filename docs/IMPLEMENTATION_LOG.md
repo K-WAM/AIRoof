@@ -1473,3 +1473,13 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Full Playwright smoke suite (not just the touched pages) re-run on the merged tree: 82 passed, 2 intentional phone skips, 0 failures (9.1 min) - confirms T-129's CSS pass and E6b's new photo-selector UI landing in the same files do not collide.
 - Spot-checked T-127's own claims: air-wt-documents-2 and air-wt-photos really had zero commits ahead of main (git log main..<branch> empty) before it removed them; air-wt-guide-3 really does still carry unmerged 2026-09-26 content main lacks, correctly left alone.
 - Fast-forwarded local main to this merge (not pushed - owner approval still required for any push). TODO.md updated: T-127/E6b/T-129 all marked MERGED; Phase 23 header 5/9 -> 6/9.
+
+## 2026-09-27 - T-130 Canadian demo number (worker, task/ca-number)
+- Commits: 400824a lookup/type support; 9845a2b admin validation + UI; 3f0b310 Demo Studio preservation; ef0e49e initiation-to-tool tenant flow; 1b254e2 collision safety follow-up.
+- Added BusinessConfig.elevenlabs.extraPhoneNumbers (E.164, maximum 5). Inbound lookup checks the primary field first, then extraPhoneNumbers via array-contains, with the existing positive-result cache behavior and null for unknown numbers.
+- Admin config validates E.164 format, maximum count, and uniqueness; rejects another business's primary or extra assignment with HTTP 409, including when the current tenant is the first query result. The ElevenLabs panel accepts one additional number per line.
+- Demo Studio launch/reset regression coverage proves extraPhoneNumbers is preserved. Initiation coverage proves a Vancouver extra number resolves demo-roofing, persists that businessId in the conversation record, and the subsequent tool call uses the stored tenant while ignoring model-supplied businessId.
+- Focused tests: lookup 5/5; admin config 22/22; Demo Studio 24/24; initiation 11/11.
+- Browser evidence: local emulator config save confirmed; phone smoke 34/34 passed at 375px. Screenshots: test-results/screens/desktop/ca-number-config-saved.png and test-results/screens/phone/superadmin_admin_businesses_e2e-roofing_config.png.
+- Gates: npx tsc --noEmit clean; changed-file ESLint clean; full Vitest 172 files, 1328 passed + 1 expected fail (1329 total). One documented company/team aggregate-load timeout passed alone 21/21, then the warmed full suite passed. npx next build green (BUILD_ID 2YfQPhC88vvOVbQa9rddq; 88 app route artifacts).
+- Removals: none. No live provider calls, secrets, pushes, merges, or changes to the called-number no-agent-fallback rule.

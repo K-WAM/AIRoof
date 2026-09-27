@@ -16,7 +16,10 @@ function makeDb(existing: Record<string, Record<string, unknown>>) {
   const writes: Array<{ op: string; path: string; data: unknown }> = [];
   const ref = (collection: string, id: string): Ref => ({ path: `${collection}/${id}`, id });
   const db = {
-    collection: (name: string) => ({ doc: (id: string) => ref(name, id) }),
+    collection: (name: string) => ({
+      doc: (id: string) => ref(name, id),
+      where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }),
+    }),
     async runTransaction<T>(fn: (tx: unknown) => Promise<T>): Promise<T> {
       let wrote = false;
       const tx = {
@@ -54,7 +57,7 @@ describe("admin business config save — Firestore transaction ordering", () => 
       active: true,
       notificationEmail: "owner@example.com",
       voiceProvider: "elevenlabs",
-      elevenlabs: { agentId: "agent_abc", phoneNumberId: "phnum_abc", phoneNumber: "+15615550100" },
+      elevenlabs: { agentId: "agent_abc", phoneNumberId: "phnum_abc", phoneNumber: "+15615550100", extraPhoneNumbers: ["+16045550123"] },
     }), params);
     expect(res.status).toBe(200);
     const paths = writes.map((w) => `${w.op}:${w.path}`);
@@ -63,7 +66,7 @@ describe("admin business config save — Firestore transaction ordering", () => 
     expect(paths).toContain("set:businessIntegrationStatus/biz-1");
     const bizWrite = writes.find((w) => w.path === "businesses/biz-1")!.data as Record<string, unknown>;
     expect(bizWrite.voiceProvider).toBe("elevenlabs");
-    expect(bizWrite.elevenlabs).toEqual({ agentId: "agent_abc", phoneNumberId: "phnum_abc", phoneNumber: "+15615550100" });
+    expect(bizWrite.elevenlabs).toEqual({ agentId: "agent_abc", phoneNumberId: "phnum_abc", phoneNumber: "+15615550100", extraPhoneNumbers: ["+16045550123"] });
   });
 
   it("also saves when the onboarding and integration docs already exist (update path)", async () => {
