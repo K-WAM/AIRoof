@@ -9,6 +9,7 @@ import {
   isScheduleWithinBusinessHours,
   runLedgeredEmail,
   releaseAppointmentLocks,
+  scheduleCapacityResourceKey,
   scheduleBucketStarts,
   scheduleLockId,
   scheduleRangesOverlap,
@@ -89,7 +90,15 @@ export async function PATCH(
       const appointment = appointmentSnapshot.data() ?? {};
       const business = businessSnapshot.data() ?? {};
       if (appointment.declinedAt) return { alreadyDeclined: true } as const;
-      await releaseAppointmentLocks(transaction, businessRef, appointmentId, Number(appointment.startTime), Number(appointment.endTime), typeof appointment.assignedCrewId === "string" ? appointment.assignedCrewId : null);
+      await releaseAppointmentLocks(
+        transaction,
+        businessRef,
+        appointmentId,
+        Number(appointment.startTime),
+        Number(appointment.endTime),
+        typeof appointment.assignedCrewId === "string" ? appointment.assignedCrewId : null,
+        typeof appointment.scheduleCapacityUnit === "number" ? appointment.scheduleCapacityUnit : null
+      );
       const now = Date.now();
       transaction.update(appointmentRef, { status: "cancelled", pendingConfirmation: false, declinedAt: now, declineReason, decidedBy: gate.user.uid, updatedAt: now });
       return { appointment, business };
@@ -152,6 +161,9 @@ export async function PATCH(
         typeof appointment.assignedCrewId === "string"
           ? appointment.assignedCrewId
           : null;
+      const previousCapacityUnit = typeof appointment.scheduleCapacityUnit === "number"
+        ? appointment.scheduleCapacityUnit
+        : null;
       const duration =
         Number.isFinite(previousEnd - previousStart) && previousEnd > previousStart
           ? previousEnd - previousStart
@@ -191,8 +203,14 @@ export async function PATCH(
         );
       }
 
-      const oldResourceKey = scheduleResourceKey(previousCrewId);
-      const newResourceKey = scheduleResourceKey(desiredCrewId);
+      const oldResourceKey = previousCapacityUnit !== null && !previousCrewId
+        ? scheduleCapacityResourceKey(previousCapacityUnit)
+        : scheduleResourceKey(previousCrewId);
+      const newResourceKey = desiredCrewId
+        ? scheduleResourceKey(desiredCrewId)
+        : previousCapacityUnit !== null
+          ? scheduleCapacityResourceKey(previousCapacityUnit)
+          : scheduleResourceKey(null);
       const oldLockRefs = scheduleBucketStarts(previousStart, previousEnd).map((bucket) =>
         businessRef
           .collection("schedulingLocks")
@@ -287,6 +305,7 @@ export async function PATCH(
       }
       const update: Record<string, unknown> = {
         assignedCrewId: desiredCrewId,
+        scheduleCapacityUnit: desiredCrewId ? null : previousCapacityUnit,
         startTime: desiredStart,
         endTime: desiredEnd,
         updatedAt: now,

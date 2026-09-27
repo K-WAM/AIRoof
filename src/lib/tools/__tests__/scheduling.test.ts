@@ -21,7 +21,11 @@ import {
   escalateCall,
   lookupAppointment,
   isScheduleWithinBusinessHours,
+  isWindowFree,
+  scheduleCapacityResourceKey,
+  scheduleLockId,
   scheduleRangesOverlap,
+  schedulingCapacity,
   zonedDateTimeToUtc,
 } from "@/lib/tools/agentTools";
 
@@ -192,6 +196,18 @@ describe("scheduling ranges and business time", () => {
   it("detects duration overlap but permits adjacent appointments", () => {
     expect(scheduleRangesOverlap(100, 200, 150, 250)).toBe(true);
     expect(scheduleRangesOverlap(100, 200, 200, 300)).toBe(false);
+  });
+
+  it("uses active crew/resource count as capacity with a minimum of one", () => {
+    expect(schedulingCapacity([])).toBe(1);
+    expect(schedulingCapacity([{ active: true }, {}, { active: false }])).toBe(2);
+    expect(isWindowFree({ startTime: 100, endTime: 200 }, [
+      { startTime: 100, endTime: 200, status: "requested" },
+    ], [], 2)).toBe(true);
+    expect(isWindowFree({ startTime: 100, endTime: 200 }, [
+      { startTime: 100, endTime: 200, status: "requested" },
+      { startTime: 150, endTime: 250, status: "confirmed" },
+    ], [], 2)).toBe(false);
   });
 
   it("rejects a closed business day", () => {
@@ -375,11 +391,39 @@ describe("bookAppointment transaction", () => {
     const startTime = Date.parse("2030-07-23T14:00:00.000Z");
     firestore.documents.set("businesses/biz-1/appointments/old", { startTime, endTime: startTime + 3600000, status: "cancelled" });
     for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
-      firestore.documents.set(`businesses/biz-1/schedulingLocks/unassigned:${bucket}`, { entityId: "old" });
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), bucket)}`, { entityType: "appointment", entityId: "old" });
     }
     vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
     const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
-    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/unassigned:${startTime}`)?.entityId).toBe(next.appointmentId);
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), startTime)}`)?.entityId).toBe(next.appointmentId);
+  });
+
+  it("reclaims a lock whose appointment no longer exists", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), bucket)}`, { entityType: "appointment", entityId: "missing" });
+    }
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), startTime)}`)?.entityId).toBe(next.appointmentId);
+  });
+
+  it("allows two parallel bookings for two active crews and rejects the third", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set("businesses/biz-1/crews/crew-1", { active: true });
+    firestore.documents.set("businesses/biz-1/crews/crew-2", { active: true });
+    firestore.documents.set("businesses/biz-1/crews/crew-disabled", { active: false });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    const input = { businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 };
+    const first = await bookAppointment(input);
+    const second = await bookAppointment({ ...input, callerName: "Jordan", callerPhone: "+15555550124" });
+    expect([first.scheduleCapacityUnit, second.scheduleCapacityUnit].sort()).toEqual([0, 1]);
+    await expect(bookAppointment({ ...input, callerName: "Morgan", callerPhone: "+15555550125" }))
+      .rejects.toMatchObject({ code: "slot_conflict" });
   });
 
   it("rebooks the same time after a verified cancellation releases its locks", async () => {

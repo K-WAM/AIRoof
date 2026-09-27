@@ -60,16 +60,28 @@ export const SCHEDULE_OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 /** How long after its start an appointment still counts as "upcoming" when a caller asks to change or cancel it. */
 const LOOKUP_GRACE_MS = 2 * 60 * 60 * 1000;
 
-/** Business-wide scheduling rule shared by suggestions and the booking transaction. */
+/** Capacity rule shared by suggestions and the booking transaction. */
+export function isWindowFree(
+  window: { startTime: number; endTime: number },
+  appointments: ExistingSchedule[],
+  jobs: ExistingSchedule[],
+  capacity: number
+): boolean {
+  const safeCapacity = Math.max(1, Math.floor(capacity));
+  const overlapping = [...appointments, ...jobs].filter((entry) =>
+    entry.status !== "cancelled" &&
+    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
+  ).length;
+  return overlapping < safeCapacity;
+}
+
 export function isSlotBusy(
   window: { startTime: number; endTime: number },
   appointments: ExistingSchedule[],
-  jobs: ExistingSchedule[]
+  jobs: ExistingSchedule[],
+  capacity = 1
 ): boolean {
-  return [...appointments, ...jobs].some((entry) =>
-    entry.status !== "cancelled" &&
-    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
-  );
+  return !isWindowFree(window, appointments, jobs, capacity);
 }
 
 /** Release only locks still owned by this appointment; old bookings may have no locks. */
@@ -79,11 +91,15 @@ export async function releaseAppointmentLocks(
   appointmentId: string,
   startTime: number,
   endTime: number,
-  assignedCrewId?: string | null
+  assignedCrewId?: string | null,
+  scheduleCapacityUnit?: number | null
 ): Promise<void> {
   if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) return;
+  const resourceKey = typeof scheduleCapacityUnit === "number"
+    ? scheduleCapacityResourceKey(scheduleCapacityUnit)
+    : scheduleResourceKey(assignedCrewId);
   const refs = scheduleBucketStarts(startTime, endTime).map((bucket) =>
-    businessRef.collection("schedulingLocks").doc(scheduleLockId(scheduleResourceKey(assignedCrewId), bucket))
+    businessRef.collection("schedulingLocks").doc(scheduleLockId(resourceKey, bucket))
   );
   const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
   snapshots.forEach((snapshot, index) => {
@@ -120,6 +136,17 @@ export function scheduleRangesOverlap(
 
 export function scheduleResourceKey(resourceId?: string | null): string {
   return resourceId ? `crew:${resourceId}` : "unassigned";
+}
+
+export function scheduleCapacityResourceKey(unitIndex: number): string {
+  if (!Number.isInteger(unitIndex) || unitIndex < 0) {
+    throw new SchedulingConflictError("invalid_schedule", "A valid capacity unit is required.");
+  }
+  return `capacity:${unitIndex}`;
+}
+
+export function schedulingCapacity(crews: Array<{ active?: unknown }>): number {
+  return Math.max(1, crews.filter((crew) => crew.active !== false).length);
 }
 
 export function scheduleBucketStarts(startTime: number, endTime: number): number[] {
@@ -262,6 +289,7 @@ export function buildAvailableSlots(options: {
   businessHours: unknown;
   timeZone: string;
   existing: ExistingSchedule[];
+  capacity?: number;
   preferredDate?: string;
   durationMinutes?: number;
   now?: Date;
@@ -297,7 +325,7 @@ export function buildAvailableSlots(options: {
       );
       if (startTime === null || startTime <= now.getTime()) continue;
       const endTime = startTime + durationMinutes * 60 * 1000;
-      const occupied = isSlotBusy({ startTime, endTime }, options.existing, []);
+      const occupied = isSlotBusy({ startTime, endTime }, options.existing, [], options.capacity ?? 1);
       if (!occupied) {
         slots.push({
           startTime: new Date(startTime).toISOString(),
@@ -358,7 +386,7 @@ export async function checkAvailability(
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const now = new Date();
     const scanEnd = now.getTime() + (AVAILABILITY_SCAN_DAYS + 2) * 24 * 60 * 60 * 1000;
-    const [appointmentSnapshot, jobSnapshot] = await Promise.all([
+    const [appointmentSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
       db
         .collection("businesses")
         .doc(input.businessId)
@@ -373,6 +401,7 @@ export async function checkAvailability(
         .where("scheduledStart", ">=", now.getTime() - SCHEDULE_OVERLAP_LOOKBACK_MS)
         .where("scheduledStart", "<", scanEnd)
         .get(),
+      db.collection("businesses").doc(input.businessId).collection("crews").get(),
     ]);
     const existingAppointments = appointmentSnapshot.docs.map((document) => {
       const data = document.data();
@@ -388,7 +417,7 @@ export async function checkAvailability(
       const data = document.data();
       return typeof data.scheduledStart === "number" &&
         typeof data.scheduledEnd === "number"
-        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd }]
+        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd, status: typeof data.status === "string" ? data.status : undefined }]
         : [];
     });
     const slots = buildAvailableSlots({
@@ -397,6 +426,7 @@ export async function checkAvailability(
       // Availability remains advisory (D-1), but never suggests a period already
       // represented on either scheduling collection.
       existing: [...existingAppointments, ...existingJobs],
+      capacity: schedulingCapacity(crewSnapshot.docs.map((document) => document.data())),
       preferredDate: input.preferredDate,
       durationMinutes: input.durationMinutes,
       now,
@@ -445,11 +475,6 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     );
   }
   const lockBuckets = scheduleBucketStarts(input.startTime, input.endTime);
-  const lockRefs = lockBuckets.map((bucket) =>
-    businessRef
-      .collection("schedulingLocks")
-      .doc(scheduleLockId(scheduleResourceKey(), bucket))
-  );
   let businessData: Record<string, unknown> = {};
 
   const appointment: Appointment = await db.runTransaction(async (transaction) => {
@@ -475,32 +500,46 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const lookbackStart = input.startTime - SCHEDULE_OVERLAP_LOOKBACK_MS;
     const conflictQuery = businessRef.collection("appointments").where("startTime", ">=", lookbackStart).where("startTime", "<", input.endTime);
     const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", ">=", lookbackStart).where("scheduledStart", "<", input.endTime);
-    const [lockSnapshots, existingSnapshot, jobSnapshot] = await Promise.all([
-      Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
+    const crewQuery = businessRef.collection("crews");
+    const [existingSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
       transaction.get(conflictQuery),
       transaction.get(jobConflictQuery),
+      transaction.get(crewQuery),
     ]);
-    const cancelledIds = new Set(existingSnapshot.docs
-      .filter((document) => document.data().status === "cancelled")
-      .map((document) => document.id));
-    const staleLockIndexes = new Set<number>();
-    const occupiedByLock = lockSnapshots.some((snapshot, index) => {
-      if (!snapshot.exists) return false;
-      if (cancelledIds.has(snapshot.data()?.entityId)) {
-        staleLockIndexes.add(index);
-        return false;
-      }
-      return true;
-    });
+    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
+    const unitLockRefs = Array.from({ length: capacity }, (_, unitIndex) =>
+      lockBuckets.map((bucket) => businessRef.collection("schedulingLocks").doc(
+        scheduleLockId(scheduleCapacityResourceKey(unitIndex), bucket)
+      ))
+    );
+    const lockSnapshots = await Promise.all(unitLockRefs.flat().map((lockRef) => transaction.get(lockRef)));
+    const lockOwners = [...new Set(lockSnapshots.flatMap((snapshot) =>
+      snapshot.exists && typeof snapshot.data()?.entityId === "string"
+        ? [`${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`]
+        : []
+    ))];
+    const ownerSnapshots = await Promise.all(lockOwners.map((owner) => {
+      const separator = owner.indexOf(":");
+      return transaction.get(businessRef.collection(owner.slice(0, separator)).doc(owner.slice(separator + 1)));
+    }));
+    const staleOwners = new Set(lockOwners.filter((owner, index) =>
+      !ownerSnapshots[index].exists || ownerSnapshots[index].data()?.status === "cancelled"
+    ));
     const appointments = existingSnapshot.docs.map((document) => {
       const data = document.data();
       return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
     });
     const jobs = jobSnapshot.docs.map((document) => {
       const data = document.data();
-      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd) };
+      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd), status: data.status };
     });
-    if (occupiedByLock || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs)) {
+    const unitIndex = unitLockRefs.findIndex((refs, candidateUnit) => refs.every((_, bucketIndex) => {
+      const snapshot = lockSnapshots[candidateUnit * lockBuckets.length + bucketIndex];
+      if (!snapshot.exists) return true;
+      const owner = `${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`;
+      return staleOwners.has(owner);
+    }));
+    if (unitIndex < 0 || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs, capacity)) {
       throw new SchedulingConflictError(
         "slot_conflict",
         "That requested time was just taken. Please choose another opening."
@@ -529,10 +568,12 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       sourceCallId: input.sourceCallId,
       createdAt: now,
       updatedAt: now,
+      scheduleCapacityUnit: unitIndex,
     };
-    for (const [index, lockRef] of lockRefs.entries()) {
+    for (const [index, lockRef] of unitLockRefs[unitIndex].entries()) {
       const lock = {
-        resourceKey: scheduleResourceKey(),
+        resourceKey: scheduleCapacityResourceKey(unitIndex),
+        capacityUnit: unitIndex,
         bucketStart: lockBuckets[index],
         entityType: "appointment",
         entityId: appointmentId,
@@ -540,7 +581,8 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         endTime: input.endTime,
         updatedAt: now,
       };
-      if (staleLockIndexes.has(index)) transaction.set(lockRef, lock);
+      const snapshot = lockSnapshots[unitIndex * lockBuckets.length + index];
+      if (snapshot.exists) transaction.set(lockRef, lock);
       else transaction.create(lockRef, lock);
     }
     transaction.create(appointmentRef, appointment);
@@ -1224,7 +1266,15 @@ export async function cancelAppointment(input: CancelAppointmentInput): Promise<
       throw new Error("The verified appointment is no longer available to cancel.");
     }
 
-    await releaseAppointmentLocks(transaction, businessRef, candidate.appointmentId, Number(appointment.startTime), Number(appointment.endTime), appointment.assignedCrewId);
+    await releaseAppointmentLocks(
+      transaction,
+      businessRef,
+      candidate.appointmentId,
+      Number(appointment.startTime),
+      Number(appointment.endTime),
+      appointment.assignedCrewId,
+      typeof appointment.scheduleCapacityUnit === "number" ? appointment.scheduleCapacityUnit : null
+    );
 
     transaction.update(appointmentRef, {
       status: "cancelled",
