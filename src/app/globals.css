@@ -1315,6 +1315,20 @@ a.metric:hover {
     padding: 8px !important;
     overflow-wrap: anywhere;
   }
+
+  .admin-invoices-layout,
+  .admin-invoice-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-invoice-document {
+    padding: 24px 16px !important;
+    overflow-x: hidden;
+  }
+
+  .admin-invoice-document table {
+    font-size: 12px !important;
+  }
 }
 
 .feed-empty {
@@ -2046,6 +2060,13 @@ a.metric:hover {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
   gap: 20px;
+  align-items: start;
+}
+
+.admin-invoices-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  gap: 24px;
   align-items: start;
 }
 

@@ -393,7 +393,7 @@ function AdminInvoicesPageInner() {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
+      <div className="admin-invoices-layout">
         {/* ── Invoice Editor ── */}
         <div>
           {/* Editor header */}
@@ -406,7 +406,7 @@ function AdminInvoicesPageInner() {
               {currentInvoice && <span style={STATUS_STYLE[currentInvoice.status]}>{currentInvoice.status}</span>}
             </div>
             <div className="panel-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div className="admin-invoice-form" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div className="field">
                   <label>Client name</label>
                   <input
@@ -452,7 +452,7 @@ function AdminInvoicesPageInner() {
           </div>
 
           {/* Printable invoice document */}
-          <div id="invoice-print" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "40px 48px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
+          <div id="invoice-print" className="admin-invoice-document" style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "40px 48px", boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}>
             {/* Invoice header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, paddingBottom: 24, borderBottom: "2px solid #0f172a" }}>
               <div>

@@ -5,7 +5,6 @@ import { expect, expectHealthy, overflowingElements, settle, shot, test, type Ro
 // KNOWN UI BUGS found by this suite: pages whose content is wider than a 375 px phone screen. They do not fail the run, but
 // they are printed in the report as "known-issue". When you fix one, DELETE its line — the test fails if a listed page no longer overflows.
 const KNOWN_PHONE_OVERFLOW: Record<string, string> = {
-  "/admin/invoices": "Invoice editor is wider than the screen",
 };
 
 const COMPANY_PAGES = ["dashboard", "jobs", "pipeline", "calls", "calendar", "customers", "library", "team", "settings", "field", "guide"];
