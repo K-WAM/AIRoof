@@ -9,7 +9,8 @@ import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobQuote } from "@/types/quote";
 import type { Job } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
-import { getPhotoBlobs, listPhotoMetas } from "@/lib/photos/store";
+import { listPhotoMetas } from "@/lib/photos/store";
+import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
@@ -48,14 +49,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const notices = noticesForDocument({ doc: "quote", total: quote.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName, licenseNumber: biz.licenseNumber } });
   const metas = await listPhotoMetas(db, businessId, jobId);
   const photoIds = quote.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
-  if (photoIds.length > 16) return NextResponse.json({ error: "A document email can include at most 16 photos. Remove photos and try again." }, { status: 400 });
-  if (new Set(photoIds).size !== photoIds.length || !photoIds.every((id) => metas.some((photo) => photo.photoId === id))) return NextResponse.json({ error: "Selected photos must belong to this job and be unique." }, { status: 400 });
-  const blobs = await getPhotoBlobs(db, businessId, jobId, photoIds);
-  if (photoIds.some((id) => !blobs[id])) return NextResponse.json({ error: "One or more selected photos no longer exist." }, { status: 400 });
+  const selected = await loadDocumentPhotos(db, businessId, jobId, photoIds, metas);
+  if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
   const html = buildQuoteEmailHtml(quote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
-  }, notices, metas.filter((photo) => photoIds.includes(photo.photoId)).map((photo) => ({ ...photo, fullB64: blobs[photo.photoId] })));
+  }, notices, selected.photos);
   const sent = await sendEmail({
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,

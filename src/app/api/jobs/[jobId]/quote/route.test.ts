@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), firestore: vi.fn(), send: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), firestore: vi.fn(), send: vi.fn(), listPhotoMetas: vi.fn(), getPhotoBlobs: vi.fn() }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.verify }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.firestore }));
 vi.mock("@/lib/comms/send", () => ({ isCommsConfigured: () => true, sendEmail: mocks.send }));
+vi.mock("@/lib/photos/store", () => ({ listPhotoMetas: mocks.listPhotoMetas, getPhotoBlobs: mocks.getPhotoBlobs }));
 
 import { GET, POST, PATCH } from "./route";
 import { POST as SEND } from "./send/route";
@@ -46,6 +47,8 @@ beforeEach(() => {
   mocks.firestore.mockReset().mockReturnValue(state.db);
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "staff" } });
   mocks.send.mockReset().mockResolvedValue({ status: "delivered" });
+  mocks.listPhotoMetas.mockReset().mockResolvedValue([]);
+  mocks.getPhotoBlobs.mockReset().mockResolvedValue({});
 });
 
 describe("job quote routes", () => {
@@ -97,5 +100,45 @@ describe("job quote routes", () => {
     const response = await PATCH(bodyReq("quote", { businessId: "b", hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Repair completed." }, "PATCH"), context);
     expect(response.status).toBe(200);
     expect(state.docs.get("businesses/b/quotes/Q-1000")).toMatchObject({ hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Repair completed." });
+  });
+
+  it("rejects cross-job, cross-tenant, over-limit, duplicate, and deleted photo ids with clear 400s", async () => {
+    await POST(bodyReq("quote", { businessId: "b" }), context);
+    const current = { photoId: "current", label: "Current job", thumbB64: "thumb", createdAt: 1, includeInReport: true };
+    mocks.listPhotoMetas.mockResolvedValue([current]);
+    mocks.getPhotoBlobs.mockResolvedValue({ current: "blob" });
+
+    for (const [label, photoIds] of [
+      ["another job", ["job-2-photo"]],
+      ["another tenant", ["tenant-2-photo"]],
+      ["more than 16", Array.from({ length: 17 }, (_, index) => `photo-${index}`)],
+      ["duplicate", ["current", "current"]],
+    ] as const) {
+      const response = await PATCH(bodyReq("quote", { businessId: "b", photoIds }, "PATCH"), context);
+      expect(response.status, label).toBe(400);
+      expect((await response.json()).error, label).toMatch(/photo/i);
+    }
+
+    mocks.listPhotoMetas.mockResolvedValue([{ ...current, photoId: "deleted" }]);
+    mocks.getPhotoBlobs.mockResolvedValue({});
+    const deleted = await PATCH(bodyReq("quote", { businessId: "b", photoIds: ["deleted"] }, "PATCH"), context);
+    expect(deleted.status).toBe(400);
+    expect((await deleted.json()).error).toMatch(/no longer exist/i);
+  });
+
+  it("persists valid photo ids and refuses a stale selection again at send time", async () => {
+    await POST(bodyReq("quote", { businessId: "b" }), context);
+    const meta = { photoId: "before", label: "Before", phase: "before", thumbB64: "thumb", createdAt: 1, includeInReport: true };
+    mocks.listPhotoMetas.mockResolvedValue([meta]);
+    mocks.getPhotoBlobs.mockResolvedValue({ before: "blob" });
+    expect((await PATCH(bodyReq("quote", { businessId: "b", photoIds: ["before"] }, "PATCH"), context)).status).toBe(200);
+    expect(state.docs.get("businesses/b/quotes/Q-1000")?.photoIds).toEqual(["before"]);
+
+    mocks.listPhotoMetas.mockResolvedValue([]);
+    mocks.getPhotoBlobs.mockResolvedValue({});
+    const response = await SEND(bodyReq("quote/send", { businessId: "b", to: "client@example.com" }), context);
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toMatch(/photo/i);
+    expect(mocks.send).not.toHaveBeenCalled();
   });
 });

@@ -18,6 +18,7 @@ import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { DEFAULT_INVOICE_COPY, fillInvoiceCopy } from "@/lib/documents/invoiceCopy";
 import { fmtDate } from "@/lib/format";
+import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -150,6 +151,7 @@ interface PatchBody {
   hideMaterials?: boolean;
   hideLabor?: boolean;
   showTechnicians?: boolean;
+  photoIds?: string[];
   technicians?: string[];
   narrative?: string;
   opening?: string;
@@ -213,6 +215,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     return NextResponse.json({ error: `Invoice is ${current.status} and can no longer be edited` }, { status: 409 });
   }
 
+  if (body.photoIds !== undefined) {
+    const selected = await loadDocumentPhotos(db, businessId, jobId, body.photoIds);
+    if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
+  }
+
   if (body.addFindings !== undefined) {
     if (body.addFindings !== true || Object.keys(body).some((key) => !["businessId", "addFindings"].includes(key))) {
       return NextResponse.json({ error: "Invalid addFindings request" }, { status: 400 });
@@ -250,6 +257,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     ...(body.hideMaterials !== undefined ? { hideMaterials: body.hideMaterials } : {}),
     ...(body.hideLabor !== undefined ? { hideLabor: body.hideLabor } : {}),
     ...(body.showTechnicians !== undefined ? { showTechnicians: body.showTechnicians } : {}),
+    ...(body.photoIds !== undefined ? { photoIds: body.photoIds } : {}),
     ...(body.technicians !== undefined ? { technicians: body.technicians } : {}),
     ...(body.narrative !== undefined ? { narrative: body.narrative } : {}),
     ...(body.opening !== undefined ? { opening: body.opening } : {}),
