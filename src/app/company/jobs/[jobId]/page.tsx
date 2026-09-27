@@ -6,7 +6,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFormat } from "@/hooks/useFormat";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { buildProjection } from "@/lib/jobs/projection";
-import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta, PhotoPhase } from "@/types/jobs";
+import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { LibraryPricing, LibraryLogo } from "@/types/library";
 import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
 import type { BusinessConfig } from "@/types";
@@ -67,9 +67,6 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 // Phase 12, Phase 3 — report photo grid. Raised 8 → 16 (2 pages @ 8/page).
 const MAX_REPORT_PHOTOS = 16;
-const PHASE_ORDER: PhotoPhase[] = ["before", "after", "other"];
-
-type ReportPhoto = { label: string; fullB64: string; phase?: PhotoPhase };
 
 type LaborRow = { lineId?: string; source?: InvoiceLaborLine["source"]; name: string; arrival: string; departure: string; hours: string; rate: string };
 type MaterialRow = { lineId?: string; source?: InvoiceMaterialLine["source"]; item: string; quantity: string; unit: string; unitPrice: string };
@@ -2165,18 +2162,6 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
     narrative={stripHiddenFacts(reportNotes, options)}
     findings={findings} sections={sections} quoteSection={quoteSection}
     photos={options.showPhotos ? reportPhotos : []} />;
-}
-
-function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-        <span>{title}</span>
-        <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-      </div>
-      {children}
-    </div>
-  );
 }
 
 // Compact label:value row for the invoice letterhead's Date/Invoice No./Due block — labels in
