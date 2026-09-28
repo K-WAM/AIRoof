@@ -4,9 +4,10 @@ import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
 let db = makeFakeDb();
 let allowed = true;
+let user: { uid: string; role: string; crewId?: string } = { uid: "owner-1", role: "owner" };
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/auth/verifyRole", () => ({
-  verifyAuthAndRole: async () => (allowed ? { user: { uid: "owner-1", role: "owner" } } : { error: new Response(null, { status: 403 }) }),
+  verifyAuthAndRole: async () => (allowed ? { user } : { error: new Response(null, { status: 403 }) }),
 }));
 vi.mock("@/lib/auth/memberCache", () => ({ invalidateCachedMember: () => {} }));
 import { DELETE, GET, PATCH, POST } from "../route";
@@ -18,6 +19,7 @@ const post = (body: unknown) => new NextRequest(url, { method: "POST", headers: 
 beforeEach(() => {
   db = makeFakeDb();
   allowed = true;
+  user = { uid: "owner-1", role: "owner" };
   db.__seed("businesses/biz/crews", "c1", { crewId: "c1", name: "Tyler Crew", email: "tyler@crew.test", color: "#16a34a", active: true, createdAt: 1 });
   db.__seed("businesses/biz/crews", "c2", { crewId: "c2", name: "Repair Crew", color: "#db2777", active: true, createdAt: 2 });
   db.__seed("businessUsers", "u1", { businessId: "biz", email: "carlos@biz.test", displayName: "Carlos", role: "crew", trade: "installer", crewId: "c1", active: true });
@@ -108,5 +110,16 @@ describe("DELETE /api/company/crews", () => {
     allowed = false;
     expect((await DELETE(new NextRequest(`${url}?businessId=biz&crewId=c1`, { method: "DELETE" }))).status).toBe(403);
     expect(db.__peek("businesses/biz/crews", "c1")).toBeDefined();
+  });
+});
+
+describe("GET /api/company/crews as a field-only login (T-155)", () => {
+  it("returns only its own row — never the roster or the people list", async () => {
+    user = { uid: "u1", role: "crew", crewId: "c1" };
+    const data = await (await GET(new NextRequest(`${url}?businessId=biz&people=1`))).json();
+    expect(data.crews.map((crew: { crewId: string }) => crew.crewId)).toEqual(["c1"]);
+    expect(data.people).toBeUndefined();
+    user = { uid: "u9", role: "crew" };
+    expect((await (await GET(new NextRequest(`${url}?businessId=biz`))).json()).crews).toEqual([]);
   });
 });

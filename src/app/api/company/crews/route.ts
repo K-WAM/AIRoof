@@ -21,11 +21,18 @@ export async function GET(req: NextRequest) {
 
   // Was unauthenticated (only POST/PATCH/DELETE were gated) — crew names/emails/phones are
   // tenant data, not public; anyone who knew or guessed a businessId could read the roster.
-  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "crew", "superadmin"]);
   if ("error" in auth) return auth.error;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
+  // A field-only login (T-155) gets its OWN row and nothing else — enough for the Field screen's "My schedule" to know
+  // it is an inspector row. Never the roster, never the people list (names/emails/phones stay office-only).
+  if (auth.user.role === "crew") {
+    const own = auth.user.crewId ? await db.collection(`businesses/${businessId}/crews`).doc(auth.user.crewId).get() : null;
+    return NextResponse.json({ crews: own?.exists ? [{ crewId: own.id, ...own.data() } as Crew] : [] });
+  }
 
   const withPeople = req.nextUrl.searchParams.get("people") === "1";
   const [snap, peopleSnap] = await Promise.all([
