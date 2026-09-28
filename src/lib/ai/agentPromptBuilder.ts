@@ -76,8 +76,8 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   // Owner's demo call (2026-09-25): the agent said "ending in seven one" (two digits) and then REFUSED to read the full
   // number back when the caller asked, "citing privacy". It is the caller's own number — reading it back is fine.
   const phoneInstruction = phoneDigits
-    ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back ALL FOUR of the last four digits, one at a time, e.g. "I've got your number ending in ${last4.split("").join("-")} — is that the best one to reach you?" If the caller asks to hear the whole number, read all of it back in groups (area code, then three digits, then four) — it is their own number, so this is not a privacy problem. Only collect a different number if they ask you to.`
-    : `- Phone number: ask for the best callback number once and read it back to confirm.`;
+    ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back ALL FOUR of the last four digits, one at a time, e.g. "I've got your number ending in ${last4.split("").join("-")} — is that the best one to reach you?" If the caller asks to hear the whole number, read all of it back in groups (area code, then three digits, then four) — it is their own number, so this is not a privacy problem. Only collect a different number if they ask you to. If they give a different number, read ALL ten digits back in groups to confirm it (never just the ending) and pass it as "callbackPhone" in bookAppointment or createLead — otherwise it is lost and the team calls the wrong line.`
+    : `- Phone number: ask for the best callback number once, read all ten digits back in groups to confirm, and pass it as "callbackPhone" in bookAppointment or createLead.`;
 
   const intakeSection = buildIntakeSection(businessConfig.industry);
   const escalationOn = isEscalationEnabled(businessConfig);

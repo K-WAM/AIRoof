@@ -6,6 +6,7 @@ import { runLedgeredEmail } from "@/lib/tools/agentTools";
 import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
 import { inspectorAssigned } from "@/lib/comms/smsTemplates";
 import type { LibraryLogo } from "@/types/library";
+import { contactPhone } from "@/lib/format/phone";
 
 export type InspectorChange = "assigned" | "moved" | "reassigned_away" | "cancelled";
 
@@ -89,7 +90,7 @@ export async function notifyInspector(options: {
       change: emailChange(change),
       when,
       customerName: typeof appointment.callerName === "string" ? appointment.callerName : undefined,
-      customerPhone: typeof appointment.callerPhone === "string" ? appointment.callerPhone : undefined,
+      customerPhone: contactPhone(appointment),
       address: typeof appointment.address === "string" ? appointment.address : undefined,
       accessLines: notesLines(appointment.notes, "access:"),
       urgentLines: notesLines(appointment.notes, "urgent:"),

@@ -11,6 +11,10 @@
           "type": "string",
           "description": "The caller's full name."
         },
+        "callbackPhone": {
+          "type": "string",
+          "description": "Only when the caller gives a DIFFERENT number to reach them on than the one they are calling from: that number, digits as spoken (e.g. 305-389-4611). Leave it out when they are happy with the number they called from."
+        },
         "callerEmail": {
           "type": "string",
           "description": "The caller's email for the confirmation. Ask once right before booking; it is optional, so book without it if they decline or can't spell it."
@@ -70,6 +74,10 @@
         "callerName": {
           "type": "string",
           "description": "The caller's full name."
+        },
+        "callbackPhone": {
+          "type": "string",
+          "description": "Only when the caller gives a DIFFERENT number to reach them on than the one they are calling from: that number, digits as spoken (e.g. 305-389-4611). Leave it out when they are happy with the number they called from."
         },
         "callerEmail": {
           "type": "string",

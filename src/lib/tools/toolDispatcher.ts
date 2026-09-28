@@ -26,6 +26,7 @@ import {
   zonedDateTimeToUtc,
 } from "@/lib/tools/agentTools";
 import { cleanCallerName } from "@/lib/format/name";
+import { contactPhone, fmtPhone, samePhone } from "@/lib/format/phone";
 import { nextOpeningLabel } from "@/lib/scheduling/hours";
 import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
 import { bookingReceived } from "@/lib/comms/smsTemplates";
@@ -60,6 +61,13 @@ export async function executeAgentTool(
   const trustedCallerPhone = provider === "elevenlabs"
     ? sanitizePhone(callerPhone)
     : sanitizePhone(callerPhone) ?? sanitizePhone(String(params.phone ?? params.callerPhone ?? ""));
+  // A number the caller SAID to reach them on, kept beside caller ID (never replacing it — lookups and cancels match
+  // caller ID). 2026-09-28: Carla said "305-389-4611", the booking kept the caller ID, and Call Back rang a line
+  // that went to a carrier recording. The notes line makes it visible on every screen that shows notes.
+  const spokenPhone = sanitizePhone(String(params.callbackPhone ?? params.phone ?? ""));
+  const callbackPhone = spokenPhone && !samePhone(spokenPhone, trustedCallerPhone) ? spokenPhone : undefined;
+  const withCallbackLine = (notes?: string) =>
+    callbackPhone ? [notes, `Callback number: ${fmtPhone(callbackPhone)}`].filter(Boolean).join("\n") : notes;
   try {
     switch (name) {
       case "bookAppointment": {
@@ -77,10 +85,11 @@ export async function executeAgentTool(
           // "Es Carla Esnaida" (Spanish "it's") was saved as the name and the confirmation call said "Hi Es".
           callerName: cleanCallerName(String(params.name ?? params.callerName ?? "Unknown")),
           callerPhone: trustedCallerPhone ?? "",
+          callbackPhone,
           callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
-          notes: optionalStr(params.notes ?? params.summary ?? params.context),
+          notes: withCallbackLine(optionalStr(params.notes ?? params.summary ?? params.context)),
           startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
           endTime,
           sourceCallId: callId,
@@ -92,7 +101,8 @@ export async function executeAgentTool(
         const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
         // Every AI booking waits for the office's OK. Say how and when the office confirms — "after hours" only when it
         // really is (2026-09-28: an 11:28 AM Monday booking was told "since we're currently after hours").
-        const texting = isSmsEnabled(businessData) && appt.textOk === true && Boolean(appt.callerPhone);
+        const textTo = contactPhone(appt);
+        const texting = isSmsEnabled(businessData) && appt.textOk === true && Boolean(textTo);
         const confirmWhen = appt.bookedAfterHours
           ? (() => {
             const opening = nextOpeningLabel(Date.now(), tz, businessData.businessHours);
@@ -106,8 +116,7 @@ export async function executeAgentTool(
             : `The office will call you ${confirmWhen} to confirm it.`;
         const sayToCaller = `You're booked for ${whenStr}. ${confirmSentence}`;
         const inspectorFirstName = assignedInspectorName?.split(/\s+/)[0];
-        if (texting && appt.callerPhone) {
-          const textTo = appt.callerPhone;
+        if (texting && textTo) {
           const pending = runAfterResponse("booking-received text", () => sendSms({
             businessId,
             to: textTo,
@@ -156,11 +165,12 @@ export async function executeAgentTool(
           businessId,
           callerName: rawLeadName ? cleanCallerName(rawLeadName) : undefined,
           callerPhone: trustedCallerPhone,
+          callbackPhone,
           callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceRequested: optionalStr(params.serviceRequested ?? params.service),
           address: optionalStr(params.address),
           urgency: parseUrgency(params.urgency),
-          notes: optionalStr(params.notes),
+          notes: withCallbackLine(optionalStr(params.notes)),
           sourceCallId: callId,
         });
         await logAction(businessId, callId, "createLead", params, lead, "success");

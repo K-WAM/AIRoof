@@ -15,6 +15,7 @@ import {
 import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { contactPhone } from "@/lib/format/phone";
 import {
   isOpenAt,
   parseBusinessHours,
@@ -656,6 +657,8 @@ export interface BookAppointmentInput {
   businessId: string;
   callerName: string;
   callerPhone: string;
+  /** A different number the caller said to reach them on (callerPhone stays the caller ID). */
+  callbackPhone?: string;
   callerEmail?: string;
   serviceType?: string;
   address?: string;
@@ -809,6 +812,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       businessId: input.businessId,
       callerName: input.callerName,
       callerPhone: input.callerPhone,
+      ...(input.callbackPhone ? { callbackPhone: input.callbackPhone } : {}),
       callerEmail: input.callerEmail,
       serviceType: input.serviceType,
       address: input.address,
@@ -939,6 +943,8 @@ export interface CreateLeadInput {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  /** A different number the caller said to reach them on (callerPhone stays the caller ID). */
+  callbackPhone?: string;
   callerEmail?: string;
   serviceRequested?: string;
   address?: string;
@@ -966,7 +972,7 @@ const URGENCY_RANK: Record<Lead["urgency"], number> = { unknown: 0, low: 1, norm
 /** Fold a second write for the same call into the existing lead: fill blanks, never downgrade urgency or un-escalate,
  *  keep the notes from both, and leave the lead's lifecycle (status, callback state, createdAt) alone. */
 function mergeCallLead(existing: Lead, incoming: Lead): Lead {
-  const pick = <K extends "callerName" | "callerPhone" | "callerEmail" | "serviceRequested" | "address">(key: K) =>
+  const pick = <K extends "callerName" | "callerPhone" | "callbackPhone" | "callerEmail" | "serviceRequested" | "address">(key: K) =>
     existing[key]?.trim() ? existing[key] : incoming[key];
   const notes = [existing.notes?.trim(), incoming.notes?.trim()].filter((n, i, all): n is string => !!n && all.indexOf(n) === i);
   const intake = existing.intake || incoming.intake ? { ...(incoming.intake ?? {}), ...(existing.intake ?? {}) } : undefined;
@@ -974,6 +980,7 @@ function mergeCallLead(existing: Lead, incoming: Lead): Lead {
     ...existing,
     callerName: pick("callerName"),
     callerPhone: pick("callerPhone"),
+    callbackPhone: pick("callbackPhone"),
     callerEmail: pick("callerEmail"),
     serviceRequested: pick("serviceRequested"),
     address: pick("address"),
@@ -1001,9 +1008,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     typeof delayMinutes === "number" &&
     Number.isFinite(delayMinutes) &&
     delayMinutes >= 0;
-  const hasCallablePhone =
-    typeof input.callerPhone === "string" &&
-    (input.callerPhone.match(/\d/g) ?? []).length >= 7;
+  const hasCallablePhone = Boolean(contactPhone(input));
   const callbackState: "pending" | "none" =
     hasCallbackDelay && hasCallablePhone ? "pending" : "none";
   const callbackDueAt =
@@ -1019,6 +1024,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     businessId: input.businessId,
     callerName: input.callerName,
     callerPhone: input.callerPhone,
+    ...(input.callbackPhone ? { callbackPhone: input.callbackPhone } : {}),
     callerEmail: input.callerEmail,
     serviceRequested: input.serviceRequested,
     address: input.address,

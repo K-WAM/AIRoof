@@ -5,6 +5,7 @@ import { getVoiceProvider } from "@/lib/voice/provider";
 import { placeElevenLabsOutboundCall } from "@/lib/voice/elevenlabs/outbound";
 import { buildOutboundCallContext, type OutboundPurpose, type OutboundRequestRecord } from "@/lib/voice/outboundContext";
 import type { BusinessConfig } from "@/types";
+import { contactPhone } from "@/lib/format/phone";
 
 function sanitizePhone(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
       address: optionalString(data.address),
       startTime: typeof data.startTime === "number" ? data.startTime : undefined,
     };
-    recordPhone = sanitizePhone(data.callerPhone);
+    // The number the caller said on the call wins over caller ID (callbackPhone), then caller ID.
+    recordPhone = sanitizePhone(contactPhone(data));
   }
 
   const targetPhone = recordPhone ?? sanitizePhone(body.targetPhone);

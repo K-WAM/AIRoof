@@ -34,6 +34,19 @@ describe("ElevenLabs tool caller identity", () => {
     expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ businessId: "biz-stored", callerPhone: undefined }));
   });
 
+  it("keeps a spoken callback number beside caller ID, never in place of it (Carla, 2026-09-28)", async () => {
+    const carla = { ...context, callerPhone: "+19548829586" };
+    await executeAgentTool("bookAppointment", { callerName: "Carla", callbackPhone: "305-389-4611", notes: "Access: gate 1010", startTime: Date.UTC(2026, 8, 30, 14) }, carla);
+    expect(mocks.bookAppointment).toHaveBeenCalledWith(expect.objectContaining({
+      callerPhone: "+19548829586",
+      callbackPhone: "305-389-4611",
+      notes: "Access: gate 1010\nCallback number: (305) 389-4611",
+    }));
+    await executeAgentTool("createLead", { callerName: "Carla", callbackPhone: "(954) 882-9586" }, carla);
+    // The same line as caller ID is not a second number.
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({ callerPhone: "+19548829586", callbackPhone: undefined, notes: undefined }));
+  });
+
   it("never derives escalation identity from model parameters", async () => {
     await executeAgentTool("escalateCall", { reason: "Urgent", callerPhone: "+15559990000" }, context);
     expect(mocks.escalateCall).toHaveBeenCalledWith(expect.objectContaining({ businessId: "biz-stored", callerPhone: undefined }));

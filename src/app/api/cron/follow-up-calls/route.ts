@@ -11,6 +11,7 @@ import {
 import { getVoiceProvider } from "@/lib/voice/provider";
 import { UnsupportedVoiceFeatureError } from "@/lib/voice/types";
 import type { BusinessConfig } from "@/types";
+import { contactPhone } from "@/lib/format/phone";
 
 const DEFAULT_MAX_CALL_ATTEMPTS = 3;
 const DEFAULT_CALLBACK_WINDOW_START = 8;
@@ -133,7 +134,9 @@ export async function GET(request: NextRequest) {
             : 0;
         const nextAttempt = callAttempts + 1;
 
-        if (nextAttempt > maxAttempts || typeof lead.callerPhone !== "string") {
+        // The number the caller said on the call wins over caller ID.
+        const targetPhone = contactPhone(lead);
+        if (nextAttempt > maxAttempts || !targetPhone) {
           skipped += 1;
           continue;
         }
@@ -172,9 +175,9 @@ export async function GET(request: NextRequest) {
         try {
           const call = await provider.startOutboundCall({
             config: business,
-            targetPhone: lead.callerPhone,
+            targetPhone,
             metadata: { businessId, leadId: leadDocument.id, type: "follow_up" },
-            firstMessage: `Hi, this is ${business.agentName ?? "your AI receptionist"} calling back from ${business.businessName}. We missed each other earlier — I'm calling about your roofing inquiry. Is now a good time?`,
+            firstMessage: `Hi, this is ${business.agentName ?? "your AI receptionist"} calling back from ${business.businessName}. We missed each other earlier — I'm calling about your request. Is now a good time?`,
           });
 
           await completeOperationAttempt(
@@ -197,7 +200,7 @@ export async function GET(request: NextRequest) {
               callId: canonicalCallId,
               businessId,
               callType: "outbound",
-              targetPhone: lead.callerPhone,
+              targetPhone,
               status: "queued",
               initiatedByUid: "system",
               leadId: leadDocument.id,

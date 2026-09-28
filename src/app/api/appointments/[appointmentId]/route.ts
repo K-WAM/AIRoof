@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/comms/send";
 import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
 import { bookingConfirmed } from "@/lib/comms/smsTemplates";
 import { notifyInspector } from "@/lib/crews/inspectorNotify";
+import { contactPhone } from "@/lib/format/phone";
 import { buildRequestDeclineEmail, REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
@@ -478,8 +479,8 @@ export async function PATCH(
   let notifiedVia: "sms" | "email" | null = null;
   if (notifyCustomer && committed) {
     const { appointment, business, startTime } = committed;
-    const callerPhone =
-      typeof appointment.callerPhone === "string" ? appointment.callerPhone : null;
+    // The number the caller said on the call wins over caller ID.
+    const callerPhone = contactPhone(appointment) ?? null;
     const callerEmail =
       typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
     const timeZone =

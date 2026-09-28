@@ -225,6 +225,8 @@ export interface Lead {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
+  callbackPhone?: string;
   callerEmail?: string;
   serviceRequested?: string;
   address?: string;
@@ -259,6 +261,8 @@ export interface Appointment {
   businessId: string;
   callerName?: string;
   callerPhone?: string;
+  /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
+  callbackPhone?: string;
   callerEmail?: string;
   serviceType?: string;
   address?: string;
