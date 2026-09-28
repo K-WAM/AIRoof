@@ -70,6 +70,56 @@ export function buildCrewAssignmentEmail(opts: {
   };
 }
 
+export type InspectionChange = "assigned" | "moved" | "reassigned" | "cancelled";
+
+const INSPECTION_SUBJECT: Record<InspectionChange, string> = {
+  assigned: "New inspection",
+  moved: "Inspection moved",
+  reassigned: "Inspection reassigned",
+  cancelled: "Inspection cancelled",
+};
+
+/**
+ * Phase 31 (T-152): the email an inspector gets when a booking lands on, moves off, or is cancelled on their row.
+ * Everything on the wire is escaped like the other builders.
+ */
+export function buildInspectionEmail(opts: {
+  brand: Branding;
+  change: InspectionChange;
+  when: string;
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
+  /** Notes lines that start "Access:" — gate codes / how to get in. */
+  accessLines?: string[];
+  /** Notes lines that start "URGENT:". */
+  urgentLines?: string[];
+  callSummary?: string;
+}): { subject: string; html: string } {
+  const heading = INSPECTION_SUBJECT[opts.change];
+  const rows = [
+    ["When", opts.when],
+    opts.address ? ["Address", opts.address] : null,
+    opts.customerName ? ["Customer", opts.customerName] : null,
+    opts.customerPhone ? ["Phone", opts.customerPhone] : null,
+  ].filter(Boolean) as [string, string][];
+  const urgentLines = opts.urgentLines ?? [];
+  const accessLines = opts.accessLines ?? [];
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">${esc(heading)}:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px">
+      ${rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#64748b;width:90px">${esc(k)}</td><td style="padding:6px 0;color:#0f172a;font-weight:600">${esc(v)}</td></tr>`).join("")}
+    </table>
+    ${urgentLines.length ? `<div style="background:#fef2f2;border-radius:8px;padding:14px 16px;font-size:14px;color:#7f1d1d;line-height:1.6;margin-bottom:12px">${urgentLines.map(esc).join("<br/>")}</div>` : ""}
+    ${accessLines.length ? `<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#475569;line-height:1.6;margin-bottom:12px">${accessLines.map(esc).join("<br/>")}</div>` : ""}
+    ${opts.callSummary ? `<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#475569;line-height:1.6">${esc(opts.callSummary)}</div>` : ""}`;
+
+  return {
+    subject: `[Inspection] ${heading} \u2014 ${opts.when}`,
+    html: shell(opts.brand, heading, body),
+  };
+}
+
 export function buildCustomerConfirmationEmail(opts: {
   brand: Branding;
   clientName?: string;
