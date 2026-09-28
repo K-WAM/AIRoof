@@ -136,7 +136,9 @@ export default function PipelinePage() {
   const urgencyParam = searchParams?.get("urgency");
   const leadParam = searchParams?.get("lead");
   const apptParam = searchParams?.get("appt");
-  const initialTab: Tab = searchParams?.get("tab") === "appointments" ? "appointments" : "leads";
+  // Booked inspections are the pipeline's primary workflow. Keep the old
+  // ?tab=appointments / ?tab=leads deep links, but default a bare visit to Booked.
+  const initialTab: Tab = searchParams?.get("tab") === "leads" ? "leads" : "appointments";
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Leads state
@@ -568,7 +570,7 @@ export default function PipelinePage() {
             <Workflow size={20} strokeWidth={1.75} />
             Pipeline
           </h1>
-          <p className="page-subtitle">Leads captured by your AI receptionist and upcoming appointments. Review a request, confirm it, and it becomes a job.</p>
+          <p className="page-subtitle">Booked customers first. Call back anyone who did not book.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (
@@ -577,7 +579,7 @@ export default function PipelinePage() {
             </span>
           )}
           {newLeadsCount > 0 && (
-            <span className="status-pill">{newLeadsCount} new leads</span>
+            <span className="status-pill">{newLeadsCount} new callbacks</span>
           )}
         </div>
       </header>
@@ -587,24 +589,25 @@ export default function PipelinePage() {
           <button
             className="segment"
             type="button"
-            aria-pressed={tab === "leads"}
-            onClick={() => setTab("leads")}
+            aria-pressed={tab === "appointments"}
+            onClick={() => setTab("appointments")}
           >
-            Leads{leads.length > 0 ? ` (${leads.length})` : ""}
+            Booked{appointments.length > 0 ? ` (${appointments.length})` : ""}
           </button>
           <button
             className="segment"
             type="button"
-            aria-pressed={tab === "appointments"}
-            onClick={() => setTab("appointments")}
+            aria-pressed={tab === "leads"}
+            onClick={() => setTab("leads")}
           >
-            Appointments{appointments.length > 0 ? ` (${appointments.length})` : ""}
+            Callbacks{leads.length > 0 ? ` (${leads.length})` : ""}
           </button>
         </div>
       </div>}
 
       {!pipelineEmpty && tab === "leads" && (
         <>
+          <p className="page-subtitle" style={{ marginBottom: 12 }}>Callers who didn&apos;t book — call them back.</p>
           <div className="toolbar" style={{ marginBottom: 16 }}>
             <div className="segmented-control" aria-label="Lead status filter">
               {(["all", "urgent", "new", "contacted"] as const).map((f) => (
@@ -636,7 +639,7 @@ export default function PipelinePage() {
                     title="Nothing here right now"
                     secondary={leads.length > 0 && leadFilter !== "all"
                       ? { label: "Show all", onClick: () => setLeadFilter("all") }
-                      : appointments.length > 0 ? { label: "Show appointments", onClick: () => setTab("appointments") } : undefined}
+                      : appointments.length > 0 ? { label: "Show booked", onClick: () => setTab("appointments") } : undefined}
                   />
                 ) : (
                   <div className="queue-list">
@@ -837,7 +840,7 @@ export default function PipelinePage() {
                 <EmptyState
                   compact
                   title="Nothing here right now"
-                  secondary={leads.length > 0 ? { label: "Show leads", onClick: () => setTab("leads") } : undefined}
+                  secondary={leads.length > 0 ? { label: "Show callbacks", onClick: () => setTab("leads") } : undefined}
                 />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
