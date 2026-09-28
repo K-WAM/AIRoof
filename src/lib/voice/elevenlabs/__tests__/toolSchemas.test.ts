@@ -11,10 +11,19 @@ import {
 const PRIVILEGED_PARAMS = ["businessId", "callId", "verifiedCallerPhone"];
 
 describe("elevenLabsToolDefinitions (single source of truth)", () => {
-  it("defines exactly the 7 tools the dispatcher supports", () => {
+  it("defines exactly the 8 tools the dispatcher supports", () => {
     const names = elevenLabsToolDefinitions().map((tool) => tool.name);
     expect(names.sort()).toEqual([...ELEVENLABS_TOOL_NAMES].sort());
-    expect(names).toHaveLength(7);
+    expect(names).toHaveLength(8);
+  });
+
+  it("addBookingNote takes one required note; bookAppointment accepts textOk as a boolean", () => {
+    const note = elevenLabsToolDefinitions().find((tool) => tool.name === "addBookingNote");
+    expect(note?.bodySchema.required).toEqual(["note"]);
+    expect(note?.bodySchema.properties.note?.type).toBe("string");
+    const book = elevenLabsToolDefinitions().find((tool) => tool.name === "bookAppointment");
+    expect(book?.bodySchema.properties.textOk?.type).toBe("boolean");
+    expect(book?.bodySchema.required).not.toContain("textOk");
   });
 
   it("every tool is a POST to the elevenlabs tools route", () => {

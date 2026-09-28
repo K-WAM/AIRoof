@@ -18,6 +18,7 @@ import {
   scheduleRangesOverlap,
   scheduleResourceKey,
   SchedulingConflictError,
+  TIME_BLOCK_MAX_MS,
   type NotificationDeliveryState,
 } from "@/lib/tools/agentTools";
 
@@ -291,8 +292,13 @@ export async function PATCH(
       const isInspectorTarget = targetCrew?.kind === "inspector";
       const forceInspector = force === true && isInspectorTarget;
       if (isInspectorTarget && (crewChanged || timeChanged) && !forceInspector) {
+        // Bounded like every other schedule read: a block is at most 14 days long (time-blocks API), so older ones can't
+        // overlap — without the lower bound this transaction re-read every block the business ever made.
         const blocksSnapshot = await transaction.get(
-          businessRef.collection("timeBlocks").where("startTime", "<", desiredEnd)
+          businessRef
+            .collection("timeBlocks")
+            .where("startTime", ">=", desiredStart - TIME_BLOCK_MAX_MS)
+            .where("startTime", "<", desiredEnd)
         );
         const blockHit = blocksSnapshot.docs
           .map((document) => document.data())
@@ -361,8 +367,8 @@ export async function PATCH(
             )
           );
         }) ?? false;
-      // forceInspector ("assign anyway?") overrides the inspector's own block/booking conflict, but a real scheduling
-      // lock or a job on that resource still refuses.
+      // forceInspector ("assign anyway?") overrides the inspector's own block, booking and booking lock — the office chose
+      // to double-book them — but a job on that resource still refuses.
       if (((lockConflict || appointmentConflict) && !forceInspector) || jobConflict) {
         throw new SchedulingConflictError(
           "slot_conflict",

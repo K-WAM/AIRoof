@@ -1,7 +1,7 @@
 [
   {
     "name": "bookAppointment",
-    "description": "Book the exact date and time the caller chose after checkAvailability confirms it is open. If a conflict is returned, read the closest openings to the caller instead of asking them to guess. Only say the appointment is booked after this tool succeeds. Returns caller-ready sayToCaller copy plus an internal reference that must never be read aloud.",
+    "description": "Book the exact date and time the caller chose after checkAvailability confirms it is open. Before calling it, have their name, the address with ZIP code, what is going on, any access notes (gate code, pets, parking), and ask once for an email and whether it's OK to text them. If a conflict is returned, read the closest openings to the caller instead of asking them to guess. Only say the appointment is booked after this tool succeeds, using its sayToCaller sentence. Returns an internal reference that must never be read aloud.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/bookAppointment",
     "parameters": {
@@ -13,7 +13,7 @@
         },
         "callerEmail": {
           "type": "string",
-          "description": "Optional email address. Only collect it if the caller offers one; never require it."
+          "description": "The caller's email for the confirmation. Ask once right before booking; it is optional, so book without it if they decline or can't spell it."
         },
         "serviceType": {
           "type": "string",
@@ -25,7 +25,7 @@
         },
         "notes": {
           "type": "string",
-          "description": "Any other details the team should see, written as ordinary sentences. Per-industry intake answers go here as \"Label: value\" lines, one per line."
+          "description": "Everything else the team should see, one item per line. Start the line with \"URGENT: \" when the problem can't wait (e.g. water coming in now) and with \"Access: \" for how to get in (gate code, pets, parking). Per-industry intake answers go here as \"Label: value\" lines."
         },
         "startTime": {
           "type": "string",
@@ -34,9 +34,29 @@
         "endTime": {
           "type": "string",
           "description": "Appointment end, ISO 8601 date-time in the business's local time, e.g. 2026-09-30T15:00. Default to one hour after startTime when the caller did not specify."
+        },
+        "textOk": {
+          "type": "boolean",
+          "description": "True if the caller said it's OK to text them about this appointment at this number, false if they said no. Leave it out if you didn't ask."
         }
       },
       "required": ["callerName", "serviceType", "startTime"]
+    }
+  },
+  {
+    "name": "addBookingNote",
+    "description": "Add a detail to the booking you just made on this call — a gate code, pets, parking, a second phone number, anything the caller mentions after bookAppointment succeeded. Call it once per detail, then tell the caller it's added. It only works after a successful bookAppointment on this call.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/addBookingNote",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "The detail as one short line, e.g. \"Access: gate code 1010\" or \"Second phone: 305 555 0199 (husband)\"."
+        }
+      },
+      "required": ["note"]
     }
   },
   {
@@ -53,7 +73,7 @@
         },
         "callerEmail": {
           "type": "string",
-          "description": "Optional email address. Only collect it if the caller offers one; never require it."
+          "description": "The caller's email, if they give one. Optional."
         },
         "serviceRequested": {
           "type": "string",
@@ -66,7 +86,7 @@
         "urgency": {
           "type": "string",
           "enum": ["low", "normal", "urgent", "unknown"],
-          "description": "How quickly the caller needs help. Use \"urgent\" only for genuine emergencies — escalate those with escalateCall instead."
+          "description": "How quickly the caller needs help. Use \"urgent\" when the problem can't wait (for example water coming in right now)."
         },
         "notes": {
           "type": "string",
@@ -108,7 +128,7 @@
   },
   {
     "name": "escalateCall",
-    "description": "Flag the current call as urgent so the team is notified by email. Use for emergencies the agent cannot resolve itself. Never promise a response time, and remind the caller to call emergency services if anyone is in immediate danger.",
+    "description": "Hand an emergency to a person right now (the team is alerted by email). Use it ONLY when your instructions have an Escalation section that tells you to; otherwise book the soonest opening marked URGENT. Never promise a response time, and tell the caller to call emergency services first if anyone is in immediate danger.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/escalateCall",
     "parameters": {

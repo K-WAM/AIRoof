@@ -1,6 +1,6 @@
 // ElevenLabs webhook-tool route (T-111b): POST /api/webhooks/elevenlabs/tools/[tool]
 //
-// ElevenLabs calls this for each of the 7 tools (see
+// ElevenLabs calls this for each of the 8 tools (see
 // src/lib/voice/elevenlabs/toolSchemas.ts). The request body is exactly the
 // tool's request_body_schema object — parameters the LLM filled in from the
 // conversation. NOTHING tenant- or caller-identifying is a model parameter:

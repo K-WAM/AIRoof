@@ -117,7 +117,7 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     const body = await response.json();
     expect(body.type).toBe("conversation_initiation_client_data");
     expect(body.conversation_config_override).toEqual({});
-    expect(body.dynamic_variables).toEqual({});
+    expect(body.dynamic_variables).toEqual({ businessName: "the office", agentName: "the virtual assistant" });
     // No tenant info leaks and no conversation record is persisted.
     expect(JSON.stringify(body)).not.toContain("biz_");
     expect(db.__peek("elevenlabsConversations", "conv_1")).toBeUndefined();
@@ -207,7 +207,7 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
     expect(await response.json()).toEqual({
       type: "conversation_initiation_client_data",
-      conversation_config_override: {}, dynamic_variables: {},
+      conversation_config_override: {}, dynamic_variables: { businessName: "the office", agentName: "the virtual assistant" },
     });
     expect(mocks.findBusinessByElevenLabsAgentId).not.toHaveBeenCalled();
   });

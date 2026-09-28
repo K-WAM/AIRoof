@@ -13,6 +13,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { appendAuditEvent } from "@/lib/audit";
 import type { AuditProviderIds, AuditResult } from "@/lib/audit";
 import {
+  addBookingNote,
   bookAppointment,
   cancelAppointment,
   checkAvailability,
@@ -24,6 +25,12 @@ import {
   getBusinessTimezone,
   zonedDateTimeToUtc,
 } from "@/lib/tools/agentTools";
+import { cleanCallerName } from "@/lib/format/name";
+import { nextOpeningLabel } from "@/lib/scheduling/hours";
+import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
+import { bookingReceived } from "@/lib/comms/smsTemplates";
+import { isEscalationEnabled } from "@/lib/ai/escalation";
+import { runAfterResponse } from "@/lib/http/afterResponse";
 
 export type ToolProvider = "vapi" | "elevenlabs";
 
@@ -67,35 +74,89 @@ export async function executeAgentTool(
         const endTime = toTimestamp(rawEnd, inputTimezone) ?? (startTime ? startTime + 60 * 60 * 1000 : Date.now() + 60 * 60 * 1000);
         const appt = await bookAppointment({
           businessId,
-          callerName: String(params.name ?? params.callerName ?? "Unknown"),
+          // "Es Carla Esnaida" (Spanish "it's") was saved as the name and the confirmation call said "Hi Es".
+          callerName: cleanCallerName(String(params.name ?? params.callerName ?? "Unknown")),
           callerPhone: trustedCallerPhone ?? "",
-          callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+          callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
           notes: optionalStr(params.notes ?? params.summary ?? params.context),
           startTime: startTime ?? Date.now() + 24 * 60 * 60 * 1000,
           endTime,
           sourceCallId: callId,
+          textOk: parseYesNo(params.textOk ?? params.okToText),
         });
-        await logAction(businessId, callId, "bookAppointment", params, appt, "success");
-        const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: appt.businessTimezone ?? inputTimezone, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
-        const sayToCaller = appt.pendingConfirmation
-          ? `You're booked for ${whenStr}. The office will confirm first thing.`
-          : `You're booked for ${whenStr}.`;
+        const { businessData, businessTimezone, assignedInspectorName, ...stored } = appt;
+        await logAction(businessId, callId, "bookAppointment", params, stored, "success");
+        const tz = businessTimezone ?? inputTimezone;
+        const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
+        // Every AI booking waits for the office's OK. Say how and when the office confirms — "after hours" only when it
+        // really is (2026-09-28: an 11:28 AM Monday booking was told "since we're currently after hours").
+        const texting = isSmsEnabled(businessData) && appt.textOk === true && Boolean(appt.callerPhone);
+        const confirmWhen = appt.bookedAfterHours
+          ? (() => {
+            const opening = nextOpeningLabel(Date.now(), tz, businessData.businessHours);
+            return opening ? `when we open ${opening}` : "when the office opens";
+          })()
+          : "shortly";
+        const confirmSentence = texting
+          ? `The office will confirm it by text ${confirmWhen}.`
+          : appt.callerEmail
+            ? `The office will confirm it by email ${confirmWhen}.`
+            : `The office will call you ${confirmWhen} to confirm it.`;
+        const sayToCaller = `You're booked for ${whenStr}. ${confirmSentence}`;
+        const inspectorFirstName = assignedInspectorName?.split(/\s+/)[0];
+        if (texting && appt.callerPhone) {
+          const textTo = appt.callerPhone;
+          const pending = runAfterResponse("booking-received text", () => sendSms({
+            businessId,
+            to: textTo,
+            body: bookingReceived({
+              firstName: (appt.callerName ?? "").split(/\s+/)[0] || "there",
+              businessName: typeof businessData.businessName === "string" ? businessData.businessName : "The office",
+              when: new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+              street: (appt.address ?? "your address").split(",")[0].trim() || "your address",
+            }),
+            messageType: "booking-received",
+            entityId: appt.appointmentId,
+          }));
+          if (pending) await pending;
+        }
         return {
-          result: appt.pendingConfirmation
-            ? `Appointment booked for ${appt.callerName} on ${whenStr}. Since we're currently after hours, let the caller know it's reserved and a team member will confirm it first thing in the morning. Internal reference, NEVER read aloud or spell out: ${appt.appointmentId}. If the caller wants to change it later, look it up by their phone number instead.`
-            : `Appointment booked for ${appt.callerName} on ${whenStr}. The team will confirm shortly. Internal reference, NEVER read aloud or spell out: ${appt.appointmentId}. If the caller wants to change it later, look it up by their phone number instead.`,
+          result: [
+            `BOOKED: ${appt.callerName}, ${appt.serviceType ?? "appointment"} on ${whenStr}. Tell the caller: "${sayToCaller}"`,
+            inspectorFirstName
+              ? `${inspectorFirstName} is scheduled for the visit (the office can change it). If asked who is coming, say ${inspectorFirstName}.`
+              : "If asked who is coming, say the office will let them know when it confirms.",
+            "If the caller adds details now (a gate code, pets, parking, another phone number, anything the team should know), save each one with addBookingNote.",
+            `Internal reference, NEVER read aloud or spell out: ${appt.appointmentId}. If the caller wants to change it later, look it up by their phone number instead.`,
+          ].join(" "),
           sayToCaller,
         };
       }
 
+      case "addBookingNote": {
+        const note = optionalStr(params.note ?? params.notes);
+        if (!note) return { result: "NOT SAVED: the note was empty. Ask the caller what to add." };
+        const saved = await addBookingNote({ businessId, callId, note });
+        if (!saved) {
+          return {
+            result: "NOT SAVED: there is no booking from this call to add it to. Book first with bookAppointment (put this in its notes), or take a message with createLead.",
+          };
+        }
+        return {
+          result: "SAVED: the note is on their booking for the team. Tell the caller it's added.",
+          sayToCaller: "Got it, I've added that to your booking.",
+        };
+      }
+
       case "createLead": {
+        const rawLeadName = optionalStr(params.name ?? params.callerName);
         const lead = await createLead({
           businessId,
-          callerName: optionalStr(params.name ?? params.callerName),
+          callerName: rawLeadName ? cleanCallerName(rawLeadName) : undefined,
           callerPhone: trustedCallerPhone,
-          callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+          callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceRequested: optionalStr(params.serviceRequested ?? params.service),
           address: optionalStr(params.address),
           urgency: parseUrgency(params.urgency),
@@ -107,6 +168,15 @@ export async function executeAgentTool(
       }
 
       case "escalateCall": {
+        // Plan §2.1: the agent is shared by every tenant, so the switch is enforced here, not by removing the tool.
+        // An unreadable business doc escalates as before — a read failure must never swallow a daycare's emergency.
+        const escalationBusiness = await getBusinessData(businessId);
+        if (escalationBusiness && !isEscalationEnabled(escalationBusiness)) {
+          await logAction(businessId, callId, "escalateCall", { reason: params.reason, refused: "escalation_off" }, null, "failed");
+          return {
+            result: "NOT ESCALATED: this business does not hand calls to a person, and nobody was alerted. Treat it as urgent instead: call checkAvailability for the soonest opening, book it with notes starting \"URGENT: <what is happening>\", and tell the caller it is marked urgent. If anyone is in immediate danger, tell them to call 911 first, then keep helping them book.",
+          };
+        }
         const reason = String(params.reason ?? "Emergency reported by caller");
         const result = await escalateCall({
           businessId,
@@ -161,7 +231,7 @@ export async function executeAgentTool(
             businessId,
             callerName: optionalStr(params.name ?? params.callerName),
             callerPhone: trustedCallerPhone,
-            callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+            callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
             serviceRequested: optionalStr(params.serviceType ?? params.service),
             address: optionalStr(params.address),
             urgency: parseUrgency(params.urgency),
@@ -446,6 +516,43 @@ function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
     return Number.isNaN(t) ? undefined : t;
   }
   return undefined;
+}
+
+/**
+ * The model sometimes passes an email the way it was spoken ("carla at example dot com" — ElevenLabs agent test,
+ * 2026-09-28). Turn that into an address; anything that still isn't one is dropped rather than stored, because a
+ * confirmation sent to it can only fail.
+ */
+export function normalizeSpokenEmail(value: unknown): string | undefined {
+  const raw = optionalStr(value);
+  if (!raw) return undefined;
+  const email = raw
+    .toLowerCase()
+    .replace(/\s+(?:at|arroba)\s+/g, "@")
+    .replace(/\s+(?:dot|punto)\s+/g, ".")
+    .replace(/\s+/g, "");
+  return /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email) ? email : undefined;
+}
+
+/** A yes/no the model may send as a boolean or a word; anything else is "not asked". */
+function parseYesNo(v: unknown): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (typeof v !== "string") return undefined;
+  const value = v.trim().toLowerCase();
+  if (["true", "yes", "y", "si", "sí", "ok", "okay"].includes(value)) return true;
+  if (["false", "no", "n"].includes(value)) return false;
+  return undefined;
+}
+
+/** The business doc, or null when it can't be read (callers then keep their pre-switch behaviour). */
+async function getBusinessData(businessId: string): Promise<Record<string, unknown> | null> {
+  const db = getAdminFirestore();
+  if (!db) return null;
+  try {
+    return (await db.collection("businesses").doc(businessId).get()).data() ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function parseUrgency(v: unknown): "low" | "normal" | "urgent" | "unknown" {

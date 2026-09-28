@@ -8,6 +8,11 @@ const mocks = vi.hoisted(() => ({
   getAdminFirestore: vi.fn(),
   classifyCallOutcome: vi.fn(),
   findBusinessByElevenLabsAgentId: vi.fn(),
+  notifyInspector: vi.fn(),
+}));
+
+vi.mock("@/lib/crews/inspectorNotify", () => ({
+  notifyInspector: mocks.notifyInspector,
 }));
 
 vi.mock("@/lib/firebase/admin", () => ({
@@ -157,6 +162,27 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
     const summary = "Caller requested a roof inspection.";
     expect(db.__peek("businesses/biz_1/appointments", "appt_1")?.callSummary).toBe(summary);
     expect(db.__peek("businesses/biz_1/appointments", "appt_2")?.callSummary).toBe(summary);
+  });
+
+  it("tells the inspector the AI assigned — after the call, with the summary and late notes (T-154)", async () => {
+    mocks.notifyInspector.mockResolvedValue({ emailed: 1, texted: 0 });
+    db.__seed("businesses/biz_1/appointments", "appt_ai", {
+      sourceCallId: "call_elevenlabs_conv_1", assignedBy: "ai", assignedCrewId: "insp_1", status: "requested",
+      notes: "URGENT: active leak\nAccess: gate code 1010", startTime: 1, endTime: 2,
+    });
+    db.__seed("businesses/biz_1/appointments", "appt_office", {
+      sourceCallId: "call_elevenlabs_conv_1", assignedBy: "office", assignedCrewId: "insp_2", status: "requested",
+    });
+    const payload = transcriptionPayload();
+    expect((await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)))).status).toBe(200);
+    expect(mocks.notifyInspector).toHaveBeenCalledTimes(1);
+    const [options] = mocks.notifyInspector.mock.calls[0];
+    expect(options).toMatchObject({ businessId: "biz_1", change: "assigned", crewId: "insp_1" });
+    expect(options.appointment).toMatchObject({
+      appointmentId: "appt_ai",
+      callSummary: "Caller requested a roof inspection.",
+      notes: "URGENT: active leak\nAccess: gate code 1010",
+    });
   });
 
   it("does not write an empty summary onto appointments", async () => {

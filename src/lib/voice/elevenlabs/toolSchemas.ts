@@ -29,6 +29,8 @@ export const ELEVENLABS_TOOL_RESPONSE_TIMEOUT_SECS = 30;
 
 export const ELEVENLABS_TOOL_NAMES = [
   "bookAppointment",
+  // Phase 31: details the caller gives after booking (gate code, pets) — no tool could save them before.
+  "addBookingNote",
   "checkAvailability",
   "createLead",
   "escalateCall",

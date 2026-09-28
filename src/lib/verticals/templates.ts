@@ -181,6 +181,28 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
         answer:
           "Yes, we pull permits when a job requires one. The estimator confirms what your address needs during the visit.",
       },
+      // Phase 31 (plan §1 E, 2026-09-28): "who's coming?" / "who confirms?" got vague answers — the agent had no facts
+      // about the workflow. These describe what the product actually does.
+      {
+        question: "Who will come out to look at my roof?",
+        answer:
+          "One of our inspectors. The office confirms the visit and lets you know who is coming.",
+      },
+      {
+        question: "Who confirms my appointment, and when will I hear back?",
+        answer:
+          "The office reviews every booking and confirms it with you by text, email or a quick call — during business hours, usually the same day.",
+      },
+      {
+        question: "Do I need to be home for the inspection?",
+        answer:
+          "It helps, especially for a leak inside. If you can't be there, tell me how the inspector can get to the roof — a gate code, pets, parking — and I'll add it to your booking.",
+      },
+      {
+        question: "What happens after the inspection?",
+        answer:
+          "The inspector writes up what they found, with photos, and the office sends you a quote for any work that's needed.",
+      },
     ],
     // Owner's demo (2026-09-25): an unconditional "leak -> escalate immediately" rule escalated a caller who said it was
     // "a tiny drip" and "not raining". Escalate on what is happening now, not on the word "leak".
@@ -194,11 +216,12 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       "If caller mentions storm damage with exposed roof or interior damage: prioritize same-day follow-up",
       "If caller indicates immediate danger: advise them to contact emergency services first, then escalate",
     ],
+    // Owner decision 2026-09-28 (the open Phase 28 question, option b): the "Minimum 24-hour notice" rule is dropped —
+    // it contradicted same-day urgent bookings, and the engine already refuses past or out-of-hours times.
     bookingRules: [
-      "Only book appointments during business hours unless the call is an emergency",
-      "Minimum 24-hour notice for non-emergency appointments",
+      "Book during business hours only",
       "Collect caller name, phone, service type, address, urgency, and preferred time before confirming",
-      "Emergency appointments can be requested ASAP if same-day availability exists",
+      "Urgent problems (an active leak, storm damage) get the soonest opening — the same day when one is free",
     ],
     disallowedTopics: [
       "detailed pricing without inspection",
