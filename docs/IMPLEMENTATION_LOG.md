@@ -1588,3 +1588,28 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Part B (95e40b3, 8ec8c04) - G4: /api/cron/booking-canary (requireCronAuth) checks next-business-day availability via checkAvailability for demo-roofing and every tenant with a phone line; it fails on missing/unreadable hours, no opening on a day with hours, or any past / outside-hours / 9 PM-7 AM slot, writes bookingCheck onto the business doc, and emails connect@luxordev.com (the address every existing platform alert uses) once per run when anything fails. vercel.json adds "0 11 * * *" (11:00 UTC = 7 AM ET in EDT). Admin Usage shows a Booking column with the problem text inline. Next.js route modules cannot export helpers, so the canary helpers are module-local and the closed-day skip is tested through GET.
 - Gates: npx tsc --noEmit clean; eslint on changed files 0 errors / 0 warnings; npx vitest run 1450 passed + 1 expected fail, with 3 load-flaky timeouts (example-lib, demoSeed, company/team) that each passed when re-run alone (demoSeed also passed with --testTimeout=30000); npm run e2e:booking 7/7; npm run e2e:test 95 passed / 1 flaky (call-to-cash confirm-email race, passed on retry) / 2 skipped / 0 failed; npm run e2e:down; npx next build green. Canary + usage tests 14/14.
 - Removals: none. Not done: the booking-change gate's real-phone-call transcript (integrator/owner), and S4's exact Sunday-21:00 clock is offline-only - the smoke harness has a real clock, so S4 asserts the invariants that must hold at any hour.
+
+## 2026-09-28 — Integrator: H2 merged + Phase 30 (T-148 / T-149 / T-150 / T-151)
+
+- H2 (G3 + G4, Deepseek) reviewed and merged `--no-ff` as `67388ef`. Answer to its question: both the G3 and G4 TODO rows were the H2 rows.
+  Review note logged in TODO.md: the canary calls any time before 7 AM "overnight" (false alarm for an early-opening tenant).
+- T-148 crews: `src/app/company/library/CrewsSection.tsx` (moved out of library/page.tsx) — Edit (name/email/phone/Active), members per crew
+  (owner adds/removes via PATCH /api/company/team/[uid]), capacity line, Remove that explains its effect. `/api/company/crews`: PATCH now
+  whitelists name/email/phone/color/active (it wrote the raw body before), DELETE sends unfinished jobs back to Unscheduled, frees assigned
+  bookings and clears members, `GET ?people=1` returns who can be on a crew (no emails). Team routes/invite refuse a crewId that is not one of
+  the business's crews. Assign/confirm emails the crew address + every active member with an email (one ledger entry each).
+- T-149 Calendar: drop → `SlotPicker` fed by new `GET /api/company/crews/open-times` (+ pure `src/lib/calendar/openTimes.ts`, outside the
+  booking engine's folder on purpose); Change time (clock icon) on unconfirmed tiles; next-opening button; phone = bottom sheet. Jobs whose
+  crew is deleted/inactive now show in Unscheduled (they vanished before). Phone bookings row restyled; "Confirm + email crew". from-request
+  stores the booked time as `Job.requestedStart/End` (hint only — not scheduledStart, which would double-count AI capacity). Removed the
+  Calendar's own hours regex (`dayAtBusinessOpen`) and its Settings fetch.
+- T-150: `crew` TeamRole (field-only — verifyFieldAccess + bootstrap; office routes refuse it by default; layout pins it to /company/field;
+  only where the industry has Jobs). Team page: ⓘ role/title help, capitalized roles, Crew column for every owner/staff/crew member,
+  Lock → Disable/Enable (not on own row / last owner), Resend invite only before first sign-in. Onboarding guide updated.
+- T-151 applied: AGENTS.md "Definition of done" item 2 (tiered gates) + the e2e section; CLAUDE.md harness rule.
+- Harness: `fieldCrew` account (role crew); fixed `npm run e2e:seed` (pointed at a non-existent seed.mjs); the shared fake Firestore now
+  honours FieldValue.delete() and batch.delete().
+- Evidence: tsc clean; eslint on changed files 0 errors; full vitest 1,476 passed (Team test updated for Disable; demoSeed load-flake green
+  alone); new unit tests: calendar/openTimes, crews editDelete, open-times route, assign member emails, team crewId/Crew role, landing,
+  from-request requestedStart, fieldAccess crew. `e2e/crews-calendar.spec.ts` 8/8 (2 intended skips) with screenshots read (phone sheet,
+  role help, crew login); `e2e:call` 12/12; `e2e:booking` 7/7. Not run by owner direction: full `e2e:test`, local `next build`.

@@ -1,5 +1,18 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-09-28 (morning) — read this first
+- **Pushed:** H2 (Deepseek: booking scenarios `npm run e2e:booking`, `docs/BOOKING-TEST-SCRIPT.md`, the daily booking canary cron at
+  11:00 UTC + Admin Usage "Booking" column) and **Phase 30** built by the integrator: crews are editable with members (Library → Crews),
+  the Calendar asks for a time on every drop (two jobs can share a crew-day), a distinct "Phone bookings" row, "Confirm + email crew"
+  (crew + every member), the Team page's ⓘ role help + Disable, and the new field-only **Crew** role. TODO.md Phase 30 lists what's left.
+- **Gates are tiered now** (AGENTS.md "Definition of done" item 2, T-151). This push ran: tsc, eslint (changed files), full vitest
+  (1,476 pass; the 2 fails were the Team test updated for Disable + the known demoSeed load-flake, both green alone), the new
+  `e2e/crews-calendar.spec.ts` 8/8 (desktop + phone, screenshots read), `e2e:call` 12/12, `e2e:booking` 7/7. **Not run** (owner: skip
+  the long gates for now): full `e2e:test`, local `next build` (Vercel builds on push).
+- **Codex H3 is still running** (`air-wt-setup-ux`). Merge notes for it are in `docs/WORKER_QUEUE.md` section H (CalendarBoard: take main).
+- **Owner, when you can:** open Library → Crews and Team on the live site; try a drag on the Calendar. Still owed from before: relaunch
+  Demo Studio, one booking call, Confirm & call customer — then the integrator reads both transcripts, and `/admin/usage` after 11:00 UTC.
+
 ## CURRENT STATE 2026-09-28 (~2 AM) — read this first
 - T-146 pushed + deployed (9ca467c, crm.luxordev.com Ready). T-147 (owner's second round: Pipeline scroll, field findings confirm +
   back-to-job, ZIP-code rule, Edit customer details, quote intro/disclaimer, Dashboard "Latest from the field") — see TODO.md Phase 29.

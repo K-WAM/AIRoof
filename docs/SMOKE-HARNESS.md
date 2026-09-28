@@ -9,7 +9,7 @@ emulators**, with a seeded world, real login, real webhooks, captured email, and
 | Piece | What it is |
 |---|---|
 | **A running app** | `next dev` on `http://localhost:<port>` (port is per-checkout, printed by `e2e:up`) talking to local emulators |
-| **Real login** | 6 seeded accounts (password `E2e-Passw0rd!`), signed in through the real login form |
+| **Real login** | 8 seeded accounts (password `E2e-Passw0rd!`), signed in through the real login form |
 | **4 tenants** | `e2e-roofing` (jobs mode), `e2e-dental` (appointments mode, no Jobs tab), `demo-roofing` (what Demo Studio expects), `e2e-empty` ("Fresh Roofing Co": phone line only, nothing else — for first-run/empty states) |
 | **Phone calls** | `simulateCall()` drives the REAL ElevenLabs webhooks (initiation → tools → signed post-call) — no phone, no ElevenLabs |
 | **Email** | Captured to the `_e2eOutbox` collection instead of Resend; read with `outbox()` — exactly what a customer would get |
@@ -26,6 +26,7 @@ All use password **`E2e-Passw0rd!`**. In specs: `as("owner")`. In scripts: `api(
 | `staff` | staff@roofing.e2e.test | e2e-roofing | staff |
 | `crew` | crew@roofing.e2e.test | e2e-roofing | staff, trade "technician" |
 | `viewer` | viewer@roofing.e2e.test | e2e-roofing | viewer (read-only) |
+| `fieldCrew` | fieldcrew@roofing.e2e.test | e2e-roofing | crew (field-only role, T-150), trade "installer" — lands on /company/field, no office screens |
 | `dentalOwner` | owner@dental.e2e.test | e2e-dental | owner |
 | `emptyOwner` | owner@empty.e2e.test | e2e-empty | owner (the only member — keep it that way, the Team empty state and checklist depend on it) |
 | `superadmin` | superadmin@e2e.test | (platform) | superadmin — Hub/Admin, `?preview=<tenant>` |
@@ -38,8 +39,9 @@ The AI phone lines: roofing `+15550100`, dental `+15550200`, demo `+15550300`, e
 npm run e2e:up:bg      # starts emulators + app in the background, returns when ready (first time ~3 min while pages compile)
 npm run e2e:test       # every browser spec, desktop + phone
 npm run e2e:call       # the whole customer story over the API, no browser (~15 s)
+npm run e2e:booking    # the S1–S8 booking scenarios over the real webhooks (~20 s)
 npm run e2e:down       # stop everything
-npm run e2e:seed       # wipe the emulators and re-seed (accounts + tenants only)
+npm run e2e:seed       # wipe the emulators and re-seed (accounts + tenants only) — was pointing at a missing seed.mjs until 2026-09-28
 ```
 
 `e2e:up` (foreground) works too; Ctrl+C stops it. If it says "already running," it is. Logs: `.e2e/app.log`, `.e2e/emulators.log`.

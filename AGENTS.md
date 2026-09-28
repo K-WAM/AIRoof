@@ -54,7 +54,17 @@ plan depends on.
 ## Definition of done (per task)
 
 1. Code + tests implementing the task's acceptance criteria, inside owned files only.
-2. `npm run type-check` && `npm run lint` && `npm test` green locally; `npm run build` green **once per batch**.
+2. **Gates in tiers (owner, 2026-09-28: "the gate checks need to not be so redundant" — T-151).** Run each check once, at
+   the tier that needs it; never re-run a suite already green on the same commit — cite that run instead.
+   - **Worker, per task:** `npx tsc --noEmit`, eslint on changed files, `npx vitest related <changed files>` (or the
+     touched test folders), and the ONE e2e spec for the screen you changed (read its phone screenshot). The booking
+     scenario suite only when the Booking-change gate's scope is touched (it takes seconds). No `next build`, no full
+     Playwright, no full vitest.
+   - **Integrator, once per merge batch (not per task):** full `npx vitest run` + `npx next build`; `npm run e2e:call`
+     only if the batch touched calls/booking/pipeline/jobs/documents.
+   - **Before a push:** full `npm run e2e:test` once, on the final tree — or, when the owner says to skip the long gates
+     (as on 2026-09-28), the changed-screen specs + `e2e:call`, and say so in the handoff.
+   - Unchanged: a booking change still needs a real call + transcript read after deploy (Booking-change gate below).
 3. One focused commit per task: `T-0XX: <imperative summary>` + body listing acceptance evidence.
    End commit messages with `Co-Authored-By: Claude <noreply@anthropic.com>`.
 4. Append an entry to `docs/IMPLEMENTATION_LOG.md` (task, commit, evidence, removals if any).
@@ -136,8 +146,9 @@ Lessons from T-144 (2026-09-27) — a green run can still hide a broken screen:
 - **"No X anywhere on this page" passes on an error page.** The viewer check ("no write button inside any empty state") passed on the branch
   while the Library page was showing its load-error screen for every viewer. Assert the page actually loaded first (the empty-states spec's
   `visit()` fails on "Failed to load this page").
-- **Re-test the merged tree, not just the branch.** Run `npm run e2e:call` after every change to calls/booking/pipeline/jobs/documents and after
-  every merge, and the full `npm run e2e:test` on the merged tree before any push. The viewer Library bug only surfaced there.
+- **Re-test the merged tree, not just the branch.** Run `npm run e2e:call` after a change to calls/booking/pipeline/jobs/documents (on the
+  merged tree, once per batch), and the full `npm run e2e:test` on the final tree before a push. The viewer Library bug only surfaced
+  there. Tiers and what NOT to repeat: "Definition of done" item 2 (T-151, 2026-09-28).
 - **Budget time for polling pages.** Pages that poll every 5 s never reach network-idle, so each `settle()` waits its full 15 s; a spec that
   walks 18 screens needs ~5 min. The full suite is ~94 tests / 13–19 min. Playwright wipes `test-results/` each run.
 

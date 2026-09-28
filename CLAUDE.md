@@ -14,10 +14,10 @@
 
 ## Smoke harness — test the real product locally (2026-09-26)
 
-`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` → Firebase Auth/Firestore emulators + the app with 4 seeded tenants and 7 accounts (password `E2e-Passw0rd!`, e.g. `owner@roofing.e2e.test`; `owner@empty.e2e.test` is a brand-new account);
+`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` → Firebase Auth/Firestore emulators + the app with 4 seeded tenants and 8 accounts (password `E2e-Passw0rd!`, e.g. `owner@roofing.e2e.test`; `owner@empty.e2e.test` is a brand-new account; `fieldcrew@roofing.e2e.test` is the field-only Crew role, while `crew@` is Staff + Technician);
 `npm run e2e:test` (Playwright, desktop + 375 px phone, screenshots in `test-results/screens/`); `npm run e2e:call` (phone call → pipeline → job → quote → report → invoice via the real webhooks/API, emails captured).
 Keyless, cannot reach live services. Every screen/flow change should be checked with it.
-**Rule (2026-09-27):** run `npm run e2e:call` after every change to the call → invoice flow and after every merge, and the full `e2e:test` on the merged tree before any push; report when it last ran. A green run can still hide a broken screen (`toBeVisible()` passes off-screen/unreadable; "no X on the page" passes on an error page) — read the phone screenshots. Details: AGENTS.md "Browser and end-to-end testing".
+**Rule (2026-09-27, tiered 2026-09-28 — T-151):** run `npm run e2e:call` after a change to the call → invoice flow (once per merge batch), the changed screen's spec per task, and the full `e2e:test` once on the final tree before a push — never the same suite twice on one commit (AGENTS.md "Definition of done" item 2); report when each last ran. A green run can still hide a broken screen (`toBeVisible()` passes off-screen/unreadable; "no X on the page" passes on an error page) — read the phone screenshots. Details: AGENTS.md "Browser and end-to-end testing".
 
 ## Code Navigation — Read Graphify Before Broad Work
 
@@ -361,6 +361,22 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/tools/agentTools.ts (`isWindowFree`, capacity = active crews, capacity-unit locks) + src/lib/tools/toolDispatcher.ts (preferredTime, closest openings, the "NOT BOOKED" conflict wording) — booking changes fall under AGENTS.md's Booking-change gate.
 - src/lib/scheduling/__tests__/booking-scenarios.test.ts — the S1–S14 truth table from `docs/BOOKING-RELIABILITY-PLAN.md` §4 (Carla replay included).
 - scripts/check-booking-data.mjs — read-only production check for one tenant (hours as the engine sees them, capacity, next 7 days); scripts/setup-elevenlabs-agent.mjs `--update-tools` — dry-run diff, `--apply` patches only changed tools (pin `NEXT_PUBLIC_APP_URL=https://ai-roof.vercel.app`).
+
+## Phase 30 (T-148/T-149/T-150, 2026-09-28) Key Files — crews, Calendar time picker, Crew role
+
+- **Crew role** (`src/types/team.ts`: `TeamRole` + `TEAM_ROLE_LABEL`/`TEAM_ROLE_HELP`/`CREW_MEMBER_ROLES`): field work only. It passes
+  `verifyFieldAccess` (read + write) and the shell bootstrap, and nothing else — office routes list their roles, so "crew" is refused
+  by default. **Never add "crew" to an office route's list.** `company/layout.tsx` keeps a Crew login on `/company/field`; offered only
+  where the industry has the `jobs` module. Server-side scoping to the member's own crew's jobs is NOT done yet (TODO Phase 30).
+- **Crew membership lives on the person** (`TeamMember.crewId`, one crew each), never on the crew doc. `GET /api/company/crews?people=1`
+  lists who can be on a crew (names/titles, no emails); `src/app/company/library/CrewsSection.tsx` edits crews + members (members: owner only).
+  Deleting a crew sends its unfinished jobs back to Unscheduled and clears members (`DELETE /api/company/crews`); the Calendar also treats
+  a job whose crew is not on the board (deleted or inactive) as unscheduled.
+- **Calendar time picker:** a drop opens `SlotPicker` (CalendarBoard.tsx) fed by `GET /api/company/crews/open-times` (server hours via
+  `src/lib/scheduling/hours.ts` + `src/lib/calendar/openTimes.ts`, which is deliberately outside `src/lib/scheduling/**`). The assign route's
+  overlap guard stays the only authority. `Job.requestedStart/End` = the time the caller booked (from Pipeline → Create Job) — a picker hint,
+  never `scheduledStart` (that would count the visit twice against the phone AI's capacity).
+- **Confirm + email crew** (`POST /api/jobs/[jobId]/assign`): crew email + every active member with an email, one ledger entry each.
 
 ## Navigation Completeness Rule
 
