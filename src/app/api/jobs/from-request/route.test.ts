@@ -46,6 +46,25 @@ describe("POST /api/jobs/from-request", () => {
     expect((await POST(request({ businessId: "biz", leadId: "l1" }))).status).toBe(200);
     expect(db.__peek("businesses", "biz")?.jobCounter).toBe(1000);
   });
+  it("gives one call's lead and booking one job (Carla, 2026-09-28)", async () => {
+    db.__seed("businesses/biz/leads", "lead_call_c9", { callerName: "Carla", callerPhone: "+19548829586", sourceCallId: "c9", escalated: true });
+    db.__seed("businesses/biz/appointments", "a9", { callerName: "Carla", callerPhone: "+19548829586", address: "22572 Long York St", sourceCallId: "c9" });
+    const first = await (await POST(request({ businessId: "biz", appointmentId: "a9" }))).json();
+    expect(first.created).toBe(true);
+    expect(db.__peek("businesses/biz/leads", "lead_call_c9")?.jobId).toBe(first.job.jobId);
+    const fromLead = await POST(request({ businessId: "biz", leadId: "lead_call_c9" }));
+    expect(fromLead.status).toBe(200);
+    expect((await fromLead.json()).job.jobId).toBe(first.job.jobId);
+    expect(db.__list("businesses/biz/jobs")).toHaveLength(1);
+  });
+  it("reuses a job made before siblings were stamped", async () => {
+    db.__seed("businesses/biz/leads", "lead_call_c8", { callerName: "Dee", sourceCallId: "c8" });
+    db.__seed("businesses/biz/appointments", "a8", { callerName: "Dee", sourceCallId: "c8", jobId: "J-1042" });
+    db.__seed("businesses/biz/jobs", "J-1042", { jobId: "J-1042", clientName: "Dee" });
+    const data = await (await POST(request({ businessId: "biz", leadId: "lead_call_c8" }))).json();
+    expect(data).toMatchObject({ created: false, job: { jobId: "J-1042" } });
+    expect(db.__peek("businesses/biz/leads", "lead_call_c8")?.jobId).toBe("J-1042");
+  });
   it("rejects invalid and missing requests", async () => {
     expect((await POST(request({ businessId: "biz" }))).status).toBe(400);
     expect((await POST(request({ businessId: "biz", appointmentId: "missing" }))).status).toBe(404);

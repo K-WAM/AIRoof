@@ -19,6 +19,7 @@ import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
 import { fmtPhone } from "@/lib/format";
+import { contactPhone } from "@/lib/format/phone";
 import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -37,6 +38,10 @@ interface Lead {
   sourceCallId?: string;
   /** The AI escalated this call as an emergency (the lead is what puts it here). */
   escalated?: boolean;
+  /** A different number the caller said to reach them on (callerPhone is caller ID). */
+  callbackPhone?: string;
+  /** Set once a job has been created from this lead. */
+  jobId?: string;
   createdAt: number;
 }
 
@@ -45,6 +50,17 @@ function AttentionChip({ lead }: { lead: Pick<Lead, "escalated" | "urgency"> }) 
   if (lead.escalated) return <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>;
   if (lead.urgency?.toLowerCase() === "urgent") return <StatusChip status="urgent" />;
   return null;
+}
+
+/**
+ * The job this lead already became — its own, or the one made from the same call's booking. One call can leave a
+ * lead (an escalation) AND a booking (2026-09-28, Carla): a job created from the booking must show on the lead too,
+ * or the lead keeps offering "Create Job" and a second job gets made.
+ */
+function linkedJobId(lead: Lead, appointments: ReadonlyArray<{ sourceCallId?: string; jobId?: string }>): string | undefined {
+  if (lead.jobId) return lead.jobId;
+  if (!lead.sourceCallId) return undefined;
+  return appointments.find((appt) => appt.sourceCallId === lead.sourceCallId && appt.jobId)?.jobId;
 }
 
 interface Appointment {
@@ -243,13 +259,14 @@ export default function PipelinePage() {
 
   // --- Lead actions ---
   async function callBackLead(lead: Lead) {
-    if (!lead.callerPhone) return;
+    const phone = contactPhone(lead);
+    if (!phone) return;
     setLeadCalling(lead.leadId);
     try {
       const res = await fetch("/api/calls/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, targetPhone: lead.callerPhone, leadId: lead.leadId }),
+        body: JSON.stringify({ businessId, targetPhone: phone, leadId: lead.leadId }),
       });
       if (res.ok) {
         showToast(`The AI is calling ${lead.callerName || "them"} now.`, "ok");
@@ -655,10 +672,11 @@ export default function PipelinePage() {
                         <div className="lead-title-row">
                           <div>
                             <p className="lead-name">{lead.callerName || "Unknown caller"}</p>
-                            <p className="lead-phone">{lead.callerPhone ? fmtPhone(lead.callerPhone) : "—"}</p>
+                            <p className="lead-phone">{contactPhone(lead) ? fmtPhone(contactPhone(lead)) : "—"}</p>
                           </div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <AttentionChip lead={lead} />
+                            {linkedJobId(lead, appointments) && <span className="tag">{vocab.jobNoun} created</span>}
                             {isNewRequest(lead.status) ? <span className="tag">New request</span> : <StatusChip status={lead.status} />}
                           </div>
                         </div>
@@ -679,13 +697,18 @@ export default function PipelinePage() {
                         )}
                         <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
                         <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
-                          {lead.callerPhone && (
+                          {linkedJobId(lead, appointments) && (
+                            <Link className="button small" href={`/company/jobs/${linkedJobId(lead, appointments)}${previewSuffix}`}>
+                              Open {vocab.jobNoun} {linkedJobId(lead, appointments)}
+                            </Link>
+                          )}
+                          {contactPhone(lead) && (
                             <button
                               className="button small"
                               type="button"
                               disabled={leadCalling === lead.leadId}
                               onClick={() => callBackLead(lead)}
-                              title={`Call ${lead.callerPhone}`}
+                              title={`Call ${fmtPhone(contactPhone(lead))}`}
                               style={{ display: "flex", alignItems: "center", gap: 6 }}
                             >
                               <Phone size={13} />
@@ -725,7 +748,7 @@ export default function PipelinePage() {
                     <div className="lead-title-row">
                       <div>
                         <p className="lead-name">{selectedLead.callerName || "Unknown caller"}</p>
-                        <p className="lead-phone">{selectedLead.callerPhone ? fmtPhone(selectedLead.callerPhone) : "—"}</p>
+                        <p className="lead-phone">{contactPhone(selectedLead) ? fmtPhone(contactPhone(selectedLead)) : "—"}</p>
                       </div>
                       <AttentionChip lead={selectedLead} />
                     </div>
@@ -771,20 +794,28 @@ export default function PipelinePage() {
                         <Check size={14} strokeWidth={1.75} />
                         {selectedLead.status === "contacted" ? "Contacted" : "Mark contacted"}
                       </button>
-                      {selectedLead.callerPhone && (
+                      {contactPhone(selectedLead) && (
                         <button
                           className="button"
                           type="button"
                           disabled={leadCalling === selectedLead.leadId}
                           onClick={() => callBackLead(selectedLead)}
-                          title={`Call ${selectedLead.callerPhone}`}
+                          title={`Call ${fmtPhone(contactPhone(selectedLead))}`}
                           style={{ display: "flex", alignItems: "center", gap: 6 }}
                         >
                           <Phone size={13} />
                           {leadCalling === selectedLead.leadId ? "Calling…" : "Call Back"}
                         </button>
                       )}
-                      {showJobActions && !isNewRequest(selectedLead.status) && selectedLead.status !== "lost" && (
+                      {linkedJobId(selectedLead, appointments) ? (
+                        <Link
+                          className={isNewRequest(selectedLead.status) ? "button" : "button primary"}
+                          href={`/company/jobs/${linkedJobId(selectedLead, appointments)}${previewSuffix}`}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                        >
+                          Open {vocab.jobNoun} {linkedJobId(selectedLead, appointments)}
+                        </Link>
+                      ) : showJobActions && !isNewRequest(selectedLead.status) && selectedLead.status !== "lost" && (
                         <button
                           className="button primary"
                           type="button"

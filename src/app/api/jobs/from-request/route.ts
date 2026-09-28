@@ -43,6 +43,15 @@ export async function POST(req: NextRequest) {
       : {}),
   };
   const jobs = db.collection(`businesses/${businessId}/jobs`);
+  // One call can leave a lead (an escalation) AND a booking (2026-09-28, Carla). They are one visit, so they share one
+  // job: a job already made from the other one is reused, and a new job is stamped on both so both cards open it.
+  const siblings = data.sourceCallId
+    ? (await Promise.all((["appointments", "leads"] as const).map((name) =>
+      db.collection(`businesses/${businessId}/${name}`).where("sourceCallId", "==", data.sourceCallId).get())))
+      .flatMap((snap) => snap.docs)
+      .filter((doc) => doc.ref.path !== source.ref.path)
+    : [];
+  const siblingJobId = siblings.map((doc) => doc.data().jobId).find((id): id is string => typeof id === "string" && !!id);
   const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`${appointmentId ? "appointment" : "lead"}_${requestId}`);
   // The request doc also gets the jobId so the Pipeline card can show "Open Job J-…" instead of "Create Job" — it
   // used to keep offering Create, and the idempotent answer (the existing job) looked like a random old job opening.
@@ -53,11 +62,17 @@ export async function POST(req: NextRequest) {
       if (data.jobId !== jobId) tx.update(source.ref, { jobId });
       return { jobId, created: false };
     }
+    if (siblingJobId) {
+      tx.create(marker, { jobId: siblingJobId, createdAt: now });
+      tx.update(source.ref, { jobId: siblingJobId });
+      return { jobId: siblingJobId, created: false };
+    }
     const jobId = await nextJobIdInTransaction(tx, db.collection("businesses").doc(businessId));
     const job: Job = { ...jobBase, jobId };
     tx.create(jobs.doc(jobId), job);
     tx.create(marker, { jobId, createdAt: now });
     tx.update(source.ref, { jobId });
+    for (const sibling of siblings) tx.update(sibling.ref, { jobId });
     return { jobId, created: true };
   });
   if (customer && result.created) await bumpCustomerJobStats(db, businessId, customer.customerId, now);
