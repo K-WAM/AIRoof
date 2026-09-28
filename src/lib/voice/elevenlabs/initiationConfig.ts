@@ -27,6 +27,7 @@ import {
   resolveRecordingDisclosure,
 } from "@/lib/recordingDisclosure";
 import { voiceForLanguage } from "@/lib/vapi/voices";
+import { isOpenAt } from "@/lib/scheduling/hours";
 
 export const DEFAULT_ELEVENLABS_TIMEZONE = "America/New_York";
 
@@ -54,28 +55,10 @@ export function isAfterHoursNow(
   now: Date = new Date()
 ): boolean {
   try {
-    const hours: Record<string, string> =
-      typeof businessHours === "object" && businessHours !== null
-        ? (businessHours as Record<string, string>)
-        : {};
     const tz = timezone || DEFAULT_ELEVENLABS_TIMEZONE;
-
-    const dayName = now.toLocaleDateString("en-US", { timeZone: tz, weekday: "long" });
-    const todayHours = hours[dayName];
-    if (!todayHours || todayHours.toLowerCase() === "closed") return true;
-
-    const m = todayHours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
-    if (!m) return false;
-    const openH = parseInt(m[1]), openM = parseInt(m[2]);
-    const closeH = parseInt(m[3]), closeM = parseInt(m[4]);
-
-    const localTime = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-    const currentMins = localTime.getHours() * 60 + localTime.getMinutes();
-    const openMins = openH * 60 + openM;
-    const closeMins = closeH * 60 + closeM;
-    return currentMins < openMins || currentMins >= closeMins;
+    return !isOpenAt(now, tz, businessHours);
   } catch {
-    return false;
+    return true;
   }
 }
 

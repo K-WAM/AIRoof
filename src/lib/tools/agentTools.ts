@@ -15,10 +15,19 @@ import {
 import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import {
+  parseBusinessHours,
+  zonedDateTimeToUtc,
+  zonedParts,
+  type ZonedParts,
+} from "@/lib/scheduling/hours";
+
+export { zonedDateTimeToUtc } from "@/lib/scheduling/hours";
 
 export interface CheckAvailabilityInput {
   businessId: string;
   preferredDate?: string;
+  preferredTime?: string;
   serviceType?: string;
   durationMinutes?: number;
 }
@@ -26,6 +35,11 @@ export interface CheckAvailabilityInput {
 export interface CheckAvailabilityOutput {
   available: boolean;
   suggestedSlots: Array<{ startTime: string; endTime: string }>;
+  hoursStatus?: "ok" | "missing_or_invalid";
+  preferred?: {
+    requestedStartTime: string;
+    status: "open" | "unavailable" | "outside_business_hours" | "closed" | "past";
+  };
 }
 
 const DEFAULT_TZ = "America/New_York";
@@ -33,16 +47,6 @@ const SCHEDULE_BUCKET_MS = 15 * 60 * 1000;
 export const DEFAULT_SCHEDULE_DURATION_MS = 60 * 60 * 1000;
 const AVAILABILITY_STEP_MINUTES = 30;
 const AVAILABILITY_SCAN_DAYS = 14;
-
-interface ZonedParts {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-  weekday: string;
-}
 
 interface ExistingSchedule {
   startTime: number;
@@ -62,16 +66,28 @@ export const SCHEDULE_OVERLAP_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 /** How long after its start an appointment still counts as "upcoming" when a caller asks to change or cancel it. */
 const LOOKUP_GRACE_MS = 2 * 60 * 60 * 1000;
 
-/** Business-wide scheduling rule shared by suggestions and the booking transaction. */
+/** Capacity rule shared by suggestions and the booking transaction. */
+export function isWindowFree(
+  window: { startTime: number; endTime: number },
+  appointments: ExistingSchedule[],
+  jobs: ExistingSchedule[],
+  capacity: number
+): boolean {
+  const safeCapacity = Math.max(1, Math.floor(capacity));
+  const overlapping = [...appointments, ...jobs].filter((entry) =>
+    entry.status !== "cancelled" &&
+    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
+  ).length;
+  return overlapping < safeCapacity;
+}
+
 export function isSlotBusy(
   window: { startTime: number; endTime: number },
   appointments: ExistingSchedule[],
-  jobs: ExistingSchedule[]
+  jobs: ExistingSchedule[],
+  capacity = 1
 ): boolean {
-  return [...appointments, ...jobs].some((entry) =>
-    entry.status !== "cancelled" &&
-    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime)
-  );
+  return !isWindowFree(window, appointments, jobs, capacity);
 }
 
 /** Release only locks still owned by this appointment; old bookings may have no locks. */
@@ -81,11 +97,15 @@ export async function releaseAppointmentLocks(
   appointmentId: string,
   startTime: number,
   endTime: number,
-  assignedCrewId?: string | null
+  assignedCrewId?: string | null,
+  scheduleCapacityUnit?: number | null
 ): Promise<void> {
   if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) return;
+  const resourceKey = typeof scheduleCapacityUnit === "number"
+    ? scheduleCapacityResourceKey(scheduleCapacityUnit)
+    : scheduleResourceKey(assignedCrewId);
   const refs = scheduleBucketStarts(startTime, endTime).map((bucket) =>
-    businessRef.collection("schedulingLocks").doc(scheduleLockId(scheduleResourceKey(assignedCrewId), bucket))
+    businessRef.collection("schedulingLocks").doc(scheduleLockId(resourceKey, bucket))
   );
   const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
   snapshots.forEach((snapshot, index) => {
@@ -111,91 +131,6 @@ export class SchedulingConflictError extends Error {
   }
 }
 
-function zonedParts(timestamp: number, timeZone: string): ZonedParts {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-    weekday: "long",
-  }).formatToParts(new Date(timestamp));
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value;
-  return {
-    year: Number(value("year")),
-    month: Number(value("month")),
-    day: Number(value("day")),
-    hour: Number(value("hour")),
-    minute: Number(value("minute")),
-    second: Number(value("second")),
-    weekday: value("weekday") ?? "",
-  };
-}
-
-/** Convert a wall-clock time in an IANA timezone to its UTC epoch, including DST. */
-export function zonedDateTimeToUtc(
-  input: Omit<ZonedParts, "second" | "weekday"> & { second?: number },
-  timeZone: string
-): number | null {
-  const targetAsUtc = Date.UTC(
-    input.year,
-    input.month - 1,
-    input.day,
-    input.hour,
-    input.minute,
-    input.second ?? 0
-  );
-  let guess = targetAsUtc;
-  try {
-    for (let iteration = 0; iteration < 4; iteration++) {
-      const actual = zonedParts(guess, timeZone);
-      const actualAsUtc = Date.UTC(
-        actual.year,
-        actual.month - 1,
-        actual.day,
-        actual.hour,
-        actual.minute,
-        actual.second
-      );
-      const adjustment = targetAsUtc - actualAsUtc;
-      guess += adjustment;
-      if (adjustment === 0) break;
-    }
-    const roundTrip = zonedParts(guess, timeZone);
-    if (
-      roundTrip.year !== input.year ||
-      roundTrip.month !== input.month ||
-      roundTrip.day !== input.day ||
-      roundTrip.hour !== input.hour ||
-      roundTrip.minute !== input.minute
-    ) {
-      return null;
-    }
-    return guess;
-  } catch {
-    return null;
-  }
-}
-
-function parseBusinessHours(value: unknown): Record<string, string> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, string>;
-}
-
-function parseDayHours(value: string | undefined): { open: number; close: number } | null {
-  if (!value || value.trim().toLowerCase() === "closed") return null;
-  const match = value.match(/^(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const open = Number(match[1]) * 60 + Number(match[2]);
-  const close = Number(match[3]) * 60 + Number(match[4]);
-  if (open < 0 || close > 24 * 60 || close <= open) return null;
-  return { open, close };
-}
-
 export function scheduleRangesOverlap(
   leftStart: number,
   leftEnd: number,
@@ -207,6 +142,17 @@ export function scheduleRangesOverlap(
 
 export function scheduleResourceKey(resourceId?: string | null): string {
   return resourceId ? `crew:${resourceId}` : "unassigned";
+}
+
+export function scheduleCapacityResourceKey(unitIndex: number): string {
+  if (!Number.isInteger(unitIndex) || unitIndex < 0) {
+    throw new SchedulingConflictError("invalid_schedule", "A valid capacity unit is required.");
+  }
+  return `capacity:${unitIndex}`;
+}
+
+export function schedulingCapacity(crews: Array<{ active?: unknown }>): number {
+  return Math.max(1, crews.filter((crew) => crew.active !== false).length);
 }
 
 export function scheduleBucketStarts(startTime: number, endTime: number): number[] {
@@ -303,7 +249,7 @@ export function isScheduleWithinBusinessHours(
     if (start.year !== end.year || start.month !== end.month || start.day !== end.day) {
       return false;
     }
-    const dayHours = parseDayHours(hours[start.weekday]);
+    const dayHours = hours[start.weekday];
     if (!dayHours) return false;
     const startMinutes = start.hour * 60 + start.minute;
     const endMinutes = end.hour * 60 + end.minute;
@@ -342,14 +288,36 @@ function preferredLocalDate(
     }
   }
   const localNow = zonedParts(now.getTime(), timeZone);
-  return addLocalDays(localNow, 1);
+  return localNow;
+}
+
+export function parsePreferredTime(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "morning") return 8 * 60;
+  if (normalized === "afternoon") return 13 * 60;
+  const match = normalized.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+  if (minute > 59) return null;
+  if (match[3]) {
+    if (hour < 1 || hour > 12) return null;
+    if (hour === 12) hour = 0;
+    if (match[3] === "pm") hour += 12;
+  } else if (hour > 23) {
+    return null;
+  }
+  return hour * 60 + minute;
 }
 
 export function buildAvailableSlots(options: {
   businessHours: unknown;
   timeZone: string;
   existing: ExistingSchedule[];
+  capacity?: number;
   preferredDate?: string;
+  preferredTime?: string;
   durationMinutes?: number;
   now?: Date;
   maxSlots?: number;
@@ -363,6 +331,8 @@ export function buildAvailableSlots(options: {
   const now = options.now ?? new Date();
   const firstDate = preferredLocalDate(options.preferredDate, now, options.timeZone);
   const maxSlots = options.maxSlots ?? 3;
+  const preferredMinutes = parsePreferredTime(options.preferredTime);
+  const allowOvernight = preferredMinutes !== null && (preferredMinutes < 7 * 60 || preferredMinutes >= 21 * 60);
   const slots: Array<{ startTime: string; endTime: string }> = [];
 
   for (let offset = 0; offset < AVAILABILITY_SCAN_DAYS && slots.length < maxSlots; offset++) {
@@ -370,30 +340,73 @@ export function buildAvailableSlots(options: {
     const noon = zonedDateTimeToUtc({ ...date, hour: 12, minute: 0 }, options.timeZone);
     if (noon === null) continue;
     const weekday = zonedParts(noon, options.timeZone).weekday;
-    const dayHours = parseDayHours(hours[weekday]);
+    const dayHours = hours[weekday];
     if (!dayHours) continue;
 
-    for (
-      let minute = dayHours.open;
-      minute + durationMinutes <= dayHours.close && slots.length < maxSlots;
-      minute += AVAILABILITY_STEP_MINUTES
-    ) {
+    const candidates: Array<{ startTime: string; endTime: string; minute: number }> = [];
+    const localNow = zonedParts(now.getTime(), options.timeZone);
+    const isToday = date.year === localNow.year && date.month === localNow.month && date.day === localNow.day;
+    const roundedNow = Math.ceil((localNow.hour * 60 + localNow.minute + (localNow.second > 0 ? 1 : 0)) / AVAILABILITY_STEP_MINUTES) * AVAILABILITY_STEP_MINUTES;
+    for (let minute = dayHours.open; minute + durationMinutes <= dayHours.close; minute += AVAILABILITY_STEP_MINUTES) {
+      if (!allowOvernight && (minute < 7 * 60 || minute >= 21 * 60)) continue;
+      if (isToday && minute < roundedNow) continue;
       const startTime = zonedDateTimeToUtc(
         { ...date, hour: Math.floor(minute / 60), minute: minute % 60 },
         options.timeZone
       );
       if (startTime === null || startTime <= now.getTime()) continue;
       const endTime = startTime + durationMinutes * 60 * 1000;
-      const occupied = isSlotBusy({ startTime, endTime }, options.existing, []);
+      const occupied = isSlotBusy({ startTime, endTime }, options.existing, [], options.capacity ?? 1);
       if (!occupied) {
-        slots.push({
+        candidates.push({
           startTime: new Date(startTime).toISOString(),
           endTime: new Date(endTime).toISOString(),
+          minute,
         });
       }
     }
+    if (offset === 0 && preferredMinutes !== null) {
+      candidates.sort((left, right) => Math.abs(left.minute - preferredMinutes) - Math.abs(right.minute - preferredMinutes) || left.minute - right.minute);
+      const preferredInsideHours = preferredMinutes >= dayHours.open && preferredMinutes + durationMinutes <= dayHours.close;
+      slots.push(...candidates.slice(0, preferredInsideHours ? maxSlots - slots.length : Math.min(1, maxSlots - slots.length)));
+    } else {
+      slots.push(...candidates.slice(0, maxSlots - slots.length));
+    }
   }
   return slots;
+}
+
+function preferredAvailability(options: {
+  preferredDate?: string;
+  preferredTime?: string;
+  businessHours: unknown;
+  timeZone: string;
+  existing: ExistingSchedule[];
+  capacity: number;
+  durationMinutes: number;
+  now: Date;
+}): CheckAvailabilityOutput["preferred"] {
+  const preferredMinutes = parsePreferredTime(options.preferredTime);
+  if (preferredMinutes === null) return undefined;
+  const date = preferredLocalDate(options.preferredDate, options.now, options.timeZone);
+  const startTime = zonedDateTimeToUtc({ ...date, hour: Math.floor(preferredMinutes / 60), minute: preferredMinutes % 60 }, options.timeZone);
+  if (startTime === null) return undefined;
+  const requestedStartTime = new Date(startTime).toISOString();
+  if (startTime <= options.now.getTime()) return { requestedStartTime, status: "past" };
+  const hours = parseBusinessHours(options.businessHours);
+  if (!hours) return undefined;
+  const noon = zonedDateTimeToUtc({ ...date, hour: 12, minute: 0 }, options.timeZone);
+  if (noon === null) return undefined;
+  const dayHours = hours[zonedParts(noon, options.timeZone).weekday];
+  if (!dayHours) return { requestedStartTime, status: "closed" };
+  if (preferredMinutes < dayHours.open || preferredMinutes + options.durationMinutes > dayHours.close) {
+    return { requestedStartTime, status: "outside_business_hours" };
+  }
+  const endTime = startTime + options.durationMinutes * 60 * 1000;
+  return {
+    requestedStartTime,
+    status: isWindowFree({ startTime, endTime }, options.existing, [], options.capacity) ? "open" : "unavailable",
+  };
 }
 
 export async function runLedgeredEmail(options: {
@@ -441,11 +454,14 @@ export async function checkAvailability(
     const businessDoc = await db.collection("businesses").doc(input.businessId).get();
     if (!businessDoc.exists) return { available: false, suggestedSlots: [] };
     const businessData = businessDoc.data() ?? {};
+    if (!parseBusinessHours(businessData.businessHours)) {
+      return { available: false, suggestedSlots: [], hoursStatus: "missing_or_invalid" };
+    }
     const timeZone =
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const now = new Date();
     const scanEnd = now.getTime() + (AVAILABILITY_SCAN_DAYS + 2) * 24 * 60 * 60 * 1000;
-    const [appointmentSnapshot, jobSnapshot] = await Promise.all([
+    const [appointmentSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
       db
         .collection("businesses")
         .doc(input.businessId)
@@ -460,6 +476,7 @@ export async function checkAvailability(
         .where("scheduledStart", ">=", now.getTime() - SCHEDULE_OVERLAP_LOOKBACK_MS)
         .where("scheduledStart", "<", scanEnd)
         .get(),
+      db.collection("businesses").doc(input.businessId).collection("crews").get(),
     ]);
     const existingAppointments = appointmentSnapshot.docs.map((document) => {
       const data = document.data();
@@ -475,20 +492,39 @@ export async function checkAvailability(
       const data = document.data();
       return typeof data.scheduledStart === "number" &&
         typeof data.scheduledEnd === "number"
-        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd }]
+        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd, status: typeof data.status === "string" ? data.status : undefined }]
         : [];
     });
+    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
+    const durationMinutes = input.durationMinutes ?? 60;
+    const existing = [...existingAppointments, ...existingJobs];
     const slots = buildAvailableSlots({
       businessHours: businessData.businessHours,
       timeZone,
       // Availability remains advisory (D-1), but never suggests a period already
       // represented on either scheduling collection.
-      existing: [...existingAppointments, ...existingJobs],
+      existing,
+      capacity,
       preferredDate: input.preferredDate,
-      durationMinutes: input.durationMinutes,
+      preferredTime: input.preferredTime,
+      durationMinutes,
       now,
     });
-    return { available: slots.length > 0, suggestedSlots: slots };
+    return {
+      available: slots.length > 0,
+      suggestedSlots: slots,
+      hoursStatus: "ok",
+      preferred: preferredAvailability({
+        preferredDate: input.preferredDate,
+        preferredTime: input.preferredTime,
+        businessHours: businessData.businessHours,
+        timeZone,
+        existing,
+        capacity,
+        durationMinutes,
+        now,
+      }),
+    };
   } catch (error) {
     console.error("checkAvailability error:", error);
     return { available: false, suggestedSlots: [] };
@@ -532,11 +568,6 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     );
   }
   const lockBuckets = scheduleBucketStarts(input.startTime, input.endTime);
-  const lockRefs = lockBuckets.map((bucket) =>
-    businessRef
-      .collection("schedulingLocks")
-      .doc(scheduleLockId(scheduleResourceKey(), bucket))
-  );
   let businessData: Record<string, unknown> = {};
 
   const appointment: Appointment = await db.runTransaction(async (transaction) => {
@@ -562,32 +593,46 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const lookbackStart = input.startTime - SCHEDULE_OVERLAP_LOOKBACK_MS;
     const conflictQuery = businessRef.collection("appointments").where("startTime", ">=", lookbackStart).where("startTime", "<", input.endTime);
     const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", ">=", lookbackStart).where("scheduledStart", "<", input.endTime);
-    const [lockSnapshots, existingSnapshot, jobSnapshot] = await Promise.all([
-      Promise.all(lockRefs.map((lockRef) => transaction.get(lockRef))),
+    const crewQuery = businessRef.collection("crews");
+    const [existingSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
       transaction.get(conflictQuery),
       transaction.get(jobConflictQuery),
+      transaction.get(crewQuery),
     ]);
-    const cancelledIds = new Set(existingSnapshot.docs
-      .filter((document) => document.data().status === "cancelled")
-      .map((document) => document.id));
-    const staleLockIndexes = new Set<number>();
-    const occupiedByLock = lockSnapshots.some((snapshot, index) => {
-      if (!snapshot.exists) return false;
-      if (cancelledIds.has(snapshot.data()?.entityId)) {
-        staleLockIndexes.add(index);
-        return false;
-      }
-      return true;
-    });
+    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
+    const unitLockRefs = Array.from({ length: capacity }, (_, unitIndex) =>
+      lockBuckets.map((bucket) => businessRef.collection("schedulingLocks").doc(
+        scheduleLockId(scheduleCapacityResourceKey(unitIndex), bucket)
+      ))
+    );
+    const lockSnapshots = await Promise.all(unitLockRefs.flat().map((lockRef) => transaction.get(lockRef)));
+    const lockOwners = [...new Set(lockSnapshots.flatMap((snapshot) =>
+      snapshot.exists && typeof snapshot.data()?.entityId === "string"
+        ? [`${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`]
+        : []
+    ))];
+    const ownerSnapshots = await Promise.all(lockOwners.map((owner) => {
+      const separator = owner.indexOf(":");
+      return transaction.get(businessRef.collection(owner.slice(0, separator)).doc(owner.slice(separator + 1)));
+    }));
+    const staleOwners = new Set(lockOwners.filter((owner, index) =>
+      !ownerSnapshots[index].exists || ownerSnapshots[index].data()?.status === "cancelled"
+    ));
     const appointments = existingSnapshot.docs.map((document) => {
       const data = document.data();
       return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
     });
     const jobs = jobSnapshot.docs.map((document) => {
       const data = document.data();
-      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd) };
+      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd), status: data.status };
     });
-    if (occupiedByLock || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs)) {
+    const unitIndex = unitLockRefs.findIndex((refs, candidateUnit) => refs.every((_, bucketIndex) => {
+      const snapshot = lockSnapshots[candidateUnit * lockBuckets.length + bucketIndex];
+      if (!snapshot.exists) return true;
+      const owner = `${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`;
+      return staleOwners.has(owner);
+    }));
+    if (unitIndex < 0 || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs, capacity)) {
       throw new SchedulingConflictError(
         "slot_conflict",
         "That requested time was just taken. Please choose another opening."
@@ -616,10 +661,12 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       sourceCallId: input.sourceCallId,
       createdAt: now,
       updatedAt: now,
+      scheduleCapacityUnit: unitIndex,
     };
-    for (const [index, lockRef] of lockRefs.entries()) {
+    for (const [index, lockRef] of unitLockRefs[unitIndex].entries()) {
       const lock = {
-        resourceKey: scheduleResourceKey(),
+        resourceKey: scheduleCapacityResourceKey(unitIndex),
+        capacityUnit: unitIndex,
         bucketStart: lockBuckets[index],
         entityType: "appointment",
         entityId: appointmentId,
@@ -627,7 +674,8 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         endTime: input.endTime,
         updatedAt: now,
       };
-      if (staleLockIndexes.has(index)) transaction.set(lockRef, lock);
+      const snapshot = lockSnapshots[unitIndex * lockBuckets.length + index];
+      if (snapshot.exists) transaction.set(lockRef, lock);
       else transaction.create(lockRef, lock);
     }
     transaction.create(appointmentRef, appointment);
@@ -1311,7 +1359,15 @@ export async function cancelAppointment(input: CancelAppointmentInput): Promise<
       throw new Error("The verified appointment is no longer available to cancel.");
     }
 
-    await releaseAppointmentLocks(transaction, businessRef, candidate.appointmentId, Number(appointment.startTime), Number(appointment.endTime), appointment.assignedCrewId);
+    await releaseAppointmentLocks(
+      transaction,
+      businessRef,
+      candidate.appointmentId,
+      Number(appointment.startTime),
+      Number(appointment.endTime),
+      appointment.assignedCrewId,
+      typeof appointment.scheduleCapacityUnit === "number" ? appointment.scheduleCapacityUnit : null
+    );
 
     transaction.update(appointmentRef, {
       status: "cancelled",

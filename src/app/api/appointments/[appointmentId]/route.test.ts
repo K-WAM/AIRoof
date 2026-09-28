@@ -89,12 +89,14 @@ describe("PATCH /api/appointments/[appointmentId] decline", () => {
 
   it("deletes only the declined appointment's scheduling locks", async () => {
     const startTime = Date.parse("2030-07-23T14:00:00.000Z");
-    state.docs.set("businesses/biz/appointments/appt", { startTime, endTime: startTime + 3600000 });
+    state.docs.set("businesses/biz/appointments/appt", { startTime, endTime: startTime + 3600000, scheduleCapacityUnit: 1 });
     for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
-      state.docs.set(`businesses/biz/schedulingLocks/unassigned:${bucket}`, { entityId: "appt" });
+      state.docs.set(`businesses/biz/schedulingLocks/capacity%3A1:${bucket}`, { entityId: "appt" });
+      state.docs.set(`businesses/biz/schedulingLocks/capacity%3A0:${bucket}`, { entityId: "other" });
     }
     const response = await PATCH(requestFor({ businessId: "biz", declineReason: "Fully booked" }), context);
     expect(response.status).toBe(200);
-    expect([...state.docs.keys()].filter((key) => key.includes("schedulingLocks"))).toHaveLength(0);
+    expect([...state.docs.keys()].filter((key) => key.includes("schedulingLocks/capacity%3A1"))).toHaveLength(0);
+    expect([...state.docs.keys()].filter((key) => key.includes("schedulingLocks/capacity%3A0"))).toHaveLength(4);
   });
 });

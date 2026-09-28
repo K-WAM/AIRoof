@@ -277,6 +277,8 @@ export interface Appointment {
   // Which crew/provider/vendor is taking this, assigned by dragging it on the
   // Calendar. Only used by industries with calendarMode "appointments".
   assignedCrewId?: string;
+  // Capacity lane claimed by a phone booking before a crew/provider is assigned.
+  scheduleCapacityUnit?: number;
   createdAt: number;
   updatedAt: number;
 }

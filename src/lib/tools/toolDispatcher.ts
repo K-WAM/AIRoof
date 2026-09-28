@@ -22,6 +22,7 @@ import {
   getCurrentDate,
   logAgentAction,
   getBusinessTimezone,
+  zonedDateTimeToUtc,
 } from "@/lib/tools/agentTools";
 
 export type ToolProvider = "vapi" | "elevenlabs";
@@ -151,16 +152,59 @@ export async function executeAgentTool(
         const result = await checkAvailability({
           businessId,
           preferredDate: optionalStr(params.preferredDate),
+          preferredTime: optionalStr(params.preferredTime),
           serviceType: optionalStr(params.serviceType ?? params.service),
+          durationMinutes: typeof params.durationMinutes === "number" ? params.durationMinutes : undefined,
         });
+        if (result.hoursStatus === "missing_or_invalid") {
+          const lead = await createLead({
+            businessId,
+            callerName: optionalStr(params.name ?? params.callerName),
+            callerPhone: trustedCallerPhone,
+            callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+            serviceRequested: optionalStr(params.serviceType ?? params.service),
+            address: optionalStr(params.address),
+            urgency: parseUrgency(params.urgency),
+            notes: optionalStr(params.notes) ?? "Availability requested, but business hours are not set up.",
+            sourceCallId: callId,
+          });
+          await logAction(businessId, callId, "createLead", params, lead, "success");
+          return {
+            result: "Business hours are not set up yet. I've saved your details so the team can contact you about a time.",
+            sayToCaller: "Business hours are not set up yet. I've saved your details so the team can contact you about a time.",
+          };
+        }
         if (!result.available || result.suggestedSlots.length === 0) {
           return { result: "No openings in the next few days. I can take a message and have someone reach out." };
         }
+        const formatSlot = (value: string, withDate = true) => new Date(value).toLocaleString("en-US", {
+          timeZone: tz,
+          ...(withDate ? { weekday: "long" as const } : {}),
+          hour: "numeric",
+          minute: "2-digit",
+        });
         const slots = result.suggestedSlots
           .slice(0, 3)
-          .map((s) => new Date(s.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))
+          .map((s) => formatSlot(s.startTime))
           .join("; ");
-        return { result: `Available slots: ${slots}` };
+        const preferred = result.preferred;
+        if (!preferred) return { result: `Available openings: ${slots}` };
+        const requestedDay = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          weekday: "long",
+        }).format(new Date(preferred.requestedStartTime));
+        const requestedTime = formatSlot(preferred.requestedStartTime, false);
+        const requested = `${requestedTime} ${requestedDay}`;
+        const firstSentence = preferred.status === "open"
+          ? `${requested} is open.`
+          : preferred.status === "closed"
+            ? `We're closed ${requestedDay}s.`
+            : preferred.status === "outside_business_hours"
+              ? `${requested} is outside business hours.`
+              : preferred.status === "past"
+                ? `${requested} has already passed.`
+                : `${requested} is not open.`;
+        return { result: `${firstSentence} Closest openings: ${slots}` };
       }
 
       case "lookupAppointment": {
@@ -286,6 +330,47 @@ export async function executeAgentTool(
     }
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
+    if (name === "bookAppointment" && err instanceof Error &&
+      ((err as { code?: unknown }).code === "slot_conflict" || (err as { code?: unknown }).code === "outside_business_hours")) {
+      const tz = await getBusinessTimezone(businessId);
+      const requestedStart = toTimestamp(params.startTime ?? params.preferredTime, tz);
+      if (requestedStart !== undefined) {
+        const requestedDate = localDateKey(requestedStart, tz);
+        const preferredTime = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, hour: "numeric", minute: "2-digit",
+        }).format(new Date(requestedStart));
+        const availability = await checkAvailability({
+          businessId,
+          preferredDate: requestedDate,
+          preferredTime,
+          serviceType: optionalStr(params.serviceType ?? params.service),
+        });
+        const requestedTimeLabel = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, hour: "numeric", minute: "2-digit",
+        }).format(new Date(requestedStart));
+        const requestedDayLabel = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz, weekday: "long",
+        }).format(new Date(requestedStart));
+        const requestedLabel = `${requestedTimeLabel} ${requestedDayLabel}`;
+        const alternatives = availability.suggestedSlots
+          .filter((slot) => Date.parse(slot.startTime) !== requestedStart)
+          .slice(0, 3)
+          .map((slot) => new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            hour: "numeric",
+            minute: "2-digit",
+            ...(localDateKey(Date.parse(slot.startTime), tz) === requestedDate
+              ? {}
+              : { weekday: "long" as const }),
+          }).format(new Date(slot.startTime)));
+        const reason = (err as { code?: unknown }).code === "slot_conflict" ? "is booked" : "is outside business hours";
+        const result = alternatives.length > 0
+          ? `${requestedLabel} ${reason}. The closest openings are ${joinSpokenList(alternatives)}.`
+          : `${requestedLabel} ${reason}. I can take your details and have the team follow up.`;
+        await logAction(businessId, callId, name, params, { error: err.message, alternatives }, "failed");
+        return { result, sayToCaller: result };
+      }
+    }
     if (name === "lookupAppointment" || name === "cancelAppointment") {
       await recordProviderToolAudit(
         businessId,
@@ -300,6 +385,20 @@ export async function executeAgentTool(
     await logAction(businessId, callId, name, params, { error: String(err) }, "failed");
     return { error: err instanceof Error ? err.message : "Tool execution failed" };
   }
+}
+
+function joinSpokenList(values: string[]): string {
+  if (values.length <= 1) return values[0] ?? "";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")} or ${values.at(-1)}`;
+}
+
+function localDateKey(timestamp: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -322,23 +421,17 @@ function optionalStr(v: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function getTZUTCOffsetHours(date: Date, tz: string): number {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
-  const tzPart = fmt.formatToParts(date).find(p => p.type === "timeZoneName")?.value ?? "GMT-5";
-  const m = tzPart.match(/GMT([+-])(\d+)/);
-  return m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -5;
-}
-
 function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
     // Bare ISO string (no timezone) — treat as business local time, not UTC, since Vercel runs in UTC
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(v)) {
-      const offset = getTZUTCOffsetHours(new Date(), tz);
-      const sign = offset >= 0 ? "+" : "-";
-      const offsetStr = `${sign}${String(Math.abs(offset)).padStart(2, "0")}:00`;
-      const t = Date.parse(v + offsetStr);
-      return Number.isNaN(t) ? undefined : t;
+      const match = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (!match) return undefined;
+      return zonedDateTimeToUtc({
+        year: Number(match[1]), month: Number(match[2]), day: Number(match[3]),
+        hour: Number(match[4]), minute: Number(match[5]), second: Number(match[6] ?? 0),
+      }, tz) ?? undefined;
     }
     const t = Date.parse(v);
     return Number.isNaN(t) ? undefined : t;

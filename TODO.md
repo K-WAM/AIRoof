@@ -1072,8 +1072,9 @@ an active queue.*
         `crm.luxordev.com`). Real daytime demo hours (Mon–Fri 8–5, Sat 9–1, Sun Closed) + a booking-forward after-hours greeting (no "office is
         closed"), with regression tests. Fixes failure (1) only; does NOT fix the "8 AM just taken" failure (that is G1). The live Firestore doc
         keeps the round-the-clock hours until the owner edits Settings or relaunches Demo Studio (a relaunch now applies the real hours).
-        Not yet proven by a real call.
-  - [ ] **G1 — Booking engine** (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`, start now — disjoint from T-144). Shared
+        Not yet proven by a real call. (G1 changes the demo's Saturday to Closed.)
+  - [~] **G1 — Booking engine** — **MERGED to local main 2026-09-27 after integrator review (`df6aaba`); NOT pushed/deployed; booking-change gate
+        still open** (ElevenLabs tool update, agent tests, a real booking call + transcript). (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`). Shared
         hours module (one parser), capacity model + capacity-aware locks, `preferredTime` (was T-147), closest alternatives on conflict,
         overnight guard, DST-correct local times, demo hours Mon–Fri 8–5 + seeded items at business-hour times, tool schema + agent prompt
         "How to book", `setup-elevenlabs-agent.mjs --update-tools`, the §4 booking scenario suite (incl. a replay of Carla's exact tool calls),

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   bookAppointment: vi.fn(), createLead: vi.fn(), escalateCall: vi.fn(),
   checkAvailability: vi.fn(), cancelAppointment: vi.fn(), lookupAppointment: vi.fn(),
-  getBusinessTimezone: vi.fn(), logAgentAction: vi.fn(),
+  getBusinessTimezone: vi.fn(), logAgentAction: vi.fn(), zonedDateTimeToUtc: vi.fn(),
 }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: vi.fn(() => null) }));
 vi.mock("@/lib/tools/agentTools", () => ({
@@ -17,6 +17,9 @@ describe("ElevenLabs tool caller identity", () => {
     vi.clearAllMocks();
     mocks.getBusinessTimezone.mockResolvedValue("America/New_York");
     mocks.logAgentAction.mockResolvedValue(undefined);
+    mocks.zonedDateTimeToUtc.mockImplementation((parts: { year: number; month: number; day: number; hour: number; minute: number }) =>
+      Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour + (parts.month >= 11 ? 5 : 4), parts.minute)
+    );
     mocks.bookAppointment.mockResolvedValue({ appointmentId: "a1", callerName: "Pat", startTime: Date.UTC(2026, 8, 30, 14), businessTimezone: "America/New_York" });
     mocks.createLead.mockResolvedValue({ callerName: "Pat" });
     mocks.escalateCall.mockResolvedValue({ status: "delivered" });
@@ -59,5 +62,57 @@ describe("ElevenLabs tool caller identity", () => {
     const cancel = await executeAgentTool("cancelAppointment", { confirmCancellation: true }, caller);
     expect(lookup.sayToCaller).toBe("Appointment 1: inspection on Tuesday.");
     expect(cancel.sayToCaller).toContain("has been cancelled");
+  });
+
+  it("returns closest openings with a booking conflict instead of making the caller guess", async () => {
+    const conflict = Object.assign(new Error("That requested time was just taken."), { code: "slot_conflict" });
+    mocks.bookAppointment.mockRejectedValue(conflict);
+    mocks.checkAvailability.mockResolvedValue({
+      available: true,
+      suggestedSlots: [
+        { startTime: "2026-09-28T13:00:00.000Z", endTime: "2026-09-28T14:00:00.000Z" },
+        { startTime: "2026-09-28T13:30:00.000Z", endTime: "2026-09-28T14:30:00.000Z" },
+        { startTime: "2026-09-28T14:00:00.000Z", endTime: "2026-09-28T15:00:00.000Z" },
+      ],
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await executeAgentTool("bookAppointment", {
+      name: "Pat", startTime: "2026-09-28T08:00", serviceType: "Inspection",
+    }, { ...context, callerPhone: "+15551234567" });
+
+    expect(result).toEqual({
+      result: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
+      sayToCaller: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
+    });
+    expect(mocks.checkAvailability).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "biz-stored", preferredDate: "2026-09-28", preferredTime: "8:00 AM",
+    }));
+  });
+
+  it("converts a bare future local date with that date's DST offset", async () => {
+    await executeAgentTool("bookAppointment", {
+      name: "Pat", startTime: "2026-11-03T09:00",
+    }, { ...context, callerPhone: "+15551234567" });
+    expect(mocks.zonedDateTimeToUtc).toHaveBeenCalledWith({
+      year: 2026, month: 11, day: 3, hour: 9, minute: 0, second: 0,
+    }, "America/New_York");
+    expect(mocks.bookAppointment).toHaveBeenCalledWith(expect.objectContaining({
+      startTime: Date.parse("2026-11-03T14:00:00.000Z"),
+    }));
+  });
+
+  it("captures a lead when hours are not set up and never says no openings", async () => {
+    mocks.checkAvailability.mockResolvedValue({
+      available: false, suggestedSlots: [], hoursStatus: "missing_or_invalid",
+    });
+    const result = await executeAgentTool("checkAvailability", {
+      name: "Pat", serviceType: "Inspection", preferredDate: "2026-09-28",
+    }, { ...context, callerPhone: "+15551234567" });
+    expect(mocks.createLead).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "biz-stored", callerName: "Pat", callerPhone: "+15551234567", serviceRequested: "Inspection",
+    }));
+    expect(result.result).toContain("hours are not set up");
+    expect(result.result).not.toContain("No openings");
   });
 });

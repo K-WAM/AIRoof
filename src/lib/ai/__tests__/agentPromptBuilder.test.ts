@@ -91,7 +91,10 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("## Using your tools");
     expect(prompt).toMatch(/call checkAvailability/);
     expect(prompt).toMatch(/call bookAppointment/);
-    expect(prompt).toContain("Only AFTER it returns");
+    expect(prompt).toContain("preferredDate and preferredTime");
+    expect(prompt).toContain("bookAppointment for exactly that time");
+    expect(prompt).toContain("never ask the caller to pick blindly");
+    expect(prompt).toContain("Only AFTER bookAppointment succeeds");
     expect(prompt).toContain("Never tell the caller you checked, booked or cancelled anything unless you actually called that tool");
     expect(prompt).toContain("do not pretend it worked");
     expect(prompt).not.toContain("say \"One moment while I check the calendar.\"");

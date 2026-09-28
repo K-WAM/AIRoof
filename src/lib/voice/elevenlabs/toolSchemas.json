@@ -1,7 +1,7 @@
 [
   {
     "name": "bookAppointment",
-    "description": "Book a new appointment for the caller. Use once you have the caller's name, the service they need, and the date and time they want. Returns a short confirmation sentence (sayToCaller) — say that to the caller. The result also carries an internal reference: never read it aloud or spell it out.",
+    "description": "Book the exact date and time the caller chose after checkAvailability confirms it is open. If a conflict is returned, read the closest openings to the caller instead of asking them to guess. Only say the appointment is booked after this tool succeeds. Returns caller-ready sayToCaller copy plus an internal reference that must never be read aloud.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/bookAppointment",
     "parameters": {
@@ -81,7 +81,7 @@
   },
   {
     "name": "checkAvailability",
-    "description": "Find open appointment slots in the next few days. Use when a caller asks what times are available or wants to pick a day. Returns a short list of suggested slots to offer the caller.",
+    "description": "Check the real calendar before booking. When the caller names a day and time, send both preferredDate and preferredTime. The result says whether that exact time is open and gives the closest real openings if it is not. Never invent a time.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/checkAvailability",
     "parameters": {
@@ -89,7 +89,11 @@
       "properties": {
         "preferredDate": {
           "type": "string",
-          "description": "The day the caller prefers, as YYYY-MM-DD. Omit to search from the next business day."
+          "description": "The day the caller prefers, as YYYY-MM-DD. Omit to search from today."
+        },
+        "preferredTime": {
+          "type": "string",
+          "description": "The caller's preferred local time, such as 8am, 08:00, 2:30 PM, morning, or afternoon. Omit only when they have no time preference."
         },
         "serviceType": {
           "type": "string",

@@ -30,6 +30,7 @@ const checkAvailabilityInputSchema: z.ZodType<
 > = z.object({
   businessId: identifier,
   preferredDate: optionalModelText(100),
+  preferredTime: optionalModelText(100),
   serviceType: optionalModelText(200),
   durationMinutes: finiteInteger.pipe(z.number().positive().max(1_440)).optional(),
 });

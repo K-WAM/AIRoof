@@ -17,11 +17,17 @@ import {
   SchedulingConflictError,
   bookAppointment,
   buildAvailableSlots,
+  checkAvailability,
   cancelAppointment,
   escalateCall,
   lookupAppointment,
   isScheduleWithinBusinessHours,
+  isWindowFree,
+  parsePreferredTime,
+  scheduleCapacityResourceKey,
+  scheduleLockId,
   scheduleRangesOverlap,
+  schedulingCapacity,
   zonedDateTimeToUtc,
 } from "@/lib/tools/agentTools";
 
@@ -194,6 +200,18 @@ describe("scheduling ranges and business time", () => {
     expect(scheduleRangesOverlap(100, 200, 200, 300)).toBe(false);
   });
 
+  it("uses active crew/resource count as capacity with a minimum of one", () => {
+    expect(schedulingCapacity([])).toBe(1);
+    expect(schedulingCapacity([{ active: true }, {}, { active: false }])).toBe(2);
+    expect(isWindowFree({ startTime: 100, endTime: 200 }, [
+      { startTime: 100, endTime: 200, status: "requested" },
+    ], [], 2)).toBe(true);
+    expect(isWindowFree({ startTime: 100, endTime: 200 }, [
+      { startTime: 100, endTime: 200, status: "requested" },
+      { startTime: 150, endTime: 250, status: "confirmed" },
+    ], [], 2)).toBe(false);
+  });
+
   it("rejects a closed business day", () => {
     const start = Date.parse("2026-07-26T14:00:00.000Z"); // Sunday 10am New York
     expect(
@@ -241,32 +259,16 @@ describe("scheduling ranges and business time", () => {
     expect(slots[0].startTime).toBe("2026-07-27T15:00:00.000Z");
   });
 
-  // Regression, live bug found 2026-09-27: the demo line used to set round-the-clock hours
-  // ("00:00 - 24:00" every day, see demo-customize/route.ts's old DEMO_ALWAYS_OPEN_HOURS) so a
-  // prospect testing the line after hours would never hear "the office is closed". A real caller
-  // (Carla Snyder) asked for an 8am inspection on three different days and was offered the same
-  // three near-midnight slots each time. Root cause: buildAvailableSlots has no notion of a
-  // PREFERRED TIME, only a preferred DATE — it always offers the first N slots starting from the
-  // day's OPEN minute, and "open" was midnight, so every day's first three slots were identical.
-  it("regression: round-the-clock business hours suggest near-midnight slots no matter what day is asked", () => {
+  it("never suggests overnight slots for a round-the-clock tenant unless requested", () => {
     const roundTheClock = Object.fromEntries(
       ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => [day, "00:00 - 24:00"])
     );
-    const localTimesFor = (preferredDate: string) =>
-      buildAvailableSlots({
-        businessHours: roundTheClock,
-        timeZone: "America/New_York",
-        preferredDate,
-        existing: [],
-        maxSlots: 3,
-        now: new Date("2026-07-20T12:00:00.000Z"),
-      }).map((s) =>
-        new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
-      );
-    // Monday, Tuesday, Wednesday — exactly what Carla asked for, in order.
-    expect(localTimesFor("2026-07-27")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
-    expect(localTimesFor("2026-07-28")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
-    expect(localTimesFor("2026-07-29")).toEqual(["12:00 AM", "12:30 AM", "1:00 AM"]);
+    const localTimesFor = (preferredTime?: string) => buildAvailableSlots({
+      businessHours: roundTheClock, timeZone: "America/New_York", preferredDate: "2026-07-27",
+      preferredTime, existing: [], maxSlots: 3, now: new Date("2026-07-20T12:00:00.000Z"),
+    }).map((slot) => new Date(slot.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }));
+    expect(localTimesFor()).toEqual(["7:00 AM", "7:30 AM", "8:00 AM"]);
+    expect(localTimesFor("2:00 AM")[0]).toBe("2:00 AM");
   });
 
   it("realistic weekday hours suggest sensible daytime slots instead (the actual fix)", () => {
@@ -282,6 +284,45 @@ describe("scheduling ranges and business time", () => {
       new Date(s.startTime).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" })
     );
     expect(localTimes).toEqual(["9:00 AM", "9:30 AM", "10:00 AM"]);
+  });
+
+  it.each([["8am", 480], ["08:00", 480], ["2:30 PM", 870], ["morning", 480], ["afternoon", 780]])(
+    "parses preferred time %s",
+    (value, expected) => expect(parsePreferredTime(value)).toBe(expected)
+  );
+
+  it("puts an exact open preferred time first", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "10:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots[0].startTime).toBe("2026-09-28T14:00:00.000Z");
+  });
+
+  it("moves a closed Saturday request to Monday daytime", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-10-03",
+      preferredTime: "10:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.every((slot) => slot.startTime.startsWith("2026-10-05"))).toBe(true);
+  });
+
+  it("gives the last same-day opening then the next business day when a request is after closing", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "18:00", existing: [], now: new Date("2026-09-27T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.map((slot) => slot.startTime)).toEqual([
+      "2026-09-28T20:00:00.000Z", "2026-09-29T13:00:00.000Z", "2026-09-29T13:30:00.000Z",
+    ]);
+  });
+
+  it("never offers a past time when today was requested", () => {
+    const slots = buildAvailableSlots({
+      businessHours: weekdayHours, timeZone: "America/New_York", preferredDate: "2026-09-28",
+      preferredTime: "9:00 AM", existing: [], now: new Date("2026-09-28T20:59:21.000Z"), maxSlots: 3,
+    });
+    expect(slots.every((slot) => Date.parse(slot.startTime) > Date.parse("2026-09-28T20:59:21.000Z"))).toBe(true);
   });
 });
 
@@ -375,11 +416,39 @@ describe("bookAppointment transaction", () => {
     const startTime = Date.parse("2030-07-23T14:00:00.000Z");
     firestore.documents.set("businesses/biz-1/appointments/old", { startTime, endTime: startTime + 3600000, status: "cancelled" });
     for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
-      firestore.documents.set(`businesses/biz-1/schedulingLocks/unassigned:${bucket}`, { entityId: "old" });
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), bucket)}`, { entityType: "appointment", entityId: "old" });
     }
     vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
     const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
-    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/unassigned:${startTime}`)?.entityId).toBe(next.appointmentId);
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), startTime)}`)?.entityId).toBe(next.appointmentId);
+  });
+
+  it("reclaims a lock whose appointment no longer exists", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    for (let bucket = startTime; bucket < startTime + 3600000; bucket += 900000) {
+      firestore.documents.set(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), bucket)}`, { entityType: "appointment", entityId: "missing" });
+    }
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const next = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
+    expect(firestore.documents.get(`businesses/biz-1/schedulingLocks/${scheduleLockId(scheduleCapacityResourceKey(0), startTime)}`)?.entityId).toBe(next.appointmentId);
+  });
+
+  it("allows two parallel bookings for two active crews and rejects the third", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: weekdayHours });
+    firestore.documents.set("businesses/biz-1/crews/crew-1", { active: true });
+    firestore.documents.set("businesses/biz-1/crews/crew-2", { active: true });
+    firestore.documents.set("businesses/biz-1/crews/crew-disabled", { active: false });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    const input = { businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123", startTime, endTime: startTime + 3600000 };
+    const first = await bookAppointment(input);
+    const second = await bookAppointment({ ...input, callerName: "Jordan", callerPhone: "+15555550124" });
+    expect([first.scheduleCapacityUnit, second.scheduleCapacityUnit].sort()).toEqual([0, 1]);
+    await expect(bookAppointment({ ...input, callerName: "Morgan", callerPhone: "+15555550125" }))
+      .rejects.toMatchObject({ code: "slot_conflict" });
   });
 
   it("rebooks the same time after a verified cancellation releases its locks", async () => {
@@ -397,6 +466,19 @@ describe("bookAppointment transaction", () => {
     const second = await bookAppointment({ businessId: "biz-1", callerName: "Jordan", callerPhone: "+15555550124", startTime, endTime: startTime + 3600000 });
     expect(second.appointmentId).not.toBe(first.appointmentId);
     expect(firestore.documents.get(`businesses/biz-1/appointments/${first.appointmentId}`)?.status).toBe("cancelled");
+  });
+});
+
+describe("checkAvailability configuration", () => {
+  it("reports missing hours explicitly instead of calling them no openings", async () => {
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", { timezone: "America/New_York", businessHours: "garbage" });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    await expect(checkAvailability({ businessId: "biz-1" })).resolves.toEqual({
+      available: false,
+      suggestedSlots: [],
+      hoursStatus: "missing_or_invalid",
+    });
   });
 });
 

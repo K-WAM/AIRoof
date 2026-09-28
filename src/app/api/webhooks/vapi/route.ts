@@ -327,6 +327,7 @@ async function executeTool(
         const result = await checkAvailability({
           businessId,
           preferredDate: optionalStr(params.preferredDate),
+          preferredTime: optionalStr(params.preferredTime),
           serviceType: optionalStr(params.serviceType ?? params.service),
         });
         if (!result.available || result.suggestedSlots.length === 0) {
