@@ -602,8 +602,8 @@ export default function CalendarBoard() {
           </h1>
           <p className="page-subtitle">
             {apptMode
-              ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.customerNoun.toLowerCase()}.`
-              : `Your scheduling board — drag a ${vocab.jobNoun.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} & day, pick a time, then Confirm to email the ${vocab.resourceNoun.toLowerCase()} and lock it in.`}
+              ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} and day, then confirm to notify the ${vocab.customerNoun.toLowerCase()}.`
+              : "Drag bookings onto inspectors and jobs onto crews, then confirm to send the right notifications."}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
