@@ -366,8 +366,12 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 
 - **Crew role** (`src/types/team.ts`: `TeamRole` + `TEAM_ROLE_LABEL`/`TEAM_ROLE_HELP`/`CREW_MEMBER_ROLES`): field work only. It passes
   `verifyFieldAccess` (read + write) and the shell bootstrap, and nothing else — office routes list their roles, so "crew" is refused
-  by default. **Never add "crew" to an office route's list.** `company/layout.tsx` keeps a Crew login on `/company/field`; offered only
+  by default. **Never add "crew" to an office route's list** — the only exceptions (T-155) are scoped to the member's OWN crew row
+  from `gate.user.crewId`: GET appointments (bookings assigned to it), GET/POST/DELETE time-blocks (its own blocks) — an inspector's
+  "My schedule"; no crew row = nothing. `company/layout.tsx` keeps a Crew login on `/company/field`; offered only
   where the industry has the `jobs` module. Server-side scoping to the member's own crew's jobs is NOT done yet (TODO Phase 30).
+- **User types (T-155):** the Team page offers ONE Type — Admin / Office staff / Inspector / Technician / View only
+  (`src/lib/team/userTypes.ts`), a preset over `role` + `trade`; nothing new is stored and no gate reads the type.
 - **Crew membership lives on the person** (`TeamMember.crewId`, one crew each), never on the crew doc. `GET /api/company/crews?people=1`
   lists who can be on a crew (names/titles, no emails); `src/app/company/library/CrewsSection.tsx` edits crews + members (members: owner only).
   Deleting a crew sends its unfinished jobs back to Unscheduled and clears members (`DELETE /api/company/crews`); the Calendar also treats

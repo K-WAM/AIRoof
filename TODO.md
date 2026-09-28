@@ -1343,6 +1343,23 @@ an active queue.*
         text was ever sent** (and carriers need NH-29 registration before one can be); (f) the "24-hour notice" rule contradicts
         same-day urgent booking (dropped); (g) phone-AI capacity counted work crews for inspections. Later: live call row during a
         call, inspector workload board, inbound text replies, per-client texting numbers, Google Calendar two-way sync.
+  - [x] **T-155 (integrator, Claude Opus 5.5) — owner's follow-ups while I2 runs — committed on local main 2026-09-28, NOT pushed;
+        not yet covered by e2e:call / full e2e:test (owner: comprehensive harness later).** (1) Call Back rang caller ID, not the
+        number Carla SAID (305-389-4611 → booking kept +1 954 882 9586 → carrier "not available" recording → Alice talked into it):
+        bookAppointment/createLead take `callbackPhone`, kept beside caller ID + a "Callback number:" notes line; Call Back, the
+        follow-up cron (also no longer says "roofing inquiry" to every industry), confirm/booking texts and the inspector notice
+        dial `contactPhone()`. **Live tools need `setup-elevenlabs-agent.mjs --update-tools` after the next deploy.** (2) A lead shows
+        "<Job> created" + "Open Job J-…"; one call's lead + booking share one job (from-request reuses/stamps siblings by
+        sourceCallId). (3) Time clock: Arrived at office / Arrived at job / Left J-… / Start lunch / Back from lunch / Done for the
+        day (also straight from a site), one filled next-step button, inline "pick a job" hint, one-tap job switch, "Last tap" line.
+        (4) Inspector comments on findings from the field screen (`JobFinding.note`, field-safe PATCH that also updates a DRAFT
+        quote); printed on report/quote/invoice; editable in the office Findings + Quote panels. (5) A field-only login sees and
+        blocks time on its OWN crew row (appointments + time-blocks APIs) so I2's "My schedule" works for an Inspector login.
+        (6) Team page: one Type (Admin / Office staff / Inspector / Technician / View only) instead of Role + 10 Titles.
+        **I2 merge note:** `src/app/company/team/page.tsx` conflicts on Codex's one added TitleHelp line — take main's side
+        (TitleHelp is gone); team.ts/landing.ts inspector hunks are identical on both sides.
+        **Owner decisions open:** Inspector = field-only (no prices; the office prices the quote from their findings) — flip to
+        Office staff per person if an inspector should also quote. Technician = field-only too.
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
