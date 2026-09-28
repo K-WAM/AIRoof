@@ -23,19 +23,28 @@ const renderCard = (overrides: Partial<ComponentProps<typeof RequestReviewCard>>
 };
 
 describe("RequestReviewCard", () => {
-  it("confirms the request and passes through the optional call notification", async () => {
+  it("defaults to email when texting is off and never offers an AI confirmation call", async () => {
     const { onAccept } = renderCard({ request: { status: "new", callerName: "Mina", callerPhone: "555-0100", callerEmail: "mina@example.com", address: "1 Main St", serviceRequested: "Repair" } });
-    expect(screen.getByLabelText(/Have the AI phone them/i)).not.toBeChecked();
-    fireEvent.click(screen.getByLabelText(/Have the AI phone them/i));
-    fireEvent.click(screen.getByRole("button", { name: /Confirm & create job/i }));
-    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledWith(true));
+    expect(screen.queryByLabelText("Text")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeChecked();
+    expect(screen.queryByText(/AI phone them/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Confirm & email/i }));
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledWith("email"));
   });
 
-  it("starts with the confirmation call ticked when there is no email to confirm by", async () => {
+  it("shows I'll call them with a tap-to-call link when no electronic channel is available", async () => {
     const { onAccept } = renderCard();
-    expect(screen.getByLabelText(/Have the AI phone them to confirm \(no email on file\)/i)).toBeChecked();
+    expect(screen.getByLabelText(/I'll call them/i)).toBeChecked();
+    expect(screen.getByRole("link", { name: /Call 555-0100/i })).toHaveAttribute("href", "tel:555-0100");
     fireEvent.click(screen.getByRole("button", { name: /Confirm & create job/i }));
-    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledWith(true));
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledWith("none"));
+  });
+
+  it("offers Text first only when texting is enabled and the caller allowed it", async () => {
+    const { onAccept } = renderCard({ smsEnabled: true, request: { status: "new", callerName: "Mina", callerPhone: "555-0100", callerEmail: "mina@example.com", textOk: true, address: "1 Main St", serviceRequested: "Repair" } });
+    expect(screen.getByLabelText("Text")).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /Confirm & text/i }));
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledWith("sms"));
   });
 
   it("shows why an action failed instead of silently stopping", async () => {

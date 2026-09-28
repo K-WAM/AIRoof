@@ -58,6 +58,7 @@ interface AppointmentRef {
   appointmentId: string;
   sourceCallId?: string;
   callerName?: string; callerPhone?: string; callerEmail?: string; serviceType?: string; address?: string; notes?: string; intake?: Record<string, string>; startTime?: number; status?: string;
+  textOk?: boolean; assignedCrewId?: string; assignedBy?: "ai" | "office"; callSummary?: string;
 }
 
 function formatTime(ms: number, tz: string): string {
@@ -114,8 +115,11 @@ export default function CompanyCallsPage() {
   // appointment (if any) each call produced, by matching on sourceCallId.
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
+  const [crewNames, setCrewNames] = useState<Record<string, string>>({});
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
-  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
+  const bootstrapBusiness = useBootstrap().data?.business;
+  const phoneLine = bootstrapBusiness?.phoneLine ?? null;
+  const smsEnabled = bootstrapBusiness?.smsEnabled === true;
 
   const initialLoadDone = useRef(false);
   const loadCalls = useCallback(async () => {
@@ -161,15 +165,15 @@ export default function CompanyCallsPage() {
     const { job } = await res.json() as { job: { jobId: string } };
     window.location.href = `/company/jobs/${job.jobId}${preview ? `?preview=${preview}` : ""}`;
   }
-  async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string) {
+  async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string, notifyChannel?: "sms" | "email" | "none") {
     if (!review) return;
     if (review.lead) {
-      const response = await fetch(`/api/businesses/${businessId}/leads/${review.lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(reason ? { declineReason: reason, customMessage } : {}) }) });
+      const response = await fetch(`/api/businesses/${businessId}/leads/${review.lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(notifyChannel ? { notifyChannel } : {}), ...(reason ? { declineReason: reason, customMessage } : {}) }) });
       if (!response.ok) throw new Error("Request decision failed");
     } else if (review.appointment) {
       const response = reason
         ? await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, declineReason: reason, customMessage }) })
-        : await fetch("/api/appointments/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, appointmentId: review.appointment.appointmentId }) });
+        : await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel: notifyChannel ?? "none" }) });
       if (!response.ok) throw new Error("Request decision failed");
     }
   }
@@ -184,15 +188,17 @@ export default function CompanyCallsPage() {
   useEffect(() => {
     if (!businessId) return;
     const base = `/api/businesses/${businessId}`;
-    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
-      .then(async ([leadsRes, apptsRes]) => {
-        if (!leadsRes.ok || !apptsRes.ok) return;
-        const [{ leads }, { appointments }] = (await Promise.all([
+    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`), fetch(`/api/company/crews?businessId=${businessId}`)])
+      .then(async ([leadsRes, apptsRes, crewsRes]) => {
+        if (!leadsRes.ok || !apptsRes.ok || !crewsRes.ok) return;
+        const [{ leads }, { appointments }, { crews }] = (await Promise.all([
           leadsRes.json(),
           apptsRes.json(),
-        ])) as [{ leads: LeadRef[] }, { appointments: AppointmentRef[] }];
+          crewsRes.json(),
+        ])) as [{ leads: LeadRef[] }, { appointments: AppointmentRef[] }, { crews: Array<{ crewId: string; name: string }> }];
         setLinkedLeads(leads ?? []);
         setLinkedAppts(appointments ?? []);
+        setCrewNames(Object.fromEntries((crews ?? []).map((crew) => [crew.crewId, crew.name])));
       })
       .catch(() => {});
   }, [businessId, linksKey]);
@@ -453,14 +459,16 @@ export default function CompanyCallsPage() {
       <RequestReviewDialog
         open={!!review}
         onClose={() => setReview(null)}
-        request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested" } : null}
+        request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested", assignedCrewName: review.appointment.assignedCrewId ? crewNames[review.appointment.assignedCrewId] : undefined } : null}
         call={review ? { summary: review.call.summary, recordingUrl: review.call.recordingUrl, transcript: review.call.messages } : undefined}
+        timeZone={tz}
+        smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId, "confirm"); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
+        onAccept={async (notifyChannel) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed", undefined, undefined, notifyChannel); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );

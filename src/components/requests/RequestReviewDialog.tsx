@@ -9,10 +9,12 @@ export function RequestReviewDialog(props: {
   onClose: () => void;
   request: ReviewRequest | null;
   call?: ReviewCall;
+  timeZone?: string;
+  smsEnabled?: boolean;
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
-  onAccept: (notifyByCall: boolean) => Promise<void>;
+  onAccept: (notifyChannel: "sms" | "email" | "none") => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
 }) {

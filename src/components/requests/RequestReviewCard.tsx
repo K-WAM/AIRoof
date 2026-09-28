@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { missingRequestInformation, type RequestReviewEntity } from "@/lib/pipeline/requestReview";
 import { REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
+import { BookingDetails } from "@/components/appointments/BookingDetails";
 
 export type ReviewRequest = RequestReviewEntity & {
   callerName?: string;
@@ -13,6 +14,10 @@ export type ReviewRequest = RequestReviewEntity & {
   status: string;
   afterHours?: boolean;
   escalated?: boolean;
+  textOk?: boolean;
+  assignedBy?: "ai" | "office";
+  callSummary?: string;
+  assignedCrewName?: string;
 };
 export type ReviewCall = {
   summary?: string;
@@ -20,18 +25,21 @@ export type ReviewCall = {
   transcript?: Array<{ role: string; text: string }>;
 };
 
-export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canCreateJob, onAccept, onDecline, onCallBack }: {
+export function RequestReviewCard({ request, call, timeZone, smsEnabled = false, intakeLabelFor, jobNoun, canCreateJob, onAccept, onDecline, onCallBack }: {
   request: ReviewRequest;
   call?: ReviewCall;
+  timeZone?: string;
+  smsEnabled?: boolean;
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
-  onAccept: (notifyByCall: boolean) => Promise<void>;
+  onAccept: (notifyChannel: "sms" | "email" | "none") => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
 }) {
-  // No email on file: a phone call is the only way the customer hears it is confirmed, so it starts ticked.
-  const [notifyByCall, setNotifyByCall] = useState(!request.callerEmail && !!request.callerPhone);
+  const canText = smsEnabled && !!request.callerPhone && request.textOk !== false;
+  const canEmail = !!request.callerEmail;
+  const [notifyChannel, setNotifyChannel] = useState<"sms" | "email" | "none">(canText ? "sms" : canEmail ? "email" : "none");
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState<RequestDeclineReason>("Outside our service area");
   const [custom, setCustom] = useState("");
@@ -44,7 +52,7 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
     setBusy(action);
     setError(null);
     try {
-      if (action === "accept") await onAccept(notifyByCall);
+      if (action === "accept") await onAccept(notifyChannel);
       if (action === "decline") await onDecline(reason, reason === "Other" ? custom.trim() : undefined);
       if (action === "call" && onCallBack) await onCallBack();
     } catch (err) {
@@ -68,11 +76,10 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
           : request.urgency?.toLowerCase() === "urgent" && <span className="tag urgent">Urgent</span>}
       </div>
 
-      <div className="request-review-grid">
-        <div><b>Service</b><span>{request.serviceRequested || request.serviceType || "Not specified"}</span></div>
-        <div><b>Address</b><span>{request.address || "Not provided"}</span></div>
-        {(request.preferredTime || request.startTime) && <div><b>Requested time</b><span>{request.preferredTime || new Date(request.startTime!).toLocaleString()}</span></div>}
-      </div>
+      <div className="request-review-grid"><div><b>Service</b><span>{request.serviceRequested || request.serviceType || "Not specified"}</span></div></div>
+      {request.startTime
+        ? <BookingDetails booking={{ ...request, callSummary: request.callSummary || call?.summary }} inspectorName={request.assignedCrewName} timeZone={timeZone} />
+        : <div className="request-review-grid"><div><b>Address</b><span>{request.address || "Not provided"}</span></div>{request.preferredTime && <div><b>Requested time</b><span>{request.preferredTime}</span></div>}</div>}
 
       {missing.length > 0 && (
         <div className="request-missing">
@@ -87,8 +94,8 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
       {request.intake && <dl className="request-intake">{Object.entries(request.intake).map(([key, value]) => (
         <div key={key}><dt>{intakeLabelFor(key)}</dt><dd>{value}</dd></div>
       ))}</dl>}
-      {request.notes && <p>{request.notes}</p>}
-      {call?.summary && <div className="summary-block"><b>AI call summary</b><p>{call.summary}</p></div>}
+      {!request.startTime && request.notes && <p>{request.notes}</p>}
+      {!request.startTime && call?.summary && <div className="summary-block"><b>From the call</b><p>{call.summary}</p></div>}
       {call?.recordingUrl && <audio controls src={call.recordingUrl} style={{ width: "100%" }} />}
       {call?.transcript?.length && <>
         <button className="button small secondary" onClick={() => setTranscript(!transcript)}>{transcript ? "Hide transcript" : "Show transcript excerpt"}</button>
@@ -96,8 +103,16 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
       </>}
 
       <div className="request-review-actions">
-        {request.callerPhone && <label><input type="checkbox" checked={notifyByCall} onChange={(event) => setNotifyByCall(event.target.checked)} /> Have the AI phone them to confirm{request.callerEmail ? "" : " (no email on file)"}</label>}
-        <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept" ? "Confirming…" : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm appointment"}</button>
+        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend style={{ fontWeight: 700, marginBottom: 6 }}>Tell them by:</legend>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {canText && <label><input type="radio" name="notify-channel" value="sms" checked={notifyChannel === "sms"} onChange={() => setNotifyChannel("sms")} /> Text</label>}
+            {canEmail && <label><input type="radio" name="notify-channel" value="email" checked={notifyChannel === "email"} onChange={() => setNotifyChannel("email")} /> Email</label>}
+            <label><input type="radio" name="notify-channel" value="none" checked={notifyChannel === "none"} onChange={() => setNotifyChannel("none")} /> I&apos;ll call them</label>
+          </div>
+          {notifyChannel === "none" && request.callerPhone && <a href={`tel:${request.callerPhone}`} style={{ display: "inline-block", marginTop: 6 }}>Call {request.callerPhone}</a>}
+        </fieldset>
+        <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept" ? "Confirming…" : notifyChannel === "sms" ? "Confirm & text" : notifyChannel === "email" ? "Confirm & email" : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>
         <button className="button secondary" onClick={() => setDecline(!decline)} disabled={busy !== null}>Decline & notify</button>
       </div>
 
