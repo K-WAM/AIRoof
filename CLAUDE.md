@@ -14,9 +14,10 @@
 
 ## Smoke harness — test the real product locally (2026-09-26)
 
-`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` → Firebase Auth/Firestore emulators + the app with 3 seeded tenants and 6 accounts (password `E2e-Passw0rd!`, e.g. `owner@roofing.e2e.test`);
+`docs/SMOKE-HARNESS.md`: `npm run e2e:up:bg` → Firebase Auth/Firestore emulators + the app with 4 seeded tenants and 7 accounts (password `E2e-Passw0rd!`, e.g. `owner@roofing.e2e.test`; `owner@empty.e2e.test` is a brand-new account);
 `npm run e2e:test` (Playwright, desktop + 375 px phone, screenshots in `test-results/screens/`); `npm run e2e:call` (phone call → pipeline → job → quote → report → invoice via the real webhooks/API, emails captured).
 Keyless, cannot reach live services. Every screen/flow change should be checked with it.
+**Rule (2026-09-27):** run `npm run e2e:call` after every change to the call → invoice flow and after every merge, and the full `e2e:test` on the merged tree before any push; report when it last ran. A green run can still hide a broken screen (`toBeVisible()` passes off-screen/unreadable; "no X on the page" passes on an error page) — read the phone screenshots. Details: AGENTS.md "Browser and end-to-end testing".
 
 ## Code Navigation — Read Graphify Before Broad Work
 
@@ -100,7 +101,7 @@ every named tier (`semiStatic`, `volatile`, `immutable`, `noStore`) is already `
 **Tech Stack**: Next.js 15, TypeScript, Firebase Auth, Firestore (Spark/free), OpenAI (incl. GPT Realtime for the live voice), DeepSeek, Vapi, Resend, @dnd-kit, Vercel
 **Repository**: https://github.com/K-WAM/AIRoof
 **Vercel Project ID**: prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2
-**Vercel URL**: https://ai-roof.vercel.app
+**Production URL**: https://crm.luxordev.com (primary, Phase 13) — `https://ai-roof.vercel.app` aliases the same deploy
 **Firebase Project**: business-expense-trackin-ef659 (web app: "airoof")
 **Firebase Auth Domain**: business-expense-trackin-ef659.firebaseapp.com
 **Superadmin**: connect@luxordev.com
@@ -345,6 +346,13 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/jobs/findings.ts, src/lib/billing/jobQuote*.ts — job findings (point-in-time snapshots) and quotes (own counter; no online acceptance/payment)
 - docs/WORKER_QUEUE.md — worker assignments + paste-ready prompts; docs/NEEDS-HUMAN-CHECKLIST.md — the owner's click-by-click list
 
+## Phase 27 (T-144, "no training needed") Key Files
+
+- src/components/ui/EmptyState.tsx — the one empty-state component (title, body, ONE primary `action`, optional ghost `secondary`, `tone="dark"` for the field screens). Viewer = no action. Spec: `docs/NO-TRAINING-UX-PLAN.md` §2–3.
+- src/lib/onboarding/setupChecklist.ts + src/app/api/company/setup-status/route.ts — the Dashboard "Get your business ready" checklist (pure, vocab/module-aware) and its counts (single doc reads + count() only; team members are `businessUsers` where businessId==).
+- src/hooks/useWaitingRequests.ts — "Review requests (n)" count for the Jobs/Calendar empty states; fetches only while the screen is empty.
+- `bootstrap.business.phoneLine` — the AI line for every "Call your line" button (ElevenLabs number, else Main phone); don't add per-page fetches for it.
+
 ## Navigation Completeness Rule
 
 Every `page.tsx` must have a reachable UI path before being committed:
@@ -357,8 +365,8 @@ Check nav before closing any session. `/end-session` command includes a nav audi
 ## Agent Verification Protocol
 
 Before asking the user to verify anything, use CLI/curl first:
-- **Is Firestore connected?** `curl https://ai-roof.vercel.app/api/health`
-- **Did the deploy succeed?** `vercel logs --environment production --no-follow` or `git log --oneline -3`
+- **Is Firestore connected?** `curl https://crm.luxordev.com/api/health`
+- **Did the deploy succeed?** `vercel ls --prod` (newest first), then `vercel inspect <url> --wait` — Ready + an alias list that includes `crm.luxordev.com`; runtime errors: `vercel logs --environment production --no-follow`
 - **Is a package installed?** `npm list <package>`
 - **Did Firestore rules deploy?** `firebase deploy --only firestore:rules --project business-expense-trackin-ef659 --dry-run`
 - **Is a file/path correct?** Use Glob, Grep, or Read — not user confirmation

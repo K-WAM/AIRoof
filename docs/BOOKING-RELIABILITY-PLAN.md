@@ -45,8 +45,8 @@ The requested times were parsed correctly (8:00 AM Eastern). So there are **two 
 
 Why nothing caught it: each change passed unit tests **for its own rule in isolation**. No test covered "a seeded demo
 tenant + a caller asking for a normal time", and **no real booking call was made after either change**. The 09-27
-hotfix (`6fcbe12`, real hours + booking-forward after-hours greeting) repairs failure 1 only, is on local `main`, and is
-not deployed.
+hotfix (`6fcbe12`, real hours + booking-forward after-hours greeting) repairs failure 1 only; it was deployed the
+evening of 2026-09-27 (push `ea80f54`) and is not yet proven by a real call.
 
 ## 3. Decisions (apply them; do not re-open)
 
@@ -117,11 +117,13 @@ No software can promise zero bugs. What we can guarantee is that **a broken book
 Integrator after G1 merges: push the tool-schema change to the live agent (setup script `--update-tools`, needs the
 key, owner OK), create and run the ElevenLabs agent tests, relaunch Demo Studio, place the §4 test calls.
 
-## 7. Owner, right now (no deploy needed, 2 minutes)
+## 7. Owner, right now (2 minutes)
 
-The live line is still broken until a deploy. Until then:
-1. As superadmin open `/company/settings?preview=demo-roofing` → Business hours → Monday–Friday `08:00 - 17:00`
-   (type it exactly like that), Saturday and Sunday `Closed` → Save. This stops the midnight suggestions immediately.
-2. **Do not relaunch Demo Studio** until the fix is deployed — a relaunch on the current production code puts the
-   round-the-clock hours back.
-3. The "8 AM just taken" problem can remain until G1 ships (it depends on what is sitting on the live calendar).
+Updated 2026-09-27 evening: the hotfix is deployed, but the live `demo-roofing` document still holds the round-the-clock
+hours until one of these runs:
+1. Relaunch Demo Studio (Roofing) — on the deployed code a launch now writes the real hours (Mon–Fri 8–5, Sat 9–1, Sun
+   Closed); **or**
+2. As superadmin open `/company/settings?preview=demo-roofing` → Business hours → Monday–Friday `08:00 - 17:00`
+   (type it exactly like that), Saturday and Sunday `Closed` → Save.
+3. Then one test call asking for a weekday morning; read the transcript. The "8 AM just taken" problem can remain until
+   G1 ships (it depends on what is sitting on the live calendar).

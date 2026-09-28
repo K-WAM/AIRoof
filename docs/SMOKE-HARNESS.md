@@ -10,7 +10,7 @@ emulators**, with a seeded world, real login, real webhooks, captured email, and
 |---|---|
 | **A running app** | `next dev` on `http://localhost:<port>` (port is per-checkout, printed by `e2e:up`) talking to local emulators |
 | **Real login** | 6 seeded accounts (password `E2e-Passw0rd!`), signed in through the real login form |
-| **3 tenants** | `e2e-roofing` (jobs mode), `e2e-dental` (appointments mode, no Jobs tab), `demo-roofing` (what Demo Studio expects) |
+| **4 tenants** | `e2e-roofing` (jobs mode), `e2e-dental` (appointments mode, no Jobs tab), `demo-roofing` (what Demo Studio expects), `e2e-empty` ("Fresh Roofing Co": phone line only, nothing else — for first-run/empty states) |
 | **Phone calls** | `simulateCall()` drives the REAL ElevenLabs webhooks (initiation → tools → signed post-call) — no phone, no ElevenLabs |
 | **Email** | Captured to the `_e2eOutbox` collection instead of Resend; read with `outbox()` — exactly what a customer would get |
 | **AI field notes** | A deterministic parser stands in for OpenAI (understands "Used 12 bundles of shingles. Carlos worked 8 hours. Found a cracked vent boot.") |
@@ -27,9 +27,10 @@ All use password **`E2e-Passw0rd!`**. In specs: `as("owner")`. In scripts: `api(
 | `crew` | crew@roofing.e2e.test | e2e-roofing | staff, trade "technician" |
 | `viewer` | viewer@roofing.e2e.test | e2e-roofing | viewer (read-only) |
 | `dentalOwner` | owner@dental.e2e.test | e2e-dental | owner |
+| `emptyOwner` | owner@empty.e2e.test | e2e-empty | owner (the only member — keep it that way, the Team empty state and checklist depend on it) |
 | `superadmin` | superadmin@e2e.test | (platform) | superadmin — Hub/Admin, `?preview=<tenant>` |
 
-The AI phone lines: roofing `+15550100`, dental `+15550200`, demo `+15550300`.
+The AI phone lines: roofing `+15550100`, dental `+15550200`, demo `+15550300`, empty `+15550400`.
 
 ## Start / stop (do this once per session)
 
@@ -82,13 +83,16 @@ test("owner can do the thing", async ({ as }) => {
 | `e2e/smoke.spec.ts` | 31 page loads (right role, right tenant) load with no errors and no sideways scroll; industry gating (dental has no Jobs); a client owner cannot open Admin; Feedback hidden for superadmin |
 | `e2e/call-to-cash.spec.ts` | call → Calls page with transcript → Pipeline request → Review card → Confirm (email captured) → Create Job (remembers the call) → field note → photos → finding → quote → report (no prices) → invoice → paid, in the UI on desktop and phone |
 | `e2e/photos.spec.ts` | Photos tab drag-and-drop by mouse and keyboard persists across a reload; Before/After pairs render |
+| `e2e/empty-states.spec.ts` | (T-144) as the empty owner: every screen's empty state + its one primary button, each button lands in the right place, all 8 job tabs, the setup checklist counts up after "Load example prices"; roofing viewer never offered a write action (and every page actually loads); dental reads "provider". Wipes `e2e-empty`'s subcollections in `beforeAll` so reruns stay honest |
 | `scripts/e2e/scenarios/call-to-cash.cjs` | the same story with no browser, step by step pass/fail |
 
-**KNOWN UI BUGS the suite found** (tracked in `KNOWN_PHONE_OVERFLOW` in `e2e/smoke.spec.ts` and printed as `known-issue` in the report):
-on a 375 px phone these pages are wider than the screen — Dashboard feed, Jobs table, Settings, Field, Hub/Demo Studio, Hub Playbooks, Admin Invoices;
-the job Invoice tab crams a full-width letter and its tables onto the phone; photo-card icon buttons are ~20 px (target 40); on a photo card in the
-"Other" section the delete icon is squeezed out; the company sidebar's **Feedback** link is partly hidden behind the "Add" button on a short desktop window.
-**Fixing one? Delete its line from the list** — the test fails if a listed page stops overflowing, so the list stays honest.
+**Known phone-overflow bugs:** `KNOWN_PHONE_OVERFLOW` in `e2e/smoke.spec.ts` has been **empty since T-129 (2026-09-27)** — every page fits a
+375 px phone. Keep it empty: a new overflow is a bug to fix, not a line to add. (If one must be tracked temporarily, add it there; the test fails
+once a listed page stops overflowing, so the list stays honest.)
+
+**Blind spots that bit us (T-144, 2026-09-27):** `toBeVisible()` passes for something off-screen in a sideways-scrolling container and for text
+the same color as its background; a "no X on this page" check passes on an error page. Read the phone screenshots, and see AGENTS.md
+"Browser and end-to-end testing" for the rules that came out of it.
 
 ## What it cannot check (say so in your report, do not claim it)
 

@@ -3,8 +3,9 @@
 Written 2026-09-23 for the owner. Companion to the `NEEDS-HUMAN` table in `TODO.md` (IDs match).
 Third-party dashboards rename buttons now and then — if a label differs slightly, follow the intent.
 
-**Live URLs.** App: `https://ai-roof.vercel.app` (and `https://crm.luxordev.com` once NH-17 is done).
-Webhook: `https://ai-roof.vercel.app/api/webhooks/vapi`. Demo line: **+1 (754) 283-7658**.
+**Live URLs (updated 2026-09-27).** App: **`https://crm.luxordev.com`** (live; `https://ai-roof.vercel.app` is the same deploy).
+Legacy Vapi webhook stays on `https://ai-roof.vercel.app/api/webhooks/vapi` (see NH-17 step 5). Demo line: **+1 (689) 204-2643** (ElevenLabs,
+tenant `demo-roofing`); the old Vapi number +1 (754) 283-7658 is no longer advertised.
 Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: `business-expense-trackin-ef659`.
 
 **Already verified by Claude on 2026-09-23 (no need to redo):**
@@ -83,7 +84,7 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 ## NH-8 — Real-device click tests (20 min)
 
 **A. Calendar drag → confirm (desktop browser)**
-1. Sign in at `https://ai-roof.vercel.app` as the demo owner (or superadmin → Hub → Demo Studio → launch Roofing).
+1. Sign in at `https://crm.luxordev.com` as the demo owner (or superadmin → Hub → Demo Studio → launch Roofing).
 2. Company → **Calendar**. In the unscheduled tray, drag a job onto a **crew × day** cell.
 3. *Pass:* the tile appears **grey/dashed** (provisional). Click **Confirm** → it turns solid with the crew colour. If the crew has an email, a **branded crew email** arrives.
 4. Also try: drag a confirmed job to another day, and the mobile layout (browser device toolbar).
@@ -143,7 +144,7 @@ Or console: **console.cloud.google.com → Firestore → Time-to-live → Create
 
 **NH-7 — Branch protection: DONE 2026-09-23.** Required check `gate`; administrators can bypass, so direct pushes to `main` still work; force-push and deletion are blocked. (Doing this exposed that CI had been failing for weeks on a critical Next.js advisory; fixed by upgrading to 15.5.26.)
 
-**T-081 / NH-14 — Stripe key (10 min).** Stripe Dashboard → **Developers → API keys** → *Create restricted key* (Payment Links: write; Products: write; Prices: write) or use the secret key → copy. Vercel → Environment Variables → add `STRIPE_SECRET_KEY` (Production), type **Secret** → Redeploy. *Pass:* `curl https://ai-roof.vercel.app/api/health` shows `"stripe":"configured"`. (Use a *test-mode* key first, `sk_test_…`, and a real one only when you're ready to bill.)
+**T-081 / NH-14 — Stripe key (10 min).** Stripe Dashboard → **Developers → API keys** → *Create restricted key* (Payment Links: write; Products: write; Prices: write) or use the secret key → copy. Vercel → Environment Variables → add `STRIPE_SECRET_KEY` (Production), type **Secret** → Redeploy. *Pass:* `curl https://crm.luxordev.com/api/health` shows `"stripe":"configured"`. (Use a *test-mode* key first, `sk_test_…`, and a real one only when you're ready to bill.)
 
 **T-064 — Mark credentials as Secret (10 min).** Vercel → Settings → Environment Variables → for each of `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`, `RESEND_API_KEY`, `CRON_SECRET`, `FIREBASE_SERVICE_ACCOUNT_JSON` (+ `STRIPE_SECRET_KEY` when added): click ⋯ → **Edit** → set **Type = Secret** → Save. Editing pre-fills the value, so no re-entry. **One-way:** you can't read it back afterwards, so make sure you keep the originals in your password manager first. (The two Twilio vars in old notes are obsolete — ignore them.) Redeploy afterwards.
 

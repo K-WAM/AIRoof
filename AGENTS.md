@@ -115,6 +115,18 @@ look at the screenshots in `test-results/screens/`, and put the result in your f
 if the harness itself is broken, and then say exactly what failed. Also list what the harness cannot cover (real phone audio, real inbox, `next build`).
 Never point a browser test at production or at any account that is not in `scripts/e2e/config.cjs`.
 
+Lessons from T-144 (2026-09-27) — a green run can still hide a broken screen:
+- **`toBeVisible()` is not "the user can see it."** It passed for an empty state buried off-screen inside a 900 px sideways-scrolling grid on the
+  phone, and for a dark-on-dark title nobody could read. Open the phone screenshots every time; where it matters assert `toBeInViewport()` or
+  check the computed color.
+- **"No X anywhere on this page" passes on an error page.** The viewer check ("no write button inside any empty state") passed on the branch
+  while the Library page was showing its load-error screen for every viewer. Assert the page actually loaded first (the empty-states spec's
+  `visit()` fails on "Failed to load this page").
+- **Re-test the merged tree, not just the branch.** Run `npm run e2e:call` after every change to calls/booking/pipeline/jobs/documents and after
+  every merge, and the full `npm run e2e:test` on the merged tree before any push. The viewer Library bug only surfaced there.
+- **Budget time for polling pages.** Pages that poll every 5 s never reach network-idle, so each `settle()` waits its full 15 s; a spec that
+  walks 18 screens needs ~5 min. The full suite is ~94 tests / 13–19 min. Playwright wipes `test-results/` each run.
+
 ## Test expectations
 
 - vitest (from T-000). Unit-test auth boundaries with **negative cases first** (missing/wrong/expired/replayed).
@@ -192,6 +204,15 @@ Never point a browser test at production or at any account that is not in `scrip
   to LF once before editing (PowerShell, worktree root):
   `git ls-files src e2e scripts/e2e | ForEach-Object { $p = (Resolve-Path $_).Path; $t = [IO.File]::ReadAllText($p); if ($t.Contains("`r`n")) { [IO.File]::WriteAllText($p, $t.Replace("`r`n", "`n")) } }; git add -u`
   `git status` stays clean afterwards and no commit carries line-ending churn. You do not need to ask permission for this.
+- **A worker's "done" table is not the spec (2026-09-27).** H0's report listed commits per screen group but silently left out the whole Job-tab
+  inventory, and its code counted a Firestore collection that doesn't exist (`businesses/{id}/team` — members live in top-level
+  `businessUsers`), linked a checklist item to a Library section the page didn't accept, and relabeled the work catalog as "prices". The
+  integrator reviews the diff against the spec's own inventory/table, row by row — never the worker's summary.
+- **Sibling GET routes must agree on roles (2026-09-27).** A page that loads several endpoints in one `Promise.all` fails completely when any one
+  of them 403s. The Library page loads library + crews + customers + logos + work-catalog; work-catalog alone refused viewers, so every viewer
+  saw the load-error screen. When adding a read route a page loads alongside others, give it the same read roles as its siblings.
+- **Merging `docs/IMPLEMENTATION_LOG.md` (2026-09-27).** Both sides only ever append, so resolve a conflict byte-wise: `git show :1:` / `:2:` /
+  `:3:` to files, confirm both start with the base bytes, write ours + theirs[base.Length..]. Never open it in a patch tool (odd bytes).
 - **Run to the end (2026-09-27).** A prompt's numbered steps are ONE job. Don't stop between steps to report progress
   or ask permission. Send one message when everything is done, or when you are truly blocked after finishing
   everything you can (then use "QUESTION FOR INTEGRATOR").

@@ -1068,10 +1068,11 @@ an active queue.*
       call was made after either. **Decisions:** demo hours Mon–Fri 8–5, weekends closed; every client picks hours at setup (structured,
       validated, one parser); capacity = number of crews (min 1); the agent books the exact requested time when free and otherwise names the
       closest openings; never offer 21:00–07:00 unless asked; after-hours calls still offer real next-day times.
-  - [~] **Hotfix `6fcbe12` (integrator, 2026-09-27) — PARTIAL, not deployed.** Real daytime demo hours + a booking-forward after-hours greeting
-        (no "office is closed"), with regression tests. Fixes failure (1) only; does NOT fix the "8 AM just taken" failure; on local `main`,
-        not pushed; the live Firestore doc keeps the round-the-clock hours until the owner edits Settings or Demo Studio is relaunched on
-        deployed code. My earlier note calling this "fixed" was wrong.
+  - [~] **Hotfix `6fcbe12` (integrator, 2026-09-27) — PARTIAL, DEPLOYED 2026-09-27 evening** (push `ea80f54`, prod deploy Ready on
+        `crm.luxordev.com`). Real daytime demo hours (Mon–Fri 8–5, Sat 9–1, Sun Closed) + a booking-forward after-hours greeting (no "office is
+        closed"), with regression tests. Fixes failure (1) only; does NOT fix the "8 AM just taken" failure (that is G1). The live Firestore doc
+        keeps the round-the-clock hours until the owner edits Settings or relaunches Demo Studio (a relaunch now applies the real hours).
+        Not yet proven by a real call.
   - [ ] **G1 — Booking engine** (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`, start now — disjoint from T-144). Shared
         hours module (one parser), capacity model + capacity-aware locks, `preferredTime` (was T-147), closest alternatives on conflict,
         overnight guard, DST-correct local times, demo hours Mon–Fri 8–5 + seeded items at business-hour times, tool schema + agent prompt
@@ -1092,14 +1093,15 @@ an active queue.*
   - [ ] Integrator after G1 merges: read-only live-data check (with owner OK), push the tool schema (`--update-tools`, needs the key), create +
         run ElevenLabs agent tests via the MCP (Carla replay, taken time, after hours, weekend), push + deploy with owner approval, relaunch
         Demo Studio, place the test calls in `docs/BOOKING-TEST-SCRIPT.md`, read each transcript.
-  - [ ] NEEDS-HUMAN (now, 2 min, no deploy): `/company/settings?preview=demo-roofing` → hours Mon–Fri `08:00 - 17:00`, Sat/Sun `Closed` → Save;
-        do NOT relaunch Demo Studio until the fix is deployed.
+  - [ ] NEEDS-HUMAN (now, 2 min): the hotfix is deployed, so EITHER relaunch Demo Studio (Roofing) — it now writes the real hours — OR
+        `/company/settings?preview=demo-roofing` → hours Mon–Fri `08:00 - 17:00`, Sat/Sun `Closed` → Save. Then one test call asking for a
+        weekday morning should get daytime slots (the "8 AM just taken" failure can remain until G1 ships).
 
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
       `docs/WORKER_QUEUE.md` section **F**. Run T-144 then T-145 (same pages); F3 (T-130 code) can run in parallel with either.
-  - [x] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`) — **MERGED to local main 2026-09-27, not pushed.**
+  - [x] **T-144 — Empty states + first-run setup** (Codex, GPT-5.5 Terra medium, `air-wt-empty-states` / `task/empty-states`) — **MERGED + pushed + deployed 2026-09-27** (`ea80f54`, `crm.luxordev.com`).
         Worker did steps 1–6 partially (to `fd3346c`); the integrator finished H0 (`e1784dc`…`18a45d7`: Job tabs, Calendar/Jobs/Pipeline cases, setup-status
         data-source fixes, one-primary fixes, viewer gating, full spec) — details + gate evidence in `docs/IMPLEMENTATION_LOG.md`. Full Playwright 92 passed/0 failed,
         e2e:call 12/12, vitest 1343, build green. Leftovers handed to T-145 are listed at the end of that log entry. The re-test on merged main also

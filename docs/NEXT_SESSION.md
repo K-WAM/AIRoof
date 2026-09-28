@@ -1,19 +1,22 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-09-27 (night) — read this first; everything below is older
-- **Live booking is broken on the demo line** (real call `conv_2901m3jamh7yfz6raa84jqg2rxzs`): midnight suggestions + "8 AM just taken".
-  Spec/evidence: `docs/BOOKING-RELIABILITY-PLAN.md`. Hotfix `6fcbe12` (real hours) covers half and is NOT deployed. Owner stopgap: Settings hours
-  via `?preview=demo-roofing`, and don't relaunch Demo Studio until the fix deploys.
-- **Worker queue = `docs/WORKER_QUEUE.md` section H (4 prompts):** H0 finish T-144 (Codex A, in progress) · H1 G1 booking engine (Codex B) ·
-  H2 booking tests + canary (Deepseek, after H1) · H3 hours at setup + roofing UX pass (Codex, after H0 + H1). Then only billing + cost panel,
-  once the owner approves pricing.
-- **Integrator next:** review/merge H0 and H1 the same way as T-127/E6b/T-129 (merge together in a scratch worktree, full gates + full smoke
-  suite on the combined tree). After H1: read-only `scripts/check-booking-data.mjs` (owner OK: it needs the prod key),
-  `setup-elevenlabs-agent.mjs --update-tools`, ElevenLabs agent tests via the MCP, then push + deploy (owner approval), relaunch Demo Studio,
-  place the test calls, read each transcript (AGENTS.md "Booking-change gate").
-- Local `main` is far ahead of `origin/main` (T-127, E6b, T-129, T-130, hotfix, docs). Not pushed.
-- Done today: T-127/E6b/T-129/T-130 merged; Twilio upgraded; +1 (778) 907-9769 on the agent (still to add under Admin → Clients → demo-roofing →
-  Additional phone numbers). Pricing proposal + billing terms are in TODO T-126.
+## CURRENT STATE 2026-09-27 (late evening) — read this first; everything below is older
+- **Pushed + deployed:** `main` == `origin/main` at `ea80f54`; production (`https://crm.luxordev.com`, also `ai-roof.vercel.app`) is Ready and
+  healthy. That push shipped T-127, E6b, T-129, T-130 (extra numbers), the demo-hours hotfix `6fcbe12`, and T-144 (empty states + first-run
+  checklist) — none of it proven on a real phone call yet.
+- **Live booking on the demo line:** midnight suggestions are fixed in code (hotfix deployed) but the live `demo-roofing` doc keeps round-the-clock
+  hours until the owner relaunches Demo Studio or sets hours in Settings (`docs/BOOKING-RELIABILITY-PLAN.md` §7). "8 AM just taken" waits for G1.
+- **Worker queue = `docs/WORKER_QUEUE.md` section H:** H0 (T-144) **DONE** — the integrator finished it after the worker stopped half-way.
+  H1 G1 booking engine (Codex B, `air-wt-booking`) **still running — don't touch that worktree**. H2 (Deepseek) starts after H1 merges;
+  H3 (hours at setup + roofing UX pass) starts after H1 merges (T-144 is already on main).
+- **Integrator next:** when H1 reports, review it against the G1 spec (not the worker's summary), merge, run tsc + full vitest + `npm run e2e:call`
+  + the full Playwright suite **on the merged tree** before pushing. Then read-only `scripts/check-booking-data.mjs` (owner OK: prod key),
+  `setup-elevenlabs-agent.mjs --update-tools`, ElevenLabs agent tests via the MCP, push + deploy, relaunch Demo Studio, place the test calls,
+  read each transcript (AGENTS.md "Booking-change gate").
+- Learnings from today are in AGENTS.md ("Browser and end-to-end testing" + "Known hiccups", both dated 2026-09-27).
+- Done 2026-09-27: T-127/E6b/T-129/T-130/T-144 merged + deployed; viewer Library bug fixed; Twilio upgraded; +1 (778) 907-9769 on the agent
+  (still to add under Admin → Clients → demo-roofing → Additional phone numbers). Pricing proposal + billing terms are in TODO T-126.
+- `air-wt-empty-states` can be removed (merged); unlink its `node_modules` junction first.
 
 ## UPDATE 2026-09-25 (afternoon)
 - **Round-2 demo feedback plan:** `docs/DEMO-FEEDBACK-PLAN.md` (E1–E6 worker tasks; tracked as TODO.md Phase 25) supersedes the older D-series prompts for the next wave.
