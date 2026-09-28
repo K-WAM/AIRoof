@@ -21,6 +21,8 @@ export interface CompanyBootstrap {
     logoUrl: string | null;
     /** The AI phone line (E.164) — what empty states' "Call your line" dials. */
     phoneLine: string | null;
+    /** Phase 31 (T-152): effective texting state — env SMS_ENABLED + Twilio creds + the tenant's own smsEnabled. */
+    smsEnabled: boolean;
   };
   modules: {
     disabled: CompanyModule[];

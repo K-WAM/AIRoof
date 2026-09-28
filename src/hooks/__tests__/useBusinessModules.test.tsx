@@ -31,6 +31,7 @@ function bootstrapFor(industry: string | null, subscriptionStatus: CompanyBootst
       brandColor: null,
       logoUrl: null,
       phoneLine: null,
+      smsEnabled: false,
     },
     modules: { disabled: [], calendarMode: "jobs", family: null },
     serverNow: Date.now(),

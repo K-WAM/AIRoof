@@ -60,6 +60,13 @@ export async function GET(req: NextRequest) {
       phoneLine: (typeof d.elevenlabs?.phoneNumber === "string" && d.elevenlabs.phoneNumber)
         || (typeof d.phoneNumber === "string" && d.phoneNumber)
         || null,
+      // Phase 31 (T-152): effective texting state. SMS_ENABLED defaults false (NH-29 carrier
+      // registration); Step 6 swaps this inline check for the shared isSmsEnabled() helper.
+      smsEnabled:
+        process.env.SMS_ENABLED === "true" &&
+        !!process.env.TWILIO_ACCOUNT_SID &&
+        !!process.env.TWILIO_AUTH_TOKEN &&
+        d.smsEnabled !== false,
     },
     modules: {
       disabled: (template?.disabledModules ?? []) as CompanyModule[],

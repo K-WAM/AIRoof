@@ -60,6 +60,8 @@ export interface Crew {
   phone?: string;
   color: string;       // hex, used for calendar tiles
   active: boolean;
+  // Phase 31 (T-152): an inspector row is a crew the office schedules inspections on. Missing = "crew".
+  kind?: "crew" | "inspector";
   createdAt: number;
 }
 
