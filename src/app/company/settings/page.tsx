@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -41,6 +42,7 @@ interface Settings {
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
+  const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const canManageTeam = user?.role === "owner" || !!user?.superadmin;
 
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -360,6 +362,7 @@ export default function CompanySettingsPage() {
               </h2>
             </div>
             <div className="panel-body">
+              <p style={{ margin: "0 0 14px", fontSize: 13 }}><strong>Text messages:</strong> {smsEnabled ? "On" : "Off — waiting for carrier registration (ask Luxor)"}</p>
               <div className="form-grid">
                 <div className="field full">
                   <label htmlFor="notifEmail">Notification email</label>
