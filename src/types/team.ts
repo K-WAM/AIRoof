@@ -32,6 +32,7 @@ export const CREW_MEMBER_ROLES: ReadonlySet<TeamRole> = new Set(["owner", "staff
 // and label labor lines/punches. A foreman promoted to run the office is
 // still a foreman by trade — the two change independently.
 export type TradeTitle =
+  | "inspector"
   | "foreman"
   | "technician"
   | "journeyman"
@@ -42,10 +43,11 @@ export type TradeTitle =
   | "dispatcher"
   | "office";
 export const TRADE_TITLES: TradeTitle[] = [
-  "foreman", "technician", "journeyman", "apprentice",
+  "inspector", "foreman", "technician", "journeyman", "apprentice",
   "estimator", "installer", "helper", "dispatcher", "office",
 ];
 export const TRADE_TITLE_LABEL: Record<TradeTitle, string> = {
+  inspector: "Inspector",
   foreman: "Foreman",
   technician: "Technician",
   journeyman: "Journeyman",

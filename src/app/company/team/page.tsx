@@ -47,6 +47,7 @@ function TitleHelp() {
   return (
     <InfoButton label="What a title does">
       <span style={{ display: "block", marginBottom: 6 }}>A title is a label only — it doesn&apos;t change what someone can do. The role does that.</span>
+      <span style={{ display: "block", marginBottom: 6 }}>Inspector — opens on the Field screen with their schedule.</span>
       <span style={{ display: "block" }}>Technician, Journeyman, Apprentice, Installer and Helper open on the Field screen after sign-in; Foreman opens on Jobs.</span>
     </InfoButton>
   );
