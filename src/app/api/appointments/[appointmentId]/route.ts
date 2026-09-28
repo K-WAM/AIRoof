@@ -3,6 +3,9 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { buildCustomerConfirmationEmail } from "@/lib/notify";
 import { sendEmail } from "@/lib/comms/send";
+import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
+import { bookingConfirmed } from "@/lib/comms/smsTemplates";
+import { notifyInspector } from "@/lib/crews/inspectorNotify";
 import { buildRequestDeclineEmail, REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
@@ -24,8 +27,21 @@ interface AppointmentPatchBody {
   startTime?: number | null;
   confirm?: boolean;
   notifyCustomer?: boolean;
+  notifyChannel?: "sms" | "email" | "none";
+  force?: boolean;
   declineReason?: string;
   customMessage?: string;
+}
+
+const NOTIFY_CHANNELS = ["sms", "email", "none"] as const;
+
+// Phase 31 (T-152): the chosen inspector already has a block or another inspection in this slot. Forceable by the
+// office ("assign anyway?"), unlike a genuine capacity/lock conflict.
+class InspectorBusyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InspectorBusyError";
+  }
 }
 
 function schedulingError(error: unknown): NextResponse | null {
@@ -50,12 +66,25 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { businessId, assignedCrewId, startTime, confirm, notifyCustomer, declineReason, customMessage } = body;
+  const {
+    businessId,
+    assignedCrewId,
+    startTime,
+    confirm,
+    notifyCustomer,
+    notifyChannel,
+    force,
+    declineReason,
+    customMessage,
+  } = body;
   if (!businessId) {
     return NextResponse.json({ error: "businessId required" }, { status: 400 });
   }
   if (startTime !== undefined && startTime !== null && !Number.isFinite(startTime)) {
     return NextResponse.json({ error: "startTime must be a timestamp" }, { status: 400 });
+  }
+  if (notifyChannel !== undefined && !NOTIFY_CHANNELS.includes(notifyChannel)) {
+    return NextResponse.json({ error: "notifyChannel must be sms, email or none" }, { status: 400 });
   }
 
   const gate = await verifyAuthAndRole(req, businessId, [
@@ -104,10 +133,25 @@ export async function PATCH(
       return { appointment, business };
     });
     if ("missing" in decision) return NextResponse.json({ error: `${decision.missing} not found` }, { status: 404 });
-    if ("alreadyDeclined" in decision) return NextResponse.json({ ok: true, alreadyDeclined: true, notifiedCustomer: false });
+    if ("alreadyDeclined" in decision) {
+      return NextResponse.json({ ok: true, alreadyDeclined: true, notifiedCustomer: false, staffNotified: 0 });
+    }
     const { appointment, business } = decision;
+    // Phase 31 (T-152): cancel/decline tells the inspector row if one was assigned.
+    let staffNotified = 0;
+    const declinedCrewId = typeof appointment.assignedCrewId === "string" ? appointment.assignedCrewId : null;
+    if (declinedCrewId) {
+      const notified = await notifyInspector({
+        db,
+        businessId,
+        appointment: { ...appointment, appointmentId },
+        change: "cancelled",
+        crewId: declinedCrewId,
+      });
+      staffNotified = notified.emailed + notified.texted;
+    }
     const email = typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
-    if (!email) return NextResponse.json({ ok: true, notifiedCustomer: false, noEmail: true });
+    if (!email) return NextResponse.json({ ok: true, notifiedCustomer: false, noEmail: true, staffNotified });
     const message = buildRequestDeclineEmail({
       brand: {
         businessName: typeof business.businessName === "string" ? business.businessName : "Your Company",
@@ -127,7 +171,7 @@ export async function PATCH(
       fromName: typeof business.businessName === "string" ? business.businessName : null,
       replyTo: typeof business.contactEmail === "string" ? business.contactEmail : null,
     });
-    return NextResponse.json({ ok: true, notifiedCustomer: result.status === "delivered" });
+    return NextResponse.json({ ok: true, notifiedCustomer: result.status === "delivered", staffNotified });
   }
   let committed:
     | {
@@ -135,6 +179,8 @@ export async function PATCH(
         business: Record<string, unknown>;
         startTime: number;
         endTime: number;
+        previousCrewId: string | null;
+        previousStart: number;
       }
     | undefined;
 
@@ -179,11 +225,13 @@ export async function PATCH(
         );
       }
 
+      let targetCrew: Record<string, unknown> | null = null;
       if (desiredCrewId) {
         const crewSnapshot = await transaction.get(
           businessRef.collection("crews").doc(desiredCrewId)
         );
         if (!crewSnapshot.exists) throw new Error("CREW_NOT_FOUND");
+        targetCrew = crewSnapshot.data() ?? {};
       }
       const timeZone =
         typeof business.timezone === "string"
@@ -236,6 +284,47 @@ export async function PATCH(
         transaction.get(appointmentsQuery),
         jobsQuery ? transaction.get(jobsQuery) : Promise.resolve(null),
       ]);
+      // Phase 31 (T-152): the office is warned when it lands this booking on an inspector row that already has a block
+      // or another inspection then — unless it sends force ("assign anyway?").
+      const crewChanged = desiredCrewId !== previousCrewId;
+      const timeChanged = desiredStart !== previousStart;
+      const isInspectorTarget = targetCrew?.kind === "inspector";
+      const forceInspector = force === true && isInspectorTarget;
+      if (isInspectorTarget && (crewChanged || timeChanged) && !forceInspector) {
+        const blocksSnapshot = await transaction.get(
+          businessRef.collection("timeBlocks").where("startTime", "<", desiredEnd)
+        );
+        const blockHit = blocksSnapshot.docs
+          .map((document) => document.data())
+          .find(
+            (block) =>
+              block.crewId === desiredCrewId &&
+              typeof block.startTime === "number" &&
+              typeof block.endTime === "number" &&
+              scheduleRangesOverlap(desiredStart, desiredEnd, block.startTime, block.endTime)
+          );
+        const otherBooking = appointmentsSnapshot.docs.some((document) => {
+          if (document.id === appointmentId) return false;
+          const candidate = document.data();
+          return (
+            candidate.assignedCrewId === desiredCrewId &&
+            candidate.status !== "cancelled" &&
+            typeof candidate.startTime === "number" &&
+            typeof candidate.endTime === "number" &&
+            scheduleRangesOverlap(desiredStart, desiredEnd, candidate.startTime, candidate.endTime)
+          );
+        });
+        if (blockHit || otherBooking) {
+          const label =
+            blockHit && typeof blockHit.label === "string" && blockHit.label
+              ? blockHit.label
+              : "another inspection";
+          const crewName =
+            typeof targetCrew?.name === "string" && targetCrew.name ? targetCrew.name : "That inspector";
+          throw new InspectorBusyError(`${crewName} is busy then (${label}).`);
+        }
+      }
+
       const lockConflict = newLocks.some(
         (snapshot) => snapshot.exists && snapshot.data()?.entityId !== appointmentId
       );
@@ -272,7 +361,9 @@ export async function PATCH(
             )
           );
         }) ?? false;
-      if (lockConflict || appointmentConflict || jobConflict) {
+      // forceInspector ("assign anyway?") overrides the inspector's own block/booking conflict, but a real scheduling
+      // lock or a job on that resource still refuses.
+      if (((lockConflict || appointmentConflict) && !forceInspector) || jobConflict) {
         throw new SchedulingConflictError(
           "slot_conflict",
           desiredCrewId
@@ -310,6 +401,8 @@ export async function PATCH(
         endTime: desiredEnd,
         updatedAt: now,
       };
+      // The office (not the AI) put this row on a crew.
+      if (crewChanged && desiredCrewId) update.assignedBy = "office";
       if (confirm) {
         update.status = "confirmed";
         update.pendingConfirmation = false;
@@ -325,9 +418,17 @@ export async function PATCH(
         business,
         startTime: desiredStart,
         endTime: desiredEnd,
+        previousCrewId,
+        previousStart,
       };
     });
   } catch (error) {
+    if (error instanceof InspectorBusyError) {
+      return NextResponse.json(
+        { error: error.message, code: "inspector_busy", message: error.message },
+        { status: 409 }
+      );
+    }
     const conflict = schedulingError(error);
     if (conflict) return conflict;
     if (error instanceof Error && error.message === "APPOINTMENT_NOT_FOUND") {
@@ -343,24 +444,88 @@ export async function PATCH(
     return NextResponse.json({ error: "Could not save the appointment" }, { status: 500 });
   }
 
+  // Phase 31 (T-152): tell the inspector row about the change — "assigned" for the new row, "reassigned_away" for the
+  // old one, "moved" when only the time changed. (Declines are handled in the decline branch above.)
+  let staffNotified = 0;
+  if (committed) {
+    const { appointment, previousCrewId, previousStart, startTime } = committed;
+    const newCrewId =
+      typeof appointment.assignedCrewId === "string" ? appointment.assignedCrewId : null;
+    const crewChanged = newCrewId !== previousCrewId;
+    const timeChanged = startTime !== previousStart;
+    const notifyCrew = async (change: "assigned" | "moved" | "reassigned_away", crewId: string) => {
+      const result = await notifyInspector({
+        db,
+        businessId,
+        appointment: { ...appointment, appointmentId },
+        change,
+        crewId,
+      });
+      staffNotified += result.emailed + result.texted;
+    };
+    if (crewChanged && previousCrewId) await notifyCrew("reassigned_away", previousCrewId);
+    if (crewChanged && newCrewId) await notifyCrew("assigned", newCrewId);
+    else if (!crewChanged && timeChanged && newCrewId) await notifyCrew("moved", newCrewId);
+  }
+
   let notificationStatus: NotificationDeliveryState = "unconfigured";
+  let notifiedVia: "sms" | "email" | null = null;
   if (notifyCustomer && committed) {
     const { appointment, business, startTime } = committed;
+    const callerPhone =
+      typeof appointment.callerPhone === "string" ? appointment.callerPhone : null;
     const callerEmail =
       typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
-    if (callerEmail) {
-      const timeZone =
-        typeof business.timezone === "string"
-          ? business.timezone
-          : "America/New_York";
-      const when = new Date(startTime).toLocaleString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        timeZone,
-      });
+    const timeZone =
+      typeof business.timezone === "string" ? business.timezone : "America/New_York";
+    const when = new Date(startTime).toLocaleString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone,
+    });
+    // Owner decision (plan §2.7): text when possible, then email, then nothing. The AI call is never the default.
+    const channel =
+      notifyChannel ??
+      (isSmsEnabled(business) && callerPhone && appointment.textOk !== false
+        ? "sms"
+        : callerEmail
+          ? "email"
+          : "none");
+
+    if (channel === "sms" && callerPhone && isSmsEnabled(business)) {
+      try {
+        notificationStatus = await sendSms({
+          businessId,
+          to: callerPhone,
+          body: bookingConfirmed({
+            service:
+              typeof appointment.serviceType === "string" && appointment.serviceType
+                ? appointment.serviceType
+                : "Appointment",
+            when,
+            street:
+              typeof appointment.address === "string" && appointment.address
+                ? appointment.address
+                : "your address",
+            businessName:
+              typeof business.businessName === "string" ? business.businessName : "Your Company",
+            businessPhone:
+              typeof business.contactPhone === "string" && business.contactPhone
+                ? business.contactPhone
+                : "the office",
+          }),
+          messageType: "customer-confirmation",
+          entityId: `${appointmentId}:${startTime}`,
+        });
+        if (notificationStatus === "delivered") notifiedVia = "sms";
+      } catch (error) {
+        console.error("Customer SMS failed after appointment persisted:", error);
+        notificationStatus = "failed";
+      }
+    } else if (channel === "email" && callerEmail) {
       try {
         const brand = {
           businessName:
@@ -408,6 +573,7 @@ export async function PATCH(
           subject,
           html,
         });
+        if (notificationStatus === "delivered") notifiedVia = "email";
       } catch (error) {
         console.error(
           "Customer notification ledger failed after appointment persisted:",
@@ -422,5 +588,7 @@ export async function PATCH(
     ok: true,
     notificationStatus,
     notifiedCustomer: notificationStatus === "delivered",
+    notifiedVia,
+    staffNotified,
   });
 }
