@@ -12,7 +12,7 @@
     "e2e:up": "node scripts/e2e/up.mjs",
     "e2e:up:bg": "node scripts/e2e/up.mjs --detach",
     "e2e:down": "node scripts/e2e/down.mjs",
-    "e2e:seed": "node scripts/e2e/seed.mjs --reset",
+    "e2e:seed": "node scripts/e2e/seed.cjs --reset",
     "e2e:test": "playwright test",
     "e2e:call": "node scripts/e2e/scenarios/call-to-cash.cjs",
     "e2e:booking": "node scripts/e2e/scenarios/booking.cjs"

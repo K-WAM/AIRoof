@@ -44,6 +44,17 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
   );
+  // A Crew login (T-150) is field work only: the Field screen and nothing else. The office APIs refuse it anyway
+  // (they list their roles); this keeps the screens from loading into errors.
+  const crewOnly = user?.role === "crew" && !user.superadmin;
+  const crewWithoutField = crewOnly && modulesReady && !isEnabled("jobs");
+  const crewOffField = crewOnly && !crewWithoutField && !pathname?.startsWith("/company/field");
+
+  useEffect(() => {
+    if (!crewOffField) return;
+    const preview = searchParams?.get("preview");
+    router.replace(preview ? `/company/field?preview=${preview}` : "/company/field");
+  }, [crewOffField, router, searchParams]);
 
   // Dashboard-only pause for non-payment (superadmin toggles it from the
   // client's admin config page) — never touches the phone agent. Superadmins
@@ -52,8 +63,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const paused = modulesReady && subscriptionStatus === "paused" && !user?.superadmin;
 
   useEffect(() => {
-    if (blockedModule) router.replace("/company/dashboard");
-  }, [blockedModule, router]);
+    if (blockedModule && !crewOnly) router.replace("/company/dashboard");
+  }, [blockedModule, crewOnly, router]);
 
   // Phase 12/Phase 7 — a trade worker who lands on the generic dashboard (the
   // login page's own fallback, or a bookmark/typed URL) is bounced to their
@@ -127,8 +138,19 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  // Don't paint a module this industry doesn't use while the redirect lands.
-  if (blockedModule) return null;
+  if (crewWithoutField) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <h1 style={{ fontSize: 20 }}>Your Crew login is for field work, which this business doesn&apos;t use</h1>
+          <p style={{ fontSize: 14, color: "var(--text-muted)" }}>Ask the owner to change your role on the Team page.</p>
+          <button className="button" onClick={handleLogout}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+  // Don't paint a module this industry doesn't use (or an office screen for a Crew login) while the redirect lands.
+  if (blockedModule || crewOffField) return null;
   if (paused) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
@@ -162,8 +184,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <CompanyNav />
         </div>
         <div className="company-sidebar-footer">
-          <QuickAddButton />
-          <CommandBar />
+          {!crewOnly && <QuickAddButton />}
+          {!crewOnly && <CommandBar />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
             <span className="user-email">{user.email}</span>
@@ -177,7 +199,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <div className="company-brand">
             <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
           </div>
-          <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
+          {!crewOnly && <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
             <QuickAddButton variant="icon" />
             {modulesReady && isEnabled("jobs") && (
               <Tooltip content="Jobs">
@@ -203,7 +225,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
                 </Link>
               </Tooltip>
             )}
-          </nav>
+          </nav>}
           <Tooltip content={mobileMenuOpen ? "Close menu" : "Open menu"}>
             <button
               type="button"
@@ -229,10 +251,12 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
             tabIndex={-1}
           >
             <CompanyNav />
-            <div className="mobile-nav-search">
-              <QuickAddButton />
-              <CommandBar />
-            </div>
+            {!crewOnly && (
+              <div className="mobile-nav-search">
+                <QuickAddButton />
+                <CommandBar />
+              </div>
+            )}
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>

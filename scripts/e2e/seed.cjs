@@ -1,5 +1,5 @@
 // Seeds the local emulators with the smoke-test world: 2 tenants + 6 accounts. Idempotent: safe to run again.
-// Run standalone (emulators must be up):  node scripts/e2e/seed.mjs [--reset]
+// Run standalone (emulators must be up):  node scripts/e2e/seed.cjs [--reset]  (npm run e2e:seed)
 const admin = require("firebase-admin");
 const { randomBytes } = require("node:crypto");
 const { ACCOUNTS, AUTH_HOST, FIRESTORE_HOST, PASSWORD, PROJECT_ID, TENANTS, emulatorEnv } = require("./config.cjs");

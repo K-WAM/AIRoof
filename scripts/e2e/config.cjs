@@ -53,6 +53,8 @@ const ACCOUNTS = {
   staff: { uid: "e2e-staff", email: "staff@roofing.e2e.test", tenant: "roofing", role: "staff", displayName: "Sam Staff" },
   crew: { uid: "e2e-crew", email: "crew@roofing.e2e.test", tenant: "roofing", role: "staff", trade: "technician", displayName: "Carlos Crew" },
   viewer: { uid: "e2e-viewer", email: "viewer@roofing.e2e.test", tenant: "roofing", role: "viewer", displayName: "Vera Viewer" },
+  // The field-only Crew role (T-150). Distinct from `crew` above, which is Staff + Technician (the pre-T-150 way).
+  fieldCrew: { uid: "e2e-field-crew", email: "fieldcrew@roofing.e2e.test", tenant: "roofing", role: "crew", trade: "installer", displayName: "Frank Field" },
   dentalOwner: { uid: "e2e-dental-owner", email: "owner@dental.e2e.test", tenant: "dental", role: "owner", displayName: "Dana Dentist" },
   emptyOwner: { uid: "e2e-empty-owner", email: "owner@empty.e2e.test", tenant: "empty", role: "owner", displayName: "Erin Empty" },
 };

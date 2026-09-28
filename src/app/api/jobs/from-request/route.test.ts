@@ -20,6 +20,13 @@ describe("POST /api/jobs/from-request", () => {
     expect(data.job.customerId).toBeTruthy();
     expect(db.__peek("businesses/biz/appointments", "a1")?.jobId).toBe(data.job.jobId);
   });
+  it("keeps the booked time as a hint, never as the schedule (T-149)", async () => {
+    db.__seed("businesses/biz/appointments", "a3", { callerName: "Bea", callerPhone: "+15557654321", address: "3 Main", startTime: 1_800_000_000_000, endTime: 1_800_003_600_000 });
+    const data = await (await POST(request({ businessId: "biz", appointmentId: "a3" }))).json();
+    expect(data.job).toMatchObject({ requestedStart: 1_800_000_000_000, requestedEnd: 1_800_003_600_000 });
+    expect(data.job.scheduledStart).toBeUndefined();
+    expect(data.job.assignedCrewId).toBeUndefined();
+  });
   it("tells the caller the request already had a job, and records it on the request", async () => {
     db.__seed("businesses/biz/appointments", "a2", { callerName: "Kareem", callerPhone: "+18254887791", address: "317 West Riverbend Drive" });
     db.__seed("businesses/biz/requestJobs", "appointment_a2", { jobId: "J-1016" });

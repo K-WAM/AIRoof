@@ -246,6 +246,21 @@ describe("scoped field access tokens", () => {
     expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true }))).toBe(200);
   });
 
+  it("lets a Crew login read and write field work but refuses every office gate (T-150)", async () => {
+    vi.mocked(verifyIdToken).mockResolvedValue({ uid: "crew-1" } as never);
+    mocks.firestore!.documents.set("businessUsers/crew-1", { businessId: BUSINESS_ID, role: "crew", active: true });
+    invalidateCachedMember("crew-1");
+    const req = request(`/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`, undefined, { cookie: "__session=test" });
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID))).toBe(200);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true }))).toBe(200);
+    const { verifyAuthAndRole } = await import("@/lib/auth/verifyRole");
+    // The office routes' own role lists (invoices, quotes, Pipeline, assign, Library writes, reads) never include "crew".
+    for (const roles of [["owner", "staff", "superadmin"], ["owner", "staff", "viewer", "superadmin"], ["owner", "superadmin"]] as const) {
+      const result = await verifyAuthAndRole(req, BUSINESS_ID, [...roles]);
+      expect("error" in result ? result.error.status : 200).toBe(403);
+    }
+  });
+
   it("allows a pinned QR write only for its own job", async () => {
     const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
     const session = await consumeFieldExchangeToken(grant.token);

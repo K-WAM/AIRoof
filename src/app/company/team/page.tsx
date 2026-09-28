@@ -5,11 +5,52 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFormat } from "@/hooks/useFormat";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
-import { TEAM_ROLES, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TeamRole, type TradeTitle } from "@/types/team";
+import { CREW_MEMBER_ROLES, TEAM_ROLES, TEAM_ROLE_HELP, TEAM_ROLE_LABEL, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TeamRole, type TradeTitle } from "@/types/team";
 import type { Crew } from "@/types/library";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { Info } from "lucide-react";
 
-const FIELD_TRADES: TradeTitle[] = ["technician", "journeyman", "apprentice", "installer", "helper"];
+// ⓘ next to Role and Title (T-150): tap-to-open, not a hover tooltip — phones never show those.
+function InfoButton({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 4 }}>
+      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((value) => !value)}
+        style={{ border: "none", background: "transparent", padding: 2, cursor: "pointer", color: "var(--text-muted)", display: "inline-flex" }}>
+        <Info size={14} strokeWidth={2} />
+      </button>
+      {open && (
+        <>
+          <span onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
+          <span role="dialog" aria-label={label} style={{ position: "absolute", top: "calc(100% + 6px)", left: -8, zIndex: 31, width: "min(320px, calc(100vw - 32px))", padding: "12px 14px", background: "#fff", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 8px 24px rgba(15,23,42,0.14)", fontSize: 13, fontWeight: 400, color: "var(--text)", lineHeight: 1.5, whiteSpace: "normal", textAlign: "left" }}>
+            {children}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+function RoleHelp({ roles }: { roles: TeamRole[] }) {
+  return (
+    <InfoButton label="What each role can do">
+      {roles.map((item) => (
+        <span key={item} style={{ display: "block", marginBottom: 6 }}><strong>{TEAM_ROLE_LABEL[item]}</strong> — {TEAM_ROLE_HELP[item]}</span>
+      ))}
+      <span style={{ display: "block", color: "var(--text-muted)" }}>No account? A crew member can use a job&apos;s QR code instead.</span>
+    </InfoButton>
+  );
+}
+
+function TitleHelp() {
+  return (
+    <InfoButton label="What a title does">
+      <span style={{ display: "block", marginBottom: 6 }}>A title is a label only — it doesn&apos;t change what someone can do. The role does that.</span>
+      <span style={{ display: "block" }}>Technician, Journeyman, Apprentice, Installer and Helper open on the Field screen after sign-in; Foreman opens on Jobs.</span>
+    </InfoButton>
+  );
+}
 
 export default function TeamPage() {
   const businessId = useBusinessId();
@@ -33,6 +74,11 @@ export default function TeamPage() {
   const [trade, setTrade] = useState<TradeTitle | "">("");
   const [crewId, setCrewId] = useState("");
   const [crews, setCrews] = useState<Crew[]>([]);
+  const { isEnabled } = useBusinessModules();
+  // Crews and the Crew role only exist where there is field work (the "jobs" module).
+  const hasField = isEnabled("jobs");
+  const roleOptions = TEAM_ROLES.filter((item) => item !== "crew" || hasField);
+  const activeOwners = members.filter((member) => member.role === "owner" && member.active).length;
 
   const refresh = useCallback(async () => {
     if (!businessId || !canManage) return;
@@ -114,6 +160,7 @@ export default function TeamPage() {
   const th = { padding: "10px 12px", textAlign: "left" as const, fontWeight: 600, color: "var(--text-muted)", fontSize: 13, whiteSpace: "nowrap" as const };
   const td = { padding: "10px 12px", verticalAlign: "middle" as const, fontSize: 14 };
   const statusTag = (status: string) => (status === "Locked" ? "tag urgent" : status === "Active" ? "tag success" : "tag");
+  const statusLabel = (status: string) => (status === "Locked" ? "Disabled" : status);
 
   return (
     <>
@@ -132,9 +179,9 @@ export default function TeamPage() {
           <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
             <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
             <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} style={{ display: "block" }} /></label>
-            <label>Role<select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)} style={{ display: "block" }}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-            <label>Title<select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")} style={{ display: "block" }}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
-            {FIELD_TRADES.includes(trade as TradeTitle) && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
+            <label>Role<RoleHelp roles={roleOptions} /><select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)} style={{ display: "block" }}>{roleOptions.map((item) => <option key={item} value={item}>{TEAM_ROLE_LABEL[item]}</option>)}</select></label>
+            <label>Title<TitleHelp /><select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")} style={{ display: "block" }}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
+            {hasField && CREW_MEMBER_ROLES.has(role) && crews.length > 0 && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
             <button className="button primary" disabled={busy !== null}>Send invite</button>
           </form>
           <label style={{ display: "block", marginTop: 14, fontSize: 13, color: "var(--text-muted)" }}>Import CSV (email, role, title)
@@ -150,21 +197,32 @@ export default function TeamPage() {
           // The invite form right above is the one action, so this carries no second "Invite" button.
           members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
-              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", "Crew", "Status", "Last sign-in", "Invited", "Actions"].map((heading) => <th key={heading} style={th}>{heading}</th>)}</tr></thead>
+              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", ...(hasField ? ["Crew"] : []), "Status", "Last sign-in", "Invited", "Actions"].map((heading) => (
+                <th key={heading} style={th}>{heading}{heading === "Role" && <RoleHelp roles={roleOptions} />}{heading === "Title" && <TitleHelp />}</th>
+              ))}</tr></thead>
               <tbody>{members.map((member) => (
                 <tr key={member.uid} style={{ borderBottom: "1px solid var(--border)", ...(member.active ? {} : { opacity: 0.7 }) }}>
                   <td style={td}>{member.displayName || "—"}</td><td style={td}>{member.email}</td>
-                  <td style={td}><select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy !== null || !member.active} onChange={(event) => change(member, { role: event.target.value }, "Role updated")}>{TEAM_ROLES.map((item) => <option key={item} value={item}>{item}</option>)}</select></td>
+                  <td style={td}><select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy !== null || !member.active} onChange={(event) => change(member, { role: event.target.value }, "Role updated")}>{roleOptions.map((item) => <option key={item} value={item}>{TEAM_ROLE_LABEL[item]}</option>)}</select></td>
                   <td style={td}><select aria-label={`Title for ${member.email}`} value={member.trade ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { trade: event.target.value || null }, "Title updated")}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></td>
-                  <td style={td}>{FIELD_TRADES.includes(member.trade as TradeTitle) ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select> : "—"}</td>
-                  <td style={td}><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{member.status ?? (member.active ? "Active" : "Locked")}</span></td>
+                  {hasField && <td style={td}>{CREW_MEMBER_ROLES.has(member.role) ? (
+                    crews.length > 0
+                      ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>
+                      : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add crews in Library</span>
+                  ) : <span title="Viewers don't do field work">—</span>}</td>}
+                  <td style={td}><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{statusLabel(member.status ?? (member.active ? "Active" : "Locked"))}</span></td>
                   <td style={td}>{dateLabel(member.lastSignInTime)}</td><td style={td}>{dateLabel(member.createdAt)}</td>
                   <td style={td}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {/* Lock turns the login off AND revokes its sessions; Unlock restores it. (There is no separate "Remove":
-                          it did exactly what Lock does, and a locked member no longer takes a seat.) */}
-                      <button className="button small" disabled={busy !== null} onClick={() => { if (!member.active || window.confirm(`Lock ${member.email}? They are signed out and cannot get in until you unlock them.`)) change(member, { active: !member.active }, member.active ? "Member locked" : "Member unlocked"); }}>{member.active ? "Lock" : "Unlock"}</button>
-                      <button className="button small" disabled={busy !== null || !member.active} onClick={() => { void send(`/api/company/team/${encodeURIComponent(member.uid)}/resend`, {}, member.uid, "Invite resent"); }}>Resend invite</button>
+                      {/* Disable turns the login off AND revokes its sessions; Enable restores it. (There is no separate "Remove":
+                          it did exactly what this does, and a disabled member no longer takes a seat.) Stored as active:false —
+                          the API and data still call it "Locked". Not offered on your own row or the last active owner. */}
+                      {member.uid !== user?.uid && !(member.active && member.role === "owner" && activeOwners <= 1) && (
+                        <button className="button small" disabled={busy !== null} onClick={() => { if (!member.active || window.confirm(`Disable ${member.email}? They are signed out, can't sign in until you enable them again, and their seat is freed.`)) change(member, { active: !member.active }, member.active ? "Member disabled — seat freed" : "Member enabled"); }}>{member.active ? "Disable" : "Enable"}</button>
+                      )}
+                      {member.active && !member.lastSignInTime && (
+                        <button className="button small" disabled={busy !== null} onClick={() => { void send(`/api/company/team/${encodeURIComponent(member.uid)}/resend`, {}, member.uid, "Invite resent"); }}>Resend invite</button>
+                      )}
                     </div>
                   </td>
                 </tr>

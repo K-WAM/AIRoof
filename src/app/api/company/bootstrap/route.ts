@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
-  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  // "crew" (field-only) needs the shell's industry/vocab/timezone to render the Field screen.
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "crew", "viewer", "superadmin"]);
   if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();

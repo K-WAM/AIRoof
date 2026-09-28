@@ -14,7 +14,7 @@ interface AuthUser {
   email: string | null;
   businessId?: string;
   businessName?: string;
-  role?: "superadmin" | "owner" | "staff" | "viewer";
+  role?: "superadmin" | "owner" | "staff" | "crew" | "viewer";
   superadmin?: boolean;
   /** Phase 12/Phase 7 — descriptive job title + a friendly name for punch/labor
    * attribution; neither carries any permission (see src/types/team.ts). */

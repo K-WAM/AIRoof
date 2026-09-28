@@ -553,7 +553,7 @@ function FieldPageContent() {
           }}>
             <div>
               {/* Opened from a job ("Submit update"): the only way back used to be the side menu. */}
-              {prefillJobId && (
+              {prefillJobId && user?.role !== "crew" && (
                 <a href={`/company/jobs/${encodeURIComponent(prefillJobId)}${previewParam ? `?preview=${encodeURIComponent(previewParam)}` : ""}`}
                   style={{ display: "inline-block", marginBottom: 8, fontSize: 13, fontWeight: 600, color: "#7c93c8", textDecoration: "none" }}>
                   ← Back to job {prefillJobId}

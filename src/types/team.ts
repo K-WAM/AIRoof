@@ -1,8 +1,28 @@
 // Business-level team roles. Distinct from AllowedRole in verifyRole.ts,
 // which also includes the platform-level "superadmin" — that's never an
 // assignable businessUsers role, only a Firebase custom claim.
-export type TeamRole = "owner" | "staff" | "viewer";
-export const TEAM_ROLES: TeamRole[] = ["owner", "staff", "viewer"];
+//
+// "crew" (owner decision 2026-09-28, T-150): field work only — the Field screen, time clock, photos, notes and
+// findings for the business's jobs (the same verifyFieldAccess routes a QR link or a Staff technician uses), and
+// nothing in the office: every office route lists its roles explicitly, so a crew session is refused there by default.
+// Only offered where the industry has the "jobs" module (there is no Field screen otherwise).
+export type TeamRole = "owner" | "staff" | "crew" | "viewer";
+export const TEAM_ROLES: TeamRole[] = ["owner", "staff", "crew", "viewer"];
+export const TEAM_ROLE_LABEL: Record<TeamRole, string> = {
+  owner: "Owner",
+  staff: "Staff",
+  crew: "Crew",
+  viewer: "Viewer",
+};
+/** The Team page's ⓘ text. Keep in step with the route gates (verifyRole.ts) — it is a promise about access. */
+export const TEAM_ROLE_HELP: Record<TeamRole, string> = {
+  owner: "Everything, including the Team page (invites, roles, crews) and Settings.",
+  staff: "The office and the field: Pipeline, Calendar, jobs, quotes, invoices, field notes and photos. Can't manage the team.",
+  crew: "Field work only: the Field screen, time clock, photos, notes and findings. No Pipeline, prices or invoices.",
+  viewer: "Can look around the office screens. Can't change anything or send field notes.",
+};
+/** Roles that make sense on a crew (a viewer does no field work). */
+export const CREW_MEMBER_ROLES: ReadonlySet<TeamRole> = new Set(["owner", "staff", "crew"]);
 
 // Trade title (Phase 12, Phase 7) — a SEPARATE axis from TeamRole, carrying
 // no permissions of its own. Deliberately not folded into TeamRole: role is

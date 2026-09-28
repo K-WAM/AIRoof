@@ -8,6 +8,11 @@ describe("defaultLandingPath", () => {
     }
   });
 
+  it("sends a Crew login to /company/field whatever its title (T-150)", () => {
+    expect(defaultLandingPath({ role: "crew" }, [])).toBe("/company/field");
+    expect(defaultLandingPath({ role: "crew", trade: "foreman" }, [])).toBe("/company/field");
+  });
+
   it("sends a foreman to /company/jobs", () => {
     expect(defaultLandingPath({ role: "staff", trade: "foreman" }, [])).toBe("/company/jobs");
   });

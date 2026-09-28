@@ -112,6 +112,13 @@ class FakeCollectionRef extends FakeQuery {
   }
 }
 
+/** Drops fields written as FieldValue.delete() — the admin SDK's sentinel names itself "FieldValue.delete". */
+function withoutDeletes(data: DocData): DocData {
+  return Object.fromEntries(Object.entries(data).filter(([, value]) =>
+    !(value && typeof value === "object" && (value as { methodName?: unknown }).methodName === "FieldValue.delete")
+  ));
+}
+
 class FakeStore {
   // path is the COLLECTION path, e.g. "businesses/biz-1/customers"
   private data = new Map<string, Map<string, DocData>>();
@@ -128,14 +135,14 @@ class FakeStore {
 
   set(path: string, id: string, data: DocData, options?: { merge?: boolean }) {
     const existing = options?.merge ? this.bucket(path).get(id) : undefined;
-    this.bucket(path).set(id, existing ? { ...existing, ...data } : { ...data });
+    this.bucket(path).set(id, withoutDeletes(existing ? { ...existing, ...data } : { ...data }));
   }
 
   update(path: string, id: string, patch: DocData) {
     const b = this.bucket(path);
     const existing = b.get(id);
     if (!existing) throw new Error(`No document to update at ${path}/${id}`);
-    b.set(id, { ...existing, ...patch });
+    b.set(id, withoutDeletes({ ...existing, ...patch }));
   }
 
   delete(path: string, id: string) {
@@ -196,6 +203,9 @@ export function makeFakeDb() {
         },
         update(ref: FakeDocRef, data: DocData) {
           ops.push(() => store.update(ref.path.split("/").slice(0, -1).join("/"), ref.id, data));
+        },
+        delete(ref: FakeDocRef) {
+          ops.push(() => store.delete(ref.path.split("/").slice(0, -1).join("/"), ref.id));
         },
         async commit() {
           ops.forEach((op) => op());

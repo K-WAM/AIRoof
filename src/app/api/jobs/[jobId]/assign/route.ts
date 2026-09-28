@@ -15,6 +15,7 @@ import {
   type NotificationDeliveryState,
 } from "@/lib/tools/agentTools";
 import type { Crew, LibraryLogo } from "@/types/library";
+import { CREW_MEMBER_ROLES } from "@/types/team";
 
 interface AssignmentBody {
   businessId?: string;
@@ -271,8 +272,9 @@ export async function POST(
   }
 
   let notificationStatus: NotificationDeliveryState = "unconfigured";
+  let emailedCount = 0;
   const shouldNotify = crewId !== null && notify !== false && (crewConfirmed ?? true);
-  if (shouldNotify && committed?.crew?.email && committed.startTime !== null) {
+  if (shouldNotify && committed?.crew && committed.startTime !== null) {
     const { crew, job, business, startTime } = committed;
     const timeZone =
       typeof business.timezone === "string"
@@ -287,6 +289,28 @@ export async function POST(
       timeZone,
     });
     try {
+      // Who hears about it (owner decision 2026-09-28, T-148): the crew's own address plus every active member with an
+      // email. Each recipient is its own ledger entry (the ledger dedupes on entityId), so a re-confirm never
+      // re-sends and one bad address never blocks the rest. The crew address keeps its original entityId.
+      const membersSnap = await db.collection("businessUsers")
+        .where("businessId", "==", businessId).where("crewId", "==", crewId).get();
+      const recipients: Array<{ to: string; entityId: string; recipientName?: string }> = [];
+      const seen = new Set<string>();
+      if (crew.email) {
+        recipients.push({ to: crew.email, entityId: `${jobId}:${startTime}` });
+        seen.add(crew.email.trim().toLowerCase());
+      }
+      for (const memberDoc of membersSnap.docs) {
+        const member = memberDoc.data();
+        const email = typeof member.email === "string" ? member.email.trim() : "";
+        if (member.active === false || !CREW_MEMBER_ROLES.has(member.role) || !email || seen.has(email.toLowerCase())) continue;
+        seen.add(email.toLowerCase());
+        recipients.push({
+          to: email,
+          entityId: `${jobId}:${startTime}:${memberDoc.id}`,
+          recipientName: typeof member.displayName === "string" && member.displayName.trim() ? member.displayName.trim() : email.split("@")[0],
+        });
+      }
       const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
       const resolvedBrand = resolveLetterhead(business, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], "brand-bar");
       const brand = {
@@ -308,27 +332,37 @@ export async function POST(
             ? business.contactEmail
             : undefined,
       };
-      const { subject, html } = buildCrewAssignmentEmail({
-        brand,
-        crewName: crew.name,
-        jobTitle: typeof job.title === "string" ? job.title : jobId,
-        address: typeof job.address === "string" ? job.address : undefined,
-        clientName:
-          typeof job.clientName === "string" ? job.clientName : undefined,
-        when,
-        scope:
-          typeof job.serviceType === "string" ? job.serviceType : undefined,
-      });
-      notificationStatus = await runLedgeredEmail({
-        firestore: db,
-        businessId,
-        messageType: "crew-assignment",
-        entityId: `${jobId}:${startTime}`,
-        entityRef: { collection: "jobs", id: jobId },
-        to: crew.email!,
-        subject,
-        html,
-      });
+      const statuses: NotificationDeliveryState[] = [];
+      for (const recipient of recipients) {
+        const { subject, html } = buildCrewAssignmentEmail({
+          brand,
+          crewName: crew.name,
+          recipientName: recipient.recipientName,
+          jobTitle: typeof job.title === "string" ? job.title : jobId,
+          address: typeof job.address === "string" ? job.address : undefined,
+          clientName:
+            typeof job.clientName === "string" ? job.clientName : undefined,
+          when,
+          scope:
+            typeof job.serviceType === "string" ? job.serviceType : undefined,
+        });
+        statuses.push(await runLedgeredEmail({
+          firestore: db,
+          businessId,
+          messageType: "crew-assignment",
+          entityId: recipient.entityId,
+          entityRef: { collection: "jobs", id: jobId },
+          to: recipient.to,
+          subject,
+          html,
+        }));
+      }
+      emailedCount = statuses.filter((status) => status === "delivered").length;
+      notificationStatus = statuses.includes("failed")
+        ? "failed"
+        : statuses.includes("delivered")
+          ? "delivered"
+          : statuses[0] ?? "unconfigured";
     } catch (error) {
       console.error("Crew notification ledger failed after assignment persisted:", error);
       notificationStatus = "failed";
@@ -338,6 +372,7 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     emailed: notificationStatus === "delivered",
+    emailedCount,
     notificationStatus,
   });
 }

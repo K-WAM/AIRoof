@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Plus, Undo2, Users } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
@@ -29,6 +29,28 @@ interface Appointment {
   status: string;
   pendingConfirmation?: boolean;
   assignedCrewId?: string;
+  /** Set once the office made a job from this booking (Pipeline → Create Job). */
+  jobId?: string;
+}
+
+/** A drop (or "Change time") waiting for the dispatcher to pick a start time — T-149. */
+interface SlotPickerState {
+  jobId: string;
+  crewId: string;
+  day: Date;
+  anchor: { top: number; left: number; width: number; height: number } | null;
+}
+
+const LENGTH_OPTIONS_MIN = [30, 60, 90, 120, 180, 240, 360, 480];
+
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function lengthLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hr`;
 }
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -104,20 +126,10 @@ function sameDay(aMs: number, b: Date, timeZone: string): boolean {
   return a.year === b.getFullYear() && a.month === b.getMonth() + 1 && a.day === b.getDate();
 }
 
-function dayAtBusinessOpen(
-  day: Date,
-  businessHours: Record<string, string>,
-  timeZone: string
-): number | null {
-  const weekday = day.toLocaleDateString("en-US", { weekday: "long" });
-  const hours = businessHours[weekday];
-  const match = hours?.match(/^(\d{1,2}):(\d{2})\s*[-–]/);
-  if (!match || hours.trim().toLowerCase() === "closed") return null;
-  return wallTimeToUtc(day, Number(match[1]), Number(match[2]), timeZone);
-}
 /**
  * Move a booking to another day without losing its time of day — a 10:30 cleaning
- * dragged to Thursday is still at 10:30. (Jobs have no time, so they land at 8am.)
+ * dragged to Thursday is still at 10:30. (A job dropped on a day opens the time picker
+ * instead — see SlotPicker — whose open times come from the server's hours parser.)
  */
 function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number | null {
   const time = dateParts(existingMs, timeZone);
@@ -145,7 +157,8 @@ export default function CalendarBoard() {
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
-  const [businessHours, setBusinessHours] = useState<Record<string, string>>({});
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
+  const [picker, setPicker] = useState<SlotPickerState | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busyJob, setBusyJob] = useState<string | null>(null);
@@ -161,7 +174,7 @@ export default function CalendarBoard() {
     // Wait for the industry so intake tenants never fire a jobs request.
     if (!businessId || !modulesReady) return;
     Promise.all([
-      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => {
+      fetch(`/api/company/crews?businessId=${businessId}&people=1`).then((r) => {
         if (!r.ok) throw new Error("Resources request failed");
         return r.json();
       }),
@@ -171,16 +184,11 @@ export default function CalendarBoard() {
             if (!r.ok) throw new Error("Jobs request failed");
             return r.json();
           }),
-      fetch(`/api/company/settings?businessId=${businessId}`)
-        .then((response) => {
-          if (!response.ok) throw new Error("Settings request failed");
-          return response.json();
-        }),
     ])
-      .then(([cr, jr, settings]) => {
+      .then(([cr, jr]) => {
         setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
+        setMemberCounts(countMembers(cr.people));
         setJobs((jr.jobs ?? []).filter((j: Job) => j.status !== "complete"));
-        setBusinessHours(settings.businessHours ?? {});
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -191,9 +199,12 @@ export default function CalendarBoard() {
   // of requiring a reload to see it show up as a schedulable row.
   useQuickAddRefresh("crew", () => {
     if (!businessId) return;
-    fetch(`/api/company/crews?businessId=${businessId}`)
+    fetch(`/api/company/crews?businessId=${businessId}&people=1`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((cr) => setCrews((cr.crews ?? []).filter((c: Crew) => c.active)))
+      .then((cr) => {
+        setCrews((cr.crews ?? []).filter((c: Crew) => c.active));
+        setMemberCounts(countMembers(cr.people));
+      })
       .catch(() => {});
   });
 
@@ -240,7 +251,10 @@ export default function CalendarBoard() {
 
   // The rail holds whatever still needs a resource: jobs with no crew/day,
   // or bookings the agent took that nobody has been assigned to yet.
-  const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId);
+  // A job whose crew is not on the board (removed, or turned off in Library) counts as unscheduled too — before
+  // T-148 it sat on no row and in no rail, so it vanished from the Calendar.
+  const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
+  const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId));
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
 
   // Empty states (docs/NO-TRAINING-UX-PLAN.md §3.3): no resources → "Add your first …"; resources but
@@ -255,18 +269,12 @@ export default function CalendarBoard() {
     setTimeout(() => setToast(null), 2500);
   }
 
-  async function placeJob(jobId: string, crewId: string, day: Date) {
+  // Saves a time picked in the SlotPicker. Grey/unconfirmed until "Confirm + email crew", as before.
+  async function placeJob(jobId: string, crewId: string, dayMs: number, durationMs: number) {
     const previous = jobs.find((job) => job.jobId === jobId);
     if (!previous) return;
-    const dayMs = dayAtBusinessOpen(day, businessHours, tz);
-    if (dayMs === null) {
-      setCalendarError("That day is closed or has no valid opening time. Choose an open business day.");
-      return;
-    }
-    const duration = previous.scheduledStart && previous.scheduledEnd
-      ? previous.scheduledEnd - previous.scheduledStart
-      : 60 * 60 * 1000;
-    const scheduledEnd = dayMs + Math.max(duration, 1);
+    setPicker(null);
+    const scheduledEnd = dayMs + Math.max(durationMs, 1);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => setJobs((current) => current.map((job) =>
@@ -331,9 +339,12 @@ export default function CalendarBoard() {
       if (res.ok) {
         setJobs((prev) => prev.map((j) => (j.jobId === job.jobId ? { ...j, crewConfirmed: true } : j)));
         if (data.notificationStatus === "failed") {
-          setCalendarError("The assignment is saved, but the crew email failed. Try Confirm again to retry delivery.");
+          setCalendarError("The assignment is saved, but a crew email failed. Try Confirm again to retry delivery.");
         } else {
-          flash(data.emailed ? "Crew confirmed & emailed ✓" : "Crew confirmed (no email on file)");
+          const count = typeof data.emailedCount === "number" ? data.emailedCount : data.emailed ? 1 : 0;
+          flash(count > 0
+            ? `Crew confirmed & ${count} email${count === 1 ? "" : "s"} sent ✓`
+            : "Crew confirmed (no crew or member email on file)");
         }
       } else {
         setCalendarError(data.error ?? "The crew could not be confirmed. Try again.");
@@ -462,8 +473,21 @@ export default function CalendarBoard() {
     if (!over) return;
     const [crewId, dayStr] = over.split("|");
     const day = new Date(Number(dayStr));
-    if (apptMode) placeAppt(id, crewId, day);
-    else placeJob(id, crewId, day);
+    if (apptMode) {
+      placeAppt(id, crewId, day);
+      return;
+    }
+    if (readOnly) return;
+    // A cell is a whole day, so a drop carries no time — ask for one (T-149). Before, every drop landed at opening
+    // time, and a second job on the same crew-day collided with the first and was refused.
+    const rect = e.over?.rect;
+    setPicker({ jobId: id, crewId, day, anchor: rect ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height } : null });
+  }
+
+  function openChangeTime(job: Job) {
+    if (!job.assignedCrewId || !job.scheduledStart) return;
+    const parts = dateParts(job.scheduledStart, tz);
+    setPicker({ jobId: job.jobId, crewId: job.assignedCrewId, day: new Date(parts.year, parts.month - 1, parts.day), anchor: null });
   }
 
   if (loading) return <PageSkeleton rows={5} />;
@@ -489,7 +513,7 @@ export default function CalendarBoard() {
           <p className="page-subtitle">
             {apptMode
               ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.customerNoun.toLowerCase()}.`
-              : `Your scheduling board — drag a ${vocab.jobNoun.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} & day, then Confirm to email the ${vocab.resourceNoun.toLowerCase()} and lock it in.`}
+              : `Your scheduling board — drag a ${vocab.jobNoun.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} & day, pick a time, then Confirm to email the ${vocab.resourceNoun.toLowerCase()} and lock it in.`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -547,7 +571,7 @@ export default function CalendarBoard() {
         </span>
         {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
-            <GripVertical size={14} /> Drag {apptMode ? "a booking" : `a ${vocab.jobNoun.toLowerCase()}`} from the left onto any {vocab.resourceNoun.toLowerCase()} + day to schedule it.
+            <GripVertical size={14} /> Drag {apptMode ? "a booking" : `a ${vocab.jobNoun.toLowerCase()}`} from the left onto any {vocab.resourceNoun.toLowerCase()} + day{apptMode ? " to schedule it." : ", then pick its time."}
           </span>
         )}
       </div>
@@ -576,6 +600,11 @@ export default function CalendarBoard() {
                 {apptMode ? `Unassigned (${unassignedAppts.length})` : `Unscheduled (${unscheduled.length})`}
               </h2>
             </div>
+            {!apptMode && !nothingToSchedule && (
+              <p style={{ margin: 0, padding: "10px 16px 0", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }} data-testid="calendar-unscheduled-help">
+                {vocab.jobNounPlural} with no {vocab.resourceNoun.toLowerCase()} or time yet. Drag one onto a {vocab.resourceNoun.toLowerCase()} and day.
+              </p>
+            )}
             <div className="panel-body" style={{ display: "grid", gap: 10, maxHeight: 680, overflowY: "auto" }}>
               {crews.length > 0 && nothingToSchedule ? (
                 <EmptyState
@@ -600,7 +629,14 @@ export default function CalendarBoard() {
               ) : unscheduled.length === 0 ? (
                 <p style={{ fontSize: 13, color: "var(--text-muted)" }}>All {vocab.jobNounPlural.toLowerCase()} scheduled 🎉</p>
               ) : (
-                unscheduled.map((job) => <JobTile key={job.jobId} job={job} crew={undefined} />)
+                unscheduled.map((job) => (
+                  <JobTile
+                    key={job.jobId}
+                    job={job}
+                    tz={tz}
+                    crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)}
+                  />
+                ))
               )}
             </div>
           </section>
@@ -632,22 +668,29 @@ export default function CalendarBoard() {
               {/* Bookings row — read-only context in jobs mode. In appointments mode
                   the bookings are the draggable cards, so this strip would just
                   duplicate the rows below it. */}
+              {/* Owner feedback 2026-09-28: this must not look like one more crew. A tinted band, a phone icon,
+                  "Phone bookings" + what it is, pill chips with no crew color and no Confirm button, and a heavier
+                  divider before the first crew. */}
               {!apptMode && (
-                <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "#0369a1" }}>
-                  <CalendarDays size={15} strokeWidth={1.75} />
-                  Bookings
+                <div data-testid="calendar-bookings-row" style={{ padding: "12px 16px", borderBottom: "2px solid #cbd5e1", background: "#f0f9ff", display: "grid", gap: 2, alignContent: "center" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, color: "#0369a1" }}>
+                    <Phone size={14} strokeWidth={1.75} />
+                    Phone bookings
+                  </span>
+                  <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.35 }}>Booked by your AI — not a {vocab.resourceNoun.toLowerCase()}</span>
                 </div>
               )}
               {!apptMode && days.map((d) => {
                 const dayAppts = appts.filter((a) => sameDay(a.startTime, d, tz));
                 return (
-                  <div key={d.toISOString()} style={{ padding: "8px 8px", borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 64, display: "grid", gap: 4, alignContent: "start" }}>
+                  <div key={d.toISOString()} style={{ padding: "8px 8px", borderBottom: "2px solid #cbd5e1", borderLeft: "1px solid #e0f2fe", background: "#f0f9ff", minHeight: 64, display: "grid", gap: 4, alignContent: "start" }}>
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
                         <Link key={a.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${a.appointmentId}`} style={{ textDecoration: "none" }}>
-                          <div style={{ fontSize: 12, padding: "4px 8px", borderRadius: 6, background: pending ? "#f1f5f9" : "#dbeafe", color: pending ? "#64748b" : "#1d4ed8", border: pending ? "1px dashed #cbd5e1" : "none", lineHeight: 1.35 }}>
-                            {new Date(a.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} {a.callerName ?? "Appt"}
+                          <div style={{ fontSize: 12, padding: "4px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
+                            <span style={{ fontWeight: 700 }}>{new Date(a.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</span> {a.callerName ?? "Appt"}
+                            {a.jobId && <span style={{ fontFamily: "monospace", fontSize: 10.5, marginLeft: 4 }}>→ {a.jobId}</span>}
                             {pending && <span style={{ display: "block", fontSize: 10, fontWeight: 700 }}>UNCONFIRMED</span>}
                           </div>
                         </Link>
@@ -666,7 +709,9 @@ export default function CalendarBoard() {
                     jobs={apptMode ? [] : jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
                     appts={apptMode ? appts.filter((a) => a.assignedCrewId === crew.crewId) : []}
                     tz={tz}
+                    memberCount={apptMode ? 0 : memberCounts[crew.crewId] ?? 0}
                     onConfirm={confirmJob}
+                    onChangeTime={readOnly ? undefined : openChangeTime}
                     onUnschedule={unschedule}
                     onConfirmAppt={confirmAppt}
                     onUnassignAppt={unassignAppt}
@@ -680,20 +725,214 @@ export default function CalendarBoard() {
         </div>
       </DndContext>
       )}
+      {picker && businessId && (() => {
+        const job = jobs.find((candidate) => candidate.jobId === picker.jobId);
+        const crew = crews.find((candidate) => candidate.crewId === picker.crewId);
+        if (!job || !crew) return null;
+        return (
+          <SlotPicker
+            key={`${picker.jobId}|${picker.crewId}|${picker.day.getTime()}`}
+            businessId={businessId}
+            job={job}
+            crew={crew}
+            day={picker.day}
+            anchor={picker.anchor}
+            tz={tz}
+            onPick={(start, durationMs) => placeJob(job.jobId, crew.crewId, start, durationMs)}
+            onClose={() => setPicker(null)}
+          />
+        );
+      })()}
     </>
   );
 }
 
+function countMembers(people: unknown): Record<string, number> {
+  const counts: Record<string, number> = {};
+  if (!Array.isArray(people)) return counts;
+  for (const person of people as Array<{ crewId?: string }>) {
+    if (person.crewId) counts[person.crewId] = (counts[person.crewId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+// ── Time picker shown after a job is dropped on a crew + day (T-149) ─────────────
+// The open start times come from GET /api/company/crews/open-times (the business's own hours and time zone, minus the
+// crew's jobs and bookings). Picking one saves it exactly like the old drop did — grey until "Confirm + email crew".
+function SlotPicker({
+  businessId, job, crew, day, anchor, tz, onPick, onClose,
+}: {
+  businessId: string;
+  job: Job;
+  crew: Crew;
+  day: Date;
+  anchor: SlotPickerState["anchor"];
+  tz: string;
+  onPick: (start: number, durationMs: number) => void;
+  onClose: () => void;
+}) {
+  const currentLengthMin = job.scheduledStart && job.scheduledEnd
+    ? Math.round((job.scheduledEnd - job.scheduledStart) / 60000)
+    : job.requestedStart && job.requestedEnd
+      ? Math.round((job.requestedEnd - job.requestedStart) / 60000)
+      : 60;
+  const lengthOptions = LENGTH_OPTIONS_MIN.includes(currentLengthMin) || currentLengthMin < 15 || currentLengthMin > 720
+    ? LENGTH_OPTIONS_MIN
+    : [...LENGTH_OPTIONS_MIN, currentLengthMin].sort((a, b) => a - b);
+  const [lengthMin, setLengthMin] = useState(currentLengthMin >= 15 && currentLengthMin <= 720 ? currentLengthMin : 60);
+  const [result, setResult] = useState<{
+    loading: boolean;
+    starts: number[];
+    reason: string | null;
+    nextOpen: { day: string; start: number } | null;
+    error: string | null;
+  }>({ loading: true, starts: [], reason: null, nextOpen: null, error: null });
+  const [narrow, setNarrow] = useState(false);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    setNarrow(window.innerWidth < 640);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    let live = true;
+    setResult((current) => ({ ...current, loading: true, error: null }));
+    const query = new URLSearchParams({ businessId, crewId: crew.crewId, day: dayKey(day), durationMin: String(lengthMin), jobId: job.jobId });
+    fetch(`/api/company/crews/open-times?${query}`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error ?? "Open times could not be loaded");
+        return data;
+      })
+      .then((data) => {
+        if (!live) return;
+        setResult({ loading: false, starts: data.starts ?? [], reason: data.reason ?? null, nextOpen: data.nextOpen ?? null, error: null });
+      })
+      .catch((error) => {
+        if (!live) return;
+        setResult({ loading: false, starts: [], reason: null, nextOpen: null, error: error instanceof Error ? error.message : "Open times could not be loaded" });
+      });
+    return () => { live = false; };
+  }, [businessId, crew.crewId, day, lengthMin, job.jobId]);
+
+  const timeLabel = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+  const dayLabel = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  // The time to highlight: where the tile already sits (moving it) or the time the caller booked.
+  const hint = job.scheduledStart ?? job.requestedStart;
+  const hintParts = hint ? dateParts(hint, tz) : null;
+  const hintKind = job.scheduledStart ? "current" : "booked";
+  const isHint = (ms: number) => {
+    if (!hintParts) return false;
+    const parts = dateParts(ms, tz);
+    return parts.hour === hintParts.hour && parts.minute === hintParts.minute;
+  };
+  const emptyMessage = result.reason === "no_hours"
+    ? "Set your business hours in Settings first — open times come from them."
+    : result.reason === "closed"
+      ? `You're closed on ${day.toLocaleDateString("en-US", { weekday: "long" })}s.`
+      : result.reason === "past"
+        ? "That day has already passed."
+        : `${crew.name} has no open time on ${dayLabel} for ${lengthLabel(lengthMin)}.`;
+
+  const width = 320;
+  const panelStyle: React.CSSProperties = narrow
+    ? { position: "fixed", left: 0, right: 0, bottom: 0, maxHeight: "75vh", borderRadius: "16px 16px 0 0" }
+    : anchor
+      ? {
+          position: "fixed", width,
+          left: Math.max(16, Math.min(anchor.left + anchor.width / 2 - width / 2, (typeof window === "undefined" ? 1280 : window.innerWidth) - width - 16)),
+          top: Math.max(16, Math.min(anchor.top + 24, (typeof window === "undefined" ? 800 : window.innerHeight) - 460)),
+          maxHeight: "min(440px, calc(100vh - 32px))", borderRadius: 12,
+        }
+      : { position: "fixed", width, left: "50%", top: "50%", transform: "translate(-50%, -50%)", maxHeight: "min(440px, calc(100vh - 32px))", borderRadius: 12 };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 40, background: narrow ? "rgba(15,23,42,0.35)" : "transparent" }} />
+      <div
+        role="dialog"
+        aria-label={`Pick a time for ${job.title}`}
+        data-testid="calendar-slot-picker"
+        style={{ ...panelStyle, zIndex: 41, background: "#fff", border: "1px solid var(--border)", boxShadow: "0 16px 40px rgba(15,23,42,0.22)", display: "flex", flexDirection: "column", overflow: "hidden" }}
+      >
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: crew.color, flexShrink: 0 }} />
+              {crew.name} · {dayLabel}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job.title}</div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cancel" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4, minWidth: 32, minHeight: 32 }}>
+            <X size={16} />
+          </button>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px 4px", fontSize: 12, fontWeight: 600, color: "#475569" }}>
+          How long
+          <select aria-label="How long" value={lengthMin} onChange={(event) => setLengthMin(Number(event.target.value))} style={{ fontSize: 13, minHeight: 36 }}>
+            {lengthOptions.map((minutes) => <option key={minutes} value={minutes}>{lengthLabel(minutes)}</option>)}
+          </select>
+        </label>
+        <div style={{ padding: "8px 14px 14px", overflowY: "auto" }}>
+          {result.loading ? (
+            <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Finding open times…</p>
+          ) : result.error ? (
+            <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--danger)" }}>{result.error}</p>
+          ) : result.starts.length === 0 ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#334155" }}>{emptyMessage}</p>
+              {result.nextOpen && (
+                <button type="button" className="button primary" onClick={() => onPick(result.nextOpen!.start, lengthMin * 60000)} style={{ minHeight: 44 }}>
+                  Next opening: {new Date(result.nextOpen.start).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })} · {timeLabel(result.nextOpen.start)}
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>Open times for {crew.name}:</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+                {result.starts.map((start) => {
+                  const highlighted = isHint(start);
+                  return (
+                    <button
+                      key={start}
+                      type="button"
+                      className={`button small${highlighted ? " primary" : ""}`}
+                      onClick={() => onPick(start, lengthMin * 60000)}
+                      title={highlighted ? (hintKind === "current" ? "Its current time" : "The time the customer booked") : undefined}
+                      style={{ minHeight: 40, justifyContent: "center", fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {timeLabel(start)}
+                    </button>
+                  );
+                })}
+              </div>
+              {hintParts && result.starts.some(isHint) && (
+                <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                  Highlighted: {hintKind === "current" ? "its current time" : "the time the customer booked"}.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, tz, onConfirm, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix,
+  crew, days, jobs, appts, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix,
 }: {
   crew: Crew;
   days: Date[];
   jobs: Job[];
   appts: Appointment[];
   tz: string;
+  memberCount: number;
   onConfirm: (j: Job) => void;
+  onChangeTime?: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
   onConfirmAppt: (a: Appointment) => void;
   onUnassignAppt: (appointmentId: string) => void;
@@ -705,12 +944,17 @@ function CrewRow({
     <>
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 9 }}>
         <span style={{ width: 13, height: 13, borderRadius: "50%", background: crew.color, flexShrink: 0, boxShadow: `0 0 0 3px ${crew.color}22` }} />
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", lineHeight: 1.3 }}>{crew.name}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", lineHeight: 1.3 }}>
+          {crew.name}
+          {memberCount > 0 && (
+            <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
+          )}
+        </span>
       </div>
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
           {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d, tz)).map((job) => (
-            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
+            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onChangeTime={onChangeTime} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
           ))}
           {appts.filter((a) => sameDay(a.startTime, d, tz)).map((appt) => (
             <ScheduledApptTile
@@ -736,7 +980,7 @@ function DayCell({ crewId, day, children }: { crewId: string; day: Date; childre
   const { setNodeRef, isOver } = useDroppable({ id });
   const isEmpty = !children || (Array.isArray(children) && children.length === 0);
   return (
-    <div ref={setNodeRef} style={{ padding: 8, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 116, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 8 : 0, transition: "background 0.12s", display: "grid", gap: 6, alignContent: "start" }}>
+    <div ref={setNodeRef} data-testid={`calendar-cell-${crewId}-${dayKey(day)}`} style={{ padding: 8, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 116, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 8 : 0, transition: "background 0.12s", display: "grid", gap: 6, alignContent: "start" }}>
       {children}
       {isEmpty && (
         <span style={{ fontSize: 12, color: isOver ? "var(--accent)" : "#cbd5e1", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
@@ -748,8 +992,11 @@ function DayCell({ crewId, day, children }: { crewId: string; day: Date; childre
 }
 
 // ── Draggable job tile (unscheduled rail) ─────────────────────────────────────
-function JobTile({ job }: { job: Job; crew?: Crew }) {
+function JobTile({ job, tz, crewGone }: { job: Job; tz: string; crewGone: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId });
+  const booked = job.requestedStart
+    ? `${new Date(job.requestedStart).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })} · ${new Date(job.requestedStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}`
+    : null;
   return (
     <div
       ref={setNodeRef}
@@ -767,6 +1014,8 @@ function JobTile({ job }: { job: Job; crew?: Crew }) {
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.35, fontWeight: 600 }}>{job.title}</div>
         {job.address && <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
+        {booked && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#0369a1", marginTop: 3 }}>Customer booked: {booked}</div>}
+        {crewGone && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#b45309", marginTop: 3 }}>Its crew was removed or turned off — drag it to another crew</div>}
         <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "#cbd5e1", marginTop: 3 }}>{job.jobId}</div>
       </div>
     </div>
@@ -869,12 +1118,13 @@ function ScheduledApptTile({
 
 // ── Scheduled tile (in a crew×day cell) — grey until confirmed, then crew color ──
 function ScheduledTile({
-  job, crew, tz, onConfirm, onUnschedule, busy, previewSuffix,
+  job, crew, tz, onConfirm, onChangeTime, onUnschedule, busy, previewSuffix,
 }: {
   job: Job;
   crew: Crew;
   tz: string;
   onConfirm: (j: Job) => void;
+  onChangeTime?: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
   busy: boolean;
   previewSuffix: string;
@@ -908,9 +1158,15 @@ function ScheduledTile({
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         {!confirmed ? (
-          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails this crew their assignment and locks the schedule" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email"}</button>
+          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email crew"}</button>
         ) : (
           <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
+        )}
+        {/* Outside the drag handle on purpose: a button nested in the draggable (role="button") is invalid and eats taps. */}
+        {!confirmed && onChangeTime && (
+          <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#64748b", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+            <Clock3 size={14} strokeWidth={1.75} />
+          </button>
         )}
         <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
           <Undo2 size={14} strokeWidth={1.75} />

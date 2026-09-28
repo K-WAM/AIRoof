@@ -63,6 +63,19 @@ export interface Crew {
   createdAt: number;
 }
 
+/**
+ * A teammate who can be on a crew (GET /api/company/crews?people=1). Membership lives on the person —
+ * `TeamMember.crewId`, one crew each — so the field screen and time clock can scope by it; the crew doc has no
+ * member list to drift out of step with it.
+ */
+export interface CrewPerson {
+  uid: string;
+  name: string;
+  role: "owner" | "staff" | "crew";
+  trade?: string;
+  crewId?: string;
+}
+
 // Fuzzy-match a material name to a catalog entry's unit price. Returns null if no confident match.
 export function lookupUnitPrice(materials: LibraryMaterial[], item: string): number | null {
   if (!item) return null;

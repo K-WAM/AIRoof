@@ -94,6 +94,10 @@ class FakeDocumentReference {
     if (!current) throw new Error(`Document does not exist: ${this.path}`);
     this.firestore.documents.set(this.path, { ...current, ...value });
   }
+
+  collection(name: string) {
+    return new FakeCollectionReference(this.firestore, `${this.path}/${name}`);
+  }
 }
 
 class FakeFirestore {
@@ -407,6 +411,28 @@ describe("/api/company/team/[uid]", () => {
     });
     expect(res.status).toBe(200);
     expect(firestore.documents.get("businessUsers/target")?.role).toBe("staff");
+  });
+
+  // T-148/T-150 (2026-09-28)
+  it("puts a member on one of this business's crews, and refuses a crew that doesn't exist", async () => {
+    firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", active: true });
+    firestore.seed("businesses/biz-1/crews/c1", { name: "Tyler Crew", active: true });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    const context = { params: Promise.resolve({ uid: "target" }) };
+    expect((await PATCH(patchRequest({ businessId: "biz-1", crewId: "ghost" }), context)).status).toBe(400);
+    expect(firestore.documents.get("businessUsers/target")?.crewId).toBeUndefined();
+    expect((await PATCH(patchRequest({ businessId: "biz-1", crewId: "c1" }), { params: Promise.resolve({ uid: "target" }) })).status).toBe(200);
+    expect(firestore.documents.get("businessUsers/target")?.crewId).toBe("c1");
+  });
+
+  it("gives the Crew role only where the industry has field work", async () => {
+    firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", active: true });
+    firestore.seed("businesses/biz-1", { businessName: "Smile Dental", industry: "dental" });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    expect((await PATCH(patchRequest({ businessId: "biz-1", role: "crew" }), { params: Promise.resolve({ uid: "target" }) })).status).toBe(400);
+    firestore.seed("businesses/biz-1", { businessName: "Apex Roofing", industry: "roofing" });
+    expect((await PATCH(patchRequest({ businessId: "biz-1", role: "crew" }), { params: Promise.resolve({ uid: "target" }) })).status).toBe(200);
+    expect(firestore.documents.get("businessUsers/target")?.role).toBe("crew");
   });
 });
 

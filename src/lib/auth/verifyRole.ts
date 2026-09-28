@@ -5,7 +5,7 @@ import { verifyIdToken, getAdminFirestore } from "@/lib/firebase/admin";
 import { getCachedMember, setCachedMember } from "@/lib/auth/memberCache";
 import type { TeamMemberDoc } from "@/lib/team/invite";
 
-export type AllowedRole = "owner" | "staff" | "viewer" | "superadmin";
+export type AllowedRole = "owner" | "staff" | "crew" | "viewer" | "superadmin";
 
 export interface VerifiedUser {
   uid: string;
@@ -536,12 +536,13 @@ export async function verifyFieldAccess(
     return { error: NextResponse.json({ error: "businessId required" }, { status: 400 }) };
   }
 
-  // Path 1: session (staff/owner/viewer of this business, or superadmin)
+  // Path 1: session (owner/staff/crew/viewer of this business, or superadmin). "crew" (T-150) is a field-only
+  // login: it gets exactly these field routes and is refused by every office route, which list their roles.
   let sessionError: NextResponse<{ error: string }> | undefined;
   if (req.cookies.get("__session")?.value) {
     const byRole = await verifyAuthAndRole(
       req, businessId,
-      options?.write ? ["owner", "staff", "superadmin"] : ["owner", "staff", "viewer", "superadmin"],
+      options?.write ? ["owner", "staff", "crew", "superadmin"] : ["owner", "staff", "crew", "viewer", "superadmin"],
     );
     if ("user" in byRole) return byRole;
     sessionError = byRole.error;

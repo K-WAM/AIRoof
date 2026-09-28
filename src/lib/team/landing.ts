@@ -17,6 +17,8 @@ export function defaultLandingPath(
   // The vertical-safety guard always wins: a dental office (no "jobs" module)
   // has no /company/jobs or /company/field to land a trade worker on.
   if (disabledModules.includes("jobs")) return "/company/dashboard";
+  // A Crew login (T-150) can only use the Field screen — the layout keeps it there.
+  if (member.role === "crew") return "/company/field";
   if (member.trade && FIELD_LANDING_TRADES.has(member.trade)) return "/company/field";
   if (member.trade === "foreman") return "/company/jobs";
   return "/company/dashboard";

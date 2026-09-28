@@ -53,7 +53,9 @@ export function CompanyNav() {
   const { user, loading } = useAuth();
   const showFeedback = !loading && !user?.superadmin;
 
-  const visibleLinks = LINKS.filter((link) => !link.module || isEnabled(link.module));
+  // A Crew login (T-150) works only on the Field screen — the layout redirects everything else there.
+  const crewOnly = !loading && user?.role === "crew" && !user.superadmin;
+  const visibleLinks = LINKS.filter((link) => (!link.module || isEnabled(link.module)) && (!crewOnly || link.path === "/company/field"));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
@@ -82,22 +84,26 @@ export function CompanyNav() {
             Team
           </Link>
         )}
-        <Link
-          href={`/company/settings${suffix}`}
-          aria-current={pathname === "/company/settings" ? "page" : undefined}
-        >
-          <Settings size={16} strokeWidth={1.75} />
-          Settings
-        </Link>
+        {!crewOnly && (
+          <Link
+            href={`/company/settings${suffix}`}
+            aria-current={pathname === "/company/settings" ? "page" : undefined}
+          >
+            <Settings size={16} strokeWidth={1.75} />
+            Settings
+          </Link>
+        )}
         <p className="company-nav-section-label" id="company-nav-help-label">Help</p>
-        <Link
-          href={`/company/guide${suffix}`}
-          aria-current={pathname === "/company/guide" ? "page" : undefined}
-          aria-describedby="company-nav-help-label"
-        >
-          <Compass size={16} strokeWidth={1.75} />
-          Guide
-        </Link>
+        {!crewOnly && (
+          <Link
+            href={`/company/guide${suffix}`}
+            aria-current={pathname === "/company/guide" ? "page" : undefined}
+            aria-describedby="company-nav-help-label"
+          >
+            <Compass size={16} strokeWidth={1.75} />
+            Guide
+          </Link>
+        )}
         {showFeedback && (
           <button
             type="button"

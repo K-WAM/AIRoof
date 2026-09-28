@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
-import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, LibraryLogo, Crew } from "@/types/library";
+import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, LibraryLogo, Crew, CrewPerson } from "@/types/library";
 import type { CustomerSlim } from "@/types/customer";
 import type { WorkCatalog } from "@/types/workCatalog";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -14,6 +14,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CustomersSection } from "./CustomersSection";
+import { CrewsSection } from "./CrewsSection";
 import { LogosSection } from "./LogosSection";
 import { WorkCatalogSection } from "./WorkCatalogSection";
 import {
@@ -23,7 +24,6 @@ import {
   Package,
   Plus,
   Trash2,
-  Users,
 } from "lucide-react";
 
 type Section = "customers" | "pricing" | "crews" | "documents" | "branding" | "work-catalog";
@@ -45,6 +45,7 @@ export default function LibraryPage() {
   );
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
+  const [crewPeople, setCrewPeople] = useState<CrewPerson[]>([]);
   const [customers, setCustomers] = useState<CustomerSlim[]>([]);
   const [logos, setLogos] = useState<LibraryLogo[]>([]);
   const [workCatalog, setWorkCatalog] = useState<WorkCatalog>({ items: [] });
@@ -62,7 +63,7 @@ export default function LibraryPage() {
         if (!r.ok) throw new Error("Library request failed");
         return r.json();
       }),
-      fetch(`/api/company/crews?businessId=${businessId}`).then((r) => {
+      fetch(`/api/company/crews?businessId=${businessId}&people=1`).then((r) => {
         if (!r.ok) throw new Error("Crews request failed");
         return r.json();
       }),
@@ -82,6 +83,7 @@ export default function LibraryPage() {
       .then(([lib, cr, cu, lo, wc]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
+        setCrewPeople(cr.people ?? []);
         setCustomers(cu.customers ?? []);
         setLogos(lo.logos ?? []);
         setWorkCatalog(wc.catalog ?? { items: [] });
@@ -233,7 +235,7 @@ export default function LibraryPage() {
       {section === "pricing" && hasPricing && (
         <PricingSection library={library} onSave={saveLibrary} onLoadExamples={loadStarterKit} loadingKit={loadingKit} readOnly={readOnly} />
       )}
-      {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} readOnly={readOnly} />}
+      {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} people={crewPeople} setPeople={setCrewPeople} readOnly={readOnly} />}
       {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} />}
       {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />}
       {section === "work-catalog" && isEnabled("jobs") && (
@@ -365,159 +367,6 @@ function PricingSection({ library, onSave, onLoadExamples, loadingKit, readOnly 
 }
 
 // ── Crews ─────────────────────────────────────────────────────────────────────
-// Same palette the API auto-assigns from — keeps manual picks visually consistent
-// with newly created crews.
-const CREW_COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#dc2626", "#65a30d"];
-
-function CrewsSection({ businessId, crews, setCrews, readOnly }: { businessId: string | null; crews: Crew[]; setCrews: (c: Crew[]) => void; readOnly: boolean }) {
-  const { vocab, isEnabled } = useBusinessModules();
-  const resource = vocab.resourceNoun;
-  const resources = vocab.resourceNounPlural;
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [pickerCrewId, setPickerCrewId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-
-  async function addCrew() {
-    if (!name.trim() || !businessId) return;
-    setAdding(true);
-    setActionError(null);
-    try {
-      const res = await fetch("/api/company/crews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, name, email, phone }),
-      });
-      if (!res.ok) throw new Error("Resource creation failed");
-      const data = await res.json();
-      if (!data.crew) throw new Error("Resource creation failed");
-      setCrews([...crews, data.crew]);
-      setName(""); setEmail(""); setPhone("");
-    } catch {
-      setActionError(`The ${resource.toLowerCase()} could not be added. Try again.`);
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function removeCrew(crewId: string) {
-    const crew = crews.find((c) => c.crewId === crewId);
-    if (!confirm(`Remove ${crew?.name ?? `this ${resource.toLowerCase()}`}? They'll disappear from the Calendar.`)) return;
-    const previous = crews;
-    setCrews(previous.filter((c) => c.crewId !== crewId));
-    setActionError(null);
-    try {
-      const response = await fetch(`/api/company/crews?businessId=${businessId}&crewId=${crewId}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Resource deletion failed");
-    } catch {
-      setCrews(previous);
-      setActionError(`The ${resource.toLowerCase()} could not be removed. The roster was restored.`);
-    }
-  }
-
-  async function setCrewColor(crewId: string, color: string) {
-    const previous = crews;
-    setCrews(previous.map((c) => (c.crewId === crewId ? { ...c, color } : c)));
-    setPickerCrewId(null);
-    setActionError(null);
-    try {
-      const response = await fetch("/api/company/crews", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, crewId, color }),
-      });
-      if (!response.ok) throw new Error("Resource color update failed");
-    } catch {
-      setCrews(previous);
-      setActionError(`The ${resource.toLowerCase()} color could not be saved. The previous color was restored.`);
-    }
-  }
-
-  return (
-    <section className="panel">
-      <div className="panel-header">
-        <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Users size={16} strokeWidth={1.75} />
-          {resources}
-        </h2>
-      </div>
-      <div className="panel-body">
-        {actionError && (
-          <p role="alert" style={{ color: "var(--danger)", marginTop: 0 }}>
-            {actionError}
-          </p>
-        )}
-        <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
-          {resources} are the rows on your Calendar — drag {isEnabled("jobs") ? `a ${vocab.jobNoun.toLowerCase()}` : "a booking"} onto one to schedule it.
-          {isEnabled("jobs") ? " Email is used for branded assignment notices." : ""} Click a color dot to change its Calendar color.
-        </p>
-        <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-          {crews.map((c) => (
-            <div key={c.crewId} style={{ position: "relative", display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
-              <button
-                onClick={() => setPickerCrewId(pickerCrewId === c.crewId ? null : c.crewId)}
-                title="Change color"
-                style={{ width: 18, height: 18, borderRadius: "50%", background: c.color, flexShrink: 0, border: "2px solid #fff", boxShadow: "0 0 0 1px #d7dde5", cursor: "pointer", padding: 0 }}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{[c.email, c.phone].filter(Boolean).join(" · ") || "No contact info"}</div>
-              </div>
-              <Tooltip content="Remove">
-                <button onClick={() => removeCrew(c.crewId)} className="icon-del" aria-label={`Remove ${c.name}`}>
-                  <Trash2 size={14} strokeWidth={1.75} />
-                </button>
-              </Tooltip>
-
-              {pickerCrewId === c.crewId && (
-                <>
-                  <div onClick={() => setPickerCrewId(null)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 14, zIndex: 21, display: "flex", gap: 6, padding: "8px 10px", background: "#fff", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 8px 24px rgba(15,23,42,0.14)" }}>
-                    {CREW_COLORS.map((hex) => (
-                      <button
-                        key={hex}
-                        onClick={() => setCrewColor(c.crewId, hex)}
-                        title={hex}
-                        style={{
-                          width: 22, height: 22, borderRadius: "50%", background: hex, cursor: "pointer",
-                          border: c.color === hex ? "2px solid #0f172a" : "2px solid transparent",
-                          padding: 0,
-                        }}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-          {/* The add form right below is the one action — a second "Add" button here would only duplicate it. */}
-          {crews.length === 0 && (
-            <EmptyState
-              compact
-              title={`Add your first ${resource.toLowerCase()}`}
-              body={readOnly ? `Ask the owner to add your ${resources.toLowerCase()}.` : "Type a name below. It becomes a row on your Calendar."}
-              testId="library-crews-empty"
-            />
-          )}
-        </div>
-        <div className="form-grid" style={{ alignItems: "end" }}>
-          <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
-          <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
-          <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
-          <div className="field">
-            <button className="button primary" onClick={addCrew} disabled={adding || !name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Plus size={15} strokeWidth={1.75} />
-              {adding ? "Adding…" : `Add ${resource.toLowerCase()}`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // ── Documents ─────────────────────────────────────────────────────────────────
 function DocumentsSection({ library, onSave, readOnly }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void; readOnly: boolean }) {
   const { vocab } = useBusinessModules();

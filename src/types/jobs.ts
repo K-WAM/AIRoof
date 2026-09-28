@@ -147,6 +147,10 @@ export interface Job {
   scheduledStart?: number;
   scheduledEnd?: number;
   crewConfirmed?: boolean;
+  // The time the caller booked with the phone AI, copied when a job is made from that booking (T-149). A hint for the
+  // Calendar's time picker only — never scheduledStart, which would count the one visit twice against AI capacity.
+  requestedStart?: number;
+  requestedEnd?: number;
   // Job-site photos (Phase 2) — meta + thumbnail; full blobs live in photoBlobs subcollection
   photos?: JobPhotoMeta[];
   // Legacy display mirror of `parsed`, kept so /company/field JobLogCard works unchanged

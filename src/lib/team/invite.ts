@@ -69,6 +69,12 @@ export async function inviteTeamMember(opts: {
   if (trade && !TRADE_TITLES.includes(trade as TradeTitle)) {
     return { status: "invalid", email: trimmedEmail, reason: `Title must be one of: ${TRADE_TITLES.join(", ")}` };
   }
+  if (role === "crew" && disabledModules.includes("jobs")) {
+    return { status: "invalid", email: trimmedEmail, reason: "The Crew role is for field work, which this business doesn't use. Choose Staff or Viewer." };
+  }
+  if (crewId && !(await db.collection("businesses").doc(businessId).collection("crews").doc(crewId).get()).exists) {
+    return { status: "invalid", email: trimmedEmail, reason: "That crew no longer exists. Pick another crew." };
+  }
 
   const normalizedEmail = trimmedEmail.toLowerCase();
 

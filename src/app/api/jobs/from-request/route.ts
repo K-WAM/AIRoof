@@ -5,7 +5,7 @@ import { resolveCustomer, bumpCustomerJobStats } from "@/lib/customers/resolve";
 import { nextJobIdInTransaction } from "@/lib/jobs/createJob";
 import type { Job } from "@/types/jobs";
 
-type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string };
+type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
     serviceType, notes: data.notes, ...(appointmentId ? { appointmentId } : { leadId }),
     ...(data.sourceCallId ? { sourceCallId: data.sourceCallId, callSummary: call?.data()?.summary } : {}),
     ...(customer ? { customerId: customer.customerId } : {}), createdAt: now, updatedAt: now,
+    // The time the caller booked (T-149): shown on the Unscheduled tile and preselected when it's dropped on a crew.
+    // NOT scheduledStart — the booking already counts against the phone AI's capacity, so copying it there would
+    // count the one visit twice.
+    ...(typeof data.startTime === "number" && typeof data.endTime === "number" && data.endTime > data.startTime
+      ? { requestedStart: data.startTime, requestedEnd: data.endTime }
+      : {}),
   };
   const jobs = db.collection(`businesses/${businessId}/jobs`);
   const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`${appointmentId ? "appointment" : "lead"}_${requestId}`);

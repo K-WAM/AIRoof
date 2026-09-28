@@ -25,7 +25,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("Team page", () => {
-  it("shows the required member fields and locks a member", async () => {
+  it("shows the required member fields and disables a member", async () => {
     render(<TeamPage />);
     expect(await screen.findByText("alex@example.com")).toBeTruthy();
     const table = screen.getByRole("table");
@@ -34,8 +34,22 @@ describe("Team page", () => {
     expect(screen.getByText("Active")).toBeTruthy();
     expect(screen.getByLabelText("Role for alex@example.com")).toBeTruthy();
     expect(screen.getByLabelText("Title for alex@example.com")).toBeTruthy();
-    fireEvent.click(screen.getByText("Lock"));
+    // "Lock" was renamed (owner, 2026-09-28: "why can't users be disabled from here?") — same PATCH active:false.
+    expect(screen.queryByText("Lock")).toBeNull();
+    // Signed in already, so no "Resend invite".
+    expect(screen.queryByText("Resend invite")).toBeNull();
+    fireEvent.click(screen.getByText("Disable"));
     await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/u1", method: "PATCH" }));
+  });
+
+  it("explains every role, including Crew, from the ⓘ", async () => {
+    render(<TeamPage />);
+    await screen.findByText("alex@example.com");
+    const options = Array.from((screen.getByLabelText("Role for alex@example.com") as HTMLSelectElement).options).map((option) => option.text);
+    expect(options).toEqual(["Owner", "Staff", "Crew", "Viewer"]);
+    fireEvent.click(screen.getAllByLabelText("What each role can do")[0]);
+    expect(screen.getByText(/Field work only/)).toBeTruthy();
+    expect(screen.getByText(/QR code instead/)).toBeTruthy();
   });
 
   it("confirms before revoking every field QR link", async () => {

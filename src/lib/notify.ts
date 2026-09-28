@@ -1,6 +1,7 @@
 import { sendEmail } from "@/lib/comms/send";
 import type { CommSendResult } from "@/lib/comms/send";
 import { escapeHtml } from "@/lib/documents/letterhead";
+import { TEAM_ROLE_LABEL, type TeamRole } from "@/types/team";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -40,6 +41,8 @@ function shell(brand: Branding, heading: string, bodyHtml: string): string {
 export function buildCrewAssignmentEmail(opts: {
   brand: Branding;
   crewName: string;
+  /** Set when the email goes to one crew member rather than the crew's own address (T-148). */
+  recipientName?: string;
   jobTitle: string;
   address?: string;
   clientName?: string;
@@ -49,12 +52,13 @@ export function buildCrewAssignmentEmail(opts: {
   const rows = [
     ["Job", opts.jobTitle],
     ["When", opts.when],
+    opts.recipientName ? ["Crew", opts.crewName] : null,
     opts.address ? ["Address", opts.address] : null,
     opts.clientName ? ["Client", opts.clientName] : null,
   ].filter(Boolean) as [string, string][];
 
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">Hi ${esc(opts.crewName)}, you've been assigned a job:</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#334155;line-height:1.6">Hi ${esc(opts.recipientName ?? opts.crewName)}, you've been assigned a job:</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px">
       ${rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#64748b;width:90px">${esc(k)}</td><td style="padding:6px 0;color:#0f172a;font-weight:600">${esc(v)}</td></tr>`).join("")}
     </table>
@@ -145,16 +149,10 @@ export async function sendBusinessWelcomeEmail(
   return sendEmail({ to: opts.to, subject, html });
 }
 
-const TEAM_ROLE_LABEL: Record<"owner" | "staff" | "viewer", string> = {
-  owner: "Owner",
-  staff: "Staff",
-  viewer: "Viewer",
-};
-
 export function buildTeamInviteEmail(opts: {
   brand: Branding;
   inviteeEmail: string;
-  role: "owner" | "staff" | "viewer";
+  role: TeamRole;
   resetLink: string;
 }): { subject: string; html: string } {
   const roleLabel = TEAM_ROLE_LABEL[opts.role];
@@ -181,7 +179,7 @@ export async function sendTeamInviteEmail(
   opts: {
     to: string;
     brand: Branding;
-    role: "owner" | "staff" | "viewer";
+    role: TeamRole;
     resetLink: string;
   },
 ): Promise<CommSendResult> {

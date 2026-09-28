@@ -4,6 +4,7 @@ import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { invalidateCachedMember } from "@/lib/auth/memberCache";
 import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
 
 // PATCH /api/company/team/[uid]  body: { businessId, role?, active?, trade?, displayName?, crewId? }
 // Changes a teammate's role, title, and/or activates/deactivates their access.
@@ -47,6 +48,16 @@ export async function PATCH(
   const memberSnap = await memberRef.get();
   if (!memberSnap.exists || memberSnap.data()?.businessId !== businessId) {
     return NextResponse.json({ error: "Team member not found" }, { status: 404 });
+  }
+  if (role === "crew") {
+    const businessSnap = await db.collection("businesses").doc(businessId).get();
+    const industry = businessSnap.data()?.industry;
+    if (getVerticalTemplate(typeof industry === "string" ? industry : "").disabledModules.includes("jobs")) {
+      return NextResponse.json({ error: "The Crew role is for field work, which this business doesn't use." }, { status: 400 });
+    }
+  }
+  if (typeof crewId === "string" && !(await db.collection("businesses").doc(businessId).collection("crews").doc(crewId).get()).exists) {
+    return NextResponse.json({ error: "That crew no longer exists. Pick another crew." }, { status: 400 });
   }
   const current = memberSnap.data() as { role: TeamRole; active?: boolean };
   const wasActiveOwner = current.role === "owner" && current.active !== false;
