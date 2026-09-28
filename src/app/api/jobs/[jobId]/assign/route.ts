@@ -14,8 +14,8 @@ import {
   SchedulingConflictError,
   type NotificationDeliveryState,
 } from "@/lib/tools/agentTools";
+import { crewEmailRecipients } from "@/lib/crews/recipients";
 import type { Crew, LibraryLogo } from "@/types/library";
-import { CREW_MEMBER_ROLES } from "@/types/team";
 
 interface AssignmentBody {
   businessId?: string;
@@ -291,26 +291,14 @@ export async function POST(
     try {
       // Who hears about it (owner decision 2026-09-28, T-148): the crew's own address plus every active member with an
       // email. Each recipient is its own ledger entry (the ledger dedupes on entityId), so a re-confirm never
-      // re-sends and one bad address never blocks the rest. The crew address keeps its original entityId.
-      const membersSnap = await db.collection("businessUsers")
-        .where("businessId", "==", businessId).where("crewId", "==", crewId).get();
-      const recipients: Array<{ to: string; entityId: string; recipientName?: string }> = [];
-      const seen = new Set<string>();
-      if (crew.email) {
-        recipients.push({ to: crew.email, entityId: `${jobId}:${startTime}` });
-        seen.add(crew.email.trim().toLowerCase());
-      }
-      for (const memberDoc of membersSnap.docs) {
-        const member = memberDoc.data();
-        const email = typeof member.email === "string" ? member.email.trim() : "";
-        if (member.active === false || !CREW_MEMBER_ROLES.has(member.role) || !email || seen.has(email.toLowerCase())) continue;
-        seen.add(email.toLowerCase());
-        recipients.push({
-          to: email,
-          entityId: `${jobId}:${startTime}:${memberDoc.id}`,
-          recipientName: typeof member.displayName === "string" && member.displayName.trim() ? member.displayName.trim() : email.split("@")[0],
-        });
-      }
+      // re-sends and one bad address never blocks the rest. Extracted in T-152 so inspector notifications share it.
+      const recipients = await crewEmailRecipients({
+        db,
+        businessId,
+        crewId,
+        crewEmail: crew.email,
+        keyPrefix: `${jobId}:${startTime}`,
+      });
       const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
       const resolvedBrand = resolveLetterhead(business, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], "brand-bar");
       const brand = {
