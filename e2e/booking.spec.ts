@@ -8,23 +8,33 @@ import { expect, expectHealthy, settle, shot, test } from "./fixtures";
 
 test.describe.configure({ mode: "serial" });
 
-type Scenario = Awaited<ReturnType<typeof runBookingScenarios>>;
+interface BookingScenario {
+  ok: boolean;
+  rows: Array<{ id: string; ok: boolean; expected: string; actual: string }>;
+  ctx: {
+    businessId: string;
+    tag: string;
+    s1?: { callerName: string; monday: string };
+    cancel?: () => Promise<number>;
+  };
+}
 
 // Shared across the two serial tests in this file (one project at a time, workers: 1).
-let scenario: Scenario | undefined;
+let scenario: BookingScenario | undefined;
 
 test("booking reliability scenarios pass through the real webhooks", async () => {
   test.setTimeout(300_000);
   // keepBookings: the second test has to see the requests in the UI; it cancels them afterwards.
-  scenario = await runBookingScenarios({ log: () => {}, keepBookings: true });
+  scenario = (await runBookingScenarios({ log: () => {}, keepBookings: true })) as BookingScenario;
   expect(scenario.rows.filter((row) => !row.ok), "failed booking scenarios").toEqual([]);
   expect(scenario.ctx.s1?.callerName, "S1 booked a caller we can look up").toBeTruthy();
 });
 
 test("the booked appointment appears in the Pipeline and on the Calendar at its local time", async ({ as }) => {
   test.setTimeout(180_000);
-  expect(scenario?.ctx.s1, "the scenario ran first").toBeTruthy();
-  const { callerName, monday } = scenario!.ctx.s1;
+  const s1 = scenario?.ctx.s1;
+  expect(s1, "the scenario ran first").toBeTruthy();
+  const { callerName, monday } = s1!;
 
   const page = await as("owner");
 
