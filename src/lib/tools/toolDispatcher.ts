@@ -77,7 +77,7 @@ export async function executeAgentTool(
           // "Es Carla Esnaida" (Spanish "it's") was saved as the name and the confirmation call said "Hi Es".
           callerName: cleanCallerName(String(params.name ?? params.callerName ?? "Unknown")),
           callerPhone: trustedCallerPhone ?? "",
-          callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+          callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceType: optionalStr(params.serviceType ?? params.service),
           address: optionalStr(params.address),
           notes: optionalStr(params.notes ?? params.summary ?? params.context),
@@ -156,7 +156,7 @@ export async function executeAgentTool(
           businessId,
           callerName: rawLeadName ? cleanCallerName(rawLeadName) : undefined,
           callerPhone: trustedCallerPhone,
-          callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+          callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
           serviceRequested: optionalStr(params.serviceRequested ?? params.service),
           address: optionalStr(params.address),
           urgency: parseUrgency(params.urgency),
@@ -231,7 +231,7 @@ export async function executeAgentTool(
             businessId,
             callerName: optionalStr(params.name ?? params.callerName),
             callerPhone: trustedCallerPhone,
-            callerEmail: optionalStr(params.email ?? params.callerEmail ?? params.customerEmail),
+            callerEmail: normalizeSpokenEmail(params.email ?? params.callerEmail ?? params.customerEmail),
             serviceRequested: optionalStr(params.serviceType ?? params.service),
             address: optionalStr(params.address),
             urgency: parseUrgency(params.urgency),
@@ -516,6 +516,22 @@ function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
     return Number.isNaN(t) ? undefined : t;
   }
   return undefined;
+}
+
+/**
+ * The model sometimes passes an email the way it was spoken ("carla at example dot com" — ElevenLabs agent test,
+ * 2026-09-28). Turn that into an address; anything that still isn't one is dropped rather than stored, because a
+ * confirmation sent to it can only fail.
+ */
+export function normalizeSpokenEmail(value: unknown): string | undefined {
+  const raw = optionalStr(value);
+  if (!raw) return undefined;
+  const email = raw
+    .toLowerCase()
+    .replace(/\s+(?:at|arroba)\s+/g, "@")
+    .replace(/\s+(?:dot|punto)\s+/g, ".")
+    .replace(/\s+/g, "");
+  return /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email) ? email : undefined;
 }
 
 /** A yes/no the model may send as a boolean or a word; anything else is "not asked". */

@@ -379,6 +379,20 @@ describe("booking reliability truth table", () => {
     expect((await executeAgentTool("addBookingNote", { note: "x" }, context("s20-other", "+15552000299"))).result).toMatch(/^NOT SAVED: /);
   });
 
+  it("S21 a spoken email becomes an address; one that still isn't is dropped (confirmation email can't bounce)", async () => {
+    seedRoofing({ includeAppointments: false });
+    const spoken = await executeAgentTool("bookAppointment", {
+      callerName: "Carla Snyder", serviceType: "Roof inspection", startTime: "2026-09-28T10:00", callerEmail: "carla at example dot com",
+    }, context("s21-a", "+15552000211"));
+    expect(spoken.sayToCaller).toContain("by email");
+    await executeAgentTool("bookAppointment", {
+      callerName: "Luis", serviceType: "Roof inspection", startTime: "2026-09-28T11:00", callerEmail: "luis at gmail",
+    }, context("s21-b", "+15552000212"));
+    const stored = mocks.db!.__list(`businesses/${BUSINESS_ID}/appointments`);
+    expect(stored.find((doc) => doc.data.sourceCallId === "s21-a")?.data.callerEmail).toBe("carla@example.com");
+    expect(stored.find((doc) => doc.data.sourceCallId === "s21-b")?.data.callerEmail).toBeUndefined();
+  });
+
   it("S14 leaves six morning openings on each of the next three business days at every launch hour", () => {
     for (let launchHour = 0; launchHour < 24; launchHour++) {
       const launchNow = Date.UTC(2026, 8, 27, launchHour + 4);

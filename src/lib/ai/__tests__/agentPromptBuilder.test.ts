@@ -132,7 +132,7 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("Is it OK to text you about this appointment at this number?");
     expect(prompt).toContain("still ask 5, 6 and 7 before you book");
     expect(prompt).toContain("save each one with addBookingNote");
-    expect(prompt).toContain("Do NOT ask \"Is there anything else I can help you with?\" after each answer");
+    expect(prompt).toContain("Do NOT end an answer with \"Is there anything else I can help you with?\"");
     expect(prompt).toContain("end the call (end_call)");
     expect(prompt).not.toContain("the office will confirm first thing");
   });
