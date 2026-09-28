@@ -767,26 +767,33 @@ an active queue.*
         manually by staff ("Mark accepted"). Job.findings is added to `src/types/jobs.ts`. Bill-to snapshot rule
         and hide-materials setting apply to quotes exactly as to invoices.
   - [ ] T-106 — **One phone line for English AND Spanish callers** (logged 2026-09-24, unassigned, has a
-        NEEDS-HUMAN live test). Today the line runs ONE language at a time (Settings -> Phone AI Language sets
-        greeting, prompt AND the Deepgram transcriber together); `buildAgentPrompt`'s bilingual "if the caller
+        NEEDS-HUMAN live test). **Cleanup pass 2026-09-28: this spec is written entirely for the VAPI stack (Deepgram Flux,
+        `startSpeakingPlan`/`stopSpeakingPlan`, `updateAssistantPersona` refusing `"multi"`) and predates the ElevenLabs
+        migration. Do not build it as written — ElevenLabs has its own `language_detection` system tool and per-language
+        `tts.voice_id` override, a materially different mechanism. Re-scope against the live ElevenLabs stack before
+        anyone starts this**, using the shape below only for the underlying requirement (bilingual on one line, proven
+        on a separate test assistant first, never forced on an English-only tenant):
+        Today the line runs ONE language at a time (Settings -> Phone AI Language sets
+        greeting, prompt AND the transcriber together); `buildAgentPrompt`'s bilingual "if the caller
         speaks Spanish, switch" line exists but the Settings toggle only ever writes `agentLanguages: [one]`, so it
         never turns on, and the single-language transcriber would mishear a Spanish caller on an English line.
-        Build: a "Bilingual (English + Español)" option that (a) writes `agentLanguages: ["en","es"]`; (b) speaks a
-        short two-language greeting ("… para español, diga español"); (c) uses a multilingual transcriber mode
-        (`updateAssistantPersona` currently refuses `"multi"` on purpose) — BUT the live English line runs Deepgram
-        Flux, tuned for English turn-taking, so this MUST be proven on a SEPARATE test assistant + number first
+        Original (Vapi-era) build notes, for the requirement only — the mechanism must be redone for ElevenLabs:
+        a "Bilingual (English + Español)" option that (a) writes `agentLanguages: ["en","es"]`; (b) speaks a
+        short two-language greeting ("… para español, diga español"); (c) uses a multilingual transcriber mode,
+        proven on a SEPARATE test assistant + number first
         (20 scripted calls incl. interruptions and code-switching, per `docs/VOICE-PLATFORM-EVALUATION.md`'s option-B
-        method) and only then offered per-tenant, never forced on English-only tenants; (d) keeps
-        `startSpeakingPlan`/`stopSpeakingPlan` preserved byte-for-byte; (e) picks the voice per detected language if
-        T-103's `voice.es` is set. Optional follow-up (separate): a Spanish customer-facing report/quote.
+        method) and only then offered per-tenant, never forced on English-only tenants; (d) picks
+        the voice per detected language if T-103's `voice.es` is set. Optional follow-up (separate): a Spanish customer-facing report/quote.
 
-- [ ] Phase 18 — Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) — 0/4
+- [ ] Phase 18 — Document Suite, Job Intake & Voice Platform (owner vision, 2026-09-24) — 1/4 done (T-107), 1 cancelled (T-108),
+      1 superseded (T-110), 1 open (T-109). **Cleanup pass 2026-09-28: header was stale (said 0/4) — T-107 was already done via Phase 23.**
       **Product intent (owner):** users take jobs frictionlessly from calls or email (a job is created for them, or
       they create one in a tap); set up their people; field updates are seamless; and from any job they generate
       a **quote, invoice and report** where they can select issues, images and workers, edit everything, and
       hide materials/labor — all three documents consistent, each carrying the tenant's logo, matching the
       simplicity of `Roof Doctor's Invoice.pdf` (repo root) but more modern.
-  - [ ] T-107 — **Document suite unification** (T-105 is merged, so this is unblocked). **Split 2026-09-24:**
+  - [x] T-107 — **Document suite unification** — **DONE, see Phase 23's T-107a/T-107b row for the merged/deployed state** (kept here for the
+        original spec only). **Split 2026-09-24:**
         **T-107a — DONE, merged 2026-09-25 (Codex built it; integrator finished + verified after the worker hit its usage limit; owner live-check of the emailed invoice/quote pending)** (worktree `air-wt-documents-core`, prompt in `docs/WORKER_QUEUE.md` B2) = shared
         `src/lib/documents/` layer + invoice + quote + hide toggles + letterhead/logo everywhere + `licenseNumber` +
         technicians; **T-107b â€” review** (Codex, after 107a merges) = the REPORT + photo pages + narrative draft + emailed-report
@@ -819,12 +826,15 @@ an active queue.*
         scope / urgency, creating a LEAD (default) or draft job for one-click review; attachments become job photos
         (respecting the 24-photo cap); spam/abuse limits (rate limit, sender allowlist option); never auto-replies.
         Needs a NEEDS-HUMAN for the inbound domain/MX setup.
-  - [ ] T-110 — **Voice platform bake-off and decision** (owner + Claude, 2026-09-25). Follow
-        `docs/VOICE-RESEARCH-2026-09-24.md`: Vapi + ElevenLabs voice, Vapi + Cartesia, gpt-realtime-2.1(-mini) via
+  - [x] T-110 — **Voice platform bake-off and decision** — **SUPERSEDED 2026-09-25 by owner directive** ("smoothly move to
+        ElevenLabs away from Vapi", Phase 22) before the formal 10-scripted-call comparison below ever ran. ElevenLabs shipped as the
+        sole demo-line provider in Phase 24 on that directive alone. **Cleanup note (2026-09-28):** the side-by-side score (human-ness,
+        talk-over, latency, cost/min) this task specified was never actually measured — if voice-quality complaints come up later,
+        that comparison is still worth doing properly, but it is not blocking anything now. Original spec, for that later use:
+        Follow `docs/VOICE-RESEARCH-2026-09-24.md`: Vapi + ElevenLabs voice, Vapi + Cartesia, gpt-realtime-2.1(-mini) via
         Vapi, then ElevenLabs Agents (and Retell if needed), on SEPARATE test assistants — the live line is not
         touched — scored on 10 scripted calls (human-ness blind-rated, talk-over incidents, tool success, latency,
-        Spanish, cost/min). Output: the decision plus, if the winner is not Vapi, a migration task behind a
-        per-business `voiceProvider` flag. Feeds T-106 (bilingual line).
+        Spanish, cost/min).
 
 - [ ] Phase 19 — ElevenLabs switch-over scaffolding (owner-added, 2026-09-24) — 2/3 (T-111a + T-111b done; T-112 follow-ups open)
       Owner created an ElevenLabs Creator-tier account. **Independence rule:** only the *phone call* is
@@ -865,16 +875,24 @@ an active queue.*
         parts that need the dashboard (agent Security tab: enable overrides + initiation webhook, workspace
         webhook + secrets). Env: `ELEVENLABS_API_KEY`, `ELEVENLABS_WEBHOOK_SECRET` (post-call HMAC),
         `ELEVENLABS_TOOL_SECRET` (tools + initiation) in `.env.example`.
-  - [ ] T-112 — **ElevenLabs bake-off follow-ups (todo list, do after the bake-off decision).**
-        (a) attach the 7 tools to the test agent and run the T-110 scripted calls; (b) import a Twilio number into
-        ElevenAgents (Phone Numbers tab: label, number, Twilio SID + token — prefer an API key pair) and assign the
-        test agent; (c) decide the paid plan/minutes (Creator ≈ 275 agent-min/month; agent minutes $0.08 + LLM +
-        telephony) once a winner is clear; (d) one agent per tenant vs one shared agent with per-call overrides
-        (the initiation webhook makes shared viable); (e) in-app ElevenLabs provisioning like the parked T-054
-        (create agent + attach number from the onboarding wizard); (f) outbound scheduling for follow-up calls
-        (ElevenLabs' single-call endpoint has none — use its batch-calling or our own cron window); (g) voice
-        cloning/brand voice per tenant (optional); (h) knowledge base / FAQ upload per tenant (optional).
-        (m) **Twilio account + Florida number provisioning** (owner, NH-21) and, later, in-app number purchase per tenant via the Twilio API (area code chosen at onboarding).
+  - [ ] T-112 — **ElevenLabs bake-off follow-ups (todo list).** **Cleanup pass 2026-09-28** — (a) and the "after the bake-off
+        decision" framing are stale: T-110 was superseded, not decided by scored comparison, so there is no scripted-call run to
+        attach tools to; drop it. Still real, unbuilt work below.
+        ~~(a) attach the 7 tools to the test agent and run the T-110 scripted calls~~ — moot, see T-110.
+        ~~(b) import a Twilio number into ElevenAgents and assign the test agent~~ — **DONE** (T-130: `+1 689 204 2643` live on the
+        agent since Phase 24; `+1 778 907 9769` imported and assigned per T-130, only the app-side "Additional phone numbers" field
+        was still pending as of T-130's own note — check that before re-opening this).
+        (c) decide the paid plan/minutes (Creator ≈ 275 agent-min/month; agent minutes $0.08 + LLM + telephony) — still open, needs
+        an owner decision once real call volume exists.
+        ~~(d) one agent per tenant vs one shared agent with per-call overrides~~ — **DONE**, decided and live: one shared agent, the
+        initiation webhook supplies per-call overrides (confirmed working since Phase 24/28).
+        (e) in-app ElevenLabs provisioning like the parked T-054 (create agent + attach number from the onboarding wizard) — still
+        open, post-MVP.
+        (f) outbound scheduling for follow-up calls (ElevenLabs' single-call endpoint has none — use its batch-calling or our own
+        cron window) — still open.
+        (g) voice cloning/brand voice per tenant (optional) — still open, optional.
+        (h) knowledge base / FAQ upload per tenant (optional) — still open, optional.
+        ~~(m) Twilio account + Florida number provisioning~~ — **DONE** (NH-21, T-130: account out of trial, two numbers imported).
         **Existing-number integration (owner question 2026-09-24) — (i)-(l):** a business that already has a phone
         number does NOT have to give it up or use Twilio itself. Ranked by friction: (i) **conditional call
         forwarding** (recommended default): their carrier forwards unanswered/busy/after-hours calls (or all calls)
@@ -925,20 +943,38 @@ an active queue.*
         checklist. Describe only what exists in TODO.md/CLAUDE.md/`docs/NEEDS-HUMAN-CHECKLIST.md`; anything unverified is labelled "not yet live-tested".
         Must not invent numbers, prices or claims (CLAUDE.md: keep ROI stats consistent with existing ones).
 
-- [ ] Phase 22 — Vapi -> ElevenLabs migration (owner direction, 2026-09-24: "smoothly move to ElevenLabs away from Vapi") — 0/1
+- [ ] Phase 22 — Vapi -> ElevenLabs migration (owner direction, 2026-09-24: "smoothly move to ElevenLabs away from Vapi") — P0+P2 done in
+      practice, P1/P3/P4 open. **Cleanup pass 2026-09-28:** the plan's own P1 (formal parity proof before P2) never happened — the owner moved
+      the demo line to ElevenLabs anyway (Phase 24, 2026-09-25) and it has been the only demo voice since. That's a real gap for a PAYING
+      client migration (no measured parity, no retention/recording-policy decision, no ops-guard equivalents) even though it worked out for
+      the demo. Do not treat "the demo runs on ElevenLabs" as P1 done for a real tenant.
   - [ ] T-117 — **Migrate phone AI from Vapi to ElevenLabs Agents, tenant by tenant, with rollback.** Both providers coexist behind
         `voiceProvider` (T-111), so this is a rollout plan, not a rewrite. **P0 (done 2026-09-24):** ElevenLabs agent + Twilio (689) number +
-        7 tools + per-call overrides + initiation webhook wired; prod env set; separate test tenant. **P1 parity proof (before any customer or the
-        demo line):** the 10 scripted bake-off calls (`docs/VOICE-RESEARCH-2026-09-24.md`) on the test tenant; verify Pipeline/lead/appointment/
+        7 tools + per-call overrides + initiation webhook wired; prod env set; separate test tenant.
+        **P1 parity proof (SKIPPED for the demo, still required before any real customer moves) — the 10 scripted bake-off calls
+        (`docs/VOICE-RESEARCH-2026-09-24.md`) on the test tenant; verify Pipeline/lead/appointment/
         call-record parity with Vapi calls, recording notice spoken first, after-hours + escalation behavior, bilingual switching, request review
         card (T-113), measured cost/minute; add ElevenLabs equivalents of the ops guards Vapi has (webhook-health alerting like T-065, call-record
         reconciliation), decide retention/recording policy (NH-22, NH-4), outbound follow-ups (single-call endpoint cannot schedule — keep cron-window
-        approach), concurrency plan (Creator ~10 concurrent). **P2 demo line:** move the DEMO tenant (the shared universal demo tenant) to a Twilio
-        561 (Boca) number on ElevenLabs; keep Vapi +1 (754) 283-7658 as fallback/forward for 2 weeks. **P3 default:** new clients default to
-        ElevenLabs in the onboarding wizard; migrate any real tenants one at a time, each with the per-tenant flag as instant rollback and a
-        forwarded-number fallback. **P4 decommission (only after ~30 stable days and owner sign-off):** cancel Vapi numbers/plan, remove the Vapi
+        approach), concurrency plan (Creator ~10 concurrent).
+        **P2 demo line — DONE, but not as originally written:** the plan said move the demo to a NEW Twilio 561 number and keep Vapi 754 as a
+        2-week fallback; what actually shipped (Phase 24, T-130) is the demo's ElevenLabs number (`+1 689 204 2643`, later `+1 778 907 9769`)
+        with Vapi retired from demos outright, no fallback window. Fine for a demo line; note the deviation if this plan is ever reused for a
+        real tenant's cutover.
+        **P3 default (still open, needs an owner decision):** does a NEW real client default to ElevenLabs or Vapi in the onboarding wizard?
+        `T-111`'s spec said "default stays Vapi" and nothing has since changed that default for onboarding — only the demo tenant runs
+        ElevenLabs. Migrate any real tenants one at a time, each with the per-tenant flag as instant rollback and a forwarded-number fallback.
+        **P4 decommission (only after ~30 stable days and owner sign-off, not reached):** cancel Vapi numbers/plan, remove the Vapi
         webhook + client + sync paths and dead code, update the onboarding guide + CLAUDE.md, rotate/remove Vapi env. Owner sign-off gates P2, P3, P4.
-  - [ ] T-118 — **Carry the human speech style + Spanish invitation into the app-generated prompt (provider-neutral) and clean stale Vapi wording.**
+  - [x] T-118 — **Carry the human speech style + Spanish invitation into the app-generated prompt, clean stale Vapi wording.**
+        **Cleanup pass 2026-09-28 — verified against current code, marking done:** finding (1) never-read-IDs is in the live prompt
+        (`agentPromptBuilder.ts`: "Never read internal IDs, codes, or reference numbers aloud"); finding (2) the pre-tool-speech
+        dead-air cause is understood and `setup-elevenlabs-agent.mjs` now preserves `pre_tool_speech`/`force_pre_tool_speech`
+        instead of overwriting it (see the T-030/G1 log entries); finding (3)'s "you'll receive an email" is gone, reworded to
+        "the office will confirm first thing" (T-146). Finding (4) was cost data only, no action needed. The bilingual-invitation
+        half of the original ask (a config-driven "How you speak" section, A/B-tested against the dashboard prompt) was never
+        built as its own deliverable — if the phone AI's tone needs another pass, treat that as new work, not a reopen of this.
+        Original spec kept for reference:
         Found 2026-09-24: with ElevenLabs per-call overrides ON, the tenant's app-generated greeting/prompt (`buildAgentPrompt`, greeting template,
         recording notice) REPLACES the hand-written "Alice" prompt that tested so human in the ElevenLabs dashboard, and the app greeting lacks the
         bilingual invitation ("Y si prefiere español, con gusto le ayudo"). Add a config-driven "How you speak" section (short turns, one question at a
