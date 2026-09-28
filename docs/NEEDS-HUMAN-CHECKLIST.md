@@ -16,6 +16,7 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 
 | # | Item | Time | Why first |
 |---|---|---|---|
+| 0 | **NH-29 texting registration** | 30 min + 1–3 weeks carrier review | Nothing can be texted until the carriers approve; start the clock now |
 | 1 | NH-1 Vapi audit | 30 min | If the secret or a tool schema is wrong, calls silently fail |
 | 2 | NH-3 Resend domain | 20 min + DNS wait | Every email (confirmations, invoices, invites) depends on it |
 | 3 | NH-4 recording wording | 20 min + counsel | **Real gap found — see below** |
@@ -132,6 +133,81 @@ Record the outcome in `TODO.md` next to NH-18. **Don't demo or sell these two ve
 3. Vapi dashboard → Alice → confirm the **Start/Stop Speaking Plan** values are still `numWords 2 / backoffSeconds 0.7 / waitSeconds 0.1` (they must survive the language PATCH).
 4. Then set the language back to English.
 5. **NH-15 (Spanish voice):** see the voice section below — a multilingual voice from ElevenLabs/Cartesia solves this and the "doesn't sound human" problem together.
+
+## NH-29 — Register for business texting (30 min of forms, then days to weeks of carrier review) — START NOW
+
+**Why:** US carriers block business texts from an ordinary local number unless the sender is registered ("A2P 10DLC").
+Twilio returns error 30034 and the text never arrives. The app's texting (booking notices, "Confirm & text", inspector
+alerts) is being built switched off (`SMS_ENABLED=false`); once the registration is approved, one Vercel setting turns it on.
+
+**What Claude checked in Twilio on 2026-09-28 (read-only):**
+- Account: **upgraded (Full, active)**. NH-21's Upgrade is done.
+- +1 (689) 204-2643: a local US number that can send texts. **No text has ever been sent or received on the whole account.**
+  Its incoming-text setting points at ElevenLabs (`api.us.elevenlabs.io/twilio/inbound-sms`). Leave that alone.
+- Registration: **nothing yet.** No brand, no campaign, no Messaging Service, no toll-free verification.
+- Trust Hub has one approved profile: **"Primary customer profile for individual"** (created at the upgrade, 2026-09-27).
+  That is a *personal* profile. Luxor Developments LLC needs a *business* profile (step 1 below).
+- luxordev.com has a Privacy Policy and Terms page, but **neither mentions text messages**. Carriers reject campaigns
+  without that, so step 0 comes first.
+
+**Which route: A2P 10DLC on the 689 number (recommended), not toll-free.** Texts then come from the same number customers
+called, and replies go to the same line. Every client's own local number will need this same registration later, so this is
+the route to learn once. Choose toll-free instead only if Luxor has no EIN (see the end of this section).
+
+### Step 0 — Add a texting section to the privacy policy on luxordev.com (10 min, before step 3)
+Add this under the Privacy Policy (`/english-privacy-policy`), and the same opt-out lines to Terms:
+> **Text messages (SMS).** When you give a business that uses Luxor CRM permission to text you, we send only messages about
+> your appointment or service request (for example a booking notice or a confirmation). Message frequency varies. Message and
+> data rates may apply. Reply STOP to stop receiving texts, or HELP for help. **We do not sell or share mobile phone numbers or
+> text-message consent with third parties or affiliates for marketing or promotional purposes.**
+
+### Step 1 — Business profile (Twilio Trust Hub, 10 min)
+1. **console.twilio.com** → left menu **Trust Hub** → **Customer Profiles** → **Create** a **Business** profile (not Individual).
+2. Enter Luxor Developments LLC exactly as on the IRS paperwork: legal name, **EIN**, business type LLC, address, website
+   `https://www.luxordev.com`, and yourself as the authorized representative (name, title, email, phone).
+3. Submit. Approval usually takes minutes to a few days. *If the console only lets you use the existing Individual profile,
+   stop and tell Claude before choosing "Sole Proprietor"* (that type is for people with no EIN and is limited to one number).
+
+### Step 2 — Brand (Twilio, 5 min)
+1. Left menu **Messaging** → **Regulatory Compliance** → **Onboarding** (the A2P 10DLC wizard).
+2. Pick the business profile from step 1. Brand type: **Low Volume Standard** (under about 6,000 texts a day, which is us).
+3. Submit. The console shows the exact fee before you pay (roughly a few dollars, one-time). Approval: minutes to a few days.
+
+### Step 3 — Campaign (Twilio, 15 min; paste these answers)
+Same wizard → **Create campaign** (it also creates a *Messaging Service*; name it "Luxor CRM notifications").
+- **Use case:** Low Volume Mixed (or Customer Care if Mixed isn't offered).
+- **Campaign description:** "Luxor CRM sends appointment notifications for service businesses that use it: a text when a
+  caller books an inspection by phone, a confirmation when the office confirms the time, and a notice to the inspector assigned
+  to the visit. No marketing messages."
+- **Sample message 1:** "Hi Carla, Apex Roofing here. You're down for Monday, Sep 29 at 1 PM at 123 Main St. We'll text to
+  confirm. Reply STOP to opt out."
+- **Sample message 2:** "Confirmed: Roof inspection Monday, Sep 29 at 1 PM at 123 Main St. Questions? Call (689) 204-2643.
+  – Apex Roofing"
+- **How customers opt in:** "Customers phone the business. Near the end of booking, the phone assistant asks: 'Is it OK to
+  text you about this appointment at this number?' Texts go only to callers who say yes; the answer is saved with the
+  booking. The call opens with a recording notice, so the consent is on the call recording. Inspectors are the business's
+  own staff and agree when they are added to the team."
+- **Opt-out keywords:** STOP (Twilio handles STOP/HELP automatically). **Help message:** "Luxor CRM appointment texts.
+  Call the business's number or email connect@luxordev.com. Reply STOP to opt out."
+- Embedded links: **No**. Phone numbers in messages: **Yes**. Age-gated / lending content: **No**.
+- **Privacy policy URL:** `https://www.luxordev.com/english-privacy-policy` · **Terms URL:** `https://www.luxordev.com/english-terms-conditions`
+- Submit. One-time review fee plus a small monthly campaign fee, shown before you pay. **Review typically takes 1–3 weeks.**
+  If rejected, the email says why. Send it to Claude; it's usually a wording fix.
+
+### Step 4 — Put the 689 number in the Messaging Service (2 min, can be done while the campaign is in review)
+1. **Messaging** → **Services** → "Luxor CRM notifications" → **Sender Pool** → **Add Senders** → Phone Number → **(689) 204-2643**.
+2. Same service → **Integration** → incoming messages: **"Defer to sender's webhook"**. That keeps the number's current
+   ElevenLabs text setting unchanged.
+3. Leave +1 (778) 907-9769 (Canada) out. It is not part of US registration and shouldn't text US customers.
+
+### Step 5 — Tell Claude "texting approved"
+Claude then sets `SMS_ENABLED=true` in Vercel, redeploys, sends one test text to your phone, and checks Settings shows
+"Text messages: On". Nothing else is needed. Until then, confirmations go by email or "I'll call them".
+
+**Toll-free alternative (only if Luxor has no EIN, or the 10DLC campaign keeps being rejected):** Phone Numbers → Buy a
+number → **Toll-free** (about $2/month) → Messaging → Regulatory Compliance → **Toll-Free Verifications** → fill in the same
+business details, description, samples, opt-in text and privacy URL as step 3 (no fee; review usually days to two weeks).
+Texts would then come from the toll-free number, not the 689 line; Claude would set it as the sending number.
 
 ## Smaller items
 
