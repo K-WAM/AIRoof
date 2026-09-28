@@ -185,7 +185,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 const WORKFLOW: { title: string; body: string; module: CompanyModule | null }[] = [
   { module: null, title: "The agent answers the phone", body: "Day or night, your AI receptionist greets callers, answers questions, books appointments, and captures leads — even after hours." },
   { module: null, title: "Review in Pipeline", body: "New leads and appointments land in Pipeline. Call a lead back or confirm an appointment in one tap right from the list." },
-  { module: null, title: "Approve after-hours bookings", body: "Anything booked while you were closed shows up on the Dashboard as “Pending Your Approval.” One click confirms it and emails the customer." },
+  { module: null, title: "Confirm new bookings", body: "New bookings show on the Dashboard. After-hours bookings are labeled only when the call was outside your hours." },
   { module: "jobs", title: "Turn it into a Job", body: "From an appointment, click Create Job. The job tracks everything: timeline, materials, labor, photos, invoice, and report." },
   { module: "jobs", title: "Log work from the field — by voice", body: "On site, open Field, hold the mic, and say what happened. AI fills in materials, hours, and issues. Say “make that 15, not 12” and it fixes the number." },
   { module: "jobs", title: "Generate the invoice or report", body: "Open the job and click Generate Invoice or Generate Report. Prices auto-fill from your Library. Review, then send or save as PDF." },
@@ -211,5 +211,5 @@ const HOWTOS: { title: string; Icon: LucideIcon; steps: string[]; module: Compan
   { module: "jobs", title: "Log a field update by voice", Icon: Mic, steps: ["Open Field and pick the job.", "Hold the mic and speak naturally.", "Release — AI extracts materials, labor, and issues onto the job."] },
   { module: "jobs", title: "Send an invoice", Icon: FileText, steps: ["Open the job → click Generate Invoice.", "Review the auto-filled line items.", "Click Send to Customer, or Print / Save as PDF."] },
   { module: null, title: "Call a customer back", Icon: PhoneCall, steps: ["Open Pipeline.", "Find the lead or appointment.", "Click “Call Back” right on the card."] },
-  { module: null, title: "Confirm an after-hours booking", Icon: CalendarCheck, steps: ["Open Dashboard.", "Find “Pending Your Approval.”", "Click “Confirm & notify customer” — it emails them the details."] },
+  { module: null, title: "Confirm a new booking", Icon: CalendarCheck, steps: ["Open Dashboard.", "Find “New bookings to confirm.”", "Choose how to tell the customer, then confirm."] },
 ];

@@ -60,6 +60,7 @@ interface Appointment {
   endTime: number;
   status: string;
   pendingConfirmation?: boolean;
+  bookedAfterHours?: boolean;
   createdAt: number;
   sourceCallId?: string;
   /** Set once a job has been created from this booking — the card then opens it instead of offering "Create Job". */
@@ -465,7 +466,7 @@ export default function PipelinePage() {
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
             {isPending
-              ? <StatusChip status="requested" label="After-hours · unconfirmed" />
+              ? <StatusChip status="requested" label={appt.bookedAfterHours === true ? "After hours · confirm" : "New booking · confirm"} />
               : <StatusChip status={appt.status} />}
           </div>
           {isPending && (
@@ -473,7 +474,9 @@ export default function PipelinePage() {
               <Clock size={13} style={{ marginTop: 1, flexShrink: 0 }} />
               {timePassed
                 ? "This requested time has already passed. Call the customer to agree a new time, or decline it."
-                : "Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in."}
+                : appt.bookedAfterHours === true
+                  ? "Booked after hours. Confirm to notify the customer and lock it in."
+                  : "New booking from your AI receptionist. Confirm to notify the customer and lock it in."}
             </div>
           )}
           <p className="appt-detail">{appt.callerPhone ? fmtPhone(appt.callerPhone) : "—"}</p>
