@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
           calls: callsSnap.data().count,
           leads: leadsSnap.data().count,
           appointments: apptsSnap.data().count,
+          // Written daily by the booking canary (/api/cron/booking-canary); null until its first run.
+          bookingCheck: data.bookingCheck ?? null,
         };
       })
     );

@@ -1128,12 +1128,14 @@ an active queue.*
         before T-145). Structured hours editor (per-day open/close selects, Closed toggle, presets) in Company Settings, a required "Hours"
         step in the onboarding wizard, admin client config; server-side validation in every route that writes hours; Calendar uses the shared
         parser; setup-checklist item "Set your hours".
-  - [ ] **G3 — Booking regression tests in the smoke harness + live test-call script** → runs as **H2 Part A** (Deepseek V4.1 Flash Thinking: Hard, `air-wt-booking-verify`,
+  - [~] **G3 — Booking regression tests in the smoke harness + live test-call script** → runs as **H2 Part A** (Deepseek V4.1 Flash Thinking: Hard, `air-wt-booking-verify`,
         `air-wt-booking-tests` / `task/booking-tests`, after G1). `e2e/booking.spec.ts` + a booking scenario in the simulated call;
         `docs/BOOKING-TEST-SCRIPT.md` (the calls the owner and the ElevenLabs agent tests make, with the exact expected answers).
-  - [ ] **G4 — Daily booking canary** → runs as **H2 Part B** (Deepseek, same worktree, after G1). A 7 AM ET
+        **H2 Part A → review 2026-09-28**: branch `task/booking-verify`, commit `0375d5f`; `npm run e2e:booking` 7/7 (plus S3/S6 corrected to the 14-day scan window), `e2e/booking.spec.ts` 4/4 desktop+phone.
+  - [~] **G4 — Daily booking canary** → runs as **H2 Part B** (Deepseek, same worktree, after G1). A 7 AM ET
         cron checks next-business-day availability for `demo-roofing` and every tenant with a phone line; emails the owner and flags Admin
         when a slot is overnight/past/outside hours or hours don't parse.
+        **H2 Part B → review 2026-09-28**: commits `95e40b3`, `8ec8c04`; `/api/cron/booking-canary` (vercel `0 11 * * *`), Admin Usage Booking column, canary tests 14/14.
   - [x] Integrator after G1 merges (2026-09-27, owner-approved "do all"): read-only live check of `demo-roofing` (round-the-clock hours still
         stored; 5 crews; 9 seeded appointments at 8:54 AM / 8:54 PM = launch-time offsets, the "8 AM just taken" cause); push + deploy; tool update
         with the URL pinned to `ai-roof.vercel.app` (2 tools changed, 5 untouched, speech settings unchanged); ElevenLabs agent tests (below).

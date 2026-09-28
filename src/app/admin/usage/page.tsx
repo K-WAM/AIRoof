@@ -17,6 +17,13 @@ interface BizUsage {
   calls: number;
   leads: number;
   appointments: number;
+  // Daily booking canary result (src/app/api/cron/booking-canary/route.ts); null until its first run.
+  bookingCheck?: {
+    ok: boolean;
+    checkedAt: number;
+    problems: string[];
+    nextBusinessDay?: string | null;
+  } | null;
 }
 
 export default function AdminUsagePage() {
@@ -101,6 +108,7 @@ export default function AdminUsagePage() {
                   <th style={{ textAlign: "right" }}>Calls</th>
                   <th style={{ textAlign: "right" }}>Leads</th>
                   <th style={{ textAlign: "right" }}>Appts</th>
+                  <th>Booking</th>
                   <th></th>
                 </tr>
               </thead>
@@ -126,6 +134,22 @@ export default function AdminUsagePage() {
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.calls}</td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.leads}</td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.appointments}</td>
+                    <td style={{ maxWidth: 260 }}>
+                      {!r.bookingCheck ? (
+                        <span className="tag" title="The daily booking canary has not run for this tenant yet">Not checked</span>
+                      ) : r.bookingCheck.ok ? (
+                        <span className="tag success">OK</span>
+                      ) : (
+                        <>
+                          <span className="tag urgent">Check failed</span>
+                          <ul style={{ margin: "6px 0 0", paddingLeft: 16, fontSize: 12, color: "#7f1d1d", lineHeight: 1.5 }}>
+                            {r.bookingCheck.problems.map((problem) => (
+                              <li key={problem}>{problem}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </td>
                     <td style={{ display: "flex", gap: 6 }}>
                       <a
                         href={`/admin/businesses/${r.businessId}/config`}
