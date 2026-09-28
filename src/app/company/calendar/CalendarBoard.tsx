@@ -547,7 +547,8 @@ export default function CalendarBoard() {
   }
 
   function onDragEnd(e: DragEndEvent) {
-    const id = e.active.id as string;
+    const dragId = String(e.active.id);
+    const id = dragId.replace(/^(?:appointment-rail|phone-strip):/, "");
     const over = e.over?.id as string | undefined;
     if (!over) return;
     const [crewId, dayStr] = over.split("|");
@@ -1145,7 +1146,7 @@ function JobTile({ job, tz, crewGone }: { job: Job; tz: string; crewGone: boolea
 
 // ── Draggable booking tile (unassigned rail) ──────────────────────────────────
 function PhoneBookingChip({ appt, tz, pending }: { appt: Appointment; tz: string; pending: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `phone-strip:${appt.appointmentId}` });
   return (
     <div ref={setNodeRef} style={{ position: "relative", transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.5 : 1 }}>
       <button type="button" {...listeners} {...attributes} style={{ width: "100%", textAlign: "left", cursor: "grab", touchAction: "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
@@ -1161,13 +1162,14 @@ function PhoneBookingChip({ appt, tz, pending }: { appt: Appointment; tz: string
 }
 
 function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `appointment-rail:${appt.appointmentId}` });
   const pending = appt.pendingConfirmation || appt.status === "requested";
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      data-testid={`unassigned-appointment-${appt.appointmentId}`}
       title="Drag onto a row + day to assign"
       style={{
         padding: "10px 12px 10px 8px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0",

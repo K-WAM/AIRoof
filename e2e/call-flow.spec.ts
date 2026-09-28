@@ -22,6 +22,22 @@ function nextWeek(dayOffset: number, hour: number) {
   return { key, local: `${key}T${String(hour).padStart(2, "0")}:00`, ms: monday.getTime() };
 }
 
+async function dragTo(page: Page, sourceTestId: string, targetTestId: string) {
+  const source = page.getByTestId(sourceTestId);
+  const target = page.getByTestId(targetTestId);
+  await target.scrollIntoViewIfNeeded();
+  await source.scrollIntoViewIfNeeded();
+  const from = await source.boundingBox();
+  if (!from) throw new Error("drag source not on screen");
+  await source.hover();
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 + 20, { steps: 10 });
+  await page.waitForTimeout(150);
+  await target.hover();
+  await page.waitForTimeout(250);
+  await page.mouse.up();
+}
+
 test("call → booked → inspector schedule follows the real workflow", async ({ as }, testInfo) => {
   const owner = await as("owner");
   const id = stamp();
@@ -30,6 +46,7 @@ test("call → booked → inspector schedule follows the real workflow", async (
   const inspectorName = `Inspector Dominic ${id}`;
   const first = nextWeek(0, 11);
   const second = nextWeek(1, 10);
+  const moved = nextWeek(2, 11);
 
   await owner.goto("/company/dashboard");
   await settle(owner);
@@ -103,14 +120,9 @@ test("call → booked → inspector schedule follows the real workflow", async (
     const firstAppointment = ((firstBookingData.data.appointments ?? []) as Array<{ appointmentId: string; callerName?: string; startTime: number }>)
       .find((appointment) => appointment.callerName === firstName);
     expect(firstAppointment).toBeTruthy();
-    const assigned = await api(owner, "PATCH", `/api/appointments/${firstAppointment!.appointmentId}`, {
-      businessId: BUSINESS_ID,
-      assignedCrewId: inspectorId,
-      startTime: firstAppointment!.startTime,
-    });
-    expect(assigned.ok, JSON.stringify(assigned.data)).toBeTruthy();
-    await owner.reload(); await settle(owner); await owner.getByRole("button", { name: "Next week" }).click(); await settle(owner);
-    await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${first.key}`).getByText(firstName, { exact: true })).toBeVisible();
+    owner.once("dialog", (dialog) => dialog.accept());
+    await dragTo(owner, `unassigned-appointment-${firstAppointment!.appointmentId}`, `calendar-cell-${inspectorId}-${moved.key}`);
+    await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${moved.key}`).getByText(firstName, { exact: true })).toBeVisible();
     await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${second.key}`).getByText(secondName, { exact: true })).toBeVisible();
 
     await owner.reload(); await settle(owner); await owner.getByRole("button", { name: "Next week" }).click(); await settle(owner);
