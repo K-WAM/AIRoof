@@ -118,12 +118,15 @@ export function parseBusinessHours(value: unknown): ParsedBusinessHours | null {
   const result = emptyWeek();
   for (const day of WEEKDAYS) {
     const raw = source[day] ?? source[day.toLowerCase()] ?? source[day.slice(0, 3)] ?? source[day.slice(0, 3).toLowerCase()];
-    if (raw === undefined) return null;
+    // A weekday that isn't stored at all is Closed — the rule the old per-day parser used. Tenants saved with only their
+    // open days must keep booking; only a day whose value can't be read makes the whole week invalid.
+    if (raw === undefined || raw === null || raw === "") continue;
     const parsed = parseDayHours(raw);
     if (parsed === undefined) return null;
     result[day] = parsed;
   }
-  return result;
+  // No open day at all is "hours not set up", not "closed forever".
+  return WEEKDAYS.some((day) => result[day] !== null) ? result : null;
 }
 
 function canonicalDay(hours: DayHours): string {

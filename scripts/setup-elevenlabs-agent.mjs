@@ -159,8 +159,10 @@ function updatedExistingToolConfig(schema, baseUrl, existing) {
     type: "webhook",
     name: schema.name,
     description: schema.description,
-    pre_tool_speech: "auto",
-    force_pre_tool_speech: false,
+    // A schema update never touches how the agent talks before a tool runs: keep the live values (they may have been
+    // tuned in the dashboard to cut dead air). Only a tool that has none gets the provisioning default.
+    pre_tool_speech: existing?.pre_tool_speech ?? "auto",
+    force_pre_tool_speech: existing?.force_pre_tool_speech ?? false,
     response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
     api_schema: {
       ...(existing?.api_schema ?? {}),
@@ -183,7 +185,6 @@ function toolSchemaDiff(schema, baseUrl, existing) {
   const desired = updatedExistingToolConfig(schema, baseUrl, existing);
   const fields = [];
   if (existing?.description !== desired.description) fields.push("description");
-  if (existing?.pre_tool_speech !== "auto" || existing?.force_pre_tool_speech !== false) fields.push("pre_tool_speech");
   if (existing?.response_timeout_secs !== TOOL_RESPONSE_TIMEOUT_SECS) fields.push("response_timeout_secs");
   if (existing?.api_schema?.url !== desired.api_schema.url) fields.push("url");
   if ((existing?.api_schema?.method ?? "POST") !== "POST") fields.push("method");
@@ -280,7 +281,7 @@ async function main() {
           method: "PATCH",
           body: JSON.stringify({ tool_config: desired }),
         });
-        console.log(`    updated ${schema.name}; pre_tool_speech remains auto`);
+        console.log(`    updated ${schema.name}; pre-tool speech settings left as they were`);
       }
     }
     console.log(apply

@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { formatScheduleRow, sortScheduleRows, timestampMillis } from "./check-booking-data-helpers.mjs";
+// The booking engine's own parser (Node 22.6+ strips the types), so this report can never disagree with what
+// checkAvailability decides. A private regex copy here once called hours "parseable" that the engine rejected.
+import { canonicalizeBusinessHours } from "../src/lib/scheduling/hours.ts";
 
 const DEFAULT_BUSINESS_ID = "demo-roofing";
 const DAYS = 7;
@@ -66,11 +69,12 @@ function businessIdFromArgs(args) {
 }
 
 function parseHoursSummary(hours) {
-  if (!hours || typeof hours !== "object" || Array.isArray(hours)) return "INVALID (missing object)";
-  const valid = Object.entries(hours).every(([, value]) =>
-    typeof value === "string" && (value.trim().toLowerCase() === "closed" || /^\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}$/.test(value.trim()))
-  );
-  return valid ? "parseable" : "INVALID";
+  const canonical = canonicalizeBusinessHours(hours);
+  if (!canonical) {
+    return "NOT SET UP for booking (missing, no open day, or a day the engine can't read) — callers get a message taken, not a time. "
+      + `Stored: ${JSON.stringify(hours ?? null)}`;
+  }
+  return `bookable — ${Object.entries(canonical).map(([day, value]) => `${day.slice(0, 3)} ${value}`).join(", ")}`;
 }
 
 async function main() {

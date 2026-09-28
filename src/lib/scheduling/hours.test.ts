@@ -35,6 +35,18 @@ describe("business hours", () => {
     expect(parseBusinessHours("Friday-Monday 8-5")).toBeNull();
   });
 
+  it("treats a weekday that isn't stored as Closed (the old parser's rule), so open-days-only tenants keep booking", () => {
+    const weekdaysOnly = { Monday: "08:00 - 17:00", Tuesday: "08:00 - 17:00", Wednesday: "08:00 - 17:00", Thursday: "08:00 - 17:00", Friday: "08:00 - 17:00" };
+    expect(canonicalizeBusinessHours(weekdaysOnly)).toEqual(canonical);
+    expect(canonicalizeBusinessHours({ ...weekdaysOnly, Saturday: "" })).toEqual(canonical);
+  });
+
+  it("calls hours with no open day, or one unreadable day, not set up", () => {
+    expect(parseBusinessHours({})).toBeNull();
+    expect(parseBusinessHours({ Monday: "Closed", Sunday: "Closed" })).toBeNull();
+    expect(parseBusinessHours({ ...canonical, Saturday: "by appointment" })).toBeNull();
+  });
+
   it("returns field-level validation errors", () => {
     const result = validateBusinessHours({ ...canonical, Tuesday: "noonish", Sunday: undefined });
     expect(result).toEqual({ valid: false, errors: {

@@ -109,7 +109,11 @@ describe("booking reliability truth table", () => {
     expect(mondayBooking.sayToCaller).toContain("Monday, September 28 at 8:00 AM");
     expect(mondayBooking.error).toBeUndefined();
     expect(tuesdayBooking.error).toBeUndefined();
-    expect(`${mondayCheck.result} ${wednesdayCheck.result}`).not.toMatch(/12:00 AM|12:30 AM|1:00 AM/);
+    // Spec: no response may contain a time between 9 PM and 7 AM (Intl may put a narrow no-break space before AM/PM).
+    const overnight = /\b(?:(?:9|10|11):\d{2}[\s ]*PM|(?:12|1|2|3|4|5|6):\d{2}[\s ]*AM)\b/;
+    for (const response of [mondayBooking, mondayCheck, tuesdayBooking, wednesdayCheck]) {
+      expect(`${response.result ?? ""} ${response.sayToCaller ?? ""}`).not.toMatch(overnight);
+    }
   });
 
   it("S2 says the exact Monday 10:00 AM preference is open and lists it first", async () => {

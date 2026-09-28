@@ -89,7 +89,7 @@
       "properties": {
         "preferredDate": {
           "type": "string",
-          "description": "The day the caller prefers, as YYYY-MM-DD. Omit to search from the next business day."
+          "description": "The day the caller prefers, as YYYY-MM-DD. Omit to search from today."
         },
         "preferredTime": {
           "type": "string",
