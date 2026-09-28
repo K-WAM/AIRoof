@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -12,6 +11,9 @@ import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
@@ -107,6 +109,7 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
 
 export default function PipelinePage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab, isEnabled, ready: modulesReady, industry } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -148,6 +151,7 @@ export default function PipelinePage() {
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
+  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
   const [apptCalling, setApptCalling] = useState<string | null>(null);
   const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
 
@@ -496,6 +500,9 @@ export default function PipelinePage() {
     );
   }
 
+  // Never had a request: one clear "what goes here" panel replaces two empty tabs.
+  const pipelineEmpty = leads.length === 0 && appointments.length === 0;
+
   return (
     <>
       {toast && (
@@ -529,7 +536,7 @@ export default function PipelinePage() {
         </div>
       </header>
 
-      <div className="toolbar" style={{ marginBottom: 20 }}>
+      {!pipelineEmpty && <div className="toolbar" style={{ marginBottom: 20 }}>
         <div className="segmented-control" aria-label="Pipeline view">
           <button
             className="segment"
@@ -548,9 +555,9 @@ export default function PipelinePage() {
             Appointments{appointments.length > 0 ? ` (${appointments.length})` : ""}
           </button>
         </div>
-      </div>
+      </div>}
 
-      {tab === "leads" && (
+      {!pipelineEmpty && tab === "leads" && (
         <>
           <div className="toolbar" style={{ marginBottom: 16 }}>
             <div className="segmented-control" aria-label="Lead status filter">
@@ -578,7 +585,13 @@ export default function PipelinePage() {
               </div>
               <div className="panel-body">
                 {filteredLeads.length === 0 ? (
-                  <p style={{ color: "#888", fontSize: 14 }}>No leads in this category yet.</p>
+                  <EmptyState
+                    compact
+                    title="Nothing here right now"
+                    secondary={leads.length > 0 && leadFilter !== "all"
+                      ? { label: "Show all", onClick: () => setLeadFilter("all") }
+                      : appointments.length > 0 ? { label: "Show appointments", onClick: () => setTab("appointments") } : undefined}
+                  />
                 ) : (
                   <div className="queue-list">
                     {filteredLeads.map((lead) => (
@@ -746,7 +759,7 @@ export default function PipelinePage() {
         </>
       )}
 
-      {tab === "appointments" && (
+      {!pipelineEmpty && tab === "appointments" && (
         <>
           {needsConfirmation.length > 0 && (
             <section className="panel" aria-labelledby="needs-confirmation-title" style={{ marginBottom: 20 }}>
@@ -775,7 +788,11 @@ export default function PipelinePage() {
             </div>
             <div className="panel-body">
               {upcomingAppts.length === 0 ? (
-                <p style={{ color: "#888", fontSize: 14 }}>No upcoming appointments. They appear here when your AI receptionist books one.</p>
+                <EmptyState
+                  compact
+                  title="Nothing here right now"
+                  secondary={leads.length > 0 ? { label: "Show leads", onClick: () => setTab("leads") } : undefined}
+                />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
                   {upcomingAppts.map((appt) => (
@@ -806,14 +823,15 @@ export default function PipelinePage() {
         </>
       )}
 
-      {leads.length === 0 && appointments.length === 0 && (
-        <div style={{ padding: "48px 24px", textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
-          No leads or appointments yet.{" "}
-          <Link href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>
-            View call history
-          </Link>{" "}
-          to see incoming activity.
-        </div>
+      {pipelineEmpty && (
+        <section className="panel">
+          <EmptyState
+            title="New requests land here"
+            body="When a customer calls, their request waits here for you."
+            action={user?.role === "viewer" || !phoneLine ? undefined : { label: "Make a test call", href: `tel:${phoneLine}` }}
+            testId="pipeline-empty"
+          />
+        </section>
       )}
       <RequestReviewDialog
         open={!!reviewLead}

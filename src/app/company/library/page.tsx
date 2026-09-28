@@ -9,7 +9,9 @@ import type { CustomerSlim } from "@/types/customer";
 import type { WorkCatalog } from "@/types/workCatalog";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CustomersSection } from "./CustomersSection";
 import { LogosSection } from "./LogosSection";
@@ -28,6 +30,7 @@ type Section = "customers" | "pricing" | "crews" | "documents" | "branding" | "w
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const { vocab, isEnabled, industry, ready: modulesReady } = useBusinessModules();
   // The materials/labor catalog only feeds job invoices — an intake business
   // (dental, property mgmt) has no use for it, but still needs the roster + docs.
@@ -36,7 +39,7 @@ export default function LibraryPage() {
   const initialSection = searchParams?.get("section");
   const initialCustomerId = searchParams?.get("customerId");
   const [section, setSection] = useState<Section>(
-    initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding" || initialSection === "work-catalog"
+    initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding" || initialSection === "work-catalog"
       ? initialSection
       : "customers"
   );
@@ -150,6 +153,9 @@ export default function LibraryPage() {
     }
   }
 
+  const readOnly = user?.role === "viewer";
+  const pricingEmpty = hasPricing && library.materials.length === 0 && library.laborRates.length === 0;
+
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError) {
     return (
@@ -176,7 +182,8 @@ export default function LibraryPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
-          {modulesReady && industry && isEnabled("library") && (
+          {/* Hidden while the empty price list offers the same call, so the screen keeps one primary button. */}
+          {modulesReady && industry && isEnabled("library") && !readOnly && !(section === "pricing" && pricingEmpty) && (
             <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
               {loadingKit ? "Loading…" : "Load starter kit"}
             </button>
@@ -223,19 +230,27 @@ export default function LibraryPage() {
           initialCustomerId={initialCustomerId}
         />
       )}
-      {section === "pricing" && hasPricing && <PricingSection library={library} onSave={saveLibrary} />}
-      {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} />}
-      {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} />}
-      {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} />}
+      {section === "pricing" && hasPricing && (
+        <PricingSection library={library} onSave={saveLibrary} onLoadExamples={loadStarterKit} loadingKit={loadingKit} readOnly={readOnly} />
+      )}
+      {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} readOnly={readOnly} />}
+      {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} />}
+      {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />}
       {section === "work-catalog" && isEnabled("jobs") && (
-        <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} />
+        <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} readOnly={readOnly} />
       )}
     </>
   );
 }
 
 // ── Pricing ───────────────────────────────────────────────────────────────────
-function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void }) {
+function PricingSection({ library, onSave, onLoadExamples, loadingKit, readOnly }: {
+  library: LibraryPricing;
+  onSave: (l: LibraryPricing) => void;
+  onLoadExamples: () => void;
+  loadingKit: boolean;
+  readOnly: boolean;
+}) {
   const { vocab } = useBusinessModules();
   const [materials, setMaterials] = useState<LibraryMaterial[]>(library.materials);
   const [laborRates, setLaborRates] = useState<LibraryLaborRate[]>(library.laborRates);
@@ -251,6 +266,21 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
     const m = over?.materials ?? materials;
     const l = over?.laborRates ?? laborRates;
     onSave({ ...library, materials: m, laborRates: l, defaultTaxRate: taxRate === "" ? undefined : Number(taxRate) });
+  }
+
+  if (materials.length === 0 && laborRates.length === 0) {
+    return (
+      <section className="panel">
+        <EmptyState
+          icon={Package}
+          title="Add your prices once"
+          body={readOnly ? "Ask the owner to add your prices." : "Quotes and invoices fill in from these automatically."}
+          action={readOnly ? undefined : { label: loadingKit ? "Loading…" : "Load example prices", onClick: onLoadExamples }}
+          secondary={readOnly ? undefined : { label: "Add a price", onClick: () => setMaterials([{ name: "", unit: "", unitPrice: 0 }]) }}
+          testId="library-pricing-empty"
+        />
+      </section>
+    );
   }
 
   return (
@@ -339,7 +369,7 @@ function PricingSection({ library, onSave }: { library: LibraryPricing; onSave: 
 // with newly created crews.
 const CREW_COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#dc2626", "#65a30d"];
 
-function CrewsSection({ businessId, crews, setCrews }: { businessId: string | null; crews: Crew[]; setCrews: (c: Crew[]) => void }) {
+function CrewsSection({ businessId, crews, setCrews, readOnly }: { businessId: string | null; crews: Crew[]; setCrews: (c: Crew[]) => void; readOnly: boolean }) {
   const { vocab, isEnabled } = useBusinessModules();
   const resource = vocab.resourceNoun;
   const resources = vocab.resourceNounPlural;
@@ -462,7 +492,15 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
               )}
             </div>
           ))}
-          {crews.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No {resources.toLowerCase()} yet. Add your first below.</p>}
+          {/* The add form right below is the one action — a second "Add" button here would only duplicate it. */}
+          {crews.length === 0 && (
+            <EmptyState
+              compact
+              title={`Add your first ${resource.toLowerCase()}`}
+              body={readOnly ? `Ask the owner to add your ${resources.toLowerCase()}.` : "Type a name below. It becomes a row on your Calendar."}
+              testId="library-crews-empty"
+            />
+          )}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
           <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
@@ -481,7 +519,7 @@ function CrewsSection({ businessId, crews, setCrews }: { businessId: string | nu
 }
 
 // ── Documents ─────────────────────────────────────────────────────────────────
-function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void }) {
+function DocumentsSection({ library, onSave, readOnly }: { library: LibraryPricing; onSave: (l: LibraryPricing) => void; readOnly: boolean }) {
   const { vocab } = useBusinessModules();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -523,7 +561,14 @@ function DocumentsSection({ library, onSave }: { library: LibraryPricing; onSave
               </Tooltip>
             </div>
           ))}
-          {docs.length === 0 && <p style={{ fontSize: 13, color: "#94a3b8" }}>No documents yet.</p>}
+          {docs.length === 0 && (
+            <EmptyState
+              compact
+              title="No documents yet"
+              body={readOnly ? "Ask the owner to add warranties or spec sheets." : "Paste a link below: warranties, spec sheets, price lists."}
+              testId="library-documents-empty"
+            />
+          )}
         </div>
         <div className="form-grid" style={{ alignItems: "end" }}>
           <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>

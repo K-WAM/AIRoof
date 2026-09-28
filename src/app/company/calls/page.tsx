@@ -16,6 +16,9 @@ import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Clock, Headphones, History, PhoneCall } from "lucide-react";
 
 interface CallMessage {
@@ -95,6 +98,7 @@ const CATEGORY_STATUS: Record<string, string> = {
 
 export default function CompanyCallsPage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab, isEnabled, industry } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -111,6 +115,7 @@ export default function CompanyCallsPage() {
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
+  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
 
   const initialLoadDone = useRef(false);
   const loadCalls = useCallback(async () => {
@@ -251,7 +256,12 @@ export default function CompanyCallsPage() {
           </div>
           <div className="panel-body">
             {filteredCalls.length === 0 ? (
-              <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>No calls yet. Every call your AI receptionist answers shows up here within seconds, with its transcript, summary and recording. Call your business line to see the first one.</p>
+              <EmptyState
+                compact
+                title="No calls yet"
+                body="Every call shows up here within seconds, with a summary."
+                action={user?.role === "viewer" || !phoneLine ? undefined : { label: "Call your line", href: `tel:${phoneLine}` }}
+              />
             ) : (
               <div className="call-list">
                 <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Click a call to read its transcript and play the recording.</p>

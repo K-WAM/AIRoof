@@ -7,6 +7,8 @@ import { matchesQuery } from "@/lib/customers/search";
 import { fmtDay } from "@/lib/format";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { Plus, Search, Users, X } from "lucide-react";
 import type { CustomerSlim, Customer, CustomerKind } from "@/types/customer";
 import type { Job } from "@/types/jobs";
@@ -27,6 +29,7 @@ const BLANK_DRAFT: DraftFields = { name: "", kind: "residential", phone: "", ema
 
 export function CustomersSection({ businessId, customers, setCustomers, initialCustomerId }: Props) {
   const { vocab } = useBusinessModules();
+  const readOnly = useAuth().user?.role === "viewer";
   const tz = useBusinessTimezone();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(initialCustomerId ?? null);
@@ -60,17 +63,18 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
             <Users size={16} strokeWidth={1.75} />
             {vocab.customerNounPlural} ({customers.length})
           </h2>
-          <Tooltip content={`New ${vocab.customerNoun.toLowerCase()}`}>
+          {/* While the list is empty its EmptyState carries the one primary "Add" — the viewer gets neither. */}
+          {!readOnly && <Tooltip content={`New ${vocab.customerNoun.toLowerCase()}`}>
             <button
               type="button"
-              className="button small primary"
+              className={`button small${customers.length === 0 ? "" : " primary"}`}
               onClick={() => { setCreating(true); setSelectedId(null); }}
               aria-label={`New ${vocab.customerNoun.toLowerCase()}`}
               style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
             >
               <Plus size={13} strokeWidth={1.75} />
             </button>
-          </Tooltip>
+          </Tooltip>}
         </div>
         <div className="panel-body" style={{ padding: 0 }}>
           <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", position: "relative" }}>
@@ -85,11 +89,15 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
           </div>
           <div style={{ maxHeight: 520, overflowY: "auto" }}>
             {filtered.length === 0 ? (
-              <p style={{ padding: "16px 14px", fontSize: 13, color: "#94a3b8" }}>
-                {customers.length === 0
-                  ? `No ${vocab.customerNounPlural.toLowerCase()} yet. Add your first with the + button above.`
-                  : `No match for "${query}".`}
-              </p>
+              customers.length === 0 ? (
+                <EmptyState
+                  compact
+                  title={`No ${vocab.customerNounPlural.toLowerCase()} yet`}
+                  body="They're added automatically when you accept a request."
+                  action={readOnly ? undefined : { label: `Add ${vocab.customerNoun.toLowerCase()}`, onClick: () => { setCreating(true); setSelectedId(null); } }}
+                  testId="customers-empty"
+                />
+              ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for &ldquo;{query}&rdquo;.</p>
             ) : (
               filtered.slice(0, 200).map((c) => (
                 <button
@@ -136,7 +144,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
           onCreated={onCreated}
           onUpdated={onUpdated}
         />
-      ) : (
+      ) : customers.length === 0 ? null : (
         <section className="panel">
           <div className="panel-body" style={{ textAlign: "center", padding: "48px 20px", color: "#94a3b8" }}>
             <Users size={28} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.6 }} />

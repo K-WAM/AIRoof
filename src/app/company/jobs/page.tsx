@@ -9,15 +9,19 @@ import type { Job } from "@/types/jobs";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useAuth } from "@/contexts/AuthContext";
 import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
 import { Briefcase, ExternalLink, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { matchesJobSearch } from "@/lib/jobs/search";
+import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 
 export default function JobsPage() {
   const businessId = useBusinessId();
+  const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -75,6 +79,11 @@ export default function JobsPage() {
   }, [businessId, statusFilter]);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
+
+  const readOnly = user?.role === "viewer";
+  const listEmpty = !loading && !loadError && jobs.length === 0 && statusFilter === "all";
+
+  const waitingRequests = useWaitingRequests(businessId, listEmpty && !readOnly);
 
   // Picks up a job created via the global quick-add while sitting on this page.
   useQuickAddRefresh("job", fetchJobs);
@@ -175,10 +184,13 @@ export default function JobsPage() {
             <ExternalLink size={15} strokeWidth={1.75} />
             Field view
           </a>
-          <button className="button primary" onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {!showForm && <Plus size={15} strokeWidth={1.75} />}
-            {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
-          </button>
+          {/* While the list is empty its EmptyState holds the one primary action. */}
+          {!readOnly && (
+            <button className={`button${listEmpty ? "" : " primary"}`} onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {!showForm && <Plus size={15} strokeWidth={1.75} />}
+              {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
+            </button>
+          )}
         </div>
       </header>
 
@@ -306,15 +318,20 @@ export default function JobsPage() {
       {jobs.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            <p style={{ color: "var(--text-muted)", fontSize: 14, margin: "0 0 12px" }}>
-              {statusFilter === "all"
-                ? `No ${vocab.jobNounPlural.toLowerCase()} yet. Start one here or review requests in Pipeline.`
-                : "No jobs match this status in the loaded pages. Choose another status to continue."}
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <a className="button primary" href={`/company/pipeline${previewSuffix}`}>Go to Pipeline</a>
-              <button type="button" className="button" onClick={() => setShowForm(true)}>New {vocab.jobNoun}</button>
-            </div>
+            {statusFilter !== "all" ? (
+              <EmptyState compact title="Nothing here right now" secondary={{ label: "Clear filter", onClick: () => setStatusFilter("all") }} />
+            ) : (
+              <EmptyState
+                title={`No ${vocab.jobNounPlural.toLowerCase()} yet`}
+                body={readOnly
+                  ? `Ask the owner to add your first ${vocab.jobNoun.toLowerCase()}.`
+                  : "Accept a request in Pipeline, or add one yourself."}
+                action={readOnly ? undefined : waitingRequests > 0
+                  ? { label: `Review requests (${waitingRequests})`, href: `/company/pipeline${previewSuffix}` }
+                  : { label: `New ${vocab.jobNoun}`, onClick: () => setShowForm(true) }}
+                testId="jobs-empty"
+              />
+            )}
           </div>
         </section>
       ) : (

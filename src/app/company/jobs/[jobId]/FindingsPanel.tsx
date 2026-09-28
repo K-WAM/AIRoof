@@ -10,6 +10,7 @@ import { normalizeName } from "@/lib/format/name";
 import { workBullet } from "@/lib/documents/workSummary";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
 import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface CatalogState {
   items: WorkCatalogItem[];
@@ -20,11 +21,13 @@ export interface CatalogState {
 
 const AUTOSAVE_MS = 800;
 
-export function FindingsPanel({ job, businessId, catalog, onSaved }: {
+export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = false }: {
   job: Job;
   businessId: string;
   catalog: CatalogState;
   onSaved: (findings: JobFinding[]) => void;
+  /** Viewer: the empty state explains, but offers no button that would 403. */
+  readOnly?: boolean;
 }) {
   const [findings, setFindings] = useState<JobFinding[]>(job.findings ?? []);
   const [dirty, setDirty] = useState(false);
@@ -178,12 +181,15 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
           </section>
         )}
 
-        <div>
-          <button className="button primary" type="button" onClick={() => setPickerOpen(true)} disabled={catalog.loading}>
-            ＋ Add from Library
-          </button>
-          {catalog.error && <p role="alert" style={{ color: "var(--danger, #b91c1c)" }}>Could not load the Library. Reload the page to retry.</p>}
-        </div>
+        {/* With no findings yet, the empty state below carries this same button. */}
+        {findings.length > 0 && (
+          <div>
+            <button className="button primary" type="button" onClick={() => setPickerOpen(true)} disabled={catalog.loading}>
+              ＋ Add from Library
+            </button>
+          </div>
+        )}
+        {catalog.error && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: 0 }}>Could not load the Library. Reload the page to retry.</p>}
 
         {findings.length > 0 ? (
           <div style={{ display: "grid", gap: 16 }}>
@@ -217,7 +223,13 @@ export function FindingsPanel({ job, businessId, catalog, onSaved }: {
             ))}
           </div>
         ) : (
-          <p style={{ margin: 0 }}>No findings yet. Add one from the Library, or from what the crew reported once they submit a field note.</p>
+          <EmptyState
+            compact
+            title="What did you find?"
+            body="Pick from your Library or add your own."
+            action={readOnly ? undefined : { label: "＋ Add from Library", onClick: () => setPickerOpen(true), disabled: catalog.loading }}
+            testId="job-findings-empty"
+          />
         )}
 
         <details>

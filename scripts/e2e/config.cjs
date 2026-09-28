@@ -40,6 +40,10 @@ const TENANTS = {
     id: "e2e-dental", name: "E2E Dental Care", industry: "dental", phone: "+15550200", agentId: "agent-e2e-dental",
     contactEmail: "front@e2e-dental.test", contactPhone: "+1 (555) 020-0200", address: "200 Smile Ave, Miami, FL 33101", brandColor: "#2563a8",
   },
+  empty: {
+    id: "e2e-empty", name: "Fresh Roofing Co", industry: "roofing", phone: "+15550400", agentId: "agent-e2e-empty",
+    contactEmail: "office@fresh-roofing.test", contactPhone: "+1 (555) 040-0400", address: "400 Fresh Street, Miami, FL 33101", brandColor: "#0f766e",
+  },
 };
 
 // Every account signs in with PASSWORD. `key` is what specs pass to loginAs("owner").
@@ -50,6 +54,7 @@ const ACCOUNTS = {
   crew: { uid: "e2e-crew", email: "crew@roofing.e2e.test", tenant: "roofing", role: "staff", trade: "technician", displayName: "Carlos Crew" },
   viewer: { uid: "e2e-viewer", email: "viewer@roofing.e2e.test", tenant: "roofing", role: "viewer", displayName: "Vera Viewer" },
   dentalOwner: { uid: "e2e-dental-owner", email: "owner@dental.e2e.test", tenant: "dental", role: "owner", displayName: "Dana Dentist" },
+  emptyOwner: { uid: "e2e-empty-owner", email: "owner@empty.e2e.test", tenant: "empty", role: "owner", displayName: "Erin Empty" },
 };
 
 /** Environment the app process runs with. Real provider keys are BLANKED so nothing can reach a live service. */

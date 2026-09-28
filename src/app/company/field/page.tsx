@@ -7,6 +7,7 @@ import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
 import {
@@ -602,6 +603,9 @@ function FieldPageContent() {
           </header>
 
           {/* Job Selector */}
+          {!loadingJobs && jobs.length === 0 && (
+            <EmptyState compact tone="dark" title="No jobs for you today" body="When the office assigns one, it appears here." testId="field-empty" />
+          )}
           <div style={{ marginBottom: 20 }}>
             <JobSelector
               jobs={jobs}

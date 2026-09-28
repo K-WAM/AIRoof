@@ -7,6 +7,7 @@ import { logoDataUri, logoStyle, needsLogoChip, MAX_LOGOS } from "@/lib/branding
 import { processLogo } from "@/lib/photos/clientResize";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const VARIANT_LABEL: Record<LibraryLogo["variant"], string> = {
   color: "Full color",
@@ -27,11 +28,12 @@ const VARIANT_HINT: Record<LibraryLogo["variant"], string> = {
  * can see, not guess, whether "color" or "mono-dark" is the right variant.
  */
 export function LogosSection({
-  businessId, logos, setLogos,
+  businessId, logos, setLogos, readOnly = false,
 }: {
   businessId: string | null;
   logos: LibraryLogo[];
   setLogos: (l: LibraryLogo[]) => void;
+  readOnly?: boolean;
 }) {
   const { data: bootstrap } = useBootstrap();
   const brandColor = bootstrap?.business.brandColor || "#0f172a";
@@ -157,7 +159,13 @@ export function LogosSection({
         )}
 
         {logos.length === 0 ? (
-          <p style={{ fontSize: 13, color: "#94a3b8", marginBottom: 18 }}>No logos yet — upload one below.</p>
+          <EmptyState
+            compact
+            title="Upload your logo"
+            body={readOnly ? "Ask the owner to upload your logo." : "It goes on every quote, invoice and report."}
+            action={readOnly ? undefined : { label: "Upload logo", onClick: () => fileInputRef.current?.click() }}
+            testId="library-logos-empty"
+          />
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, marginBottom: 22 }}>
             {logos.map((logo) => (

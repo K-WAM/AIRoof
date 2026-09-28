@@ -19,4 +19,9 @@ describe("BlockedAction", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ Add crew" }));
     expect(onAction).toHaveBeenCalledTimes(1);
   });
+
+  it("uses a direct link when href is supplied", () => {
+    render(<BlockedAction message="Add a crew first." actionLabel="Add crew" href="/company/library?section=crews" />);
+    expect(screen.getByRole("link", { name: "Add crew" })).toHaveAttribute("href", "/company/library?section=crews");
+  });
 });

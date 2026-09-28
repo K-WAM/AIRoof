@@ -7,6 +7,7 @@ import { useFormat } from "@/hooks/useFormat";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { TEAM_ROLES, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TeamRole, type TradeTitle } from "@/types/team";
 import type { Crew } from "@/types/library";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const FIELD_TRADES: TradeTitle[] = ["technician", "journeyman", "apprentice", "installer", "helper"];
 
@@ -146,7 +147,8 @@ export default function TeamPage() {
         <div className="panel-header"><h2 className="panel-title">Members</h2></div>
         <div className="panel-body" style={{ padding: 0 }}>
         {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
-          <div style={{ overflowX: "auto", maxWidth: "100%" }}>
+          // The invite form right above is the one action, so this carries no second "Invite" button.
+          members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", "Crew", "Status", "Last sign-in", "Invited", "Actions"].map((heading) => <th key={heading} style={th}>{heading}</th>)}</tr></thead>
               <tbody>{members.map((member) => (

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ChevronDown, ChevronRight, ClipboardList, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { WorkCatalog, WorkCatalogItem, WorkCatalogLine, WorkSeverity } from "@/types/workCatalog";
 
@@ -11,6 +12,7 @@ interface Props {
   businessId: string | null;
   catalog: WorkCatalog;
   onCatalogChange: (c: WorkCatalog) => void;
+  readOnly?: boolean;
 }
 
 const SEVERITIES: readonly { value: WorkSeverity; label: string }[] = [
@@ -37,9 +39,8 @@ function blankItem(): WorkCatalogItem {
   return { itemId: "", category: "", problem: "", solution: "", lines: [], createdAt: Date.now() };
 }
 
-export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Props) {
+export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readOnly = false }: Props) {
   const { vocab } = useBusinessModules();
-  const jobNoun = vocab.jobNoun.toLowerCase();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<string[]>([]);
   const [editing, setEditing] = useState<WorkCatalogItem | null>(null);
@@ -195,15 +196,17 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange }: Pro
 
       {catalog.items.length === 0 ? (
         <section className="panel">
-          <div className="panel-body" style={{ textAlign: "center", padding: "48px 20px", color: "#94a3b8" }}>
-            <ClipboardList size={28} strokeWidth={1.5} style={{ marginBottom: 8, opacity: 0.6 }} />
-            <p style={{ fontSize: 13.5, margin: "0 0 6px" }}>No work catalog items yet.</p>
-            <p style={{ fontSize: 13, margin: "0 0 18px", maxWidth: 440, marginInline: "auto" }}>
-              Add common problems and their standard resolutions here. Tick them on a {jobNoun} to flow them into the report, quote, or invoice.
-            </p>
-            <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
-              {loadingKit ? "Loading…" : "Load starter kit"}
-            </button>
+          <div className="panel-body">
+            {/* The work catalog is common problems + their fixes, not the price list (that's the Pricing section). */}
+            <EmptyState
+              icon={ClipboardList}
+              title="Save your common fixes once"
+              body={readOnly
+                ? "Ask the owner to add your common fixes."
+                : `Tick one on a ${vocab.jobNoun.toLowerCase()}; it fills the report, quote and invoice.`}
+              action={readOnly ? undefined : { label: loadingKit ? "Loading…" : "Load starter kit", onClick: loadStarterKit }}
+              testId="library-work-catalog-empty"
+            />
           </div>
         </section>
       ) : filtered.length === 0 ? (

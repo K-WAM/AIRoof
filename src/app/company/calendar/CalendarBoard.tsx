@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Plus, Undo2 } from "lucide-react";
+import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Plus, Undo2, Users } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
@@ -13,7 +13,9 @@ import type { Crew } from "@/types/library";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { BlockedAction } from "@/components/ui/BlockedAction";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { useWaitingRequests } from "@/hooks/useWaitingRequests";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
@@ -126,6 +128,7 @@ function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number 
 // so page.tsx can lazy-load it via next/dynamic (T-068) instead of shipping it in
 // every route's initial bundle. No logic changed in this move, file split only.
 export default function CalendarBoard() {
+  const { user } = useAuth();
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
@@ -239,6 +242,13 @@ export default function CalendarBoard() {
   // or bookings the agent took that nobody has been assigned to yet.
   const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId);
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
+
+  // Empty states (docs/NO-TRAINING-UX-PLAN.md §3.3): no resources → "Add your first …"; resources but
+  // nothing at all to place → "Nothing to schedule", pointing at waiting requests when there are any.
+  const readOnly = user?.role === "viewer";
+  const nothingToSchedule = !loading && (apptMode ? appts.length === 0 : jobs.length === 0);
+  const waitingRequests = useWaitingRequests(businessId, !apptMode && !readOnly && crews.length > 0 && nothingToSchedule);
+  const emptyStateOwnsPrimary = !loading && (crews.length === 0 || (nothingToSchedule && waitingRequests > 0));
 
   function flash(msg: string) {
     setToast(msg);
@@ -484,8 +494,9 @@ export default function CalendarBoard() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {toast && <span role="status" className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
-          {!apptMode && (
-            <button className="button small primary" type="button" onClick={() => openQuickAdd("job")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+          {/* Stays primary unless an empty state below owns the screen's one primary action. */}
+          {!apptMode && !readOnly && (
+            <button className={`button small${emptyStateOwnsPrimary ? "" : " primary"}`} type="button" onClick={() => openQuickAdd("job")} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
               <Plus size={13} strokeWidth={1.75} />
               New {vocab.jobNoun.toLowerCase()}
             </button>
@@ -532,7 +543,7 @@ export default function CalendarBoard() {
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
-          Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : "crew"} emailed
+          Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : vocab.resourceNoun.toLowerCase()} emailed
         </span>
         {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
@@ -541,6 +552,20 @@ export default function CalendarBoard() {
         )}
       </div>
 
+      {/* No resources yet: the next step replaces the board — an empty grid with nothing to drag onto is a locked door. */}
+      {crews.length === 0 ? (
+        <section className="panel">
+          <EmptyState
+            icon={Users}
+            title={`Add your first ${vocab.resourceNoun.toLowerCase()}`}
+            body={readOnly
+              ? `Ask the owner to add your ${vocab.resourceNounPlural.toLowerCase()}.`
+              : `Then drag ${apptMode ? "bookings" : vocab.jobNounPlural.toLowerCase()} onto their day.`}
+            action={readOnly ? undefined : { label: `Add ${vocab.resourceNoun.toLowerCase()}`, onClick: () => openQuickAdd("crew") }}
+            testId="calendar-no-resources"
+          />
+        </section>
+      ) : (
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
           {/* Needs-a-resource rail */}
@@ -552,16 +577,28 @@ export default function CalendarBoard() {
               </h2>
             </div>
             <div className="panel-body" style={{ display: "grid", gap: 10, maxHeight: 680, overflowY: "auto" }}>
-              {apptMode ? (
+              {crews.length > 0 && nothingToSchedule ? (
+                <EmptyState
+                  compact
+                  title="Nothing to schedule"
+                  body={apptMode
+                    ? "Bookings the AI takes show up here to assign."
+                    : `${vocab.jobNounPlural} you create show up here to drag onto a day.`}
+                  action={!readOnly && !apptMode && waitingRequests > 0
+                    ? { label: `Review requests (${waitingRequests})`, href: `/company/pipeline${previewSuffix}` }
+                    : undefined}
+                  testId="calendar-nothing-to-schedule"
+                />
+              ) : apptMode ? (
                 unassignedAppts.length === 0 ? (
-                  <p style={{ fontSize: 13, color: "#94a3b8" }}>
+                  <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
                     Every booking this week has a {vocab.resourceNoun.toLowerCase()} 🎉
                   </p>
                 ) : (
                   unassignedAppts.map((a) => <ApptTile key={a.appointmentId} appt={a} tz={tz} />)
                 )
               ) : unscheduled.length === 0 ? (
-                <p style={{ fontSize: 13, color: "#94a3b8" }}>All {vocab.jobNounPlural.toLowerCase()} scheduled 🎉</p>
+                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>All {vocab.jobNounPlural.toLowerCase()} scheduled 🎉</p>
               ) : (
                 unscheduled.map((job) => <JobTile key={job.jobId} job={job} crew={undefined} />)
               )}
@@ -621,16 +658,7 @@ export default function CalendarBoard() {
               })}
 
               {/* Crew rows */}
-              {crews.length === 0 ? (
-                <div style={{ gridColumn: `1 / -1`, padding: 24 }}>
-                  <BlockedAction
-                    message={`No ${vocab.resourceNounPlural.toLowerCase()} yet — add one to start scheduling on the Calendar.`}
-                    actionLabel={`+ Add ${vocab.resourceNoun.toLowerCase()}`}
-                    onAction={() => openQuickAdd("crew")}
-                  />
-                </div>
-              ) : (
-                crews.map((crew) => (
+              {crews.map((crew) => (
                   <CrewRow
                     key={crew.crewId}
                     crew={crew}
@@ -646,12 +674,12 @@ export default function CalendarBoard() {
                     busyJob={busyJob}
                     previewSuffix={previewSuffix}
                   />
-                ))
-              )}
+              ))}
             </div>
           </div>
         </div>
       </DndContext>
+      )}
     </>
   );
 }

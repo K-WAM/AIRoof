@@ -12,6 +12,7 @@ import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useFormat } from "@/hooks/useFormat";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
@@ -274,9 +275,9 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
       {!quote ? (
         <>
-          <p style={{ margin: 0 }}>{(job.findings ?? []).length === 0
-            ? "No quote yet. Add an item from the Library (or a custom one) and the quote is started for you."
-            : "Starting the quote from this job's findings…"}</p>
+          {(job.findings ?? []).length === 0
+            ? <EmptyState compact title="No quote yet" body="Add an item below; the quote starts itself." testId="job-quote-empty" />
+            : <p style={{ margin: 0 }}>Starting the quote from this job&apos;s findings…</p>}
           {pickerAndCustom}
         </>
       ) : <>
