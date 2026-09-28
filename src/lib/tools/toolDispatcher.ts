@@ -154,6 +154,7 @@ export async function executeAgentTool(
           preferredDate: optionalStr(params.preferredDate),
           preferredTime: optionalStr(params.preferredTime),
           serviceType: optionalStr(params.serviceType ?? params.service),
+          durationMinutes: typeof params.durationMinutes === "number" ? params.durationMinutes : undefined,
         });
         if (result.hoursStatus === "missing_or_invalid") {
           const lead = await createLead({
@@ -188,11 +189,16 @@ export async function executeAgentTool(
           .join("; ");
         const preferred = result.preferred;
         if (!preferred) return { result: `Available openings: ${slots}` };
-        const requested = formatSlot(preferred.requestedStartTime);
+        const requestedDay = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          weekday: "long",
+        }).format(new Date(preferred.requestedStartTime));
+        const requestedTime = formatSlot(preferred.requestedStartTime, false);
+        const requested = `${requestedTime} ${requestedDay}`;
         const firstSentence = preferred.status === "open"
           ? `${requested} is open.`
           : preferred.status === "closed"
-            ? `The business is closed at ${requested}.`
+            ? `We're closed ${requestedDay}s.`
             : preferred.status === "outside_business_hours"
               ? `${requested} is outside business hours.`
               : preferred.status === "past"

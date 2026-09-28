@@ -75,7 +75,7 @@ export function parseDayHours(value: unknown): DayHours | undefined {
   const openClock = parseClock(match[1]);
   const closeClock = parseClock(match[2]);
   if (!openClock || !closeClock) return undefined;
-  let open = openClock.minutes;
+  const open = openClock.minutes;
   let close = closeClock.minutes;
   // "8-5" is the common, unambiguous daytime shorthand. Do not guess for
   // ranges such as "11-2" or when either side already names AM/PM.

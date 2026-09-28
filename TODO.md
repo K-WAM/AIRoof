@@ -1072,7 +1072,7 @@ an active queue.*
         (no "office is closed"), with regression tests. Fixes failure (1) only; does NOT fix the "8 AM just taken" failure; on local `main`,
         not pushed; the live Firestore doc keeps the round-the-clock hours until the owner edits Settings or Demo Studio is relaunched on
         deployed code. My earlier note calling this "fixed" was wrong.
-  - [ ] **G1 — Booking engine** (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`, start now — disjoint from T-144). Shared
+  - [~] **G1 — Booking engine** (Codex, GPT-6 Sol medium, `air-wt-booking` / `task/booking-engine`, start now — disjoint from T-144). Shared
         hours module (one parser), capacity model + capacity-aware locks, `preferredTime` (was T-147), closest alternatives on conflict,
         overnight guard, DST-correct local times, demo hours Mon–Fri 8–5 + seeded items at business-hour times, tool schema + agent prompt
         "How to book", `setup-elevenlabs-agent.mjs --update-tools`, the §4 booking scenario suite (incl. a replay of Carla's exact tool calls),

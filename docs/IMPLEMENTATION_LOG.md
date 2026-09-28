@@ -1517,3 +1517,11 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
   offer slots that ignore what time the caller actually asked for. Fixing that needs a live ElevenLabs/Vapi tool
   schema change (an operational redeploy to the live agent, not just a code change) - tracked as a follow-up, not
   done tonight.
+
+## 2026-09-27 - G1 booking engine (worker, task/booking-engine)
+- Commits before the final scenario/evidence commit: 6e28de3 read-only data check; 2561aed shared hours parser; b98e5ed capacity-aware booking and locks; 348995a preferred-time matching and overnight guard; 31168bd conflict alternatives; b35b93b DST-correct local conversion; 672f10b missing-hours lead capture; c164d9e business-hour demo seed; 58c4fc3 voice schemas, prompt, and safe existing-tool updater. Step 9 is this commit.
+- Added the S1-S14 booking reliability suite at src/lib/scheduling/__tests__/booking-scenarios.test.ts. It uses the real toolDispatcher and agentTools with the real roofing demo seed/hours, the shared fake Firestore, and the fixed Carla clock. All 14 scenarios pass; no fake extension was required.
+- Safety: scripts/check-booking-data.mjs is read-only and credential-safe. scripts/setup-elevenlabs-agent.mjs --update-tools is GET/diff only unless --apply is explicit, updates changed existing tools only, preserves request headers, and keeps pre_tool_speech auto. No live service was called and no credential was printed.
+- Gates: npm run type-check clean; npm run lint 0 errors / 28 existing warnings; npm test 175 files, 1,381 passed + 1 expected fail; changed-file ESLint 0 errors; npm run e2e:call passed the full call-to-cash walk-through; npx next build compiled, generated 90/90 static pages, and exited 0.
+- Harness limits: local emulators do not cover real phone audio, the live ElevenLabs agent/tool configuration, a real inbox/provider delivery, or production Firebase/Vercel behavior. The booking-change gate still requires the integrator's post-deploy ElevenLabs tests and one real phone call with transcript review.
+- Removals: none. No push, merge, deployment, production write, or live provider call was performed.
