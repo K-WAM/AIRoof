@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Pencil, Plus, Trash2, Users, X } from "lucide-react";
@@ -15,7 +15,7 @@ import type { Crew, CrewPerson } from "@/types/library";
 // with newly created crews.
 const CREW_COLORS = ["#2563eb", "#16a34a", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#dc2626", "#65a30d"];
 
-type Draft = { name: string; email: string; phone: string; active: boolean };
+type Draft = { name: string; email: string; phone: string; active: boolean; kind: "crew" | "inspector" };
 
 function personLabel(person: CrewPerson): string {
   const title = person.trade && person.trade in TRADE_TITLE_LABEL ? TRADE_TITLE_LABEL[person.trade as TradeTitle] : TEAM_ROLE_LABEL[person.role];
@@ -47,6 +47,7 @@ export function CrewsSection({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [kind, setKind] = useState<"crew" | "inspector">("crew");
   const [adding, setAdding] = useState(false);
   const [pickerCrewId, setPickerCrewId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ crewId: string; draft: Draft } | null>(null);
@@ -54,6 +55,8 @@ export function CrewsSection({
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const activeCount = crews.filter((crew) => crew.active !== false).length;
+  const activeInspectors = crews.filter((crew) => crew.active !== false && crew.kind === "inspector");
+  const orderedCrews = [...crews.filter((crew) => crew.kind === "inspector"), ...crews.filter((crew) => crew.kind !== "inspector")];
 
   async function addCrew() {
     if (!name.trim() || !businessId) return;
@@ -63,13 +66,13 @@ export function CrewsSection({
       const res = await fetch("/api/company/crews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, name, email, phone }),
+        body: JSON.stringify({ businessId, name, email, phone, kind }),
       });
       if (!res.ok) throw new Error("Resource creation failed");
       const data = await res.json();
       if (!data.crew) throw new Error("Resource creation failed");
       setCrews([...crews, data.crew]);
-      setName(""); setEmail(""); setPhone("");
+      setName(""); setEmail(""); setPhone(""); setKind("crew");
     } catch {
       setActionError(`The ${resource.toLowerCase()} could not be added. Try again.`);
     } finally {
@@ -179,17 +182,23 @@ export function CrewsSection({
         </p>
         {crews.length > 0 && (
           <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 14px" }} data-testid="crew-capacity-line">
-            Your phone AI books up to {activeCount} appointment{activeCount === 1 ? "" : "s"} at the same time — one per active {resource.toLowerCase()}.
+            {activeInspectors.length > 0
+              ? "Phone bookings: one at a time per active inspector. Blocks and other bookings make that inspector busy."
+              : `Your phone AI books up to ${activeCount} appointment${activeCount === 1 ? "" : "s"} at the same time — one per active ${resource.toLowerCase()}.`}
           </p>
         )}
         <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-          {crews.map((c) => {
+          {orderedCrews.map((c, index) => {
             const members = people.filter((person) => person.crewId === c.crewId);
             const candidates = people.filter((person) => person.crewId !== c.crewId);
             const isEditing = editing?.crewId === c.crewId;
             const inactive = c.active === false;
+            const previous = orderedCrews[index - 1];
+            const showGroupHeading = index === 0 || (previous?.kind === "inspector" && c.kind !== "inspector");
             return (
-              <div key={c.crewId} data-testid={`crew-card-${c.crewId}`} style={{ position: "relative", minWidth: 0, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, opacity: inactive && !isEditing ? 0.75 : 1 }}>
+              <Fragment key={c.crewId}>
+              {showGroupHeading && <h3 style={{ margin: index === 0 ? "4px 0 0" : "14px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{c.kind === "inspector" ? "Inspectors" : "Crews"}</h3>}
+              <div data-testid={`crew-card-${c.crewId}`} style={{ position: "relative", minWidth: 0, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, opacity: inactive && !isEditing ? 0.75 : 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <button
                     onClick={() => !readOnly && setPickerCrewId(pickerCrewId === c.crewId ? null : c.crewId)}
@@ -211,7 +220,7 @@ export function CrewsSection({
                         <button
                           className="icon-del"
                           aria-label={`Edit ${c.name}`}
-                          onClick={() => setEditing({ crewId: c.crewId, draft: { name: c.name, email: c.email ?? "", phone: c.phone ?? "", active: c.active !== false } })}
+                          onClick={() => setEditing({ crewId: c.crewId, draft: { name: c.name, email: c.email ?? "", phone: c.phone ?? "", active: c.active !== false, kind: c.kind === "inspector" ? "inspector" : "crew" } })}
                         >
                           <Pencil size={14} strokeWidth={1.75} />
                         </button>
@@ -230,6 +239,7 @@ export function CrewsSection({
                     <div className="field"><label>{resource} name</label><input aria-label={`${resource} name`} value={editing.draft.name} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, name: e.target.value } })} /></div>
                     <div className="field"><label>Email</label><input aria-label={`${resource} email`} type="email" value={editing.draft.email} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, email: e.target.value } })} placeholder="name@company.com" /></div>
                     <div className="field"><label>Phone</label><input aria-label={`${resource} phone`} value={editing.draft.phone} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, phone: e.target.value } })} /></div>
+                    <div className="field"><label>Type</label><select aria-label={`${resource} type`} value={editing.draft.kind} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, kind: e.target.value as "crew" | "inspector" } })}><option value="crew">Crew</option><option value="inspector">Inspector</option></select></div>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44, fontSize: 13 }}>
                       <input type="checkbox" checked={editing.draft.active} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, active: e.target.checked } })} style={{ width: 18, height: 18 }} />
                       Active (on the Calendar, counts for phone bookings)
@@ -310,6 +320,7 @@ export function CrewsSection({
                   </>
                 )}
               </div>
+              </Fragment>
             );
           })}
           {showMembers && crews.length > 0 && !readOnly && !canManageMembers && (
@@ -330,6 +341,7 @@ export function CrewsSection({
             <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
             <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
             <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
+            <div className="field"><label>Type</label><select aria-label="Resource type" value={kind} onChange={(e) => setKind(e.target.value as "crew" | "inspector")}><option value="crew">Crew</option><option value="inspector">Inspector</option></select></div>
             <div className="field">
               <button className="button primary" onClick={addCrew} disabled={adding || !name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <Plus size={15} strokeWidth={1.75} />
