@@ -131,7 +131,8 @@ describe("booking reliability truth table", () => {
     }
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const conflict = await book("s3-full", "2026-09-28T08:00", "+15551000009");
-    expect(conflict.result).toBe("8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.");
+    expect(conflict.result).toBe("NOT BOOKED: 8:00 AM Monday was just taken. Nothing was booked for this caller. Offer them the closest openings: 9:00 AM, 9:30 AM or 10:00 AM.");
+    expect(conflict.sayToCaller).toBe("Sorry, 8:00 AM Monday was just taken. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM. Which works best for you?");
   });
 
   it("S4 offers next-business-day daytime slots after hours and flags the booking for confirmation", async () => {
@@ -223,7 +224,7 @@ describe("booking reliability truth table", () => {
     expect((await book("s11-2", "2026-09-28T10:00", "+15552000112")).error).toBeUndefined();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const third = await book("s11-3", "2026-09-28T10:00", "+15552000113");
-    expect(third.result).toContain("is booked. The closest openings are");
+    expect(third.result).toMatch(/^NOT BOOKED: 10:00\s?AM Monday was just taken\..*closest openings:/);
   });
 
   it("S12 releases a cancelled capacity unit so the same slot can be booked again", async () => {
@@ -252,7 +253,7 @@ describe("booking reliability truth table", () => {
     expect(availability.result).not.toContain("Closest openings: Monday at 10:00 AM");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const booking = await book("s13-book", "2026-09-28T10:00", "+15552000133");
-    expect(booking.result).toContain("is booked. The closest openings are");
+    expect(booking.result).toMatch(/^NOT BOOKED: 10:00\s?AM Monday was just taken\..*closest openings:/);
   });
 
   it("S14 leaves six morning openings on each of the next three business days at every launch hour", () => {
