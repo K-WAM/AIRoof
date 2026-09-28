@@ -16,6 +16,8 @@ describe("admin onboarding stepper", () => {
     expect(onboardingSource).toContain("2. Hours");
     expect(onboardingSource).toContain("7. Launch Readiness");
     expect(onboardingSource).toContain("businessHours,");
+    expect(onboardingSource).toContain("<HoursEditor");
+    expect(onboardingSource).toContain("!hoursValid");
   });
 
   it("retains every field in the existing onboarding POST contract", () => {

@@ -204,6 +204,14 @@ describe("POST /api/admin/businesses — welcome email", () => {
     expect(mockCreateUser).not.toHaveBeenCalled();
   });
 
+  it("rejects missing hours with a root field error", async () => {
+    const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
+    const withoutHours = Object.fromEntries(Object.entries(validBody).filter(([key]) => key !== "businessHours"));
+    const response = await freshPost(createRequest(withoutHours));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ fieldErrors: { _root: expect.any(String) } });
+  });
+
   it("stores tolerant legacy hours in canonical form", async () => {
     const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
     const response = await freshPost(createRequest({ ...validBody, ownerEmail: undefined }));

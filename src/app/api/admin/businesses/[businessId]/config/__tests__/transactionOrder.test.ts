@@ -77,11 +77,13 @@ describe("admin business config save — Firestore transaction ordering", () => 
     });
     mocks.getAdminFirestore.mockReturnValue(db);
     const { PUT } = await import("../route");
-    const res = await PUT(put({ notificationEmail: "owner@example.com" }), params);
+    const res = await PUT(put({ notificationEmail: "owner@example.com", businessHours: "Mon-Fri 8-5" }), params);
     expect(res.status).toBe(200);
     expect(writes.map((w) => `${w.op}:${w.path}`)).toEqual(expect.arrayContaining([
       "update:businesses/biz-1", "update:businessOnboarding/biz-1", "update:businessIntegrationStatus/biz-1",
     ]));
+    const bizWrite = writes.find((write) => write.path === "businesses/biz-1")?.data as Record<string, unknown>;
+    expect(bizWrite.businessHours).toMatchObject({ Monday: "08:00 - 17:00", Sunday: "Closed" });
   });
 
   it("rejects invalid hours with field errors before database access", async () => {

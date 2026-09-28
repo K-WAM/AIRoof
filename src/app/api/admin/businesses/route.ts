@@ -115,9 +115,9 @@ export async function POST(
     const body: CreateBusinessRequest = await request.json();
     const { businessId, businessName, industry } = body;
 
-    if (!businessId || !businessName || !industry || !body.serviceArea || body.businessHours === undefined) {
+    if (!businessId || !businessName || !industry || !body.serviceArea) {
       return NextResponse.json(
-        { error: "Missing required fields: businessId, businessName, industry, serviceArea, businessHours" },
+        { error: "Missing required fields: businessId, businessName, industry, serviceArea" },
         { status: 400 }
       );
     }
