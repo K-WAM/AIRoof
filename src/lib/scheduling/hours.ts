@@ -230,3 +230,44 @@ export function isOpenAt(timestamp: Date | number, timeZone: string, businessHou
   const window = dayWindow(millis, timeZone, businessHours);
   return window !== null && millis >= window.startTime && millis < window.endTime;
 }
+
+const NEXT_OPENING_SCAN_DAYS = 14;
+
+function openingClock(timestamp: number, timeZone: string): string {
+  const parts = zonedParts(timestamp, timeZone);
+  const hour = parts.hour % 12 === 0 ? 12 : parts.hour % 12;
+  const meridiem = parts.hour < 12 ? "AM" : "PM";
+  return parts.minute === 0
+    ? `${hour} ${meridiem}`
+    : `${hour}:${String(parts.minute).padStart(2, "0")} ${meridiem}`;
+}
+
+/**
+ * The next opening strictly after `now`, as a short caller-facing label:
+ * "today at 1 PM" / "tomorrow at 8 AM" / "Monday at 8 AM" (minutes only when not :00).
+ * Returns null when nothing opens within 14 days. Days are walked by local calendar
+ * date (anchored at local noon), so it stays correct across a daylight-saving change.
+ */
+export function nextOpeningLabel(now: number, timeZone: string, hours: unknown): string | null {
+  let local: ZonedParts;
+  try {
+    local = zonedParts(now, timeZone);
+  } catch {
+    return null;
+  }
+  for (let offset = 0; offset <= NEXT_OPENING_SCAN_DAYS; offset++) {
+    const day = new Date(Date.UTC(local.year, local.month - 1, local.day + offset));
+    const noon = zonedDateTimeToUtc(
+      { year: day.getUTCFullYear(), month: day.getUTCMonth() + 1, day: day.getUTCDate(), hour: 12, minute: 0 },
+      timeZone
+    );
+    if (noon === null) continue;
+    const window = dayWindow(noon, timeZone, hours);
+    if (!window || (offset === 0 && window.startTime <= now)) continue;
+    const clock = openingClock(window.startTime, timeZone);
+    if (offset === 0) return `today at ${clock}`;
+    if (offset === 1) return `tomorrow at ${clock}`;
+    return `${zonedParts(window.startTime, timeZone).weekday} at ${clock}`;
+  }
+  return null;
+}
