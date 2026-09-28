@@ -119,11 +119,12 @@ key, owner OK), create and run the ElevenLabs agent tests, relaunch Demo Studio,
 
 ## 7. Owner, right now (2 minutes)
 
-Updated 2026-09-27 evening: the hotfix is deployed, but the live `demo-roofing` document still holds the round-the-clock
-hours until one of these runs:
-1. Relaunch Demo Studio (Roofing) — on the deployed code a launch now writes the real hours (Mon–Fri 8–5, Sat 9–1, Sun
-   Closed); **or**
-2. As superadmin open `/company/settings?preview=demo-roofing` → Business hours → Monday–Friday `08:00 - 17:00`
-   (type it exactly like that), Saturday and Sunday `Closed` → Save.
-3. Then one test call asking for a weekday morning; read the transcript. The "8 AM just taken" problem can remain until
-   G1 ships (it depends on what is sitting on the live calendar).
+Updated 2026-09-27 late: **G1 is deployed** (push `406ca0a`) and the live ElevenLabs tools are updated; 6 agent tests pass.
+The live `demo-roofing` document still holds the round-the-clock hours and the old launch-time seed (8:54 AM / 8:54 PM),
+so:
+1. **Relaunch Demo Studio (Roofing).** On the deployed code a launch writes Mon–Fri 8–5, Saturday and Sunday Closed, and
+   seeds appointments at business-hour times (9:00, 11:00, 13:30, 15:00), leaving mornings open.
+2. Call +1 (689) 204-2643 and ask for a weekday 8 AM. Expected: the agent checks that exact time, then books it or offers
+   the two closest openings. Never a time between 9 PM and 7 AM; never "you're booked" unless bookAppointment succeeded.
+3. The integrator reads the transcript (tool calls + results) before anyone calls booking fixed (AGENTS.md gate).
+4. Open decision: the roofing template's "Minimum 24-hour notice" rule is prompt-only (TODO.md Phase 28).

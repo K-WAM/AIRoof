@@ -77,6 +77,20 @@ own unit tests and together broke every booking on the demo line. Neither was tr
 - **The integrator does not call it done** until, after deploy: the ElevenLabs agent tests pass, and one real phone call
   books through the change and its transcript (tool calls + results, via the ElevenLabs conversation API) has been read.
   A bug report about a live call starts with that transcript — never a diagnosis from code alone.
+- **Words the agent reads are part of the booking logic (2026-09-27).** G1's conflict reply said "8:00 AM Monday is booked. The closest
+  openings are …" (meaning taken); the live model told the caller "8 AM Monday is booked" — a booking that did not exist. Unit tests only
+  checked the string was what the code produced. Any tool result the model reads must say the outcome unambiguously up front
+  ("NOT BOOKED: …"), the caller-facing `sayToCaller` must never contain a word that also means success, and every such wording change gets
+  an ElevenLabs agent test against the real model before it ships.
+- **How to run ElevenLabs agent tests here (2026-09-27).** The test runner does NOT call our initiation webhook, so the agent's stored prompt
+  (an old "Carlita Roofing" test prompt) is what a plain run uses. Pass `agent_config_override.conversation_config.agent.prompt` with the real
+  per-call prompt (build it with `buildInitiationResponse(config, callerPhone, now)` from the tenant's config). Webhook tool-call test
+  parameter paths are `body.<field>` (a bare `<field>` fails with "path not found" even when the agent did the right thing). Tool calls in
+  tests are mocked ("Skipping tool call in test mode"): put the tool result you want to test in `chat_history`. The saved suite is listed in
+  TODO.md Phase 28.
+- **`setup-elevenlabs-agent.mjs --update-tools`** builds tool URLs from `NEXT_PUBLIC_APP_URL`, which is now `https://crm.luxordev.com`, while
+  the live tools point at `https://ai-roof.vercel.app` (same deploy). Run it with `NEXT_PUBLIC_APP_URL=https://ai-roof.vercel.app` unless you
+  mean to repoint every tool; always read the dry-run diff before `--apply`.
 
 ## Credentials and external services
 
@@ -213,6 +227,12 @@ Lessons from T-144 (2026-09-27) — a green run can still hide a broken screen:
   saw the load-error screen. When adding a read route a page loads alongside others, give it the same read roles as its siblings.
 - **Merging `docs/IMPLEMENTATION_LOG.md` (2026-09-27).** Both sides only ever append, so resolve a conflict byte-wise: `git show :1:` / `:2:` /
   `:3:` to files, confirm both start with the base bytes, write ours + theirs[base.Length..]. Never open it in a patch tool (odd bytes).
+- **Removing a worktree (2026-09-27).** Unlink its `node_modules` junction first (`[System.IO.Directory]::Delete(path,$false)`), or
+  `git worktree remove` can delete the main repo's `node_modules` through it. Then check for orphaned harness processes: `npm run e2e:down`
+  can leave `scripts/e2e/up.mjs --child` running with the worktree as its working directory, which locks the folder ("Permission denied").
+  Find them with `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.CommandLine -match '<worktree name>' }` and stop them.
+  Before deleting any worktree, `git rev-list --count main..<branch>` must be 0 — task/guide-3 was marked done in TODO for a day while its 3
+  commits had never been merged.
 - **Run to the end (2026-09-27).** A prompt's numbered steps are ONE job. Don't stop between steps to report progress
   or ask permission. Send one message when everything is done, or when you are truly blocked after finishing
   everything you can (then use "QUESTION FOR INTEGRATOR").

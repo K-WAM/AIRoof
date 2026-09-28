@@ -353,6 +353,13 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/hooks/useWaitingRequests.ts — "Review requests (n)" count for the Jobs/Calendar empty states; fetches only while the screen is empty.
 - `bootstrap.business.phoneLine` — the AI line for every "Call your line" button (ElevenLabs number, else Main phone); don't add per-page fetches for it.
 
+## Phase 28 (G1, booking engine — deployed 2026-09-27) Key Files
+
+- src/lib/scheduling/hours.ts — the ONE business-hours parser (tolerant formats, a missing weekday = Closed, validate/canonicalize, DST-correct `zonedDateTimeToUtc`, `dayWindow`, `isOpenAt`). Never write another hours regex.
+- src/lib/tools/agentTools.ts (`isWindowFree`, capacity = active crews, capacity-unit locks) + src/lib/tools/toolDispatcher.ts (preferredTime, closest openings, the "NOT BOOKED" conflict wording) — booking changes fall under AGENTS.md's Booking-change gate.
+- src/lib/scheduling/__tests__/booking-scenarios.test.ts — the S1–S14 truth table from `docs/BOOKING-RELIABILITY-PLAN.md` §4 (Carla replay included).
+- scripts/check-booking-data.mjs — read-only production check for one tenant (hours as the engine sees them, capacity, next 7 days); scripts/setup-elevenlabs-agent.mjs `--update-tools` — dry-run diff, `--apply` patches only changed tools (pin `NEXT_PUBLIC_APP_URL=https://ai-roof.vercel.app`).
+
 ## Navigation Completeness Rule
 
 Every `page.tsx` must have a reachable UI path before being committed:

@@ -979,10 +979,14 @@ between steps) and **CRLF/non-ASCII patch mismatches: edit by hand, no permissio
 
 | # | Worker / model | Task | Starts when | Worktree |
 |---|---|---|---|---|
-| H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | **DONE — finished by the integrator, merged to local main 2026-09-27** | `air-wt-empty-states` (can be removed) |
-| H1 | Codex B · GPT-6 Sol, medium | G1 booking engine (section G, unchanged) | now, in parallel with H0 | `air-wt-booking` |
-| H2 | Deepseek · V4.1 Flash, Thinking: Hard | G3 + G4: booking tests, live test script, daily canary | after H1 merges | `air-wt-booking-verify` |
-| H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | after H0 AND H1 merge | `air-wt-setup-ux` |
+| H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | **DONE — finished by the integrator; merged + deployed 2026-09-27** | removed |
+| H1 | Codex B · GPT-6 Sol, medium | G1 booking engine (section G, unchanged) | **DONE — reviewed, fixed, merged + deployed 2026-09-27; live tools updated** | removed |
+| H2 | Deepseek · V4.1 Flash, Thinking: Hard | G3 + G4: booking tests, live test script, daily canary | **can start now** (G1 is on main) | `air-wt-booking-verify` |
+| H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | **can start now** (T-144 + G1 are on main) | `air-wt-setup-ux` |
+
+Note for H2 (2026-09-27): the bookAppointment conflict reply is now `NOT BOOKED: <time> was just taken. … Offer them the closest openings: …`
+(model) and `Sorry, <time> was just taken. The closest openings are … Which works best for you?` (sayToCaller) — assert those, never "is booked".
+The six saved ElevenLabs agent tests are listed in TODO.md Phase 28; `docs/BOOKING-TEST-SCRIPT.md` should reference them.
 
 After H3 there is one more prompt, and only when the owner approves pricing: billing + the superadmin cost panel
 (T-126 + T-146). Everything else is integrator work (reviews, merges, live agent tests, deploy) or owner items.

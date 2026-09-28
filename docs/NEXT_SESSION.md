@@ -1,22 +1,20 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-09-27 (late evening) — read this first; everything below is older
-- **Pushed + deployed:** `main` == `origin/main` at `ea80f54`; production (`https://crm.luxordev.com`, also `ai-roof.vercel.app`) is Ready and
-  healthy. That push shipped T-127, E6b, T-129, T-130 (extra numbers), the demo-hours hotfix `6fcbe12`, and T-144 (empty states + first-run
-  checklist) — none of it proven on a real phone call yet.
-- **Live booking on the demo line:** midnight suggestions are fixed in code (hotfix deployed) but the live `demo-roofing` doc keeps round-the-clock
-  hours until the owner relaunches Demo Studio or sets hours in Settings (`docs/BOOKING-RELIABILITY-PLAN.md` §7). "8 AM just taken" waits for G1.
-- **Worker queue = `docs/WORKER_QUEUE.md` section H:** H0 (T-144) **DONE** — the integrator finished it after the worker stopped half-way.
-  H1 G1 booking engine (Codex B, `air-wt-booking`) **still running — don't touch that worktree**. H2 (Deepseek) starts after H1 merges;
-  H3 (hours at setup + roofing UX pass) starts after H1 merges (T-144 is already on main).
-- **Integrator next:** when H1 reports, review it against the G1 spec (not the worker's summary), merge, run tsc + full vitest + `npm run e2e:call`
-  + the full Playwright suite **on the merged tree** before pushing. Then read-only `scripts/check-booking-data.mjs` (owner OK: prod key),
-  `setup-elevenlabs-agent.mjs --update-tools`, ElevenLabs agent tests via the MCP, push + deploy, relaunch Demo Studio, place the test calls,
-  read each transcript (AGENTS.md "Booking-change gate").
-- Learnings from today are in AGENTS.md ("Browser and end-to-end testing" + "Known hiccups", both dated 2026-09-27).
-- Done 2026-09-27: T-127/E6b/T-129/T-130/T-144 merged + deployed; viewer Library bug fixed; Twilio upgraded; +1 (778) 907-9769 on the agent
-  (still to add under Admin → Clients → demo-roofing → Additional phone numbers). Pricing proposal + billing terms are in TODO T-126.
-- `air-wt-empty-states` can be removed (merged); unlink its `node_modules` junction first.
+## CURRENT STATE 2026-09-27 (late night) — read this first; everything below is older
+- **Pushed + deployed:** `main` == `origin/main`; production `https://crm.luxordev.com` (also `ai-roof.vercel.app`) Ready + healthy. Shipped
+  today: T-127, E6b, T-129, T-130, the hours hotfix, T-144 (empty states + first-run checklist), **G1 (booking engine)**, the viewer-Library fix,
+  and the G3 guide/runbook refresh (found unmerged during cleanup). Live ElevenLabs tools updated for G1; 6 agent tests pass.
+- **The one thing between us and "booking works": a real call.** Owner relaunches Demo Studio (Roofing) — it writes Mon–Fri 8–5, weekends
+  Closed and business-hour seed times; the stored `demo-roofing` doc still has round-the-clock hours + 8:54 AM/PM seed — then calls
+  +1 (689) 204-2643 asking for a weekday 8 AM. Integrator reads the transcript. (`docs/BOOKING-RELIABILITY-PLAN.md` §7.)
+- **Open owner decision:** the roofing template's prompt-only "Minimum 24-hour notice" rule (TODO.md Phase 28).
+- **Worker queue = `docs/WORKER_QUEUE.md` section H:** H0 + H1 DONE. **H2 (Deepseek: booking tests + daily canary) and H3 (Codex: hours at
+  setup, then the roofing UX pass) can both start now.** When either reports: review against its spec, merge, run the gates + `e2e:call` +
+  full Playwright on the merged tree, then push.
+- Worktrees: only the main checkout remains (all task worktrees + the stale `.kilo` one removed; merged branches deleted).
+- Learnings from today: AGENTS.md "Booking-change gate" (agent-read wording, how to run ElevenLabs agent tests, the tool-URL pin),
+  "Browser and end-to-end testing" and "Known hiccups" (worktree removal), all dated 2026-09-27.
+- Still to add: +1 (778) 907-9769 under Admin → Clients → demo-roofing → Additional phone numbers. Pricing proposal + billing terms: TODO T-126.
 
 ## UPDATE 2026-09-25 (afternoon)
 - **Round-2 demo feedback plan:** `docs/DEMO-FEEDBACK-PLAN.md` (E1–E6 worker tasks; tracked as TODO.md Phase 25) supersedes the older D-series prompts for the next wave.
