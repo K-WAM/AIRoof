@@ -3,7 +3,7 @@ import { defaultLandingPath } from "../landing";
 
 describe("defaultLandingPath", () => {
   it("sends field trades to /company/field", () => {
-    for (const trade of ["technician", "journeyman", "apprentice", "installer", "helper"] as const) {
+    for (const trade of ["inspector", "technician", "journeyman", "apprentice", "installer", "helper"] as const) {
       expect(defaultLandingPath({ role: "staff", trade }, [])).toBe("/company/field");
     }
   });

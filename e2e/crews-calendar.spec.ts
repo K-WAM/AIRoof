@@ -164,14 +164,14 @@ test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149
   await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${crewId}`);
 });
 
-test("Team: role help, Crew option and Disable (T-150)", async ({ as }) => {
+test("Team: type help, the Inspector type and Disable (T-150, T-155)", async ({ as }) => {
   const page = await as("owner");
   const crewId = await createCrew(page, `Team Crew ${stamp()}`);
   await page.goto("/company/team");
   await settle(page);
   await expect(page.getByText("sam@", { exact: false }).or(page.getByText("staff@roofing.e2e.test"))).toBeVisible();
-  await page.getByRole("button", { name: "What each role can do" }).first().click();
-  await expect(page.getByRole("dialog", { name: "What each role can do" })).toContainText("Field work only");
+  await page.getByRole("button", { name: "What each type can do" }).first().click();
+  await expect(page.getByRole("dialog", { name: "What each type can do" })).toContainText("their own schedule");
   await shot(page, "team-role-help");
   await page.keyboard.press("Escape");
   await page.mouse.click(5, 5);

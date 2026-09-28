@@ -5,13 +5,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFormat } from "@/hooks/useFormat";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
-import { CREW_MEMBER_ROLES, TEAM_ROLES, TEAM_ROLE_HELP, TEAM_ROLE_LABEL, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TeamRole, type TradeTitle } from "@/types/team";
+import { CREW_MEMBER_ROLES, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TradeTitle } from "@/types/team";
+import { fieldsForUserType, parseUserType, userTypeDef, userTypeOf, userTypesFor, type UserType, type UserTypeDef } from "@/lib/team/userTypes";
 import type { Crew } from "@/types/library";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Info } from "lucide-react";
 
-// ⓘ next to Role and Title (T-150): tap-to-open, not a hover tooltip — phones never show those.
+// ⓘ next to Type (T-150): tap-to-open, not a hover tooltip — phones never show those.
 function InfoButton({ label, children }: { label: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -32,25 +33,19 @@ function InfoButton({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function RoleHelp({ roles }: { roles: TeamRole[] }) {
+function TypeHelp({ types }: { types: UserTypeDef[] }) {
   return (
-    <InfoButton label="What each role can do">
-      {roles.map((item) => (
-        <span key={item} style={{ display: "block", marginBottom: 6 }}><strong>{TEAM_ROLE_LABEL[item]}</strong> — {TEAM_ROLE_HELP[item]}</span>
+    <InfoButton label="What each type can do">
+      {types.map((type) => (
+        <span key={type.id} style={{ display: "block", marginBottom: 6 }}><strong>{type.label}</strong> — {type.help}</span>
       ))}
       <span style={{ display: "block", color: "var(--text-muted)" }}>No account? A crew member can use a job&apos;s QR code instead.</span>
     </InfoButton>
   );
 }
 
-function TitleHelp() {
-  return (
-    <InfoButton label="What a title does">
-      <span style={{ display: "block", marginBottom: 6 }}>A title is a label only — it doesn&apos;t change what someone can do. The role does that.</span>
-      <span style={{ display: "block" }}>Technician, Journeyman, Apprentice, Installer and Helper open on the Field screen after sign-in; Foreman opens on Jobs.</span>
-    </InfoButton>
-  );
-}
+/** Titles the five types don't cover (Foreman, Installer…) stay visible, so changing a type never hides them. */
+const TYPE_TITLES: ReadonlySet<TradeTitle> = new Set(["office", "inspector", "technician"]);
 
 export default function TeamPage() {
   const businessId = useBusinessId();
@@ -70,14 +65,15 @@ export default function TeamPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<TeamRole>("staff");
-  const [trade, setTrade] = useState<TradeTitle | "">("");
+  // One Type per person (owner, 2026-09-28: Admin / Office staff / Inspector / Technician) — a preset over role + title.
+  const [userType, setUserType] = useState<UserType>("office");
   const [crewId, setCrewId] = useState("");
   const [crews, setCrews] = useState<Crew[]>([]);
   const { isEnabled } = useBusinessModules();
-  // Crews and the Crew role only exist where there is field work (the "jobs" module).
+  // Crews, Inspectors and Technicians only exist where there is field work (the "jobs" module).
   const hasField = isEnabled("jobs");
-  const roleOptions = TEAM_ROLES.filter((item) => item !== "crew" || hasField);
+  const typeOptions = userTypesFor(hasField);
+  const inviteRole = userTypeDef(userType).role;
   const activeOwners = members.filter((member) => member.role === "owner" && member.active).length;
 
   const refresh = useCallback(async () => {
@@ -129,12 +125,17 @@ export default function TeamPage() {
     }
   }
 
+  function inviteFields(type: UserType): { role: string; trade?: TradeTitle } {
+    const fields = fieldsForUserType(type);
+    return { role: fields.role, ...(fields.trade ? { trade: fields.trade } : {}) };
+  }
+
   async function invite(event: FormEvent) {
     event.preventDefault();
     const data = await send("/api/company/team", {
-      email: email.trim(), displayName: name.trim() || undefined, role, trade: trade || undefined, crewId: crewId || undefined,
+      email: email.trim(), displayName: name.trim() || undefined, ...inviteFields(userType), crewId: crewId || undefined,
     }, "invite", "Team member added");
-    if (data) { setEmail(""); setName(""); setRole("staff"); setTrade(""); setCrewId(""); }
+    if (data) { setEmail(""); setName(""); setUserType("office"); setCrewId(""); }
   }
 
   async function importCsv(file: File | undefined) {
@@ -142,8 +143,13 @@ export default function TeamPage() {
     const rows = (await file.text()).split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
       .filter((line) => !/^email\s*,/i.test(line))
       .map((line) => {
-        const [email, role, trade] = line.split(",").map((cell) => cell.trim());
-        return { email, role: TEAM_ROLES.includes(role as TeamRole) ? role : "staff", trade: TRADE_TITLES.includes(trade as TradeTitle) ? trade : undefined };
+        // "email, type" — the old "email, role, title" files still import (owner → Admin, crew → Technician…).
+        const [email, typeCell, titleCell] = line.split(",").map((cell) => cell.trim());
+        const title = TRADE_TITLES.includes(titleCell as TradeTitle) ? titleCell as TradeTitle : undefined;
+        const parsed = parseUserType(typeCell) ?? "office";
+        const type: UserType = parsed === "technician" && title === "inspector" ? "inspector" : parsed;
+        const fields = fieldsForUserType(type, title);
+        return { email, role: fields.role, trade: fields.trade ?? undefined };
       });
     if (rows.length === 0) { setMessage("No team members found in the CSV file"); return; }
     const data = await send("/api/company/team/bulk", { rows }, "csv", "CSV import finished");
@@ -155,7 +161,7 @@ export default function TeamPage() {
   }
 
   if (authLoading) return <p>Loading team…</p>;
-  if (!canManage) return <p>Only an owner can manage the team.</p>;
+  if (!canManage) return <p>Only an admin can manage the team.</p>;
 
   const th = { padding: "10px 12px", textAlign: "left" as const, fontWeight: 600, color: "var(--text-muted)", fontSize: 13, whiteSpace: "nowrap" as const };
   const td = { padding: "10px 12px", verticalAlign: "middle" as const, fontSize: 14 };
@@ -179,12 +185,11 @@ export default function TeamPage() {
           <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
             <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
             <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} style={{ display: "block" }} /></label>
-            <label>Role<RoleHelp roles={roleOptions} /><select aria-label="Invite role" value={role} onChange={(event) => setRole(event.target.value as TeamRole)} style={{ display: "block" }}>{roleOptions.map((item) => <option key={item} value={item}>{TEAM_ROLE_LABEL[item]}</option>)}</select></label>
-            <label>Title<TitleHelp /><select aria-label="Invite title" value={trade} onChange={(event) => setTrade(event.target.value as TradeTitle | "")} style={{ display: "block" }}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></label>
-            {hasField && CREW_MEMBER_ROLES.has(role) && crews.length > 0 && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
+            <label>Type<TypeHelp types={typeOptions} /><select aria-label="Invite type" value={userType} onChange={(event) => setUserType(event.target.value as UserType)} style={{ display: "block" }}>{typeOptions.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
+            {hasField && CREW_MEMBER_ROLES.has(inviteRole) && crews.length > 0 && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
             <button className="button primary" disabled={busy !== null}>Send invite</button>
           </form>
-          <label style={{ display: "block", marginTop: 14, fontSize: 13, color: "var(--text-muted)" }}>Import CSV (email, role, title)
+          <label style={{ display: "block", marginTop: 14, fontSize: 13, color: "var(--text-muted)" }}>Import CSV (email, type — Admin, Office staff, Inspector, Technician or View only)
             <input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.target.value = ""; }} style={{ display: "block", marginTop: 4 }} />
           </label>
         </div>
@@ -197,19 +202,25 @@ export default function TeamPage() {
           // The invite form right above is the one action, so this carries no second "Invite" button.
           members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
             <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
-              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Role", "Title", ...(hasField ? ["Crew"] : []), "Status", "Last sign-in", "Invited", "Actions"].map((heading) => (
-                <th key={heading} style={th}>{heading}{heading === "Role" && <RoleHelp roles={roleOptions} />}{heading === "Title" && <TitleHelp />}</th>
+              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Type", ...(hasField ? ["Crew"] : []), "Status", "Last sign-in", "Invited", "Actions"].map((heading) => (
+                <th key={heading} style={th}>{heading}{heading === "Type" && <TypeHelp types={typeOptions} />}</th>
               ))}</tr></thead>
               <tbody>{members.map((member) => (
                 <tr key={member.uid} style={{ borderBottom: "1px solid var(--border)", ...(member.active ? {} : { opacity: 0.7 }) }}>
                   <td style={td}>{member.displayName || "—"}</td><td style={td}>{member.email}</td>
-                  <td style={td}><select aria-label={`Role for ${member.email}`} value={member.role} disabled={busy !== null || !member.active} onChange={(event) => change(member, { role: event.target.value }, "Role updated")}>{roleOptions.map((item) => <option key={item} value={item}>{TEAM_ROLE_LABEL[item]}</option>)}</select></td>
-                  <td style={td}><select aria-label={`Title for ${member.email}`} value={member.trade ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { trade: event.target.value || null }, "Title updated")}><option value="">No title</option>{TRADE_TITLES.map((item) => <option key={item} value={item}>{TRADE_TITLE_LABEL[item]}</option>)}</select></td>
+                  <td style={td}>
+                    <select aria-label={`Type for ${member.email}`} value={userTypeOf(member)} disabled={busy !== null || !member.active}
+                      onChange={(event) => change(member, fieldsForUserType(event.target.value as UserType, member.trade), "Type updated")}>
+                      {[...typeOptions, ...(typeOptions.some((type) => type.id === userTypeOf(member)) ? [] : [userTypeDef(userTypeOf(member))])]
+                        .map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                    </select>
+                    {member.trade && !TYPE_TITLES.has(member.trade) && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Title: {TRADE_TITLE_LABEL[member.trade]}</div>}
+                  </td>
                   {hasField && <td style={td}>{CREW_MEMBER_ROLES.has(member.role) ? (
                     crews.length > 0
                       ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>
                       : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add crews in Library</span>
-                  ) : <span title="Viewers don't do field work">—</span>}</td>}
+                  ) : <span style={{ color: "var(--text-muted)" }}>—</span>}</td>}
                   <td style={td}><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{statusLabel(member.status ?? (member.active ? "Active" : "Locked"))}</span></td>
                   <td style={td}>{dateLabel(member.lastSignInTime)}</td><td style={td}>{dateLabel(member.createdAt)}</td>
                   <td style={td}>

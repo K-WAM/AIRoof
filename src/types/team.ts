@@ -8,17 +8,19 @@
 // Only offered where the industry has the "jobs" module (there is no Field screen otherwise).
 export type TeamRole = "owner" | "staff" | "crew" | "viewer";
 export const TEAM_ROLES: TeamRole[] = ["owner", "staff", "crew", "viewer"];
+// The owner's words (2026-09-28). The Team page picks a user TYPE (src/lib/team/userTypes.ts) — these are what an
+// invite email and a crew list call the underlying role.
 export const TEAM_ROLE_LABEL: Record<TeamRole, string> = {
-  owner: "Owner",
-  staff: "Staff",
-  crew: "Crew",
-  viewer: "Viewer",
+  owner: "Admin",
+  staff: "Office staff",
+  crew: "Field",
+  viewer: "View only",
 };
 /** The Team page's ⓘ text. Keep in step with the route gates (verifyRole.ts) — it is a promise about access. */
 export const TEAM_ROLE_HELP: Record<TeamRole, string> = {
   owner: "Everything, including the Team page (invites, roles, crews) and Settings.",
   staff: "The office and the field: Pipeline, Calendar, jobs, quotes, invoices, field notes and photos. Can't manage the team.",
-  crew: "Field work only: the Field screen, time clock, photos, notes and findings. No Pipeline, prices or invoices.",
+  crew: "Field work only: the Field screen, time clock, photos, notes and findings, and their own schedule. No Pipeline, prices or invoices.",
   viewer: "Can look around the office screens. Can't change anything or send field notes.",
 };
 /** Roles that make sense on a crew (a viewer does no field work). */
@@ -32,6 +34,7 @@ export const CREW_MEMBER_ROLES: ReadonlySet<TeamRole> = new Set(["owner", "staff
 // and label labor lines/punches. A foreman promoted to run the office is
 // still a foreman by trade — the two change independently.
 export type TradeTitle =
+  | "inspector"
   | "foreman"
   | "technician"
   | "journeyman"
@@ -42,10 +45,11 @@ export type TradeTitle =
   | "dispatcher"
   | "office";
 export const TRADE_TITLES: TradeTitle[] = [
-  "foreman", "technician", "journeyman", "apprentice",
+  "inspector", "foreman", "technician", "journeyman", "apprentice",
   "estimator", "installer", "helper", "dispatcher", "office",
 ];
 export const TRADE_TITLE_LABEL: Record<TradeTitle, string> = {
+  inspector: "Inspector",
   foreman: "Foreman",
   technician: "Technician",
   journeyman: "Journeyman",

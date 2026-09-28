@@ -11,14 +11,14 @@ import TeamPage from "./page";
 const members = [
   { uid: "u1", email: "alex@example.com", displayName: "Alex", role: "staff", trade: "technician", active: true, status: "Active", lastSignInTime: "2026-09-25T12:00:00Z", createdAt: 1000 },
 ];
-let calls: Array<{ url: string; method: string }>;
+let calls: Array<{ url: string; method: string; body?: Record<string, unknown> }>;
 
 beforeEach(() => {
   calls = [];
   Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
   vi.stubGlobal("confirm", vi.fn(() => true));
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-    calls.push({ url, method: init?.method ?? "GET" });
+    calls.push({ url, method: init?.method ?? "GET", ...(init?.body ? { body: JSON.parse(String(init.body)) } : {}) });
     return new Response(JSON.stringify(url.includes("/api/company/team?") ? { members, seatLimit: 5 } : { ok: true }), { status: 200 });
   }));
 });
@@ -32,24 +32,33 @@ describe("Team page", () => {
     expect(table.parentElement?.style.overflowX).toBe("auto");
     expect(parseInt(table.style.minWidth, 10)).toBeGreaterThan(window.innerWidth);
     expect(screen.getByText("Active")).toBeTruthy();
-    expect(screen.getByLabelText("Role for alex@example.com")).toBeTruthy();
-    expect(screen.getByLabelText("Title for alex@example.com")).toBeTruthy();
+    expect(screen.getByLabelText("Type for alex@example.com")).toBeTruthy();
+    expect(screen.queryByLabelText("Title for alex@example.com")).toBeNull();
     // "Lock" was renamed (owner, 2026-09-28: "why can't users be disabled from here?") — same PATCH active:false.
     expect(screen.queryByText("Lock")).toBeNull();
     // Signed in already, so no "Resend invite".
     expect(screen.queryByText("Resend invite")).toBeNull();
     fireEvent.click(screen.getByText("Disable"));
-    await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/u1", method: "PATCH" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/company/team/u1" && call.method === "PATCH")).toBe(true));
   });
 
-  it("explains every role, including Crew, from the ⓘ", async () => {
+  it("offers one Type per person and explains each from the ⓘ (owner, 2026-09-28)", async () => {
     render(<TeamPage />);
     await screen.findByText("alex@example.com");
-    const options = Array.from((screen.getByLabelText("Role for alex@example.com") as HTMLSelectElement).options).map((option) => option.text);
-    expect(options).toEqual(["Owner", "Staff", "Crew", "Viewer"]);
-    fireEvent.click(screen.getAllByLabelText("What each role can do")[0]);
-    expect(screen.getByText(/Field work only/)).toBeTruthy();
+    const select = screen.getByLabelText("Type for alex@example.com") as HTMLSelectElement;
+    expect(Array.from(select.options).map((option) => option.text)).toEqual(["Admin", "Office staff", "Inspector", "Technician", "View only"]);
+    // A Staff member titled Technician is Office staff — what they can do comes from the role.
+    expect(select.value).toBe("office");
+    fireEvent.click(screen.getAllByLabelText("What each type can do")[0]);
+    expect(screen.getByText(/their own schedule/)).toBeTruthy();
     expect(screen.getByText(/QR code instead/)).toBeTruthy();
+  });
+
+  it("making someone an Inspector sends the field-only role and the Inspector title together", async () => {
+    render(<TeamPage />);
+    await screen.findByText("alex@example.com");
+    fireEvent.change(screen.getByLabelText("Type for alex@example.com"), { target: { value: "inspector" } });
+    await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/u1", method: "PATCH", body: { businessId: "biz", role: "crew", trade: "inspector" } }));
   });
 
   it("confirms before revoking every field QR link", async () => {
@@ -57,6 +66,6 @@ describe("Team page", () => {
     await screen.findByText("alex@example.com");
     fireEvent.click(screen.getByText("Revoke all field QR links"));
     expect(window.confirm).toHaveBeenCalledOnce();
-    await waitFor(() => expect(calls).toContainEqual({ url: "/api/company/team/revoke-field-links", method: "POST" }));
+    await waitFor(() => expect(calls.some((call) => call.url === "/api/company/team/revoke-field-links" && call.method === "POST")).toBe(true));
   });
 });

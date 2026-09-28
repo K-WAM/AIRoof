@@ -7,7 +7,7 @@ import type { TeamRole, TradeTitle } from "@/types/team";
 import type { CompanyModule } from "@/hooks/useBusinessModules";
 
 const FIELD_LANDING_TRADES: ReadonlySet<TradeTitle> = new Set([
-  "technician", "journeyman", "apprentice", "installer", "helper",
+  "inspector", "technician", "journeyman", "apprentice", "installer", "helper",
 ]);
 
 export function defaultLandingPath(
