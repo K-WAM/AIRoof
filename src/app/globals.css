@@ -2010,6 +2010,21 @@ a.metric:hover {
   min-width: 160px;
 }
 
+/* Phones: the three fixed columns (200px date + details + 160px actions) ran ~100px past a 375px screen. Stack them. */
+@media (max-width: 640px) {
+  .appt-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+  .appt-date-block {
+    padding-right: 0;
+  }
+  .appt-actions {
+    min-width: 0;
+  }
+}
+
 /* ── Call detail panel ────────────────────── */
 
 .call-detail-meta {

@@ -1,5 +1,15 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-09-28 (just after midnight) — read this first
+- **Owner's first real test call (2026-09-27 11:33 PM) → T-146, TODO.md Phase 29.** Branch `fix/demo-test-feedback-0928` (local, NOT
+  pushed — waits for "approve push"). Booking itself worked (2 PM stored correctly); the confusion was a stale Sep 25 booking because Demo
+  Studio was never relaunched. Fixed: AI no longer invents availability (prompt + 2 new agent tests), Call Back works for a superadmin
+  and outbound ElevenLabs calls finally carry the tenant prompt + conversation record (Call Back, AI confirmation call, Demo Studio Test
+  call — **none placed on a real phone yet**), no-email confirm = AI call, Create Job shows the existing job, photo library allowed.
+- **After the push, owner:** relaunch Demo Studio → call + book → Pipeline → **Confirm & call customer** → answer the AI. Integrator reads
+  both transcripts (inbound + the outbound conversation) before calling any of it done.
+- Texting confirmations = NH-29 (carrier registration first). Agent tests now 10 saved (TODO Phase 28 list + Phase 29).
+
 ## CURRENT STATE 2026-09-27 (late night) — read this first; everything below is older
 - **Pushed + deployed:** `main` == `origin/main`; production `https://crm.luxordev.com` (also `ai-roof.vercel.app`) Ready + healthy. Shipped
   today: T-127, E6b, T-129, T-130, the hours hotfix, T-144 (empty states + first-run checklist), **G1 (booking engine)**, the viewer-Library fix,

@@ -94,6 +94,10 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("preferredDate and preferredTime");
     expect(prompt).toContain("bookAppointment for exactly that time");
     expect(prompt).toContain("never ask the caller to pick blindly");
+    // 2026-09-27 call: asked "anything in the afternoon?", the model named 1 PM and 2 PM open and 3 PM taken with no tool call.
+    expect(prompt).toContain("Every time the caller asks about a different day, time or part of the day");
+    expect(prompt).toContain("Never say a time is open or taken unless a tool returned that exact time during this call");
+    expect(prompt.indexOf("Would you like the confirmation by email too?")).toBeGreaterThan(-1);
     expect(prompt).toContain("Only AFTER bookAppointment succeeds");
     expect(prompt).toContain("Never tell the caller you checked, booked or cancelled anything unless you actually called that tool");
     expect(prompt).toContain("do not pretend it worked");

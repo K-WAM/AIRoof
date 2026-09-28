@@ -44,6 +44,12 @@ export interface OutboundCallInput {
   metadata?: Record<string, string>;
   /** Overrides the spoken first message for this call only. */
   firstMessage?: string;
+  /** ElevenLabs only: the full per-call system prompt (Vapi's assistant keeps its own). */
+  systemPrompt?: string;
+  /** ElevenLabs only: the per-call agent language. */
+  language?: string;
+  /** ElevenLabs only: a per-tenant ElevenLabs-hosted voice (T-103), same as the inbound override. */
+  ttsVoiceId?: string;
   /** ISO-8601. A provider that cannot schedule must throw `UnsupportedVoiceFeatureError`, never silently call now. */
   scheduledAt?: string;
 }

@@ -18,6 +18,16 @@ describe("POST /api/jobs/from-request", () => {
     const data = await (await POST(request({ businessId: "biz", appointmentId: "a1" }))).json();
     expect(data.job).toMatchObject({ clientEmail: "ana@example.com", notes: "Leak", sourceCallId: "c1", callSummary: "Caller reports leak", title: "Roof inspection — 1 Main" });
     expect(data.job.customerId).toBeTruthy();
+    expect(db.__peek("businesses/biz/appointments", "a1")?.jobId).toBe(data.job.jobId);
+  });
+  it("tells the caller the request already had a job, and records it on the request", async () => {
+    db.__seed("businesses/biz/appointments", "a2", { callerName: "Kareem", callerPhone: "+18254887791", address: "317 West Riverbend Drive" });
+    db.__seed("businesses/biz/requestJobs", "appointment_a2", { jobId: "J-1016" });
+    db.__seed("businesses/biz/jobs", "J-1016", { jobId: "J-1016", clientName: "Kareem" });
+    const response = await POST(request({ businessId: "biz", appointmentId: "a2" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ created: false, job: { jobId: "J-1016" } });
+    expect(db.__peek("businesses/biz/appointments", "a2")?.jobId).toBe("J-1016");
   });
   it("is idempotent for concurrent and sequential taps", async () => {
     db.__seed("businesses/biz/leads", "l1", { callerName: "Lee", callerPhone: "+15550000000", address: "2 Main", serviceRequested: "Repair" });

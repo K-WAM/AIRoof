@@ -93,7 +93,9 @@ export function PhotoCapture({
 
   return (
     <>
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={onPick} style={{ display: "none" }} />
+      {/* No `capture` attribute: with it, phones open the camera only and a crew can't attach a photo they already
+          took. Without it iOS and Android offer Take Photo / Photo Library / Files from the same tap. */}
+      <input ref={inputRef} type="file" accept="image/*" onChange={onPick} style={{ display: "none" }} />
       <button
         type="button"
         onClick={() => inputRef.current?.click()}

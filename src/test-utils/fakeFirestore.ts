@@ -91,6 +91,9 @@ class FakeDocRef {
   async update(data: DocData) {
     this.store.update(this.parentPath(), this.id, data);
   }
+  async delete() {
+    this.store.delete(this.parentPath(), this.id);
+  }
   collection(name: string) {
     return new FakeCollectionRef(this.store, `${this.path}/${name}`);
   }

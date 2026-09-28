@@ -33,6 +33,15 @@ describe("ElevenLabs client", () => {
     });
   });
 
+  it("sends the per-call prompt, language and voice with an outbound call", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true, conversation_id: "conv_9" }) }); vi.stubGlobal("fetch", fetch);
+    await startOutboundCall({ config, targetPhone: "+15557654321", firstMessage: "Hi Kareem", systemPrompt: "Tenant prompt", language: "en", ttsVoiceId: "voice_1" });
+    expect(JSON.parse(fetch.mock.calls[0][1].body).conversation_initiation_client_data.conversation_config_override).toEqual({
+      agent: { prompt: { prompt: "Tenant prompt" }, first_message: "Hi Kareem", language: "en" },
+      tts: { voice_id: "voice_1" },
+    });
+  });
+
   it("rejects scheduled calls before fetch and never exposes provider response bodies", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: false, status: 401, text: async () => "secret-body" }); vi.stubGlobal("fetch", fetch);
     await expect(startOutboundCall({ config, targetPhone: "+15557654321", scheduledAt: "2026-10-01T18:00:00Z" })).rejects.toBeInstanceOf(UnsupportedVoiceFeatureError);

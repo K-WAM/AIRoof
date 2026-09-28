@@ -29,8 +29,12 @@ async function runCallToCash({ log = console.log, tag = Date.now().toString(36).
   const crew = await api("crew");
   const caller = { name: `Mina Test ${tag}`, phone: `+1555${String(Math.floor(1000000 + Math.random() * 8999999))}`, email: `mina.${tag}@customer.e2e.test`, address: "12 Palm Ave, Miami, FL" };
   ctx.caller = caller;
-  // A different day each run (the calendar is shared and the AI correctly refuses a taken slot).
-  const when = Date.now() + (2 + Math.floor(Math.random() * 300)) * 24 * 3600 * 1000;
+  // A different day each run (the calendar is shared and the AI correctly refuses a taken slot), at a random half hour between
+  // 14:00 and 19:30 UTC. It used to keep the current time of day: run near midnight, a winter (EST) date put the hour-long slot
+  // across midnight and the booking engine rightly refused it, so the suite failed only when run late at night (2026-09-28).
+  const day = new Date(Date.now() + (2 + Math.floor(Math.random() * 300)) * 24 * 3600 * 1000);
+  day.setUTCHours(14 + Math.floor(Math.random() * 6), Math.random() < 0.5 ? 0 : 30, 0, 0);
+  const when = day.getTime();
 
   try {
     await step("A caller phones the AI line and books an inspection", async () => {
@@ -44,7 +48,7 @@ async function runCallToCash({ log = console.log, tag = Date.now().toString(36).
         ],
       });
       const book = ctx.call.toolResults.find((t) => t.tool === "bookAppointment");
-      if (book?.status !== 200 || /no longer|taken|unavailable|couldn.t|could not/i.test(JSON.stringify(book.result))) throw new Error(`bookAppointment did not book: ${book?.status} ${JSON.stringify(book?.result).slice(0, 200)}`);
+      if (book?.status !== 200 || /not booked|no longer|taken|unavailable|couldn.t|could not/i.test(JSON.stringify(book.result))) throw new Error(`bookAppointment did not book: ${book?.status} ${JSON.stringify(book?.result).slice(0, 200)}`);
       return ctx.call.callId;
     });
 

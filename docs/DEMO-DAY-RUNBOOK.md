@@ -17,7 +17,7 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 2. Top card shows the number and "Currently: …". If it says a different company or industry, that is the previous demo — you are about to replace it.
 3. Under **1 · Set up the prospect** ("Roofing is selected" — leave it). Fill in: **Company** (their real name, spelled the way it should be *said*), **Owner name**, **Email** (yours, for the dry run; theirs later), **Their business phone** (optional — it is only printed on their quotes and invoices; the AI never calls it, and callers never need it), **City / service area**, and **Logo** (their PNG/JPEG/WebP). The prospect just dials +1 (689) 204-2643 — you never need their number.
 4. Click **Launch demo**. Wait ~5–10 seconds. The top card turns green **Ready** and shows the exact greeting a caller will hear (note: the AI reads the recording notice first — that is intentional).
-5. Type **your own cell** into "Your own cell, to hear it first" (this is the only place your number is used: **Test call** rings YOU from the demo line) → click **Test call**. Your phone rings: answer, hear the greeting in *their* company's name, say "roof inspection tomorrow at 8", then hang up. If you hear it, you are ready.
+5. Type **your own cell** into "Your own cell, to hear it first" (this is the only place your number is used: **Test call** rings YOU from the demo line) → click **Test call**. Your phone rings: answer, hear the greeting in *their* company's name, say "roof inspection tomorrow at 8" and let it book, then hang up. If you hear it, you are ready (since 2026-09-28 the test call is the full receptionist, so a booking made on it lands in the Pipeline — Reset clears it).
 6. Open a **second browser window** at `/company/dashboard?preview=demo-roofing` (or click **Open dashboard**). Keep it beside the first.
 
 ## C. The demo (20 minutes)
@@ -35,7 +35,8 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 
 **Screen 4 — Pipeline** (left menu **Pipeline** → the **Appointments** tab)
 - Their booking is at the top, with the caller's name, address and the problem.
-- Click **Review request** → the dialog shows summary, transcript, recording. Tick nothing → click **Confirm & create Job**.
+- Click **Review request** → the dialog shows summary, transcript, recording → click **Confirm & create Job**. The AI never asks the caller for an email unless they want one, so when there is no email on file **"Have the AI phone them to confirm (no email on file)"** is already ticked: the AI calls the customer back, confirms the time, and can move it if they ask. Untick it for a live demo if you don't want the prospect's phone to ring again.
+- The card for a booking that already has a job shows **Open Job J-…** instead of **Create Job**.
 - You land on the new job: customer, email, address and reason already filled in; the header says "From call · <time> · View transcript".
 *If it fails:* open the seeded job **J-1001** (`/company/jobs/J-1001?preview=demo-roofing`) — it already has everything.
 
@@ -49,7 +50,7 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 - Type a name in **Your name (required)** ("Marco"). The job is already selected. (The name is required before the time clock, mic, photo and finding buttons unlock.)
 - Tap **Arrived at job**.
 - Hold the big **mic**, speak, release: "This is Marco. Six cracked tiles on the south slope, and the pipe boot over the kitchen is split." Status text goes Uploading → Transcribing → Updating the job (5–10 s), then "✓ Logged".
-- Tap **＋ Photo** → take a picture → type a description (required) → **Save photo**.
+- Tap **＋ Photo** → the phone offers **Take Photo** or **Photo Library** → pick one → type a description (required) → **Save photo**.
 - Tap **＋ Finding** → tap **Cracked tiles** (or any item) → it says "Finding added".
 - The crew **cannot** mark the job complete from this screen any more — only the office can.
 - (Optional Spanish: hold the mic and say it in Spanish — the office sees the English.)
@@ -85,7 +86,9 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 
 ## F. Things to expect (so nothing surprises you)
 - The AI says the **recording notice** before the greeting. Normal (compliance default).
-- The demo line always sounds **open** (every launch sets round-the-clock hours), so a 7 pm caller never hears "the office is closed".
+- A launch sets **Mon–Fri 8 AM–5 PM Eastern, weekends closed** (the old round-the-clock hours made the AI offer midnight slots — fixed 2026-09-27). Outside those hours the AI says the office is closed, **still books**, and the booking waits under **Needs Confirmation** for you.
+- **Relaunch after every code deploy that touches the demo**, and always before a prospect: until you do, the line keeps the previous launch's company, hours and test bookings (on 2026-09-27 two "Kareem" bookings from different days sat side by side and the wrong one got confirmed).
+- **Confirming with no email on file** = **Confirm & call customer**: the AI phones the customer to confirm. Texting needs US carrier registration first (see TODO.md NEEDS-HUMAN).
 - **Twilio trial** = a trial message before the AI answers. Fix in A1.
 - If ElevenLabs ever can't reach the app, the line falls back to the agent's own greeting ("Carlita Roofing") — if you hear that name, check https://crm.luxordev.com/api/health.
 - Voice takes 5–10 s to appear in the job. Say "it's processing" — don't tap again.

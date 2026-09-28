@@ -30,7 +30,9 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
 }) {
-  const [notifyByCall, setNotifyByCall] = useState(false);
+  // No email on file: a phone call is the only way the customer hears it is confirmed, so it starts ticked.
+  const [notifyByCall, setNotifyByCall] = useState(!request.callerEmail && !!request.callerPhone);
+  const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState<RequestDeclineReason>("Outside our service area");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState<"accept" | "decline" | "call" | null>(null);
@@ -40,10 +42,14 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
 
   const act = async (action: "accept" | "decline" | "call") => {
     setBusy(action);
+    setError(null);
     try {
       if (action === "accept") await onAccept(notifyByCall);
       if (action === "decline") await onDecline(reason, reason === "Other" ? custom.trim() : undefined);
       if (action === "call" && onCallBack) await onCallBack();
+    } catch (err) {
+      // These used to fail silently (an unhandled rejection) — the button just stopped spinning.
+      setError(err instanceof Error ? err.message : "That did not work. Try again.");
     } finally {
       setBusy(null);
     }
@@ -86,14 +92,16 @@ export function RequestReviewCard({ request, call, intakeLabelFor, jobNoun, canC
       {call?.recordingUrl && <audio controls src={call.recordingUrl} style={{ width: "100%" }} />}
       {call?.transcript?.length && <>
         <button className="button small secondary" onClick={() => setTranscript(!transcript)}>{transcript ? "Hide transcript" : "Show transcript excerpt"}</button>
-        {transcript && <div className="transcript">{call.transcript.slice(0, 8).map((message, index) => <p key={index}><b>{message.role}:</b> {message.text}</p>)}</div>}
+        {transcript && <div className="transcript">{call.transcript.filter((message) => message.text?.trim()).slice(0, 8).map((message, index) => <p key={index}><b>{message.role}:</b> {message.text}</p>)}</div>}
       </>}
 
       <div className="request-review-actions">
-        <label><input type="checkbox" checked={notifyByCall} onChange={(event) => setNotifyByCall(event.target.checked)} /> Have the AI phone them to confirm</label>
+        {request.callerPhone && <label><input type="checkbox" checked={notifyByCall} onChange={(event) => setNotifyByCall(event.target.checked)} /> Have the AI phone them to confirm{request.callerEmail ? "" : " (no email on file)"}</label>}
         <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept" ? "Confirming…" : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm appointment"}</button>
         <button className="button secondary" onClick={() => setDecline(!decline)} disabled={busy !== null}>Decline & notify</button>
       </div>
+
+      {error && <p role="alert" className="request-missing">{error}</p>}
 
       {decline && <div className="request-decline">
         <label>Reason <select value={reason} onChange={(event) => setReason(event.target.value as RequestDeclineReason)}>{REQUEST_DECLINE_REASONS.map((item) => <option key={item}>{item}</option>)}</select></label>

@@ -5,12 +5,14 @@ import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
 const mocks = vi.hoisted(() => ({
   verifySuperadmin: vi.fn(), getAdminFirestore: vi.fn(), startOutboundCall: vi.fn(), isConfigured: vi.fn(),
+  placeElevenLabsOutboundCall: vi.fn(),
 }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifySuperadmin: mocks.verifySuperadmin }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.getAdminFirestore }));
 vi.mock("@/lib/voice/provider", () => ({ getVoiceProvider: () => ({
   id: "elevenlabs", isConfigured: mocks.isConfigured, startOutboundCall: mocks.startOutboundCall,
 }) }));
+vi.mock("@/lib/voice/elevenlabs/outbound", () => ({ placeElevenLabsOutboundCall: mocks.placeElevenLabsOutboundCall }));
 import { POST } from "../route";
 
 function request(phone = "+13055550123") {
@@ -25,7 +27,7 @@ describe("POST /api/admin/demo-customize/test-call", () => {
     vi.clearAllMocks(); _resetRateLimitState();
     mocks.verifySuperadmin.mockResolvedValue({ user: { uid: "superadmin" } });
     mocks.isConfigured.mockReturnValue(true);
-    mocks.startOutboundCall.mockResolvedValue({ callId: "conv-test" });
+    mocks.placeElevenLabsOutboundCall.mockResolvedValue({ callId: "conv-test" });
     const db = makeFakeDb();
     db.__seed("businesses", "demo-roofing", {
       businessId: "demo-roofing", businessName: "Test Roofing", industry: "roofing", serviceArea: "Miami",
@@ -39,18 +41,21 @@ describe("POST /api/admin/demo-customize/test-call", () => {
   it("is superadmin-only", async () => {
     mocks.verifySuperadmin.mockResolvedValue({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
     expect((await POST(request())).status).toBe(403);
-    expect(mocks.startOutboundCall).not.toHaveBeenCalled();
+    expect(mocks.placeElevenLabsOutboundCall).not.toHaveBeenCalled();
   });
 
-  it("starts an ElevenLabs call from the demo tenant", async () => {
+  it("starts an ElevenLabs call from the demo tenant with the tenant's full inbound setup", async () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, callId: "conv-test" });
-    expect(mocks.startOutboundCall).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mocks.placeElevenLabsOutboundCall).toHaveBeenCalledWith(expect.objectContaining({
+      businessId: "demo-roofing",
       targetPhone: "+13055550123",
+      config: expect.objectContaining({ businessName: "Test Roofing" }),
       metadata: { businessId: "demo-roofing", source: "demo-studio-test-call" },
-      firstMessage: expect.stringContaining("Test Roofing"),
     }));
+    // No opener override: the tenant's own greeting (with the recording notice) is used.
+    expect(mocks.placeElevenLabsOutboundCall.mock.calls[0][0].firstMessage).toBeUndefined();
   });
 
   it("limits one IP to three calls per ten minutes", async () => {

@@ -1114,6 +1114,34 @@ an active queue.*
         (a per-tenant `minNoticeHours`, offered times start 24 h out), or (b) drop it from the roofing template/demo. Recommendation: (b) for the
         demo — "can you come tomorrow morning?" is the most common ask.
 
+- [ ] Phase 29 — **T-146: the owner's 2026-09-27 night test call** (integrator, branch `fix/demo-test-feedback-0928`, NOT pushed —
+      waits for "approve push"). Transcript read first (`conv_9201m3k15zbqfrns2m1kaya26jen`, 11:33 PM EDT) + read-only prod check.
+  - [x] **"Booked 2 PM, Pipeline said 8 AM" — not a booking bug.** The 2 PM booking was stored correctly (`NtC8AGTik34jOYLpi9TQ`, Mon
+        Sep 28 2:00 PM, pending). Demo Studio had not been relaunched since 2026-09-25, so that night's "Kareem, Sat Sep 26 8 AM" test
+        booking still sat in **Needs Confirmation** (sorted by appointment time, so the stale past one came first) and the owner confirmed
+        it. Fix: Needs Confirmation lists bookable requests first and past-time ones last with "This requested time has already passed";
+        no Confirm button on a past-time request.
+  - [x] **AI invented availability.** Asked "anything in the afternoon?" / "does 3 PM work?", gpt-4o-mini named 1 PM/2 PM open and 3 PM
+        taken with no tool call (2 PM happened to book). Prompt rule added (re-check every new time; never state a time a tool did not
+        return). New agent tests `test_8801m3k2sjmmeh9sje0a2wfx5fg8` (afternoon) + `test_3101m3k2skm1etkahc6jdzz3pg1v` (3 PM): old prompt
+        fails 5/6, new prompt passes 6/6; the 6 G1 tests still pass (all 8 x3 = 24/24).
+  - [x] **Call Back always failed in a demo** (403): `/api/calls/outbound` used `verifyOwnBusinessRole`, which rejects a superadmin
+        previewing a tenant. Now takes `businessId` and checks it with `verifyAuthAndRole` (members still held to their own business).
+        Outbound ElevenLabs calls were also never usable: they sent only a greeting (no tenant prompt, no conversation record, so tools
+        and post-call could not find the business). New `placeElevenLabsOutboundCall()` sends the full per-call prompt + records the
+        conversation; `buildOutboundCallContext()` tells the AI who it is calling and why (confirm / callback), voicemail-safe. Demo Studio's
+        **Test call** uses the same helper. Agent tests `test_6401m3k2xr7ge19vkgrjxg87knxr` + `test_7401m3k2xrn9fmzst40stjbawyx8` 6/6.
+        **Never placed on a real phone yet.**
+  - [x] **"Confirm & notify" with no email** → **Confirm & call customer** (AI confirmation call); the review card's "Have the AI phone
+        them to confirm" starts ticked when there is no email; the AI now offers an emailed confirmation once, right before booking.
+        Review-card errors are shown instead of silently swallowed. Texting: NH-29.
+  - [x] **Create Job opened an old job (J-1016)** — correct idempotent answer (that request already had J-1016 from 2026-09-25), silent
+        UI. `from-request` now writes `jobId` onto the request; the card shows **Open Job J-…**; a created=false answer asks first.
+  - [x] **Field photo: camera only** — removed `capture="environment"`; phones offer camera or library.
+  - [x] Empty "Receptionist" bubbles (tool-call turns) hidden in Calls and the review transcript.
+  - [x] Gates on the branch: tsc clean; vitest 1,432 passed; e2e:call 12/12; full Playwright 92 passed / 0 failed / 0 flaky.
+  - [ ] **Owner, after the push:** relaunch Demo Studio (Roofing) — clears the Sep 25 test data and writes Mon–Fri 8–5; call and book;
+        then Pipeline → **Confirm & call customer** on your booking and answer the AI's call. Integrator reads both transcripts.
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
@@ -2474,6 +2502,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-26 | **Live run-through** (nobody has done this end to end): call +1 689 204 2643 and book -> `/company/calls?preview=carlita-elevenlabs-test` (the call must be listed) + Pipeline -> Review request card: confirm + create job -> job Field QR on a phone, one English + one Spanish update -> Timeline/Materials/Labor -> Report, Quote, Invoice: edit and email each to yourself (check logo, photos, hide toggles, NO prices on the report) | T-113/T-107/T-122 | 15 min |
 | NH-27 | Check plans before selling: Vercel (Hobby forbids commercial use -> Pro); Firebase stays on Spark for now by owner decision (revisit at the first paying customer or when photos near 1 GiB); Twilio Upgrade out of trial (NH-21); ElevenLabs/Vapi concurrency limits; legal: ToS, privacy policy, recording-notice wording (NH-4) and retention (NH-22) | pricing model 2026-09-25 | varies |
 | NH-28 | Optional: kwamwad@gmail.com's `businessUsers` doc carries a stale `superadmin: true` (harmless now — ignored — but delete the field); your real admin login is connect@luxordev.com | T-123 | 2 min |
+| NH-29 | **Text-message confirmations** (asked 2026-09-28). US carriers block unregistered business texting from a normal (10DLC) number: register a Brand + Campaign (A2P 10DLC) in the Twilio console for the sending number (Luxor as the brand; per-client numbers later), or verify a toll-free number instead. Takes days to weeks and small monthly fees. Until then confirmations go by AI phone call (T-146) or email. Code is not built — build it once a registered number exists. | T-146 | 30 min + carrier wait |
 
 ## Deferred (from CIB — do not schedule without owner request)
 

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
+import { verifyAuthAndRole, verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { getVoiceProvider } from "@/lib/voice/provider";
+import { placeElevenLabsOutboundCall } from "@/lib/voice/elevenlabs/outbound";
+import { buildOutboundCallContext, type OutboundPurpose, type OutboundRequestRecord } from "@/lib/voice/outboundContext";
 import type { BusinessConfig } from "@/types";
 
 function sanitizePhone(v: unknown): string | undefined {
@@ -11,30 +13,59 @@ function sanitizePhone(v: unknown): string | undefined {
   return digitCount >= 7 ? trimmed : undefined;
 }
 
+function optionalString(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v : undefined;
+}
+
 export async function POST(request: NextRequest) {
-  // Resolves "my own business" from the session rather than checking against
-  // a caller-supplied businessId — this route has no businessId input, only
-  // a targetPhone. Shares the same point-read + active-status + role check
-  // every other route uses, so this can no longer drift from them.
-  const gate = await verifyOwnBusinessRole(request, ["owner", "staff"]);
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+
+  // With a businessId (every in-app button sends one) the session is checked against THAT business, which is
+  // how a superadmin previewing a tenant can use Call Back — verifyOwnBusinessRole always 403'd them, so the
+  // button failed in every demo (2026-09-28). Members are still held to their own business by verifyAuthAndRole.
+  // Without one, the business is resolved from the session (members only), as before.
+  const requestedBusinessId = optionalString(body?.businessId);
+  const gate = requestedBusinessId
+    ? await verifyAuthAndRole(request, requestedBusinessId, ["owner", "staff", "superadmin"])
+    : await verifyOwnBusinessRole(request, ["owner", "staff"]);
   if ("error" in gate) return gate.error;
-  const businessId = gate.user.businessId!;
+  const businessId = requestedBusinessId ?? gate.user.businessId!;
   const uid = gate.user.uid;
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
+  if (!body) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const targetPhone = sanitizePhone(body.targetPhone);
-  if (!targetPhone) {
-    return NextResponse.json({ error: "targetPhone is required and must be a valid phone number" }, { status: 400 });
   }
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+
+  // The request being called about: its phone number wins over the client's, and it gives the AI the
+  // booking details to talk about (buildOutboundCallContext).
+  const appointmentId = optionalString(body.appointmentId);
+  const leadId = appointmentId ? undefined : optionalString(body.leadId);
+  const purpose: OutboundPurpose = body.purpose === "confirm" ? "confirm" : "callback";
+  let record: OutboundRequestRecord | null = null;
+  let recordPhone: string | undefined;
+  if (appointmentId || leadId) {
+    const snap = await db.collection("businesses").doc(businessId)
+      .collection(appointmentId ? "appointments" : "leads").doc((appointmentId ?? leadId)!).get();
+    if (!snap.exists) return NextResponse.json({ error: "Request not found" }, { status: 404 });
+    const data = snap.data() ?? {};
+    record = {
+      kind: appointmentId ? "appointment" : "lead",
+      callerName: optionalString(data.callerName),
+      serviceType: optionalString(data.serviceType),
+      serviceRequested: optionalString(data.serviceRequested),
+      address: optionalString(data.address),
+      startTime: typeof data.startTime === "number" ? data.startTime : undefined,
+    };
+    recordPhone = sanitizePhone(data.callerPhone);
+  }
+
+  const targetPhone = recordPhone ?? sanitizePhone(body.targetPhone);
+  if (!targetPhone) {
+    return NextResponse.json({ error: "targetPhone is required and must be a valid phone number" }, { status: 400 });
+  }
 
   // Load business config to get vapiAssistantId + vapiPhoneNumberId
   const bizSnap = await db.collection("businesses").doc(businessId).get();
@@ -67,8 +98,8 @@ export async function POST(request: NextRequest) {
     targetPhone,
     status: "queued",
     initiatedByUid: uid,
-    leadId: typeof body.leadId === "string" ? body.leadId : null,
-    appointmentRef: typeof body.appointmentId === "string" ? body.appointmentId : null,
+    leadId: leadId ?? null,
+    appointmentRef: appointmentId ?? null,
     context: typeof body.context === "string" ? body.context : null,
     vapiCallId: null,
     startedAt: now,
@@ -80,19 +111,26 @@ export async function POST(request: NextRequest) {
   // Initiate via Vapi
   let vapiCallId: string;
   try {
-    const call = await provider.startOutboundCall({
-      config: bizData,
-      targetPhone,
-      metadata: {
+    const metadata = {
+      businessId,
+      outboundCallId: callId,
+      ...(leadId ? { leadId } : {}),
+      ...(appointmentId ? { appointmentId } : {}),
+    };
+    const variables = {
+      callType: "outbound",
+      ...(typeof body.context === "string" ? { callContext: body.context } : {}),
+    };
+    const call = provider.id === "elevenlabs"
+      ? await placeElevenLabsOutboundCall({
         businessId,
-        outboundCallId: callId,
-        ...(typeof body.leadId === "string" ? { leadId: body.leadId } : {}),
-      },
-      variables: {
-        callType: "outbound",
-        ...(typeof body.context === "string" ? { callContext: body.context } : {}),
-      },
-    });
+        config: bizData,
+        targetPhone,
+        ...buildOutboundCallContext(bizData, purpose, record),
+        metadata,
+        variables,
+      })
+      : await provider.startOutboundCall({ config: bizData, targetPhone, metadata, variables });
     vapiCallId = call.callId;
   } catch (err) {
     // Mark doc as failed so UI can show it
@@ -114,8 +152,8 @@ export async function POST(request: NextRequest) {
     targetPhone,
     status: "queued",
     initiatedByUid: uid,
-    leadId: typeof body.leadId === "string" ? body.leadId : null,
-    appointmentRef: typeof body.appointmentId === "string" ? body.appointmentId : null,
+    leadId: leadId ?? null,
+    appointmentRef: appointmentId ?? null,
     context: typeof body.context === "string" ? body.context : null,
     ...(provider.id === "vapi" ? { vapiCallId } : { elevenlabsConversationId: vapiCallId }),
     startedAt: now,

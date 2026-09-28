@@ -5,7 +5,7 @@ import { resolveCustomer, bumpCustomerJobStats } from "@/lib/customers/resolve";
 import { nextJobIdInTransaction } from "@/lib/jobs/createJob";
 import type { Job } from "@/types/jobs";
 
-type RequestRecord = { callerName?: string; callerPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string };
+type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
@@ -38,13 +38,20 @@ export async function POST(req: NextRequest) {
   };
   const jobs = db.collection(`businesses/${businessId}/jobs`);
   const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`${appointmentId ? "appointment" : "lead"}_${requestId}`);
+  // The request doc also gets the jobId so the Pipeline card can show "Open Job J-…" instead of "Create Job" — it
+  // used to keep offering Create, and the idempotent answer (the existing job) looked like a random old job opening.
   const result = await db.runTransaction(async (tx) => {
     const existing = await tx.get(marker);
-    if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false };
+    if (existing.exists) {
+      const jobId = existing.data()?.jobId as string;
+      if (data.jobId !== jobId) tx.update(source.ref, { jobId });
+      return { jobId, created: false };
+    }
     const jobId = await nextJobIdInTransaction(tx, db.collection("businesses").doc(businessId));
     const job: Job = { ...jobBase, jobId };
     tx.create(jobs.doc(jobId), job);
     tx.create(marker, { jobId, createdAt: now });
+    tx.update(source.ref, { jobId });
     return { jobId, created: true };
   });
   if (customer && result.created) await bumpCustomerJobStats(db, businessId, customer.customerId, now);

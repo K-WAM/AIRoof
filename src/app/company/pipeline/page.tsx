@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -61,6 +62,8 @@ interface Appointment {
   pendingConfirmation?: boolean;
   createdAt: number;
   sourceCallId?: string;
+  /** Set once a job has been created from this booking — the card then opens it instead of offering "Create Job". */
+  jobId?: string;
 }
 
 function timeAgo(ms: number): string {
@@ -230,10 +233,13 @@ export default function PipelinePage() {
       const res = await fetch("/api/calls/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetPhone: lead.callerPhone, leadId: lead.leadId }),
+        body: JSON.stringify({ businessId, targetPhone: lead.callerPhone, leadId: lead.leadId }),
       });
-      if (!res.ok) {
-        showToast("The callback could not be started. Try again.");
+      if (res.ok) {
+        showToast(`The AI is calling ${lead.callerName || "them"} now.`, "ok");
+      } else {
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        showToast(`The callback could not be started${data.error ? `: ${data.error}` : ". Try again."}`);
       }
     } catch {
       showToast("Network error — could not initiate call.");
@@ -293,21 +299,27 @@ export default function PipelinePage() {
   async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
     const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
     if (!res.ok) throw new Error("Job creation failed");
-    const { job } = await res.json() as { job: { jobId: string } };
+    const { job, created } = await res.json() as { job: { jobId: string }; created?: boolean };
+    // One request makes one job. Opening the existing one without a word read as "it opened a random old job".
+    if (created === false && !window.confirm(`This request already has ${vocab.jobNoun.toLowerCase()} ${job.jobId}. Open it?`)) return;
     window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`;
   }
 
-  async function callBackAppt(appt: Appointment) {
+  /** "confirm" = the office has confirmed and the AI tells the customer; "callback" = the AI follows up on the request. */
+  async function callBackAppt(appt: Appointment, purpose: "confirm" | "callback" = "callback") {
     if (!appt.callerPhone) return;
     setApptCalling(appt.appointmentId);
     try {
       const res = await fetch("/api/calls/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetPhone: appt.callerPhone, appointmentId: appt.appointmentId }),
+        body: JSON.stringify({ businessId, targetPhone: appt.callerPhone, appointmentId: appt.appointmentId, purpose }),
       });
-      if (!res.ok) {
-        showToast("The callback could not be started. Try again.");
+      if (res.ok) {
+        showToast(`The AI is calling ${appt.callerName || "the customer"} now${purpose === "confirm" ? " to confirm" : ""}.`, "ok");
+      } else {
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        showToast(`The call could not be started${data.error ? `: ${data.error}` : ". Try again."}`);
       }
     } catch {
       showToast("Network error — could not initiate call.");
@@ -316,7 +328,8 @@ export default function PipelinePage() {
     }
   }
 
-  async function sendConfirmation(appt: Appointment) {
+  /** Resolves true once the booking is confirmed, so a caller can follow up with the AI confirmation call. */
+  async function sendConfirmation(appt: Appointment): Promise<boolean> {
     setApptUpdating(appt.appointmentId + "_confirm");
     try {
       const res = await fetch("/api/appointments/send-confirmation", {
@@ -342,11 +355,13 @@ export default function PipelinePage() {
             return next;
           });
         }, 3000);
-      } else {
-        showToast("Couldn't confirm the appointment. Try again.");
+        return true;
       }
+      showToast("Couldn't confirm the appointment. Try again.");
+      return false;
     } catch {
       showToast("Network error — couldn't confirm the appointment.");
+      return false;
     } finally {
       setApptUpdating(null);
     }
@@ -372,9 +387,12 @@ export default function PipelinePage() {
   // pending after-hours booking can't lose its Confirm button just because
   // its slot time has already passed (that used to bury it, unconfirmable,
   // under "Past & Cancelled" — see the Calendar deep-link fix above).
+  // Requests whose time already passed go LAST: on 2026-09-27 a two-day-old test booking ("Kareem, Sat 8 AM") sat
+  // above the owner's new one ("Kareem, Mon 2 PM") and got confirmed by mistake, which read as "my 2 PM became 8 AM".
+  const nowMs = Date.now();
   const needsConfirmation = appointments.filter(
     (a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled"
-  ).sort((a, b) => a.startTime - b.startTime);
+  ).sort((a, b) => Number(a.startTime <= nowMs) - Number(b.startTime <= nowMs) || a.startTime - b.startTime);
   const needsConfirmationIds = new Set(needsConfirmation.map((a) => a.appointmentId));
   const upcomingAppts = appointments.filter(
     (a) => !needsConfirmationIds.has(a.appointmentId) && a.startTime > Date.now() && a.status !== "cancelled"
@@ -401,6 +419,9 @@ export default function PipelinePage() {
     const isConfirmed = appt.status === "confirmed" || justConfirmed;
     const isPending = !!appt.pendingConfirmation && !isConfirmed && appt.status !== "cancelled";
     const isTarget = !!apptParam && apptParam === appt.appointmentId;
+    const timePassed = appt.startTime <= Date.now();
+    // No email but a phone: the confirmation goes out as an AI phone call instead.
+    const confirmByCall = isPending && !appt.callerEmail && !!appt.callerPhone;
 
     return (
       <article
@@ -432,13 +453,15 @@ export default function PipelinePage() {
           {isPending && (
             <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45, display: "flex", gap: 8, alignItems: "flex-start" }}>
               <Clock size={13} style={{ marginTop: 1, flexShrink: 0 }} />
-              Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in.
+              {timePassed
+                ? "This requested time has already passed. Call the customer to agree a new time, or decline it."
+                : "Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in."}
             </div>
           )}
           <p className="appt-detail">{appt.callerPhone ? fmtPhone(appt.callerPhone) : "—"}</p>
           {appt.callerEmail
             ? <p className="appt-detail">{appt.callerEmail}</p>
-            : isPending && <p className="appt-detail" style={{ color: "#b45309" }}>No email on file — notify the customer manually</p>}
+            : isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — the AI can phone them to confirm" : "No email on file — notify the customer manually"}</p>}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="appt-detail">{appt.address ?? "No address provided"}</p>
           {appt.notes && (
@@ -456,14 +479,17 @@ export default function PipelinePage() {
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
               ✓ Confirmation sent
             </div>
-          ) : !isPast && !isConfirmed ? (
+          ) : !isPast && !isConfirmed && !(isPending && timePassed) ? (
             <button
               className="button primary"
-              disabled={busy}
-              onClick={() => sendConfirmation(appt)}
+              disabled={busy || apptCalling === appt.appointmentId}
+              onClick={async () => {
+                const confirmed = await sendConfirmation(appt);
+                if (confirmed && confirmByCall) await callBackAppt(appt, "confirm");
+              }}
               style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
             >
-              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
+              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : confirmByCall ? "Confirm & call customer" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
             </button>
           ) : null}
 
@@ -479,11 +505,15 @@ export default function PipelinePage() {
               {apptCalling === appt.appointmentId ? "Calling…" : "Call Back"}
             </button>
           )}
-          {showJobActions && (
+          {showJobActions && (appt.jobId ? (
+            <Link className="button secondary" href={`/company/jobs/${appt.jobId}${previewSuffix}`} style={{ fontSize: 13, textAlign: "center" }}>
+              Open {vocab.jobNoun} {appt.jobId}
+            </Link>
+          ) : (
             <button className="button secondary" onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })} style={{ fontSize: 13 }}>
               Create {vocab.jobNoun}
             </button>
-          )}
+          ))}
 
           {!isPast && !isConfirmed && !justConfirmed && (
             <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")} style={{ fontSize: 12 }} title="Mark confirmed without emailing the customer">
@@ -853,7 +883,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
+        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt, "confirm"); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );

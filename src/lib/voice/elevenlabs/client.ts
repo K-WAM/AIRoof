@@ -51,7 +51,14 @@ export async function startOutboundCall(input: OutboundCallInput): Promise<Outbo
   if (!agentId || !phoneNumberId) throw new Error("ElevenLabs outbound calling is not configured");
   const data: Record<string, unknown> = {};
   data.dynamic_variables = { ...input.metadata, ...input.variables };
-  if (input.firstMessage) data.conversation_config_override = { agent: { first_message: input.firstMessage } };
+  const agent: Record<string, unknown> = {};
+  if (input.systemPrompt) agent.prompt = { prompt: input.systemPrompt };
+  if (input.firstMessage) agent.first_message = input.firstMessage;
+  if (input.language) agent.language = input.language;
+  const override: Record<string, unknown> = {};
+  if (Object.keys(agent).length > 0) override.agent = agent;
+  if (input.ttsVoiceId) override.tts = { voice_id: input.ttsVoiceId };
+  if (Object.keys(override).length > 0) data.conversation_config_override = override;
   const res = await request("/twilio/outbound-call", "POST", {
     agent_id: agentId,
     agent_phone_number_id: phoneNumberId,

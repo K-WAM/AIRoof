@@ -12,12 +12,19 @@ const tag = Date.now().toString(36).slice(-5);
 const caller = { name: `Rita Roof ${tag}`, phone: `+1555${String(Math.floor(2000000 + Math.random() * 7000000))}`, email: `rita.${tag}@customer.e2e.test`, address: "77 Shingle Ln, Miami, FL" };
 let createdJobId = "";
 
+/** A random half hour between 14:00 and 19:30 UTC, n days out — never a slot that crosses midnight (see call-to-cash.cjs). */
+function middayInDays(n: number): number {
+  const day = new Date(Date.now() + n * 86_400_000);
+  day.setUTCHours(14 + Math.floor(Math.random() * 6), Math.random() < 0.5 ? 0 : 30, 0, 0);
+  return day.getTime();
+}
+
 test("a phone call books an inspection and appears in Calls with its transcript", async ({ as }) => {
   await simulateCall({
     from: caller.phone,
     summary: `${caller.name} reports a leak by the chimney.`,
     transcript: [["agent", "Thanks for calling E2E Roofing Co, how can I help?"], ["user", "There is a leak by my chimney."], ["agent", "I can get an inspection booked."]],
-    tools: [["bookAppointment", { name: caller.name, email: caller.email, service: "Roof inspection", address: caller.address, preferredTime: Date.now() + (3 + Math.floor(Math.random() * 400)) * 86_400_000 }]],
+    tools: [["bookAppointment", { name: caller.name, email: caller.email, service: "Roof inspection", address: caller.address, preferredTime: middayInDays(3 + Math.floor(Math.random() * 400)) }]],
   });
   const page = await as("owner");
   await page.goto("/company/calls");

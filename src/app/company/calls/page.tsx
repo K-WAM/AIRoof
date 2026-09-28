@@ -147,10 +147,13 @@ export default function CompanyCallsPage() {
   useLiveRefresh(loadCalls, { intervalMs: 10_000, enabled: Boolean(businessId) });
 
   const intakeLabelFor = (key: string) => getVerticalTemplate(industry ?? "roofing").intakeFields.find((field) => field.key === key)?.label ?? key;
-  async function callBack(targetPhone?: string, leadId?: string, appointmentId?: string) {
+  async function callBack(targetPhone?: string, leadId?: string, appointmentId?: string, purpose: "confirm" | "callback" = "callback") {
     if (!targetPhone) return;
-    const response = await fetch("/api/calls/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ targetPhone, leadId, appointmentId }) });
-    if (!response.ok) throw new Error("Callback could not be started");
+    const response = await fetch("/api/calls/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, targetPhone, leadId, appointmentId, purpose }) });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({} as { error?: string }));
+      throw new Error(data.error ? `Callback could not be started: ${data.error}` : "Callback could not be started");
+    }
   }
   async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
     const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
@@ -204,8 +207,9 @@ export default function CompanyCallsPage() {
     );
   }
 
+  // A tool-call turn is stored as an agent message with no words — showing it drew empty "Receptionist" bubbles.
   const conversationMessages = (call: Call) =>
-    (call.messages ?? []).filter((m) => m.role === "caller" || m.role === "agent");
+    (call.messages ?? []).filter((m) => (m.role === "caller" || m.role === "agent") && Boolean(m.text?.trim()));
 
   const filteredCalls = calls.filter((c) => {
     if (dirFilter === "inbound") return c.callType !== "outbound";
@@ -433,7 +437,7 @@ export default function CompanyCallsPage() {
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
+        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId, "confirm"); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );

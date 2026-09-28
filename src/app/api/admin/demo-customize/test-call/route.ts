@@ -3,7 +3,7 @@ import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { getVoiceProvider } from "@/lib/voice/provider";
-import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
+import { placeElevenLabsOutboundCall } from "@/lib/voice/elevenlabs/outbound";
 import type { BusinessConfig } from "@/types";
 
 const DEMO_BUSINESS_ID = "demo-roofing";
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Demo line is not ready for ElevenLabs test calls" }, { status: 409 });
   }
 
-  const firstMessage = buildInitiationResponse(config, undefined, new Date())
-    .conversation_config_override.agent?.first_message;
-  const call = await provider.startOutboundCall({
+  // The full inbound experience (tenant prompt + greeting + tools matched to demo-roofing): the owner answers
+  // and talks to it exactly like a caller would. It used to send only the greeting.
+  const call = await placeElevenLabsOutboundCall({
+    businessId: DEMO_BUSINESS_ID,
     config,
     targetPhone: phone,
     metadata: { businessId: DEMO_BUSINESS_ID, source: "demo-studio-test-call" },
     variables: { callType: "demo-test" },
-    ...(firstMessage ? { firstMessage } : {}),
   });
   return NextResponse.json({ ok: true, callId: call.callId });
 }
