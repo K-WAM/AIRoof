@@ -29,7 +29,7 @@ describe("ElevenLabs client", () => {
     expect(call).toEqual({ callId: "conv_123" });
     expect(fetch).toHaveBeenCalledWith("https://api.elevenlabs.io/v1/convai/twilio/outbound-call", {
       method: "POST", headers: { "Content-Type": "application/json", "xi-api-key": "test-key" },
-      body: JSON.stringify({ agent_id: "agent_123", agent_phone_number_id: "phone_123", to_number: "+15557654321", conversation_initiation_client_data: { dynamic_variables: { businessId: "biz", callType: "outbound" }, conversation_config_override: { agent: { first_message: "Hello" } } } }),
+      body: JSON.stringify({ agent_id: "agent_123", agent_phone_number_id: "phone_123", to_number: "+15557654321", conversation_initiation_client_data: { dynamic_variables: { businessName: "the office", agentName: "the virtual assistant", businessId: "biz", callType: "outbound" }, conversation_config_override: { agent: { first_message: "Hello" } } } }),
     });
   });
 

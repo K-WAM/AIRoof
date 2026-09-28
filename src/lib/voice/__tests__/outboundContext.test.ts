@@ -51,6 +51,19 @@ describe("buildOutboundCallContext", () => {
     expect(promptSection).not.toContain("x".repeat(81));
   });
 
+  it("greets 'Hi Carla', not 'Hi Es', for a booking saved as 'Es Carla Esnaida' (2026-09-28)", () => {
+    const { firstMessage, promptSection } = buildOutboundCallContext(config, "confirm", { ...appointment, callerName: "Es Carla Esnaida" });
+    expect(firstMessage).toContain("Hi Carla, this is Alice");
+    expect(promptSection).toContain("- Name: Carla Esnaida");
+  });
+
+  it("hands a voicemail to voicemail_detection and never asks 'are you still there' (2026-09-28)", () => {
+    const { promptSection } = buildOutboundCallContext(config, "confirm", appointment);
+    expect(promptSection).toContain("call voicemail_detection straight away");
+    expect(promptSection).toContain("Never ask whether anyone is there");
+    expect(promptSection).toContain("say goodbye and end the call (end_call)");
+  });
+
   it("omits the notice only when the tenant turned it off", () => {
     const { firstMessage } = buildOutboundCallContext(
       { ...config, recordingDisclosure: { enabled: false, text: "" } },

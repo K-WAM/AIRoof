@@ -7,6 +7,7 @@
 
 import type { BusinessConfig } from "@/types";
 import { composeGreetingWithDisclosure, resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
+import { cleanCallerName } from "@/lib/format/name";
 
 export type OutboundPurpose = "confirm" | "callback";
 
@@ -46,7 +47,9 @@ export function buildOutboundCallContext(
 ): OutboundCallContext {
   const agent = clean(config.agentName, 40) ?? "the receptionist";
   const business = clean(config.businessName, 80) ?? "the office";
-  const name = clean(record?.callerName, 60);
+  // Older bookings stored "Es Carla Esnaida"; the confirmation call opened with "Hi Es" (2026-09-28).
+  const rawName = clean(record?.callerName, 60);
+  const name = rawName ? cleanCallerName(rawName) : undefined;
   const firstName = name?.split(" ")[0];
   const service = clean(record?.serviceType ?? record?.serviceRequested, 80);
   const address = clean(record?.address);
@@ -62,7 +65,7 @@ export function buildOutboundCallContext(
     opener = `${hello} I'm calling to confirm your ${serviceNoun} on ${when}. Does that time still work for you?`;
     purposeLines = [
       `Purpose: the office has CONFIRMED this appointment and asked you to let the customer know.`,
-      `- If the time works, thank them, say it is confirmed, and end the call politely.`,
+      `- If the time works, thank them, say it is confirmed, say goodbye and end the call (end_call). Don't ask "anything else?" unless they have a question.`,
       `- If they need a different time, follow the move-an-appointment steps (lookupAppointment finds it by their phone number).`,
       `- If they want to cancel, follow the cancel steps.`,
     ];
@@ -92,7 +95,10 @@ export function buildOutboundCallContext(
     `You placed this call; the customer did not call you. Your first sentence has already introduced you and the reason — do not greet them again or ask why they are calling.`,
     ...(details.length > 0 ? [`What the office has on file (the customer's own words from their earlier call):`, ...details] : []),
     ...purposeLines,
-    `- If you reach voicemail or someone other than ${name ?? "the customer"}, leave one short message: who you are, which business, that you are calling about their ${serviceNoun}, and ask them to call this number back. Do not leave the address or other details.`,
+    // 2026-09-28: the agent left a message on Carla's voicemail, then asked "Are you still there?" nine times. The
+    // shared agent now has voicemail_detection (it plays one short message and hangs up) and end_call.
+    `- Voicemail: if you hear a voicemail greeting or answering machine ("leave a message", "after the tone", "not available", a beep), call voicemail_detection straight away — it leaves one short message and hangs up. Never ask whether anyone is there. If that tool is not available, leave one short message (who you are, which business, that you are calling about their ${serviceNoun}, please call this number back) and end the call.`,
+    `- If someone other than ${name ?? "the customer"} answers, say you are calling for ${firstName ?? "them"} about an appointment, ask them to have ${firstName ?? "them"} call this number back, thank them and end the call. Do not share the address or other details.`,
   ].join("\n");
 
   return {

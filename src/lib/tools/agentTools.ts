@@ -12,10 +12,11 @@ import {
   getOperation,
   startOperationAttempt,
 } from "@/lib/ops/ledger";
-import type { DocumentReference, Firestore, Transaction } from "firebase-admin/firestore";
+import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
 import {
+  isOpenAt,
   parseBusinessHours,
   zonedDateTimeToUtc,
   zonedParts,
@@ -153,6 +154,107 @@ export function scheduleCapacityResourceKey(unitIndex: number): string {
 
 export function schedulingCapacity(crews: Array<{ active?: unknown }>): number {
   return Math.max(1, crews.filter((crew) => crew.active !== false).length);
+}
+
+/** Longest time block the time-blocks API accepts; the schedule queries look back this far for blocks. */
+export const TIME_BLOCK_MAX_MS = 14 * 24 * 60 * 60 * 1000;
+
+export interface ScheduleRow {
+  id: string;
+  active?: unknown;
+  kind?: unknown;
+  name?: unknown;
+  createdAt?: unknown;
+}
+
+export interface ScheduleBlock {
+  crewId: string;
+  startTime: number;
+  endTime: number;
+}
+
+/**
+ * Phase 31 (plan §2.4–2.5): who the phone AI books onto.
+ *
+ * - "inspectors": the business has at least one active inspector row. Phone bookings are inspections, so capacity is
+ *   the inspectors free at that time: no time block on their row and no live booking assigned to them. Bookings not on
+ *   an inspector (older unassigned ones) still need one, so each takes a free inspector. Jobs are crew work and don't
+ *   count. The AI assigns the booking to the first free inspector.
+ * - "crews": no inspector rows (other industries, or before the office adds one) — the pre-Phase-31 rule: one booking per
+ *   active crew, jobs count, and a time block on an active crew takes that crew out. Nothing is assigned.
+ */
+export interface PhoneScheduleModel {
+  mode: "inspectors" | "crews";
+  /** Crews mode: the capacity-unit count the booking transaction locks against. */
+  capacity: number;
+  isFree(window: { startTime: number; endTime: number }): boolean;
+  /** Inspectors mode: the inspectors free for the window, in assignment order (empty when the window is full). */
+  candidates(window: { startTime: number; endTime: number }): string[];
+}
+
+/** Time-block docs (businesses/{bid}/timeBlocks) as schedule blocks; malformed docs are ignored. */
+export function timeBlocksFrom(docs: Array<Record<string, unknown>>): ScheduleBlock[] {
+  return docs.flatMap((data) =>
+    typeof data.crewId === "string" &&
+    typeof data.startTime === "number" &&
+    typeof data.endTime === "number" &&
+    data.endTime > data.startTime
+      ? [{ crewId: data.crewId, startTime: data.startTime, endTime: data.endTime }]
+      : []);
+}
+
+function isLive(entry: { status?: unknown }): boolean {
+  return entry.status !== "cancelled";
+}
+
+export function phoneScheduleModel(input: {
+  crews: ScheduleRow[];
+  appointments: ExistingSchedule[];
+  jobs: ExistingSchedule[];
+  blocks: ScheduleBlock[];
+}): PhoneScheduleModel {
+  const activeCrews = input.crews.filter((crew) => crew.active !== false);
+  const inspectors = activeCrews
+    .filter((crew) => crew.kind === "inspector")
+    .sort((left, right) =>
+      (Number(left.createdAt) || 0) - (Number(right.createdAt) || 0) ||
+      String(left.name ?? "").localeCompare(String(right.name ?? "")) ||
+      left.id.localeCompare(right.id));
+
+  if (inspectors.length === 0) {
+    const activeIds = new Set(activeCrews.map((crew) => crew.id));
+    const blockEntries = input.blocks
+      .filter((block) => activeIds.has(block.crewId))
+      .map((block) => ({ startTime: block.startTime, endTime: block.endTime }));
+    const capacity = schedulingCapacity(activeCrews);
+    return {
+      mode: "crews",
+      capacity,
+      isFree: (window) => isWindowFree(window, input.appointments, [...input.jobs, ...blockEntries], capacity),
+      candidates: () => [],
+    };
+  }
+
+  const inspectorIds = new Set(inspectors.map((inspector) => inspector.id));
+  const overlaps = (window: { startTime: number; endTime: number }, entry: { startTime: number; endTime: number }) =>
+    scheduleRangesOverlap(window.startTime, window.endTime, entry.startTime, entry.endTime);
+  const freeInspectors = (window: { startTime: number; endTime: number }) => inspectors.filter((inspector) =>
+    !input.blocks.some((block) => block.crewId === inspector.id && overlaps(window, block)) &&
+    !input.appointments.some((appointment) => isLive(appointment) && appointment.assignedCrewId === inspector.id && overlaps(window, appointment)) &&
+    !input.jobs.some((job) => isLive(job) && job.assignedCrewId === inspector.id && overlaps(window, job)));
+  const waitingForInspector = (window: { startTime: number; endTime: number }) => input.appointments.filter((appointment) =>
+    isLive(appointment) &&
+    !(appointment.assignedCrewId && inspectorIds.has(appointment.assignedCrewId)) &&
+    overlaps(window, appointment)).length;
+  return {
+    mode: "inspectors",
+    capacity: inspectors.length,
+    isFree: (window) => freeInspectors(window).length > waitingForInspector(window),
+    candidates: (window) => {
+      const free = freeInspectors(window);
+      return free.length > waitingForInspector(window) ? free.map((inspector) => inspector.id) : [];
+    },
+  };
 }
 
 export function scheduleBucketStarts(startTime: number, endTime: number): number[] {
@@ -316,6 +418,8 @@ export function buildAvailableSlots(options: {
   timeZone: string;
   existing: ExistingSchedule[];
   capacity?: number;
+  /** Overrides existing/capacity: the phone schedule model's rule (inspectors, blocks). */
+  isFree?: (window: { startTime: number; endTime: number }) => boolean;
   preferredDate?: string;
   preferredTime?: string;
   durationMinutes?: number;
@@ -356,7 +460,9 @@ export function buildAvailableSlots(options: {
       );
       if (startTime === null || startTime <= now.getTime()) continue;
       const endTime = startTime + durationMinutes * 60 * 1000;
-      const occupied = isSlotBusy({ startTime, endTime }, options.existing, [], options.capacity ?? 1);
+      const occupied = options.isFree
+        ? !options.isFree({ startTime, endTime })
+        : isSlotBusy({ startTime, endTime }, options.existing, [], options.capacity ?? 1);
       if (!occupied) {
         candidates.push({
           startTime: new Date(startTime).toISOString(),
@@ -381,8 +487,7 @@ function preferredAvailability(options: {
   preferredTime?: string;
   businessHours: unknown;
   timeZone: string;
-  existing: ExistingSchedule[];
-  capacity: number;
+  isFree: (window: { startTime: number; endTime: number }) => boolean;
   durationMinutes: number;
   now: Date;
 }): CheckAvailabilityOutput["preferred"] {
@@ -405,7 +510,7 @@ function preferredAvailability(options: {
   const endTime = startTime + options.durationMinutes * 60 * 1000;
   return {
     requestedStartTime,
-    status: isWindowFree({ startTime, endTime }, options.existing, [], options.capacity) ? "open" : "unavailable",
+    status: options.isFree({ startTime, endTime }) ? "open" : "unavailable",
   };
 }
 
@@ -461,7 +566,7 @@ export async function checkAvailability(
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     const now = new Date();
     const scanEnd = now.getTime() + (AVAILABILITY_SCAN_DAYS + 2) * 24 * 60 * 60 * 1000;
-    const [appointmentSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
+    const [appointmentSnapshot, jobSnapshot, crewSnapshot, blockSnapshot] = await Promise.all([
       db
         .collection("businesses")
         .doc(input.businessId)
@@ -477,6 +582,13 @@ export async function checkAvailability(
         .where("scheduledStart", "<", scanEnd)
         .get(),
       db.collection("businesses").doc(input.businessId).collection("crews").get(),
+      db
+        .collection("businesses")
+        .doc(input.businessId)
+        .collection("timeBlocks")
+        .where("startTime", ">=", now.getTime() - TIME_BLOCK_MAX_MS)
+        .where("startTime", "<", scanEnd)
+        .get(),
     ]);
     const existingAppointments = appointmentSnapshot.docs.map((document) => {
       const data = document.data();
@@ -492,19 +604,29 @@ export async function checkAvailability(
       const data = document.data();
       return typeof data.scheduledStart === "number" &&
         typeof data.scheduledEnd === "number"
-        ? [{ startTime: data.scheduledStart, endTime: data.scheduledEnd, status: typeof data.status === "string" ? data.status : undefined }]
+        ? [{
+          startTime: data.scheduledStart,
+          endTime: data.scheduledEnd,
+          status: typeof data.status === "string" ? data.status : undefined,
+          assignedCrewId: typeof data.assignedCrewId === "string" ? data.assignedCrewId : undefined,
+        }]
         : [];
     });
-    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
+    const model = phoneScheduleModel({
+      crews: crewSnapshot.docs.map((document) => ({ id: document.id, ...document.data() })),
+      appointments: existingAppointments,
+      jobs: existingJobs,
+      blocks: timeBlocksFrom(blockSnapshot.docs.map((document) => document.data())),
+    });
     const durationMinutes = input.durationMinutes ?? 60;
     const existing = [...existingAppointments, ...existingJobs];
     const slots = buildAvailableSlots({
       businessHours: businessData.businessHours,
       timeZone,
       // Availability remains advisory (D-1), but never suggests a period already
-      // represented on either scheduling collection.
+      // represented on either scheduling collection, or blocked on an inspector's row.
       existing,
-      capacity,
+      isFree: model.isFree,
       preferredDate: input.preferredDate,
       preferredTime: input.preferredTime,
       durationMinutes,
@@ -519,8 +641,7 @@ export async function checkAvailability(
         preferredTime: input.preferredTime,
         businessHours: businessData.businessHours,
         timeZone,
-        existing,
-        capacity,
+        isFree: model.isFree,
         durationMinutes,
         now,
       }),
@@ -544,9 +665,17 @@ export interface BookAppointmentInput {
   startTime: number;
   endTime: number;
   sourceCallId?: string;
+  /** The caller said it's OK to text them about this booking (plan §3). Missing = not asked. */
+  textOk?: boolean;
 }
 
-export type BookAppointmentOutput = Appointment & { businessTimezone: string };
+export type BookAppointmentOutput = Appointment & {
+  businessTimezone: string;
+  /** The business doc as read inside the booking transaction (wording, texting, inspector notice). */
+  businessData: Record<string, unknown>;
+  /** The inspector row the AI assigned, when it assigned one. */
+  assignedInspectorName?: string;
+};
 
 export async function bookAppointment(input: BookAppointmentInput): Promise<BookAppointmentOutput> {
   const db = getAdminFirestore();
@@ -569,6 +698,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   }
   const lockBuckets = scheduleBucketStarts(input.startTime, input.endTime);
   let businessData: Record<string, unknown> = {};
+  let assignedInspectorName: string | undefined;
 
   const appointment: Appointment = await db.runTransaction(async (transaction) => {
     const businessDoc = await transaction.get(businessRef);
@@ -594,18 +724,46 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const conflictQuery = businessRef.collection("appointments").where("startTime", ">=", lookbackStart).where("startTime", "<", input.endTime);
     const jobConflictQuery = businessRef.collection("jobs").where("scheduledStart", ">=", lookbackStart).where("scheduledStart", "<", input.endTime);
     const crewQuery = businessRef.collection("crews");
-    const [existingSnapshot, jobSnapshot, crewSnapshot] = await Promise.all([
+    const blockQuery = businessRef.collection("timeBlocks").where("startTime", ">=", input.startTime - TIME_BLOCK_MAX_MS).where("startTime", "<", input.endTime);
+    const [existingSnapshot, jobSnapshot, crewSnapshot, blockSnapshot] = await Promise.all([
       transaction.get(conflictQuery),
       transaction.get(jobConflictQuery),
       transaction.get(crewQuery),
+      transaction.get(blockQuery),
     ]);
-    const capacity = schedulingCapacity(crewSnapshot.docs.map((document) => document.data()));
-    const unitLockRefs = Array.from({ length: capacity }, (_, unitIndex) =>
-      lockBuckets.map((bucket) => businessRef.collection("schedulingLocks").doc(
-        scheduleLockId(scheduleCapacityResourceKey(unitIndex), bucket)
-      ))
+    const appointments = existingSnapshot.docs.map((document) => {
+      const data = document.data();
+      return {
+        startTime: Number(data.startTime),
+        endTime: Number(data.endTime),
+        status: data.status,
+        assignedCrewId: typeof data.assignedCrewId === "string" ? data.assignedCrewId : undefined,
+      };
+    });
+    const jobs = jobSnapshot.docs.map((document) => {
+      const data = document.data();
+      return {
+        startTime: Number(data.scheduledStart),
+        endTime: Number(data.scheduledEnd),
+        status: data.status,
+        assignedCrewId: typeof data.assignedCrewId === "string" ? data.assignedCrewId : undefined,
+      };
+    });
+    const model = phoneScheduleModel({
+      crews: crewSnapshot.docs.map((document) => ({ id: document.id, ...document.data() })),
+      appointments,
+      jobs,
+      blocks: timeBlocksFrom(blockSnapshot.docs.map((document) => document.data())),
+    });
+    const requested = { startTime: input.startTime, endTime: input.endTime };
+    // Inspectors mode locks each inspector's own row (crew:<id>); crews mode keeps the capacity-unit locks.
+    const candidateKeys = model.mode === "inspectors"
+      ? model.candidates(requested).map((crewId) => scheduleResourceKey(crewId))
+      : Array.from({ length: model.capacity }, (_, unitIndex) => scheduleCapacityResourceKey(unitIndex));
+    const candidateLockRefs = candidateKeys.map((resourceKey) =>
+      lockBuckets.map((bucket) => businessRef.collection("schedulingLocks").doc(scheduleLockId(resourceKey, bucket)))
     );
-    const lockSnapshots = await Promise.all(unitLockRefs.flat().map((lockRef) => transaction.get(lockRef)));
+    const lockSnapshots = await Promise.all(candidateLockRefs.flat().map((lockRef) => transaction.get(lockRef)));
     const lockOwners = [...new Set(lockSnapshots.flatMap((snapshot) =>
       snapshot.exists && typeof snapshot.data()?.entityId === "string"
         ? [`${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`]
@@ -615,29 +773,36 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       const separator = owner.indexOf(":");
       return transaction.get(businessRef.collection(owner.slice(0, separator)).doc(owner.slice(separator + 1)));
     }));
-    const staleOwners = new Set(lockOwners.filter((owner, index) =>
-      !ownerSnapshots[index].exists || ownerSnapshots[index].data()?.status === "cancelled"
-    ));
-    const appointments = existingSnapshot.docs.map((document) => {
-      const data = document.data();
-      return { startTime: Number(data.startTime), endTime: Number(data.endTime), status: data.status };
-    });
-    const jobs = jobSnapshot.docs.map((document) => {
-      const data = document.data();
-      return { startTime: Number(data.scheduledStart), endTime: Number(data.scheduledEnd), status: data.status };
-    });
-    const unitIndex = unitLockRefs.findIndex((refs, candidateUnit) => refs.every((_, bucketIndex) => {
-      const snapshot = lockSnapshots[candidateUnit * lockBuckets.length + bucketIndex];
-      if (!snapshot.exists) return true;
+    const ownerData = new Map(lockOwners.map((owner, index) => [owner, ownerSnapshots[index].exists ? ownerSnapshots[index].data() ?? {} : null]));
+    // A lock only holds while its owner still sits there: gone, cancelled, or (for an inspector's row) moved to another
+    // row or time by the office, and the lock is stale — the office's Calendar edits don't have to clean locks up.
+    const lockHolds = (snapshot: DocumentSnapshot, resourceKey: string, bucket: number): boolean => {
+      if (!snapshot.exists) return false;
       const owner = `${snapshot.data()?.entityType === "job" ? "jobs" : "appointments"}:${snapshot.data()?.entityId}`;
-      return staleOwners.has(owner);
-    }));
-    if (unitIndex < 0 || isSlotBusy({ startTime: input.startTime, endTime: input.endTime }, appointments, jobs, capacity)) {
+      const data = ownerData.get(owner);
+      if (!data || data.status === "cancelled") return false;
+      if (!resourceKey.startsWith("crew:")) return true;
+      if (scheduleResourceKey(typeof data.assignedCrewId === "string" ? data.assignedCrewId : null) !== resourceKey) return false;
+      const start = Number(data.startTime ?? data.scheduledStart);
+      const end = Number(data.endTime ?? data.scheduledEnd);
+      return scheduleRangesOverlap(bucket, bucket + SCHEDULE_BUCKET_MS, start, end);
+    };
+    const candidateIndex = candidateKeys.findIndex((resourceKey, candidate) => lockBuckets.every((bucket, bucketIndex) =>
+      !lockHolds(lockSnapshots[candidate * lockBuckets.length + bucketIndex], resourceKey, bucket)
+    ));
+    if (candidateIndex < 0 || !model.isFree(requested)) {
       throw new SchedulingConflictError(
         "slot_conflict",
         "That requested time was just taken. Please choose another opening."
       );
     }
+    const assignedInspectorId = model.mode === "inspectors" ? model.candidates(requested)[candidateIndex] : undefined;
+    const unitIndex = model.mode === "crews" ? candidateIndex : undefined;
+    const lockResourceKey = candidateKeys[candidateIndex];
+    const inspectorName = assignedInspectorId
+      ? crewSnapshot.docs.find((document) => document.id === assignedInspectorId)?.data().name
+      : undefined;
+    assignedInspectorName = typeof inspectorName === "string" && inspectorName.trim() ? inspectorName.trim() : undefined;
 
     const appointment: Appointment = {
       appointmentId,
@@ -657,16 +822,20 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       endTime: input.endTime,
       calendarProvider: "mock",
       status: "requested",
+      // Every AI booking waits for the office's OK (owner decision) — this is NOT an after-hours flag.
       pendingConfirmation: true,
+      bookedAfterHours: !isOpenAt(now, timeZone, businessData.businessHours),
+      ...(typeof input.textOk === "boolean" ? { textOk: input.textOk } : {}),
+      ...(assignedInspectorId ? { assignedCrewId: assignedInspectorId, assignedBy: "ai" as const } : {}),
       sourceCallId: input.sourceCallId,
       createdAt: now,
       updatedAt: now,
-      scheduleCapacityUnit: unitIndex,
+      ...(unitIndex !== undefined ? { scheduleCapacityUnit: unitIndex } : {}),
     };
-    for (const [index, lockRef] of unitLockRefs[unitIndex].entries()) {
+    for (const [index, lockRef] of candidateLockRefs[candidateIndex].entries()) {
       const lock = {
-        resourceKey: scheduleCapacityResourceKey(unitIndex),
-        capacityUnit: unitIndex,
+        resourceKey: lockResourceKey,
+        ...(unitIndex !== undefined ? { capacityUnit: unitIndex } : {}),
         bucketStart: lockBuckets[index],
         entityType: "appointment",
         entityId: appointmentId,
@@ -674,7 +843,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         endTime: input.endTime,
         updatedAt: now,
       };
-      const snapshot = lockSnapshots[unitIndex * lockBuckets.length + index];
+      const snapshot = lockSnapshots[candidateIndex * lockBuckets.length + index];
       if (snapshot.exists) transaction.set(lockRef, lock);
       else transaction.create(lockRef, lock);
     }
@@ -729,7 +898,41 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     ...appointment,
     businessTimezone:
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ,
+    businessData,
+    ...(assignedInspectorName ? { assignedInspectorName } : {}),
   };
+}
+
+/**
+ * Plan §1 C: details the caller gives AFTER the booking (gate code, pets, "call my husband") were lost — no tool could add
+ * to a booking. Appends one line to this call's most recent booking's notes. Only a booking made on THIS call can be
+ * touched (sourceCallId), so a caller can never write onto someone else's appointment.
+ */
+export async function addBookingNote(input: {
+  businessId: string;
+  callId: string;
+  note: string;
+}): Promise<{ appointmentId: string } | null> {
+  const db = getAdminFirestore();
+  if (!db) throw new Error("Firestore not available");
+  const note = input.note.replace(/\s+/g, " ").trim().slice(0, 500);
+  if (!note) return null;
+  const appointments = db.collection("businesses").doc(input.businessId).collection("appointments");
+  const snapshot = await appointments.where("sourceCallId", "==", input.callId).get();
+  const latest = snapshot.docs
+    .filter((document) => document.data().status !== "cancelled")
+    .sort((left, right) => Number(right.data().createdAt ?? 0) - Number(left.data().createdAt ?? 0))[0];
+  if (!latest) return null;
+  await db.runTransaction(async (transaction) => {
+    const fresh = await transaction.get(latest.ref);
+    const existing = typeof fresh.data()?.notes === "string" ? (fresh.data()?.notes as string).trim() : "";
+    if (existing.split("\n").some((line) => line.trim() === note)) return;
+    transaction.update(latest.ref, {
+      notes: existing ? `${existing}\n${note}` : note,
+      updatedAt: Date.now(),
+    });
+  });
+  return { appointmentId: latest.id };
 }
 
 export interface CreateLeadInput {

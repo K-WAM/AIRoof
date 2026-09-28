@@ -27,7 +27,7 @@ import {
   resolveRecordingDisclosure,
 } from "@/lib/recordingDisclosure";
 import { voiceForLanguage } from "@/lib/vapi/voices";
-import { isOpenAt } from "@/lib/scheduling/hours";
+import { isOpenAt, nextOpeningLabel } from "@/lib/scheduling/hours";
 
 export const DEFAULT_ELEVENLABS_TIMEZONE = "America/New_York";
 
@@ -62,9 +62,9 @@ export function isAfterHoursNow(
   }
 }
 
-export function afterHoursNote(isAfterHours: boolean): string {
+export function afterHoursNote(isAfterHours: boolean, nextOpening?: string | null): string {
   return isAfterHours
-    ? "NOTE: It is currently after business hours, but you MUST still help the caller fully. You can and should book appointments for the next available business-hours slot — never turn a caller away. Tell them their appointment is booked and the team will confirm in the morning."
+    ? `NOTE: It is currently after business hours${nextOpening ? ` (the office opens again ${nextOpening})` : ""}, but you MUST still help the caller fully. You can and should book appointments for the next available business-hours slot — never turn a caller away. The booking result tells you how and when the office confirms it.`
     : "Business is currently open.";
 }
 
@@ -92,7 +92,10 @@ export function buildInitiationRuntimeContext(
       hour: "numeric", minute: "2-digit", timeZone: timezone,
     }),
     timezone,
-    afterHoursContext: afterHoursNote(isAfterHours),
+    afterHoursContext: afterHoursNote(
+      isAfterHours,
+      isAfterHours ? nextOpeningLabel(now.getTime(), timezone, config.businessHours) : null
+    ),
     isAfterHours,
     callerPhone,
   };
@@ -162,9 +165,18 @@ export function buildInitiationResponse(
       currentTime: runtime.currentTime,
       currentTimezone: runtime.timezone,
       afterHoursContext: runtime.afterHoursContext,
+      // The agent's voicemail message names the business (T-154). Always present, so a reference never fails.
+      ...voicemailVariables(config.businessName, config.agentName),
       ...(runtime.callerPhone ? { callerPhone: runtime.callerPhone } : {}),
     },
   };
+}
+
+/** businessName/agentName for the agent's voicemail message — never empty, so the variable always resolves. */
+export function voicemailVariables(businessName?: unknown, agentName?: unknown): { businessName: string; agentName: string } {
+  const clean = (value: unknown, fallback: string) =>
+    typeof value === "string" && value.replace(/\s+/g, " ").trim() ? value.replace(/\s+/g, " ").trim().slice(0, 80) : fallback;
+  return { businessName: clean(businessName, "the office"), agentName: clean(agentName, "the virtual assistant") };
 }
 
 /**
@@ -176,6 +188,6 @@ export function genericInitiationResponse(): ElevenLabsInitiationResponse {
   return {
     type: "conversation_initiation_client_data",
     conversation_config_override: {},
-    dynamic_variables: {},
+    dynamic_variables: { ...voicemailVariables() },
   };
 }

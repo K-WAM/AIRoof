@@ -1,4 +1,5 @@
 import { voiceForLanguage } from "@/lib/vapi/voices";
+import { voicemailVariables } from "./initiationConfig";
 import {
   UnsupportedVoiceFeatureError,
   type OutboundCallInput,
@@ -50,7 +51,12 @@ export async function startOutboundCall(input: OutboundCallInput): Promise<Outbo
   const { agentId, phoneNumberId } = input.config.elevenlabs ?? {};
   if (!agentId || !phoneNumberId) throw new Error("ElevenLabs outbound calling is not configured");
   const data: Record<string, unknown> = {};
-  data.dynamic_variables = { ...input.metadata, ...input.variables };
+  // Every outbound call carries the voicemail message's variables (T-154), whichever route placed it.
+  data.dynamic_variables = {
+    ...voicemailVariables(input.config.businessName, input.config.agentName),
+    ...input.metadata,
+    ...input.variables,
+  };
   const agent: Record<string, unknown> = {};
   if (input.systemPrompt) agent.prompt = { prompt: input.systemPrompt };
   if (input.firstMessage) agent.first_message = input.firstMessage;

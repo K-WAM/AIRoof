@@ -34,6 +34,7 @@ import {
   normalizeProviderTranscriptMessages,
   writeEndedCallReport,
 } from "@/lib/calls/endOfCallWriter";
+import { notifyInspector } from "@/lib/crews/inspectorNotify";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 300, keyPrefix: "elevenlabs-webhook" });
@@ -217,6 +218,21 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
       batch.update(document.ref, { callSummary: summary, updatedAt: Date.now() });
     }
     await batch.commit();
+  }
+
+  // Phase 31 (T-154, plan §0 step 4): the inspector the AI assigned hears about it now rather than mid-call, so the email
+  // carries the call summary and anything added with addBookingNote (gate code, pets). notifyInspector never throws and
+  // its ledger key makes an ElevenLabs retry a no-op.
+  for (const document of appointments.docs) {
+    const appointment = document.data();
+    if (appointment.assignedBy !== "ai" || typeof appointment.assignedCrewId !== "string" || appointment.status === "cancelled") continue;
+    await notifyInspector({
+      db,
+      businessId,
+      appointment: { ...appointment, appointmentId: document.id, ...(summary ? { callSummary: summary } : {}) },
+      change: "assigned",
+      crewId: appointment.assignedCrewId,
+    });
   }
 }
 

@@ -157,6 +157,6 @@ describe("genericInitiationResponse (unknown tenant fail-safe)", () => {
     const response = genericInitiationResponse();
     expect(response.type).toBe("conversation_initiation_client_data");
     expect(response.conversation_config_override).toEqual({});
-    expect(response.dynamic_variables).toEqual({});
+    expect(response.dynamic_variables).toEqual({ businessName: "the office", agentName: "the virtual assistant" });
   });
 });

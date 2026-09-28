@@ -141,7 +141,11 @@ describe("booking reliability truth table", () => {
     expect(availability.result).toContain("Monday 8:00 AM");
     expect(availability.result).not.toMatch(/closed|12:00 AM|1:00 AM/i);
     const booking = await book("s4-book", "2026-09-28T08:00", "+15552000004");
-    expect(booking.sayToCaller).toContain("office will confirm first thing");
+    // Phase 31: the words name the real opening; "first thing" is never said.
+    expect(booking.sayToCaller).toBe("You're booked for Monday, September 28 at 8:00 AM. The office will call you when we open tomorrow at 8 AM to confirm it.");
+    const stored = mocks.db!.__list(`businesses/${BUSINESS_ID}/appointments`).find((doc) => doc.data.sourceCallId === "s4-book");
+    expect(stored?.data.bookedAfterHours).toBe(true);
+    expect(stored?.data.pendingConfirmation).toBe(true);
   });
 
   it("S5 explains Saturday closure and offers Monday openings", async () => {
@@ -254,6 +258,125 @@ describe("booking reliability truth table", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const booking = await book("s13-book", "2026-09-28T10:00", "+15552000133");
     expect(booking.result).toMatch(/^NOT BOOKED: 10:00\s?AM Monday was just taken\..*closest openings:/);
+  });
+
+  // ── Phase 31 (T-154) rows: plan docs/CALL-FLOW-FIX-PLAN.md §1–§2 ─────────────────────────────────────────────
+
+  it("S15 an in-hours booking is not called 'after hours' and says how the office confirms (Carla, Mon 11:28 AM)", async () => {
+    vi.setSystemTime("2026-09-28T15:28:00.000Z");
+    seedRoofing({ includeAppointments: false });
+    const withEmail = await executeAgentTool("bookAppointment", {
+      callerName: "Carla Esnaida", serviceType: "Roof inspection", startTime: "2026-09-28T13:00", callerEmail: "carla@example.com", textOk: true,
+    }, context("s15-email", "+13055550101"));
+    expect(withEmail.sayToCaller).toBe("You're booked for Monday, September 28 at 1:00 PM. The office will confirm it by email shortly.");
+    expect(`${withEmail.result} ${withEmail.sayToCaller}`).not.toMatch(/after hours|first thing|in the morning/i);
+    expect(withEmail.result).toMatch(/^BOOKED: /);
+    const noEmail = await executeAgentTool("bookAppointment", {
+      callerName: "Luis", serviceType: "Roof inspection", startTime: "2026-09-28T14:00",
+    }, context("s15-none", "+13055550102"));
+    expect(noEmail.sayToCaller).toBe("You're booked for Monday, September 28 at 2:00 PM. The office will call you shortly to confirm it.");
+    const stored = mocks.db!.__list(`businesses/${BUSINESS_ID}/appointments`).find((doc) => doc.data.sourceCallId === "s15-email");
+    expect(stored?.data.bookedAfterHours).toBe(false);
+    expect(stored?.data.textOk).toBe(true);
+  });
+
+  it("S16 an urgent leak gets the soonest opening; escalateCall is refused while escalation is off", async () => {
+    vi.setSystemTime("2026-09-28T15:28:00.000Z");
+    const { db } = seedRoofing({ includeAppointments: false });
+    const soonest = await executeAgentTool("checkAvailability", {}, context("s16-check"));
+    expect(soonest.result).toMatch(/^Available openings: Monday 11:30 AM/);
+    const escalation = await executeAgentTool("escalateCall", { reason: "Water coming through the ceiling" }, context("s16-esc"));
+    expect(escalation.result).toMatch(/^NOT ESCALATED: /);
+    expect(escalation.result).toContain("URGENT:");
+    expect(db.__list(`businesses/${BUSINESS_ID}/leads`)).toHaveLength(0);
+    const booking = await executeAgentTool("bookAppointment", {
+      callerName: "Carla Esnaida", serviceType: "Roof leak repair", startTime: "2026-09-28T11:30",
+      notes: "URGENT: water coming through the kitchen ceiling",
+    }, context("s16-book", "+13055550103"));
+    expect(booking.error).toBeUndefined();
+    expect(booking.result).toMatch(/^BOOKED: /);
+  });
+
+  it("S17 a time block is never booked — on an inspector row or on a crew", async () => {
+    const { db } = seedRoofing({ crews: 0, includeAppointments: false });
+    db.__seed(`businesses/${BUSINESS_ID}/crews`, "insp-dominic", { name: "Dominic", kind: "inspector", active: true, color: "#111", createdAt: 1 });
+    db.__seed(`businesses/${BUSINESS_ID}/timeBlocks`, "block-1", {
+      blockId: "block-1", businessId: BUSINESS_ID, crewId: "insp-dominic", label: "Site visit — St. Mary's",
+      startTime: Date.parse("2026-09-28T14:00:00.000Z"), endTime: Date.parse("2026-09-28T16:00:00.000Z"), createdByUid: "u", createdAt: 1,
+    });
+    const check = await executeAgentTool("checkAvailability", { preferredDate: "2026-09-28", preferredTime: "10:00 AM" }, context("s17-check"));
+    expect(check.result).toMatch(/^10:00 AM Monday is not open\./);
+    expect(check.result).not.toMatch(/Closest openings: [^;]*(10:00|10:30|11:00|11:30) AM/);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const booking = await book("s17-book", "2026-09-28T10:00", "+15552000171");
+    expect(booking.result).toMatch(/^NOT BOOKED: 10:00\s?AM Monday was just taken\./);
+    expect((await book("s17-after", "2026-09-28T12:00", "+15552000172")).error).toBeUndefined();
+
+    // Crews mode (no inspector rows): a block takes that crew out of the count.
+    const crews = seedRoofing({ crews: 1, includeAppointments: false });
+    crews.db.__seed(`businesses/${BUSINESS_ID}/timeBlocks`, "block-2", {
+      crewId: "crew-1", label: "Materials pickup",
+      startTime: Date.parse("2026-09-28T14:00:00.000Z"), endTime: Date.parse("2026-09-28T15:00:00.000Z"),
+    });
+    const crewCheck = await executeAgentTool("checkAvailability", { preferredDate: "2026-09-28", preferredTime: "10:00 AM" }, context("s17-crew"));
+    expect(crewCheck.result).toMatch(/^10:00 AM Monday is not open\./);
+  });
+
+  it("S18 auto-assigns the first free inspector, skips a blocked one, and refuses when all are taken", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    db.__seed(`businesses/${BUSINESS_ID}/crews`, "insp-a", { name: "Dominic Reyes", kind: "inspector", active: true, color: "#111", createdAt: 1 });
+    db.__seed(`businesses/${BUSINESS_ID}/crews`, "insp-b", { name: "Maria", kind: "inspector", active: true, color: "#222", createdAt: 2 });
+    db.__seed(`businesses/${BUSINESS_ID}/crews`, "insp-off", { name: "Old", kind: "inspector", active: false, color: "#333", createdAt: 0 });
+    const first = await book("s18-1", "2026-09-28T10:00", "+15552000181");
+    expect(first.result).toContain("Dominic is scheduled for the visit");
+    const second = await book("s18-2", "2026-09-28T10:00", "+15552000182");
+    expect(second.result).toContain("Maria is scheduled for the visit");
+    const stored = db.__list(`businesses/${BUSINESS_ID}/appointments`);
+    expect(stored.find((doc) => doc.data.sourceCallId === "s18-1")?.data).toMatchObject({ assignedCrewId: "insp-a", assignedBy: "ai" });
+    expect(stored.find((doc) => doc.data.sourceCallId === "s18-2")?.data).toMatchObject({ assignedCrewId: "insp-b", assignedBy: "ai" });
+    expect(stored.find((doc) => doc.data.sourceCallId === "s18-1")?.data.scheduleCapacityUnit).toBeUndefined();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    // Five work crews are active, but inspections need an inspector: the third caller at 10 is refused.
+    expect((await book("s18-3", "2026-09-28T10:00", "+15552000183")).result).toMatch(/^NOT BOOKED: /);
+
+    // A block on the first inspector sends the next booking to the second.
+    db.__seed(`businesses/${BUSINESS_ID}/timeBlocks`, "block-a", {
+      crewId: "insp-a", label: "Office", startTime: Date.parse("2026-09-28T17:00:00.000Z"), endTime: Date.parse("2026-09-28T18:00:00.000Z"),
+    });
+    const blockedFirst = await book("s18-4", "2026-09-28T13:00", "+15552000184");
+    expect(blockedFirst.result).toContain("Maria is scheduled");
+  });
+
+  it("S19 a job on a work crew does not take an inspector; an unassigned older booking still does", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    db.__seed(`businesses/${BUSINESS_ID}/crews`, "insp-a", { name: "Dominic", kind: "inspector", active: true, color: "#111", createdAt: 1 });
+    db.__seed(`businesses/${BUSINESS_ID}/jobs`, "job-1", {
+      scheduledStart: Date.parse("2026-09-28T14:00:00.000Z"), scheduledEnd: Date.parse("2026-09-28T15:00:00.000Z"), status: "in_progress", assignedCrewId: "crew-1",
+    });
+    expect((await book("s19-job", "2026-09-28T10:00", "+15552000191")).error).toBeUndefined();
+    db.__seed(`businesses/${BUSINESS_ID}/appointments`, "old-unassigned", {
+      startTime: Date.parse("2026-09-28T17:00:00.000Z"), endTime: Date.parse("2026-09-28T18:00:00.000Z"), status: "requested", pendingConfirmation: true,
+    });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect((await book("s19-old", "2026-09-28T13:00", "+15552000192")).result).toMatch(/^NOT BOOKED: /);
+  });
+
+  it("S20 details given after booking are saved with addBookingNote; nothing to add to is NOT SAVED", async () => {
+    seedRoofing({ includeAppointments: false });
+    const before = await executeAgentTool("addBookingNote", { note: "Access: gate code 1010" }, context("s20", "+15552000201"));
+    expect(before.result).toMatch(/^NOT SAVED: /);
+    await executeAgentTool("bookAppointment", {
+      callerName: "Es Carla Esnaida", serviceType: "Roof inspection", startTime: "2026-09-28T10:00", notes: "URGENT: active leak",
+    }, context("s20", "+15552000201"));
+    const saved = await executeAgentTool("addBookingNote", { note: "Access: gate code 1010" }, context("s20", "+15552000201"));
+    expect(saved.result).toMatch(/^SAVED: /);
+    await executeAgentTool("addBookingNote", { note: "Access: gate code 1010" }, context("s20", "+15552000201"));
+    const stored = mocks.db!.__list(`businesses/${BUSINESS_ID}/appointments`).find((doc) => doc.data.sourceCallId === "s20");
+    expect(stored?.data.notes).toBe("URGENT: active leak\nAccess: gate code 1010");
+    // "Es" is Spanish for "it's" — never part of the name (the outbound call said "Hi Es").
+    expect(stored?.data.callerName).toBe("Carla Esnaida");
+    // Another call can never write onto this booking.
+    expect((await executeAgentTool("addBookingNote", { note: "x" }, context("s20-other", "+15552000299"))).result).toMatch(/^NOT SAVED: /);
   });
 
   it("S14 leaves six morning openings on each of the next three business days at every launch hour", () => {

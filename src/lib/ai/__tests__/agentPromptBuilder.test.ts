@@ -47,12 +47,30 @@ describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
 // agent confirmed only two digits of the caller's number, then refused to read the full number back "for privacy".
 describe("buildAgentPrompt — escalation and phone read-back", () => {
   it("escalates on what is happening now, not on the word leak, and never exposes the escalation phone", () => {
-    const prompt = buildAgentPrompt(config({ escalationPhone: "+13055550000", emergencyRules: VERTICAL_TEMPLATES.roofing.emergencyRules }));
+    const prompt = buildAgentPrompt(config({ escalationEnabled: true, escalationPhone: "+13055550000", emergencyRules: VERTICAL_TEMPLATES.roofing.emergencyRules }));
     expect(prompt).toContain("Escalate ONLY when what the caller describes matches one of your Emergency Rules RIGHT NOW");
     expect(prompt).toContain("small drip");
     expect(prompt).toContain("take a message with createLead");
     expect(prompt).not.toContain("+13055550000");
     expect(VERTICAL_TEMPLATES.roofing.emergencyRules.some((rule) => /leak, or flooding: escalate immediately/.test(rule))).toBe(false);
+  });
+
+  it("books urgent problems into the soonest opening when escalation is off (roofing default, 2026-09-28 Carla call)", () => {
+    const prompt = buildAgentPrompt(config({ emergencyRules: VERTICAL_TEMPLATES.roofing.emergencyRules }));
+    expect(prompt).toContain("## Urgent Problems (book them — never escalate)");
+    expect(prompt).toContain("Never use escalateCall for this business");
+    expect(prompt).toContain("\"URGENT: \"");
+    expect(prompt).toContain("call 911 first — then keep helping them book");
+    expect(prompt).toContain("Wherever a rule above says \"escalate\"");
+    expect(prompt).not.toContain("## Escalation\n");
+    expect(prompt).not.toContain("call escalateCall. The team sees it");
+  });
+
+  it("keeps escalation on by default for the care family (a missing child is not a booking)", () => {
+    const prompt = buildAgentPrompt(config({ industry: "daycares" }));
+    expect(prompt).toContain("## Escalation");
+    expect(prompt).not.toContain("Never use escalateCall");
+    expect(buildAgentPrompt(config({ industry: "daycares", escalationEnabled: false }))).toContain("Never use escalateCall");
   });
 
   it("confirms all four last digits and reads the whole number back when asked", () => {
@@ -97,13 +115,30 @@ describe("buildAgentPrompt — How you speak", () => {
     // 2026-09-27 call: asked "anything in the afternoon?", the model named 1 PM and 2 PM open and 3 PM taken with no tool call.
     expect(prompt).toContain("Every time the caller asks about a different day, time or part of the day");
     expect(prompt).toContain("Never say a time is open or taken unless a tool returned that exact time during this call");
-    expect(prompt.indexOf("Would you like the confirmation by email too?")).toBeGreaterThan(-1);
+    expect(prompt).toContain("What's the best email for your confirmation?");
     // 2026-09-28: the address is the bill-to address, so the AI asks for a missing ZIP code.
     expect(prompt).toContain("When the caller gives an address with no ZIP code, your very next question is");
     expect(prompt).toContain("Only AFTER bookAppointment succeeds");
     expect(prompt).toContain("Never tell the caller you checked, booked or cancelled anything unless you actually called that tool");
     expect(prompt).toContain("do not pretend it worked");
     expect(prompt).not.toContain("say \"One moment while I check the calendar.\"");
+  });
+
+  it("asks access, email and OK-to-text before booking, then saves late details and never closes early (plan §1 C/D/E)", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt.indexOf("## Booking Checklist")).toBeGreaterThan(-1);
+    expect(prompt).toContain("a gate code, pets, parking?");
+    expect(prompt).toContain("\"Access: …\"");
+    expect(prompt).toContain("Is it OK to text you about this appointment at this number?");
+    expect(prompt).toContain("still ask 5, 6 and 7 before you book");
+    expect(prompt).toContain("save each one with addBookingNote");
+    expect(prompt).toContain("Do NOT ask \"Is there anything else I can help you with?\" after each answer");
+    expect(prompt).toContain("end the call (end_call)");
+    expect(prompt).not.toContain("the office will confirm first thing");
+  });
+
+  it("saves the caller's name without a leading 'it's' / 'es' (\"Es Carla Esnaida\")", () => {
+    expect(buildAgentPrompt(config())).toContain("\"Es Carla Esnaida\" is \"Carla Esnaida\"");
   });
 
   it("puts the tool rules before the speaking style so they are not lost at the bottom", () => {
