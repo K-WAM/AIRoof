@@ -117,6 +117,13 @@ export interface BusinessConfig {
     /** Owner-edited wording; missing/empty = drafted default sentence. */
     text?: string;
   };
+  // Phase 31 (T-152): emergency escalation to a human. Missing = OFF — the server refuses escalateCall while off.
+  escalationEnabled?: boolean;
+  // Phase 31 (T-152): texting on/off for this tenant. Missing = true, but texting still needs env SMS_ENABLED=true
+  // (US carriers block business texts from an unregistered number — NH-29).
+  smsEnabled?: boolean;
+  // Phase 31 (T-152): the registered Twilio number texts come from; falls back to env TWILIO_PHONE_NUMBER.
+  smsFromNumber?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -277,6 +284,14 @@ export interface Appointment {
   // Which crew/provider/vendor is taking this, assigned by dragging it on the
   // Calendar. Only used by industries with calendarMode "appointments".
   assignedCrewId?: string;
+  // Phase 31 (T-152): booked outside business hours — drives the "after hours" label (not pendingConfirmation).
+  bookedAfterHours?: boolean;
+  // Phase 31 (T-152): the call's transcript summary, copied onto its booking by the post-call webhook.
+  callSummary?: string;
+  // Phase 31 (T-152): the caller agreed to be texted. Missing = not asked/unknown (email or none is used).
+  textOk?: boolean;
+  // Phase 31 (T-152): who put this row on the crew — the AI or the office.
+  assignedBy?: "ai" | "office";
   // Capacity lane claimed by a phone booking before a crew/provider is assigned.
   scheduleCapacityUnit?: number;
   createdAt: number;
