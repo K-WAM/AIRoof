@@ -18,6 +18,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
@@ -149,6 +150,7 @@ function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number 
 // every route's initial bundle. No logic changed in this move, file split only.
 export default function CalendarBoard() {
   const { user } = useAuth();
+  const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
   const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
@@ -472,10 +474,11 @@ export default function CalendarBoard() {
     setBusyJob(appt.appointmentId);
     setCalendarError(null);
     try {
+      const notifyChannel = smsEnabled && appt.callerPhone && appt.textOk !== false ? "sms" : appt.callerEmail ? "email" : "none";
       const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: true }),
+        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -803,6 +806,7 @@ export default function CalendarBoard() {
                     confirmedAppts={confirmedAppts}
                     busyJob={busyJob}
                     previewSuffix={previewSuffix}
+                    smsEnabled={smsEnabled}
                     readOnly={readOnly}
                     onAddBlock={openBlockForm}
                     onDeleteBlock={deleteBlock}
@@ -1025,7 +1029,7 @@ function SlotPicker({
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, readOnly, onAddBlock, onDeleteBlock,
+  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
 }: {
   crew: Crew;
   days: Date[];
@@ -1042,6 +1046,7 @@ function CrewRow({
   confirmedAppts: Set<string>;
   busyJob: string | null;
   previewSuffix: string;
+  smsEnabled: boolean;
   readOnly: boolean;
   onAddBlock: (crewId: string) => void;
   onDeleteBlock: (blockId: string) => void;
@@ -1074,6 +1079,7 @@ function CrewRow({
               busy={busyJob === appt.appointmentId}
               justConfirmed={confirmedAppts.has(appt.appointmentId)}
               previewSuffix={previewSuffix}
+              smsEnabled={smsEnabled}
             />
           ))}
           {blocks.filter((block) => sameDay(block.startTime, d, tz)).map((block) => (
@@ -1187,7 +1193,7 @@ function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
 
 // ── Placed booking tile (in a resource×day cell) ──────────────────────────────
 function ScheduledApptTile({
-  appt, crew, tz, onConfirm, onUnassign, busy, justConfirmed, previewSuffix,
+  appt, crew, tz, onConfirm, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled,
 }: {
   appt: Appointment;
   crew: Crew;
@@ -1197,6 +1203,7 @@ function ScheduledApptTile({
   busy: boolean;
   justConfirmed: boolean;
   previewSuffix: string;
+  smsEnabled: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
   const confirmed = appt.status === "confirmed" || justConfirmed;
@@ -1233,8 +1240,8 @@ function ScheduledApptTile({
           <div style={{ position: "absolute", zIndex: 12, marginTop: 6, width: 280, maxWidth: "calc(100vw - 32px)", padding: 10, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(15,23,42,.14)" }}><BookingDetails booking={appt} inspectorName={crew.name} timeZone={tz} compact /></div>
         </details>
         {!confirmed ? (
-          <button onClick={() => onConfirm(appt)} disabled={busy} title="Emails the customer their confirmed time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
-            {busy ? "Sending…" : "✓ Confirm + email"}
+          <button onClick={() => onConfirm(appt)} disabled={busy} title="Confirms the booking and notifies the customer when a channel is available" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
+            {busy ? "Sending…" : smsEnabled && appt.callerPhone && appt.textOk !== false ? "✓ Confirm & text" : appt.callerEmail ? "✓ Confirm & email" : "✓ Confirm"}
           </button>
         ) : (
           <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>
