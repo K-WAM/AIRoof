@@ -23,8 +23,12 @@ export async function GET(
   const { businessId } = await params;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
-  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  // A Crew login (an inspector or technician on a field-only account) sees ONLY the bookings on its own crew row —
+  // its "My schedule" on the Field screen. No crew row = nothing (never the whole business's customer list).
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "crew", "superadmin"]);
   if ("error" in gate) return gate.error;
+  const onlyCrewId = gate.user.role === "crew" ? (gate.user.crewId ?? null) : undefined;
+  if (onlyCrewId === null) return NextResponse.json({ appointments: [] });
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -56,6 +60,7 @@ export async function GET(
 
   const snap = await queryRef.get();
 
-  const appointments = snap.docs.map((d) => ({ appointmentId: d.id, ...d.data() })) as Appointment[];
+  const appointments = (snap.docs.map((d) => ({ appointmentId: d.id, ...d.data() })) as Appointment[])
+    .filter((appt) => onlyCrewId === undefined || appt.assignedCrewId === onlyCrewId);
   return NextResponse.json({ appointments });
 }

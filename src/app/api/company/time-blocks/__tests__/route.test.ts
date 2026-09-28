@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
 let db = makeFakeDb();
-let gate: { user: { uid: string; role: string } } | { error: Response } = { user: { uid: "owner-1", role: "owner" } };
+let gate: { user: { uid: string; role: string; crewId?: string } } | { error: Response } = { user: { uid: "owner-1", role: "owner" } };
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: async () => gate }));
 import { DELETE, GET, POST } from "../route";
@@ -92,5 +92,24 @@ describe("DELETE /api/company/time-blocks", () => {
   it("refuses viewers", async () => {
     gate = { error: new Response(null, { status: 403 }) };
     expect((await del("businessId=biz&blockId=blkA")).status).toBe(403);
+  });
+});
+
+describe("a Crew login (field-only inspector) runs only its own row", () => {
+  it("sees only its own blocks, and none without a crew row", async () => {
+    gate = { user: { uid: "insp", role: "crew", crewId: "c1" } };
+    const mine = await (await get(`businessId=biz&from=${FROM}&to=${TO}`)).json();
+    expect(mine.blocks.map((block: { blockId: string }) => block.blockId)).toEqual(["blkA"]);
+    gate = { user: { uid: "loose", role: "crew" } };
+    expect((await (await get(`businessId=biz&from=${FROM}&to=${TO}`)).json()).blocks).toEqual([]);
+  });
+
+  it("blocks and clears time on its own row only", async () => {
+    gate = { user: { uid: "insp", role: "crew", crewId: "c1" } };
+    expect((await post(validBody())).status).toBe(201);
+    expect((await post({ ...validBody(), crewId: "c2" })).status).toBe(403);
+    expect((await del("businessId=biz&blockId=blkE")).status).toBe(404);
+    expect(db.__peek("businesses/biz/timeBlocks", "blkE")).toBeTruthy();
+    expect((await del("businessId=biz&blockId=blkA")).status).toBe(200);
   });
 });

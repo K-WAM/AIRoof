@@ -38,8 +38,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "to must be on or after from" }, { status: 400 });
   }
 
-  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
+  // A Crew login (field-only inspector/technician) sees only its own crew row's blocks.
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "crew", "superadmin"]);
   if ("error" in gate) return gate.error;
+  const onlyCrewId = gate.user.role === "crew" ? (gate.user.crewId ?? null) : undefined;
+  if (onlyCrewId === null) return jsonWithCache({ blocks: [] }, "noStore");
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -62,7 +65,8 @@ export async function GET(req: NextRequest) {
         typeof block.endTime === "number" &&
         block.startTime < to &&
         block.endTime > from &&
-        (!crewId || block.crewId === crewId)
+        (!crewId || block.crewId === crewId) &&
+        (onlyCrewId === undefined || block.crewId === onlyCrewId)
     );
 
   return jsonWithCache({ blocks }, "noStore");
@@ -93,8 +97,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `label must be 1-${MAX_LABEL_LENGTH} characters` }, { status: 400 });
   }
 
-  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  // Inspectors run their own schedule (owner, 2026-09-28): a Crew login may block time on its OWN row only.
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "crew", "superadmin"]);
   if ("error" in gate) return gate.error;
+  if (gate.user.role === "crew" && gate.user.crewId !== crewId) {
+    return NextResponse.json({ error: "You can only block time on your own schedule" }, { status: 403 });
+  }
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -129,7 +137,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "businessId and blockId are required" }, { status: 400 });
   }
 
-  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "crew", "superadmin"]);
   if ("error" in gate) return gate.error;
 
   const db = getAdminFirestore();
@@ -137,7 +145,8 @@ export async function DELETE(req: NextRequest) {
 
   const ref = db.collection(timeBlocksPath(businessId)).doc(blockId);
   const snapshot = await ref.get();
-  if (!snapshot.exists) {
+  // A Crew login removes only its own row's blocks; anyone else's reads as "not found" (no probing).
+  if (!snapshot.exists || (gate.user.role === "crew" && (snapshot.data() as TimeBlock).crewId !== gate.user.crewId)) {
     return NextResponse.json({ error: "Block not found" }, { status: 404 });
   }
   await ref.delete();

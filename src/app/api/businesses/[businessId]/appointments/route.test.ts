@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb, type FakeDb } from "@/test-utils/fakeFirestore";
 
-const mocks = vi.hoisted(() => ({ allowed: true }));
+const mocks = vi.hoisted(() => ({ allowed: true, user: { uid: "u", role: "staff" } as { uid: string; role: string; crewId?: string } }));
 vi.mock("@/lib/auth/verifyRole", () => ({
-  verifyAuthAndRole: async () => (mocks.allowed ? { user: { uid: "u", role: "staff" } } : { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }),
+  verifyAuthAndRole: async () => (mocks.allowed ? { user: mocks.user } : { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }),
 }));
 let db: FakeDb;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
@@ -19,6 +19,7 @@ const call = async (query = "") => {
 beforeEach(() => {
   db = makeFakeDb();
   mocks.allowed = true;
+  mocks.user = { uid: "u", role: "staff" };
   for (const [id, startTime] of [["a", 3000], ["b", 1000], ["c", 2000], ["d", 5000]] as const) {
     db.__seed("businesses/biz/appointments", id, { startTime, status: "confirmed", callerName: id });
   }
@@ -64,5 +65,16 @@ describe("GET /api/businesses/[businessId]/appointments", () => {
   it("refuses an unauthorised caller", async () => {
     mocks.allowed = false;
     expect((await call()).status).toBe(403);
+  });
+});
+
+describe("a Crew login's schedule", () => {
+  it("sees only bookings on its own crew row, and nothing without one", async () => {
+    db.__seed("businesses/biz/appointments", "mine", { startTime: 4000, status: "requested", assignedCrewId: "c1" });
+    db.__seed("businesses/biz/appointments", "theirs", { startTime: 4500, status: "requested", assignedCrewId: "c2" });
+    mocks.user = { uid: "insp", role: "crew", crewId: "c1" };
+    expect((await call()).body.appointments!.map((a) => a.appointmentId)).toEqual(["mine"]);
+    mocks.user = { uid: "loose", role: "crew" };
+    expect((await call()).body.appointments).toEqual([]);
   });
 });
