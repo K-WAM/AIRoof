@@ -1573,3 +1573,12 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Harness: call-to-cash scenario + spec book at a random half hour 14:00-19:30 UTC — keeping the current time of day failed the suite when run near midnight (a winter date's slot crossed midnight and was correctly refused).
 - Gates: tsc clean; vitest 181 files / 1,432 passed + 1 expected fail; lint errors only in untracked .e2e/*.cjs debug scripts; e2e:call 12/12; call-to-cash spec 8/8; doc-photos 2/2 (one phone flake on the first full run, email wait); full Playwright on the final tree: see TODO Phase 29.
 - Final full Playwright run on the final tree (2026-09-28 ~00:50 EDT): 92 passed, 2 skipped, 0 failed, 0 flaky (19.2 min).
+
+## 2026-09-28 — T-147: owner's second round (integrator; branch fix/demo-feedback-2-0928)
+- 8:54 bookings = the 2026-09-25 launch seed (current seed: 9:00/11:00/1:30/3:00 weekdays) — relaunch, no code.
+- Pipeline deep link (?appt=/?lead=) scrolled on every appointments refresh and Confirm; now once per link, outline fades after 4 s.
+- Findings picker: optional confirm mode (select, then pinned 'Add N findings'); used by both field screens and the office Findings tab (quote picker keeps instant add). Field shows 'Findings on this job'. Sheets centre on desktop (>=641px) with a max height; /company/field gets '← Back to job' when opened from a job and a full-height dark page.
+- Agent prompt: address must include a ZIP code; a missing ZIP is the very next question. New agent test test_5301m3k9g53ke8pa0xqghpv8484a failed 2/2 on the first wording, passes 3/3 on the final; the 8 booking tests 24/24 and the 2 outbound 4/4 still pass.
+- PATCH /api/jobs/[jobId]/client + ClientDetailsEditor: office edits the job's customer details; the same save updates the customer (matchKey/searchTokens recomputed), and a draft quote/invoice billTo; 409 once the invoice is sent. CLAUDE.md Customer Entity rule updated.
+- Quotes: warmer default opening (thanks the business by name, 'As requested, we visited <address> and recommend the following work:') + DEFAULT_QUOTE_NOTES estimate disclaimer (industry-neutral).
+- writeJobProjection stores job.lastFieldUpdate (newest crew note, English, <=160 chars); Dashboard 'Latest from the field' lists the 5 newest in 7 days from the jobs list it already loads.

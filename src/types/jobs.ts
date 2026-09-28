@@ -156,6 +156,9 @@ export interface Job {
   fieldNotes?: string[];
   totalLaborHours?: number;
   auditLog?: FieldAuditEntry[];
+  /** The newest crew note (voice or typed), in English, so the office Dashboard can list field activity without
+   *  reading every job's updates. Written by writeJobProjection. */
+  lastFieldUpdate?: { at: number; by?: string; text: string };
 }
 
 export type PhotoPhase = "before" | "after" | "other";

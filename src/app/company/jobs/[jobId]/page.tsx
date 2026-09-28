@@ -30,6 +30,7 @@ import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/do
 import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
+import { ClientDetailsEditor } from "./ClientDetailsEditor";
 import { NextStepButton } from "./NextStepButton";
 import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
@@ -177,6 +178,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // the UI never fires a PATCH the server would just reject.
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
+  // Bumped when the customer details are edited so the quote panel reloads its (server-updated) bill-to.
+  const [clientVersion, setClientVersion] = useState(0);
   const [invoiceMeta, setInvoiceMeta] = useState<Pick<JobInvoice, "sentAt" | "sentTo" | "paidAt">>({});
   const [markingPaid, setMarkingPaid] = useState(false);
   const [hideMaterials, setHideMaterials] = useState(false);
@@ -980,8 +983,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <Briefcase size={20} strokeWidth={1.75} />
             {job.title}
           </h1>
-          {job.address && <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>{job.address}</p>}
-          {job.clientName && <p style={{ fontSize: 13, color: "#94a3b8", margin: 0 }}>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}</p>}
+          <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
+            locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
+            onSaved={(client) => { setJob((current) => current ? { ...current, ...client } : current); setClientVersion((v) => v + 1); }} />
           {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1370,7 +1374,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
-      {activeTab === "quote" && <QuotePanel job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
+      {activeTab === "quote" && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         photos={photos}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
         onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}

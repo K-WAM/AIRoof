@@ -15,6 +15,15 @@ import type { Punch } from "@/types/timeclock";
 // approaches it.
 const PUNCH_QUERY_LIMIT = 2000;
 
+/** The newest crew note for the Dashboard's "Latest from the field" (English, one short line). */
+export function latestFieldUpdate(ledger: FieldUpdate[]): { at: number; by?: string; text: string } | null {
+  const newest = ledger.reduce<FieldUpdate | null>((best, u) => (!best || u.createdAt > best.createdAt ? u : best), null);
+  if (!newest) return null;
+  const text = (newest.rawTextEn || newest.rawText || "").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  return { at: newest.createdAt, ...(newest.submittedBy ? { by: newest.submittedBy } : {}), text: text.length > 160 ? `${text.slice(0, 157)}…` : text };
+}
+
 export async function loadLedger(db: FirebaseFirestore.Firestore, businessId: string, jobId: string): Promise<FieldUpdate[]> {
   const snap = await db.collection(`businesses/${businessId}/jobs/${jobId}/updates`).orderBy("createdAt", "asc").get();
   return snap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[];
@@ -61,6 +70,7 @@ export async function writeJobProjection(
   const snap = await jobRef.get();
   const status = snap.data()?.status;
   const bumpStatus = opts.bumpStatus ?? true;
+  const lastFieldUpdate = latestFieldUpdate(ledger);
   await jobRef.update({
     parsed: projection,
     materials: log.materials,
@@ -68,6 +78,7 @@ export async function writeJobProjection(
     timelineEvents: log.timelineEvents,
     fieldNotes: log.fieldNotes,
     totalLaborHours: log.totalLaborHours,
+    ...(lastFieldUpdate ? { lastFieldUpdate } : {}),
     updatedAt: Date.now(),
     ...(bumpStatus && ["open", "inspection"].includes(status ?? "") ? { status: "in_progress" } : {}),
   });

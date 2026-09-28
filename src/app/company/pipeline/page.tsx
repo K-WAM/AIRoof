@@ -211,18 +211,34 @@ export default function PipelinePage() {
   // scroll straight to the clicked appointment instead of leaving the user to
   // hunt for it by name, which is what made an unrelated same-named past/
   // cancelled appointment look like the wrong page had loaded.
+  // ONCE per link: `appointments` changes on every 10-second refresh and every Confirm, and re-running this on each change
+  // yanked the page back down to the linked card (2026-09-28: "the screen randomly scrolls to the bottom").
+  const scrolledToAppt = useRef<string | null>(null);
+  // The linked card is outlined for a few seconds, not for as long as the link stays in the address bar.
+  const [flashAppt, setFlashAppt] = useState<string | null>(null);
   useEffect(() => {
-    if (!apptParam || tab !== "appointments" || loading) return;
+    if (!apptParam || tab !== "appointments" || loading || scrolledToAppt.current === apptParam) return;
     const el = document.getElementById(`appt-${apptParam}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!el) return;
+    scrolledToAppt.current = apptParam;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashAppt(apptParam);
   }, [apptParam, tab, loading, appointments]);
+  useEffect(() => {
+    if (!flashAppt) return;
+    const timer = setTimeout(() => setFlashAppt(null), 4000);
+    return () => clearTimeout(timer);
+  }, [flashAppt]);
 
   // T-084: the matching lead deep link from Calls (?tab=leads&lead=<id>) —
-  // same anchor pattern, scrolls the queue card a call produced into view.
+  // same anchor pattern (and the same once-only rule), scrolls the queue card a call produced into view.
+  const scrolledToLead = useRef<string | null>(null);
   useEffect(() => {
-    if (!leadParam || tab !== "leads" || loading) return;
+    if (!leadParam || tab !== "leads" || loading || scrolledToLead.current === leadParam) return;
     const el = document.getElementById(`lead-${leadParam}`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!el) return;
+    scrolledToLead.current = leadParam;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [leadParam, tab, loading, leads]);
 
   // --- Lead actions ---
@@ -418,7 +434,7 @@ export default function PipelinePage() {
     const justConfirmed = confirmedSet.has(appt.appointmentId);
     const isConfirmed = appt.status === "confirmed" || justConfirmed;
     const isPending = !!appt.pendingConfirmation && !isConfirmed && appt.status !== "cancelled";
-    const isTarget = !!apptParam && apptParam === appt.appointmentId;
+    const isTarget = flashAppt === appt.appointmentId;
     const timePassed = appt.startTime <= Date.now();
     // No email but a phone: the confirmation goes out as an AI phone call instead.
     const confirmByCall = isPending && !appt.callerEmail && !!appt.callerPhone;

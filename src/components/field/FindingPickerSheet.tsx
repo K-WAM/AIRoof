@@ -20,18 +20,25 @@ interface PickerProps {
   /** Catalog items already on the job/quote: shown as "Added" and not pickable twice. */
   addedItemIds: ReadonlySet<string>;
   onPick: (item: PickerItem) => Promise<void> | void;
+  /**
+   * Select-then-confirm: taps only tick items, and a pinned "Add N" button saves them all. The field screens use it
+   * (2026-09-28: "there is no save button and I cannot see what I added"); the office quote keeps instant add.
+   */
+  confirm?: { label: (count: number) => string };
 }
 
 /**
  * Search-and-tap picker over the Library's work catalog (the Issue -> Work list). Presentational: the office quote
  * and the two field screens each feed it their own items and decide what "pick" does. Shares the Sheet shell.
  */
-export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, loading, error, addedItemIds, onPick }: PickerProps) {
+export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, loading, error, addedItemIds, onPick, confirm }: PickerProps) {
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pickError, setPickError] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (open) { setQuery(""); setPickError(""); } }, [open]);
+  useEffect(() => { if (open) { setQuery(""); setPickError(""); setSelected([]); } }, [open]);
 
   const groups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -43,7 +50,30 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
     return [...byCategory.entries()];
   }, [items, query]);
 
+  async function saveSelected() {
+    if (saving || selected.length === 0) return;
+    setSaving(true);
+    setPickError("");
+    try {
+      for (const itemId of selected) {
+        const item = items.find((candidate) => candidate.itemId === itemId);
+        if (item && !addedItemIds.has(itemId)) await onPick(item);
+      }
+      setSelected([]);
+      onClose();
+    } catch (e) {
+      setPickError(e instanceof Error ? e.message : "Could not add those findings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function pick(item: PickerItem) {
+    if (confirm) {
+      if (addedItemIds.has(item.itemId) || saving) return;
+      setSelected((prev) => prev.includes(item.itemId) ? prev.filter((id) => id !== item.itemId) : [...prev, item.itemId]);
+      return;
+    }
     if (busyId || addedItemIds.has(item.itemId)) return;
     setBusyId(item.itemId);
     setPickError("");
@@ -78,21 +108,23 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
           <div style={{ display: "grid", gap: 8 }}>
             {list.map((item) => {
               const added = addedItemIds.has(item.itemId);
+              const ticked = selected.includes(item.itemId);
               return (
                 <button
                   key={item.itemId}
                   type="button"
                   className="button"
-                  disabled={added || busyId !== null}
+                  aria-pressed={confirm ? ticked : undefined}
+                  disabled={added || busyId !== null || saving}
                   onClick={() => void pick(item)}
-                  style={{ textAlign: "left", minHeight: 44, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", height: "auto", padding: "10px 12px" }}
+                  style={{ textAlign: "left", minHeight: 44, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", height: "auto", padding: "10px 12px", ...(ticked ? { borderColor: "var(--accent)", boxShadow: "0 0 0 1px var(--accent)" } : {}) }}
                 >
                   <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
                     <strong>{item.problem}</strong>
                     {item.solution && <><br /><small style={{ color: "var(--text-muted)" }}>{item.solution}</small></>}
                   </span>
                   <span aria-hidden style={{ flex: "0 0 auto", fontWeight: 700, color: added ? "var(--text-muted)" : "var(--accent)" }}>
-                    {busyId === item.itemId ? "Adding…" : added ? "✓ Added" : "＋ Add"}
+                    {busyId === item.itemId ? "Adding…" : added ? "✓ On this job" : confirm ? (ticked ? "✓ Selected" : "Select") : "＋ Add"}
                   </span>
                 </button>
               );
@@ -101,6 +133,14 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
         </div>
       ))}
       </div>
+      {confirm && (
+        <div className="sheet-footer">
+          <button type="button" className="button" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="button primary" onClick={() => void saveSelected()} disabled={saving || selected.length === 0}>
+            {saving ? "Adding…" : confirm.label(selected.length)}
+          </button>
+        </div>
+      )}
     </Sheet>
   );
 }
@@ -118,25 +158,28 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PickerItem[]>([]);
   const [added, setAdded] = useState<Set<string>>(new Set());
+  const [onJob, setOnJob] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Loaded with the job (not only when the sheet opens) so the screen can show what is already on it.
   useEffect(() => {
-    if (!open || !jobId || !businessId) return;
+    if (!jobId || !businessId) { setOnJob([]); setAdded(new Set()); return; }
     let live = true;
     setLoading(true);
     setError("");
     fetch(`/api/jobs/${encodeURIComponent(jobId)}/findings?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Could not load the Library"))))
-      .then((d: { items: PickerItem[]; findings: Array<{ itemId?: string }> }) => {
+      .then((d: { items: PickerItem[]; findings: Array<{ itemId?: string; problem?: string }> }) => {
         if (!live) return;
         setItems(d.items ?? []);
         setAdded(new Set((d.findings ?? []).flatMap((f) => (f.itemId ? [f.itemId] : []))));
+        setOnJob((d.findings ?? []).flatMap((f) => (f.problem ? [f.problem] : [])));
       })
       .catch((e) => { if (live) setError(e instanceof Error ? e.message : "Could not load the Library"); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
-  }, [open, jobId, businessId]);
+  }, [jobId, businessId]);
 
   async function pick(item: PickerItem) {
     const res = await fetch(`/api/jobs/${encodeURIComponent(jobId!)}/findings`, {
@@ -144,6 +187,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
     });
     if (!res.ok) throw new Error(res.status === 409 ? "This job already has the maximum number of findings" : "Could not add that finding");
     setAdded((prev) => new Set(prev).add(item.itemId));
+    setOnJob((prev) => [...prev, item.problem]);
     onAdded?.(item.problem);
   }
 
@@ -164,8 +208,14 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
       >
         ＋ Finding
       </button>
-      <FindingPickerSheet open={open} onClose={() => setOpen(false)} title="Add a finding to this job"
-        items={items} loading={loading} error={error} addedItemIds={added} onPick={pick} />
+      {onJob.length > 0 && (
+        <p style={{ margin: "8px 2px 0", fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
+          <strong style={{ color: "#cbd5e1" }}>Findings on this job ({onJob.length}):</strong> {onJob.join(" · ")}
+        </p>
+      )}
+      <FindingPickerSheet open={open} onClose={() => setOpen(false)} title="Add findings to this job"
+        items={items} loading={loading} error={error} addedItemIds={added} onPick={pick}
+        confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }} />
     </>
   );
 }

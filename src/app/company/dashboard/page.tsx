@@ -17,7 +17,7 @@ import { setupChecklist, type SetupChecklistInput } from "@/lib/onboarding/setup
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { fmtPhone } from "@/lib/format";
-import { AlertTriangle, Bot, CheckCircle2, Circle, Clock, LayoutDashboard, PhoneCall, Settings, Wrench } from "lucide-react";
+import { AlertTriangle, Bot, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Settings, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
   leadId: string;
@@ -46,6 +46,15 @@ interface JobSnapshot {
   address?: string;
   status: string;
   invoiceId?: string;
+  lastFieldUpdate?: { at: number; by?: string; text: string };
+}
+
+function sinceLabel(at: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
 interface AgentSnapshot {
@@ -224,6 +233,11 @@ export default function CompanyDashboardPage() {
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
   const pendingAppts = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled");
   const activeJobs = jobs.filter((j) => j.status !== "complete");
+  // Crew notes (voice or typed) used to be visible only inside each job (2026-09-28: "does it get noticed somewhere?").
+  const fieldActivity = jobs
+    .filter((j) => j.lastFieldUpdate && Date.now() - j.lastFieldUpdate.at < 7 * 86_400_000)
+    .sort((a, b) => b.lastFieldUpdate!.at - a.lastFieldUpdate!.at)
+    .slice(0, 5);
   const apptTabHref = `/company/pipeline${previewSuffix ? previewSuffix + "&tab=appointments" : "?tab=appointments"}`;
   // A phone line on EITHER provider counts (the old check looked only at Vapi, so an ElevenLabs tenant read as inactive).
   const isAgentActive = agent?.phoneLineConnected ?? (agent?.vapiAssistantId ? true : (agent?.active ?? false));
@@ -261,7 +275,7 @@ export default function CompanyDashboardPage() {
       ]
     : [];
 
-  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && escalationAlerts.length === 0;
+  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
   const checklistDone = checklist.filter((item) => item.done).length;
   const nextItemId = checklist.find((item) => !item.done && item.href)?.id;
@@ -447,6 +461,25 @@ export default function CompanyDashboardPage() {
                     <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}</p>
                   </div>
                   <StatusChip status={appt.status} />
+                  <span className="feed-chevron">›</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {hasJobs && fieldActivity.length > 0 && (
+            <div className="feed-section" data-testid="dashboard-field-activity">
+              <div className="feed-section-header">
+                <p className="feed-section-title">Latest from the field</p>
+                <span className="feed-section-count">{fieldActivity.length}</span>
+              </div>
+              {fieldActivity.map((job) => (
+                <Link key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} className="feed-row">
+                  <div className="feed-icon feed-icon--job"><Mic size={14} /></div>
+                  <div className="feed-body">
+                    <p className="feed-name">{job.lastFieldUpdate!.by ?? "Crew"} on {job.jobId} · {sinceLabel(job.lastFieldUpdate!.at)}</p>
+                    <p className="feed-sub">&ldquo;{job.lastFieldUpdate!.text}&rdquo;</p>
+                  </div>
                   <span className="feed-chevron">›</span>
                 </Link>
               ))}

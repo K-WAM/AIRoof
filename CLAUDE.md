@@ -73,7 +73,9 @@ A tenant must only ever see tools that apply to *their* industry — a dental of
 for; `Job.clientName`/`clientPhone`/`clientEmail`/`address` stay as flat fields — a **point-in-time snapshot**,
 never rewritten except by an explicit `PATCH /customers/[id]?propagate=true`, and even then only onto that
 customer's still-*open* jobs (an invoiced/complete job's snapshot is frozen so a rename can never mutate
-something already sent to a customer).
+something already sent to a customer). The one other writer is the job page's **Edit customer details**
+(`PATCH /api/jobs/[jobId]/client`, 2026-09-28): it fixes that one job, its customer record and any *draft*
+quote/invoice `billTo` together, and is refused once the invoice has been sent.
 
 - **The instant-search requirement ("type walmart, jobs show up, fast") is solved client-side, not by a
   Firestore query.** `GET /api/company/customers` returns a slim list (up to 1000 rows) fetched once per

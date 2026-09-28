@@ -1140,6 +1140,19 @@ an active queue.*
   - [x] **Field photo: camera only** — removed `capture="environment"`; phones offer camera or library.
   - [x] Empty "Receptionist" bubbles (tool-call turns) hidden in Calls and the review transcript.
   - [x] Gates on the branch: tsc clean; vitest 1,432 passed; e2e:call 12/12; full Playwright 92 passed / 0 failed / 0 flaky.
+        **Pushed 2026-09-28 as 9ca467c** (owner: "commit and push").
+  - [x] **T-147 (owner's second round, 2026-09-28, branch `fix/demo-feedback-2-0928`):**
+        (1) "Everything is 8:54" = the 2026-09-25 launch's seed; the current seed uses 9:00/11:00/1:30/3:00 on weekdays — relaunch.
+        (2) Pipeline jumped back to a deep-linked card on every 10 s refresh/Confirm — now scrolls once and the outline fades after 4 s.
+        (3) Field ＋ Finding: select-then-**Add N findings** (also on the office Findings tab), "Findings on this job" list under the
+        button, sheet centred on desktop with a pinned footer, **← Back to job** on /company/field, dark page fills the window.
+        (4) AI asks for a missing ZIP code (agent test `test_5301m3k9g53ke8pa0xqghpv8484a`: fails 2/2 on the first wording, 3/3 after);
+        **Edit customer details** on the job (`PATCH /api/jobs/[jobId]/client`: job + customer + draft quote/invoice billTo, locked
+        after the invoice is sent); quotes open "Thank you for reaching out to <Business>. As requested, we visited <address> and
+        recommend the following work:" and default a short estimate disclaimer in Notes (industry-neutral).
+        (5) Sent invoice: already kept — locked on the job's Invoice tab with Send again / Mark paid / Print-Save as PDF. No change.
+        (7) Crew notes (voice or typed) now surface on the Dashboard as **Latest from the field** (`job.lastFieldUpdate`, written by
+        writeJobProjection; no extra reads). Before this they were only inside each job.
   - [ ] **Owner, after the push:** relaunch Demo Studio (Roofing) — clears the Sep 25 test data and writes Mon–Fri 8–5; call and book;
         then Pipeline → **Confirm & call customer** on your booking and answer the AI's call. Integrator reads both transcripts.
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)

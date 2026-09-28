@@ -51,7 +51,7 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 - Tap **Arrived at job**.
 - Hold the big **mic**, speak, release: "This is Marco. Six cracked tiles on the south slope, and the pipe boot over the kitchen is split." Status text goes Uploading → Transcribing → Updating the job (5–10 s), then "✓ Logged".
 - Tap **＋ Photo** → the phone offers **Take Photo** or **Photo Library** → pick one → type a description (required) → **Save photo**.
-- Tap **＋ Finding** → tap **Cracked tiles** (or any item) → it says "Finding added".
+- Tap **＋ Finding** → tick **Cracked tiles** (and any others) → **Add 1 finding**. The screen then lists "Findings on this job". (On a laptop the list opens as a centred window; **← Back to job** at the top returns to the job.)
 - The crew **cannot** mark the job complete from this screen any more — only the office can.
 - (Optional Spanish: hold the mic and say it in Spanish — the office sees the English.)
 
@@ -87,6 +87,8 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 ## F. Things to expect (so nothing surprises you)
 - The AI says the **recording notice** before the greeting. Normal (compliance default).
 - A launch sets **Mon–Fri 8 AM–5 PM Eastern, weekends closed** (the old round-the-clock hours made the AI offer midnight slots — fixed 2026-09-27). Outside those hours the AI says the office is closed, **still books**, and the booking waits under **Needs Confirmation** for you.
+- **The office sees crew notes on the Dashboard** under **Latest from the field** (voice or typed, newest first) — worth showing after the field step.
+- **Wrong or missing address/ZIP/email from the call?** On the job, **Edit customer details** fixes the job, the customer record and any draft quote/invoice in one save (locked once the invoice is sent). The AI now asks for the ZIP code.
 - **Relaunch after every code deploy that touches the demo**, and always before a prospect: until you do, the line keeps the previous launch's company, hours and test bookings (on 2026-09-27 two "Kareem" bookings from different days sat side by side and the wrong one got confirmed).
 - **Confirming with no email on file** = **Confirm & call customer**: the AI phones the customer to confirm. Texting needs US carrier registration first (see TODO.md NEEDS-HUMAN).
 - **Twilio trial** = a trial message before the AI answers. Fix in A1.

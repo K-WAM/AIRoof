@@ -5,6 +5,7 @@ import { jsonWithCache } from "@/lib/http/cache";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { allocateJobQuoteNumber } from "@/lib/billing/jobQuoteNumber";
 import { quoteLinesFromFindings, quoteTotal, nextQuoteStatus, validQuoteLines } from "@/lib/billing/jobQuote";
+import { DEFAULT_QUOTE_NOTES } from "@/lib/billing/draftQuoteIntro";
 import { validFindings } from "@/lib/jobs/findings";
 import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteStatus } from "@/types/quote";
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest, { params }: Context) {
   const newQuote: JobQuote = {
     quoteId, businessId, jobId, customerId: job.customerId,
     billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: job.address },
-    findings, lines, status: "draft", hideMaterials: false, validUntil: now + 30 * 86400000,
+    findings, lines, status: "draft", hideMaterials: false, validUntil: now + 30 * 86400000, notes: DEFAULT_QUOTE_NOTES,
     subtotal: quoteTotal(lines), total: quoteTotal(lines), createdAt: now, updatedAt: now, createdBy: gate.user.uid,
   };
   const batch = db.batch();

@@ -107,7 +107,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Could not create quote");
       const created = d.quote as JobQuote;
-      const intro = created.status === "draft" && !created.narrative ? draftQuoteIntro(job, created.findings) : "";
+      const intro = created.status === "draft" && !created.narrative ? draftQuoteIntro(job, created.findings, businessConfig?.businessName) : "";
       if (intro) { version.current += 1; setQuote({ ...created, narrative: intro }); setDirty(true); return { ...created, narrative: intro }; }
       setQuote(created);
       return created;
@@ -344,7 +344,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>Intro text (optional)</summary>
           <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
             <textarea aria-label="Intro text" maxLength={4000} rows={4} disabled={!draft} value={quote.narrative ?? ""} onChange={(e) => change({ narrative: e.target.value })} style={{ width: "100%" }} />
-            {draft && <div><button className="button small" type="button" onClick={() => change({ narrative: draftQuoteIntro(job, quote.findings) })}>Rewrite from the items above</button></div>}
+            {draft && <div><button className="button small" type="button" onClick={() => change({ narrative: draftQuoteIntro(job, quote.findings, businessConfig?.businessName) })}>Rewrite from the items above</button></div>}
           </div>
         </details>
 

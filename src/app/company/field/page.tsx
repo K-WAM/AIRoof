@@ -420,6 +420,7 @@ function FieldPageContent() {
   const hookBusinessId = useBusinessId();
   const businessId = searchParams?.get("businessId") ?? hookBusinessId;
   const prefillJobId = searchParams?.get("jobId") ?? "";
+  const previewParam = searchParams?.get("preview");
   const { user } = useAuth();
   // Phase 12/Phase 7 — a real name (set at invite time) reads far better on
   // labor lines, punches, and attribution than an email address ever did.
@@ -536,7 +537,6 @@ function FieldPageContent() {
       <div className="company-field-page" style={{
         margin: "-28px",
         background: "#0f172a",
-        minHeight: "calc(100vh - 64px)",
       }}>
         <div className="company-field-content" style={{
           maxWidth: 480,
@@ -552,6 +552,13 @@ function FieldPageContent() {
             marginBottom: 20,
           }}>
             <div>
+              {/* Opened from a job ("Submit update"): the only way back used to be the side menu. */}
+              {prefillJobId && (
+                <a href={`/company/jobs/${encodeURIComponent(prefillJobId)}${previewParam ? `?preview=${encodeURIComponent(previewParam)}` : ""}`}
+                  style={{ display: "inline-block", marginBottom: 8, fontSize: 13, fontWeight: 600, color: "#7c93c8", textDecoration: "none" }}>
+                  ← Back to job {prefillJobId}
+                </a>
+              )}
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#f8fafc", display: "flex", alignItems: "center", gap: 7 }}>
                 <ClipboardList size={19} strokeWidth={1.75} />
                 Field Log

@@ -1,6 +1,12 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-09-28 (just after midnight) — read this first
+## CURRENT STATE 2026-09-28 (~2 AM) — read this first
+- T-146 pushed + deployed (9ca467c, crm.luxordev.com Ready). T-147 (owner's second round: Pipeline scroll, field findings confirm +
+  back-to-job, ZIP-code rule, Edit customer details, quote intro/disclaimer, Dashboard "Latest from the field") — see TODO.md Phase 29.
+- Still owed by the owner: relaunch Demo Studio (clears the Sep 25 "8:54" data), one booking call, then **Confirm & call customer** and
+  answer the AI. Integrator reads both transcripts. Nothing outbound has rung a real phone yet.
+
+## CURRENT STATE 2026-09-28 (just after midnight) — earlier
 - **Owner's first real test call (2026-09-27 11:33 PM) → T-146, TODO.md Phase 29.** Branch `fix/demo-test-feedback-0928` (local, NOT
   pushed — waits for "approve push"). Booking itself worked (2 PM stored correctly); the confusion was a stale Sep 25 booking because Demo
   Studio was never relaunched. Fixed: AI no longer invents availability (prompt + 2 new agent tests), Call Back works for a superadmin

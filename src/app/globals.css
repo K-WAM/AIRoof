@@ -1004,6 +1004,17 @@ a.panel:hover {
   padding: 28px;
 }
 
+/* The field screen's dark page fills the whole window (a fixed "100vh - 64px" left a light strip under it on desktop,
+   where there is no 64px top bar). */
+.company-field-page {
+  min-height: 100vh;
+}
+@media (max-width: 900px) {
+  .company-field-page {
+    min-height: calc(100vh - 64px);
+  }
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2846,6 +2857,36 @@ a.metric:hover {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* A sheet's own actions (e.g. "Add 2 findings"): pinned under the scrolling list, never scrolled out of view. */
+.sheet-footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.sheet-footer .button.primary {
+  flex: 1 1 auto;
+}
+
+/* Desktop: a bottom sheet glued to the screen edge read as "the bottom of the form is cut off" (2026-09-28). Centre it. */
+@media (min-width: 641px) {
+  .sheet-backdrop {
+    align-items: center;
+    padding: 24px;
+  }
+  .sheet {
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    max-height: min(80dvh, calc(100dvh - 48px));
+  }
+  .sheet-handle {
+    display: none;
+  }
 }
 
 /* ── Quick add (global "+") ─────────────────────────────────────────────── */

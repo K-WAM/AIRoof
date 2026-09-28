@@ -255,6 +255,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
         loading={catalog.loading}
         addedItemIds={onJobIds}
         onPick={(item) => { const full = catalog.items.find((c) => c.itemId === item.itemId); if (full) addCatalogItem(full); }}
+        confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }}
       />
     </section>
   );
