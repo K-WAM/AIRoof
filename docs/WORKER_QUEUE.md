@@ -979,7 +979,7 @@ between steps) and **CRLF/non-ASCII patch mismatches: edit by hand, no permissio
 
 | # | Worker / model | Task | Starts when | Worktree |
 |---|---|---|---|---|
-| H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | now (in progress, steps 1–4 done) | `air-wt-empty-states` (exists) |
+| H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | **DONE — finished by the integrator, merged to local main 2026-09-27** | `air-wt-empty-states` (can be removed) |
 | H1 | Codex B · GPT-6 Sol, medium | G1 booking engine (section G, unchanged) | now, in parallel with H0 | `air-wt-booking` |
 | H2 | Deepseek · V4.1 Flash, Thinking: Hard | G3 + G4: booking tests, live test script, daily canary | after H1 merges | `air-wt-booking-verify` |
 | H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | after H0 AND H1 merge | `air-wt-setup-ux` |
