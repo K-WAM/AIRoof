@@ -1,7 +1,8 @@
 import type { BusinessModules } from "@/hooks/useBusinessModules";
 import type { VerticalVocab } from "@/lib/verticals/templates";
+import { validateBusinessHours } from "@/lib/scheduling/hours";
 
-export type SetupItemId = "phone" | "prices" | "resource" | "logo" | "team" | "testCall";
+export type SetupItemId = "phone" | "hours" | "prices" | "resource" | "logo" | "team" | "testCall";
 
 export interface SetupItem {
   id: SetupItemId;
@@ -15,6 +16,7 @@ export interface SetupItem {
 /** Raw counts from GET /api/company/setup-status. Counts, not booleans, so "done" is decided here, in one place. */
 export interface SetupChecklistInput {
   phoneConfigured: boolean;
+  businessHours?: unknown;
   prices: number;
   resources: number;
   hasLogo: boolean;
@@ -38,6 +40,13 @@ export function setupChecklist(
     input.phoneConfigured
       ? { id: "phone", label: "Your phone line is connected", done: true }
       : { id: "phone", label: "Luxor is connecting your line", done: false },
+    {
+      id: "hours",
+      label: "Set your hours",
+      done: validateBusinessHours(input.businessHours).valid,
+      href: "/company/settings",
+      cta: "Set hours",
+    },
   ];
   if (modules.isEnabled("pricing")) {
     items.push({ id: "prices", label: "Add your prices", done: input.prices > 0, href: "/company/library?section=pricing", cta: "Add prices" });

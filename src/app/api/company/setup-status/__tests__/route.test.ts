@@ -42,6 +42,7 @@ describe("GET /api/company/setup-status", () => {
   it("counts every source the checklist depends on", async () => {
     currentDb.__seed("businesses", "biz-1", {
       businessName: "Fresh Roofing", phoneNumber: "+15550999",
+      businessHours: "Mon-Fri 8-5",
       voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent-1", phoneNumber: "+15550400" },
     });
     currentDb.__seed("businesses/biz-1/library", "pricing", { materials: [{ name: "Shingles" }, { name: "Nails" }], laborRates: [{ role: "Roofer" }] });
@@ -54,7 +55,7 @@ describe("GET /api/company/setup-status", () => {
     currentDb.__seed("businessUsers", "someone-else", { businessId: "biz-2" });
 
     expect(await (await get()).json()).toEqual({
-      phoneConfigured: true, prices: 4, resources: 1, hasLogo: true, teamMembers: 2, calls: 1,
+      phoneConfigured: true, businessHours: "Mon-Fri 8-5", prices: 4, resources: 1, hasLogo: true, teamMembers: 2, calls: 1,
       // The AI line wins over the "Main phone" field.
       phoneNumber: "+15550400",
     });

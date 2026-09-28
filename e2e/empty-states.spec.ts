@@ -46,7 +46,7 @@ test("every empty screen says what goes there and offers one next step", async (
   const page = await as("emptyOwner");
 
   await visit(page, "/company/dashboard");
-  await expect(page.getByRole("heading", { name: /Get your business ready — \d\/6/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Get your business ready — \d\/7/ })).toBeVisible();
   await expect(page.getByTestId("setup-checklist").locator(".button.primary")).toHaveCount(1);
   await check(page, "dashboard");
 
@@ -152,8 +152,8 @@ test("a new job's tabs each explain themselves", async ({ as }) => {
 test("the setup checklist counts up when the owner loads example prices", async ({ as }) => {
   const page = await as("emptyOwner");
   await visit(page, "/company/dashboard");
-  const heading = page.getByRole("heading", { name: /Get your business ready — \d\/6/ });
-  const before = Number((await heading.innerText()).match(/(\d)\/6/)?.[1]);
+  const heading = page.getByRole("heading", { name: /Get your business ready — \d\/7/ });
+  const before = Number((await heading.innerText()).match(/(\d)\/7/)?.[1]);
 
   // The checklist's own link lands on the exact place that fixes the item.
   await page.getByTestId("setup-checklist").getByRole("link", { name: "Add prices" }).click();
@@ -163,7 +163,7 @@ test("the setup checklist counts up when the owner loads example prices", async 
   await expect(page.getByRole("heading", { name: "Material prices" })).toBeVisible({ timeout: 15_000 });
 
   await visit(page, "/company/dashboard");
-  await expect(page.getByRole("heading", { name: new RegExp(`Get your business ready — ${before + 1}/6`) })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`Get your business ready — ${before + 1}/7`) })).toBeVisible();
   await shot(page, "empty-dashboard-after-prices");
 });
 

@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
 
   const body: SetupChecklistInput = {
     phoneConfigured: Boolean(elevenlabs.agentId || config.vapiAssistantId || config.vapiPhoneNumberId),
+    businessHours: config.businessHours,
     prices: arrayLength(pricingData.materials) + arrayLength(pricingData.laborRates) + arrayLength(workCatalog.data()?.items),
     resources: crews.data().count,
     hasLogo: arrayLength(logos.data()?.logos) > 0 || (typeof config.logoUrl === "string" && config.logoUrl.length > 0),
