@@ -1191,6 +1191,100 @@ an active queue.*
         writeJobProjection; no extra reads). Before this they were only inside each job.
   - [ ] **Owner, after the push:** relaunch Demo Studio (Roofing) — clears the Sep 25 test data and writes Mon–Fri 8–5; call and book;
         then Pipeline → **Confirm & call customer** on your booking and answer the AI's call. Integrator reads both transcripts.
+- [ ] Phase 30 — **Crews, the Calendar board and the Team page** (owner feedback, 2026-09-28, two rounds: "is there no way to edit a
+      crew… anything I drag always goes to 9 AM… it won't let me drag to a cell where there are other jobs"; then "how does a user get
+      assigned to a crew? why can't users be disabled from here?… if I am wondering, new users will absolutely wonder"). Not started —
+      todos only. Benchmark is **Jobba** (Jobba Trade Technologies, roofing — its scheduler is called the Powerboard), not Jobber. Jobba's
+      public pages describe the Powerboard only as color-coded, crew-workload-aware and map-based; the drag/time mechanics below are ours.
+  - [ ] **T-148 — Edit a crew and its members** (Library → Crews; `src/app/company/library/page.tsx` crews section, `src/app/api/company/crews/route.ts`).
+        Today a crew row offers only the color dot and Delete. Membership already exists but is hidden: it's `TeamMember.crewId` (one crew per
+        person), set only from the Team page's per-person Crew dropdown, and only for technician/journeyman/apprentice/installer/helper —
+        **a foreman cannot be put on a crew** (`FIELD_TRADES` in `src/app/company/team/page.tsx:12` leaves foreman out).
+        **Owner decided 2026-09-28:** crew members are team members only (no login-less helpers — they'd get no field screen or time clock);
+        the assignment email goes to the crew email **and** every member who has an email.
+    - [ ] **Edit** on each crew row: name, email, phone, color, Active on/off. Reuse the existing `PATCH /api/company/crews`, but whitelist its
+          fields first — it currently writes whatever keys the body sends (`route.ts:54-67`: `active`, `createdAt`, anything). Trim; name required.
+    - [ ] **Members on the crew card**: list the people whose `crewId` is this crew (name + title), **＋ Add member** (pick from the team →
+          sets their `crewId` through the existing `PATCH /api/company/team/[uid]`), and × to take someone off (clears `crewId`).
+          Show the member count on the Calendar's crew label (e.g. "Tyler Crew · 3").
+    - [ ] **Assignment email to members:** `POST /api/jobs/[jobId]/assign` (confirm) sends to the crew email + each active member's email,
+          one message each; the toast says who got it ("Emailed Tyler Crew + 3 members").
+    - [ ] **Delete is unsafe today** — hard delete with no checks (`route.ts:71-84`). A job scheduled on a deleted crew keeps its
+          `assignedCrewId` + `scheduledStart`, so it is neither in Unscheduled (`CalendarBoard.tsx:243`) nor in any crew row: it disappears from
+          the Calendar. Members keep a dangling `crewId`. Fix: if the crew has upcoming jobs/bookings, ask "Move its N jobs back to Unscheduled?"
+          and do that in the same request; clear members' `crewId`; prefer **Deactivate** (keeps history) over Delete. Confirm the vanish bug
+          on the smoke harness first.
+    - [ ] One plain line on the Crews tab: the phone AI takes as many bookings at the same time as there are **active** crews (G1 capacity
+          model) — deactivating a crew lowers that.
+    - [ ] Gate: vitest for the crews route (PATCH whitelist, delete moves jobs back) + one Playwright spec (edit a crew, add/remove a member),
+          phone screenshot read.
+  - [ ] **T-149 — The Calendar: pick a time on drop, a distinct Bookings row, clearer buttons** (`src/app/company/calendar/CalendarBoard.tsx`).
+        **Why it always lands at 9 AM:** a cell is a whole day, so a drop carries no time. `placeJob` (`:258-295`) always uses
+        `dayAtBusinessOpen()` — the opening time from Settings → business hours — with a 1-hour default length.
+        **Why an occupied cell refuses the drop:** because every drop proposes the same opening-hour slot, it overlaps the job already sitting
+        there, and the assign route's overlap guard (`src/app/api/jobs/[jobId]/assign/route.ts:193-224`) correctly answers 409 "That crew is
+        already assigned during this time"; the board rolls back. The guard is right; the proposed time is wrong.
+    - [ ] **Time-slot popup on drop (owner's ask):** dropping a job on a crew + day opens a small popup anchored to that cell — "Tyler Crew ·
+          Tue Sep 29" — listing that crew's **open start times** that day (business hours minus its jobs and bookings, in 30-min steps) and a
+          length picker (default: the job's estimated length, else 1 h). Pick a time → the tile lands there, still grey/unconfirmed as today.
+          Cancel or click away → nothing moves. No open time that day → say so and offer the crew's next open day. Moving an already-placed
+          tile to another cell opens the same popup, preselecting its current time when free. An unconfirmed tile gets **Change time**
+          (same popup, no drag needed). Works by tap on a 375 px phone.
+    - [ ] Open times come from the server, not a second client-side calculation: a small GET (crew + day → open starts) built on
+          `src/lib/scheduling/hours.ts` (`dayWindow`). The Calendar's own hours regex (`dayAtBusinessOpen`, `:107-117`) breaks the
+          one-hours-parser rule — delete it. Fix the stale comment at `:120` ("Jobs … land at 8am").
+    - [ ] **Job length:** jobs have no length today (`src/types/jobs.ts:146-148` holds only start/end), so every job is 1 hour. Add an
+          optional estimated length on job create (default from the work catalog / service type when present).
+    - [ ] **Bookings row must not look like a crew row** — today it's the same row shape with light-blue chips. Give it a tinted band, a phone
+          icon and the label "Phone bookings" with a small subtitle ("booked by your AI — not a crew"), chips styled as pills (no crew
+          color, no Confirm + email crew button), and a thicker divider before the first crew.
+    - [ ] **"✓ Confirm + email" → "✓ Confirm + email crew"**; the tooltip names who gets it (crew email + members, per T-148). If the crew
+          has no email and no members with one, the button says **Confirm** only.
+    - [ ] **Jobs made from a phone booking keep its time.** Today Pipeline → Create Job (`src/app/api/jobs/from-request/route.ts`) copies the
+          customer, address, service and notes but **not** the booked time, so a job the AI booked for Tue 2 PM lands in Unscheduled while
+          the booking still shows in the Bookings row — one visit, two cards. Fix: the job takes the booking's start/end and the booking
+          stops showing separately; if no crew is set it opens the T-149 popup with that time preselected. Check how `isWindowFree`
+          (`src/lib/tools/agentTools.ts`) counts it so the one visit isn't counted twice against the AI's capacity (booking-change gate
+          applies if that file changes).
+    - [ ] **Say what Unscheduled means:** one line under the rail heading — "Jobs with no crew or time yet. Drag one onto a crew and day."
+          (Jobs land there when made from Jobs → New job, Calendar → New job or ＋ Add, none of which ask for a time; the 8 in the demo are
+          seed data.) Optional **Schedule now** on the New job form (crew + the same slot picker).
+    - [ ] Later, optional: a Day view (crews as rows, 30-min columns, drag a tile's edge to change its length). Multi-day jobs (a roof
+          replacement over 2–3 days) are a separate open question.
+    - [ ] Gate: one Playwright spec — drop into an occupied cell → popup → pick 11 AM → tile shows 11 AM; no open time → message; phone
+          screenshot read. `e2e:call` only for the job-from-booking change; booking-scenarios only if `src/lib/scheduling/**` or
+          `agentTools.ts` changes.
+  - [ ] **T-150 — Team page: crews, disabling and what each role means** (`src/app/company/team/page.tsx`).
+    - [ ] **Crew for everyone who works in the field:** the Crew column shows "—" unless the title is Technician/Journeyman/Apprentice/
+          Installer/Helper (`FIELD_TRADES`, `:12`); both members in the owner's screenshot have "No title", so nothing tells them how. Show the
+          Crew dropdown for every active owner/staff member (foreman included); T-148's ＋ Add member is the second way in.
+    - [ ] **"Lock" is already "disable" but doesn't say so** (`:164-166`: signs them out, blocks sign-in, frees the seat). Rename to
+          **Disable** / **Enable**, status "Disabled", and the confirm text says the seat is freed. Hide it on your own row and on the last
+          owner.
+    - [ ] **Resend invite** only for people who have never signed in (it shows today for members who signed in on Sep 16/27).
+    - [ ] **ⓘ next to Role and Title** (table header and invite form) with a short popover. Draft — check each line against the route gates
+          before shipping, don't copy it from here:
+          **Owner** — everything, plus Team and Settings. **Staff** — the office and the field: Pipeline, Calendar, jobs, quotes, invoices,
+          field notes and photos. **Viewer** — can look, can't change anything or send field notes. **Title** — a label only; it doesn't change
+          what someone can do. Field titles open on the Field screen after sign-in and can join a crew. **No account?** Crew members can use
+          a job's QR code instead. Capitalize the role options (they show as raw "owner/staff/viewer").
+    - [ ] **Owner decision — a field-only role?** Today a crew member who sends field notes must be **Staff**, which also shows them the whole
+          office, including prices and invoices (`verifyRole.ts:17`: title/crew "never gate anything"; field writes need owner/staff,
+          `:544`). Option: a **Crew** role — Field screen, their crew's jobs, time clock, photos, notes; no Pipeline, prices or invoices.
+          Recommendation: yes, before the first multi-crew client; it touches auth on every route, so it's its own task once decided. Also
+          decide whether a Crew seat costs the same as an office seat.
+    - [ ] Gate: one Playwright spec (set a crew on a no-title member, Disable/Enable, ⓘ opens) + phone screenshot read.
+  - [ ] **T-151 — Right-size the gates (owner, 2026-09-28: "prompts are taking way longer… the gate checks need to not be so redundant").**
+        Today one task can run: type-check + lint + full vitest (~1,430 tests) + build + a new e2e spec on the branch; booking scenarios; then
+        after merge `e2e:call`, and full Playwright (~94 tests, 13–19 min) on the merged tree before push — much of it re-run on code that
+        didn't change. Proposed tiers (owner approves, then update AGENTS.md "Definition of done" + "Browser and end-to-end testing", CLAUDE.md's
+        smoke-harness rule, and the matching memory):
+    - [ ] **Worker, per task:** type-check + lint + `vitest related <changed files>` + the one e2e spec for the screen it changed (phone
+          screenshot read). Booking scenarios only when the booking-change scope is touched (seconds). No build, no full Playwright.
+    - [ ] **Integrator, once per merge batch (not per task):** full vitest + build; `e2e:call` only if the batch touched calls/booking/
+          pipeline/jobs/documents.
+    - [ ] **Before push:** full Playwright once, on the final tree. Never re-run a suite already green on the same commit — cite that run.
+    - [ ] Unchanged: a real phone call + transcript read after a booking change ships (unit tests missed the 2026-09-27 break).
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
