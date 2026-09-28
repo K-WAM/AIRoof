@@ -495,7 +495,7 @@ export default function PipelinePage() {
             </div>
           )}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
-          <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact />
+          <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} />
           {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
           <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
         </div>

@@ -285,7 +285,9 @@ export default function CalendarBoard() {
   // Empty states (docs/NO-TRAINING-UX-PLAN.md §3.3): no resources → "Add your first …"; resources but
   // nothing at all to place → "Nothing to schedule", pointing at waiting requests when there are any.
   const readOnly = user?.role === "viewer";
-  const nothingToSchedule = !loading && (apptMode ? appts.length === 0 : jobs.length === 0);
+  const nothingToSchedule = !loading && (apptMode
+    ? appts.length === 0
+    : jobs.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0));
   const waitingRequests = useWaitingRequests(businessId, !apptMode && !readOnly && crews.length > 0 && nothingToSchedule);
   const emptyStateOwnsPrimary = !loading && (crews.length === 0 || (nothingToSchedule && waitingRequests > 0));
 

@@ -219,8 +219,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
               </Tooltip>
             )}
             {modulesReady && isEnabled("library") && (
-              <Tooltip content="Crew roster">
-                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster">
+              <Tooltip content="Library">
+                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Library">
                   <Users size={18} strokeWidth={1.75} />
                 </Link>
               </Tooltip>

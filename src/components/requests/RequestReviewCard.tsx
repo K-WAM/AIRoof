@@ -78,7 +78,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
 
       <div className="request-review-grid"><div><b>Service</b><span>{request.serviceRequested || request.serviceType || "Not specified"}</span></div></div>
       {request.startTime
-        ? <BookingDetails booking={{ ...request, callSummary: request.callSummary || call?.summary }} inspectorName={request.assignedCrewName} timeZone={timeZone} />
+        ? <BookingDetails booking={{ ...request, callSummary: request.callSummary || call?.summary }} inspectorName={request.assignedCrewName} timeZone={timeZone} showName={false} />
         : <div className="request-review-grid"><div><b>Address</b><span>{request.address || "Not provided"}</span></div>{request.preferredTime && <div><b>Requested time</b><span>{request.preferredTime}</span></div>}</div>}
 
       {missing.length > 0 && (
