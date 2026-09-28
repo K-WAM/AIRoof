@@ -181,6 +181,23 @@ function stableJson(value) {
   return JSON.stringify(value);
 }
 
+// ElevenLabs stores every schema field with defaulted extras (is_omitted, constant_value, dynamic_variable, "" descriptions
+// …). Compare only what toolSchemas.json can express, with empty values dropped, or every live tool looks "changed".
+const SCHEMA_KEYS = ["type", "description", "required", "enum", "properties", "items"];
+function comparableSchema(value) {
+  if (Array.isArray(value)) return value.map(comparableSchema);
+  if (!value || typeof value !== "object") return value;
+  const out = {};
+  for (const key of SCHEMA_KEYS) {
+    const entry = value[key];
+    if (entry === undefined || entry === null || entry === "" || (Array.isArray(entry) && entry.length === 0)) continue;
+    out[key] = key === "properties"
+      ? Object.fromEntries(Object.entries(entry).map(([name, prop]) => [name, comparableSchema(prop)]))
+      : comparableSchema(entry);
+  }
+  return out;
+}
+
 function toolSchemaDiff(schema, baseUrl, existing) {
   const desired = updatedExistingToolConfig(schema, baseUrl, existing);
   const fields = [];
@@ -188,7 +205,9 @@ function toolSchemaDiff(schema, baseUrl, existing) {
   if (existing?.response_timeout_secs !== TOOL_RESPONSE_TIMEOUT_SECS) fields.push("response_timeout_secs");
   if (existing?.api_schema?.url !== desired.api_schema.url) fields.push("url");
   if ((existing?.api_schema?.method ?? "POST") !== "POST") fields.push("method");
-  if (stableJson(existing?.api_schema?.request_body_schema) !== stableJson(schema.parameters)) fields.push("request_body_schema");
+  if (stableJson(comparableSchema(existing?.api_schema?.request_body_schema)) !== stableJson(comparableSchema(schema.parameters))) {
+    fields.push("request_body_schema");
+  }
   return { desired, fields };
 }
 
