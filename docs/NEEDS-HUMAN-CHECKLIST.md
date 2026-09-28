@@ -12,18 +12,32 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 - `GET /api/health` → Firestore connected; OpenAI, DeepSeek, Resend, Vapi, Firebase, cron all `configured`; Stripe `not_configured`.
 - `POST /api/webhooks/vapi` with no secret → **HTTP 401** (auth is fail-closed, so an unauthenticated caller can't book anything).
 
-## Suggested order (about a day of console work, most valuable first)
+## Suggested order (updated 2026-09-28 — most valuable first)
 
-| # | Item | Time | Why first |
+**This week (the demo depends on these):**
+
+| # | Item | Time | Why |
 |---|---|---|---|
-| 0 | **NH-29 texting registration** | 30 min + 1–3 weeks carrier review | Nothing can be texted until the carriers approve; start the clock now |
-| 1 | NH-1 Vapi audit | 30 min | If the secret or a tool schema is wrong, calls silently fail |
-| 2 | NH-3 Resend domain | 20 min + DNS wait | Every email (confirmations, invoices, invites) depends on it |
-| 3 | NH-4 recording wording | 20 min + counsel | **Real gap found — see below** |
-| 4 | NH-8 real-device tests | 20 min | The one thing code review can't prove |
-| 5 | NH-17 crm.luxordev.com | 30 min + DNS wait | Only when you're ready for customers on the new domain |
-| 6 | NH-18 / NH-16 live-call tests | 30 min | Before selling those verticals |
-| 7 | Smaller: NH-11, NH-7, T-081, T-064, NH-19, NH-6 | 5–15 min each | |
+| 1 | **NH-29 texting registration** (privacy-policy SMS clause first) | 30 min + 1–3 weeks carrier review | Nothing can be texted until carriers approve — start the clock |
+| 2 | **Relaunch Demo Studio (Roofing)** right after Claude's push | 2 min | Drops the 24-hour rule, loads the new FAQs, clears old test data |
+| 3 | **Real test call** on +1 (689) 204-2643: an urgent leak, give the gate code after it books, ask "who's coming?", say bye | 5 min | The booking-change gate: Claude reads the transcript before calling it done |
+| 4 | **NH-24 rotate the Firebase service-account key** | 10 min | It was printed into a session transcript on 2026-09-25 |
+| 5 | **NH-26 live run-through** (call → Pipeline → job → field on a phone → report/quote/invoice to yourself) | 15 min | Nobody has run the whole chain live yet |
+| 6 | NH-8 real-device clicks (Calendar drag, Field QR + voice) | 20 min | The one thing code review can't prove |
+| 7 | NH-25 email headers (dkim/spf/dmarc = pass) | 2 min | Closes NH-3 |
+
+**Before selling to a paying client:**
+
+| # | Item | Why |
+|---|---|---|
+| 8 | NH-27 plans: **Vercel Pro** (Hobby forbids commercial use), ElevenLabs plan/concurrency | Terms of service + capacity |
+| 9 | NH-4 / NH-22 legal: recording notice wording, retention, ToS/privacy, attorney review of `docs/FLORIDA-DOCUMENT-NOTICES.md` | Legal exposure |
+| 10 | T-126 pricing approval → billing (T-126) + NH-14 Stripe key | Can't charge today |
+| 11 | NH-18 Care Homes / Daycares safety calls | Only before selling those two verticals |
+| 12 | NH-10 confirm https://www.luxordev.com is yours (found live 2026-09-28) | Links in emails/guides; needed for NH-29 |
+
+**Housekeeping (5–15 min each, any time):** NH-11 Firestore TTL, NH-28 stale superadmin flag, NH-6 crons decision, NH-19 paused-tenant
+decision, NH-1 Vapi audit (Vapi is retired from demos — only matters while its number stays connected as a fallback), T-064 mark keys Secret.
 
 ---
 

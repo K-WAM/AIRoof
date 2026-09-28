@@ -1124,7 +1124,7 @@ an active queue.*
   - **Queue consolidated 2026-09-27 night → `docs/WORKER_QUEUE.md` section H (4 prompts):** H0 finish T-144 · H1 = G1 · H2 (Deepseek) = G3 + G4 ·
         H3 = G2 + T-145. The G2/G3/G4 rows below stay as the specs; their standalone prompts are superseded.
         **Status 2026-09-27 late: H0 and H1 DONE (merged + deployed). H2 and H3 can both start now** (their prerequisites are on main).
-  - [ ] **G2 — Operating hours at setup** → runs as **H3 Part 1** (Codex, GPT-6 Sol medium, `air-wt-setup-ux` / `task/setup-ux`, after G1 AND T-144 merge,
+  - [x] **G2 — Operating hours at setup — MERGED 2026-09-28 (`627a096`, + `ead57c1` legacy 23:59 fix)** → ran as **H3 Part 1** (Codex, GPT-6 Sol medium, `air-wt-setup-ux` / `task/setup-ux`, after G1 AND T-144 merge,
         before T-145). Structured hours editor (per-day open/close selects, Closed toggle, presets) in Company Settings, a required "Hours"
         step in the onboarding wizard, admin client config; server-side validation in every route that writes hours; Calendar uses the shared
         parser; setup-checklist item "Set your hours".
@@ -1154,7 +1154,7 @@ an active queue.*
   - [ ] **NEEDS-HUMAN (now, 5 min) — closes the booking gate:** relaunch Demo Studio (Roofing) — on the deployed code it writes Mon–Fri 8–5,
         weekends Closed and re-seeds appointments at business-hour times (the stored doc still has round-the-clock hours). Then call
         +1 (689) 204-2643 and ask for a weekday 8 AM. The integrator reads the transcript before calling booking fixed.
-  - [ ] **OWNER DECISION — "Minimum 24-hour notice"** (roofing template booking rule, `src/lib/verticals/templates.ts:199`, spoken to the agent in
+  - [x] **OWNER DECISION — "Minimum 24-hour notice" — DROPPED 2026-09-28 (plan §1 I, T-154; takes effect on the next Demo Studio launch)** (roofing template booking rule, `src/lib/verticals/templates.ts:199`, spoken to the agent in
         its prompt) is NOT enforced by the booking engine, so the prompt and the engine can disagree (e.g. a Sunday-evening caller asking for
         Monday 8 AM). In the agent tests the model ignored the rule and booked, but that is not guaranteed. Choose: (a) enforce it in the engine
         (a per-tenant `minNoticeHours`, offered times start 24 h out), or (b) drop it from the roofing template/demo. Recommendation: (b) for the
@@ -1319,14 +1319,21 @@ an active queue.*
       outbound `conv_4701m3matcwsfba9ar1aw8w81z7p` (voicemail loop). Workflow: call recorded → Alice books an inspection → it is the
       lead (Pipeline "Booked") → auto-assigned inspector notified → inspector manages their time (blocks, My schedule, phone-calendar
       feed) → customer told by text/email. Split (owner's model rule): live call + booking engine = integrator; screens = Codex; plumbing = Deepseek.
-  - [x] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — **Status: review (Worker D, `task/call-flow`, 2026-09-28; evidence in `docs/IMPLEMENTATION_LOG.md`).** Contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
+  - [x] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — **MERGED to local main 2026-09-28 (`ba885e3`) after an integrator review against plan §3; follow-ups fixed in T-154 (bounded block query, force comment). Not pushed yet.** Contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
         time-blocks API (+ open-times), texting module OFF until NH-29, inspector notifications (assigned/moved/reassigned/cancelled),
         confirm route (text → email, inspector_busy 409 + force), post-call callSummary, bootstrap smsEnabled.
-  - [ ] **T-153 (I2, Codex GPT-6 Sol medium, after H3 + Step 0)** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
+  - [ ] **T-153 (I2, Codex GPT-6 Sol medium) — CAN START NOW (prompt refreshed in WORKER_QUEUE §I2, 2026-09-28)** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
         Calls → "Booked · open in Pipeline"; "after hours" only when true; booking details everywhere; Inspector title + inspector rows
         + drag + blocks on the Calendar; "My schedule" + Block time on the Field screen; private .ics phone-calendar feed; "Tell them
         by: Text / Email / I'll call them".
-  - [ ] **T-154 (I0, integrator, Claude Opus 5.5)** — ElevenLabs agent: end_call + voicemail detection + silence timeout; Twilio
+  - [~] **T-154 (I0, integrator, Claude Opus 5.5) — status 2026-09-28:** DONE: ElevenLabs agent end_call + voicemail detection + 20 s silence
+        timeout (LIVE; voicemail agent test 3/3); Twilio read-only check + NH-29 steps; live path built + merged locally (`a91b5e4`);
+        H3 Part 1 + I1 merged; booking scenarios S1–S21; agent tests on the new prompt 15/15 new + saved suite green (the old G1
+        "book at once" test is superseded by `test_7301m3mqbctze028b59ehf7cvsb0`, checklist first); full vitest 1,568 pass; next build pass.
+        OWED: e2e:call, e2e:booking, full e2e:test → push → deploy check → create + attach the `addBookingNote` tool and
+        `--update-tools` (textOk) → voicemail message with {{businessName}} → post-deploy agent tests → owner relaunches Demo
+        Studio + the real call → transcript read. Owner chose (2026-09-28) to push these call fixes before I2.
+        Original scope — ElevenLabs agent: end_call + voicemail detection + silence timeout; Twilio
         read-only check + NH-29 steps; the live path (prompt: escalation switch, booking checklist, after-booking rules; dispatcher:
         NOT ESCALATED, BOOKED wording, addBookingNote; engine: bookedAfterHours, capacity = inspectors, blocks busy, auto-assign +
         notify); merges H3 → Step 0 → I1 → live → I2; one full gate run; push; live tools; agent tests; the owner's real call.
@@ -1347,7 +1354,7 @@ an active queue.*
         caught a pre-existing bug: the Library page failed to load for every viewer (work-catalog GET refused viewers) — fixed `2ca5aa0`. Shared `EmptyState`, `BlockedAction`
         gains `href`, pure `setupChecklist()` + `GET /api/company/setup-status`, a Dashboard "Get your business ready" checklist (owner/superadmin) replacing the
         "take the Guide tour" nudge, every empty list/tab on the plan's inventory, a new empty `e2e-empty` harness tenant + `e2e/empty-states.spec.ts`.
-  - [ ] **T-145 — Page-by-page roofing UX pass** → runs as **WORKER_QUEUE H3 Part 2** (Codex, GPT-6 Sol medium, `air-wt-setup-ux`, after T-144 and G1 merge; G2 is H3 Part 1 — booking comes first). Golden-path
+  - [ ] **T-145 — Page-by-page roofing UX pass** — **STALLED 2026-09-28 after the "before" screenshots (`bf9c977` on `task/setup-ux`, not merged); re-queue after T-153** → was **WORKER_QUEUE H3 Part 2** (Codex, GPT-6 Sol medium, `air-wt-setup-ux`, after T-144 and G1 merge; G2 is H3 Part 1 — booking comes first). Golden-path
         walk as owner/staff/crew/viewer at 375 + 1280 px → `docs/UX-PASS-FINDINGS.md`; one primary button per screen (+ an automated `KNOWN_MULTI_PRIMARY` guard);
         prerequisite guards as inline `BlockedAction`, never hover tooltips (seat-limit copy, missing customer email, "no price on file" tooltip, crew-less assign);
         Pipeline card down to two buttons; Dashboard Agent Setup panel demoted; Guide rewritten to "How it works — 5 steps" + "Talk to us".
@@ -2677,7 +2684,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-7 | ~~GitHub branch protection on `main` (require CI green)~~ — **Done 2026-09-23** (owner OK): required check `gate`, `enforce_admins: false` (owner/integrator can still push directly), no force-push/deletion. Found while doing it: CI had been RED on 21 of the last 30 runs because `npm audit --audit-level=critical` flagged **Next.js itself** (RCE advisories GHSA-2xp9-vwfh-vxw4 / GHSA-p293-qw3h-jr36, fixed in >=15.5.24); upgraded 15.5.23 -> 15.5.26 (`f70ed1b`), CI green again. | Closed | firebase-admin v14 (T-062) is still the only open dependency debt (moderate/high, transitive) |
 | NH-8 | Human click tests: calendar drag→confirm on desktop browser; `/field` QR + hold-to-speak on a real phone | T-030/T-034 acceptance | 10 minutes with the live app |
 | NH-9 | Callback consent policy for pre-existing leads (auto-call grandfathered leads or not) | T-032 backfill | Default: existing leads are NOT auto-called |
-| NH-10 | Official Luxor Developments LLC website/social URLs, if any should appear in emails/guides | T-041/T-052 content | None on record — nothing will be invented |
+| NH-10 | Official Luxor Developments LLC website: **found 2026-09-28 — https://www.luxordev.com is live** ("Luxor Developments", with `/english-privacy-policy` and `/english-terms-conditions`). Owner: confirm it is yours and may be linked from emails/guides; it needs the SMS clause for NH-29 | T-041/T-052 content, NH-29 | 2 min |
 | NH-11 | Firestore TTL: enable collection-group TTL policies on `_vapiWebhookEvents.expiresAt` and `vapiAppointmentConfirmations.expiresAt` | T-010/T-011 deploy | Code writes server-clock timestamp fields; production TTL policy requires an authenticated console/gcloud deployment action by the integrator |
 | NH-12 | ~~Decide whether a tenant-removal/deactivation capability should be built at all~~ — **Decided 2026-07-23: hold off.** No `DELETE` endpoint exists for businesses (verified 2026-07-21); owner confirmed not to build it now. Revisit only if the owner raises it again. | T-043 scope (closed) | If revisited, this is a new destructive admin capability (needs its own scoped task, confirm/allowlist semantics like T-035's demo reset) — not bundled into any email-only scope without fresh owner sign-off |
 | NH-13 | ~~Owner to research/paste reference apps for visual direction~~ — **Closed 2026-09-05:** owner dropped a client-portal screenshot (`example image irrigation.png`, repo root, untracked — not moved into the app) showing a branded sidebar-nav portal with one confident accent color; T-056 shipped using it as direction. | T-056 (per-industry visual families) | Added 2026-09-01; see T-056's 2026-09-05 note for the palette actually shipped and the quick sign-off still worth doing |

@@ -982,7 +982,7 @@ between steps) and **CRLF/non-ASCII patch mismatches: edit by hand, no permissio
 | H0 | Codex A · GPT-5.5 Terra, medium | Finish T-144 (empty states) | **DONE — finished by the integrator; merged + deployed 2026-09-27** | removed |
 | H1 | Codex B · GPT-6 Sol, medium | G1 booking engine (section G, unchanged) | **DONE — reviewed, fixed, merged + deployed 2026-09-27; live tools updated** | removed |
 | H2 | Deepseek · V4.1 Flash, Thinking: Hard | G3 + G4: booking tests, live test script, daily canary | **DONE — reviewed + merged 2026-09-28 (`67388ef`)** | remove after push |
-| H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | **can start now** (T-144 + G1 are on main) | `air-wt-setup-ux` |
+| H3 | Codex (first free) · GPT-6 Sol, medium | G2 + T-145: hours at setup, then the roofing UX pass | **Part 1 (G2) MERGED 2026-09-28 (`627a096` + the 23:59 fix `ead57c1`); Part 2 (T-145) STALLED after the "before" screenshots (`bf9c977`, not merged) — re-queue later** | `air-wt-setup-ux` (keep until T-145 is re-queued) |
 
 Note for H2 (2026-09-27): the bookAppointment conflict reply is now `NOT BOOKED: <time> was just taken. … Offer them the closest openings: …`
 (model) and `Sorry, <time> was just taken. The closest openings are … Which works best for you?` (sayToCaller) — assert those, never "is booked".
@@ -1073,9 +1073,9 @@ the full set once before the push). Split rule: live call + booking engine = int
 
 | # | Worker / model | Task | Starts when | Worktree |
 |---|---|---|---|---|
-| I1 | Deepseek · **V4.1 Flash, Thinking: Hard** | T-152 plumbing (no live-call code) | now | `air-wt-call-flow` |
-| I2 | Codex · **GPT-6 Sol, medium** | T-153 every screen | H3 merged + I1 Step 0 merged | `air-wt-call-ux` |
-| I0 | Integrator · Claude Opus 5.5 | T-154 live call + booking engine, ElevenLabs config, Twilio check, merges, push | now | `air-wt-call-live` + main |
+| I1 | Deepseek · **V4.1 Flash, Thinking: Hard** | T-152 plumbing (no live-call code) | **DONE — reviewed + merged 2026-09-28 (`ba885e3`)** | `air-wt-call-flow` (remove after push) |
+| I2 | Codex · **GPT-6 Sol, medium** | T-153 every screen | **can start now** (all prerequisites on local main) | `air-wt-call-ux` |
+| I0 | Integrator · Claude Opus 5.5 | T-154 live call + booking engine, ElevenLabs config, Twilio check, merges, push | **built + merged locally (`a91b5e4`); voicemail config LIVE; e2e gates, push, live tools, agent tests after deploy and the owner's call still to do** | `air-wt-call-live` + main |
 
 ### I1 — Deepseek, **V4.1 Flash, Thinking: Hard** — T-152 plumbing
 ```
@@ -1173,18 +1173,30 @@ If a file times out once, re-run it alone (load flake) before touching it.
 Final message: commit table (Step 0 hash first), test summary, "Noticed, not done", QUESTION FOR INTEGRATOR.
 ```
 
-### I2 — Codex, **GPT-6 Sol, medium** — T-153 every screen (after H3 and I1 Step 0 are merged)
+### I2 — Codex, **GPT-6 Sol, medium** — T-153 every screen — **READY 2026-09-28** (H3 Part 1, T-152 and T-154 are all on local main)
 ```
 You are Codex on the AI Receptionist platform. Task T-153: make the screens follow the real workflow — call → booked (that is the
 lead) → inspector notified → inspector manages their time → customer told by text. Read docs/CALL-FLOW-FIX-PLAN.md §0 first: it is
 the story your screens must tell, step by step.
 
-Setup (PowerShell) — main must contain "T-152 Step 0: contracts" (git log --oneline main | Select-String "Step 0"); if not, STOP and say so:
+Setup (PowerShell) — main must contain BOTH "T-152 Step 0" and "fix/call-flow-live" (git log --oneline main | Select-String "Step 0|call-flow-live");
+if not, STOP and say so:
 cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-call-ux -b task/call-ux main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-call-ux/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
 Work ONLY in D:/Apps/air-wt-call-ux; verify toplevel and branch (task/call-ux) before the first edit and every commit. Never push or merge.
 
-Read first: docs/CALL-FLOW-FIX-PLAN.md (§0 workflow, §2 decisions, §3 contract — the types are on main; the server side lands in
-parallel, so every new field or endpoint may be missing: render nothing and never crash), docs/WORKER_QUEUE.md "Worker etiquette",
+The server side is ALREADY on main — build on it, don't re-create it: GET|POST|DELETE /api/company/time-blocks; PATCH
+/api/appointments/[appointmentId] with notifyChannel, force, 409 { code: "inspector_busy", message }, and notifiedVia/staffNotified in the
+response; Appointment bookedAfterHours / textOk / callSummary / assignedBy; bootstrap business.smsEnabled. Older docs lack the new fields:
+render nothing for a missing field and never crash. Facts the screens must reflect (T-154, src/lib/tools/agentTools.ts phoneScheduleModel):
+- As soon as a business has ONE active crew with kind "inspector", the phone AI auto-assigns every new booking to the first inspector free
+  at that time (assignedCrewId + assignedBy "ai") and phone capacity becomes "free inspectors" (their blocks and bookings are busy; jobs on
+  work crews don't count). No inspector rows = the old rule (one booking per active crew, nothing assigned). Say this plainly where
+  inspector rows are added (B2) — e.g. "Phone bookings: one at a time per active inspector."
+- The inspector's email goes out when the call ENDS (post-call webhook, with the call summary and any gate code added during the call),
+  not at the moment of booking. Texting stays off until NH-29 (bootstrap smsEnabled is false today) — Text choices must hide, not break.
+- The office's PATCH already handles locks and the "busy — assign anyway?" check; the UI only sends force: true after the user agrees.
+
+Read first: docs/CALL-FLOW-FIX-PLAN.md (§0 workflow, §2 decisions, §3 contract), docs/WORKER_QUEUE.md "Worker etiquette",
 CLAUDE.md "Industry-Applicability Rule", "Cache-Control Rule", "Phase 30 Key Files" and the one-teal rule, docs/NO-TRAINING-UX-PLAN.md
 §2 (one primary button per screen, no hover-only help, plain words). Big files (pipeline/page.tsx, calendar/CalendarBoard.tsx,
 jobs/[jobId]/page.tsx): grep, don't read whole; moving a piece into its own component file with no behaviour change is welcome.
@@ -1192,8 +1204,9 @@ jobs/[jobId]/page.tsx): grep, don't read whole; moving a piece into its own comp
 YOUR FILES: src/app/company/**, src/components/**, src/types/team.ts, src/lib/team/landing.ts, src/app/api/company/crews/route.ts
 (`kind` in POST + the PATCH whitelist only), src/app/api/calendar/feed/** + src/app/api/company/team/me/calendar-feed/** (new),
 e2e/call-flow.spec.ts (new), docs/IMPLEMENTATION_LOG.md, your TODO row.
-DO NOT touch src/lib/ai/**, src/lib/tools/**, src/lib/voice/**, src/lib/scheduling/**, src/lib/comms/**, src/app/api/appointments/**,
-src/app/api/webhooks/**, src/app/api/company/time-blocks/** (the integrator's and Deepseek's).
+DO NOT touch src/lib/ai/**, src/lib/tools/**, src/lib/voice/**, src/lib/scheduling/**, src/lib/comms/**, src/lib/crews/**,
+src/app/api/appointments/**, src/app/api/webhooks/**, src/app/api/company/time-blocks/**, src/app/api/company/crews/open-times/**
+(the integrator's and Deepseek's — if one needs a change, say so under QUESTION FOR INTEGRATOR).
 
 Part A — calls feed the Pipeline; the Pipeline is the booked customers (one commit per item, prefix "T-153:")
 A1. Nav: Dashboard → Calls → Pipeline → Calendar → Jobs → Field → Customers → Library (company-nav.tsx LINKS); the phone top-bar
@@ -1246,6 +1259,8 @@ C3. Settings: one read-only line "Text messages: On" / "Off — waiting for carr
 Tests — only these (no full vitest, no full Playwright, no next build): npx tsc --noEmit; eslint on changed files; vitest for the
 folders you touched; ONE new spec e2e/call-flow.spec.ts (desktop + phone). Make the booking with simulateCall from scripts/e2e/lib.cjs
 (see how scripts/e2e/scenarios/booking.cjs books through the real tool webhook; give it notes "Access: gate 1010" and a summary).
+A booking made while an active inspector row exists is auto-assigned to it — for the drag test, book BEFORE adding the inspector row
+(then it sits in Phone bookings), and separately assert that a later booking lands on the inspector's row by itself.
 Assert: nav order; the Pipeline opens on Booked and shows the Access line + From the call; the booking drags onto an inspector row
 (desktop); a block shows on the row; an inspector member sees the booking and the block under My schedule (phone). For API setup
 inside the spec copy the in-page api() helper from e2e/crews-calendar.spec.ts (page.request calls come back unauthenticated).
