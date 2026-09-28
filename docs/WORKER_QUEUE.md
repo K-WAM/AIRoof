@@ -1065,3 +1065,237 @@ Append evidence to docs/IMPLEMENTATION_LOG.md with a shell heredoc; set only the
 Final message: Part 1 and Part 2 commit tables (mark "H3 Part 1 complete"), findings summary (counts by severity, fixed vs deferred), gate output,
 screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
 ```
+
+## I — Call-flow fixes from the owner's 2026-09-28 test call (Phase 31) — spec: `docs/CALL-FLOW-FIX-PLAN.md`
+
+Three prompts: **I1 Deepseek** (starts now), **I2 Codex** (after H3 + I1 Step 0 are on main), **I0 integrator** (now).
+Gates follow the plan's §5: workers run only what proves their own change; the integrator runs the full set once before the push.
+
+| # | Worker / model | Task | Starts when | Worktree |
+|---|---|---|---|---|
+| I1 | Deepseek · V4.1 Flash, Thinking: Hard | T-152 Alice books, always (agent + booking + texting backend) | now | `air-wt-call-flow` |
+| I2 | Codex · GPT-6 Sol, medium | T-153 Calls → Booked → Inspector UX | H3 merged + I1 Step 0 merged | `air-wt-call-ux` |
+| I0 | Integrator | T-154 voicemail/end-call config, NH-29 steps, merges, live tools, agent tests, push | now | main |
+
+### I1 — Deepseek, **V4.1 Flash, Thinking: Hard** — T-152 "Alice books, always"
+```
+You are Worker D (Deepseek) on the AI Receptionist platform. Task T-152. You are a careful junior engineer: follow these steps in
+order, commit after each step (prefix "T-152:"), and do not add scope. Run to the end in this one session.
+
+Setup (PowerShell):
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-call-flow -b task/call-flow main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-call-flow/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-call-flow. Before your first edit and before every commit check `git rev-parse --show-toplevel` = D:/Apps/air-wt-call-flow
+and `git branch --show-current` = task/call-flow. Never edit "D:/Apps/6 - AI Receptionist". Never push or merge.
+
+Read first: docs/CALL-FLOW-FIX-PLAN.md (all — §1 has the causes with file:line, §3 is your contract), docs/WORKER_QUEUE.md "Worker etiquette",
+AGENTS.md "Definition of done" item 2 and the "Booking-change gate" (words the agent reads ARE booking logic: every tool result the model
+reads starts with an unambiguous word — BOOKED / NOT BOOKED / NOTE SAVED / NOT SAVED / NOT ESCALATED). CRLF files: if a patch fails to
+match, edit by hand (AGENTS.md "Known hiccups").
+
+YOUR FILES: src/types/index.ts, src/types/library.ts (Crew.kind only), src/types/bootstrap.ts, src/app/api/company/bootstrap/route.ts,
+src/lib/ai/agentPromptBuilder.ts (+ its tests), src/lib/tools/**, src/lib/voice/elevenlabs/toolSchemas.json + toolSchemas.ts,
+src/lib/voice/outboundContext.ts, src/lib/voice/elevenlabs/outbound.ts, src/app/api/webhooks/elevenlabs/post-call/route.ts,
+src/app/api/webhooks/vapi/route.ts (escalation guard only), src/app/api/appointments/[appointmentId]/route.ts,
+src/app/api/jobs/[jobId]/assign/route.ts (only to use the extracted recipients helper), src/lib/comms/** (new sms files),
+src/lib/crews/recipients.ts (new), src/lib/notify.ts (one new email builder), src/lib/format/name.ts, src/lib/scheduling/hours.ts (one
+pure helper), src/lib/verticals/templates.ts (roofing booking rule + 2 FAQs), .env.example, docs/IMPLEMENTATION_LOG.md, your TODO row.
+DO NOT touch anything under src/app/company/** or src/components/** — Codex owns the screens.
+
+Step 0 — contracts, types only. Commit "T-152 Step 0: contracts" BY ITSELF, first (the integrator merges it early so Codex can start):
+add exactly the fields in the plan §3 (all optional, a one-line comment each). No behaviour change. tsc must pass.
+
+Step 1 — escalation switch (plan §2.1).
+- agentPromptBuilder.ts: when businessConfig.escalationEnabled !== true, replace "## Emergency Rules" and "## Escalation" with the
+  "## Urgent requests" section below, drop "escalate urgent cases" / "Emergency escalation rules" / "urgent triage" from Your Role, Scope
+  and the are-you-human answer, and drop every escalateCall line from "Using your tools". When it IS true, the output stays
+  byte-identical to today (existing tests pass unchanged — add new tests for the off path; don't edit the old ones).
+  Text to use (keep the wording; fill the list from businessConfig.emergencyRules):
+    ## Urgent requests
+    Your job on every service call is to book a visit. Never hand a caller off or end the call without offering a time.
+    This business treats these as urgent:
+    - <each emergency rule>
+    Whatever a rule above says to do, act on it the same way: tell the caller you'll get them the soonest opening, call
+    checkAvailability for today with no preferredTime, offer the earliest time, and book it. Start the booking notes with
+    "URGENT: " and what they described.
+    If anyone is in danger right now (fire, sparks or water near electrics, someone hurt), tell them to call 911 first, then keep booking.
+- toolDispatcher.ts "escalateCall": read the business doc; if escalationEnabled !== true, do NOT send the alert; return result
+  "NOT ESCALATED: escalation is off for this business. Do not say the team was alerted. Call checkAvailability for the soonest
+  opening, offer it and book it; start notes with URGENT:" and sayToCaller "Let me get you the soonest opening." Check the Vapi
+  route's escalation branch: if it doesn't go through the dispatcher, add the same guard there. escalateCall's description in
+  toolSchemas.json/.ts becomes: "Only when your instructions say escalation is on."
+- templates.ts roofing bookingRules: remove "Minimum 24-hour notice for non-emergency appointments" (plan §1 H).
+Tests: prompt off/on paths; dispatcher guard (no alert sent, NOT ESCALATED text).
+
+Step 2 — the booking conversation (prompt; plan §1 D, E, F). Add for every business, after "Collecting Contact Details":
+    ## Booking checklist (one question at a time; skip a step only if the caller already answered it; never skip the booking)
+    1. Name. If the caller starts with a filler ("It's…", "Es…", "Soy…", "This is…", "My name is…"), the name is what follows. Read it back once.
+    2. Service address with ZIP (rules above). 3. Phone (rules above).
+    4. Email — ask every time: "What's the best email for your confirmation and the estimate?" It is optional: if they have none or
+       don't want to give it, move on. Read it back once in plain words.
+    5. Texts — "Is it OK if we text you at this number about the appointment?" Send textOk true/false to bookAppointment.
+    6. Access — "Anything the inspector should know to get in — a gate code, pets, where to park, or someone to call on arrival?"
+       Put the answer in notes on its own line as "Access: …".
+    7. Time — checkAvailability, agree a time, then bookAppointment with everything above.
+    ## After the booking
+    - Say the booking tool's sayToCaller sentence, word for word.
+    - Then answer their questions fully from your FAQs. Do not ask "Is there anything else?" while they still have questions — and at most once.
+    - If they add anything after booking (a gate code, pets, a note for the visit), call addBookingNote BEFORE you say it's noted.
+      Never say you noted something unless addBookingNote returned NOTE SAVED.
+    - Never invent who is coming or when they'll call; if you don't know, say the office will tell them when they confirm.
+  Replace the old optional-email bullet (~line 143) with a pointer to step 4, and the "After hours, say…" line with
+  "Say the confirmation step exactly as the booking tool's sayToCaller puts it." Add to the roofing template's approvedFaqs:
+    Q: Who will come out? A: One of our inspectors. The office confirms your time, and the inspector calls when they're on the way.
+    Q: When will I get the estimate? A: After the inspection we write up what we found and email you a proposal.
+  Tests: both sections render; the old email bullet is gone.
+
+Step 3 — booking result + after-hours + names + capacity (booking-change gate: also run npx vitest run src/lib/scheduling src/lib/tools).
+- agentTools.bookAppointment: keep pendingConfirmation: true (the office reviews every booking — say so in a comment). Add
+  bookedAfterHours = !isOpenAt(now, tz, businessHours); store textOk. Return what the dispatcher needs (bookedAfterHours, email,
+  textOk, whether texting is on — Step 5's isSmsEnabled) from the business doc you already read; no second read.
+- toolDispatcher bookAppointment: channel = "by text" if textOk && texting on, else "by email" if an email was given, else
+  "with a quick call". sayToCaller in hours: "You're booked for <when>. The office will confirm it <channel> shortly." After hours:
+  "You're booked for <when>. The office opens <next open, e.g. 'tomorrow at 8 AM' / 'Monday at 8 AM'> and will confirm it <channel>
+  then." Add a pure nextOpeningLabel(now, tz, hours) to src/lib/scheduling/hours.ts built on dayWindow, with tests. The model-facing
+  result starts with "BOOKED:" and never says "after hours" unless bookedAfterHours is true. Keep the internal-reference sentence.
+- src/lib/format/name.ts: add cleanCallerName(raw) — strips ONE leading filler (it's / it is / its / es / soy / this is / my name is /
+  me llamo / i'm / i am; case-insensitive; then punctuation) only when at least one word remains; trims. Tests incl.
+  "Es Carla Esnaida" → "Carla Esnaida" and "Esther Lee" unchanged. Use it for callerName in bookAppointment and createLead.
+- schedulingCapacity(crews): if any active crew has kind "inspector", capacity = the number of active inspectors; otherwise as today. Tests.
+- Update booking-scenario/tool tests only where the wording you changed is asserted; the "NOT BOOKED" conflict wording stays exactly as is.
+
+Step 4 — notes after booking + the call summary (plan §1 C).
+- New tool addBookingNote { note: string } in toolSchemas.json + toolSchemas.ts (same shape as the others; description: "Add details
+  the caller gives AFTER booking — gate code, access, pets, a note for the visit — to the booking made in this call"). Dispatcher: find
+  this call's appointments (sourceCallId == callId), newest first; append the note on a new line (cap notes at 2,000 chars), set
+  updatedAt; result "NOTE SAVED to the booking."; sayToCaller "Got it — I've added that for the visit." If none: "NOT SAVED: there is
+  no booking in this call yet. Keep it and put it in notes when you call bookAppointment." logAction like the other tools. Tests.
+- post-call/route.ts (~line 188 — the appointments query is already there): write callSummary = the non-empty transcript summary onto
+  each of this call's appointments (one batch). Test.
+
+Step 5 — texting backend, OFF by default (plan §2.6) + the confirm route.
+- src/lib/comms/sms.ts: isSmsEnabled(business) = process.env.SMS_ENABLED === "true" && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN &&
+  business.smsEnabled !== false. sendSms({ businessId, to, body, messageType, entityId }): E.164 (reuse sanitizePhone), POST
+  https://api.twilio.com/2010-04-01/Accounts/<SID>/Messages.json with Basic auth and form fields To/From/Body (From =
+  business.smsFromNumber ?? TWILIO_PHONE_NUMBER), a 10 s AbortController timeout, no new dependency. Dedupe and record exactly the
+  way sendWithLedger in src/lib/comms/send.ts does for email (read it and mirror it). In the smoke harness (isE2EHarness()) write to
+  the same E2E outbox with channel "sms" and never call Twilio. Log only the last 4 digits of a number. Tests mock fetch.
+- src/lib/comms/smsTemplates.ts (pure, tested, ≤ 320 chars): bookingReceived ("Hi <first>, <Business> here. You're down for
+  <when> at <street>. We'll text to confirm. Reply STOP to opt out.") and bookingConfirmed ("Confirmed: <service> <when> at <street>.
+  Questions? Call <business phone>. – <Business>").
+- Booking-time text: in the dispatcher after BOOKED, if textOk && texting on, send bookingReceived (ledger key per appointment) inside
+  try/catch — a text failure never breaks or delays the booking reply.
+- appointments/[appointmentId]/route.ts: body notifyChannel "sms" | "email" | "none"; when notifyCustomer is true and no channel is
+  given, pick sms (texting on + phone + textOk !== false) → email (callerEmail) → none. Keep today's email path as is. The response
+  adds notifiedVia and staffEmailed. On confirm, if the booking has assignedCrewId, email that crew/inspector row's address + its active
+  members with a new buildInspectionAssignmentEmail in notify.ts (time, customer name + phone, address, the Access/URGENT lines of
+  notes, callSummary). First extract the recipients logic from src/app/api/jobs/[jobId]/assign/route.ts into
+  src/lib/crews/recipients.ts and use it in both routes (the assign route's behaviour and tests must not change).
+- bootstrap: business.smsEnabled = isSmsEnabled(...). .env.example: SMS_ENABLED=false with the comment "true only after carrier
+  registration (NH-29)". Tests for the route's channel choice + staffEmailed, and for sms.ts.
+
+Step 6 — the outbound AI call (plan §1 F, G).
+- outboundContext.ts / outbound.ts: greet with cleanCallerName's first word. Replace the voicemail rule with: "If you hear a voicemail
+  greeting or a beep, leave ONE short message — who you are, the business, that you're calling about their appointment, and please
+  call this number back — then immediately call end_call. Never ask 'are you still there?'. If nobody answers after your message,
+  call end_call." (end_call is an ElevenLabs system tool; the integrator switches it on.) Test the text.
+
+Step 7 — wrap up: append a plain-text entry to docs/IMPLEMENTATION_LOG.md with a shell heredoc (steps, commits, test output), set only
+the T-152 row in TODO.md to review, commit "T-152 complete".
+
+Tests you run — and nothing bigger (no full vitest, no e2e, no next build): npx tsc --noEmit; eslint on changed files;
+npx vitest run src/lib/ai src/lib/tools src/lib/scheduling src/lib/comms src/lib/format src/lib/voice src/app/api/appointments
+src/app/api/webhooks "src/app/api/jobs/[jobId]/assign" src/app/api/company/bootstrap. If a file times out once, re-run it alone
+(load flake) before you touch it.
+
+Final message: commit table (Step 0 hash first), test summary, the exact model-facing strings you added (the integrator writes agent
+tests from them), "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### I2 — Codex, **GPT-6 Sol, medium** — T-153 "Calls → Booked → Inspector" (after H3 and I1 Step 0 are merged)
+```
+You are Codex on the AI Receptionist platform. Task T-153 — make the screens follow the real workflow:
+call → booked (that is the lead) → inspector → confirmation by text. You own the UX; the backend contract is fixed (plan §3).
+
+Setup (PowerShell) — main must contain "T-152 Step 0: contracts" (git log --oneline main | Select-String "Step 0"); if not, STOP and say so:
+cd "D:/Apps/6 - AI Receptionist"; git worktree add ../air-wt-call-ux -b task/call-ux main; New-Item -ItemType Junction -Path "D:/Apps/air-wt-call-ux/node_modules" -Target "D:/Apps/6 - AI Receptionist/node_modules"
+Work ONLY in D:/Apps/air-wt-call-ux; verify toplevel and branch (task/call-ux) before the first edit and every commit. Never push or merge.
+
+Read first: docs/CALL-FLOW-FIX-PLAN.md (§2 decisions, §3 contract — the fields exist on main as types; their server side lands with
+T-152 in parallel, so any new field may be missing: render nothing, never crash), docs/WORKER_QUEUE.md "Worker etiquette", CLAUDE.md
+"Industry-Applicability Rule", "Phase 30 Key Files" and the one-teal rule, docs/NO-TRAINING-UX-PLAN.md §2 (one primary button per
+screen, no hover-only tooltips, plain words). Large files (pipeline/page.tsx ~900 lines, calendar/CalendarBoard.tsx,
+jobs/[jobId]/page.tsx): grep, don't read whole; extracting a component to its own file with no behaviour change is welcome.
+
+YOUR FILES: src/app/company/**, src/components/**, src/types/team.ts, src/lib/team/landing.ts, src/app/api/company/crews/route.ts
+(accept `kind` in POST + the PATCH whitelist only), e2e/call-flow.spec.ts (new), docs/IMPLEMENTATION_LOG.md, your TODO row.
+DO NOT touch src/lib/tools/**, src/lib/ai/**, src/lib/voice/**, src/app/api/appointments/**, src/app/api/webhooks/** (Deepseek's).
+
+Part A — Calls feed the Pipeline; the Pipeline is the booked customers (one commit per item, prefix "T-153:")
+A1. Nav order: Dashboard → Calls → Pipeline → Calendar → Jobs → Field → Customers → Library (company-nav.tsx LINKS), and the phone
+    top-bar shortcuts in company/layout.tsx in the same order.
+A2. Pipeline: first/default tab "Booked (n)" = appointments; second "Callbacks (n)" = createLead messages ("Callers who didn't book —
+    call them back"). Old deep links keep working (?tab=appointments → Booked, ?tab=leads → Callbacks). Empty states per the
+    no-training plan (one action each).
+A3. Calls page: a call that booked shows "Booked · open in Pipeline →" (src/lib/pipeline/callLinks.ts already matches them); a call
+    that didn't shows "Not booked" and a tap-to-call link.
+A4. Say "after hours" only when appointment.bookedAfterHours === true; otherwise "New booking · confirm". Pipeline (~lines 466/474),
+    Dashboard (~413-421 — rename the section "New bookings to confirm"), Guide (~188 and ~214).
+A5. Wherever a booking is shown — Pipeline card, RequestReviewCard, and a tap/hover popover on the Calendar's Phone-bookings chip —
+    show what the inspector needs: time, name, phone (tel:), address (maps link), email, an "OK to text" chip when textOk, the notes
+    with lines starting "Access:" and "URGENT:" highlighted, and callSummary under "From the call".
+
+Part B — Inspectors
+B1. src/types/team.ts: TradeTitle "inspector" (label "Inspector"); the Team page's title help gets "Inspector — opens on the Field
+    screen with today's inspections"; landing.ts: inspector → /company/field.
+B2. Library → Crews (src/app/company/library/CrewsSection.tsx): a "Type" choice (Crew / Inspector) on add and on Edit; inspector rows
+    in their own "Inspectors" group above "Crews"; the capacity line says "one per active inspector" when any exist (T-152 makes the
+    phone AI count inspectors). Crews API accepts kind ("crew" | "inspector") in POST and the PATCH whitelist, with a test.
+B3. Calendar (jobs mode only): inspector rows first under a small "Inspectors" label, crews below under "Crews". Phone-booking chips
+    become draggable onto INSPECTOR rows only (reuse the appointments-mode code: placeAppt, ApptTile/ScheduledApptTile, confirmAppt);
+    jobs onto CREW rows only; a wrong drop shows "Drag bookings onto an inspector, jobs onto a crew." Moving a booking to another day
+    asks first ("This moves Carla's booking from Mon 1 PM to Tue 1 PM — she's told when you confirm"). An assigned booking leaves the
+    Phone-bookings strip. Confirm on the inspector tile → PATCH confirm with notifyCustomer: true (the server picks text/email) →
+    toast from notifiedVia + staffEmailed ("Confirmed · customer texted · Dominic emailed").
+B4. Field screen (/company/field) "My inspections": for a member whose crew row is an inspector row, a section at the top with their
+    assigned bookings today + the next 7 days (existing GET /api/businesses/[businessId]/appointments?from&to, filtered by
+    assignedCrewId): time, name, tap-to-call, address → maps, Access/URGENT lines, From the call. Owner/Staff also get "Start
+    inspection" → POST /api/jobs/from-request { businessId, appointmentId }, then select that job in the field log. Crew-role members
+    see the list only.
+
+Part C — Follow-up by text, not an AI voicemail
+C1. RequestReviewCard: replace "Have the AI phone them to confirm" with "Tell them by": Text (only if bootstrap business.smsEnabled
+    && phone && textOk !== false) / Email (if an email) / "I'll call them" (shows a tel: link). Default = the first available.
+    Send notifyChannel ("sms" | "email" | "none").
+C2. Every "Confirm & call customer" becomes "Confirm & text" / "Confirm & email" / "Confirm" by what's available. The AI outbound call
+    stays only where someone explicitly asks for it (Calls → "Have the AI call back"), never as a default.
+C3. Settings: one read-only line "Text messages: On" / "Off — waiting for carrier registration (ask Luxor)".
+
+Tests you run (no full vitest, no full Playwright, no next build): npx tsc --noEmit; eslint on changed files; vitest for the folders
+you touched; ONE new spec e2e/call-flow.spec.ts (desktop + phone). Make the booking with simulateCall from scripts/e2e/lib.cjs (see how
+scripts/e2e/scenarios/booking.cjs books through the real tool webhook; give it notes "Access: gate 1010" and a summary). Assert: nav
+order; the Pipeline opens on Booked and shows the Access line + From the call; the booking drags onto an inspector row (desktop); an
+inspector member sees it under My inspections (phone). For API calls inside the spec copy the in-page api() helper from
+e2e/crews-calendar.spec.ts (page.request calls come back unauthenticated). npm run e2e:up:bg once from your worktree; open the phone
+screenshots and fix anything unreadable or off-screen; npm run e2e:down when done.
+
+Wrap up: IMPLEMENTATION_LOG entry (shell heredoc), set only the T-153 row in TODO.md to review, commit "T-153 complete".
+Final message: commit table, spec result + screenshot paths, "Noticed, not done", QUESTION FOR INTEGRATOR.
+```
+
+### I0 — Integrator (Claude), T-154 — while I1/I2 run, then the merges
+```
+Now:
+1. ElevenLabs agent agent_0101m3a5z9qxenybnpjsragg7dvt (shared, live): agents_get → save the current config to the scratchpad for
+   rollback → turn on the end_call system tool, voicemail detection (short message, then hang up) and a silence end-call timeout
+   (~15 s) → one agent test with a voicemail greeting as the user turn (expect end_call, no "are you still there") → re-run the saved
+   agent tests. Record it in TODO Phase 31.
+2. NH-29: the owner's click-by-click for texting registration (toll-free verification vs A2P 10DLC for +1 689 204 2643) in
+   docs/NEEDS-HUMAN-CHECKLIST.md, and what switches texting on afterwards (SMS_ENABLED=true on Vercel).
+3. When H3 reports: review, merge (CalendarBoard: take main's side — section H note), tiered gates. Merge I1 Step 0 as soon as
+   Deepseek commits it, then hand the owner the I2 prompt.
+After I1 + I2 report: review against the plan; merge; the full gates once (vitest, next build, e2e:call, e2e:booking, e2e:test);
+push; scripts/setup-elevenlabs-agent.mjs --update-tools with NEXT_PUBLIC_APP_URL=https://ai-roof.vercel.app (adds addBookingNote,
+updates the escalateCall/bookAppointment descriptions — read the dry-run first); agent tests: urgent leak → books (no escalation),
+asks email + OK-to-text + access before booking, no "anything else" before booking, "Es Carla" → "Carla", addBookingNote after
+booking; then the owner's real call + transcript read.
+```
