@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { runOptimisticCalendarMutation } from "./optimisticMutation";
+import { parseBusinessHours, WEEKDAYS } from "@/lib/scheduling/hours";
 
 interface Appointment {
   appointmentId: string;
@@ -106,14 +107,14 @@ function sameDay(aMs: number, b: Date, timeZone: string): boolean {
 
 function dayAtBusinessOpen(
   day: Date,
-  businessHours: Record<string, string>,
+  businessHours: unknown,
   timeZone: string
 ): number | null {
-  const weekday = day.toLocaleDateString("en-US", { weekday: "long" });
-  const hours = businessHours[weekday];
-  const match = hours?.match(/^(\d{1,2}):(\d{2})\s*[-–]/);
-  if (!match || hours.trim().toLowerCase() === "closed") return null;
-  return wallTimeToUtc(day, Number(match[1]), Number(match[2]), timeZone);
+  const parsed = parseBusinessHours(businessHours);
+  const weekday = WEEKDAYS[(day.getDay() + 6) % 7];
+  const hours = parsed?.[weekday];
+  if (!hours) return null;
+  return wallTimeToUtc(day, Math.floor(hours.open / 60), hours.open % 60, timeZone);
 }
 /**
  * Move a booking to another day without losing its time of day — a 10:30 cleaning
@@ -145,7 +146,7 @@ export default function CalendarBoard() {
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
-  const [businessHours, setBusinessHours] = useState<Record<string, string>>({});
+  const [businessHours, setBusinessHours] = useState<unknown>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busyJob, setBusyJob] = useState<string | null>(null);
