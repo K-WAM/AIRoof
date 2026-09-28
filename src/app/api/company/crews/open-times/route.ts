@@ -42,11 +42,13 @@ export async function GET(req: NextRequest) {
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const businessRef = db.collection("businesses").doc(businessId);
-  const [businessSnap, crewSnap, jobsSnap, apptsSnap] = await Promise.all([
+  const [businessSnap, crewSnap, jobsSnap, apptsSnap, blocksSnap] = await Promise.all([
     businessRef.get(),
     businessRef.collection("crews").doc(crewId).get(),
     businessRef.collection("jobs").where("assignedCrewId", "==", crewId).get(),
     businessRef.collection("appointments").where("assignedCrewId", "==", crewId).get(),
+    // Phase 31 (T-152): an inspector's own time blocks are busy too, so the drop popup never offers a blocked start.
+    businessRef.collection("timeBlocks").where("crewId", "==", crewId).get(),
   ]);
   if (!businessSnap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
   if (!crewSnap.exists) return NextResponse.json({ error: "Crew not found" }, { status: 404 });
@@ -68,6 +70,12 @@ export async function GET(req: NextRequest) {
   for (const doc of apptsSnap.docs) {
     const data = doc.data();
     if (data.status !== "cancelled" && typeof data.startTime === "number" && typeof data.endTime === "number") {
+      busy.push({ start: data.startTime, end: data.endTime });
+    }
+  }
+  for (const doc of blocksSnap.docs) {
+    const data = doc.data();
+    if (typeof data.startTime === "number" && typeof data.endTime === "number") {
       busy.push({ start: data.startTime, end: data.endTime });
     }
   }

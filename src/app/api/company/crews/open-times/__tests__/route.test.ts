@@ -38,6 +38,15 @@ describe("GET /api/company/crews/open-times", () => {
     expect(data.starts.at(-1)).toBe(at("2026-10-05T20:00:00Z")); // 4:00 PM, ends at close
   });
 
+  it("treats the crew's own time blocks as busy (Phase 31, T-152)", async () => {
+    // Mon Oct 5, 11:00 AM–12:00 PM block on the crew.
+    db.__seed("businesses/biz/timeBlocks", "blk-1", { crewId: "c1", startTime: at("2026-10-05T15:00:00Z"), endTime: at("2026-10-05T16:00:00Z"), label: "Site visit" });
+    const data = await (await get("businessId=biz&crewId=c1&day=2026-10-05&durationMin=60")).json();
+    expect(data.starts).not.toContain(at("2026-10-05T15:00:00Z"));
+    expect(data.starts).not.toContain(at("2026-10-05T15:30:00Z")); // 11:30–12:30 overlaps the block
+    expect(data.starts).toContain(at("2026-10-05T16:00:00Z")); // noon, block has ended
+  });
+
   it("leaves the job being moved out of its own way", async () => {
     const data = await (await get("businessId=biz&crewId=c1&day=2026-10-05&durationMin=60&jobId=J-1")).json();
     expect(data.starts).toContain(at("2026-10-05T13:00:00Z"));
