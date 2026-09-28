@@ -16,7 +16,7 @@ vi.mock("@/lib/auth/verifyRole", () => ({
 let db: FakeDb;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 
-import { GET, POST } from "@/app/api/jobs/[jobId]/findings/route";
+import { GET, PATCH, POST } from "@/app/api/jobs/[jobId]/findings/route";
 
 const ctx = (jobId: string) => ({ params: Promise.resolve({ jobId }) });
 const get = (jobId: string) => new NextRequest(`http://localhost/api/jobs/${jobId}/findings?businessId=biz`, { headers: { "x-test-auth": "1" } });
@@ -86,5 +86,39 @@ describe("/api/jobs/[jobId]/findings (field-safe)", () => {
   it("is unavailable for a business without the Jobs module", async () => {
     db.__seed("businesses", "biz", { industry: "dental" });
     expect((await POST(post("J-1000", { businessId: "biz", itemId: "tile" }), ctx("J-1000"))).status).toBe(403);
+  });
+});
+
+const patch = (jobId: string, body: unknown) => new NextRequest(`http://localhost/api/jobs/${jobId}/findings`, {
+  method: "PATCH", headers: { "content-type": "application/json", "x-test-auth": "1" }, body: JSON.stringify(body),
+});
+
+describe("PATCH /api/jobs/[jobId]/findings — the inspector's comment", () => {
+  const finding = { findingId: "f1", itemId: "tile", category: "Tile", problem: "Cracked tile", solution: "Replace it.", includeInReport: true, includeInQuote: true, addedAt: 1,
+    lines: [{ description: "Roof tile", quantity: 6, unit: "each", unitPrice: 9, kind: "material" }] };
+
+  it("sets only the note, and carries it onto the draft quote", async () => {
+    db.__seed("businesses/biz/jobs", "J-1000", { jobId: "J-1000", status: "open", findings: [finding], quoteId: "Q-1" });
+    db.__seed("businesses/biz/quotes", "Q-1", { quoteId: "Q-1", status: "draft", findings: [finding], lines: [] });
+    const res = await PATCH(patch("J-1000", { businessId: "biz", findingId: "f1", note: " north slope, about 12 tiles ", solution: "hacked" }), ctx("J-1000"));
+    expect(res.status).toBe(200);
+    const stored = (db.__peek("businesses/biz/jobs", "J-1000")?.findings as Array<Record<string, unknown>>)[0];
+    expect(stored).toMatchObject({ note: "north slope, about 12 tiles", solution: "Replace it.", lines: finding.lines });
+    expect((db.__peek("businesses/biz/quotes", "Q-1")?.findings as Array<Record<string, unknown>>)[0].note).toBe("north slope, about 12 tiles");
+  });
+
+  it("leaves a sent quote as the customer got it; an empty note clears it", async () => {
+    db.__seed("businesses/biz/jobs", "J-1000", { jobId: "J-1000", status: "open", findings: [{ ...finding, note: "old" }], quoteId: "Q-1" });
+    db.__seed("businesses/biz/quotes", "Q-1", { quoteId: "Q-1", status: "sent", findings: [{ ...finding, note: "old" }], lines: [] });
+    expect((await PATCH(patch("J-1000", { businessId: "biz", findingId: "f1", note: "" }), ctx("J-1000"))).status).toBe(200);
+    expect((db.__peek("businesses/biz/jobs", "J-1000")?.findings as Array<Record<string, unknown>>)[0].note).toBeUndefined();
+    expect((db.__peek("businesses/biz/quotes", "Q-1")?.findings as Array<Record<string, unknown>>)[0].note).toBe("old");
+  });
+
+  it("refuses markup, unknown findings and another job's grant", async () => {
+    db.__seed("businesses/biz/jobs", "J-1000", { jobId: "J-1000", status: "open", findings: [finding] });
+    expect((await PATCH(patch("J-1000", { businessId: "biz", findingId: "f1", note: "<script>" }), ctx("J-1000"))).status).toBe(400);
+    expect((await PATCH(patch("J-1000", { businessId: "biz", findingId: "nope", note: "x" }), ctx("J-1000"))).status).toBe(404);
+    expect((await PATCH(patch("J-2000", { businessId: "biz", findingId: "f1", note: "x" }), ctx("J-2000"))).status).toBe(403);
   });
 });

@@ -61,6 +61,11 @@ export interface JobFinding {
   solution: string;
   severity?: WorkSeverity;
   lines?: WorkCatalogLine[];
+  /**
+   * The inspector's own comment for THIS job ("north slope, about 12 tiles"), added from the field screen or the office.
+   * Customer-facing: printed under the finding on the report, quote and invoice.
+   */
+  note?: string;
   /** Per-job toggles: the same ticked finding can appear in the report, the quote, both, or neither. */
   includeInReport: boolean;
   includeInQuote: boolean;

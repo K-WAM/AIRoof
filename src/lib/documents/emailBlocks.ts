@@ -30,8 +30,8 @@ export function notesBlock(notes?: string): string {
   return notes ? `<section style="padding:16px 0;white-space:pre-wrap;font-size:12px;color:#475569"><strong>Notes</strong><p>${escapeHtml(notes)}</p></section>` : "";
 }
 
-export function findingsBlock(findings: Array<{ problem: string; solution: string }>): string {
-  return findings.length ? `<section style="padding:18px 0"><strong>Issues found &amp; work recommended</strong>${findings.map((finding) => `<p style="line-height:1.5"><strong>${escapeHtml(finding.problem)}</strong><br/>${escapeHtml(finding.solution)}</p>`).join("")}</section>` : "";
+export function findingsBlock(findings: Array<{ problem: string; solution: string; note?: string }>): string {
+  return findings.length ? `<section style="padding:18px 0"><strong>Issues found &amp; work recommended</strong>${findings.map((finding) => `<p style="line-height:1.5"><strong>${escapeHtml(finding.problem)}</strong><br/>${escapeHtml(finding.solution)}${finding.note?.trim() ? `<br/><em style="color:#475569">Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em>` : ""}</p>`).join("")}</section>` : "";
 }
 
 export function groupsBlock(groups: DocumentGroup[]): string {

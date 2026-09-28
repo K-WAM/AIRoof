@@ -214,6 +214,12 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
                     <textarea aria-label="Finding solution" value={f.solution} maxLength={2000} rows={2} style={{ width: "100%", display: "block" }}
                       onChange={(e) => patch(f.findingId, { solution: e.target.value })} />
                   </label>
+                  {/* The inspector's comment from the field (or the office's). Prints under the finding on the documents. */}
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Inspector&apos;s note (prints on the report and quote)
+                    <textarea aria-label="Inspector's note" value={f.note ?? ""} maxLength={1000} rows={2} style={{ width: "100%", display: "block" }}
+                      placeholder="e.g. north slope, about 12 cracked tiles"
+                      onChange={(e) => patch(f.findingId, { note: e.target.value || undefined })} />
+                  </label>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
                     <label><input type="checkbox" checked={f.includeInReport} onChange={(e) => patch(f.findingId, { includeInReport: e.target.checked })} /> In report</label>
                     <label><input type="checkbox" checked={f.includeInQuote} onChange={(e) => patch(f.findingId, { includeInQuote: e.target.checked })} /> In quote</label>

@@ -158,7 +158,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PickerItem[]>([]);
   const [added, setAdded] = useState<Set<string>>(new Set());
-  const [onJob, setOnJob] = useState<string[]>([]);
+  const [onJob, setOnJob] = useState<OnJobFinding[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -170,11 +170,11 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
     setError("");
     fetch(`/api/jobs/${encodeURIComponent(jobId)}/findings?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Could not load the Library"))))
-      .then((d: { items: PickerItem[]; findings: Array<{ itemId?: string; problem?: string }> }) => {
+      .then((d: { items: PickerItem[]; findings: Array<{ findingId?: string; itemId?: string; problem?: string; note?: string }> }) => {
         if (!live) return;
         setItems(d.items ?? []);
         setAdded(new Set((d.findings ?? []).flatMap((f) => (f.itemId ? [f.itemId] : []))));
-        setOnJob((d.findings ?? []).flatMap((f) => (f.problem ? [f.problem] : [])));
+        setOnJob((d.findings ?? []).flatMap((f) => (f.problem ? [{ findingId: f.findingId, problem: f.problem, note: f.note }] : [])));
       })
       .catch((e) => { if (live) setError(e instanceof Error ? e.message : "Could not load the Library"); })
       .finally(() => { if (live) setLoading(false); });
@@ -186,8 +186,9 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, itemId: item.itemId }),
     });
     if (!res.ok) throw new Error(res.status === 409 ? "This job already has the maximum number of findings" : "Could not add that finding");
+    const saved = await res.json().catch(() => ({})) as { finding?: { findingId?: string } };
     setAdded((prev) => new Set(prev).add(item.itemId));
-    setOnJob((prev) => [...prev, item.problem]);
+    setOnJob((prev) => [...prev, { findingId: saved.finding?.findingId, problem: item.problem }]);
     onAdded?.(item.problem);
   }
 
@@ -208,14 +209,94 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
       >
         ＋ Finding
       </button>
-      {onJob.length > 0 && (
-        <p style={{ margin: "8px 2px 0", fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>
-          <strong style={{ color: "#cbd5e1" }}>Findings on this job ({onJob.length}):</strong> {onJob.join(" · ")}
-        </p>
+      {onJob.length > 0 && jobId && (
+        <div style={{ margin: "10px 2px 0" }}>
+          <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, color: "#cbd5e1" }}>
+            Findings on this job ({onJob.length})
+          </p>
+          <div style={{ display: "grid", gap: 6 }}>
+            {onJob.map((finding, index) => (
+              <FindingCommentRow key={finding.findingId ?? index} businessId={businessId} jobId={jobId} finding={finding} disabled={disabled}
+                onSaved={(note) => setOnJob((prev) => prev.map((f) => (f === finding ? { ...f, note } : f)))} />
+            ))}
+          </div>
+        </div>
       )}
       <FindingPickerSheet open={open} onClose={() => setOpen(false)} title="Add findings to this job"
         items={items} loading={loading} error={error} addedItemIds={added} onPick={pick}
         confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }} />
     </>
+  );
+}
+
+interface OnJobFinding { findingId?: string; problem: string; note?: string }
+
+/**
+ * One finding on the field screen, with the inspector's comment ("north slope, about 12 tiles"). The comment prints under
+ * the finding on the report and the quote, so the screen says so — no surprise on a customer's document.
+ */
+function FindingCommentRow({ businessId, jobId, finding, disabled, onSaved }: {
+  businessId: string;
+  jobId: string;
+  finding: OnJobFinding;
+  disabled?: boolean;
+  onSaved: (note: string | undefined) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(finding.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save() {
+    if (!finding.findingId || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/findings`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, findingId: finding.findingId, note: draft }),
+      });
+      const body = await res.json().catch(() => ({})) as { note?: string | null; error?: string };
+      if (!res.ok) throw new Error(body.error || "Could not save the comment");
+      onSaved(body.note ?? undefined);
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save the comment");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canComment = !!finding.findingId && !disabled;
+  return (
+    <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(15,23,42,0.6)", border: "1px solid #1e2a4a" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 600, overflowWrap: "anywhere" }}>{finding.problem}</span>
+        {canComment && !editing && (
+          <button type="button" onClick={() => { setDraft(finding.note ?? ""); setEditing(true); }}
+            style={{ flex: "0 0 auto", minHeight: 36, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "transparent", color: "#7dd3fc", fontSize: 13, fontWeight: 700 }}>
+            {finding.note ? "Edit" : "＋ Comment"}
+          </button>
+        )}
+      </div>
+      {!editing && finding.note && <p style={{ margin: "6px 0 0", fontSize: 13, color: "#94a3b8", whiteSpace: "pre-wrap" }}>{finding.note}</p>}
+      {editing && (
+        <div style={{ marginTop: 8 }}>
+          <textarea aria-label={`Comment on ${finding.problem}`} value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} maxLength={1000}
+            placeholder="Where, how much, what you saw — e.g. north slope, about 12 cracked tiles"
+            style={{ width: "100%", boxSizing: "border-box", padding: 10, borderRadius: 8, border: "1px solid #334155", background: "#0b1224", color: "#e2e8f0", fontSize: 14 }} />
+          <p style={{ margin: "4px 0 8px", fontSize: 12, color: "#64748b" }}>Shows under this finding on the report and quote.</p>
+          {error && <p role="alert" style={{ margin: "0 0 8px", fontSize: 13, color: "#fca5a5" }}>{error}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" onClick={() => setEditing(false)} disabled={saving}
+              style={{ flex: 1, minHeight: 44, borderRadius: 10, border: "1px solid #334155", background: "transparent", color: "#cbd5e1", fontWeight: 600 }}>Cancel</button>
+            <button type="button" onClick={() => void save()} disabled={saving}
+              style={{ flex: 1, minHeight: 44, borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontWeight: 700 }}>
+              {saving ? "Saving…" : "Save comment"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

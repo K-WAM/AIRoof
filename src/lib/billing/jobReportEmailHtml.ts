@@ -32,7 +32,7 @@ export function buildJobReportEmailHtml(input: {
   const meta: [string, string][] = [["Date", fmtDate(Date.now(), tz)], ["Reference", input.jobId]];
   if (input.billTo.address) meta.push(["Service at", input.billTo.address]);
   if (input.options?.showTechnicians && input.technicians?.length) meta.push(["Technicians", input.technicians.join(", ")]);
-  const selectedFindings = (input.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution }));
+  const selectedFindings = (input.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));
   const photos = input.options?.showPhotos === false ? [] : input.photos ?? [];
   return documentShell(letterheadBlock(brand, "Report", meta) + billToBlock(input.billTo, "Prepared for") + narrativeBlock(stripHiddenFacts(input.narrative ?? "", input.options)) + findingsBlock(selectedFindings) + sectionsBlock(sections) + quoteSectionBlock(quoteSection, brand.brandColor) + photosBlock(photos) + footerBlock(brand));
 }

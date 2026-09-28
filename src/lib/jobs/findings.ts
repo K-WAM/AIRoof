@@ -7,14 +7,23 @@ const plain = (value: unknown, max: number) => typeof value === "string" && valu
 const keysOnly = (value: object, keys: string[]) => Object.keys(value).every((key) => keys.includes(key));
 const money = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1_000_000;
 
+/** Longest inspector comment on one finding. */
+export const FINDING_NOTE_MAX = 1000;
+
+/** A comment is plain text: no markup, no control characters, within the cap. Empty clears it. */
+export function validFindingNote(note: string): boolean {
+  return plain(note, FINDING_NOTE_MAX);
+}
+
 export function validFinding(value: unknown): value is JobFinding {
   if (!value || typeof value !== "object") return false;
   const f = value as Partial<JobFinding>;
-  return keysOnly(f, ["findingId", "itemId", "category", "problem", "solution", "severity", "lines", "includeInReport", "includeInQuote", "addedAt"]) &&
+  return keysOnly(f, ["findingId", "itemId", "category", "problem", "solution", "severity", "lines", "note", "includeInReport", "includeInQuote", "addedAt"]) &&
     plain(f.findingId, 100) && !!f.findingId &&
     (f.itemId === undefined || plain(f.itemId, 100)) && plain(f.category, 100) &&
     plain(f.problem, 1000) && !!f.problem?.trim() && plain(f.solution, 2000) &&
     (f.severity === undefined || ["low", "medium", "high"].includes(f.severity)) &&
+    (f.note === undefined || plain(f.note, FINDING_NOTE_MAX)) &&
     typeof f.includeInReport === "boolean" && typeof f.includeInQuote === "boolean" &&
     typeof f.addedAt === "number" && Number.isFinite(f.addedAt) &&
     (f.lines === undefined || (Array.isArray(f.lines) && f.lines.length <= 20 && f.lines.every(validLine)));

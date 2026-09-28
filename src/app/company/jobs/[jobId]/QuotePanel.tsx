@@ -313,6 +313,11 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
                     <textarea aria-label="Work" rows={2} disabled={!draft} value={group.finding.solution} style={{ width: "100%", display: "block" }}
                       onChange={(e) => change({ findings: quote.findings.map((f) => (f.findingId === group.finding!.findingId ? { ...f, solution: e.target.value } : f)) })} />
                   </label>
+                  {/* The inspector's field comment — prices are set here, so the office sees what was actually found. */}
+                  <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Inspector&apos;s note
+                    <textarea aria-label="Inspector's note" rows={2} disabled={!draft} value={group.finding.note ?? ""} maxLength={1000} style={{ width: "100%", display: "block" }}
+                      onChange={(e) => change({ findings: quote.findings.map((f) => (f.findingId === group.finding!.findingId ? { ...f, note: e.target.value || undefined } : f)) })} />
+                  </label>
                 </>
               ) : <strong>Other work</strong>}
               <div style={{ display: "grid", gap: 8 }}>
