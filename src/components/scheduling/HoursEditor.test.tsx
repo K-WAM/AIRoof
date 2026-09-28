@@ -44,4 +44,13 @@ describe("HoursEditor", () => {
     }));
     expect((screen.getByLabelText("Sunday Closed") as HTMLInputElement).checked).toBe(false);
   });
+
+  it("shows a legacy 23:59 close as the selectable end of day", () => {
+    const onChange = vi.fn();
+    render(<HoursEditor value={{ Monday: "00:00 - 23:59" }} onChange={onChange} />);
+
+    expect((screen.getByLabelText("Monday Close") as HTMLSelectElement).value).toBe("24:00");
+    fireEvent.change(screen.getByLabelText("Monday Open"), { target: { value: "00:15" } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ Monday: "00:15 - 24:00" }));
+  });
 });

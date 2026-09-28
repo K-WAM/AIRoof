@@ -64,7 +64,12 @@ function rowsFrom(value: HoursValue): Record<Weekday, RowValue> {
     const hours = parsed[day];
     if (!hours) return [day, { closed: true, open: "08:00", close: "17:00" }];
     const clock = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-    return [day, { closed: false, open: clock(hours.open), close: clock(hours.close) }];
+    // Older tenants store the end of an all-day window as 23:59. The editor
+    // intentionally offers quarter-hour choices, so present that legacy sentinel
+    // as the equivalent selectable end-of-day value instead of letting the browser
+    // fall back to the first option (12:15 AM).
+    const close = hours.close === (23 * 60) + 59 ? "24:00" : clock(hours.close);
+    return [day, { closed: false, open: clock(hours.open), close }];
   })) as Record<Weekday, RowValue>;
 }
 
