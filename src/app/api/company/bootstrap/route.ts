@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
+import { isSmsEnabled } from "@/lib/comms/sms";
 import { getVerticalTemplate, type VerticalId } from "@/lib/verticals/templates";
 import type { CompanyModule } from "@/hooks/useBusinessModules";
 import type { CompanyBootstrap } from "@/types/bootstrap";
@@ -60,13 +61,8 @@ export async function GET(req: NextRequest) {
       phoneLine: (typeof d.elevenlabs?.phoneNumber === "string" && d.elevenlabs.phoneNumber)
         || (typeof d.phoneNumber === "string" && d.phoneNumber)
         || null,
-      // Phase 31 (T-152): effective texting state. SMS_ENABLED defaults false (NH-29 carrier
-      // registration); Step 6 swaps this inline check for the shared isSmsEnabled() helper.
-      smsEnabled:
-        process.env.SMS_ENABLED === "true" &&
-        !!process.env.TWILIO_ACCOUNT_SID &&
-        !!process.env.TWILIO_AUTH_TOKEN &&
-        d.smsEnabled !== false,
+      // Phase 31 (T-152): effective texting state (env SMS_ENABLED + Twilio creds + the tenant's own opt-in).
+      smsEnabled: isSmsEnabled(d),
     },
     modules: {
       disabled: (template?.disabledModules ?? []) as CompanyModule[],

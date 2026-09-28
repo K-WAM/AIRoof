@@ -149,6 +149,22 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
     ]);
   });
 
+  it("copies the call summary onto each of the call's appointments (T-152)", async () => {
+    db.__seed("businesses/biz_1/appointments", "appt_2", { sourceCallId: "call_elevenlabs_conv_1" });
+    const payload = transcriptionPayload();
+    const response = await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)));
+    expect(response.status).toBe(200);
+    const summary = "Caller requested a roof inspection.";
+    expect(db.__peek("businesses/biz_1/appointments", "appt_1")?.callSummary).toBe(summary);
+    expect(db.__peek("businesses/biz_1/appointments", "appt_2")?.callSummary).toBe(summary);
+  });
+
+  it("does not write an empty summary onto appointments", async () => {
+    const payload = transcriptionPayload({ analysis: { transcript_summary: "" } });
+    await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)));
+    expect(db.__peek("businesses/biz_1/appointments", "appt_1")?.callSummary).toBeUndefined();
+  });
+
   it("merges into the live row and keeps startedAt when post-call omits it", async () => {
     const liveStartedAt = Date.now() - 20_000;
     db.__seed("businesses/biz_1/calls", "call_elevenlabs_conv_1", {

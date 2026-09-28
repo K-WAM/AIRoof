@@ -209,6 +209,15 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
       appointmentIds,
     },
   });
+
+  // Phase 31 (T-152): copy the non-empty transcript summary onto each appointment this call produced, in one batch.
+  if (summary && appointments.docs.length > 0) {
+    const batch = db.batch();
+    for (const document of appointments.docs) {
+      batch.update(document.ref, { callSummary: summary, updatedAt: Date.now() });
+    }
+    await batch.commit();
+  }
 }
 
 async function handleCallInitiationFailure(data: Record<string, unknown>): Promise<void> {
