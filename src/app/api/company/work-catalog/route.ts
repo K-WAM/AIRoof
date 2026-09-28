@@ -139,7 +139,9 @@ export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
   if (!businessId) return jsonWithCache({ error: "businessId required" }, "noStore", { status: 400 });
 
-  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
+  // Read-only for viewers, like GET /api/company/library — the Library page loads both together, and a 403 here
+  // took the whole page down for every viewer. Writes (PUT/POST below) stay owner/staff.
+  const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "viewer", "superadmin"]);
   if ("error" in auth) {
     auth.error.headers.set("Cache-Control", "no-store");
     return auth.error;

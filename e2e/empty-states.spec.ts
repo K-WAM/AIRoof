@@ -30,6 +30,8 @@ async function expectEmpty(page: Page, testId: string, title: RegExp, primary?: 
 async function visit(page: Page, path: string) {
   await page.goto(path);
   await settle(page);
+  // An error page has no empty states, so without this every "no buttons in any empty state" check passes vacuously.
+  await expect(page.getByText("Failed to load this page"), `${path} showed its load-error page`).toHaveCount(0);
 }
 
 async function check(page: Page, name: string) {
@@ -166,7 +168,8 @@ test("the setup checklist counts up when the owner loads example prices", async 
 });
 
 test("a viewer is never offered a write action by an empty state", async ({ as }) => {
-  test.setTimeout(120_000);
+  // 18 screens; the live-polling ones never go network-idle, so each settle can take its full 15 s.
+  test.setTimeout(300_000);
   // A fresh job guarantees every job-tab empty state is on screen for the viewer.
   const owner = await api("owner");
   const { job } = must(await owner.post("/api/jobs", { businessId: TENANTS.roofing.id, title: `Viewer empty check ${Date.now().toString(36)}` }), "create job");
