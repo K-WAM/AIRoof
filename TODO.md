@@ -1319,7 +1319,7 @@ an active queue.*
       outbound `conv_4701m3matcwsfba9ar1aw8w81z7p` (voicemail loop). Workflow: call recorded → Alice books an inspection → it is the
       lead (Pipeline "Booked") → auto-assigned inspector notified → inspector manages their time (blocks, My schedule, phone-calendar
       feed) → customer told by text/email. Split (owner's model rule): live call + booking engine = integrator; screens = Codex; plumbing = Deepseek.
-  - [ ] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
+  - [x] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — **Status: review (Worker D, `task/call-flow`, 2026-09-28; evidence in `docs/IMPLEMENTATION_LOG.md`).** Contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
         time-blocks API (+ open-times), texting module OFF until NH-29, inspector notifications (assigned/moved/reassigned/cancelled),
         confirm route (text → email, inspector_busy 409 + force), post-call callSummary, bootstrap smsEnabled.
   - [ ] **T-153 (I2, Codex GPT-6 Sol medium, after H3 + Step 0)** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;

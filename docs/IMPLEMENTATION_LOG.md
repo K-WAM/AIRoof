@@ -1613,3 +1613,43 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
   alone); new unit tests: calendar/openTimes, crews editDelete, open-times route, assign member emails, team crewId/Crew role, landing,
   from-request requestedStart, fieldAccess crew. `e2e/crews-calendar.spec.ts` 8/8 (2 intended skips) with screenshots read (phone sheet,
   role help, crew login); `e2e:call` 12/12; `e2e:booking` 7/7. Not run by owner direction: full `e2e:test`, local `next build`.
+
+## 2026-09-28 - T-152 (Worker D, Deepseek): call-flow backend plumbing (branch `task/call-flow`)
+
+Plan: `docs/CALL-FLOW-FIX-PLAN.md` sections 2.5-2.8 / 3. Nothing here runs on a live call; the integrator owns the agent
+prompt, the tool dispatcher and the booking engine. Commits (in order):
+
+- `bb84e31` T-152 Step 0: contracts - BusinessConfig `escalationEnabled?`/`smsEnabled?`/`smsFromNumber?`; Appointment
+  `bookedAfterHours?`/`callSummary?`/`textOk?`/`assignedBy?: "ai"|"office"`; Crew `kind?: "crew"|"inspector"`; new
+  `src/types/schedule.ts` (TimeBlock + `timeBlocksPath`); CompanyBootstrap.business.smsEnabled (effective state).
+  (Also one fixture line in src/hooks/__tests__/useBusinessModules.test.tsx so the now-required bootstrap field type-checks.)
+- `759309a` T-152 Step 1: pure helpers - `cleanCallerName` (`src/lib/format/name.ts`; strips ONE leading filler, whole-word
+  matched so Esther/Soyla survive) and `nextOpeningLabel(now, timeZone, hours)` (`src/lib/scheduling/hours.ts`;
+  today/tomorrow/<Weekday> at H[:MM] AM|PM, null after 14 days, walks local calendar days so DST is safe).
+- `81846e4` T-152 Step 2: `GET|POST|DELETE /api/company/time-blocks` (roles; GET reads startTime in [from-14d,to] then
+  filters overlaps in code - crewId also filtered in code so the range needs no composite index; POST validates crew
+  exists, end>start, <=14 days, label 1-80 trimmed; DELETE by blockId). `crews/open-times` now counts the crew's own
+  blocks as busy.
+- `5cfcd0e` T-152 Step 3: `src/lib/comms/sms.ts` (isSmsEnabled = env SMS_ENABLED + Twilio creds + tenant opt-in; sendSms
+  POSTs Twilio Messages.json with Basic auth + a 10s AbortController, E.164 shaping, dedupes/records through the T-021
+  ledger under a distinct `sms:` opId, writes channel "sms" to the E2E outbox in the harness and never calls Twilio, logs
+  only a number's last 4 digits, returns "unconfigured" when off) + `smsTemplates.ts` (3 pure bodies, <=320 chars each).
+- `db9afb8` T-152 Step 4: `src/lib/crews/recipients.ts` (extracted from the assign route; that route's tests pass
+  unchanged); `buildInspectionEmail` in `src/lib/notify.ts`; `src/lib/crews/inspectorNotify.ts` (notifyInspector emails
+  each recipient under key `appointmentId:change:startTime:<recipient>`, texts the crew phone when isSmsEnabled, never throws).
+- `3e80c54` T-152 Step 5: PATCH /api/appointments/[appointmentId] - notifyChannel sms|email|none + notifiedVia; 409
+  `inspector_busy` when the target inspector row has a block/another booking (unless force); notifyInspector
+  assigned/moved/reassigned_away/cancelled; `assignedBy: "office"`; response `staffNotified`.
+- `483bf90` T-152 Step 6: post-call webhook copies the non-empty transcript summary onto each of the call's appointments
+  in one batch; bootstrap route uses the shared isSmsEnabled(); `.env.example` adds SMS_ENABLED=false (+ Twilio names)
+  with the NH-29 note.
+
+Gates: `npx tsc --noEmit` clean; `npx eslint` on all 31 changed files 0 errors / 0 warnings; the task's vitest gate
+(src/lib/format, src/lib/scheduling, src/lib/comms, src/lib/crews, src/lib/notify.test.ts, time-blocks, crews,
+appointments, webhooks/elevenlabs, jobs/[jobId]/assign, bootstrap) = 23 files / 175 tests passed, including the booking
+scenario suite. No full vitest, no Playwright, no `next build` (owner's tiered-gates rule, T-151). Nothing calls a live service.
+
+Removals: none. Not done / out of scope: POST time-blocks does not itself reject an overlap (the office's "busy then -
+assign anyway?" check lives in the appointment route per the plan); the inspector text is sent for assigned/moved only
+(no cancellation-body template exists yet).
+
