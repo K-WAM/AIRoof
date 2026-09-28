@@ -11,6 +11,7 @@ import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { sendBusinessWelcomeEmail } from "@/lib/notify";
+import { validateBusinessHours } from "@/lib/scheduling/hours";
 
 interface CreateBusinessRequest {
   businessId: string;
@@ -19,7 +20,7 @@ interface CreateBusinessRequest {
   ownerEmail?: string;
   phoneNumber?: string;
   serviceArea: string | string[];
-  businessHours?: string | Record<string, string>;
+  businessHours: string | Record<string, string>;
   escalationPhone?: string;
   notificationEmail?: string;
   calendarProvider?: BusinessConfig["calendarProvider"];
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest): Promise<
 
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string; welcomeEmail?: { status: string; reason?: string } } | { error: string }>> {
+): Promise<NextResponse<{ success: true; businessId: string; loginEmail?: string; tempPassword?: string; welcomeEmail?: { status: string; reason?: string } } | { error: string; fieldErrors?: Record<string, string> }>> {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
@@ -119,6 +120,10 @@ export async function POST(
         { error: "Missing required fields: businessId, businessName, industry, serviceArea" },
         { status: 400 }
       );
+    }
+    const hoursValidation = validateBusinessHours(body.businessHours);
+    if (!hoursValidation.valid || !hoursValidation.hours) {
+      return NextResponse.json({ error: "Fix the business hours before creating the client.", fieldErrors: hoursValidation.errors }, { status: 400 });
     }
 
     const db = getAdminFirestore();
@@ -179,15 +184,7 @@ export async function POST(
       phoneNumber: body.phoneNumber,
       timezone: body.timezone ?? "America/New_York",
       serviceArea: body.serviceArea,
-      businessHours: body.businessHours || {
-        Monday: "08:00 - 17:00",
-        Tuesday: "08:00 - 17:00",
-        Wednesday: "08:00 - 17:00",
-        Thursday: "08:00 - 17:00",
-        Friday: "08:00 - 17:00",
-        Saturday: "Closed",
-        Sunday: "Closed",
-      },
+      businessHours: hoursValidation.hours,
       emergencyRules: template.emergencyRules,
       bookingRules: template.bookingRules,
       escalationPhone: body.escalationPhone,

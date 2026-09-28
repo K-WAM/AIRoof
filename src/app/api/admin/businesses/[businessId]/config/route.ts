@@ -10,6 +10,7 @@ import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isVoiceConfig } from "@/lib/vapi/voices";
+import { validateBusinessHours } from "@/lib/scheduling/hours";
 
 interface UpdateBusinessConfigRequest {
   businessName?: string;
@@ -97,13 +98,17 @@ export async function GET(
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
-): Promise<NextResponse<{ success: true; businessId: string } | { error: string }>> {
+): Promise<NextResponse<{ success: true; businessId: string } | { error: string; fieldErrors?: Record<string, string> }>> {
   const gate = await verifySuperadmin(request);
   if ("error" in gate) return gate.error;
 
   try {
     const { businessId } = await params;
     const body: UpdateBusinessConfigRequest = await request.json();
+    const hoursValidation = body.businessHours === undefined ? null : validateBusinessHours(body.businessHours);
+    if (hoursValidation && (!hoursValidation.valid || !hoursValidation.hours)) {
+      return NextResponse.json({ error: "Fix the business hours before saving.", fieldErrors: hoursValidation.errors }, { status: 400 });
+    }
 
     if (body.voice !== undefined && !isVoiceConfig(body.voice)) {
       return NextResponse.json({ error: "Invalid voice override" }, { status: 400 });
@@ -196,7 +201,7 @@ export async function PUT(
         industry: body.industry,
         phoneNumber: body.phoneNumber,
         serviceArea: body.serviceArea,
-        businessHours: body.businessHours,
+        businessHours: hoursValidation?.hours,
         escalationPhone: body.escalationPhone,
         notificationEmail: body.notificationEmail,
         calendarProvider: body.calendarProvider,

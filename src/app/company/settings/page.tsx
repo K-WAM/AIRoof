@@ -16,25 +16,14 @@ import {
 } from "@/lib/recordingDisclosure";
 import { Bell, Clock3, Globe2, Languages, Mic, Save, Settings } from "lucide-react";
 import { DEFAULT_INVOICE_COPY, type InvoiceCopyDefaults } from "@/lib/documents/invoiceCopy";
-
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-const DEFAULT_HOURS: Record<string, string> = {
-  Monday: "08:00 - 17:00",
-  Tuesday: "08:00 - 17:00",
-  Wednesday: "08:00 - 17:00",
-  Thursday: "08:00 - 17:00",
-  Friday: "08:00 - 17:00",
-  Saturday: "09:00 - 13:00",
-  Sunday: "Closed",
-};
+import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
 
 interface Settings {
   timezone: string;
-  businessHours: Record<string, string>;
+  businessHours: string | Record<string, string>;
   notificationEmail: string;
   contactPhone: string;
   contactEmail: string;
@@ -61,6 +50,7 @@ export default function CompanySettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [hoursValid, setHoursValid] = useState(true);
   const notificationEmailRef = useRef<HTMLInputElement>(null);
   const contactPhoneRef = useRef<HTMLInputElement>(null);
   const contactEmailRef = useRef<HTMLInputElement>(null);
@@ -87,19 +77,15 @@ export default function CompanySettingsPage() {
     );
   }
 
-  function setHours(day: string, value: string) {
-    setSettings(prev => prev ? { ...prev, businessHours: { ...prev.businessHours, [day]: value } } : prev);
-  }
-
-  function toggleClosed(day: string, closed: boolean) {
-    setHours(day, closed ? "Closed" : (DEFAULT_HOURS[day] ?? "09:00 - 17:00"));
-  }
-
   async function save() {
     if (!businessId || !settings) return;
     const notificationEmail = settings.notificationEmail.trim();
     const contactPhone = settings.contactPhone.trim();
     const contactEmail = settings.contactEmail.trim();
+    if (!hoursValid) {
+      setError("Fix the business hours before saving.");
+      return;
+    }
     if (settings.licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(settings.licenseNumber)) {
       setError("Enter a plain-text license number of 40 characters or fewer.");
       return;
@@ -154,15 +140,15 @@ export default function CompanySettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error("Settings save failed");
+        throw new Error(typeof data.error === "string" ? data.error : "Settings save failed");
       }
       setSaved(true);
       if (data.vapiSyncWarning) setWarning(data.vapiSyncWarning);
       // Clear timezone cache so next nav picks up new value
       try { sessionStorage.removeItem(`tz_${businessId}`); } catch {}
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setError("Settings could not be saved. Review the form and try again.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Settings could not be saved. Review the form and try again.");
     } finally {
       setSaving(false);
     }
@@ -231,45 +217,15 @@ export default function CompanySettingsPage() {
             </h2>
           </div>
           <div className="panel-body">
-            <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 16px" }}>
-              Your AI receptionist uses these hours to tag after-hours calls. She can still book appointments 24/7 — calls outside these hours are flagged for your awareness.
+            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px" }}>
+              Your receptionist offers appointments during these hours.
             </p>
-            <div style={{ display: "grid", gap: 10 }}>
-              {DAYS.map((day) => {
-                const val = settings.businessHours[day] ?? "Closed";
-                const isClosed = val.toLowerCase() === "closed";
-                const parts = val.match(/^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/);
-                const open = parts ? parts[1] : "09:00";
-                const close = parts ? parts[2] : "17:00";
-
-                return (
-                  <div key={day} className="settings-hours-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8 }}>
-                    <span style={{ width: 90, fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{day}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#64748b" }}>
-                      <Toggle checked={isClosed} onChange={(next) => toggleClosed(day, next)} label={`${day} closed`} size="sm" />
-                      Closed
-                    </div>
-                    {!isClosed && (
-                      <>
-                        <input
-                          type="time"
-                          value={open}
-                          onChange={e => setHours(day, `${e.target.value} - ${close}`)}
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 13 }}
-                        />
-                        <span style={{ color: "#94a3b8", fontSize: 13 }}>to</span>
-                        <input
-                          type="time"
-                          value={close}
-                          onChange={e => setHours(day, `${open} - ${e.target.value}`)}
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 13 }}
-                        />
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <HoursEditor
+              value={settings.businessHours || DEFAULT_BUSINESS_HOURS}
+              onChange={(businessHours) => setSettings((prev) => prev ? { ...prev, businessHours } : prev)}
+              onValidityChange={setHoursValid}
+              idPrefix="settings-hours"
+            />
           </div>
         </section>
 

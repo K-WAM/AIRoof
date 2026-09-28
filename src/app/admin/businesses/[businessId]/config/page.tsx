@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
+import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 import type { VoiceRef } from "@/types";
 import {
   ArrowLeft,
@@ -47,6 +48,7 @@ interface BizData {
   emergencyRules?: string[];
   bookingRules?: string[];
   timezone?: string;
+  businessHours?: string | Record<string, string>;
   vapiAssistantId?: string;
   vapiPhoneNumberId?: string;
   voiceProvider?: "vapi" | "elevenlabs";
@@ -127,6 +129,7 @@ export default function AdminBusinessConfigPage({
 
   const [subscriptionBusy, setSubscriptionBusy] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [hoursValid, setHoursValid] = useState(true);
 
   async function toggleSubscription(action: "pause" | "resume") {
     if (action === "pause" && !confirm(
@@ -216,6 +219,11 @@ export default function AdminBusinessConfigPage({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!hoursValid) {
+      setSubmitStatus({ type: "error", message: "Fix the business hours before saving." });
+      return;
+    }
+
     const formData = new FormData(event.currentTarget);
     const validationChecks = [
       { name: "businessName", valid: Boolean(String(formData.get("businessName") || "").trim()), message: "Enter a business name." },
@@ -279,6 +287,7 @@ export default function AdminBusinessConfigPage({
         .map((rule) => rule.trim())
         .filter(Boolean),
       timezone: String(formData.get("timezone") || "America/New_York"),
+      businessHours: biz?.businessHours ?? DEFAULT_BUSINESS_HOURS,
       // Vapi
       voiceProvider: phoneProvider,
       ...(phoneProvider === "vapi" ? {
@@ -446,6 +455,15 @@ export default function AdminBusinessConfigPage({
                     ))}
                   </select>
                 </div>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <p style={{ margin: "0 0 10px", color: "var(--text-muted)", fontSize: 12 }}>Confirm when customers can book.</p>
+                <HoursEditor
+                  value={biz.businessHours ?? DEFAULT_BUSINESS_HOURS}
+                  onChange={(businessHours) => { setBiz((current) => current ? { ...current, businessHours } : current); setDirty(true); }}
+                  onValidityChange={setHoursValid}
+                  idPrefix="admin-config-hours"
+                />
               </div>
             </div>
           </section>

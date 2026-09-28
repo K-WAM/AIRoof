@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   verifyAuthAndRole: vi.fn(),
+  update: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
@@ -15,13 +16,13 @@ vi.mock("@/lib/firebase/admin", () => ({
     collection: () => ({
       doc: () => ({
         get: async () => ({ exists: currentDoc !== undefined, data: () => currentDoc }),
-        update: vi.fn(),
+        update: mocks.update,
       }),
     }),
   }),
 }));
 
-import { GET } from "@/app/api/company/settings/route";
+import { GET, PUT } from "@/app/api/company/settings/route";
 
 function requestFor(businessId: string | null) {
   const url = businessId
@@ -69,5 +70,33 @@ describe("GET /api/company/settings", () => {
     const response = await GET(requestFor(null));
     expect(response.status).toBe(400);
     expect(mocks.verifyAuthAndRole).not.toHaveBeenCalled();
+  });
+});
+
+describe("PUT /api/company/settings — business hours", () => {
+  beforeEach(() => {
+    mocks.update.mockReset();
+    mocks.verifyAuthAndRole.mockReset();
+    mocks.verifyAuthAndRole.mockResolvedValue({ user: { uid: "owner-1", role: "owner", superadmin: false } });
+  });
+
+  const put = (businessHours: unknown) => PUT(new NextRequest("http://localhost/api/company/settings", {
+    method: "PUT",
+    body: JSON.stringify({ businessId: "biz-1", businessHours }),
+  }));
+
+  it("rejects invalid hours with field errors before writing", async () => {
+    const response = await put({ Monday: "17:00 - 08:00" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ fieldErrors: { Monday: expect.any(String) } });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("canonicalizes tolerant legacy hours before writing", async () => {
+    const response = await put("Mon-Fri 8-5");
+    expect(response.status).toBe(200);
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({
+      businessHours: expect.objectContaining({ Monday: "08:00 - 17:00", Sunday: "Closed" }),
+    }));
   });
 });

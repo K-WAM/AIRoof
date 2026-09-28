@@ -2989,6 +2989,26 @@ a.metric:hover {
 /* The field screens are a dark surface of their own (not the app theme) — same slate values they use inline. */
 .empty-state-dark { color: #94a3b8; }
 .empty-state-dark .empty-state-title { color: #f8fafc; }
+
+.hours-editor { display: grid; gap: 16px; }
+.hours-presets { min-width: 0; margin: 0; padding: 0; border: 0; }
+.hours-presets legend { margin-bottom: 8px; color: var(--text); font-size: 13px; font-weight: 700; }
+.hours-presets-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.hours-presets-list .button { min-height: 44px; }
+.hours-days { display: grid; gap: 8px; }
+.hours-day { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(260px, 2fr); gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-muted); }
+.hours-day-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 13px; font-weight: 700; }
+.hours-closed { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: var(--text-muted); font-weight: 600; cursor: pointer; }
+.hours-closed input { width: 20px; height: 20px; accent-color: var(--accent); }
+.hours-time-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.hours-time-fields label { display: grid; gap: 4px; color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.hours-time-fields select { min-height: 44px; }
+.hours-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 12px; font-weight: 600; }
+
+@media (max-width: 600px) {
+  .hours-day { grid-template-columns: 1fr; }
+  .hours-time-fields { grid-template-columns: 1fr 1fr; }
+}
 .setup-checklist { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 /* icon | label | button — the button always sits at the right edge, the label wraps instead of the button. */
 .setup-checklist-row { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; }

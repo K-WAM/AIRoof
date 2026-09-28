@@ -1653,3 +1653,12 @@ Removals: none. Not done / out of scope: POST time-blocks does not itself reject
 assign anyway?" check lives in the appointment route per the plan); the inspector text is sent for assigned/moved only
 (no cancellation-body template exists yet).
 
+
+## 2026-09-28 — H3 Part 1 complete: operating hours at setup (task/setup-ux)
+- Commits: 9ae4b83 structured HoursEditor; 04b630b Company Settings validation; 60dc728 required onboarding/admin setup; 3235c02 Calendar shared parser; deb67ae setup checklist; 87f1a90 write-boundary validation coverage.
+- Added one accessible, responsive HoursEditor with weekday Closed toggles, 15-minute 12-hour-labelled selects, four presets, inline close-after-open errors, and canonical HH:MM - HH:MM output. Legacy 8am-5pm / Mon-Fri 8-5 values load through G1's shared parser and save canonically.
+- Company Settings, the required onboarding Hours step, quick admin client creation, and admin client config all use the editor. Every user-controlled hours write route returns 400 + field errors for invalid schedules and stores only canonical hours.
+- CalendarBoard now reads opening times through src/lib/scheduling/hours.ts; setup checklist adds Set your hours immediately after the phone line and derives completion from the shared validator.
+- Part 1 gates: npx tsc --noEmit passed; changed-file ESLint passed with 0 errors and no new warnings (globals.css is outside ESLint config); full Vitest reached 184 files, 1,446 passed + 1 expected fail, with timeout-only failures in example-lib, booking S14, and demoSeed. Focused reruns: example-lib 2/2 passed; booking scenarios S1-S14 14/14 passed; demoSeed 5/5 passed with --testTimeout 15000 (9.57 s actual).
+- Booking gate scope: shared S1-S14 scenario suite is green; this part changes hours entry/validation only and does not change booking engine behavior, agent tools, voice schemas, or live services.
+- Removals: replaced Company Settings' free-text/time-input hours implementation and CalendarBoard's private range regex. No push, merge, deployment, production write, or live provider call was performed.
