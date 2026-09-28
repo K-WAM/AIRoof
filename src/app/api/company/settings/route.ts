@@ -11,6 +11,7 @@ import {
 } from "@/lib/recordingDisclosure";
 import type { BusinessConfig } from "@/types";
 import { DEFAULT_INVOICE_COPY } from "@/lib/documents/invoiceCopy";
+import { validateBusinessHours } from "@/lib/scheduling/hours";
 
 export async function GET(req: NextRequest) {
   const businessId = req.nextUrl.searchParams.get("businessId");
@@ -60,6 +61,10 @@ export async function PUT(req: NextRequest) {
   const { businessId, timezone, businessHours, notificationEmail, contactPhone, contactEmail, licenseNumber, agentLanguage, agentLanguages, recordingDisclosure, invoiceCopy } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  const hoursValidation = businessHours === undefined ? null : validateBusinessHours(businessHours);
+  if (hoursValidation && !hoursValidation.valid) {
+    return NextResponse.json({ error: "Fix the business hours before saving.", fieldErrors: hoursValidation.errors }, { status: 400 });
+  }
   if (licenseNumber !== undefined && (typeof licenseNumber !== "string" || licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(licenseNumber))) return NextResponse.json({ error: "Invalid license number" }, { status: 400 });
   if (agentLanguage !== undefined && !["en", "es"].includes(agentLanguage)) {
     return NextResponse.json({ error: 'agentLanguage must be "en" or "es"' }, { status: 400 });
@@ -108,7 +113,7 @@ export async function PUT(req: NextRequest) {
 
   const update: Record<string, unknown> = { updatedAt: Date.now() };
   if (timezone) update.timezone = timezone;
-  if (businessHours) update.businessHours = businessHours;
+  if (hoursValidation?.hours) update.businessHours = hoursValidation.hours;
   if (notificationEmail !== undefined) update.notificationEmail = notificationEmail;
   if (contactPhone !== undefined) update.contactPhone = contactPhone;
   if (contactEmail !== undefined) update.contactEmail = contactEmail;
