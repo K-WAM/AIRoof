@@ -394,7 +394,7 @@
       </div>
     </div>
     <div class="cover-meta">
-        <div><span>Version</span> 2.9 — September 2026</div>
+        <div><span>Version</span> 3.0 — September 2026</div>
       <div><span>Portal</span> ai-roof.vercel.app</div>
       <div><span>Demo line (ElevenLabs)</span> +1 (689) 204-2643</div>
       <div><span>Self-led link</span> ai-roof.vercel.app/try/roofing</div>
@@ -420,7 +420,7 @@
     <ul style="margin:0 0 0 18px;padding:0;font-size:13px;line-height:1.85;color:#1e293b;">
       <li><strong>Admin sidebar → Platform:</strong> <strong>Clients</strong> (every tenant; <strong>Edit</strong> opens a client's config) and <strong>Usage</strong> (per-business calls/leads/appointments, with a <strong>Phone line</strong> column).</li>
       <li><strong>Admin sidebar → Tools:</strong> <strong>Invoices</strong>, <strong>Demo Studio</strong> (<code>/hub/demo</code>) and <strong>Playbooks</strong> (<code>/hub/guide</code>). The <strong>“Run a demo in 5 minutes”</strong> runbook is the panel at the very top of Demo Studio.</li>
-      <li><strong>Company portal</strong> (the client view): Dashboard, Pipeline, Calls, Calendar, Jobs, Library, and <strong>Settings → Team</strong>.</li>
+      <li><strong>Company portal</strong> (the client view): Dashboard, Pipeline, Calls, Calendar, Jobs, Field, the industry's Customer list, and Library — plus a top-level <strong>Team</strong> page (owner only: invites, lock/unlock, <strong>Revoke all field QR links</strong>) and <strong>Settings</strong> (invoice wording, <strong>Terms &amp; notices</strong>, hours, recording notice).</li>
       <li><strong>Admin → Usage → “Phone line”</strong> tells you how each tenant is wired: <em>Live · ElevenLabs</em>, <em>Live · Vapi</em>, <em>Demo · shared line</em>, or <em>No phone line</em>.</li>
     </ul>
   </div>
@@ -434,14 +434,29 @@
       <li><strong>0–2 min — hand them the number:</strong> <strong style="color:#1d4ed8">+1 (689) 204-2643</strong>. “Call this. It's your receptionist.”</li>
       <li><strong>2–6 min — they call:</strong> ask about tile roofs and insurance, try something off-topic, then book an inspection (name, address, the problem). A <strong>Live</strong> badge appears in <strong>Calls</strong> while they are still talking.</li>
       <li><strong>6–9 min — the dashboard:</strong> the call now has its summary, transcript and recording. <strong>Pipeline</strong> → open the request → <strong>Confirm &amp; create job</strong> (one tap — customer, email, address and reason are already filled in).</li>
-      <li><strong>9–13 min — the field:</strong> on the job, <strong>Field QR</strong> → scan with a phone → <strong>Arrived at job</strong> → hold to talk (“six cracked tiles on the south slope, the pipe boot is split…”) → one photo → <strong>＋ Finding</strong>. The office page updates by itself.</li>
-      <li><strong>13–16 min — the quote:</strong> the <strong>Findings</strong> tab suggests Library items from what the tech said — add them. The <strong>Quote</strong> tab is already drafted → <strong>＋ Add item</strong> (price fills in, edit it) → <strong>Send</strong> to their email.</li>
-      <li><strong>16–18 min — report and invoice:</strong> the <strong>Report</strong> tab opens already drafted (photos, no prices) → send. <strong>Invoice</strong> is one tap from the job.</li>
-      <li><strong>18–20 min — the story:</strong> the <strong>Timeline</strong> tab's <strong>Job history</strong> shows call → job → arrival → updates → quote → invoice. Then: keep your number, forward calls to ours, live in about 48 hours.</li>
+      <li><strong>9–13 min — the field:</strong> on the job, <strong>Field QR</strong> → scan with a phone → type the worker's name (<strong>Your name (required)</strong>) → <strong>Arrived at job</strong> → hold to talk (“six cracked tiles on the south slope, the pipe boot is split…”) → one photo → <strong>＋ Finding</strong>. The office page updates by itself. The crew <strong>cannot</strong> mark the job complete from here any more — only the office can.</li>
+      <li><strong>13–16 min — the quote:</strong> the <strong>① Findings</strong> tab lists what the crew reported — add the Library matches. The <strong>② Quote</strong> tab is already drafted → <strong>＋ Add item</strong> (price fills in, edit it) → <strong>Send quote</strong>. Once the customer answers, press <strong>Mark accepted</strong> (or declined/expired) — an answered quote is locked.</li>
+      <li><strong>16–18 min — complete, report and invoice:</strong> the office marks the job complete — the <strong>Complete</strong> step on the status bar, or the <strong>Mark work complete</strong> button (the Next action on the Work step). The <strong>③ Report</strong> tab opens already drafted and is price-free unless you tick <strong>Include the quote</strong> → <strong>Mail report</strong> → <strong>Send report</strong>. <strong>④ Invoice</strong> → <strong>Send to Customer</strong> → <strong>Send Invoice</strong>: sending locks the invoice and moves the job to <strong>Invoiced</strong>; press <strong>Mark paid</strong> when it is paid.</li>
+      <li><strong>18–20 min — the story:</strong> the <strong>Activity</strong> tab's <strong>Job history</strong> shows call → job → arrival → updates → quote → invoice. Then: keep your number, forward calls to ours, live in about 48 hours.</li>
       <li><strong>Plan B for any step:</strong> open the seeded job <strong>J-1001</strong> (updates, photos, findings already in) — and press <strong>Reset</strong> at the bottom of Demo Studio before the next prospect.</li>
     </ol>
     <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">Before the first real demo: upgrade Twilio out of trial (callers hear a trial message otherwise) and set your own cell as the demo business's emergency number (Admin → Clients → demo-roofing → Edit).</p>
   </div>
+
+  <!-- ══ PHASE 25 — WHAT CHANGED 2026-09-26 ══ -->
+  <h3>What changed on 2026-09-26 — the job loop, field, Team and documents</h3>
+  <p>Phase 25 reworked the job page, the crew's field screen, the Team page and the customer documents. Every label below was checked against the code on 2026-09-26; where a label here differs from an older section of this guide, this section and the code win.</p>
+  <ul style="margin-left:20px;margin-bottom:16px;">
+    <li style="margin-bottom:6px;"><strong>Job page tabs.</strong> Plain record tabs on the left — <strong>Activity (N), Photos (N), Materials (N), Labor (N)</strong>. Numbered workflow tabs on the right — <strong>① Findings ② Quote ③ Report ④ Invoice</strong>. The old <strong>Issues</strong> tab is gone; the crew's reported problems now appear inside <strong>Findings → Reported by crew</strong>. <strong>Activity</strong> is newest-first.</li>
+    <li style="margin-bottom:6px;"><strong>One "Next" action.</strong> The header's primary button always points at the next unfinished step — <strong>Next: Findings</strong>, <strong>Next: Quote</strong>, <strong>Mark work complete</strong>, <strong>Next: Report</strong>, <strong>Next: Invoice</strong>. The status bar (<strong>Inspection · Quoted · Working · Complete · Invoiced</strong>) stays clickable for the office.</li>
+    <li style="margin-bottom:6px;"><strong>Only the office completes a job.</strong> There is no "Work complete" button on the crew's field screen any more; the office marks <strong>Complete</strong> from the status bar or the <strong>Mark work complete</strong> button (the Next action on the Work step).</li>
+    <li style="margin-bottom:6px;"><strong>Field screen.</strong> The crew must type a name (<strong>Your name (required)</strong>) before the time clock, voice, photo and finding controls unlock. The time-clock buttons (<strong>Clock in (office)</strong>, <strong>Arrived at job</strong>, <strong>Start lunch</strong>, <strong>Left job</strong>) work from the QR link. Logged-in <strong>viewers are read-only</strong> — they can look, not write.</li>
+    <li style="margin-bottom:6px;"><strong>Team page (owner only).</strong> A top-level <strong>Team</strong> nav item: status <strong>Invited / Active / Locked</strong>, <strong>Lock</strong> / <strong>Unlock</strong> (locking signs the member out and frees a seat), <strong>Resend invite</strong>, CSV import, and <strong>Revoke all field QR links</strong>.</li>
+    <li style="margin-bottom:6px;"><strong>Status flow.</strong> <strong>Complete → Invoiced</strong> happens when the invoice is <strong>sent</strong>; then press <strong>Mark paid</strong>. A sent invoice is locked; an answered quote (<strong>Mark accepted / Mark declined / Mark expired</strong>) is locked too, so new findings go on the invoice, not the quote.</li>
+    <li style="margin-bottom:6px;"><strong>Documents.</strong> Default invoice wording (Opening, Closing, Thank-you line, Terms) lives in <strong>Settings → Documents</strong>. A report is price-free unless <strong>Include the quote</strong> is ticked — and only a sent or accepted quote can be included. <strong>Settings → Terms &amp; notices</strong> holds the Florida notices: DRAFT wording, switched <strong>off</strong> on every customer document until the owner ticks <strong>I have had these reviewed</strong>. Attorney review is still outstanding (NEEDS-HUMAN) and the wording is not legal advice. Each job also has a <strong>Commercial property</strong> switch — homeowner-protection notices are left off commercial jobs.</li>
+    <li style="margin-bottom:6px;"><strong>Photos.</strong> The job's <strong>Photos (N)</strong> tab pairs <strong>Before / After</strong> and supports drag-and-drop ordering (a grip handle, plus keyboard), and the photo edit sheet has a <strong>Pairs with…</strong> selector. Drag-and-drop is code-complete but was not verified in a real browser by its author — check it on the demo [verify]. <em>Coming next (not merged yet):</em> before/after photo pairs printed on the quote, invoice and report — do not promise that today.</li>
+    <li><strong>Calls, leads and jobs.</strong> An escalated call creates an <strong>Urgent</strong> lead in the Pipeline (now shown with an <strong>Escalated</strong> chip) — an escalation or the end-of-call safety net never creates a job. The Jobs list has <strong>Load older jobs</strong> and an <strong>Export CSV</strong> button. The AI no longer books over a scheduled job, and cancelling an appointment frees the slot.</li>
+  </ul>
 
   <!-- ══ MASTER CHEAT SHEET ══ -->
   <div style="background:#0f172a;color:#f1f5f9;border-radius:10px;padding:24px 28px;margin:0 0 32px;page-break-inside:avoid;">
@@ -773,14 +788,14 @@
       <li>On the appointment card → click <strong>Create Job →</strong> → Jobs page opens, form pre-filled from the call</li>
       <li>Type a job title → click <strong>Create Job</strong> → green banner confirms + job appears</li>
       <li>Click <strong>View →</strong> to open job detail</li>
-      <li>Scan the QR code from the Demo Studio launch panel on your phone — the link carries a secure field key, so always use the Demo Studio QR / "Copy link" (a plain URL without the key won't load jobs unless you're signed in)</li>
-      <li>Select the job → <strong>hold the 🎤</strong> and speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
+      <li>On the job, click <strong>Field QR</strong> and scan the code with your phone (valid 10 minutes, works once — press <strong>New code</strong> if it expires), or use <strong>Copy field link</strong>; the link carries a secure field key (a plain URL without the key won't load jobs unless you're signed in)</li>
+      <li>Type the worker's name in <strong>Your name (required)</strong> (e.g. "Marco"), then select the job → <strong>hold the 🎤</strong> and speak: <em>"We replaced 14 squares of shingles on the north face. Marco and Dani were on site. Found rotted decking near the chimney — about 6 square feet. Job took 3 hours. Need to come back for the flashing."</em></li>
       <li>Release the mic → the update transcribes, parses, and saves automatically — a green "✓" confirms with what was captured</li>
-      <li>On the job detail tab → refresh → click each tab: <strong>Timeline · Materials</strong> (14 squares) <strong>· Labor</strong> (Marco, Dani, 3 hrs) <strong>· Issues</strong> (rotted decking, HIGH severity)</li>
-      <li>Click <strong>Generate Invoice</strong> → editable line items from the voice update (the "Hide materials from customer email" toggle collapses the material breakdown to one subtotal line on the emailed and printed invoice — the editor always shows every row)</li>
+      <li>On the job detail tab the page refreshes by itself (about every 5 s). The record tabs read <strong>Activity</strong> (newest first), <strong>Photos</strong>, <strong>Materials</strong> (14 squares) and <strong>Labor</strong> (Marco, Dani, 3 hrs); the numbered workflow tabs run <strong>① Findings ② Quote ③ Report ④ Invoice</strong>. The crew's problems now live in <strong>Findings → Reported by crew</strong> — the old <strong>Issues</strong> tab was merged into Findings</li>
+      <li>Open the <strong>Invoice</strong> tab → <strong>Generate Invoice</strong> → editable line items from the voice update (under <strong>What the customer sees</strong>, the <strong>Hide materials</strong> switch collapses the material breakdown to one subtotal line on the customer's copy — the editor always shows every row)</li>
       <li>Open the <strong>Findings</strong> tab → tick a finding → <strong>Add ticked findings to invoice</strong> (findings are standard problems/solutions from the Library, captured per job)</li>
-      <li>Open the <strong>Quote</strong> tab → build an estimate from the same lines and findings, then <strong>Send quote</strong>. A quote <strong>cannot be accepted or paid online</strong> — you record the customer's answer with <strong>Mark accepted / declined / expired</strong></li>
-      <li>Click <strong>Generate Report</strong> → full AI-written job report</li>
+      <li>Open the <strong>Quote</strong> tab → build an estimate from the same lines and findings, then <strong>Send quote</strong>. A quote <strong>cannot be accepted or paid online</strong> — you record the customer's answer with <strong>Mark accepted / Mark declined / Mark expired</strong>, and an answered quote is then locked</li>
+      <li>The office marks the job <strong>Complete</strong> (the status bar, or the <strong>Mark work complete</strong> button). Open the <strong>Report</strong> tab → it opens already drafted and is price-free unless <strong>Include the quote</strong> is ticked → <strong>Mail report</strong> → <strong>Send report</strong>. On the <strong>Invoice</strong> tab, <strong>Send to Customer</strong> then <strong>Send Invoice</strong> — sending locks the invoice and moves the job to <strong>Invoiced</strong>; press <strong>Mark paid</strong> when it is paid</li>
     </ol>
 
     <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">④ Close + Reset</div>
@@ -810,11 +825,11 @@
   <p style="font-style:italic;color:#475569;">"That happened without any staff involvement. The booking is confirmed, they have an email with your logo on it, you have a full transcript. This runs 24/7 — nights, weekends, storm season surges."</p>
 
   <h4>Part 2 — Job Dashboard (3 min)</h4>
-  <p>On the appointment card just created: click <strong>Create Job →</strong>. Type a job title, click <strong>Create Job</strong>, click <strong>View →</strong>. Show the tabs — <strong>Timeline, Materials, Labor, Issues, Findings, Photos, Invoice, Quote, Report</strong> — all empty for now.</p>
+  <p>On the appointment card just created: click <strong>Create Job →</strong>. Type a job title, click <strong>Create Job</strong>, click <strong>View →</strong>. Show the tabs — record tabs <strong>Activity, Photos, Materials, Labor</strong> on the left, numbered workflow tabs <strong>① Findings ② Quote ③ Report ④ Invoice</strong> on the right — all empty for now. The header's primary action is the <strong>Next:</strong> button.</p>
   <p style="font-style:italic;color:#475569;">"The call just became a structured job. The crew opens this on their phone."</p>
 
   <h4>Part 3 — Field Voice Input (5 min) — The Wow Moment</h4>
-  <p>Scan the QR from the Demo Studio launch panel (or open the field URL on your phone). Select the job, tap the mic, speak the script above. Submit. Show the job tabs update with extracted data, then Generate Invoice, tick a finding, build a Quote, and Generate Report.</p>
+  <p>Click <strong>Field QR</strong> on the job and scan it (or open the field URL on your phone). Type the worker's name (now required), select the job, tap the mic, speak the script above. Submit. Show the record tabs update with the extracted data; add the Library matches in <strong>Findings</strong>; build and send the <strong>Quote</strong>; mark the job <strong>Complete</strong> from the office; then <strong>Mail report</strong> and send the invoice.</p>
   <p style="font-style:italic;color:#475569;font-weight:600;">"Your crew spoke for 15 seconds in plain English. The AI extracted materials, logged labor, flagged a defect, and drafted the invoice — ready to send."</p>
 
   <h4>Close</h4>
@@ -1075,14 +1090,14 @@
       <div class="step-num purple">3</div>
       <div class="step-body">
         <strong>They land in the real dashboard</strong>
-        <p>The same Pipeline, Calendar, Jobs, and Library your own team uses — pre-seeded with realistic roofing data. A banner across the top marks it as a demo and links straight to Field.</p>
+        <p>The same Pipeline, Calendar, Jobs, and Library your own team uses — pre-seeded with realistic roofing data. A banner across the top marks it as a demo. This guest role is a <strong>read-only viewer</strong>: they can open every page, but nothing they click can write.</p>
       </div>
     </li>
     <li>
       <div class="step-num purple">4</div>
       <div class="step-body">
-        <strong>Optional: point them to Field</strong>
-        <p>Click <strong>Field</strong> in the nav, pick any job, hold the mic, and say something like <em>"used 6 bundles of shingles, Marco worked 8 to 3."</em> Materials and Labor fill in live — then open that job's <strong>Invoice</strong> tab and click <strong>Generate Invoice</strong>. The numbers they just spoke are on it.</p>
+        <strong>Optional: point them to Field (view only)</strong>
+        <p>Click <strong>Field</strong> in the nav and open any seeded job to see the field screen. This guest is a <strong>read-only viewer</strong>, so the mic, photo and finding controls will not save for them. To demo real field capture, use a crew <strong>Field QR</strong> link or an office login — that is where the voice update writes to the job.</p>
       </div>
     </li>
   </ol>
@@ -1121,27 +1136,27 @@
       <div class="step-num purple">5</div>
       <div class="step-body">
         <strong>Calendar — the crew board</strong>
-        <p>Click <strong>Calendar</strong> to show the drag-and-drop crew scheduling.</p>
+        <p>Click <strong>Calendar</strong> to show the crew board. The guest can look but not move cards — dragging a job onto a crew is office-only.</p>
       </div>
     </li>
     <li>
       <div class="step-num purple">6</div>
       <div class="step-body">
-        <strong>Field — log a voice update themselves</strong>
-        <p>Click <strong>Field</strong>, pick any seeded job, hold the mic, speak an update. Materials/Labor/Issues update live on the job.</p>
+        <strong>Field — see the crew's screen</strong>
+        <p>Click <strong>Field</strong> and open any seeded job to see the field UI (Activity, Photos, time clock, mic). As a read-only viewer the guest cannot save a voice update, photo or finding — describe it instead, or use a crew <strong>Field QR</strong> link.</p>
       </div>
     </li>
     <li>
       <div class="step-num purple">7</div>
       <div class="step-body">
         <strong>Jobs → Invoice — the payoff</strong>
-        <p>Open that job, click the <strong>Invoice</strong> tab, click <strong>Generate Invoice</strong>. The line items they just spoke are on it. This is a draft the client can email to their customer, with no online payment option; Stripe links in <span class="url">/admin/invoices</span> are only for Luxor billing the client.</p>
+        <p>Open that job and click the <strong>Invoice</strong> tab to show the line items (view only — the guest cannot generate or send anything). This is a draft the client can email to their customer, with no online payment option; Stripe links in <span class="url">/admin/invoices</span> are only for Luxor billing the client.</p>
       </div>
     </li>
   </ol>
 
   <div class="warning-box">
-    <strong>What they can't do, by design:</strong> create or edit jobs from the office side, confirm or send anything, invite teammates, or touch Settings — every one of those is blocked for this guest role, so nothing they click can break the demo or send a real email. Field voice/photo logging is the one deliberate exception — it's genuinely real, and it's the point.
+    <strong>What they can't do, by design:</strong> this guest is a read-only <strong>viewer</strong> — create or edit jobs, log a field voice update or photo, confirm or send anything, move Calendar cards, invite teammates, or touch Settings are all blocked, so nothing they click can break the demo or send a real email. The genuinely-real field capture lives on the crew <strong>Field QR</strong> link, not the sandbox.
   </div>
 
   <!-- ── URL Quick Reference ── -->
@@ -1465,7 +1480,7 @@ superadmin: false</code>
       <div class="step-num">4</div>
       <div class="step-body">
         <strong>Tell them they can add their own team — you don't have to</strong>
-        <p>Any account with the <strong>Owner</strong> role can go to <strong>Settings → Team</strong> and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it is raised in <strong>Admin → Clients → Edit</strong> (that client's Config page → <em>Subscription &amp; Billing</em> → <strong>Seat limit</strong>). Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
+        <p>Any account with the <strong>Owner</strong> role can open the top-level <strong>Team</strong> page and add staff one at a time by email, or click <strong>Import CSV</strong> to add a whole roster at once (two columns: <code>email,role</code> — role defaults to staff if left blank; the result list shows exactly which rows were invited vs. skipped). Each invite gets its own password-reset email — you never generate or relay a second temp password yourself. Every account has a <strong>seat limit</strong> (5 by default) — hitting it blocks new invites until it is raised in <strong>Admin → Clients → Edit</strong> (that client's Config page → <em>Subscription &amp; Billing</em> → <strong>Seat limit</strong>). Superadmins can do all of the above directly from a client's <strong>Config page → Team panel</strong> — no <code>?preview=</code> needed.</p>
       </div>
     </li>
   </ol>
@@ -1521,7 +1536,7 @@ superadmin: false</code>
       <div class="step-num">6</div>
       <div class="step-body">
         <strong>Test client login</strong>
-        <p>Log in with client credentials. ✓ Dashboard shows their data &nbsp; ✓ No other businesses visible &nbsp; ✓ Nav shows only relevant tabs for their industry &nbsp; ✓ Settings → Team is visible (owner role) and can send a test invite</p>
+        <p>Log in with client credentials. ✓ Dashboard shows their data &nbsp; ✓ No other businesses visible &nbsp; ✓ Nav shows only relevant tabs for their industry &nbsp; ✓ The top-level <strong>Team</strong> page is visible (owner role), with member status <strong>Invited / Active / Locked</strong>, <strong>Lock</strong>/<strong>Unlock</strong>, <strong>Resend invite</strong>, CSV import and <strong>Revoke all field QR links</strong> &nbsp; ✓ Settings → <strong>Documents</strong> and <strong>Terms &amp; notices</strong> are visible to the owner</p>
       </div>
     </li>
     <li>
@@ -1548,8 +1563,8 @@ superadmin: false</code>
     <li>
       <div class="step-num">10</div>
       <div class="step-body">
-        <strong>Smoke-test findings and a quote</strong>
-        <p>On a job: <strong>Generate Invoice</strong> → open the <strong>Findings</strong> tab → <strong>Add ticked findings to invoice</strong> → open the <strong>Quote</strong> tab → <strong>Send quote</strong> to your own email. ✓ The quote email states plainly that it cannot be accepted or paid online &nbsp; ✓ <strong>Mark accepted / declined / expired</strong> records the customer's answer without sending anything.</p>
+        <strong>Smoke-test the finding-to-invoice loop</strong>
+        <p>On a job: <strong>Findings</strong> tab → add a Library finding → <strong>Quote</strong> tab → <strong>Send quote</strong> to your own email. ✓ The quote email states plainly that it cannot be accepted or paid online &nbsp; ✓ <strong>Mark accepted / Mark declined / Mark expired</strong> records the customer's answer without sending anything, and an answered quote is locked &nbsp; ✓ The <strong>Report</strong> tab opens drafted and stays price-free unless <strong>Include the quote</strong> is ticked &nbsp; ✓ <strong>Invoice</strong> tab → <strong>Send to Customer</strong> locks the invoice and moves the job to <strong>Invoiced</strong>, then <strong>Mark paid</strong> records payment &nbsp; ✓ <strong>Settings → Documents</strong> holds the invoice Opening/Closing/Thank-you/Terms defaults &nbsp; ✓ <strong>Settings → Terms &amp; notices</strong> ships DRAFT and OFF until the owner ticks <strong>I have had these reviewed</strong> (attorney review is still outstanding — see NEEDS-HUMAN; do not describe the wording as legal advice).</p>
       </div>
     </li>
   </ol>
@@ -1584,7 +1599,7 @@ superadmin: false</code>
       <h4>Team panel</h4>
       <ul style="margin-left:16px;">
         <li style="margin-bottom:4px;">The client's actual team list, editable right here — invite, change role, remove</li>
-        <li>Same CSV import as their own Settings → Team (see Phase 4)</li>
+        <li>Same CSV import as their own Team page (see Phase 4)</li>
       </ul>
     </div>
   </div>
@@ -1622,7 +1637,7 @@ superadmin: false</code>
     <li>Confirm they can log in and land on their own data (not a blank or wrong dashboard)</li>
     <li>Point out the tabs their industry actually uses — don't walk them through tabs they don't have</li>
     <li>Confirm they know where notification emails will land (and to check spam once)</li>
-    <li>Mention Settings → Team if they have staff to add — they don't need you for that</li>
+    <li>Mention the Team page if they have staff to add — they don't need you for that</li>
   </ul>
 
   <h4>2. Setting after-hours expectations — before their first real one</h4>
@@ -1701,7 +1716,7 @@ superadmin: false</code>
     <li>Brand color, logo URL, contact phone saved in portal</li>
     <li>Notification email and escalation phone configured</li>
     <li>Client login provisioned (auto via wizard, or manually via Firebase Console)</li>
-    <li>Client told they can add their own team from Settings → Team (Owner role, no superadmin needed) — one at a time or via CSV import</li>
+    <li>Client told they can add their own team from the top-level Team page (Owner role, no superadmin needed) — one at a time or via CSV import</li>
     <li>Seat limit set to their contracted headcount, if different from the default of 5 (Config page → Subscription &amp; Billing)</li>
     <li>Test appointment booked via live call — appears in portal</li>
     <li>Notification email confirmed received</li>
@@ -1710,6 +1725,9 @@ superadmin: false</code>
     <li>Client login tested — sees only their business data, correct nav tabs visible</li>
     <li>Portal status set to <strong>Active</strong> in config edit page; this flag does not hold Vapi calls — attach the assistant and phone IDs only when ready for calls</li>
     <li>Request review &amp; decline card (T-113) — shipped 2026-09-25; try it once end-to-end before demoing</li>
+    <li>Team page checked: owner can Lock/Unlock a member (status Invited / Active / Locked) and <strong>Revoke all field QR links</strong></li>
+    <li>Settings → Documents invoice wording reviewed (Opening, Closing, Thank-you, Terms); <strong>Terms &amp; notices</strong> left OFF until the attorney-reviewed wording is in and <strong>I have had these reviewed</strong> is ticked (NEEDS-HUMAN)</li>
+    <li>Job loop walked once end-to-end: Findings → Quote (send, mark answered) → office marks Complete → Report (<strong>Include the quote</strong> off unless intended) → Invoice sent (job becomes Invoiced) → <strong>Mark paid</strong></li>
   </ul>
 
   <hr>
@@ -1784,6 +1802,21 @@ superadmin: false</code>
         <td>By design — quotes have no online acceptance or payment</td>
         <td>Send the quote by email, then record the answer in the app with <strong>Mark accepted / declined / expired</strong>. Only Luxor's own invoices in <code>/admin/invoices</code> have Stripe payment links.</td>
       </tr>
+      <tr>
+        <td>Job tabs look different from an older guide</td>
+        <td>The job page was reworked 2026-09-26</td>
+        <td>Record tabs are <strong>Activity, Photos, Materials, Labor</strong>; numbered workflow tabs are <strong>① Findings ② Quote ③ Report ④ Invoice</strong>. The old <strong>Issues</strong> tab is inside <strong>Findings → Reported by crew</strong>. <strong>Activity</strong> is newest-first.</td>
+      </tr>
+      <tr>
+        <td>A sent invoice or an answered quote won't change</td>
+        <td>By design — a sent invoice and an answered quote are locked</td>
+        <td>Put later work on a new document: new findings go on the invoice, not the answered quote. A sent invoice is locked and the job is already <strong>Invoiced</strong>; press <strong>Mark paid</strong> when it is paid.</td>
+      </tr>
+      <tr>
+        <td>The crew says there is no "Work complete" on their phone</td>
+        <td>By design — the crew can no longer complete a job</td>
+        <td>Only the office completes a job: the <strong>Complete</strong> step on the status bar, or the <strong>Mark work complete</strong> button (the Next action on the Work step).</td>
+      </tr>
     </tbody>
   </table>
 
@@ -1793,7 +1826,7 @@ superadmin: false</code>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;">
     <span>Luxor AI — Internal Use Only</span>
     <span>ai-roof.vercel.app &nbsp;·&nbsp; connect@luxordev.com</span>
-    <span>v2.8 — September 2026</span>
+    <span>v3.0 — September 2026</span>
   </div>
 
 </div><!-- /page -->

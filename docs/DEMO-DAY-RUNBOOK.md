@@ -1,6 +1,6 @@
 # Demo-day runbook — the 20-minute roofing demo, click by click
 
-Every label below was checked against the code on 2026-09-25. Site: **https://crm.luxordev.com**. Demo line: **+1 (689) 204-2643**.
+Every label below was checked against the code on 2026-09-26 (Phase 25: job page, field screen, Team page, documents). Site: **https://crm.luxordev.com**. Demo line: **+1 (689) 204-2643**.
 
 ## A. One-time setup (do once, about 10 minutes)
 
@@ -41,42 +41,44 @@ Every label below was checked against the code on 2026-09-25. Site: **https://cr
 
 **9–13 min — the field**
 
-**Screen 5 — the job page** (Jobs → the job). Under the title you see the guide bar: ① Findings → ② Quote → ③ Work → ④ Report → ⑤ Invoice, with a **Next:** button.
+**Screen 5 — the job page** (Jobs → the job). The tab bar has plain record tabs on the left — **Activity, Photos, Materials, Labor** — and numbered workflow tabs on the right — **① Findings ② Quote ③ Report ④ Invoice** (the old **Issues** tab is merged into **Findings**). The header's primary action is a **Next:** button; on the Work step it reads **Mark work complete**.
 - Click **Field QR** → a code appears (valid **10 minutes**, works once; if it expires press **New code**).
 
 **Screen 6 — the technician's phone**
 - Scan the code with the phone camera → tap the link. First time: allow the microphone. Header reads **Luxor Field**.
-- Type a name in **Your name (optional)** ("Marco"). The job is already selected.
+- Type a name in **Your name (required)** ("Marco"). The job is already selected. (The name is required before the time clock, mic, photo and finding buttons unlock.)
 - Tap **Arrived at job**.
 - Hold the big **mic**, speak, release: "This is Marco. Six cracked tiles on the south slope, and the pipe boot over the kitchen is split." Status text goes Uploading → Transcribing → Updating the job (5–10 s), then "✓ Logged".
 - Tap **＋ Photo** → take a picture → type a description (required) → **Save photo**.
 - Tap **＋ Finding** → tap **Cracked tiles** (or any item) → it says "Finding added".
+- The crew **cannot** mark the job complete from this screen any more — only the office can.
 - (Optional Spanish: hold the mic and say it in Spanish — the office sees the English.)
 
 **Back on the laptop — the job page updates by itself** (about every 5 s; no reload)
-- **Timeline** tab: the new **Job history** panel at the top (call → job → arrival → update → photo → finding), then the field notes.
-- **Findings** tab: the tab label says "· N suggested" — open it: "From the field notes" lists Library matches → click **＋ Add** on each.
+- **Activity** tab: the field updates first (newest first), then the work log, then the **Job history** panel (call → job → arrival → update → photo → finding).
+- **Findings** tab: open it — **Reported by crew** lists what the field notes said → click **＋ Add Library fix** (or **＋ Add as finding**) on each.
 
 **13–16 min — the quote**
 - Click **Next: Quote** (or the **Quote** tab). It is **already drafted** from the findings: cards of *Issue → Work → Price*, with a big **Estimated total**.
 - Click **＋ Add item** → search "flashing" → click **Damaged flashing** → its work and default price appear. Click into the price and change it — the total updates.
 - Optionally open **What the customer sees** and switch on **Hide materials** — it explains itself.
-- Type the customer's email in the box at the bottom → **Send quote** (it saves first). Status changes to **Sent**.
+- Type the customer's email in the box at the bottom → **Send quote** (it saves first). Status changes to **Sent**. The customer can't accept or pay online; when they answer, record it with **Mark accepted / Mark declined / Mark expired** — an answered quote is then locked.
 *Show the email arriving on your phone/laptop.*
 
-**16–18 min — report and invoice**
-- On the laptop, mark the job complete from the office status controls.
-- Laptop: **Report** tab → it opens **already generated and drafted** (photos, findings, no prices) → **Mail report** → email → **Send report**.
-- **Invoice** tab → **Generate Invoice** → **Send to Customer** → email → **Send Invoice**.
+**16–18 min — complete, report and invoice**
+- On the laptop, mark the job complete from the office: the **Complete** step on the status bar, or the **Mark work complete** button.
+- Laptop: **Report** tab → it opens **already drafted** (findings; price-free unless you tick **Include the quote**) → **Mail report** → email → **Send report**.
+- **Invoice** tab → **Generate Invoice** → **Send to Customer** → email → **Send Invoice** — sending locks the invoice and moves the job to **Invoiced**; press **Mark paid** once it is paid.
 
 **18–20 min — the story and the close**
-- Back on **Timeline**: read the **Job history** top to bottom — that is the whole job, automatically.
+- Back on **Activity**: read the **Job history** top to bottom — that is the whole job, automatically.
 - Close: "Keep your number. Forward calls to ours. Live in about 48 hours." (The guide bar now shows every step ticked.)
 
 ## D. Extras if there is time
 - **Emergency:** call and say "water is coming through my ceiling" → the AI escalates; an alert email arrives at the email you launched with.
 - **Spanish:** call and speak Spanish — it switches by itself.
 - **Customers** (left menu) → the caller is already there. **Calendar** → drag the job onto a crew.
+- **Team** (owner-only, bottom of the left nav) → show the **Invited / Active / Locked** status, **Lock**/**Unlock**, and **Revoke all field QR links**. **Settings → Terms & notices** ships **DRAFT** and OFF until the owner ticks **I have had these reviewed** (attorney review is still outstanding — describe it as a draft, never as legal advice).
 
 ## E. After every demo
 - **Demo Studio** → scroll to **3 · Reset** → **Reset demo** → type **RESET** → **Confirm reset**. This wipes the calls, jobs, customers, quotes, photos and booking slots and re-seeds J-1001. Do it before the next prospect (and after your dry run).
@@ -88,4 +90,6 @@ Every label below was checked against the code on 2026-09-25. Site: **https://cr
 - If ElevenLabs ever can't reach the app, the line falls back to the agent's own greeting ("Carlita Roofing") — if you hear that name, check https://crm.luxordev.com/api/health.
 - Voice takes 5–10 s to appear in the job. Say "it's processing" — don't tap again.
 - Emails come from **Luxor CRM <crm@luxordev.com>** under the business name, replies go to the business email. Not yet verified for spam placement (NH-25) — always test to your own inbox first.
+- The crew screen has **no "Work complete"** — the office completes the job (the status bar, or **Mark work complete**). A sent invoice and an answered quote are locked by design; the job moves to **Invoiced** the moment the invoice is sent.
+- The self-led "**See it in the real app**" sandbox is a **read-only viewer**: it can browse every page but cannot log a field update, move Calendar cards, or generate/send anything.
 - Nothing has been run end-to-end on a real phone by anyone yet. Your dry run in A3 is the first.

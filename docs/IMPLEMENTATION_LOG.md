@@ -1546,3 +1546,12 @@ px.cmd vitest run 128 files, 1,022 passed and 1 expected failure.
 - Gates: npm run type-check clean; npm run lint 0 errors / 28 existing warnings; npm test 175 files, 1,381 passed + 1 expected fail; changed-file ESLint 0 errors; npm run e2e:call passed the full call-to-cash walk-through; npx next build compiled, generated 90/90 static pages, and exited 0.
 - Harness limits: local emulators do not cover real phone audio, the live ElevenLabs agent/tool configuration, a real inbox/provider delivery, or production Firebase/Vercel behavior. The booking-change gate still requires the integrator's post-deploy ElevenLabs tests and one real phone call with transcript review.
 - Removals: none. No push, merge, deployment, production write, or live provider call was performed.
+## 2026-09-26 - G3: owner-facing guides refreshed for Phase 25 (Worker D, deepseek-flash, branch task/guide-3)
+
+- Files: public/guides/onboarding-guide.html, docs/DEMO-DAY-RUNBOOK.md, this log. Every label verified against src/app/company/** and src/components/**.
+- Guide: record tabs Activity / Photos / Materials / Labor; numbered 1 Findings 2 Quote 3 Report 4 Invoice; Issues merged into Findings; Activity newest-first; one Next action (Mark work complete on the Work step); office-only completion; field name Your name (required); viewers read-only; time clock works from the QR link; Team page Invited / Active / Locked + Lock/Unlock + Revoke all field QR links; Complete -> Invoiced on send then Mark paid; sent invoice and answered quote locked; Settings -> Documents wording; report price-free unless Include the quote; Terms and notices DRAFT and OFF until I have had these reviewed (attorney review NEEDS-HUMAN); Commercial property switch; Photos Before/After pairing (Pairs with...) + drag-and-drop, with real-browser drag-and-drop marked [verify]; photos on documents listed as coming next (E6b not merged); escalation creates an Urgent lead never a job; Load older jobs + Export CSV; no booking over a scheduled job; cancelling frees the slot.
+- Corrected the self-led sandbox section: the guest is a read-only viewer, so field writes are blocked.
+- Runbook: 20-minute running order updated to the same flow; label date bumped to 2026-09-26.
+- Version bumped to 3.0 on the guide cover and footer (was 2.9 / 2.8, reconciled).
+- Checks: HTML tag balance unchanged (div 285/285, section 0/0, table 5/5; ul/li/ol/p/code/strong/h3 balanced); the guide has no hrefs, so no relative links to resolve; no phone number, URL, price or ROI figure changed.
+- Removals: none.
