@@ -8,12 +8,14 @@ const onboardingSource = readFileSync(
 );
 
 describe("admin onboarding stepper", () => {
-  it("renders one connected six-step form with a progress indicator", () => {
-    expect(onboardingSource.match(/data-wizard-step=\{\d\}/g)).toHaveLength(6);
-    expect(onboardingSource.match(/hidden=\{currentStep !==/g)).toHaveLength(6);
+  it("renders one connected seven-step form with required hours and a progress indicator", () => {
+    expect(onboardingSource.match(/data-wizard-step=\{\d\}/g)).toHaveLength(7);
+    expect(onboardingSource.match(/hidden=\{currentStep !==/g)).toHaveLength(7);
     expect(onboardingSource).toContain('role="progressbar"');
     expect(onboardingSource).toContain("Step {currentStep + 1} of {wizardSteps.length}");
-    expect(onboardingSource).toContain("6. Launch Readiness");
+    expect(onboardingSource).toContain("2. Hours");
+    expect(onboardingSource).toContain("7. Launch Readiness");
+    expect(onboardingSource).toContain("businessHours,");
   });
 
   it("retains every field in the existing onboarding POST contract", () => {

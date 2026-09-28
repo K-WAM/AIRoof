@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { PLAN_PRESETS } from "@/lib/ai/planPresets";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
 import { SUPPORTED_TIMEZONES } from "@/hooks/useBusinessTimezone";
+import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
+import type { CanonicalBusinessHours } from "@/lib/scheduling/hours";
 import {
   Building2,
   Check,
@@ -22,6 +24,7 @@ import {
 
 const wizardSteps = [
   "Company profile",
+  "Hours",
   "Template and plan",
   "Services and FAQs",
   "Rules and routing",
@@ -56,6 +59,8 @@ export default function OnboardingPage() {
     tempPassword?: string;
   }>({ type: "idle", message: "" });
   const [dirty, setDirty] = useState(false);
+  const [businessHours, setBusinessHours] = useState<CanonicalBusinessHours>(DEFAULT_BUSINESS_HOURS);
+  const [hoursValid, setHoursValid] = useState(true);
 
   useEffect(() => {
     if (!dirty) return;
@@ -94,6 +99,10 @@ export default function OnboardingPage() {
   }
 
   function goNext() {
+    if (currentStep === 1 && !hoursValid) {
+      setSubmitStatus({ type: "error", message: "Fix the business hours before continuing." });
+      return;
+    }
     const currentPanel = formRef.current?.querySelector<HTMLElement>(
       `[data-wizard-step="${currentStep}"]`,
     );
@@ -154,6 +163,7 @@ export default function OnboardingPage() {
       phoneNumber: String(formData.get("phoneNumber") || "").trim(),
       serviceArea,
       timezone: String(formData.get("timezone") || "America/New_York"),
+      businessHours,
       industry: String(formData.get("industry") || "roofing"),
       planTier: String(formData.get("planTier") || "standard"),
       agentName: String(formData.get("agentName") || "Mia").trim(),
@@ -287,15 +297,40 @@ export default function OnboardingPage() {
 
           <section
             className="panel"
-            aria-labelledby="template-title"
+            aria-labelledby="hours-title"
             data-wizard-step={1}
             hidden={currentStep !== 1}
             tabIndex={-1}
           >
             <div className="panel-header">
+              <h2 className="panel-title" id="hours-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                2. Hours
+              </h2>
+            </div>
+            <div className="panel-body">
+              <p style={{ margin: "0 0 14px", color: "var(--text-muted)", fontSize: 13 }}>
+                Confirm when customers can book. Mon–Fri 8–5 is selected.
+              </p>
+              <HoursEditor
+                value={businessHours}
+                onChange={(hours) => { setBusinessHours(hours); setDirty(true); }}
+                onValidityChange={setHoursValid}
+                idPrefix="onboarding-hours"
+              />
+            </div>
+          </section>
+
+          <section
+            className="panel"
+            aria-labelledby="template-title"
+            data-wizard-step={2}
+            hidden={currentStep !== 2}
+            tabIndex={-1}
+          >
+            <div className="panel-header">
               <h2 className="panel-title" id="template-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <LayoutTemplate size={16} strokeWidth={1.75} />
-                2. Template and Plan
+                3. Template and Plan
               </h2>
             </div>
             <div className="panel-body">
@@ -375,14 +410,14 @@ export default function OnboardingPage() {
           <section
             className="panel"
             aria-labelledby="defaults-title"
-            data-wizard-step={2}
-            hidden={currentStep !== 2}
+            data-wizard-step={3}
+            hidden={currentStep !== 3}
             tabIndex={-1}
           >
             <div className="panel-header">
               <h2 className="panel-title" id="defaults-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <ListChecks size={16} strokeWidth={1.75} />
-                3. Roofing Defaults
+                4. Roofing Defaults
               </h2>
             </div>
             <div className="panel-body">
@@ -416,14 +451,14 @@ export default function OnboardingPage() {
           <section
             className="panel"
             aria-labelledby="routing-title"
-            data-wizard-step={3}
-            hidden={currentStep !== 3}
+            data-wizard-step={4}
+            hidden={currentStep !== 4}
             tabIndex={-1}
           >
             <div className="panel-header">
               <h2 className="panel-title" id="routing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Route size={16} strokeWidth={1.75} />
-                4. Rules and Routing
+                5. Rules and Routing
               </h2>
             </div>
             <div className="panel-body">
@@ -466,14 +501,14 @@ export default function OnboardingPage() {
           <section
             className="panel"
             aria-labelledby="vapi-onboarding-title"
-            data-wizard-step={4}
-            hidden={currentStep !== 4}
+            data-wizard-step={5}
+            hidden={currentStep !== 5}
             tabIndex={-1}
           >
             <div className="panel-header">
               <h2 className="panel-title" id="vapi-onboarding-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <PhoneCall size={16} strokeWidth={1.75} />
-                5. Vapi and Branding
+                6. Vapi and Branding
               </h2>
             </div>
             <div className="panel-body">
@@ -519,14 +554,14 @@ export default function OnboardingPage() {
           <section
             className="panel"
             aria-labelledby="readiness-title"
-            data-wizard-step={5}
-            hidden={currentStep !== 5}
+            data-wizard-step={6}
+            hidden={currentStep !== 6}
             tabIndex={-1}
           >
             <div className="panel-header">
               <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Rocket size={16} strokeWidth={1.75} />
-                6. Launch Readiness
+                7. Launch Readiness
               </h2>
             </div>
             <div className="panel-body">

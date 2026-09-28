@@ -134,6 +134,7 @@ const validBody = {
   industry: "general-contracting",
   ownerEmail: "owner@luxordev.com",
   serviceArea: "NYC",
+  businessHours: "Mon-Fri 8-5",
 };
 
 describe("POST /api/admin/businesses — welcome email", () => {
@@ -193,6 +194,24 @@ describe("POST /api/admin/businesses — welcome email", () => {
         brandName: "Test Biz",
       }),
     );
+  });
+
+  it("rejects invalid hours with field errors before provisioning or writing", async () => {
+    const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
+    const response = await freshPost(createRequest({ ...validBody, businessHours: { Monday: "17:00 - 08:00" } }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ fieldErrors: { Monday: expect.any(String) } });
+    expect(mockCreateUser).not.toHaveBeenCalled();
+  });
+
+  it("stores tolerant legacy hours in canonical form", async () => {
+    const { POST: freshPost } = await import("@/app/api/admin/businesses/route");
+    const response = await freshPost(createRequest({ ...validBody, ownerEmail: undefined }));
+    expect(response.status).toBe(200);
+    expect(lastFirestore?.documents.get("businesses/test-biz")?.businessHours).toMatchObject({
+      Monday: "08:00 - 17:00",
+      Sunday: "Closed",
+    });
   });
 
   it("returns not_configured when Resend env vars are missing", async () => {

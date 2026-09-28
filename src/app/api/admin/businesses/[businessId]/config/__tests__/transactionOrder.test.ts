@@ -83,4 +83,12 @@ describe("admin business config save — Firestore transaction ordering", () => 
       "update:businesses/biz-1", "update:businessOnboarding/biz-1", "update:businessIntegrationStatus/biz-1",
     ]));
   });
+
+  it("rejects invalid hours with field errors before database access", async () => {
+    const { PUT } = await import("../route");
+    const res = await PUT(put({ businessHours: { Monday: "17:00 - 08:00" } }), params);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ fieldErrors: { Monday: expect.any(String) } });
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+  });
 });

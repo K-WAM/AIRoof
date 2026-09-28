@@ -4,6 +4,8 @@ import { useState, type FormEvent } from "react";
 import { Copy, Settings } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { VERTICAL_TEMPLATES } from "@/lib/verticals/templates";
+import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
+import type { CanonicalBusinessHours } from "@/lib/scheduling/hours";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
@@ -43,6 +45,8 @@ export function NewClientModal({ open, onClose, onCreated }: { open: boolean; on
   const [serviceArea, setServiceArea] = useState("");
   const [employeeCount, setEmployeeCount] = useState("");
   const [seatLimit, setSeatLimit] = useState("5");
+  const [businessHours, setBusinessHours] = useState<CanonicalBusinessHours>(DEFAULT_BUSINESS_HOURS);
+  const [hoursValid, setHoursValid] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedClient | null>(null);
@@ -51,6 +55,7 @@ export function NewClientModal({ open, onClose, onCreated }: { open: boolean; on
     setBusinessName(""); setBusinessId(""); setBusinessIdEdited(false);
     setOwnerEmail(""); setPhoneNumber(""); setAddress("");
     setIndustry("roofing"); setServiceArea(""); setEmployeeCount(""); setSeatLimit("5");
+    setBusinessHours(DEFAULT_BUSINESS_HOURS); setHoursValid(true);
     setError(null); setCreated(null);
   }
 
@@ -84,6 +89,10 @@ export function NewClientModal({ open, onClose, onCreated }: { open: boolean; on
       setError("Enter at least one service area (city or region).");
       return;
     }
+    if (!hoursValid) {
+      setError("Fix the business hours before creating the client.");
+      return;
+    }
 
     setCreating(true);
     try {
@@ -98,6 +107,7 @@ export function NewClientModal({ open, onClose, onCreated }: { open: boolean; on
           phoneNumber: phoneNumber.trim() || undefined,
           address: address.trim() || undefined,
           serviceArea: serviceArea.split(",").map((a) => a.trim()).filter(Boolean),
+          businessHours,
           employeeCount: employeeCount ? Number(employeeCount) : undefined,
           seatLimit: seatLimit ? Number(seatLimit) : undefined,
           active: false,
@@ -185,6 +195,16 @@ export function NewClientModal({ open, onClose, onCreated }: { open: boolean; on
             <div className="field full">
               <label htmlFor="nc-service-area">Service area *</label>
               <input id="nc-service-area" required value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} placeholder="Miami, Coral Gables, Doral" />
+            </div>
+            <div className="field full">
+              <span className="field-label">Hours *</span>
+              <p style={{ margin: "0 0 10px", color: "var(--text-muted)", fontSize: 12 }}>Confirm when customers can book.</p>
+              <HoursEditor
+                value={businessHours}
+                onChange={setBusinessHours}
+                onValidityChange={setHoursValid}
+                idPrefix="new-client-hours"
+              />
             </div>
             <div className="field">
               <label htmlFor="nc-industry">Industry</label>
