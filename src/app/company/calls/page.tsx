@@ -276,6 +276,11 @@ export default function CompanyCallsPage() {
                   const isOutbound = call.callType === "outbound";
                   const displayPhone = isOutbound ? (call.targetPhone ? fmtPhone(call.targetPhone) : "Outbound") : (call.callerPhone ? fmtPhone(call.callerPhone) : "Unknown caller");
                   const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
+                  const callLinks = findCallLinks(call.callId, linkedLeads, linkedAppts);
+                  const callPhone = call.callType === "outbound" ? call.targetPhone : call.callerPhone;
+                  const bookedHref = callLinks.appointmentId
+                    ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${callLinks.appointmentId}`
+                    : null;
                   return (
                     <article
                       className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
@@ -302,6 +307,18 @@ export default function CompanyCallsPage() {
                       </div>
                       <p className="call-subtitle">
                         {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}
+                      </p>
+                      <p className="call-subtitle" onClick={(event) => event.stopPropagation()}>
+                        {bookedHref ? (
+                          <Link href={bookedHref} style={{ color: "var(--accent)", fontWeight: 700 }}>
+                            Booked · open in Pipeline →
+                          </Link>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: 700 }}>Not booked</span>
+                            {callPhone && <> · <a href={`tel:${callPhone}`} style={{ color: "var(--accent)" }}>Call them</a></>}
+                          </>
+                        )}
                       </p>
                     </article>
                   );
@@ -337,7 +354,7 @@ export default function CompanyCallsPage() {
                   </div>
                 </div>
 
-                {(leadHref || apptHref) && (
+                {(leadHref || apptHref) ? (
                   <div
                     style={{
                       display: "flex",
@@ -351,21 +368,27 @@ export default function CompanyCallsPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      This call produced
-                    </span>
+                    {apptHref ? (
+                      <Link href={apptHref} style={{ color: "var(--accent)", fontWeight: 700 }}>
+                        Booked · open in Pipeline →
+                      </Link>
+                    ) : <span style={{ fontWeight: 700 }}>Not booked</span>}
                     {selectedLead?.escalated && <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>}
                     {leadHref && (
                       <Link className="button small" href={leadHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        View lead <ArrowRight size={13} />
-                      </Link>
-                    )}
-                    {apptHref && (
-                      <Link className="button small secondary" href={apptHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        View appointment <ArrowRight size={13} />
+                        Open callback <ArrowRight size={13} />
                       </Link>
                     )}
                     <button className="button small secondary" type="button" onClick={() => setReview({ lead: selectedLead, appointment: selectedLinks?.appointmentId ? linkedAppts.find((appointment) => appointment.appointmentId === selectedLinks.appointmentId) : undefined, call: selected })}>Review request</button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <strong>Not booked</strong>
+                    {(selected.callType === "outbound" ? selected.targetPhone : selected.callerPhone) && (
+                      <a className="button small" href={`tel:${selected.callType === "outbound" ? selected.targetPhone : selected.callerPhone}`}>
+                        Call them
+                      </a>
+                    )}
                   </div>
                 )}
 
