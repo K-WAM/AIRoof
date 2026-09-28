@@ -90,6 +90,13 @@ describe("GET /api/company/work-catalog", () => {
     expect(body.catalog.items).toHaveLength(1);
     expect(body.catalog.items[0].problem).toBe("Water stain at the interior ceiling");
   });
+
+  it("lets a viewer read it (the Library page loads it for everyone) while writes stay owner/staff", async () => {
+    await GET(new NextRequest("http://localhost/api/company/work-catalog?businessId=biz-1"));
+    expect(mocks.verifyAuthAndRole).toHaveBeenLastCalledWith(expect.anything(), "biz-1", ["owner", "staff", "viewer", "superadmin"]);
+    await PUT(new NextRequest("http://localhost/api/company/work-catalog", { method: "PUT", body: JSON.stringify({ businessId: "biz-1", items: [] }) }));
+    expect(mocks.verifyAuthAndRole).toHaveBeenLastCalledWith(expect.anything(), "biz-1", ["owner", "staff", "superadmin"]);
+  });
 });
 
 describe("PUT /api/company/work-catalog", () => {
