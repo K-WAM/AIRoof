@@ -363,12 +363,21 @@ export async function executeAgentTool(
               ? {}
               : { weekday: "long" as const }),
           }).format(new Date(slot.startTime)));
-        const reason = (err as { code?: unknown }).code === "slot_conflict" ? "is booked" : "is outside business hours";
-        const result = alternatives.length > 0
-          ? `${requestedLabel} ${reason}. The closest openings are ${joinSpokenList(alternatives)}.`
-          : `${requestedLabel} ${reason}. I can take your details and have the team follow up.`;
+        // Wording matters: "8 AM Monday is booked" was read by the live agent as SUCCESS and it told the caller they
+        // were booked (ElevenLabs agent test, 2026-09-27). The model-facing result says NOT booked up front; the
+        // caller-facing sentence says "taken", never "booked".
+        const why = (err as { code?: unknown }).code === "slot_conflict"
+          ? `${requestedLabel} was just taken`
+          : `${requestedLabel} is outside our business hours`;
+        const offer = alternatives.length > 0 ? joinSpokenList(alternatives) : null;
+        const sayToCaller = offer
+          ? `Sorry, ${why}. The closest openings are ${offer}. Which works best for you?`
+          : `Sorry, ${why}. I can take your details and have the team follow up.`;
+        const result = offer
+          ? `NOT BOOKED: ${why}. Nothing was booked for this caller. Offer them the closest openings: ${offer}.`
+          : `NOT BOOKED: ${why}. Nothing was booked for this caller. Take their details with createLead so the team follows up.`;
         await logAction(businessId, callId, name, params, { error: err.message, alternatives }, "failed");
-        return { result, sayToCaller: result };
+        return { result, sayToCaller };
       }
     }
     if (name === "lookupAppointment" || name === "cancelAppointment") {

@@ -82,9 +82,13 @@ describe("ElevenLabs tool caller identity", () => {
     }, { ...context, callerPhone: "+15551234567" });
 
     expect(result).toEqual({
-      result: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
-      sayToCaller: "8:00 AM Monday is booked. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM.",
+      result: "NOT BOOKED: 8:00 AM Monday was just taken. Nothing was booked for this caller. Offer them the closest openings: 9:00 AM, 9:30 AM or 10:00 AM.",
+      sayToCaller: "Sorry, 8:00 AM Monday was just taken. The closest openings are 9:00 AM, 9:30 AM or 10:00 AM. Which works best for you?",
     });
+    // The live agent read "8 AM Monday is booked" as success (agent test, 2026-09-27): the caller-facing sentence
+    // must never contain "booked", and the model-facing one only as "NOT BOOKED".
+    expect(result.sayToCaller).not.toMatch(/booked/i);
+    expect(result.result?.replace("NOT BOOKED", "")).not.toMatch(/\bis booked\b/i);
     expect(mocks.checkAvailability).toHaveBeenCalledWith(expect.objectContaining({
       businessId: "biz-stored", preferredDate: "2026-09-28", preferredTime: "8:00 AM",
     }));
