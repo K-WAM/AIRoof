@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
+import { BookingDetails } from "@/components/appointments/BookingDetails";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
 import { fmtPhone } from "@/lib/format";
@@ -76,6 +77,11 @@ interface Appointment {
   endTime: number;
   status: string;
   pendingConfirmation?: boolean;
+  bookedAfterHours?: boolean;
+  textOk?: boolean;
+  assignedCrewId?: string;
+  assignedBy?: "ai" | "office";
+  callSummary?: string;
   createdAt: number;
   sourceCallId?: string;
   /** Set once a job has been created from this booking — the card then opens it instead of offering "Create Job". */
@@ -152,7 +158,9 @@ export default function PipelinePage() {
   const urgencyParam = searchParams?.get("urgency");
   const leadParam = searchParams?.get("lead");
   const apptParam = searchParams?.get("appt");
-  const initialTab: Tab = searchParams?.get("tab") === "appointments" ? "appointments" : "leads";
+  // Booked inspections are the pipeline's primary workflow. Keep the old
+  // ?tab=appointments / ?tab=leads deep links, but default a bare visit to Booked.
+  const initialTab: Tab = searchParams?.get("tab") === "leads" ? "leads" : "appointments";
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Leads state
@@ -170,9 +178,12 @@ export default function PipelinePage() {
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
-  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
+  const bootstrapBusiness = useBootstrap().data?.business;
+  const phoneLine = bootstrapBusiness?.phoneLine ?? null;
+  const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);
   const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
+  const [crewNames, setCrewNames] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -195,13 +206,17 @@ export default function PipelinePage() {
       fetch(`${base}/appointments?from=${now}&to=8640000000000000`),
       fetch(`${base}/appointments?order=desc&limit=500`),
       fetch(`${base}/appointments?pending=1`),
+      fetch(`/api/company/crews?businessId=${businessId}`),
     ])
-      .then(async ([leadsRes, upcomingRes, recentRes, pendingRes]) => {
-        if ([leadsRes, upcomingRes, recentRes, pendingRes].some((res) => !res.ok)) throw new Error("Pipeline data request failed");
-        const [{ leads: leadsData }, ...appointmentPages] = await Promise.all([
-          leadsRes.json(), upcomingRes.json(), recentRes.json(), pendingRes.json(),
-        ]) as [{ leads: Lead[] }, ...Array<{ appointments: Appointment[] }>];
+      .then(async ([leadsRes, upcomingRes, recentRes, pendingRes, crewsRes]) => {
+        if ([leadsRes, upcomingRes, recentRes, pendingRes, crewsRes].some((res) => !res.ok)) throw new Error("Pipeline data request failed");
+        const [leadsPage, upcomingPage, recentPage, pendingPage, crewsPage] = await Promise.all([
+          leadsRes.json(), upcomingRes.json(), recentRes.json(), pendingRes.json(), crewsRes.json(),
+        ]) as [{ leads: Lead[] }, { appointments: Appointment[] }, { appointments: Appointment[] }, { appointments: Appointment[] }, { crews: Array<{ crewId: string; name: string }> }];
+        const leadsData = leadsPage.leads;
+        const appointmentPages = [upcomingPage, recentPage, pendingPage];
         const apptsData = [...new Map(appointmentPages.flatMap((page) => page.appointments ?? []).map((appt) => [appt.appointmentId, appt])).values()];
+        setCrewNames(Object.fromEntries((crewsPage.crews ?? []).map((crew) => [crew.crewId, crew.name])));
         setLeads(leadsData ?? []);
         leadRows.track(leadsData ?? []);
         // The ?lead= deep link and "first lead" default apply ONLY to the first load. A background refresh must keep
@@ -300,8 +315,8 @@ export default function PipelinePage() {
     }
   }
 
-  async function decideLead(lead: Lead, status: "booked" | "lost", reason?: RequestDeclineReason, customMessage?: string) {
-    const res = await fetch(`/api/businesses/${businessId}/leads/${lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(reason ? { declineReason: reason, customMessage } : {}) }) });
+  async function decideLead(lead: Lead, status: "booked" | "lost", reason?: RequestDeclineReason, customMessage?: string, notifyChannel?: "sms" | "email" | "none") {
+    const res = await fetch(`/api/businesses/${businessId}/leads/${lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(notifyChannel ? { notifyChannel } : {}), ...(reason ? { declineReason: reason, customMessage } : {}) }) });
     if (!res.ok) throw new Error("Request decision failed");
     const data = await res.json() as { noEmail?: boolean; notifiedCustomer?: boolean };
     setLeads((previous) => previous.map((item) => item.leadId === lead.leadId ? { ...item, status } : item));
@@ -361,26 +376,29 @@ export default function PipelinePage() {
     }
   }
 
-  /** Resolves true once the booking is confirmed, so a caller can follow up with the AI confirmation call. */
-  async function sendConfirmation(appt: Appointment): Promise<boolean> {
+  function notifyChannelFor(appt: Appointment): "sms" | "email" | "none" {
+    if (smsEnabled && appt.callerPhone && appt.textOk !== false) return "sms";
+    if (appt.callerEmail) return "email";
+    return "none";
+  }
+
+  async function sendConfirmation(appt: Appointment, notifyChannel = notifyChannelFor(appt)): Promise<boolean> {
     setApptUpdating(appt.appointmentId + "_confirm");
     try {
-      const res = await fetch("/api/appointments/send-confirmation", {
-        method: "POST",
+      const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, appointmentId: appt.appointmentId }),
+        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel }),
       });
       if (res.ok) {
-        const data = await res.json().catch(() => ({} as { notifiedCustomer?: boolean; customerEmail?: string | null }));
+        const data = await res.json().catch(() => ({} as { notifiedVia?: "sms" | "email" | null; staffNotified?: number }));
         setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
-        if (data.notifiedCustomer && data.customerEmail) {
-          showToast(`Confirmed — customer notified at ${data.customerEmail}`, "ok");
-        } else {
-          showToast("Confirmed. No customer email on file — reach out to the customer directly.", "warn");
-        }
+        const customer = data.notifiedVia ? `customer ${data.notifiedVia === "sms" ? "texted" : "emailed"}` : "customer not notified";
+        const staff = data.staffNotified ? ` · ${data.staffNotified} inspector${data.staffNotified === 1 ? "" : "s"} notified` : "";
+        showToast(`Confirmed · ${customer}${staff}`, data.notifiedVia || data.staffNotified ? "ok" : "warn");
         setTimeout(() => {
           setConfirmedSet((prev) => {
             const next = new Set(prev);
@@ -480,7 +498,7 @@ export default function PipelinePage() {
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
             {isPending
-              ? <StatusChip status="requested" label="After-hours · unconfirmed" />
+              ? <StatusChip status="requested" label={appt.bookedAfterHours === true ? "After hours · confirm" : "New booking · confirm"} />
               : <StatusChip status={appt.status} />}
           </div>
           {isPending && (
@@ -488,20 +506,14 @@ export default function PipelinePage() {
               <Clock size={13} style={{ marginTop: 1, flexShrink: 0 }} />
               {timePassed
                 ? "This requested time has already passed. Call the customer to agree a new time, or decline it."
-                : "Booked by your AI receptionist after hours. Confirm to notify the customer and lock it in."}
+                : appt.bookedAfterHours === true
+                  ? "Booked after hours. Confirm to notify the customer and lock it in."
+                  : "New booking from your AI receptionist. Confirm to notify the customer and lock it in."}
             </div>
           )}
-          <p className="appt-detail">{appt.callerPhone ? fmtPhone(appt.callerPhone) : "—"}</p>
-          {appt.callerEmail
-            ? <p className="appt-detail">{appt.callerEmail}</p>
-            : isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — the AI can phone them to confirm" : "No email on file — notify the customer manually"}</p>}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
-          <p className="appt-detail">{appt.address ?? "No address provided"}</p>
-          {appt.notes && (
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", fontStyle: "italic", lineHeight: 1.45 }}>
-              &ldquo;{appt.notes.length > 120 ? appt.notes.slice(0, 120) + "…" : appt.notes}&rdquo;
-            </p>
-          )}
+          <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} />
+          {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
           <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
         </div>
 
@@ -517,12 +529,11 @@ export default function PipelinePage() {
               className="button primary"
               disabled={busy || apptCalling === appt.appointmentId}
               onClick={async () => {
-                const confirmed = await sendConfirmation(appt);
-                if (confirmed && confirmByCall) await callBackAppt(appt, "confirm");
+                await sendConfirmation(appt);
               }}
               style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
             >
-              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : confirmByCall ? "Confirm & call customer" : isPending ? "Confirm & notify customer" : "Send Confirmation"}
+              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : notifyChannelFor(appt) === "sms" ? "Confirm & text" : notifyChannelFor(appt) === "email" ? "Confirm & email" : "Confirm"}
             </button>
           ) : null}
 
@@ -585,7 +596,7 @@ export default function PipelinePage() {
             <Workflow size={20} strokeWidth={1.75} />
             Pipeline
           </h1>
-          <p className="page-subtitle">Leads captured by your AI receptionist and upcoming appointments. Review a request, confirm it, and it becomes a job.</p>
+          <p className="page-subtitle">Booked customers first. Call back anyone who did not book.</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (
@@ -594,7 +605,7 @@ export default function PipelinePage() {
             </span>
           )}
           {newLeadsCount > 0 && (
-            <span className="status-pill">{newLeadsCount} new leads</span>
+            <span className="status-pill">{newLeadsCount} new callbacks</span>
           )}
         </div>
       </header>
@@ -604,24 +615,25 @@ export default function PipelinePage() {
           <button
             className="segment"
             type="button"
-            aria-pressed={tab === "leads"}
-            onClick={() => setTab("leads")}
+            aria-pressed={tab === "appointments"}
+            onClick={() => setTab("appointments")}
           >
-            Leads{leads.length > 0 ? ` (${leads.length})` : ""}
+            Booked{appointments.length > 0 ? ` (${appointments.length})` : ""}
           </button>
           <button
             className="segment"
             type="button"
-            aria-pressed={tab === "appointments"}
-            onClick={() => setTab("appointments")}
+            aria-pressed={tab === "leads"}
+            onClick={() => setTab("leads")}
           >
-            Appointments{appointments.length > 0 ? ` (${appointments.length})` : ""}
+            Callbacks{leads.length > 0 ? ` (${leads.length})` : ""}
           </button>
         </div>
       </div>}
 
       {!pipelineEmpty && tab === "leads" && (
         <>
+          <p className="page-subtitle" style={{ marginBottom: 12 }}>Callers who didn&apos;t book — call them back.</p>
           <div className="toolbar" style={{ marginBottom: 16 }}>
             <div className="segmented-control" aria-label="Lead status filter">
               {(["all", "urgent", "new", "contacted"] as const).map((f) => (
@@ -653,7 +665,7 @@ export default function PipelinePage() {
                     title="Nothing here right now"
                     secondary={leads.length > 0 && leadFilter !== "all"
                       ? { label: "Show all", onClick: () => setLeadFilter("all") }
-                      : appointments.length > 0 ? { label: "Show appointments", onClick: () => setTab("appointments") } : undefined}
+                      : appointments.length > 0 ? { label: "Show booked", onClick: () => setTab("appointments") } : undefined}
                   />
                 ) : (
                   <div className="queue-list">
@@ -868,7 +880,7 @@ export default function PipelinePage() {
                 <EmptyState
                   compact
                   title="Nothing here right now"
-                  secondary={leads.length > 0 ? { label: "Show leads", onClick: () => setTab("leads") } : undefined}
+                  secondary={leads.length > 0 ? { label: "Show callbacks", onClick: () => setTab("leads") } : undefined}
                 />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
@@ -914,23 +926,27 @@ export default function PipelinePage() {
         open={!!reviewLead}
         onClose={() => setReviewLead(null)}
         request={reviewLead ? { ...reviewLead, status: reviewLead.status } : null}
+        timeZone={tz}
+        smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
         onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (notifyByCall) await callBackLead(reviewLead); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
+        onAccept={async (notifyChannel) => { if (!reviewLead) return; await decideLead(reviewLead, "booked", undefined, undefined, notifyChannel); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
       />
       <RequestReviewDialog
         open={!!reviewAppt}
         onClose={() => setReviewAppt(null)}
-        request={reviewAppt ? { ...reviewAppt, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status } : null}
+        request={reviewAppt ? { ...reviewAppt, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
+        timeZone={tz}
+        smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async (notifyByCall) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (notifyByCall) await callBackAppt(reviewAppt, "confirm"); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
+        onAccept={async (notifyChannel) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt, notifyChannel); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );

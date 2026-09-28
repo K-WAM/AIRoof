@@ -1322,7 +1322,7 @@ an active queue.*
   - [x] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — **MERGED to local main 2026-09-28 (`ba885e3`) after an integrator review against plan §3; follow-ups fixed in T-154 (bounded block query, force comment). Not pushed yet.** Contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
         time-blocks API (+ open-times), texting module OFF until NH-29, inspector notifications (assigned/moved/reassigned/cancelled),
         confirm route (text → email, inspector_busy 409 + force), post-call callSummary, bootstrap smsEnabled.
-  - [ ] **T-153 (I2, Codex GPT-6 Sol medium) — CAN START NOW (prompt refreshed in WORKER_QUEUE §I2, 2026-09-28)** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
+  - [~] **T-153 (I2, Codex GPT-6 Sol medium) — BLOCKED 2026-09-28 on explicit bearer-feed risk approval (B5); all other screen work and gates are complete on `task/call-ux`.** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
         Calls → "Booked · open in Pipeline"; "after hours" only when true; booking details everywhere; Inspector title + inspector rows
         + drag + blocks on the Calendar; "My schedule" + Block time on the Field screen; private .ics phone-calendar feed; "Tell them
         by: Text / Email / I'll call them".

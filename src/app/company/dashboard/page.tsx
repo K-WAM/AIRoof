@@ -37,6 +37,7 @@ interface ApptSnapshot {
   startTime: number;
   status: string;
   pendingConfirmation?: boolean;
+  bookedAfterHours?: boolean;
 }
 
 interface JobSnapshot {
@@ -410,7 +411,7 @@ export default function CompanyDashboardPage() {
           {pendingAppts.length > 0 && (
             <div className="feed-section">
               <div className="feed-section-header">
-                <p className="feed-section-title">After-hours — Pending Your Approval</p>
+                <p className="feed-section-title">New bookings to confirm</p>
                 <span className="feed-section-count">{pendingAppts.length}</span>
               </div>
               {pendingAppts.slice(0, 6).map((appt) => (
@@ -418,9 +419,11 @@ export default function CompanyDashboardPage() {
                   <div className="feed-icon feed-icon--appt" style={{ background: "#fef3c7", color: "#92400e" }}><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
-                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"} · booked after hours</p>
+                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}{appt.bookedAfterHours === true ? " · after hours" : ""}</p>
                   </div>
-                  <StatusChip status="after_hours" />
+                  {appt.bookedAfterHours === true
+                    ? <StatusChip status="after_hours" />
+                    : <StatusChip status="requested" label="New booking · confirm" />}
                   <span className="feed-chevron">›</span>
                 </Link>
               ))}

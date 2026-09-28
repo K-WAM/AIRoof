@@ -201,6 +201,16 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           </div>
           {!crewOnly && <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
             <QuickAddButton variant="icon" />
+            <Tooltip content="Calls">
+              <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls">
+                <Phone size={18} strokeWidth={1.75} />
+              </Link>
+            </Tooltip>
+            <Tooltip content="Calendar">
+              <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar">
+                <CalendarDays size={18} strokeWidth={1.75} />
+              </Link>
+            </Tooltip>
             {modulesReady && isEnabled("jobs") && (
               <Tooltip content="Jobs">
                 <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs">
@@ -208,19 +218,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
                 </Link>
               </Tooltip>
             )}
-            <Tooltip content="Calendar">
-              <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar">
-                <CalendarDays size={18} strokeWidth={1.75} />
-              </Link>
-            </Tooltip>
-            <Tooltip content="Calls">
-              <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls">
-                <Phone size={18} strokeWidth={1.75} />
-              </Link>
-            </Tooltip>
             {modulesReady && isEnabled("library") && (
-              <Tooltip content="Crew roster">
-                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Crew roster">
+              <Tooltip content="Library">
+                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Library">
                   <Users size={18} strokeWidth={1.75} />
                 </Link>
               </Tooltip>

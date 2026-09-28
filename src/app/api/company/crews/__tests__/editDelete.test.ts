@@ -9,10 +9,11 @@ vi.mock("@/lib/auth/verifyRole", () => ({
   verifyAuthAndRole: async () => (allowed ? { user: { uid: "owner-1", role: "owner" } } : { error: new Response(null, { status: 403 }) }),
 }));
 vi.mock("@/lib/auth/memberCache", () => ({ invalidateCachedMember: () => {} }));
-import { DELETE, GET, PATCH } from "../route";
+import { DELETE, GET, PATCH, POST } from "../route";
 
 const url = "http://localhost/api/company/crews";
 const patch = (body: unknown) => new NextRequest(url, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const post = (body: unknown) => new NextRequest(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 beforeEach(() => {
   db = makeFakeDb();
@@ -58,6 +59,18 @@ describe("PATCH /api/company/crews", () => {
     expect(stored).toMatchObject({ color: "#2563eb", createdAt: 1 });
     expect(stored).not.toHaveProperty("businessId2");
     expect(stored).not.toHaveProperty("crewIdInjected");
+  });
+
+  it("creates an inspector row and lets the office change its type", async () => {
+    const created = await POST(post({ businessId: "biz", name: "Dominic", kind: "inspector" }));
+    expect(created.status).toBe(201);
+    const { crew } = await created.json();
+    expect(crew).toMatchObject({ name: "Dominic", kind: "inspector", active: true });
+
+    const changed = await PATCH(patch({ businessId: "biz", crewId: crew.crewId, kind: "crew" }));
+    expect(changed.status).toBe(200);
+    expect(db.__peek("businesses/biz/crews", crew.crewId)).toMatchObject({ kind: "crew" });
+    expect((await PATCH(patch({ businessId: "biz", crewId: crew.crewId, kind: "vendor" }))).status).toBe(400);
   });
 
   it("rejects bad values and unknown crews", async () => {

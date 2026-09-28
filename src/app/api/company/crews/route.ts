@@ -51,15 +51,18 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ crews, people });
 }
 
-// POST /api/company/crews  body: { businessId, name, email?, phone?, color? }
+// POST /api/company/crews  body: { businessId, name, email?, phone?, color?, kind? }
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const { businessId, name, email, phone, color } = body;
+  const { businessId, name, email, phone, color, kind } = body;
   if (!businessId || typeof name !== "string" || !name.trim()) {
     return NextResponse.json({ error: "businessId and name required" }, { status: 400 });
   }
   if (color !== undefined && (typeof color !== "string" || !HEX_COLOR.test(color))) {
     return NextResponse.json({ error: "color must be a hex color like #16a34a" }, { status: 400 });
+  }
+  if (kind !== undefined && kind !== "crew" && kind !== "inspector") {
+    return NextResponse.json({ error: "kind must be crew or inspector" }, { status: 400 });
   }
 
   const auth = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
@@ -77,13 +80,14 @@ export async function POST(req: NextRequest) {
     phone: typeof phone === "string" ? phone.trim() || undefined : undefined,
     color: color || COLORS[existing.data().count % COLORS.length],
     active: true,
+    kind: kind === "inspector" ? "inspector" : "crew",
     createdAt: Date.now(),
   };
   await db.collection(`businesses/${businessId}/crews`).doc(crewId).set(crew);
   return NextResponse.json({ ok: true, crew }, { status: 201 });
 }
 
-type CrewPatch = { name?: string; email?: string; phone?: string; color?: string; active?: boolean };
+type CrewPatch = { name?: string; email?: string; phone?: string; color?: string; active?: boolean; kind?: "crew" | "inspector" };
 
 /** Only these fields are editable — the body used to be written verbatim (createdAt, crewId, anything). */
 function parseCrewPatch(body: Record<string, unknown>): { patch: CrewPatch; clear: Array<"email" | "phone"> } | { error: string } {
@@ -107,6 +111,10 @@ function parseCrewPatch(body: Record<string, unknown>): { patch: CrewPatch; clea
   if (body.active !== undefined) {
     if (typeof body.active !== "boolean") return { error: "active must be true or false" };
     patch.active = body.active;
+  }
+  if (body.kind !== undefined) {
+    if (body.kind !== "crew" && body.kind !== "inspector") return { error: "kind must be crew or inspector" };
+    patch.kind = body.kind;
   }
   if (Object.keys(patch).length === 0 && clear.length === 0) return { error: "Nothing to update" };
   return { patch, clear };

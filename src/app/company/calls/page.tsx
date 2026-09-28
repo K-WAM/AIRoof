@@ -58,6 +58,7 @@ interface AppointmentRef {
   appointmentId: string;
   sourceCallId?: string;
   callerName?: string; callerPhone?: string; callerEmail?: string; serviceType?: string; address?: string; notes?: string; intake?: Record<string, string>; startTime?: number; status?: string;
+  textOk?: boolean; assignedCrewId?: string; assignedBy?: "ai" | "office"; callSummary?: string;
 }
 
 function formatTime(ms: number, tz: string): string {
@@ -114,8 +115,11 @@ export default function CompanyCallsPage() {
   // appointment (if any) each call produced, by matching on sourceCallId.
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
   const [linkedAppts, setLinkedAppts] = useState<AppointmentRef[]>([]);
+  const [crewNames, setCrewNames] = useState<Record<string, string>>({});
   const [review, setReview] = useState<{ lead?: LeadRef; appointment?: AppointmentRef; call: Call } | null>(null);
-  const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
+  const bootstrapBusiness = useBootstrap().data?.business;
+  const phoneLine = bootstrapBusiness?.phoneLine ?? null;
+  const smsEnabled = bootstrapBusiness?.smsEnabled === true;
 
   const initialLoadDone = useRef(false);
   const loadCalls = useCallback(async () => {
@@ -161,15 +165,15 @@ export default function CompanyCallsPage() {
     const { job } = await res.json() as { job: { jobId: string } };
     window.location.href = `/company/jobs/${job.jobId}${preview ? `?preview=${preview}` : ""}`;
   }
-  async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string) {
+  async function decideReview(status: "booked" | "lost" | "confirmed" | "cancelled", reason?: RequestDeclineReason, customMessage?: string, notifyChannel?: "sms" | "email" | "none") {
     if (!review) return;
     if (review.lead) {
-      const response = await fetch(`/api/businesses/${businessId}/leads/${review.lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(reason ? { declineReason: reason, customMessage } : {}) }) });
+      const response = await fetch(`/api/businesses/${businessId}/leads/${review.lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(notifyChannel ? { notifyChannel } : {}), ...(reason ? { declineReason: reason, customMessage } : {}) }) });
       if (!response.ok) throw new Error("Request decision failed");
     } else if (review.appointment) {
       const response = reason
         ? await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, declineReason: reason, customMessage }) })
-        : await fetch("/api/appointments/send-confirmation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, appointmentId: review.appointment.appointmentId }) });
+        : await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel: notifyChannel ?? "none" }) });
       if (!response.ok) throw new Error("Request decision failed");
     }
   }
@@ -184,15 +188,17 @@ export default function CompanyCallsPage() {
   useEffect(() => {
     if (!businessId) return;
     const base = `/api/businesses/${businessId}`;
-    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`)])
-      .then(async ([leadsRes, apptsRes]) => {
-        if (!leadsRes.ok || !apptsRes.ok) return;
-        const [{ leads }, { appointments }] = (await Promise.all([
+    Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`), fetch(`/api/company/crews?businessId=${businessId}`)])
+      .then(async ([leadsRes, apptsRes, crewsRes]) => {
+        if (!leadsRes.ok || !apptsRes.ok || !crewsRes.ok) return;
+        const [{ leads }, { appointments }, { crews }] = (await Promise.all([
           leadsRes.json(),
           apptsRes.json(),
-        ])) as [{ leads: LeadRef[] }, { appointments: AppointmentRef[] }];
+          crewsRes.json(),
+        ])) as [{ leads: LeadRef[] }, { appointments: AppointmentRef[] }, { crews: Array<{ crewId: string; name: string }> }];
         setLinkedLeads(leads ?? []);
         setLinkedAppts(appointments ?? []);
+        setCrewNames(Object.fromEntries((crews ?? []).map((crew) => [crew.crewId, crew.name])));
       })
       .catch(() => {});
   }, [businessId, linksKey]);
@@ -276,6 +282,11 @@ export default function CompanyCallsPage() {
                   const isOutbound = call.callType === "outbound";
                   const displayPhone = isOutbound ? (call.targetPhone ? fmtPhone(call.targetPhone) : "Outbound") : (call.callerPhone ? fmtPhone(call.callerPhone) : "Unknown caller");
                   const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
+                  const callLinks = findCallLinks(call.callId, linkedLeads, linkedAppts);
+                  const callPhone = call.callType === "outbound" ? call.targetPhone : call.callerPhone;
+                  const bookedHref = callLinks.appointmentId
+                    ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${callLinks.appointmentId}`
+                    : null;
                   return (
                     <article
                       className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
@@ -302,6 +313,18 @@ export default function CompanyCallsPage() {
                       </div>
                       <p className="call-subtitle">
                         {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}
+                      </p>
+                      <p className="call-subtitle" onClick={(event) => event.stopPropagation()}>
+                        {bookedHref ? (
+                          <Link href={bookedHref} style={{ color: "var(--accent)", fontWeight: 700 }}>
+                            Booked · open in Pipeline →
+                          </Link>
+                        ) : (
+                          <>
+                            <span style={{ fontWeight: 700 }}>Not booked</span>
+                            {callPhone && <> · <a href={`tel:${callPhone}`} style={{ color: "var(--accent)" }}>Call them</a></>}
+                          </>
+                        )}
                       </p>
                     </article>
                   );
@@ -337,7 +360,7 @@ export default function CompanyCallsPage() {
                   </div>
                 </div>
 
-                {(leadHref || apptHref) && (
+                {(leadHref || apptHref) ? (
                   <div
                     style={{
                       display: "flex",
@@ -351,21 +374,27 @@ export default function CompanyCallsPage() {
                       borderRadius: 8,
                     }}
                   >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#0f766e", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      This call produced
-                    </span>
+                    {apptHref ? (
+                      <Link href={apptHref} style={{ color: "var(--accent)", fontWeight: 700 }}>
+                        Booked · open in Pipeline →
+                      </Link>
+                    ) : <span style={{ fontWeight: 700 }}>Not booked</span>}
                     {selectedLead?.escalated && <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>}
                     {leadHref && (
                       <Link className="button small" href={leadHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        View lead <ArrowRight size={13} />
-                      </Link>
-                    )}
-                    {apptHref && (
-                      <Link className="button small secondary" href={apptHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        View appointment <ArrowRight size={13} />
+                        Open callback <ArrowRight size={13} />
                       </Link>
                     )}
                     <button className="button small secondary" type="button" onClick={() => setReview({ lead: selectedLead, appointment: selectedLinks?.appointmentId ? linkedAppts.find((appointment) => appointment.appointmentId === selectedLinks.appointmentId) : undefined, call: selected })}>Review request</button>
+                  </div>
+                ) : (
+                  <div style={{ marginBottom: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <strong>Not booked</strong>
+                    {(selected.callType === "outbound" ? selected.targetPhone : selected.callerPhone) && (
+                      <a className="button small" href={`tel:${selected.callType === "outbound" ? selected.targetPhone : selected.callerPhone}`}>
+                        Call them
+                      </a>
+                    )}
                   </div>
                 )}
 
@@ -430,14 +459,16 @@ export default function CompanyCallsPage() {
       <RequestReviewDialog
         open={!!review}
         onClose={() => setReview(null)}
-        request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested" } : null}
+        request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested", assignedCrewName: review.appointment.assignedCrewId ? crewNames[review.appointment.assignedCrewId] : undefined } : null}
         call={review ? { summary: review.call.summary, recordingUrl: review.call.recordingUrl, transcript: review.call.messages } : undefined}
+        timeZone={tz}
+        smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyByCall) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (notifyByCall) await callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId, "confirm"); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
+        onAccept={async (notifyChannel) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed", undefined, undefined, notifyChannel); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );

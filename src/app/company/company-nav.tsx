@@ -21,16 +21,16 @@ import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModul
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Workflow order, not alphabetical: leads/bookings that need attention first
-// (Pipeline), then the call log they came from, then scheduling and
+// Workflow order, not alphabetical: the call log first, then the booked/callback
+// Pipeline it feeds, followed by scheduling and
 // execution, then reference material. Same order for every industry — the
 // per-vertical `module` filter is what actually hides what doesn't apply,
 // not reordering it. Guide moved into the "Help" group below (T-114) with
 // Feedback; it stays reachable, so the Navigation Completeness Rule holds.
 const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyModule | null }[] = [
   { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard, module: null },
-  { path: "/company/pipeline",  label: "Pipeline",  Icon: Workflow,        module: null },
   { path: "/company/calls",     label: "Calls",     Icon: Phone,           module: null },
+  { path: "/company/pipeline",  label: "Pipeline",  Icon: Workflow,        module: null },
   { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
   { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
   { path: "/company/field",     label: "Field",     Icon: Mic,             module: "jobs" },
