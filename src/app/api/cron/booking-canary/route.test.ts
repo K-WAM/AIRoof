@@ -12,7 +12,10 @@ vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.getAdminFirest
 vi.mock("@/lib/tools/agentTools", () => ({ checkAvailability: mocks.checkAvailability }));
 vi.mock("@/lib/comms/send", () => ({ sendEmail: mocks.sendEmail }));
 
-import { GET, PLATFORM_ALERT_TO } from "@/app/api/cron/booking-canary/route";
+import { GET } from "@/app/api/cron/booking-canary/route";
+
+// The platform alert address every other alert uses (welcome, feedback, webhook health).
+const PLATFORM_ALERT_TO = "connect@luxordev.com";
 
 const NOW = Date.UTC(2026, 8, 28, 11, 0, 0); // Monday 28 Sep 2026, 07:00 America/New_York
 const CRON_SECRET = "test-cron-secret";
@@ -215,20 +218,29 @@ describe("booking canary checks", () => {
     expect(db.__peek("businesses", "biz-noline")?.bookingCheck).toBeUndefined();
   });
 
+  it("skips closed days to the next open business day", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.UTC(2026, 8, 25, 12, 0, 0)); // Friday 25 Sep 2026
+    const db = makeFakeDb();
+    seedBusiness(db, "demo-roofing");
+    mocks.getAdminFirestore.mockReturnValue(db);
+    mocks.checkAvailability.mockImplementation(async (input: { preferredDate: string }) => ({
+      available: true,
+      hoursStatus: "ok",
+      suggestedSlots: [{ startTime: `${input.preferredDate}T12:00:00.000Z` }],
+    }));
+
+    const body = await (await GET(request(CRON_SECRET))).json();
+
+    // Mon 28 Sep is the next day with hours; the weekend is skipped.
+    expect(mocks.checkAvailability).toHaveBeenCalledWith({ businessId: "demo-roofing", preferredDate: "2026-09-28" });
+    expect(body.ok).toBe(true);
+    expect(db.__peek("businesses", "demo-roofing")?.bookingCheck).toMatchObject({ nextBusinessDay: "2026-09-28" });
+  });
+
   it("503s when Firestore is unavailable", async () => {
     mocks.getAdminFirestore.mockReturnValue(null);
     const response = await GET(request(CRON_SECRET));
     expect(response.status).toBe(503);
     expect(mocks.sendEmail).not.toHaveBeenCalled();
-  });
-});
-
-describe("booking canary helpers", () => {
-  it("findNextBusinessDay skips closed days", async () => {
-    const { findNextBusinessDay } = await import("@/app/api/cron/booking-canary/route");
-    const { parseBusinessHours } = await import("@/lib/scheduling/hours");
-    // Friday 25 Sep 2026, 12:00 UTC → next open day is Monday 28 Sep (weekend closed).
-    const next = findNextBusinessDay(Date.UTC(2026, 8, 25, 12, 0, 0), "UTC", parseBusinessHours(HOURS)!);
-    expect(next).toEqual({ date: "2026-09-28", weekday: "Monday" });
   });
 });

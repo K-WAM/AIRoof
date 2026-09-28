@@ -19,7 +19,7 @@ import {
 } from "@/lib/scheduling/hours";
 
 // The one address every other platform alert uses (welcome, feedback, webhook health) — never invent a new one.
-export const PLATFORM_ALERT_TO = "connect@luxordev.com";
+const PLATFORM_ALERT_TO = "connect@luxordev.com";
 
 const DEFAULT_TZ = "America/New_York";
 const DURATION_MINUTES = 60;
@@ -28,7 +28,7 @@ const SCAN_DAYS = 10;
 const OVERNIGHT_START = 21 * 60;
 const OVERNIGHT_END = 7 * 60;
 
-export interface BookingCheckIssue {
+interface BookingCheckIssue {
   businessId: string;
   businessName: string;
   problems: string[];
@@ -38,7 +38,7 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-export function localDateKey(timestamp: number, timeZone: string): string {
+function localDateKey(timestamp: number, timeZone: string): string {
   const parts = zonedParts(timestamp, timeZone);
   return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
 }
@@ -55,7 +55,7 @@ function describeSlot(timestamp: number, timeZone: string): string {
 }
 
 /** The first local day after today that has hours, scanning `scanDays` days ahead. */
-export function findNextBusinessDay(
+function findNextBusinessDay(
   now: number,
   timeZone: string,
   hours: ParsedBusinessHours,
@@ -73,7 +73,7 @@ export function findNextBusinessDay(
 }
 
 /** Every reason an availability answer is not something a caller could book. */
-export function bookingProblems(options: {
+function bookingProblems(options: {
   now: number;
   timeZone: string;
   hours: ParsedBusinessHours;
