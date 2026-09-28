@@ -54,6 +54,12 @@ describe("elevenLabsToolDefinitions (single source of truth)", () => {
     const date = elevenLabsToolDefinitions().find((tool) => tool.name === "getCurrentDate");
     expect(date?.bodySchema.properties).toEqual({});
   });
+
+  it("checkAvailability accepts a preferred time and explains exact-time behavior", () => {
+    const availability = elevenLabsToolDefinitions().find((tool) => tool.name === "checkAvailability");
+    expect(availability?.bodySchema.properties.preferredTime?.type).toBe("string");
+    expect(availability?.description).toContain("exact time");
+  });
 });
 
 describe("elevenLabsToolConfig (tools API payload)", () => {

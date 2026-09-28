@@ -16,6 +16,8 @@
 //   node scripts/setup-elevenlabs-agent.mjs --apply --agent-id agent_xxx
 //       # attach the tools + initiation overrides to an EXISTING agent instead of creating the test agent
 //       # (also sets the workspace conversation-initiation webhook, best effort)
+//   node scripts/setup-elevenlabs-agent.mjs --update-tools
+//       # read-only schema diff for existing tools (add --apply to patch changed tools only)
 //
 // Reads ELEVENLABS_API_KEY / ELEVENLABS_TOOL_SECRET / NEXT_PUBLIC_APP_URL from
 // the environment first, then from .env.local. Idempotent by name: existing
@@ -88,7 +90,7 @@ async function listAllTools(apiKey) {
     if (cursor) qs.set("cursor", cursor);
     const page = await apiFetch(apiKey, `/v1/convai/tools?${qs.toString()}`);
     for (const tool of page.tools ?? []) {
-      tools.push({ id: tool.id, name: tool.tool_config?.name });
+      tools.push({ id: tool.id, name: tool.tool_config?.name, toolConfig: tool.tool_config });
     }
     cursor = page.next_cursor ?? null;
   } while (cursor);
@@ -151,6 +153,44 @@ function buildToolConfig(schema, baseUrl, toolSecretId) {
   };
 }
 
+function updatedExistingToolConfig(schema, baseUrl, existing) {
+  return {
+    ...existing,
+    type: "webhook",
+    name: schema.name,
+    description: schema.description,
+    pre_tool_speech: "auto",
+    force_pre_tool_speech: false,
+    response_timeout_secs: TOOL_RESPONSE_TIMEOUT_SECS,
+    api_schema: {
+      ...(existing?.api_schema ?? {}),
+      url: `${baseUrl}${schema.path}`,
+      method: "POST",
+      request_body_schema: schema.parameters,
+    },
+  };
+}
+
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function toolSchemaDiff(schema, baseUrl, existing) {
+  const desired = updatedExistingToolConfig(schema, baseUrl, existing);
+  const fields = [];
+  if (existing?.description !== desired.description) fields.push("description");
+  if (existing?.pre_tool_speech !== "auto" || existing?.force_pre_tool_speech !== false) fields.push("pre_tool_speech");
+  if (existing?.response_timeout_secs !== TOOL_RESPONSE_TIMEOUT_SECS) fields.push("response_timeout_secs");
+  if (existing?.api_schema?.url !== desired.api_schema.url) fields.push("url");
+  if ((existing?.api_schema?.method ?? "POST") !== "POST") fields.push("method");
+  if (stableJson(existing?.api_schema?.request_body_schema) !== stableJson(schema.parameters)) fields.push("request_body_schema");
+  return { desired, fields };
+}
+
 function buildTestAgentConfig(toolIds) {
   return {
     name: TEST_AGENT_NAME,
@@ -196,6 +236,7 @@ function buildOverrides() {
 
 async function main() {
   const apply = process.argv.includes("--apply");
+  const updateTools = process.argv.includes("--update-tools");
   const agentIdArg = argValue("--agent-id")?.trim();
   const env = loadEnv();
   const apiKey = env.ELEVENLABS_API_KEY?.trim();
@@ -214,6 +255,38 @@ async function main() {
   if (!baseUrl || !/^https:\/\/[^/]+/i.test(baseUrl)) {
     console.error("NEXT_PUBLIC_APP_URL must be a public HTTPS base URL. Nothing to do.");
     process.exit(1);
+  }
+  if (updateTools) {
+    console.log(apply
+      ? "\n=== Existing tool schema update (APPLY) ==="
+      : "\n=== Existing tool schema diff (READ ONLY) ===");
+    const tools = await listAllTools(apiKey);
+    let changed = 0;
+    for (const schema of schemas) {
+      const existing = tools.find((tool) => tool.name === schema.name);
+      if (!existing) {
+        console.log(`  [missing] ${schema.name} (run normal provisioning to create it)`);
+        continue;
+      }
+      const { desired, fields } = toolSchemaDiff(schema, baseUrl, existing.toolConfig);
+      if (fields.length === 0) {
+        console.log(`  [same] ${schema.name}`);
+        continue;
+      }
+      changed++;
+      console.log(`  [change] ${schema.name}: ${fields.join(", ")}`);
+      if (apply) {
+        await apiFetch(apiKey, `/v1/convai/tools/${encodeURIComponent(existing.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ tool_config: desired }),
+        });
+        console.log(`    updated ${schema.name}; pre_tool_speech remains auto`);
+      }
+    }
+    console.log(apply
+      ? `Updated ${changed} changed tool schema(s). Unchanged tools were not written.`
+      : `${changed} tool schema(s) would change. Re-run with --update-tools --apply to update only those tools.`);
+    return;
   }
   if (!apply) {
     console.log("\nThe following would be created or reused (pass --apply to write):");
