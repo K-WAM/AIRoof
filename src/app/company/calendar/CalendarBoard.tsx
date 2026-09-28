@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
@@ -10,6 +10,8 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useSearchParams } from "next/navigation";
 import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
+import type { TimeBlock } from "@/types/schedule";
+import { BookingDetails } from "@/components/appointments/BookingDetails";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -23,12 +25,18 @@ import { runOptimisticCalendarMutation } from "./optimisticMutation";
 interface Appointment {
   appointmentId: string;
   callerName?: string;
+  callerPhone?: string;
   callerEmail?: string;
+  address?: string;
+  notes?: string;
   serviceType?: string;
   startTime: number;
   status: string;
   pendingConfirmation?: boolean;
   assignedCrewId?: string;
+  assignedBy?: "ai" | "office";
+  textOk?: boolean;
+  callSummary?: string;
   /** Set once the office made a job from this booking (Pipeline → Create Job). */
   jobId?: string;
 }
@@ -157,6 +165,7 @@ export default function CalendarBoard() {
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
+  const [blocks, setBlocks] = useState<TimeBlock[]>([]);
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [picker, setPicker] = useState<SlotPickerState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,6 +174,7 @@ export default function CalendarBoard() {
   const [toast, setToast] = useState<string | null>(null);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [confirmedAppts, setConfirmedAppts] = useState<Set<string>>(new Set());
+  const [blockForm, setBlockForm] = useState<{ crewId: string; label: string; start: string; end: string } | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -249,6 +259,16 @@ export default function CalendarBoard() {
     };
   }, [businessId, weekStart]);
 
+  useEffect(() => {
+    if (!businessId) return;
+    const from = weekStart.getTime();
+    const to = addDays(weekStart, 7).getTime();
+    fetch(`/api/company/time-blocks?businessId=${businessId}&from=${from}&to=${to}`)
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: { blocks?: TimeBlock[] }) => setBlocks(data.blocks ?? []))
+      .catch(() => setCalendarError("Blocked time could not be loaded. Refresh the calendar and try again."));
+  }, [businessId, weekStart]);
+
   // The rail holds whatever still needs a resource: jobs with no crew/day,
   // or bookings the agent took that nobody has been assigned to yet.
   // A job whose crew is not on the board (removed, or turned off in Library) counts as unscheduled too — before
@@ -256,6 +276,9 @@ export default function CalendarBoard() {
   const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
   const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId));
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
+  const inspectors = crews.filter((crew) => crew.kind === "inspector");
+  const workCrews = crews.filter((crew) => crew.kind !== "inspector");
+  const orderedCrews = apptMode ? crews : [...inspectors, ...workCrews];
 
   // Empty states (docs/NO-TRAINING-UX-PLAN.md §3.3): no resources → "Add your first …"; resources but
   // nothing at all to place → "Nothing to schedule", pointing at waiting requests when there are any.
@@ -364,6 +387,12 @@ export default function CalendarBoard() {
       setCalendarError("That local time does not exist because of a daylight-saving change. Choose another day.");
       return;
     }
+    if (!sameDay(appt.startTime, day, tz)) {
+      const from = new Date(appt.startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
+      const to = new Date(startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
+      const customer = appt.callerName ? `${appt.callerName}${appt.callerName.endsWith("s") ? "'" : "'s"}` : "this customer's";
+      if (!window.confirm(`This moves ${customer} booking from ${from} to ${to} — they're told when you confirm.`)) return;
+    }
     const wasJustConfirmed = confirmedAppts.has(appointmentId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
@@ -388,11 +417,21 @@ export default function CalendarBoard() {
           });
         }
       },
-      persist: () => fetch(`/api/appointments/${appointmentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
-      }),
+      persist: async () => {
+        const save = (force = false) => fetch(`/api/appointments/${appointmentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime, ...(force ? { force: true } : {}) }),
+        });
+        let response = await save();
+        if (response.status === 409) {
+          const data = await response.clone().json().catch(() => ({} as { code?: string; message?: string }));
+          if (data.code === "inspector_busy" && window.confirm(`${data.message || "That inspector is busy then."}\n\nAssign anyway?`)) {
+            response = await save(true);
+          }
+        }
+        return response;
+      },
       rollback: () => {
         setAppts((current) => current.map((item) =>
           item.appointmentId === appointmentId ? appt : item
@@ -448,15 +487,9 @@ export default function CalendarBoard() {
           )
         );
         setConfirmedAppts((prev) => new Set(prev).add(appt.appointmentId));
-        if (data.notificationStatus === "failed") {
-          setCalendarError(`The appointment is confirmed, but the ${vocab.customerNoun.toLowerCase()} email failed. Confirm again to retry delivery.`);
-        } else {
-          flash(
-            data.notifiedCustomer
-              ? `Confirmed & ${vocab.customerNoun.toLowerCase()} emailed ✓`
-              : "Confirmed (no email on file)"
-          );
-        }
+        const customer = data.notifiedVia ? `${vocab.customerNoun.toLowerCase()} ${data.notifiedVia === "sms" ? "texted" : "emailed"}` : `${vocab.customerNoun.toLowerCase()} not notified`;
+        const inspector = data.staffNotified ? ` · ${crews.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "inspector"} notified` : "";
+        flash(`Confirmed · ${customer}${inspector}`);
       } else {
         setCalendarError(data.error ?? "The appointment could not be confirmed. Try again.");
       }
@@ -467,13 +500,64 @@ export default function CalendarBoard() {
     }
   }
 
+  function openBlockForm(crewId: string) {
+    const start = new Date();
+    start.setMinutes(Math.ceil(start.getMinutes() / 30) * 30, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const local = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+    setBlockForm({ crewId, label: "", start: local(start), end: local(end) });
+  }
+
+  async function saveBlock() {
+    if (!blockForm || !businessId) return;
+    const startTime = Date.parse(blockForm.start);
+    const endTime = Date.parse(blockForm.end);
+    if (!blockForm.label.trim() || !Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+      setCalendarError("Add a label and an end time after the start time.");
+      return;
+    }
+    const response = await fetch("/api/company/time-blocks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, crewId: blockForm.crewId, label: blockForm.label, startTime, endTime }),
+    });
+    const data = await response.json().catch(() => ({} as { block?: TimeBlock; error?: string }));
+    if (!response.ok || !data.block) {
+      setCalendarError(data.error ?? "Blocked time could not be saved.");
+      return;
+    }
+    setBlocks((current) => [...current, data.block!]);
+    setBlockForm(null);
+    flash("Blocked time added");
+  }
+
+  async function deleteBlock(blockId: string) {
+    if (!businessId) return;
+    const response = await fetch(`/api/company/time-blocks?businessId=${businessId}&blockId=${encodeURIComponent(blockId)}`, { method: "DELETE" });
+    if (!response.ok) {
+      setCalendarError("Blocked time could not be removed.");
+      return;
+    }
+    setBlocks((current) => current.filter((block) => block.blockId !== blockId));
+  }
+
   function onDragEnd(e: DragEndEvent) {
     const id = e.active.id as string;
     const over = e.over?.id as string | undefined;
     if (!over) return;
     const [crewId, dayStr] = over.split("|");
     const day = new Date(Number(dayStr));
-    if (apptMode) {
+    const target = crews.find((crew) => crew.crewId === crewId);
+    const isAppointment = appts.some((appointment) => appointment.appointmentId === id);
+    if (!apptMode && isAppointment && target?.kind !== "inspector") {
+      setCalendarError("Drag bookings onto an inspector, jobs onto a crew.");
+      return;
+    }
+    if (!apptMode && !isAppointment && target?.kind === "inspector") {
+      setCalendarError("Drag bookings onto an inspector, jobs onto a crew.");
+      return;
+    }
+    if (apptMode || isAppointment) {
       placeAppt(id, crewId, day);
       return;
     }
@@ -569,9 +653,9 @@ export default function CalendarBoard() {
           <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
           Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : vocab.resourceNoun.toLowerCase()} emailed
         </span>
-        {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0) && (
+        {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0 || (inspectors.length > 0 && unassignedAppts.length > 0)) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
-            <GripVertical size={14} /> Drag {apptMode ? "a booking" : `a ${vocab.jobNoun.toLowerCase()}`} from the left onto any {vocab.resourceNoun.toLowerCase()} + day{apptMode ? " to schedule it." : ", then pick its time."}
+            <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : "Drag bookings onto inspectors and jobs onto crews."}
           </span>
         )}
       </div>
@@ -626,17 +710,18 @@ export default function CalendarBoard() {
                 ) : (
                   unassignedAppts.map((a) => <ApptTile key={a.appointmentId} appt={a} tz={tz} />)
                 )
-              ) : unscheduled.length === 0 ? (
-                <p style={{ fontSize: 13, color: "var(--text-muted)" }}>All {vocab.jobNounPlural.toLowerCase()} scheduled 🎉</p>
               ) : (
-                unscheduled.map((job) => (
-                  <JobTile
-                    key={job.jobId}
-                    job={job}
-                    tz={tz}
-                    crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)}
-                  />
-                ))
+                <>
+                  {inspectors.length > 0 && unassignedAppts.length > 0 && <>
+                    <strong style={{ fontSize: 12 }}>Phone bookings</strong>
+                    {unassignedAppts.map((appointment) => <ApptTile key={appointment.appointmentId} appt={appointment} tz={tz} />)}
+                  </>}
+                  {unscheduled.length > 0 && <strong style={{ fontSize: 12, marginTop: 6 }}>{vocab.jobNounPlural}</strong>}
+                  {unscheduled.map((job) => (
+                    <JobTile key={job.jobId} job={job} tz={tz} crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)} />
+                  ))}
+                  {unscheduled.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0) && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Everything is scheduled 🎉</p>}
+                </>
               )}
             </div>
           </section>
@@ -681,19 +766,13 @@ export default function CalendarBoard() {
                 </div>
               )}
               {!apptMode && days.map((d) => {
-                const dayAppts = appts.filter((a) => sameDay(a.startTime, d, tz));
+                const dayAppts = unassignedAppts.filter((a) => sameDay(a.startTime, d, tz));
                 return (
                   <div key={d.toISOString()} style={{ padding: "8px 8px", borderBottom: "2px solid #cbd5e1", borderLeft: "1px solid #e0f2fe", background: "#f0f9ff", minHeight: 64, display: "grid", gap: 4, alignContent: "start" }}>
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
-                        <Link key={a.appointmentId} href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${a.appointmentId}`} style={{ textDecoration: "none" }}>
-                          <div style={{ fontSize: 12, padding: "4px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
-                            <span style={{ fontWeight: 700 }}>{new Date(a.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</span> {a.callerName ?? "Appt"}
-                            {a.jobId && <span style={{ fontFamily: "monospace", fontSize: 10.5, marginLeft: 4 }}>→ {a.jobId}</span>}
-                            {pending && <span style={{ display: "block", fontSize: 10, fontWeight: 700 }}>UNCONFIRMED</span>}
-                          </div>
-                        </Link>
+                        <PhoneBookingChip key={a.appointmentId} appt={a} tz={tz} pending={pending} />
                       );
                     })}
                   </div>
@@ -701,13 +780,19 @@ export default function CalendarBoard() {
               })}
 
               {/* Crew rows */}
-              {crews.map((crew) => (
+              {orderedCrews.map((crew, index) => (
+                <Fragment key={crew.crewId}>
+                  {!apptMode && (index === 0 || orderedCrews[index - 1]?.kind !== crew.kind) && (
+                    <div style={{ gridColumn: "1 / -1", padding: "8px 16px", background: "var(--surface-muted, #f8fafc)", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {crew.kind === "inspector" ? "Inspectors" : "Crews"}
+                    </div>
+                  )}
                   <CrewRow
-                    key={crew.crewId}
                     crew={crew}
                     days={days}
-                    jobs={apptMode ? [] : jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
-                    appts={apptMode ? appts.filter((a) => a.assignedCrewId === crew.crewId) : []}
+                    jobs={apptMode || crew.kind === "inspector" ? [] : jobs.filter((j) => j.assignedCrewId === crew.crewId && j.scheduledStart)}
+                    appts={apptMode || crew.kind === "inspector" ? appts.filter((a) => a.assignedCrewId === crew.crewId) : []}
+                    blocks={blocks.filter((block) => block.crewId === crew.crewId)}
                     tz={tz}
                     memberCount={apptMode ? 0 : memberCounts[crew.crewId] ?? 0}
                     onConfirm={confirmJob}
@@ -718,7 +803,11 @@ export default function CalendarBoard() {
                     confirmedAppts={confirmedAppts}
                     busyJob={busyJob}
                     previewSuffix={previewSuffix}
+                    readOnly={readOnly}
+                    onAddBlock={openBlockForm}
+                    onDeleteBlock={deleteBlock}
                   />
+                </Fragment>
               ))}
             </div>
           </div>
@@ -743,6 +832,19 @@ export default function CalendarBoard() {
           />
         );
       })()}
+      {blockForm && (
+        <div role="dialog" aria-modal="true" aria-label="Block time" style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", padding: 16 }}>
+          <div className="panel" style={{ width: "min(460px, 100%)", padding: 20 }}>
+            <h2 style={{ marginTop: 0 }}>Block time</h2>
+            <div className="form-grid">
+              <div className="field full"><label>Label</label><input value={blockForm.label} onChange={(event) => setBlockForm({ ...blockForm, label: event.target.value })} placeholder="Site visit, Materials pickup, Office, Off" /></div>
+              <div className="field"><label>Start</label><input type="datetime-local" value={blockForm.start} onChange={(event) => setBlockForm({ ...blockForm, start: event.target.value })} /></div>
+              <div className="field"><label>End</label><input type="datetime-local" value={blockForm.end} onChange={(event) => setBlockForm({ ...blockForm, end: event.target.value })} /></div>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button className="button primary" type="button" onClick={() => void saveBlock()}>Add block</button><button className="button" type="button" onClick={() => setBlockForm(null)}>Cancel</button></div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -923,12 +1025,13 @@ function SlotPicker({
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix,
+  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, readOnly, onAddBlock, onDeleteBlock,
 }: {
   crew: Crew;
   days: Date[];
   jobs: Job[];
   appts: Appointment[];
+  blocks: TimeBlock[];
   tz: string;
   memberCount: number;
   onConfirm: (j: Job) => void;
@@ -939,6 +1042,9 @@ function CrewRow({
   confirmedAppts: Set<string>;
   busyJob: string | null;
   previewSuffix: string;
+  readOnly: boolean;
+  onAddBlock: (crewId: string) => void;
+  onDeleteBlock: (blockId: string) => void;
 }) {
   return (
     <>
@@ -950,6 +1056,7 @@ function CrewRow({
             <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
           )}
         </span>
+        {!readOnly && <button className="button small" type="button" onClick={() => onAddBlock(crew.crewId)} style={{ marginLeft: "auto" }}>＋ Block time</button>}
       </div>
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
@@ -968,6 +1075,12 @@ function CrewRow({
               justConfirmed={confirmedAppts.has(appt.appointmentId)}
               previewSuffix={previewSuffix}
             />
+          ))}
+          {blocks.filter((block) => sameDay(block.startTime, d, tz)).map((block) => (
+            <div key={block.blockId} style={{ padding: "7px 8px", borderRadius: 8, border: "1px solid #94a3b8", background: "repeating-linear-gradient(135deg, #f1f5f9, #f1f5f9 6px, #e2e8f0 6px, #e2e8f0 12px)", fontSize: 11.5, color: "#334155" }}>
+              <div style={{ display: "flex", gap: 6, justifyContent: "space-between" }}><strong>{block.label}</strong>{!readOnly && <button type="button" aria-label={`Remove ${block.label} block`} onClick={() => onDeleteBlock(block.blockId)} style={{ border: 0, background: "transparent", cursor: "pointer", padding: 0 }}><X size={14} /></button>}</div>
+              <span>{new Date(block.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}–{new Date(block.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</span>
+            </div>
           ))}
         </DayCell>
       ))}
@@ -1023,6 +1136,22 @@ function JobTile({ job, tz, crewGone }: { job: Job; tz: string; crewGone: boolea
 }
 
 // ── Draggable booking tile (unassigned rail) ──────────────────────────────────
+function PhoneBookingChip({ appt, tz, pending }: { appt: Appointment; tz: string; pending: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  return (
+    <div ref={setNodeRef} style={{ position: "relative", transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.5 : 1 }}>
+      <button type="button" {...listeners} {...attributes} style={{ width: "100%", textAlign: "left", cursor: "grab", touchAction: "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
+        <GripVertical size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
+        <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</strong> {appt.callerName ?? "Booking"}
+      </button>
+      <details style={{ marginTop: 3 }}>
+        <summary style={{ cursor: "pointer", fontSize: 11, color: "var(--accent)", paddingLeft: 8 }}>Booking details</summary>
+        <div style={{ marginTop: 4, padding: 8, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, minWidth: 230 }}><BookingDetails booking={appt} timeZone={tz} compact /></div>
+      </details>
+    </div>
+  );
+}
+
 function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
   const pending = appt.pendingConfirmation || appt.status === "requested";
@@ -1099,6 +1228,10 @@ function ScheduledApptTile({
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+        <details style={{ position: "relative", padding: "5px 7px", fontSize: 11 }}>
+          <summary style={{ cursor: "pointer", color: "var(--accent)", fontWeight: 700 }}>Details</summary>
+          <div style={{ position: "absolute", zIndex: 12, marginTop: 6, width: 280, maxWidth: "calc(100vw - 32px)", padding: 10, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(15,23,42,.14)" }}><BookingDetails booking={appt} inspectorName={crew.name} timeZone={tz} compact /></div>
+        </details>
         {!confirmed ? (
           <button onClick={() => onConfirm(appt)} disabled={busy} title="Emails the customer their confirmed time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
             {busy ? "Sending…" : "✓ Confirm + email"}
