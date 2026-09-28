@@ -1314,29 +1314,28 @@ an active queue.*
           pipeline/jobs/documents.
     - [x] **Before push:** full Playwright once, on the final tree. Never re-run a suite already green on the same commit — cite that run.
     - [x] Unchanged: a real phone call + transcript read after a booking change ships (unit tests missed the 2026-09-27 break).
-- [ ] Phase 31 — **Call-flow fixes from the owner's 2026-09-28 test call** (spec + causes: `docs/CALL-FLOW-FIX-PLAN.md`; prompts:
-      `docs/WORKER_QUEUE.md` section **I**). Transcripts read first: inbound `conv_2201m3ma3sg5fn3rm8w721rpfb0d` (11:28 AM ET),
-      outbound `conv_4701m3matcwsfba9ar1aw8w81z7p` (voicemail loop). Goal: every service call ends booked, with everything the
-      inspector needs; follow-up by text, not an AI voicemail.
-  - [ ] **T-152 (I1, Deepseek)** — Alice books, always: escalation switch (default off, server-enforced), booking checklist (email
-        every time, OK-to-text, access notes), no premature "anything else?", honest confirmation wording (fixes the false "after
-        hours"), `cleanCallerName`, `addBookingNote` tool, post-call `callSummary` on the booking, texting backend (off until
-        NH-29), confirm route picks text → email, inspector email on confirm, capacity = active inspectors, outbound voicemail rule.
-  - [ ] **T-153 (I2, Codex, after H3 + I1 Step 0 merge)** — nav Dashboard → Calls → Pipeline; Pipeline tabs Booked / Callbacks;
-        Calls → "Booked · open in Pipeline"; "after hours" only when true; booking details (Access/URGENT/From the call) on every
-        booking view; Inspector title + inspector rows + drag bookings onto inspectors; "My inspections" on the Field screen;
-        "Tell them by: Text / Email / I'll call them" instead of the AI call.
-  - [ ] **T-154 (I0, integrator)** — ElevenLabs agent: end_call + voicemail detection + silence end-call timeout (config snapshot
-        first); NH-29 click-steps; merge H3 → I1 Step 0 → I1 → I2; one full gate run before the push; live tool update; agent tests;
-        the owner's real call.
-  - [ ] Found while reading the transcripts (all folded into T-152/T-153/T-154 above):
-        (a) the gate code Alice said she "noted" was never saved — it came after `bookAppointment` and no tool could add it;
-        (b) every booking says "after hours" because `pendingConfirmation` is always true and the dispatcher/UI read it as after
-        hours; (c) name "Es Carla Esnaida" (Spanish "es" = "it's") → outbound greeting "Hi Es"; (d) voicemail detection is off on
-        the shared agent and `end_call` isn't used → "Are you still there?" ×9; (e) the roofing template's "24-hour notice" rule
-        contradicts same-day urgent booking (dropped — the open Phase 28 question, option b); (f) phone-AI capacity counted work
-        crews for inspections. Later, not now: inspector workload board, proposal-heavy customers, ElevenLabs data-collection
-        fields as a second safety net, one registered texting number per client.
+- [ ] Phase 31 — **Call-flow fixes from the owner's 2026-09-28 test call** (spec, workflow table and causes: `docs/CALL-FLOW-FIX-PLAN.md`;
+      prompts: `docs/WORKER_QUEUE.md` section **I**). Transcripts read first: inbound `conv_2201m3ma3sg5fn3rm8w721rpfb0d` (11:28 AM ET),
+      outbound `conv_4701m3matcwsfba9ar1aw8w81z7p` (voicemail loop). Workflow: call recorded → Alice books an inspection → it is the
+      lead (Pipeline "Booked") → auto-assigned inspector notified → inspector manages their time (blocks, My schedule, phone-calendar
+      feed) → customer told by text/email. Split (owner's model rule): live call + booking engine = integrator; screens = Codex; plumbing = Deepseek.
+  - [ ] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
+        time-blocks API (+ open-times), texting module OFF until NH-29, inspector notifications (assigned/moved/reassigned/cancelled),
+        confirm route (text → email, inspector_busy 409 + force), post-call callSummary, bootstrap smsEnabled.
+  - [ ] **T-153 (I2, Codex GPT-6 Sol medium, after H3 + Step 0)** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
+        Calls → "Booked · open in Pipeline"; "after hours" only when true; booking details everywhere; Inspector title + inspector rows
+        + drag + blocks on the Calendar; "My schedule" + Block time on the Field screen; private .ics phone-calendar feed; "Tell them
+        by: Text / Email / I'll call them".
+  - [ ] **T-154 (I0, integrator, Claude Opus 5.5)** — ElevenLabs agent: end_call + voicemail detection + silence timeout; Twilio
+        read-only check + NH-29 steps; the live path (prompt: escalation switch, booking checklist, after-booking rules; dispatcher:
+        NOT ESCALATED, BOOKED wording, addBookingNote; engine: bookedAfterHours, capacity = inspectors, blocks busy, auto-assign +
+        notify); merges H3 → Step 0 → I1 → live → I2; one full gate run; push; live tools; agent tests; the owner's real call.
+  - [ ] Found while reading the transcripts (folded into the tasks above): (a) the gate code Alice "noted" was never saved;
+        (b) every booking says "after hours" (pendingConfirmation is always true and was read as after hours); (c) "Es Carla
+        Esnaida" → "Hi Es"; (d) voicemail detection off + no end_call → "Are you still there?" ×9; (e) **no texting code exists — no
+        text was ever sent** (and carriers need NH-29 registration before one can be); (f) the "24-hour notice" rule contradicts
+        same-day urgent booking (dropped); (g) phone-AI capacity counted work crews for inspections. Later: live call row during a
+        call, inspector workload board, inbound text replies, per-client texting numbers, Google Calendar two-way sync.
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
