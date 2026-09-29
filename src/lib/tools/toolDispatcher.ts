@@ -109,11 +109,14 @@ export async function executeAgentTool(
             return opening ? `when we open ${opening}` : "when the office opens";
           })()
           : "shortly";
-        const confirmSentence = texting
-          ? `The office will confirm it by text ${confirmWhen}.`
-          : appt.callerEmail
-            ? `The office will confirm it by email ${confirmWhen}.`
-            : `The office will call you ${confirmWhen} to confirm it.`;
+        // Same rule as the office's Confirm button (src/lib/comms/confirmChannels.ts): every channel the caller gave.
+        const confirmSentence = texting && appt.callerEmail
+          ? `The office will confirm it by text and email ${confirmWhen}.`
+          : texting
+            ? `The office will confirm it by text ${confirmWhen}.`
+            : appt.callerEmail
+              ? `The office will confirm it by email ${confirmWhen}.`
+              : `The office will call you ${confirmWhen} to confirm it.`;
         const sayToCaller = `You're booked for ${whenStr}. ${confirmSentence}`;
         const inspectorFirstName = assignedInspectorName?.split(/\s+/)[0];
         if (texting && textTo) {

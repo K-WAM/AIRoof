@@ -7,6 +7,7 @@ import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
 import { bookingConfirmed } from "@/lib/comms/smsTemplates";
 import { notifyInspector } from "@/lib/crews/inspectorNotify";
 import { contactPhone } from "@/lib/format/phone";
+import { confirmChannels, type ConfirmChannel } from "@/lib/comms/confirmChannels";
 import { buildRequestDeclineEmail, REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import {
   DEFAULT_SCHEDULE_DURATION_MS,
@@ -29,13 +30,14 @@ interface AppointmentPatchBody {
   startTime?: number | null;
   confirm?: boolean;
   notifyCustomer?: boolean;
-  notifyChannel?: "sms" | "email" | "none";
+  /** "auto" (the default) = every channel the caller gave on the call; sms/email/none force one. */
+  notifyChannel?: "auto" | "sms" | "email" | "none";
   force?: boolean;
   declineReason?: string;
   customMessage?: string;
 }
 
-const NOTIFY_CHANNELS = ["sms", "email", "none"] as const;
+const NOTIFY_CHANNELS = ["auto", "sms", "email", "none"] as const;
 
 // Phase 31 (T-152): the chosen inspector already has a block or another inspection in this slot. Forceable by the
 // office ("assign anyway?"), unlike a genuine capacity/lock conflict.
@@ -86,7 +88,7 @@ export async function PATCH(
     return NextResponse.json({ error: "startTime must be a timestamp" }, { status: 400 });
   }
   if (notifyChannel !== undefined && !NOTIFY_CHANNELS.includes(notifyChannel)) {
-    return NextResponse.json({ error: "notifyChannel must be sms, email or none" }, { status: 400 });
+    return NextResponse.json({ error: "notifyChannel must be auto, sms, email or none" }, { status: 400 });
   }
 
   const gate = await verifyAuthAndRole(req, businessId, [
@@ -476,7 +478,7 @@ export async function PATCH(
   }
 
   let notificationStatus: NotificationDeliveryState = "unconfigured";
-  let notifiedVia: "sms" | "email" | null = null;
+  const notifiedChannels: ConfirmChannel[] = [];
   if (notifyCustomer && committed) {
     const { appointment, business, startTime } = committed;
     // The number the caller said on the call wins over caller ID.
@@ -493,16 +495,17 @@ export async function PATCH(
       minute: "2-digit",
       timeZone,
     });
-    // Owner decision (plan §2.7): text when possible, then email, then nothing. The AI call is never the default.
-    const channel =
-      notifyChannel ??
-      (isSmsEnabled(business) && callerPhone && appointment.textOk !== false
-        ? "sms"
-        : callerEmail
-          ? "email"
-          : "none");
+    // Owner, 2026-09-28: confirm by what the caller gave on the call — email if they gave one, text if they said OK to
+    // text, BOTH when both (confirmChannels). No AI phone call. An explicit sms/email/none (older screens) forces one.
+    const channels: ConfirmChannel[] =
+      notifyChannel === "sms" || notifyChannel === "email"
+        ? [notifyChannel]
+        : notifyChannel === "none"
+          ? []
+          : confirmChannels({ smsEnabled: isSmsEnabled(business), phone: callerPhone, textOk: appointment.textOk as boolean | undefined, email: callerEmail });
+    const statuses: NotificationDeliveryState[] = [];
 
-    if (channel === "sms" && callerPhone && isSmsEnabled(business)) {
+    if (channels.includes("sms") && callerPhone && isSmsEnabled(business)) {
       try {
         notificationStatus = await sendSms({
           businessId,
@@ -527,12 +530,14 @@ export async function PATCH(
           messageType: "customer-confirmation",
           entityId: `${appointmentId}:${startTime}`,
         });
-        if (notificationStatus === "delivered") notifiedVia = "sms";
+        statuses.push(notificationStatus);
+        if (notificationStatus === "delivered") notifiedChannels.push("sms");
       } catch (error) {
         console.error("Customer SMS failed after appointment persisted:", error);
-        notificationStatus = "failed";
+        statuses.push("failed");
       }
-    } else if (channel === "email" && callerEmail) {
+    }
+    if (channels.includes("email") && callerEmail) {
       try {
         const brand = {
           businessName:
@@ -580,22 +585,30 @@ export async function PATCH(
           subject,
           html,
         });
-        if (notificationStatus === "delivered") notifiedVia = "email";
+        statuses.push(notificationStatus);
+        if (notificationStatus === "delivered") notifiedChannels.push("email");
       } catch (error) {
         console.error(
           "Customer notification ledger failed after appointment persisted:",
           error
         );
-        notificationStatus = "failed";
+        statuses.push("failed");
       }
     }
+    // Delivered if ANY channel got through; otherwise the most telling failure.
+    notificationStatus = statuses.includes("delivered")
+      ? "delivered"
+      : statuses.find((status) => status !== "unconfigured") ?? "unconfigured";
   }
 
   return NextResponse.json({
     ok: true,
     notificationStatus,
     notifiedCustomer: notificationStatus === "delivered",
-    notifiedVia,
+    /** Every channel that reached the customer ("email", "sms"). */
+    notifiedChannels,
+    /** Older screens read one channel; kept for them. */
+    notifiedVia: notifiedChannels.includes("sms") ? "sms" : notifiedChannels[0] ?? null,
     staffNotified,
   });
 }

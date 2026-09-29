@@ -14,7 +14,7 @@ export function RequestReviewDialog(props: {
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
-  onAccept: (notifyChannel: "sms" | "email" | "none") => Promise<void>;
+  onAccept: () => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
 }) {

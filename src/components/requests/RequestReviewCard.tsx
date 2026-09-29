@@ -4,6 +4,8 @@ import { useState } from "react";
 import { missingRequestInformation, type RequestReviewEntity } from "@/lib/pipeline/requestReview";
 import { REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
+import { confirmButtonLabel, confirmChannels } from "@/lib/comms/confirmChannels";
+import { contactPhone, fmtPhone } from "@/lib/format/phone";
 
 export type ReviewRequest = RequestReviewEntity & {
   callerName?: string;
@@ -15,6 +17,8 @@ export type ReviewRequest = RequestReviewEntity & {
   afterHours?: boolean;
   escalated?: boolean;
   textOk?: boolean;
+  /** A different number the caller gave on the call (caller ID stays in callerPhone). */
+  callbackPhone?: string;
   assignedBy?: "ai" | "office";
   callSummary?: string;
   assignedCrewName?: string;
@@ -33,13 +37,14 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
-  onAccept: (notifyChannel: "sms" | "email" | "none") => Promise<void>;
+  onAccept: () => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
 }) {
-  const canText = smsEnabled && !!request.callerPhone && request.textOk !== false;
-  const canEmail = !!request.callerEmail;
-  const [notifyChannel, setNotifyChannel] = useState<"sms" | "email" | "none">(canText ? "sms" : canEmail ? "email" : "none");
+  // No picker (owner, 2026-09-28): a booking is confirmed by what the caller gave on the call — email, text, or both.
+  const phone = contactPhone(request);
+  const channels = confirmChannels({ smsEnabled, phone, textOk: request.textOk, email: request.callerEmail });
+  const isBooking = typeof request.startTime === "number";
   const [error, setError] = useState<string | null>(null);
   const [reason, setReason] = useState<RequestDeclineReason>("Outside our service area");
   const [custom, setCustom] = useState("");
@@ -52,7 +57,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
     setBusy(action);
     setError(null);
     try {
-      if (action === "accept") await onAccept(notifyChannel);
+      if (action === "accept") await onAccept();
       if (action === "decline") await onDecline(reason, reason === "Other" ? custom.trim() : undefined);
       if (action === "call" && onCallBack) await onCallBack();
     } catch (err) {
@@ -103,16 +108,16 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
       </>}
 
       <div className="request-review-actions">
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-          <legend style={{ fontWeight: 700, marginBottom: 6 }}>Tell them by:</legend>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {canText && <label><input type="radio" name="notify-channel" value="sms" checked={notifyChannel === "sms"} onChange={() => setNotifyChannel("sms")} /> Text</label>}
-            {canEmail && <label><input type="radio" name="notify-channel" value="email" checked={notifyChannel === "email"} onChange={() => setNotifyChannel("email")} /> Email</label>}
-            <label><input type="radio" name="notify-channel" value="none" checked={notifyChannel === "none"} onChange={() => setNotifyChannel("none")} /> I&apos;ll call them</label>
-          </div>
-          {notifyChannel === "none" && request.callerPhone && <a href={`tel:${request.callerPhone}`} style={{ display: "inline-block", marginTop: 6 }}>Call {request.callerPhone}</a>}
-        </fieldset>
-        <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept" ? "Confirming…" : notifyChannel === "sms" ? "Confirm & text" : notifyChannel === "email" ? "Confirm & email" : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>
+        {isBooking && (
+          <p className="request-confirm-channel" style={{ margin: 0, flexBasis: "100%" }}>
+            {channels.length > 0
+              ? <>The confirmation goes {channels.includes("email") ? <>by email to <strong>{request.callerEmail}</strong></> : null}{channels.length === 2 ? " and " : null}{channels.includes("sms") ? <>by text to <strong>{fmtPhone(phone)}</strong></> : null}.</>
+              : <>They gave no email or OK to text on the call — {phone ? <a href={`tel:${phone}`}>phone them at {fmtPhone(phone)}</a> : "phone them"} after you confirm.</>}
+          </p>
+        )}
+        <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept"
+          ? "Confirming…"
+          : isBooking && channels.length > 0 ? confirmButtonLabel(channels) : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>
         <button className="button secondary" onClick={() => setDecline(!decline)} disabled={busy !== null}>Decline & notify</button>
       </div>
 

@@ -53,8 +53,8 @@ test("the request is in the Pipeline; Review request opens the card; Confirm ema
   await expect(page.getByText(caller.email).first()).toBeVisible();
 
   await page.keyboard.press("Escape");
-  // T-153 C2: the button names the channel it will use — "Confirm & text" / "Confirm & email" / "Confirm".
-  await card.getByRole("button", { name: /^Confirm( & (text|email))?$/ }).click();
+  // The button names what will happen: "Confirm & email + text" / "Confirm & email" / "Confirm & text" / "Confirm".
+  await card.getByRole("button", { name: /^Confirm( & (email \+ text|text|email))?$/ }).click();
   await expect(card.getByText("Confirmed")).toBeVisible({ timeout: 15_000 });
   await expect.poll(async () => (await outbox({ to: caller.email })).length, { timeout: 15_000, message: "no confirmation email was captured" }).toBeGreaterThan(0);
   await shot(page, "pipeline-confirmed");

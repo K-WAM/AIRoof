@@ -21,6 +21,7 @@ import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
 import { fmtPhone } from "@/lib/format";
 import { contactPhone } from "@/lib/format/phone";
+import { confirmButtonLabel, confirmChannels, notifiedPhrase, type ConfirmChannel } from "@/lib/comms/confirmChannels";
 import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -376,29 +377,29 @@ export default function PipelinePage() {
     }
   }
 
-  function notifyChannelFor(appt: Appointment): "sms" | "email" | "none" {
-    if (smsEnabled && appt.callerPhone && appt.textOk !== false) return "sms";
-    if (appt.callerEmail) return "email";
-    return "none";
+  // Every channel the caller gave on the call — email, text, or both (src/lib/comms/confirmChannels.ts).
+  function channelsFor(appt: Appointment): ConfirmChannel[] {
+    return confirmChannels({ smsEnabled, phone: contactPhone(appt), textOk: appt.textOk, email: appt.callerEmail });
   }
 
-  async function sendConfirmation(appt: Appointment, notifyChannel = notifyChannelFor(appt)): Promise<boolean> {
+  async function sendConfirmation(appt: Appointment): Promise<boolean> {
     setApptUpdating(appt.appointmentId + "_confirm");
     try {
       const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel }),
+        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: true, notifyChannel: "auto" }),
       });
       if (res.ok) {
-        const data = await res.json().catch(() => ({} as { notifiedVia?: "sms" | "email" | null; staffNotified?: number }));
+        const data = await res.json().catch(() => ({} as { notifiedChannels?: ConfirmChannel[]; staffNotified?: number }));
         setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
-        const customer = data.notifiedVia ? `customer ${data.notifiedVia === "sms" ? "texted" : "emailed"}` : "customer not notified";
+        const told = notifiedPhrase(data.notifiedChannels);
+        const customer = told ? `customer ${told}` : "no email or OK-to-text from the call — phone them";
         const staff = data.staffNotified ? ` · ${data.staffNotified} inspector${data.staffNotified === 1 ? "" : "s"} notified` : "";
-        showToast(`Confirmed · ${customer}${staff}`, data.notifiedVia || data.staffNotified ? "ok" : "warn");
+        showToast(`Confirmed · ${customer}${staff}`, told || data.staffNotified ? "ok" : "warn");
         setTimeout(() => {
           setConfirmedSet((prev) => {
             const next = new Set(prev);
@@ -533,7 +534,7 @@ export default function PipelinePage() {
               }}
               style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
             >
-              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : notifyChannelFor(appt) === "sms" ? "Confirm & text" : notifyChannelFor(appt) === "email" ? "Confirm & email" : "Confirm"}
+              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : confirmButtonLabel(channelsFor(appt))}
             </button>
           ) : null}
 
@@ -933,7 +934,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
-        onAccept={async (notifyChannel) => { if (!reviewLead) return; await decideLead(reviewLead, "booked", undefined, undefined, notifyChannel); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
+        onAccept={async () => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
       />
       <RequestReviewDialog
         open={!!reviewAppt}
@@ -946,7 +947,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async (notifyChannel) => { if (!reviewAppt) return; await sendConfirmation(reviewAppt, notifyChannel); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
+        onAccept={async () => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );

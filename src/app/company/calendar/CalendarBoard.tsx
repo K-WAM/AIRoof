@@ -2,6 +2,8 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { confirmButtonLabel, confirmChannels, notifiedPhrase } from "@/lib/comms/confirmChannels";
+import { contactPhone } from "@/lib/format/phone";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection, type CollisionDetection, type DragEndEvent } from "@dnd-kit/core";
 
 /**
@@ -493,11 +495,11 @@ export default function CalendarBoard() {
     setBusyJob(appt.appointmentId);
     setCalendarError(null);
     try {
-      const notifyChannel = smsEnabled && appt.callerPhone && appt.textOk !== false ? "sms" : appt.callerEmail ? "email" : "none";
+      // Every channel the caller gave on the call (src/lib/comms/confirmChannels.ts); the server decides the same way.
       const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel }),
+        body: JSON.stringify({ businessId, confirm: true, notifyCustomer: true, notifyChannel: "auto" }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -509,7 +511,8 @@ export default function CalendarBoard() {
           )
         );
         setConfirmedAppts((prev) => new Set(prev).add(appt.appointmentId));
-        const customer = data.notifiedVia ? `${vocab.customerNoun.toLowerCase()} ${data.notifiedVia === "sms" ? "texted" : "emailed"}` : `${vocab.customerNoun.toLowerCase()} not notified`;
+        const told = notifiedPhrase(data.notifiedChannels);
+        const customer = told ? `${vocab.customerNoun.toLowerCase()} ${told}` : `no email or OK-to-text from the call — phone the ${vocab.customerNoun.toLowerCase()}`;
         const inspector = data.staffNotified ? ` · ${crews.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "inspector"} notified` : "";
         flash(`Confirmed · ${customer}${inspector}`);
       } else {
@@ -1262,7 +1265,7 @@ function ScheduledApptTile({
         </details>
         {!confirmed ? (
           <button onClick={() => onConfirm(appt)} disabled={busy} title="Confirms the booking and notifies the customer when a channel is available" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
-            {busy ? "Sending…" : smsEnabled && appt.callerPhone && appt.textOk !== false ? "✓ Confirm & text" : appt.callerEmail ? "✓ Confirm & email" : "✓ Confirm"}
+            {busy ? "Sending…" : `✓ ${confirmButtonLabel(confirmChannels({ smsEnabled, phone: contactPhone(appt), textOk: appt.textOk, email: appt.callerEmail }))}`}
           </button>
         ) : (
           <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>

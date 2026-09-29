@@ -116,12 +116,19 @@ describe("PATCH /api/appointments — inspector assignment notifications (T-152)
   });
 });
 
-describe("PATCH /api/appointments — customer notifyChannel (T-152)", () => {
-  it("prefers sms when texting is on and the caller agreed", async () => {
+describe("PATCH /api/appointments — customer notifyChannel (T-152, owner rule 2026-09-28)", () => {
+  it("emails AND texts when the caller gave an email and said OK to text", async () => {
     mocks.isSmsEnabled.mockReturnValue(true);
-    const response = await PATCH(requestFor({ businessId: "biz", assignedCrewId: "c2", notifyCustomer: true }), context);
-    expect(await response.json()).toMatchObject({ notifiedVia: "sms", notifiedCustomer: true });
+    const response = await PATCH(requestFor({ businessId: "biz", assignedCrewId: "c2", notifyCustomer: true, notifyChannel: "auto" }), context);
+    expect(await response.json()).toMatchObject({ notifiedChannels: ["sms", "email"], notifiedCustomer: true });
     expect(mocks.sendSms).toHaveBeenCalledOnce();
+    expect(mocks.runLedgeredEmail).toHaveBeenCalledOnce();
+  });
+
+  it("an explicit single channel still sends only that one", async () => {
+    mocks.isSmsEnabled.mockReturnValue(true);
+    const response = await PATCH(requestFor({ businessId: "biz", assignedCrewId: "c2", notifyCustomer: true, notifyChannel: "sms" }), context);
+    expect(await response.json()).toMatchObject({ notifiedChannels: ["sms"], notifiedVia: "sms" });
     expect(mocks.runLedgeredEmail).not.toHaveBeenCalled();
   });
 

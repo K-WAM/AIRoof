@@ -177,7 +177,7 @@ export default function CompanyCallsPage() {
     } else if (review.appointment) {
       const response = reason
         ? await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, declineReason: reason, customMessage }) })
-        : await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, confirm: true, notifyCustomer: notifyChannel !== "none", notifyChannel: notifyChannel ?? "none" }) });
+        : await fetch(`/api/appointments/${review.appointment.appointmentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, confirm: true, notifyCustomer: true, notifyChannel: "auto" }) });
       if (!response.ok) throw new Error("Request decision failed");
     }
   }
@@ -478,7 +478,7 @@ export default function CompanyCallsPage() {
         canCreateJob={isEnabled("jobs")}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
-        onAccept={async (notifyChannel) => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed", undefined, undefined, notifyChannel); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
+        onAccept={async () => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}
       />
     </>
   );
