@@ -670,6 +670,8 @@ export interface BookAppointmentInput {
   sourceCallId?: string;
   /** The caller said it's OK to text them about this booking (plan §3). Missing = not asked. */
   textOk?: boolean;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
 }
 
 export type BookAppointmentOutput = Appointment & {
@@ -830,6 +832,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       pendingConfirmation: true,
       bookedAfterHours: !isOpenAt(now, timeZone, businessData.businessHours),
       ...(typeof input.textOk === "boolean" ? { textOk: input.textOk } : {}),
+      ...(input.calledNumber ? { calledNumber: input.calledNumber } : {}),
       ...(assignedInspectorId ? { assignedCrewId: assignedInspectorId, assignedBy: "ai" as const } : {}),
       sourceCallId: input.sourceCallId,
       createdAt: now,
@@ -954,6 +957,8 @@ export interface CreateLeadInput {
   intake?: Record<string, string>;
   sourceCallId?: string;
   callbackConsent?: boolean;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
   escalated?: boolean;
   escalationReason?: string;
 }
@@ -1036,6 +1041,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
       intake: input.intake,
     }),
     sourceCallId: input.sourceCallId,
+    ...(input.calledNumber ? { calledNumber: input.calledNumber } : {}),
     ...(input.escalated ? { escalated: true, escalationReason: input.escalationReason } : {}),
     status: "new",
     callbackState,

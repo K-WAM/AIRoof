@@ -29,6 +29,7 @@ import { cleanCallerName } from "@/lib/format/name";
 import { contactPhone, fmtPhone, samePhone } from "@/lib/format/phone";
 import { nextOpeningLabel } from "@/lib/scheduling/hours";
 import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
+import { resolveSmsSender } from "@/lib/phoneLines/sender";
 import { bookingReceived } from "@/lib/comms/smsTemplates";
 import { isEscalationEnabled } from "@/lib/ai/escalation";
 import { runAfterResponse } from "@/lib/http/afterResponse";
@@ -45,6 +46,8 @@ export interface AgentToolContext {
   businessId: string;
   callId: string;
   callerPhone?: string;
+  /** T-169: the line the caller dialed, from the authenticated call record (ElevenLabs). Never from tool parameters. */
+  calledNumber?: string;
   provider: ToolProvider;
   providerIds?: AuditProviderIds;
 }
@@ -54,7 +57,7 @@ export async function executeAgentTool(
   params: Record<string, unknown>,
   context: AgentToolContext
 ): Promise<AgentToolResult> {
-  const { businessId, callId, callerPhone, provider } = context;
+  const { businessId, callId, callerPhone, calledNumber, provider } = context;
   const providerIds = context.providerIds ?? {};
   // Vapi retains its existing parameter fallback. ElevenLabs must use only
   // caller identity recorded by the authenticated initiation webhook.
@@ -94,6 +97,7 @@ export async function executeAgentTool(
           endTime,
           sourceCallId: callId,
           textOk: parseYesNo(params.textOk ?? params.okToText),
+          calledNumber,
         });
         const { businessData, businessTimezone, assignedInspectorName, ...stored } = appt;
         await logAction(businessId, callId, "bookAppointment", params, stored, "success");
@@ -102,7 +106,11 @@ export async function executeAgentTool(
         // Every AI booking waits for the office's OK. Say how and when the office confirms — "after hours" only when it
         // really is (2026-09-28: an 11:28 AM Monday booking was told "since we're currently after hours").
         const textTo = contactPhone(appt);
-        const texting = isSmsEnabled(businessData) && appt.textOk === true && Boolean(textTo);
+        // T-169: promise a text only when one can really go out — from the line this caller dialed, with texting Ready.
+        const wantsText = isSmsEnabled(businessData) && appt.textOk === true && Boolean(textTo);
+        const senderDb = wantsText ? getAdminFirestore() : null;
+        const sender = senderDb ? await resolveSmsSender(senderDb, { businessId, calledNumber, purpose: "booking_received" }) : null;
+        const texting = wantsText && sender?.ok === true;
         const confirmWhen = appt.bookedAfterHours
           ? (() => {
             const opening = nextOpeningLabel(Date.now(), tz, businessData.businessHours);
@@ -131,6 +139,8 @@ export async function executeAgentTool(
             }),
             messageType: "booking-received",
             entityId: appt.appointmentId,
+            purpose: "booking_received",
+            calledNumber,
           }));
           if (pending) await pending;
         }
@@ -175,6 +185,7 @@ export async function executeAgentTool(
           urgency: parseUrgency(params.urgency),
           notes: withCallbackLine(optionalStr(params.notes)),
           sourceCallId: callId,
+          calledNumber,
         });
         await logAction(businessId, callId, "createLead", params, lead, "success");
         return { result: `Lead captured for ${lead.callerName ?? "caller"}. The team will follow up.` };

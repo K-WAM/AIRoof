@@ -123,7 +123,8 @@ export interface BusinessConfig {
   // Phase 31 (T-152): texting on/off for this tenant. Missing = true, but texting still needs env SMS_ENABLED=true
   // (US carriers block business texts from an unregistered number — NH-29).
   smsEnabled?: boolean;
-  // Phase 31 (T-152): the registered Twilio number texts come from; falls back to env TWILIO_PHONE_NUMBER.
+  // DEPRECATED (T-169, Phase 32): ignored. Texts come from the phone-line registry — the line the caller dialed, else the
+  // business's default sender — and only when that line's texting is Ready (src/lib/phoneLines/sender.ts).
   smsFromNumber?: string;
   // Phase 32 (T-166, contract C-A): why this tenant exists. Superadmin-set only; missing = "unclassified". The effective
   // value for DEMO_BUSINESS_IDS / isDemo tenants is always "demo" (effectiveAccountPurpose, src/lib/accounts/purpose.ts).
@@ -238,6 +239,8 @@ export interface Lead {
   callerPhone?: string;
   /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
   callbackPhone?: string;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
   callerEmail?: string;
   serviceRequested?: string;
   address?: string;
@@ -274,6 +277,8 @@ export interface Appointment {
   callerPhone?: string;
   /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
   callbackPhone?: string;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
   callerEmail?: string;
   serviceType?: string;
   address?: string;

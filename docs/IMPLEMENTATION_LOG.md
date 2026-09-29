@@ -1723,3 +1723,21 @@ assign anyway?" check lives in the appointment route per the plan); the inspecto
 - Tests: registry/lifecycle (10), phone-line routes (11), create-line (5), config conflicts rewritten on the shared fake
   (demo both ways), account purpose (3); the shared `fakeFirestore` gained dotted field paths. 709 tests in api/auth/
   phoneLines/vapi/admin green; tsc clean. Nothing pushed, no production write.
+
+## 2026-09-29 — Integrator, Stream I: T-169 texts come from the line the caller dialed (Phase 32; SMS stays OFF)
+- `resolveSmsSender()` (`src/lib/phoneLines/sender.ts`): a record with a dialed line texts only from exactly that line of
+  this tenant, and only when its registry texting status is Ready for that purpose; no dialed line (office booking, staff
+  notice) → the tenant's default sender if Ready; otherwise nothing, with a retryable ledger failure `sender_<reason>`.
+  The `smsFromNumber` / env `TWILIO_PHONE_NUMBER` fallback is removed (that fallback is how the T-156 "Canadian" test
+  text could only ever have come from the US number).
+- The dialed line flows from the authenticated ElevenLabs conversation record → dispatcher context → `calledNumber` on the
+  appointment and on the callback request; the office's Confirm text uses `appt.calledNumber`; inspector notices use the
+  default sender. Vapi has no called number in its payload types, so Vapi records use the default-sender rule.
+- The phone AI promises "by text" only when the sender resolves (booking-change gate: wording path) — otherwise the
+  email/"the office will call you" sentence. Harness outbox records `from`.
+- Production (read-only, 2026-09-29): `vercel env ls production` has NO `SMS_ENABLED` — the app sends no texts in
+  production today. `TWILIO_PHONE_NUMBER` exists only for Preview. No flag flipped, no text sent, no provider write.
+- Tests: sms (15, incl. Canadian caller → US line and US caller → Canadian line, unknown/malformed/pending/blocked/
+  cross-tenant/purpose refusals), dispatcher wording (3), inspector notice, tools route. Tools/scheduling (booking
+  scenario suite)/comms/appointments/webhooks/voice/vapi: 372 green. Still owed after deploy: ElevenLabs agent test of
+  the booking wording + one real call and transcript read (Booking-change gate).

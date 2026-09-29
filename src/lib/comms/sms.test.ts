@@ -7,11 +7,17 @@ import { isSmsEnabled, sendSms } from "./sms";
 
 const SID = "ACtest00000000000000000000000000";
 const TOKEN = "secret-token";
-const MSG = { businessId: "biz", to: "(305) 555-0111", body: "Hi", messageType: "inspector-assigned", entityId: "appt-1:assigned:100" };
+const MSG = { businessId: "biz", to: "(305) 555-0111", body: "Hi", messageType: "inspector-assigned", entityId: "appt-1:assigned:100", purpose: "inspector_assigned" as const };
 const OP_ID = `sms:${encodeURIComponent("inspector-assigned")}:${encodeURIComponent("appt-1:assigned:100")}`;
 
+const READY = (isDefaultSender = false) => ({ status: "ready", purposes: ["booking_received", "appointment_confirmed", "inspector_assigned"], isDefaultSender });
+const US_DEMO = "+16892042643";
+const CA_DEMO = "+17789079769";
+
 function seed(business: Record<string, unknown> = {}) {
-  db.__seed("businesses", "biz", { businessName: "Apex", smsEnabled: true, smsFromNumber: "+13055550111", ...business });
+  // smsFromNumber is deprecated and must be ignored (T-169) — it stays here to prove that.
+  db.__seed("businesses", "biz", { businessName: "Apex", smsEnabled: true, smsFromNumber: "+13055550777", ...business });
+  db.__seed("businessPhoneNumbers", "biz-main", { businessId: "biz", normalizedPhoneNumber: "+13055550111", status: "live", sms: READY(true) });
 }
 
 beforeEach(() => {
@@ -55,7 +61,7 @@ describe("sendSms", () => {
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe(`Basic ${Buffer.from(`${SID}:${TOKEN}`).toString("base64")}`);
     expect(init.body).toContain("To=%2B13055550111");
-    expect(init.body).toContain("From=%2B13055550111");
+    expect(init.body).toContain("From=%2B13055550111"); // the default sender line, not smsFromNumber or the env
     expect(init.body).toContain("Body=Hi");
     expect(db.__peek("businesses/biz/operations", OP_ID)?.state).toBe("succeeded");
   });
@@ -116,6 +122,84 @@ describe("sendSms", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     const outbox = db.__list("_e2eOutbox");
     expect(outbox).toHaveLength(1);
-    expect(outbox[0].data).toMatchObject({ channel: "sms", to: "+13055550111", body: "Hi" });
+    expect(outbox[0].data).toMatchObject({ channel: "sms", to: "+13055550111", from: "+13055550111", body: "Hi" });
+  });
+});
+
+// T-169 — the text comes from the line the caller dialed, never from their area code, another line or an env default.
+describe("sendSms — sender is the dialed line", () => {
+  function seedDemoLines(caSms: Record<string, unknown> = READY()) {
+    seed();
+    db.__seed("businessPhoneNumbers", "biz-us", { businessId: "biz", normalizedPhoneNumber: US_DEMO, status: "live", sms: READY() });
+    db.__seed("businessPhoneNumbers", "biz-ca", { businessId: "biz", normalizedPhoneNumber: CA_DEMO, status: "live", sms: caSms });
+  }
+  const booking = (to: string, calledNumber: string | null) => ({
+    businessId: "biz", to, body: "Booked", messageType: "booking-received", entityId: `appt-${to}-${calledNumber}`, purpose: "booking_received" as const, calledNumber,
+  });
+  function fromOf(fetchMock: ReturnType<typeof vi.fn>): string {
+    const [, init] = fetchMock.mock.calls.at(-1) as [string, { body: string }];
+    return new URLSearchParams(init.body).get("From") ?? "";
+  }
+
+  it("a Canadian caller who dialed the US line gets a US-line text; a US caller who dialed the Canadian line gets a Canadian-line text", async () => {
+    seedDemoLines();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ sid: "SM1" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await sendSms(booking("+16045550123", US_DEMO))).toBe("delivered");
+    expect(fromOf(fetchMock)).toBe(US_DEMO);
+    expect(await sendSms(booking("+13055550188", CA_DEMO))).toBe("delivered");
+    expect(fromOf(fetchMock)).toBe(CA_DEMO);
+  });
+
+  it.each([
+    ["an unknown dialed line", "+13055550000", "sender_called_line_unknown"],
+    ["a malformed dialed line", "not-a-number", "sender_invalid_called_line"],
+  ])("%s sends nothing and records why", async (_name, called, code) => {
+    seedDemoLines();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const message = booking("+13055550188", called);
+    expect(await sendSms(message)).toBe("unconfigured");
+    expect(fetchMock).not.toHaveBeenCalled();
+    const op = db.__peek("businesses/biz/operations", `sms:booking-received:${encodeURIComponent(message.entityId)}`);
+    expect(op).toMatchObject({ state: "failed", lastFailure: { code, classification: "retryable" } });
+  });
+
+  it("a dialed line whose texting is pending or blocked sends nothing — and never falls back to another line", async () => {
+    for (const status of ["pending_registration", "blocked", "not_configured"]) {
+      db = makeFakeDb();
+      seedDemoLines({ ...READY(), status });
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      expect(await sendSms(booking("+13055550188", CA_DEMO))).toBe("unconfigured");
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("another tenant's line is never a sender, even for the number that was dialed", async () => {
+    seed();
+    db.__seed("businessPhoneNumbers", "other-ca", { businessId: "other", normalizedPhoneNumber: CA_DEMO, status: "live", sms: READY(true) });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await sendSms(booking("+13055550188", CA_DEMO))).toBe("unconfigured");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("a line that doesn't allow this kind of text sends nothing", async () => {
+    seed();
+    db.__seed("businessPhoneNumbers", "biz-us", { businessId: "biz", normalizedPhoneNumber: US_DEMO, status: "live", sms: { status: "ready", purposes: ["inspector_assigned"], isDefaultSender: false } });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await sendSms(booking("+13055550188", US_DEMO))).toBe("unconfigured");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("with no dialed line and no Ready default sender, nothing is sent (the env number is never used)", async () => {
+    db.__seed("businesses", "biz", { businessName: "Apex", smsEnabled: true });
+    db.__seed("businessPhoneNumbers", "biz-main", { businessId: "biz", normalizedPhoneNumber: "+13055550111", status: "live", sms: { ...READY(true), status: "pending_registration" } });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await sendSms(booking("+13055550188", null))).toBe("unconfigured");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

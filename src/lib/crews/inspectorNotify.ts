@@ -137,6 +137,8 @@ export async function notifyInspector(options: {
           }),
           messageType: "inspector-assignment",
           entityId: `${keyPrefix}:text`,
+          // T-169: a staff notice has no dialed line — it comes from the business's default line, if texting is Ready.
+          purpose: "inspector_assigned",
         });
         if (status === "delivered") texted += 1;
       }

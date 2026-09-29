@@ -81,6 +81,8 @@ export async function POST(
       businessId: stored.businessId,
       callId: `call_elevenlabs_${conversationId}`,
       callerPhone: stored.callerPhone,
+      // T-169: recorded by the authenticated initiation webhook — never taken from tool parameters.
+      calledNumber: stored.calledNumber,
       provider: "elevenlabs",
       providerIds: { elevenLabsConversationId: conversationId },
     });
