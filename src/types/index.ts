@@ -1,4 +1,5 @@
 // Core multi-tenant data types for AI Receptionist Platform
+import type { PhoneLineRegistryFields } from "./phoneLine";
 
 export interface VoiceRef {
   provider: "vapi" | "11labs" | "cartesia" | "openai";
@@ -124,6 +125,11 @@ export interface BusinessConfig {
   smsEnabled?: boolean;
   // Phase 31 (T-152): the registered Twilio number texts come from; falls back to env TWILIO_PHONE_NUMBER.
   smsFromNumber?: string;
+  // Phase 32 (T-166, contract C-A): why this tenant exists. Superadmin-set only; missing = "unclassified". The effective
+  // value for DEMO_BUSINESS_IDS / isDemo tenants is always "demo" (effectiveAccountPurpose, src/lib/accounts/purpose.ts).
+  accountPurpose?: AccountPurpose;
+  /** Demo marker required by Demo Studio / the sandbox before they touch a tenant (T-035). */
+  isDemo?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -145,8 +151,9 @@ export interface BusinessOnboardingStatus {
   notes?: string;
 }
 
-// Phone number mapping used by Twilio webhooks to identify the tenant
-export interface BusinessPhoneNumber {
+// One inbound line. Since Phase 32 (T-171) this is also the phone-line REGISTRY (src/types/phoneLine.ts): lifecycle, owner
+// tenant, purpose (client/demo) and texting readiness. It does not route calls — see phoneLine.ts.
+export interface BusinessPhoneNumber extends PhoneLineRegistryFields {
   phoneNumberId: string;
   businessId: string;
   phoneNumber: string;
@@ -156,6 +163,10 @@ export interface BusinessPhoneNumber {
   createdAt: number;
   updatedAt: number;
 }
+
+/** Why a tenant exists (Phase 32, T-166 — contract C-A). Missing = "unclassified"; demo tenants are server-derived. */
+export type AccountPurpose = "client" | "demo" | "test" | "archived";
+export const ACCOUNT_PURPOSES: readonly AccountPurpose[] = ["client", "demo", "test", "archived"];
 
 export interface BusinessIntegrationStatus {
   businessId: string;
