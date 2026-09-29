@@ -9,6 +9,7 @@ import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
+import { displayRequestState } from "@/lib/requests/displayState";
 import { fmtPhone } from "@/lib/format";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
@@ -309,7 +310,7 @@ export default function CompanyCallsPage() {
                           <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          {call.outcome && <StatusChip status={call.outcome} />}
+                          {call.outcome && <StatusChip status={call.outcome} label={displayRequestState({ outcome: call.outcome }).label} />}
                           {call.status === "in_progress" && <span className={active ? "badge-live" : "badge-ended"}>{active ? "Live" : "Ended"}</span>}
                           {call.isAfterHours && <StatusChip status="after_hours" />}
                           {!call.outcome && <StatusChip status={CATEGORY_STATUS[category] ?? "general"} label={category} />}
@@ -417,7 +418,7 @@ export default function CompanyCallsPage() {
 
                 {selected.outcome && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                    <StatusChip status={selected.outcome} />
+                    <StatusChip status={selected.outcome} label={displayRequestState({ outcome: selected.outcome }).label} />
                     {selected.isAfterHours && <StatusChip status="after_hours" />}
                     {selected.outcomeReason && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
                   </div>

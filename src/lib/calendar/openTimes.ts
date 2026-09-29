@@ -9,6 +9,15 @@ export interface BusyRange {
 
 export const OPEN_TIME_STEP_MS = 30 * 60 * 1000;
 
+/** Keep overnight choices available, but lead with a practical morning slot for a 24/7 business. */
+export function orderOpenTimes(starts: number[], timeZone: string, aroundTheClock: boolean): { preferred: number[]; earlier: number[] } {
+  if (!aroundTheClock) return { preferred: starts, earlier: [] };
+  const localHour = (start: number) => Number(new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(new Date(start)));
+  const earlier = starts.filter((start) => localHour(start) < 7);
+  const preferred = starts.filter((start) => localHour(start) >= 7);
+  return preferred.length ? { preferred, earlier } : { preferred: starts, earlier: [] };
+}
+
 /**
  * Every start on a `stepMs` grid from the window's opening where a job of `durationMs` fits before closing, overlaps
  * nothing in `busy`, and is not before `notBefore` (so a dispatcher is never offered a time that has already passed).

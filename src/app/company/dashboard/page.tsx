@@ -14,6 +14,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { setupChecklist, type SetupChecklistInput } from "@/lib/onboarding/setupChecklist";
+import { displayRequestState } from "@/lib/requests/displayState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { fmtPhone } from "@/lib/format";
@@ -386,9 +387,7 @@ export default function CompanyDashboardPage() {
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
                     <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}{appt.bookedAfterHours === true ? " · after hours" : ""}</p>
                   </div>
-                  {appt.bookedAfterHours === true
-                    ? <StatusChip status="after_hours" />
-                    : <StatusChip status="requested" label="New booking · confirm" />}
+                  <StatusChip status="requested" label={displayRequestState(appt).label + " · " + displayRequestState(appt).nextAction} />
                   <span className="feed-chevron">›</span>
                 </Link>
               ))}

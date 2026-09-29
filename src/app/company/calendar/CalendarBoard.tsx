@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { confirmButtonLabel, confirmChannels, notifiedPhrase } from "@/lib/comms/confirmChannels";
 import { contactPhone } from "@/lib/format/phone";
@@ -31,6 +31,8 @@ import type { Job } from "@/types/jobs";
 import type { Crew } from "@/types/library";
 import type { TimeBlock } from "@/types/schedule";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
+import { displayRequestState } from "@/lib/requests/displayState";
+import { orderOpenTimes } from "@/lib/calendar/openTimes";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -194,6 +196,8 @@ export default function CalendarBoard() {
   const [busyJob, setBusyJob] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+  const confirmInFlight = useRef(new Set<string>());
+  const [retryConfirm, setRetryConfirm] = useState<{ kind: "job" | "appointment"; id: string } | null>(null);
   const [confirmedAppts, setConfirmedAppts] = useState<Set<string>>(new Set());
   const [blockForm, setBlockForm] = useState<{ crewId: string; label: string; start: string; end: string } | null>(null);
 
@@ -373,8 +377,11 @@ export default function CalendarBoard() {
 
   async function confirmJob(job: Job) {
     if (!job.assignedCrewId || !job.scheduledStart) return;
+    if (confirmInFlight.current.has(job.jobId)) return;
+    confirmInFlight.current.add(job.jobId);
     setBusyJob(job.jobId);
     setCalendarError(null);
+    setRetryConfirm(null);
     try {
       const res = await fetch(`/api/jobs/${job.jobId}/assign`, {
         method: "POST",
@@ -386,6 +393,7 @@ export default function CalendarBoard() {
         setJobs((prev) => prev.map((j) => (j.jobId === job.jobId ? { ...j, crewConfirmed: true } : j)));
         if (data.notificationStatus === "failed") {
           setCalendarError("The assignment is saved, but a crew email failed. Try Confirm again to retry delivery.");
+          setRetryConfirm({ kind: "job", id: job.jobId });
         } else {
           const count = typeof data.emailedCount === "number" ? data.emailedCount : data.emailed ? 1 : 0;
           flash(count > 0
@@ -394,10 +402,13 @@ export default function CalendarBoard() {
         }
       } else {
         setCalendarError(data.error ?? "The crew could not be confirmed. Try again.");
+        setRetryConfirm({ kind: "job", id: job.jobId });
       }
     } catch {
       setCalendarError("The crew could not be confirmed. Check your connection and try again.");
+      setRetryConfirm({ kind: "job", id: job.jobId });
     } finally {
+      confirmInFlight.current.delete(job.jobId);
       setBusyJob(null);
     }
   }
@@ -492,8 +503,11 @@ export default function CalendarBoard() {
   }
 
   async function confirmAppt(appt: Appointment) {
+    if (confirmInFlight.current.has(appt.appointmentId)) return;
+    confirmInFlight.current.add(appt.appointmentId);
     setBusyJob(appt.appointmentId);
     setCalendarError(null);
+    setRetryConfirm(null);
     try {
       // Every channel the caller gave on the call (src/lib/comms/confirmChannels.ts); the server decides the same way.
       const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
@@ -517,10 +531,13 @@ export default function CalendarBoard() {
         flash(`Confirmed · ${customer}${inspector}`);
       } else {
         setCalendarError(data.error ?? "The appointment could not be confirmed. Try again.");
+        setRetryConfirm({ kind: "appointment", id: appt.appointmentId });
       }
     } catch {
       setCalendarError("The appointment could not be confirmed. Check your connection and try again.");
+      setRetryConfirm({ kind: "appointment", id: appt.appointmentId });
     } finally {
+      confirmInFlight.current.delete(appt.appointmentId);
       setBusyJob(null);
     }
   }
@@ -645,6 +662,10 @@ export default function CalendarBoard() {
       {calendarError && (
         <div role="alert" style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fef2f2", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
           {calendarError}
+          {retryConfirm && <button type="button" className="button small" disabled={busyJob !== null} onClick={() => {
+            if (retryConfirm.kind === "job") { const job = jobs.find((item) => item.jobId === retryConfirm.id); if (job) void confirmJob(job); }
+            else { const appt = appts.find((item) => item.appointmentId === retryConfirm.id); if (appt) void confirmAppt(appt); }
+          }}>Retry</button>}
         </div>
       )}
 
@@ -740,7 +761,7 @@ export default function CalendarBoard() {
                 <>
                   {inspectors.length > 0 && unassignedAppts.length > 0 && <>
                     <strong style={{ fontSize: 12 }}>Phone bookings</strong>
-                    {unassignedAppts.map((appointment) => <ApptTile key={appointment.appointmentId} appt={appointment} tz={tz} />)}
+                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>See each booking at its requested time in the Phone bookings row.</p>
                   </>}
                   {unscheduled.length > 0 && <strong style={{ fontSize: 12, marginTop: 6 }}>{vocab.jobNounPlural}</strong>}
                   {unscheduled.map((job) => (
@@ -798,7 +819,7 @@ export default function CalendarBoard() {
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
-                        <PhoneBookingChip key={a.appointmentId} appt={a} tz={tz} pending={pending} />
+                        <PhoneBookingChip key={a.appointmentId} appt={a} tz={tz} pending={pending} previewSuffix={previewSuffix} />
                       );
                     })}
                   </div>
@@ -912,10 +933,12 @@ function SlotPicker({
   const [result, setResult] = useState<{
     loading: boolean;
     starts: number[];
+    aroundTheClock: boolean;
     reason: string | null;
     nextOpen: { day: string; start: number } | null;
     error: string | null;
-  }>({ loading: true, starts: [], reason: null, nextOpen: null, error: null });
+  }>({ loading: true, starts: [], aroundTheClock: false, reason: null, nextOpen: null, error: null });
+  const [showEarlier, setShowEarlier] = useState(false);
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
@@ -937,16 +960,18 @@ function SlotPicker({
       })
       .then((data) => {
         if (!live) return;
-        setResult({ loading: false, starts: data.starts ?? [], reason: data.reason ?? null, nextOpen: data.nextOpen ?? null, error: null });
+        setResult({ loading: false, starts: data.starts ?? [], aroundTheClock: data.aroundTheClock === true, reason: data.reason ?? null, nextOpen: data.nextOpen ?? null, error: null });
+        setShowEarlier(false);
       })
       .catch((error) => {
         if (!live) return;
-        setResult({ loading: false, starts: [], reason: null, nextOpen: null, error: error instanceof Error ? error.message : "Open times could not be loaded" });
+        setResult({ loading: false, starts: [], aroundTheClock: false, reason: null, nextOpen: null, error: error instanceof Error ? error.message : "Open times could not be loaded" });
       });
     return () => { live = false; };
   }, [businessId, crew.crewId, day, lengthMin, job.jobId]);
 
   const timeLabel = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+  const orderedTimes = orderOpenTimes(result.starts, tz, result.aroundTheClock);
   const dayLabel = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   // The time to highlight: where the tile already sits (moving it) or the time the caller booked.
   const hint = job.scheduledStart ?? job.requestedStart;
@@ -1022,7 +1047,7 @@ function SlotPicker({
             <>
               <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>Open times for {crew.name}:</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
-                {result.starts.map((start) => {
+                {[...orderedTimes.preferred, ...(showEarlier ? orderedTimes.earlier : [])].map((start) => {
                   const highlighted = isHint(start);
                   return (
                     <button
@@ -1038,6 +1063,7 @@ function SlotPicker({
                   );
                 })}
               </div>
+              {orderedTimes.earlier.length > 0 && <button type="button" className="button small" onClick={() => setShowEarlier((value) => !value)}>{showEarlier ? "Hide earlier times" : "Show earlier times"}</button>}
               {hintParts && result.starts.some(isHint) && (
                 <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#64748b" }}>
                   Highlighted: {hintKind === "current" ? "its current time" : "the time the customer booked"}.
@@ -1165,7 +1191,7 @@ function JobTile({ job, tz, crewGone }: { job: Job; tz: string; crewGone: boolea
 }
 
 // ── Draggable booking tile (unassigned rail) ──────────────────────────────────
-function PhoneBookingChip({ appt, tz, pending }: { appt: Appointment; tz: string; pending: boolean }) {
+function PhoneBookingChip({ appt, tz, pending, previewSuffix }: { appt: Appointment; tz: string; pending: boolean; previewSuffix: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `phone-strip:${appt.appointmentId}` });
   return (
     <div ref={setNodeRef} style={{ position: "relative", transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.5 : 1 }}>
@@ -1175,7 +1201,11 @@ function PhoneBookingChip({ appt, tz, pending }: { appt: Appointment; tz: string
       </button>
       <details style={{ marginTop: 3 }}>
         <summary style={{ cursor: "pointer", fontSize: 11, color: "var(--accent)", paddingLeft: 8 }}>Booking details</summary>
-        <div style={{ marginTop: 4, padding: 8, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, minWidth: 230 }}><BookingDetails booking={appt} timeZone={tz} compact /></div>
+        <div style={{ marginTop: 4, padding: 8, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, minWidth: 230 }}>
+          <strong>{displayRequestState(appt).label}</strong> · {displayRequestState(appt).whatHappened}
+          <BookingDetails booking={appt} timeZone={tz} compact />
+          <Link href={`/company/pipeline?tab=appointments&appt=${appt.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`} className="button small">{displayRequestState(appt).nextAction}</Link>
+        </div>
       </details>
     </div>
   );

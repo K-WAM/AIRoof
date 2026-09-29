@@ -19,6 +19,7 @@ import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import { isNewRequest } from "@/lib/pipeline/requestReview";
+import { displayRequestState } from "@/lib/requests/displayState";
 import { fmtPhone } from "@/lib/format";
 import { contactPhone } from "@/lib/format/phone";
 import { confirmButtonLabel, confirmChannels, notifiedPhrase, type ConfirmChannel } from "@/lib/comms/confirmChannels";
@@ -507,8 +508,8 @@ export default function PipelinePage() {
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
             {isPending
-              ? <StatusChip status="requested" label={appt.bookedAfterHours === true ? "After hours · confirm" : "New booking · confirm"} />
-              : <StatusChip status={appt.status} />}
+              ? <StatusChip status="requested" label={displayRequestState(appt).label + " · " + displayRequestState(appt).nextAction} />
+              : <StatusChip status={appt.status} label={displayRequestState(appt).label} />}
           </div>
           {isPending && (
             <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45, display: "flex", gap: 8, alignItems: "flex-start" }}>
