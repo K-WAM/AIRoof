@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface Result {
   type: "lead" | "job" | "appt" | "customer";
@@ -12,118 +13,158 @@ interface Result {
   href: string;
 }
 
+/** A failed fetch and an empty result set are different states (T-158). */
+type SearchStatus = "idle" | "searching" | "ready" | "error";
+
+function pipelineHref(previewSuffix: string, tab: "leads" | "appointments", idKey: "lead" | "appt", id: string) {
+  const base = previewSuffix ? previewSuffix + "&" : "?";
+  return `/company/pipeline${base}tab=${tab}&${idKey}=${id}`;
+}
+
+function buildResults(
+  previewSuffix: string,
+  leadsData: { leads?: Array<Record<string, unknown>> },
+  jobsData: { jobs?: Array<Record<string, unknown>> },
+  apptsData: { appointments?: Array<Record<string, unknown>> },
+  customersData: { customers?: Array<Record<string, unknown>> },
+): Result[] {
+  const results: Result[] = [];
+
+  for (const l of leadsData.leads ?? []) {
+    const id = String(l.leadId ?? "");
+    results.push({
+      type: "lead",
+      id,
+      name: String(l.callerName ?? l.callerPhone ?? "Unknown caller"),
+      sub: String(l.serviceRequested ?? l.address ?? l.status ?? ""),
+      href: pipelineHref(previewSuffix, "leads", "lead", id),
+    });
+  }
+
+  for (const a of apptsData.appointments ?? []) {
+    const id = String(a.appointmentId ?? "");
+    results.push({
+      type: "appt",
+      id,
+      name: String(a.callerName ?? a.callerPhone ?? "Unknown caller"),
+      sub: String(a.serviceType ?? a.address ?? ""),
+      href: pipelineHref(previewSuffix, "appointments", "appt", id),
+    });
+  }
+
+  for (const j of jobsData.jobs ?? []) {
+    const id = String(j.jobId ?? "");
+    results.push({
+      type: "job",
+      id,
+      name: `${id} — ${String(j.title ?? "")}`,
+      sub: String(j.clientName ?? j.address ?? ""),
+      href: `/company/jobs/${id}${previewSuffix}`,
+    });
+  }
+
+  for (const c of customersData.customers ?? []) {
+    const id = String(c.customerId ?? "");
+    const jobCount = Number(c.jobCount ?? 0);
+    results.push({
+      type: "customer",
+      id,
+      name: String(c.name ?? ""),
+      sub: [c.phone, jobCount ? `${jobCount} job${jobCount === 1 ? "" : "s"}` : null]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/company/customers${previewSuffix ? previewSuffix + "&" : "?"}customerId=${id}`,
+    });
+  }
+
+  return results;
+}
+
 export function CommandBar() {
   const businessId = useBusinessId();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [allResults, setAllResults] = useState<Result[]>([]);
+  const [status, setStatus] = useState<SearchStatus>("idle");
+  const [activeIndex, setActiveIndex] = useState(0);
   const [fetched, setFetched] = useState(false);
+
   const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const inFlight = useRef(false);
+  const titleId = useId();
+  const listboxId = useId();
+
+  useFocusTrap(open, boxRef, { onEscape: close, initialFocus: "field" });
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen(true);
       }
-      if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  const fetchData = useCallback(() => {
+    if (!businessId || inFlight.current) return;
+    inFlight.current = true;
+    setStatus("searching");
+    // Same four read endpoints and the same auth as before (T-071) — no extra data.
+    Promise.all([
+      fetch(`/api/businesses/${businessId}/leads`),
+      fetch(`/api/jobs?businessId=${businessId}`),
+      fetch(`/api/businesses/${businessId}/appointments?order=desc`),
+      fetch(`/api/company/customers?businessId=${businessId}`),
+    ])
+      .then(async ([leadsRes, jobsRes, apptsRes, customersRes]) => {
+        if (![leadsRes, jobsRes, apptsRes, customersRes].every((r) => r.ok)) {
+          throw new Error("Search request failed");
+        }
+        const [leadsData, jobsData, apptsData, customersData] = await Promise.all([
+          leadsRes.json().catch(() => ({})),
+          jobsRes.json().catch(() => ({})),
+          apptsRes.json().catch(() => ({})),
+          customersRes.json().catch(() => ({})),
+        ]);
+        setAllResults(buildResults(previewSuffix, leadsData, jobsData, apptsData, customersData));
+        setFetched(true);
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"))
+      .finally(() => { inFlight.current = false; });
+  }, [businessId, previewSuffix]);
+
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 30);
-      if (!fetched && businessId) fetchData();
-    }
-  }, [open, businessId]);
+    if (open && !fetched && businessId) fetchData();
+  }, [open, fetched, businessId, fetchData]);
 
-  function pipelineHref(tab: "leads" | "appointments", idKey: "lead" | "appt", id: string) {
-    const base = previewSuffix ? previewSuffix + "&" : "?";
-    return `/company/pipeline${base}tab=${tab}&${idKey}=${id}`;
-  }
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(
+    () =>
+      q.length < 1
+        ? []
+        : allResults
+            .filter(
+              (r) =>
+                r.name.toLowerCase().includes(q) ||
+                r.sub.toLowerCase().includes(q) ||
+                r.id.toLowerCase().includes(q)
+            )
+            .slice(0, 8),
+    [q, allResults]
+  );
 
-  async function fetchData() {
-    try {
-      // T-071: all sources are plain server-side API reads — no client
-      // Firestore SDK involved in the command palette at all.
-      const [leadsRes, jobsRes, apptsRes, customersRes] = await Promise.all([
-        fetch(`/api/businesses/${businessId}/leads`).catch(() => null),
-        fetch(`/api/jobs?businessId=${businessId}`).catch(() => null),
-        fetch(`/api/businesses/${businessId}/appointments?order=desc`).catch(() => null),
-        fetch(`/api/company/customers?businessId=${businessId}`).catch(() => null),
-      ]);
-      const results: Result[] = [];
+  useEffect(() => { setActiveIndex(0); }, [query]);
 
-      if (leadsRes?.ok) {
-        const { leads = [] } = await leadsRes.json().catch(() => ({}));
-        for (const l of leads) {
-          results.push({
-            type: "lead",
-            id: l.leadId,
-            name: l.callerName ?? l.callerPhone ?? "Unknown caller",
-            sub: l.serviceRequested ?? l.address ?? l.status ?? "",
-            href: pipelineHref("leads", "lead", l.leadId),
-          });
-        }
-      }
-
-      if (apptsRes?.ok) {
-        const { appointments = [] } = await apptsRes.json().catch(() => ({}));
-        for (const a of appointments) {
-          results.push({
-            type: "appt",
-            id: a.appointmentId,
-            name: a.callerName ?? a.callerPhone ?? "Unknown caller",
-            sub: a.serviceType ?? a.address ?? "",
-            href: pipelineHref("appointments", "appt", a.appointmentId),
-          });
-        }
-      }
-
-      if (jobsRes?.ok) {
-        const { jobs = [] } = await jobsRes.json().catch(() => ({}));
-        for (const j of jobs) {
-          results.push({
-            type: "job",
-            id: j.jobId,
-            name: `${j.jobId} — ${j.title}`,
-            sub: j.clientName ?? j.address ?? "",
-            href: `/company/jobs/${j.jobId}${previewSuffix}`,
-          });
-        }
-      }
-
-      if (customersRes?.ok) {
-        const { customers = [] } = await customersRes.json().catch(() => ({}));
-        for (const c of customers) {
-          results.push({
-            type: "customer",
-            id: c.customerId,
-            name: c.name,
-            sub: [c.phone, c.jobCount ? `${c.jobCount} job${c.jobCount === 1 ? "" : "s"}` : null].filter(Boolean).join(" · "),
-            href: `/company/customers${previewSuffix ? previewSuffix + "&" : "?"}customerId=${c.customerId}`,
-          });
-        }
-      }
-
-      setAllResults(results);
-      setFetched(true);
-    } catch {
-      // graceful fail — search just shows nothing
-    }
-  }
-
-  const q = query.toLowerCase();
-  const filtered = q.length < 1
-    ? []
-    : allResults
-        .filter((r) => r.name.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || r.id.toLowerCase().includes(q))
-        .slice(0, 8);
+  const active = filtered.length === 0 ? -1 : Math.min(activeIndex, filtered.length - 1);
+  const activeOptionId = active >= 0 ? `${listboxId}-opt-${active}` : undefined;
 
   function close() {
     setOpen(false);
@@ -132,60 +173,125 @@ export function CommandBar() {
 
   function navigate(href: string) {
     close();
-    window.location.href = href;
+    router.push(href);
   }
 
-  const TYPE_LABEL = { lead: "Lead", job: "Job", appt: "Appt", customer: "Customer" } as const;
+  function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, Math.max(filtered.length - 1, 0)));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (active >= 0) {
+        e.preventDefault();
+        navigate(filtered[active].href);
+      }
+    }
+  }
+
+  function statusText(): string {
+    if (status === "searching") return "Searching…";
+    if (status === "error") return "Search failed";
+    if (q.length === 0) return "Type to search calls, requests, jobs and customers";
+    if (filtered.length === 0) return `No matches for “${query}”`;
+    return `${filtered.length} result${filtered.length === 1 ? "" : "s"}`;
+  }
+
+  const TYPE_LABEL = { lead: "Request", job: "Job", appt: "Booking", customer: "Customer" } as const;
 
   return (
     <>
-      <button className="cmd-trigger" onClick={() => setOpen(true)} aria-label="Search">
+      <button
+        className="cmd-trigger"
+        onClick={() => setOpen(true)}
+        aria-label="Search"
+        aria-haspopup="dialog"
+      >
         ⌕ Search
         <span className="cmd-kbd">⌘K</span>
       </button>
 
-      <div className={`cmd-overlay${open ? " open" : ""}`} onClick={close}>
-        <div className="cmd-box" onClick={(e) => e.stopPropagation()}>
-          <div className="cmd-input-row">
-            <span className="cmd-search-icon">⌕</span>
-            <input
-              ref={inputRef}
-              className="cmd-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search leads, appointments, jobs, customers…"
-            />
-            {query && (
-              <button
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: "0 2px" }}
-                onClick={() => setQuery("")}
-              >
-                ✕
-              </button>
-            )}
-          </div>
+      {open && (
+        <div className="cmd-overlay open" onClick={close}>
+          <div
+            ref={boxRef}
+            className="cmd-box"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id={titleId} className="sr-only">Search</h2>
+            <div className="cmd-input-row">
+              <span className="cmd-search-icon" aria-hidden="true">⌕</span>
+              <input
+                ref={inputRef}
+                className="cmd-input"
+                role="combobox"
+                aria-label="Search calls, requests, jobs and customers"
+                aria-expanded="true"
+                aria-controls={listboxId}
+                aria-autocomplete="list"
+                aria-activedescendant={activeOptionId}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onInputKeyDown}
+                placeholder="Search calls, requests, jobs and customers…"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="cmd-clear"
+                  aria-label="Clear search"
+                  onClick={() => { setQuery(""); inputRef.current?.focus(); }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-          <div className="cmd-results">
-            {filtered.length > 0 ? (
-              filtered.map((r) => (
-                <button key={r.type + r.id} className="cmd-result" onClick={() => navigate(r.href)}>
+            <div
+              className="cmd-results"
+              id={listboxId}
+              role="listbox"
+              aria-label="Search results"
+            >
+              {filtered.map((r, i) => (
+                <div
+                  key={r.type + r.id}
+                  id={`${listboxId}-opt-${i}`}
+                  role="option"
+                  aria-selected={i === active}
+                  className={`cmd-result${i === active ? " cmd-result--active" : ""}`}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onClick={() => navigate(r.href)}
+                >
                   <span className={`cmd-type cmd-type--${r.type}`}>{TYPE_LABEL[r.type]}</span>
                   <div className="cmd-result-body">
                     <p className="cmd-result-name">{r.name}</p>
                     {r.sub && <p className="cmd-result-sub">{r.sub}</p>}
                   </div>
-                </button>
-              ))
-            ) : query.length > 0 ? (
-              <p className="cmd-empty">No results for &ldquo;{query}&rdquo;</p>
-            ) : (
-              <p className="cmd-empty">Start typing to search…</p>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
 
-          <p className="cmd-hint">Press Escape to close</p>
+            <div className="cmd-footer">
+              <span className="cmd-hint">Press Escape to close</span>
+              <span className="cmd-status" role="status" aria-live="polite">
+                {statusText()}
+                {status === "error" && (
+                  <button type="button" className="cmd-retry" onClick={() => fetchData()}>
+                    Retry
+                  </button>
+                )}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

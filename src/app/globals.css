@@ -3086,3 +3086,77 @@ a.metric:hover {
   select:not([multiple]),
   textarea { min-height: var(--control-h); }
 }
+
+/* Dialog contract (T-158): one visible 44px close button with an accessible
+   name across Modal and Sheet. */
+.modal-close,
+[data-dialog-close] {
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+/* Sheet header: title + close on one line; the title keeps its own styling. */
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.sheet-head .sheet-title { margin: 0; }
+
+/* Visually hidden, available to assistive tech (dialog titles, live labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Command bar (T-158): active option, footer status line, retry, clear. */
+.cmd-result--active { background: var(--surface-muted); }
+.cmd-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.cmd-footer .cmd-hint { padding: 0; border: 0; }
+.cmd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cmd-retry {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+}
+.cmd-retry:hover { background: var(--surface-muted); }
+.cmd-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 var(--sp-1);
+}
+.cmd-type--lead { color: var(--c-info-fg); }
+.cmd-type--job { color: var(--accent); }
+.cmd-type--appt { color: var(--c-info-fg); }
+.cmd-type--customer { color: var(--text-muted); }

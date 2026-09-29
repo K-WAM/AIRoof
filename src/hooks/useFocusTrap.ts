@@ -18,14 +18,29 @@ interface Options {
    * "container" (default) focuses the panel itself — right for dialogs whose
    * first control shouldn't be a header close button. "first" focuses the first
    * focusable element, for disclosure-style panels like the mobile nav sheet.
+   * "field" focuses the first form field, else the element marked
+   * data-dialog-close — the dialog contract (T-158).
    */
-  initialFocus?: "container" | "first";
+  initialFocus?: "container" | "first" | "field";
   /**
    * Return focus to the previously-focused element on close (default true).
    * Set false when closing because the user navigated — focus should follow
    * the navigation, not snap back to the trigger.
    */
   returnFocus?: boolean;
+  /**
+   * When true, Escape asks "Discard changes?" first and stays open if the user
+   * cancels. The same guard is exported as `confirmDiscard` so backdrop/close
+   * clicks behave identically (T-158).
+   */
+  dirty?: boolean;
+}
+
+/** True when it is safe to dismiss. A clean dialog always is; a dirty one asks. */
+export function confirmDiscard(dirty: boolean | undefined): boolean {
+  if (!dirty) return true;
+  if (typeof window === "undefined" || typeof window.confirm !== "function") return false;
+  return window.confirm("Discard changes?");
 }
 
 /**
@@ -34,15 +49,24 @@ interface Options {
  * and focus returns to whatever was focused before it opened. Used by
  * Modal.tsx, Sheet.tsx and the company shell's mobile nav sheet.
  */
+const FIRST_FIELD_SELECTOR = [
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[contenteditable='true']",
+].join(", ");
+
 export function useFocusTrap(
   active: boolean,
   containerRef: RefObject<HTMLElement | null>,
-  { onEscape, initialFocus = "container", returnFocus = true }: Options = {},
+  { onEscape, initialFocus = "container", returnFocus = true, dirty }: Options = {},
 ) {
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;
   const returnFocusRef = useRef(returnFocus);
   returnFocusRef.current = returnFocus;
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
 
   useEffect(() => {
     if (!active) return;
@@ -55,9 +79,17 @@ export function useFocusTrap(
     if (!panel.contains(document.activeElement)) {
       const first = initialFocus === "first"
         ? panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
-        : null;
+        : initialFocus === "field"
+          ? panel.querySelector<HTMLElement>(FIRST_FIELD_SELECTOR)
+            ?? panel.querySelector<HTMLElement>("[data-dialog-close]")
+          : null;
       (first ?? panel).focus();
     }
+
+    // Body scroll lock: the page behind an open dialog must not scroll (T-158).
+    const body = document.body;
+    const previousOverflow = body.style.overflow;
+    body.style.overflow = "hidden";
 
     const focusables = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
@@ -65,7 +97,7 @@ export function useFocusTrap(
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
-        onEscapeRef.current?.();
+        if (confirmDiscard(dirtyRef.current)) onEscapeRef.current?.();
         return;
       }
       if (e.key !== "Tab") return;
@@ -96,6 +128,7 @@ export function useFocusTrap(
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      body.style.overflow = previousOverflow;
       if (returnFocusRef.current && previouslyFocused && document.contains(previouslyFocused)) {
         previouslyFocused.focus();
       }
