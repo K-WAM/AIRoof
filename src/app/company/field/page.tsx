@@ -729,7 +729,7 @@ function FieldPageContent() {
 
           {/* Job Selector */}
           {!loadingJobs && jobs.length === 0 && (
-            <EmptyState compact tone="dark" title="No jobs for you today" body="When the office assigns one, it appears here." testId="field-empty" />
+            <EmptyState compact tone="dark" title="No job assigned to you today" body="Ask the office to assign one. You can still use the time clock below." testId="field-empty" />
           )}
           <div style={{ marginBottom: 20 }}>
             <JobSelector
@@ -742,6 +742,7 @@ function FieldPageContent() {
 
           <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} />
 
+          {selectedJobId && <>
           {/* Mic Button */}
           <div style={{
             flex: 1,
@@ -795,6 +796,7 @@ function FieldPageContent() {
           <div style={{ marginBottom: 20 }}>
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
           </div>
+          </>}
 
           {/* One-tap correction confirm card */}
           {proposedCorrection && (

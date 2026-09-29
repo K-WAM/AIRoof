@@ -12,7 +12,7 @@ const complete: SetupChecklistInput = { phoneConfigured: true, businessHours: "M
 
 describe("setupChecklist", () => {
   it("lists the items in setup order", () => {
-    expect(setupChecklist(empty, allOn, roofing.vocab).map((item) => item.id)).toEqual(["phone", "hours", "prices", "resource", "logo", "team", "testCall"]);
+    expect(setupChecklist(empty, allOn, roofing.vocab).map((item) => item.id)).toEqual(["phone", "hours", "prices", "resource", "team", "logo", "testCall"]);
   });
 
   it("marks nothing done for a brand-new tenant", () => {
@@ -36,17 +36,15 @@ describe("setupChecklist", () => {
     expect(done).toEqual([id]);
   });
 
-  it("gives the phone item no client action while Luxor connects the line", () => {
+  it("takes the owner to the line status while Luxor connects it", () => {
     const phone = setupChecklist(empty, allOn, roofing.vocab)[0];
-    expect(phone).toMatchObject({ id: "phone", label: "Luxor is connecting your line", done: false });
-    expect(phone.href).toBeUndefined();
-    expect(phone.cta).toBeUndefined();
+    expect(phone).toMatchObject({ id: "phone", label: "Check your phone line", done: false, href: "/company/settings#phone", cta: "View line" });
   });
 
   it("links every other open item to the exact place that fixes it", () => {
     const byId = Object.fromEntries(setupChecklist(empty, allOn, roofing.vocab).map((item) => [item.id, item]));
     expect(byId.prices).toMatchObject({ href: "/company/library?section=pricing", cta: "Add prices" });
-    expect(byId.hours).toMatchObject({ href: "/company/settings", cta: "Set hours" });
+    expect(byId.hours).toMatchObject({ href: "/company/settings#hours", cta: "Set hours" });
     expect(byId.resource).toMatchObject({ href: "/company/library?section=crews", cta: "Add crew" });
     expect(byId.logo).toMatchObject({ href: "/company/library?section=branding", cta: "Upload logo" });
     expect(byId.team).toMatchObject({ href: "/company/team", cta: "Invite someone" });
@@ -61,6 +59,12 @@ describe("setupChecklist", () => {
 
   it("skips prices for a vertical without the pricing module", () => {
     expect(setupChecklist(empty, modulesFor(["pricing"]), roofing.vocab).map((item) => item.id)).not.toContain("prices");
+  });
+
+  it("skips Library destinations if that module is unavailable", () => {
+    const ids = setupChecklist(empty, modulesFor(["library"]), roofing.vocab).map((item) => item.id);
+    expect(ids).not.toContain("resource");
+    expect(ids).not.toContain("logo");
   });
 
   it("uses the vertical's own resource noun (dental)", () => {

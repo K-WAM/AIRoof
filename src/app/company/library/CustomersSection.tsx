@@ -86,6 +86,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
               style={{ width: "100%", padding: "8px 10px 8px 30px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }}
               autoComplete="off"
             />
+            {query && <button type="button" className="button small" onClick={() => setQuery("")}>Clear</button>}
           </div>
           <div style={{ maxHeight: 520, overflowY: "auto" }}>
             {filtered.length === 0 ? (
@@ -100,21 +101,14 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
               ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for &ldquo;{query}&rdquo;.</p>
             ) : (
               filtered.slice(0, 200).map((c) => (
-                <button
-                  key={c.customerId}
-                  onClick={() => { setSelectedId(c.customerId); setCreating(false); }}
-                  style={{
-                    display: "block", width: "100%", textAlign: "left", padding: "10px 14px",
-                    background: selectedId === c.customerId ? "#f0f9ff" : "transparent",
-                    border: "none", borderBottom: "1px solid #f1f5f9", cursor: "pointer",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                    <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{c.jobCount} {c.jobCount === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{[c.phone, c.address].filter(Boolean).join(" · ") || "No contact info"}</div>
-                </button>
+                <article key={c.customerId} className="c1-customer-card" data-selected={selectedId === c.customerId}>
+                  <button type="button" onClick={() => { setSelectedId(c.customerId); setCreating(false); }} className="c1-customer-open">
+                    <strong>{c.name}</strong>
+                    <span>{c.phone || "No phone"} · {c.jobCount} {c.jobCount === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}</span>
+                    <span>Open</span>
+                  </button>
+                  <details><summary>Details</summary><p className="c1-customer-extra">{c.address || "No address"}</p></details>
+                </article>
               ))
             )}
             {filtered.length > 200 && (

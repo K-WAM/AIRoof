@@ -175,6 +175,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
             style={{ width: "100%", padding: "8px 10px 8px 30px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }}
             autoComplete="off"
           />
+          {query && <button type="button" className="button small" onClick={() => setQuery("")}>Clear</button>}
         </div>
         <button type="button" className="button primary" onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <Plus size={15} strokeWidth={1.75} />
@@ -251,14 +252,14 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                           </div>
                           <p style={{ fontSize: 13, color: "#475569", margin: "4px 0 0", lineHeight: 1.45 }}>{item.solution}</p>
                           {(item.lines ?? []).length > 0 && (
-                            <div style={{ display: "grid", gap: 2, marginTop: 6 }}>
+                            <details><summary>Details</summary><div style={{ display: "grid", gap: 2, marginTop: 6 }}>
                               {(item.lines ?? []).map((l, li) => (
                                 <div key={li} style={{ fontSize: 12, color: "#64748b" }}>
                                   {l.kind === "material" ? "Material" : l.kind === "labor" ? "Labor" : "Other"} — {l.description}
                                   <span style={{ color: "#94a3b8" }}> · {l.quantity}{l.unit ? ` ${l.unit}` : ""} × {money(l.unitPrice)}</span>
                                 </div>
                               ))}
-                            </div>
+                            </div></details>
                           )}
                         </div>
                         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>

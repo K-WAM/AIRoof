@@ -288,22 +288,25 @@ function PricingSection({ library, onSave, onLoadExamples, loadingKit, readOnly 
         </div>
         <div className="panel-body">
           <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>When a field update mentions a material with no price, the invoice auto-fills the unit price from here.</p>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+          <table className="c1-pricing-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
               <th style={th}>Material</th><th style={th}>Unit</th><th style={{ ...th, textAlign: "right" }}>Unit price</th><th />
             </tr></thead>
             <tbody>
               {materials.map((m, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} />{m.starter && <StarterBadge />}</td>
-                  <td style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
-                  <td style={td}>
+                  <td data-label="Name" style={td}><input value={m.name} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} onBlur={() => commit()} placeholder={vocab.materialPlaceholder} style={cell} />{m.starter && <StarterBadge />}</td>
+                  <td data-label="Unit" style={td}><input value={m.unit} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))} onBlur={() => commit()} placeholder="sq / piece" style={cell} /></td>
+                  <td data-label="Price" style={{ ...td, textAlign: "right" }}>$<input value={String(m.unitPrice)} onChange={(e) => setMaterials(a => a.map((x, j) => j === i ? { ...x, unitPrice: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="0.00" style={{ ...cell, width: 80, textAlign: "right" }} /></td>
+                  <td data-label="Actions" style={td}>
+                    <details className="c1-phone-only"><summary>Details</summary><button type="button" className="button small danger" onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }}>Remove {m.name || "material"}</button></details>
+                    <div className="c1-desktop-only">
                     <Tooltip content="Remove">
                       <button onClick={() => { if (!confirm(`Remove "${m.name || "this material"}"? Invoices will no longer auto-fill its price.`)) return; const next = materials.filter((_, j) => j !== i); setMaterials(next); commit({ materials: next }); }} className="icon-del" aria-label={`Remove ${m.name || "material"}`}>
                         <Trash2 size={14} strokeWidth={1.75} />
                       </button>
                     </Tooltip>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -324,21 +327,24 @@ function PricingSection({ library, onSave, onLoadExamples, loadingKit, readOnly 
           </h2>
         </div>
         <div className="panel-body">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginBottom: 12 }}>
+          <table className="c1-pricing-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginBottom: 12 }}>
             <thead><tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
               <th style={th}>Role</th><th style={{ ...th, textAlign: "right" }}>Rate ($/hr)</th><th />
             </tr></thead>
             <tbody>
               {laborRates.map((l, i) => (
                 <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} />{l.starter && <StarterBadge />}</td>
-                  <td style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
-                  <td style={td}>
+                  <td data-label="Role" style={td}><input value={l.role} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, role: e.target.value } : x))} onBlur={() => commit()} placeholder="Foreman / Laborer" style={cell} />{l.starter && <StarterBadge />}</td>
+                  <td data-label="Rate" style={{ ...td, textAlign: "right" }}>$<input value={String(l.rate)} onChange={(e) => setLaborRates(a => a.map((x, j) => j === i ? { ...x, rate: parseFloat(e.target.value) || 0, starter: undefined } : x))} onBlur={() => commit()} placeholder="65" style={{ ...cell, width: 70, textAlign: "right" }} /></td>
+                  <td data-label="Actions" style={td}>
+                    <details className="c1-phone-only"><summary>Details</summary><button type="button" className="button small danger" onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }}>Remove {l.role || "role rate"}</button></details>
+                    <div className="c1-desktop-only">
                     <Tooltip content="Remove">
                       <button onClick={() => { const next = laborRates.filter((_, j) => j !== i); setLaborRates(next); commit({ laborRates: next }); }} className="icon-del" aria-label={`Remove ${l.role || "role rate"}`}>
                         <Trash2 size={14} strokeWidth={1.75} />
                       </button>
                     </Tooltip>
+                    </div>
                   </td>
                 </tr>
               ))}

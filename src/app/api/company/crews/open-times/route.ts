@@ -102,5 +102,6 @@ export async function GET(req: NextRequest) {
     ? null
     : !window ? "closed" : window.endTime <= now ? "past" : "full";
 
-  return jsonWithCache({ day, timeZone, window, starts, reason, nextOpen, crewActive: crewSnap.data()?.active !== false }, "noStore");
+  const aroundTheClock = !!window && zonedParts(window.startTime, timeZone).hour === 0 && window.endTime - window.startTime >= 23 * 60 * 60 * 1000;
+  return jsonWithCache({ day, timeZone, window, starts, aroundTheClock, reason, nextOpen, crewActive: crewSnap.data()?.active !== false }, "noStore");
 }
