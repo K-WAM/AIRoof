@@ -11,6 +11,7 @@ import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isVoiceConfig } from "@/lib/vapi/voices";
 import { validateBusinessHours } from "@/lib/scheduling/hours";
+import { LINE_CONFLICT_MESSAGE, findLineConflicts } from "@/lib/phoneLines/registry";
 
 interface UpdateBusinessConfigRequest {
   businessName?: string;
@@ -60,6 +61,8 @@ interface UpdateBusinessConfigRequest {
   employeeCount?: number;
   seatLimit?: number;
   billing?: BusinessConfig["billing"];
+  /** T-166 (contract C-A). "demo" is not settable — demo tenants are server-derived. */
+  accountPurpose?: "client" | "test" | "archived";
   applyTemplateDefaults?: boolean;
   onboarding?: Partial<BusinessOnboardingStatus>;
   actorUid?: string;
@@ -135,6 +138,9 @@ export async function PUT(
         return NextResponse.json({ error: "ElevenLabs phone numbers must not contain duplicates" }, { status: 400 });
       }
     }
+    if (body.accountPurpose !== undefined && !["client", "test", "archived"].includes(body.accountPurpose)) {
+      return NextResponse.json({ error: "Purpose must be client, test or archived (demo accounts are set by the platform)" }, { status: 400 });
+    }
     if (body.voiceProvider === "elevenlabs" && body.elevenlabs === undefined) {
       return NextResponse.json({ error: "ElevenLabs IDs and E.164 phone number are required" }, { status: 400 });
     }
@@ -155,18 +161,15 @@ export async function PUT(
     }
 
     if (body.elevenlabs) {
+      // T-171: one check for every way a number can already be taken — another tenant's primary/extra number, another
+      // tenant's registry line, a shared demo line given to a client, or a client's line added to the demo tenant.
       const phoneNumbers = [body.elevenlabs.phoneNumber, ...(body.elevenlabs.extraPhoneNumbers ?? [])]
         .filter((phoneNumber): phoneNumber is string => Boolean(phoneNumber));
       for (const phoneNumber of phoneNumbers) {
-        const [primaryMatches, extraMatches] = await Promise.all([
-          db.collection("businesses").where("elevenlabs.phoneNumber", "==", phoneNumber).limit(2).get(),
-          db.collection("businesses").where("elevenlabs.extraPhoneNumbers", "array-contains", phoneNumber).limit(2).get(),
-        ]);
-        const conflicts = [...primaryMatches.docs, ...extraMatches.docs]
-          .some((doc) => doc.id !== businessId);
-        if (conflicts) {
+        const conflicts = await findLineConflicts(db, phoneNumber, businessId);
+        if (conflicts.length > 0) {
           return NextResponse.json(
-            { error: "Phone number is already assigned to another business" },
+            { error: `${phoneNumber}: ${LINE_CONFLICT_MESSAGE[conflicts[0].kind]}` },
             { status: 409 },
           );
         }
@@ -241,6 +244,7 @@ export async function PUT(
         employeeCount: body.employeeCount,
         seatLimit: body.seatLimit,
         billing: body.billing,
+        accountPurpose: body.accountPurpose,
         updatedAt: now,
       };
 

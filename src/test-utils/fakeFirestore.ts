@@ -48,7 +48,7 @@ export class FakeQuery {
     let docs = this.store.list(this.path);
     for (const f of this.filters) {
       docs = docs.filter((d) => {
-        const v = d.data[f.field];
+        const v = readPath(d.data, f.field);
         if (f.op === "==") return v === f.value;
         if (f.op === "array-contains") return Array.isArray(v) && v.includes(f.value);
         if (typeof v !== "number" || typeof f.value !== "number") return false;
@@ -62,8 +62,8 @@ export class FakeQuery {
     if (this.order) {
       const { field, dir } = this.order;
       docs = [...docs].sort((a, b) => {
-        const av = a.data[field] as number | string | undefined;
-        const bv = b.data[field] as number | string | undefined;
+        const av = readPath(a.data, field) as number | string | undefined;
+        const bv = readPath(b.data, field) as number | string | undefined;
         if (av === bv) return 0;
         if (av === undefined) return 1;
         if (bv === undefined) return -1;
@@ -112,6 +112,34 @@ class FakeCollectionRef extends FakeQuery {
   }
 }
 
+/** Reads "a.b.c" the way Firestore field paths do (T-171 added dotted-path queries and updates). */
+function readPath(data: DocData, path: string): unknown {
+  return path.split(".").reduce<unknown>((value, key) => (value && typeof value === "object" ? (value as DocData)[key] : undefined), data);
+}
+
+function isDeleteSentinel(value: unknown): boolean {
+  return Boolean(value && typeof value === "object" && (value as { methodName?: unknown }).methodName === "FieldValue.delete");
+}
+
+/** update({ "a.b": v }) sets a nested field without replacing its siblings, like the admin SDK. */
+function applyDottedUpdate(existing: DocData, patch: DocData): DocData {
+  const next: DocData = { ...existing };
+  for (const [key, value] of Object.entries(patch)) {
+    if (!key.includes(".")) { next[key] = value; continue; }
+    const parts = key.split(".");
+    let cursor = next;
+    for (const part of parts.slice(0, -1)) {
+      const child = cursor[part];
+      cursor[part] = child && typeof child === "object" && !Array.isArray(child) ? { ...(child as DocData) } : {};
+      cursor = cursor[part] as DocData;
+    }
+    const leaf = parts[parts.length - 1];
+    if (isDeleteSentinel(value)) delete cursor[leaf];
+    else cursor[leaf] = value;
+  }
+  return next;
+}
+
 /** Drops fields written as FieldValue.delete() — the admin SDK's sentinel names itself "FieldValue.delete". */
 function withoutDeletes(data: DocData): DocData {
   return Object.fromEntries(Object.entries(data).filter(([, value]) =>
@@ -142,7 +170,7 @@ class FakeStore {
     const b = this.bucket(path);
     const existing = b.get(id);
     if (!existing) throw new Error(`No document to update at ${path}/${id}`);
-    b.set(id, withoutDeletes({ ...existing, ...patch }));
+    b.set(id, withoutDeletes(applyDottedUpdate(existing, patch)));
   }
 
   delete(path: string, id: string) {

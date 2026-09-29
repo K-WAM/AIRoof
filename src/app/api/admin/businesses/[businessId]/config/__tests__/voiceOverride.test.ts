@@ -102,45 +102,56 @@ describe("admin voice config route", () => {
     expect(documents.get("businesses/biz-1")).toMatchObject({ voiceProvider: "vapi", elevenlabs, vapiAssistantId: "vapi-agent", vapiPhoneNumberId: "vapi-phone" });
   });
 
+  // T-171: the conflict check is findLineConflicts (primary, extra, registry, demo reservation) — exercised here against
+  // the shared in-memory Firestore fake instead of a hand-sequenced query mock.
   it.each(["primary", "extra"] as const)("rejects a phone number used by another business as its %s number", async (field) => {
-    const conflict = { empty: false, docs: [{ id: "other-business" }] };
-    const empty = { empty: true, docs: [] };
-    const get = vi.fn()
-      .mockResolvedValueOnce(field === "primary" ? conflict : empty)
-      .mockResolvedValueOnce(field === "extra" ? conflict : empty);
-    mocks.getAdminFirestore.mockReturnValue({
-      collection: () => ({
-        where: () => ({ limit: () => ({ get }) }),
-      }),
-    });
+    const { makeFakeDb } = await import("@/test-utils/fakeFirestore");
+    const db = makeFakeDb();
+    db.__seed("businesses", "biz-1", { businessName: "Example", industry: "roofing" });
+    db.__seed("businesses", "other-business", { elevenlabs: field === "primary" ? { agentId: "a", phoneNumber: "+15551234567" } : { agentId: "a", phoneNumber: "+15559999999", extraPhoneNumbers: ["+16045550123"] } });
+    mocks.getAdminFirestore.mockReturnValue(db);
     const { PUT } = await import("../route");
     const response = await PUT(providerRequest({
       voiceProvider: "elevenlabs",
-      elevenlabs: {
-        agentId: "agent_11",
-        phoneNumberId: "phone_11",
-        phoneNumber: "+15551234567",
-        extraPhoneNumbers: ["+16045550123"],
-      },
+      elevenlabs: { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567", extraPhoneNumbers: ["+16045550123"] },
     }), params);
-
     expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: "Phone number is already assigned to another business" });
+    expect((await response.json()).error).toMatch(/already answers calls for another business/);
   });
 
-  it("rejects a collision even when the current business is the first query result", async () => {
-    const get = vi.fn()
-      .mockResolvedValueOnce({ empty: false, docs: [{ id: "biz-1" }, { id: "other-business" }] })
-      .mockResolvedValueOnce({ empty: true, docs: [] });
-    mocks.getAdminFirestore.mockReturnValue({
-      collection: () => ({ where: () => ({ limit: () => ({ get }) }) }),
-    });
+  it("rejects the shared demo line on a client, and a client's line on the demo tenant", async () => {
+    const { makeFakeDb } = await import("@/test-utils/fakeFirestore");
+    const db = makeFakeDb();
+    db.__seed("businesses", "biz-1", { businessName: "Example", industry: "roofing" });
+    db.__seed("businesses", "demo-roofing", { isDemo: true, elevenlabs: { agentId: "d", phoneNumber: "+16892042643", extraPhoneNumbers: ["+17789079769"] } });
+    db.__seed("businessPhoneNumbers", "biz-1-main", { businessId: "biz-1", normalizedPhoneNumber: "+15551234567", purpose: "client", status: "draft" });
+    mocks.getAdminFirestore.mockReturnValue(db);
     const { PUT } = await import("../route");
-    const response = await PUT(providerRequest({
-      voiceProvider: "elevenlabs",
-      elevenlabs: { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567" },
-    }), params);
+    const demoOnClient = await PUT(providerRequest({ voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+17789079769" } }), params);
+    expect(demoOnClient.status).toBe(409);
+    expect((await demoOnClient.json()).error).toMatch(/shared demo line/);
+    const clientOnDemo = await PUT(
+      providerRequest({ voiceProvider: "elevenlabs", elevenlabs: { agentId: "d", phoneNumberId: "p", phoneNumber: "+16892042643", extraPhoneNumbers: ["+17789079769", "+15551234567"] } }),
+      { params: Promise.resolve({ businessId: "demo-roofing" }) },
+    );
+    expect(clientOnDemo.status).toBe(409);
+    expect(db.__peek("businesses", "demo-roofing")?.elevenlabs).toEqual({ agentId: "d", phoneNumber: "+16892042643", extraPhoneNumbers: ["+17789079769"] });
+  });
 
-    expect(response.status).toBe(409);
+  it("lets a business keep saving its own numbers", async () => {
+    const { makeFakeDb } = await import("@/test-utils/fakeFirestore");
+    const db = makeFakeDb();
+    db.__seed("businesses", "biz-1", { businessName: "Example", industry: "roofing", planTier: "standard", elevenlabs: { agentId: "agent_11", phoneNumber: "+15551234567" } });
+    mocks.getAdminFirestore.mockReturnValue(db);
+    const { PUT } = await import("../route");
+    const response = await PUT(providerRequest({ voiceProvider: "elevenlabs", elevenlabs: { agentId: "agent_11", phoneNumberId: "phone_11", phoneNumber: "+15551234567" } }), params);
+    expect(response.status).toBe(200);
+  });
+
+  it("accepts client/test/archived as the account purpose and refuses setting demo", async () => {
+    const { PUT } = await import("../route");
+    const refused = await PUT(providerRequest({ accountPurpose: "demo" }), params);
+    expect(refused.status).toBe(400);
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
   });
 });

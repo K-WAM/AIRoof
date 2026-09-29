@@ -1697,3 +1697,29 @@ assign anyway?" check lives in the appointment route per the plan); the inspecto
 - Deviation from the work order: no `@firebase/rules-unit-testing` devDependency (emulator REST instead — nothing to
   install into the shared node_modules while workers run). Removals: `scripts/provision-superadmin.mjs` (references
   updated in CLAUDE.md, HANDOFF.md, docs/HANDOFF.md, docs/README.md). Nothing pushed or deployed.
+
+## 2026-09-29 — Integrator, Stream I: T-171 client phone lines without touching the shared demo (Phase 32)
+- Registry on `businessPhoneNumbers` (contract C-B, `src/types/phoneLine.ts`): purpose client/demo, lifecycle Draft →
+  Provisioned → Connected → Test passed → Live → Retired, texting readiness, default sender. It routes nothing by itself.
+- `findLineConflicts()` (`src/lib/phoneLines/registry.ts`) is the one check for "already taken": another tenant's
+  primary/extra ElevenLabs number, another tenant's registry line, a demo line given to a client, a client line added to
+  the demo tenant. Used by client creation (now BEFORE any Auth user is created — an owner login used to be created and
+  orphaned on a later 409), the config PUT (replaces its narrower primary/extra loop) and the new line routes.
+- `POST/GET /api/admin/phone-lines`, `PATCH /api/admin/phone-lines/[lineId]` (mark_provisioned/connected, record_test —
+  the call must be in this tenant, on this number, after connection —, go_live/retire dry-run by default with the typed
+  number, previousRouting kept and restored, demo lines refuse retire, set_sms "ready" needs the typed number and keeps one
+  default sender), `GET /api/company/phone-lines` (own tenant, no provider, no retired lines). All audited with session
+  identity. Admin config page: "Phone lines" panel; onboarding: how the line is obtained, server phone errors at the field,
+  honest "Draft" status on success; temp password now uses crypto.
+- The ElevenLabs initiation webhook now stores `calledNumber` on the live call row (test-call proof; T-169 sender).
+  Routing caches in `businessLookup.ts` now expire after 60 s (they never expired, so a cutover/rollback would not reach
+  warm servers).
+- Contract C-A: `accountPurpose` + `effectiveAccountPurpose()` (demo derived; missing = unclassified); in GET
+  /api/admin/businesses rows and settable (client/test/archived) through the config PUT.
+- Scripts (dry-run by default, typed APPLY): `phone-lines.mjs`, `classify-accounts.mjs`. Production dry runs 2026-09-29
+  (read-only): the Canadian demo number +17789079769 is NOT in demo-roofing's routing (T-130's app side was never done);
+  the US demo number's old registry doc `demo-roofing-main` only needs its missing fields filled; classification
+  suggestions listed for the owner (NH-30 D7).
+- Tests: registry/lifecycle (10), phone-line routes (11), create-line (5), config conflicts rewritten on the shared fake
+  (demo both ways), account purpose (3); the shared `fakeFirestore` gained dotted field paths. 709 tests in api/auth/
+  phoneLines/vapi/admin green; tsc clean. Nothing pushed, no production write.

@@ -161,6 +161,7 @@ export default function OnboardingPage() {
       businessId: String(formData.get("businessId") || "").trim(),
       ownerEmail: String(formData.get("ownerEmail") || "").trim(),
       phoneNumber: String(formData.get("phoneNumber") || "").trim(),
+      lineAcquisition: String(formData.get("lineAcquisition") || "new"),
       serviceArea,
       timezone: String(formData.get("timezone") || "America/New_York"),
       businessHours,
@@ -189,7 +190,6 @@ export default function OnboardingPage() {
       contactPhone: String(formData.get("contactPhone") || "").trim() || undefined,
       logoUrl: String(formData.get("logoUrl") || "").trim() || null,
       active: false,
-      actorEmail: "connect@luxordev.com",
     };
 
     try {
@@ -198,10 +198,20 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create company");
+        // T-171: say what the server refused (e.g. a demo line or a number another business uses) at the field itself.
+        const phoneError = typeof result.fieldErrors?.phoneNumber === "string" ? result.fieldErrors.phoneNumber : null;
+        if (phoneError) {
+          moveToStep(0);
+          window.requestAnimationFrame(() => document.getElementById("phoneNumber")?.focus());
+        }
+        setSubmitStatus({
+          type: "error",
+          message: phoneError ?? (typeof result.error === "string" ? result.error : "The company could not be created. Review the form and try again."),
+        });
+        return;
       }
 
       setSubmitStatus({
@@ -273,7 +283,22 @@ export default function OnboardingPage() {
                 </div>
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" />
+                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" aria-describedby="phoneNumber-help" />
+                  <p id="phoneNumber-help" className="helper-text" style={{ margin: "4px 0 0" }}>
+                    The business&apos;s own number. It is saved as a Draft line — it answers nothing until Luxor connects and tests it.
+                    The shared demo numbers can never be used here.
+                  </p>
+                </div>
+                <div className="field">
+                  <label htmlFor="lineAcquisition">How the AI line is set up</label>
+                  <select id="lineAcquisition" name="lineAcquisition" defaultValue="new" aria-describedby="lineAcquisition-help">
+                    <option value="new">A new dedicated number for this business</option>
+                    <option value="forward">The business forwards its number to a dedicated number</option>
+                    <option value="port_in">The business moves (ports) its number to us</option>
+                  </select>
+                  <p id="lineAcquisition-help" className="helper-text" style={{ margin: "4px 0 0" }}>
+                    Every client gets its own line. It goes live only after a test call lands in this company&apos;s Calls.
+                  </p>
                 </div>
                 <div className="field full">
                   <label htmlFor="serviceArea">Service area</label>
@@ -618,6 +643,11 @@ export default function OnboardingPage() {
             <div style={{ padding: "16px 20px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
               <p style={{ margin: "0 0 10px", fontWeight: 700, color: "#15803d", fontSize: 14 }}>
                 ✓ Company created — {submitStatus.businessId}
+              </p>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#1e293b" }}>
+                Phone line: <strong>Draft</strong> — Luxor connects it, records a test call that lands in this company&apos;s
+                Calls, then switches it live from <em>Configure agent → Phone lines</em>. Don&apos;t tell the client the line
+                works before that.
               </p>
               {submitStatus.loginEmail && submitStatus.tempPassword ? (
                 <div style={{ margin: "0 0 14px", padding: "12px 14px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 6 }}>

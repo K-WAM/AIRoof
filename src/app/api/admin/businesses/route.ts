@@ -12,6 +12,10 @@ import { getPlanPreset } from "@/lib/ai/planPresets";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { sendBusinessWelcomeEmail } from "@/lib/notify";
 import { validateBusinessHours } from "@/lib/scheduling/hours";
+import { effectiveAccountPurpose, type EffectiveAccountPurpose } from "@/lib/accounts/purpose";
+import { LINE_CONFLICT_MESSAGE, countryOf, findLineConflicts, toE164 } from "@/lib/phoneLines/registry";
+import type { LineAcquisition } from "@/types/phoneLine";
+import { randomInt } from "crypto";
 
 interface CreateBusinessRequest {
   businessId: string;
@@ -49,6 +53,8 @@ interface CreateBusinessRequest {
   address?: string;
   employeeCount?: number;
   seatLimit?: number;
+  /** How the client's line is obtained (T-171): a new dedicated number, forwarding to one, or a port-in. */
+  lineAcquisition?: LineAcquisition;
   actorUid?: string;
   actorEmail?: string;
 }
@@ -58,6 +64,8 @@ export async function GET(req: NextRequest): Promise<
     | {
         businesses: Array<{
           business: BusinessConfig;
+          /** Contract C-A: the server's classification — "demo" for demo tenants, "unclassified" when never set. */
+          accountPurpose: EffectiveAccountPurpose;
           onboarding: BusinessOnboardingStatus | null;
           integrationStatus: BusinessIntegrationStatus | null;
         }>;
@@ -91,6 +99,7 @@ export async function GET(req: NextRequest): Promise<
 
     const businesses = businessesSnapshot.docs.map((businessDoc, i) => ({
       business: { businessId: businessDoc.id, ...businessDoc.data() } as BusinessConfig,
+      accountPurpose: effectiveAccountPurpose(businessDoc.id, businessDoc.data()),
       onboarding: onboardingDocs[i]?.exists ? (onboardingDocs[i].data() as BusinessOnboardingStatus) : null,
       integrationStatus: integrationDocs[i]?.exists ? (integrationDocs[i].data() as BusinessIntegrationStatus) : null,
     }));
@@ -134,6 +143,26 @@ export async function POST(
       );
     }
 
+    // T-171: the typed Main phone must be a real number that no other business — and never the shared demo line — has.
+    // Checked before anything is created (an Auth user used to be created first and orphaned on a later 409).
+    const normalizedPhoneNumber = body.phoneNumber ? toE164(body.phoneNumber) : null;
+    if (body.phoneNumber && !normalizedPhoneNumber) {
+      return NextResponse.json({ error: "Enter the main phone as a full number, e.g. (305) 555-0100.", fieldErrors: { phoneNumber: "Not a valid phone number" } }, { status: 400 });
+    }
+    if (body.lineAcquisition !== undefined && !["new", "forward", "port_in"].includes(body.lineAcquisition)) {
+      return NextResponse.json({ error: "Choose how the phone line is obtained", fieldErrors: { lineAcquisition: "Invalid choice" } }, { status: 400 });
+    }
+    if ((await db.collection("businesses").doc(businessId).get()).exists) {
+      return NextResponse.json({ error: `Business ${businessId} already exists` }, { status: 409 });
+    }
+    if (normalizedPhoneNumber) {
+      const conflicts = await findLineConflicts(db, normalizedPhoneNumber, businessId);
+      if (conflicts.length > 0) {
+        const message = LINE_CONFLICT_MESSAGE[conflicts[0].kind];
+        return NextResponse.json({ error: message, fieldErrors: { phoneNumber: message } }, { status: 409 });
+      }
+    }
+
     const now = Date.now();
 
     // Provision Firebase Auth user for the business owner
@@ -175,7 +204,6 @@ export async function POST(
 
     const template = getVerticalTemplate(industry);
     const preset = getPlanPreset(body.planTier);
-    const normalizedPhoneNumber = body.phoneNumber ? normalizePhone(body.phoneNumber) : "";
 
     const businessConfig: BusinessConfig = {
       businessId,
@@ -278,6 +306,14 @@ export async function POST(
           normalizedPhoneNumber,
           label: "Main line",
           active: false,
+          // T-171 registry: a new client line starts as a Draft; it answers nothing until an operator connects it,
+          // records a passing test call and confirms go-live (PATCH /api/admin/phone-lines/[lineId]).
+          status: "draft",
+          purpose: "client",
+          country: countryOf(normalizedPhoneNumber) ?? "US",
+          ...(body.lineAcquisition ? { acquisition: body.lineAcquisition } : {}),
+          sms: { status: "not_configured", purposes: ["booking_received", "appointment_confirmed", "inspector_assigned"], isDefaultSender: true },
+          updatedBy: gate.user.uid,
           createdAt: now,
           updatedAt: now,
         };
@@ -366,12 +402,6 @@ export async function POST(
 
 function generateTempPassword(): string {
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#";
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
-
-function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return phone.startsWith("+") ? `+${digits}` : digits;
+  // crypto, not Math.random: this is a credential (T-170 review).
+  return Array.from({ length: 12 }, () => chars[randomInt(chars.length)]).join("");
 }

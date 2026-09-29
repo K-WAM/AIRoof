@@ -10,11 +10,12 @@ const mocks = vi.hoisted(() => ({ verifySuperadmin: vi.fn(), getAdminFirestore: 
 vi.mock("@/lib/auth/verifyRole", () => ({ verifySuperadmin: mocks.verifySuperadmin }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.getAdminFirestore }));
 
-type Ref = { path: string; id: string };
+type Ref = { path: string; id: string; get?: () => Promise<{ exists: boolean; data: () => unknown }> };
 
 function makeDb(existing: Record<string, Record<string, unknown>>) {
   const writes: Array<{ op: string; path: string; data: unknown }> = [];
-  const ref = (collection: string, id: string): Ref => ({ path: `${collection}/${id}`, id });
+  // get() lets pre-transaction reads (T-171's line-conflict check reads the target business) see the same data.
+  const ref = (collection: string, id: string): Ref => ({ path: `${collection}/${id}`, id, get: async () => ({ exists: existing[`${collection}/${id}`] !== undefined, data: () => existing[`${collection}/${id}`] }) });
   const db = {
     collection: (name: string) => ({
       doc: (id: string) => ref(name, id),
