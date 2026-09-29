@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 
-export function CustomerVersionPanel({ draft, priceMode = "lines", hideMaterials, hideLabor, lineSubtotal, savedLineSubtotal, customerSubtotal, customerTotal, adjustmentNote = "", acceptedQuoteSubtotal, onChange, onPreview }: {
+export function CustomerVersionPanel({ draft, readOnlyRole = false, priceMode = "lines", hideMaterials, hideLabor, lineSubtotal, savedLineSubtotal, customerSubtotal, customerTotal, adjustmentNote = "", acceptedQuoteSubtotal, onChange, onPreview }: {
   draft: boolean;
+  readOnlyRole?: boolean;
   priceMode?: "lines" | "project";
   hideMaterials: boolean;
   hideLabor: boolean;
@@ -44,7 +45,7 @@ export function CustomerVersionPanel({ draft, priceMode = "lines", hideMaterials
         <button type="button" className="button" onClick={() => { setEnteredPrice(null); onChange({ customerSubtotal: lineSubtotal }); }}>Reset to line total</button>
         <label>Internal adjustment note (customer cannot see this)<textarea value={adjustmentNote} maxLength={1000} onChange={(event) => onChange({ adjustmentNote: event.target.value })} /></label>
       </>}
-    </> : <p>This {project ? "project price" : hideMaterials ? "bundled materials" : "itemized"} version is locked. Create a new quote after talking to the customer.</p>}
+    </> : <p>{readOnlyRole ? "You can view this customer version but cannot change it with your role." : `This ${project ? "project price" : hideMaterials ? "bundled materials" : "itemized"} version is locked. Create a new quote after talking to the customer.`}</p>}
     <button type="button" className="button" onClick={onPreview}>Preview what the customer gets</button>
   </section>;
 }

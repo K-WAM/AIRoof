@@ -377,13 +377,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // from scratch. Once per invoice, only into an EMPTY draft, and it saves through the normal invoice autosave.
   const narrativePrefilledFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!invoiceReady || invoiceStatus !== "draft" || !invoiceId) return;
+    if (!invoiceReady || invoiceStatus !== "draft" || !invoiceId || readOnly) return;
     if (narrativePrefilledFor.current === invoiceId) return;
     narrativePrefilledFor.current = invoiceId;
     if (narrative.trim()) return;
     const bullets = draftWorkDescription(job?.findings);
     if (bullets) setNarrative(bullets);
-  }, [invoiceReady, invoiceStatus, invoiceId, narrative, job?.findings]);
+  }, [invoiceReady, invoiceStatus, invoiceId, narrative, job?.findings, readOnly]);
 
   // Opening the Report tab generates the report (and drafts its notes) straight away when there is something to report,
   // instead of asking for a "Generate Report" click first. Once per visit; Regenerate stays available.
@@ -823,7 +823,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // triggered by loading/generating the invoice — that's a load, not an edit.
   useEffect(() => {
     if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; return; }
-    if (!invoiceId || invoiceStatus !== "draft" || !businessId) return;
+    if (!invoiceId || invoiceStatus !== "draft" || !businessId || readOnly) return;
     setInvoiceDirty(true);
     const timer = setTimeout(() => {
       runSingleFlight(invoicePatchLock.current, async () => {
@@ -866,7 +866,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -1029,10 +1029,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <ClipboardCopy size={15} strokeWidth={1.75} />
             {linkCopied ? "Link copied" : "Copy field link"}
           </button>
-          <button className="button" title="A QR code a crew member can scan with no portal login — expires in 10 minutes" onClick={openFieldQr} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {!readOnly && <button className="button" title="A QR code a crew member can scan with no portal login — expires in 10 minutes" onClick={openFieldQr} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <QrCode size={15} strokeWidth={1.75} />
             Field QR
-          </button></div></details>
+          </button>}</div></details>
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
           {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
@@ -1089,7 +1089,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       </div>
 
       {/* Edit / Save / Cancel — Materials and Labor (on Activity it sits right above the work log instead) */}
-      {["materials", "labor"].includes(activeTab) && editBar}
+      {["materials", "labor"].includes(activeTab) && !readOnly && editBar}
 
       {/* ── Activity: field updates, then the work log, then the job history — all newest first ── */}
       {activeTab === "timeline" && (
@@ -1125,7 +1125,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </section>
       )}
 
-      {activeTab === "timeline" && editBar}
+      {activeTab === "timeline" && !readOnly && editBar}
       {activeTab === "timeline" && (
         <section className="panel" style={{ marginBottom: 16 }}>
           <div className="panel-header"><h2 className="panel-title">Work log</h2></div>
@@ -1310,14 +1310,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <>
                 <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>Tap a photo to view full size. Toggle &ldquo;In report&rdquo; to include it in the generated report (max 2 pages).</p>
                 {photoOrderError && <p role="alert" style={{ margin: "0 0 12px", color: "var(--danger)", fontSize: 13 }}>{photoOrderError}</p>}
-                <SortablePhotoGrid photos={photos} onOpen={openLightbox} onEdit={setEditingPhoto} onDelete={(photo) => { if (confirm("Delete this photo?")) void deletePhoto(photo); }} onToggle={toggleInclude} onReorder={reorderPhotos} />
+                {readOnly ? <div className="job-readonly-photos">{photos.map((photo) => <button key={photo.photoId} type="button" className="button" onClick={() => void openLightbox(photo)}>{photo.label || "View photo"}</button>)}</div>
+                  : <SortablePhotoGrid photos={photos} onOpen={openLightbox} onEdit={setEditingPhoto} onDelete={(photo) => { if (confirm("Delete this photo?")) void deletePhoto(photo); }} onToggle={toggleInclude} onReorder={reorderPhotos} />}
               </>
             )}
           </div>
         </section>
       )}
 
-      <PhotoEditSheet
+      {!readOnly && <PhotoEditSheet
         photo={editingPhoto}
         jobId={jobId}
         businessId={businessId}
@@ -1330,7 +1331,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           return { ...p, ...rest, ...(pairId !== undefined ? { pairId: pairId ?? undefined } : {}) };
         }))}
         onDeleted={() => setPhotos((ps) => ps.filter((p) => p.photoId !== editingPhoto?.photoId))}
-      />
+      />}
 
       {/* Lightbox popup */}
       {lightbox && (
@@ -1444,7 +1445,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
-              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
                 adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
                 onChange={(patch) => {
@@ -1470,13 +1471,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   <details>
                     <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
                     <div style={{ marginTop: 8, maxWidth: 380 }}>
-                      <DocumentOptionToggles disabled={invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
+                      <DocumentOptionToggles disabled={readOnly || invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
                         onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
                       <div style={{ marginTop: 12 }}>
-                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
+                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
                       </div>
                       <div style={{ marginTop: 12 }}>
-                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={invoiceStatus !== "draft"}
+                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={readOnly || invoiceStatus !== "draft"}
                           onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
                       </div>
                     </div>
@@ -1565,7 +1566,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
               {/* Invoice document — a sent/paid invoice is immutable server-side, so the whole editor is a disabled
                   fieldset: typing into a locked invoice used to look like it worked and was silently never saved. */}
-              <fieldset disabled={invoiceStatus !== "draft"} className={`invoice-editor no-print${invoiceStatus !== "draft" ? " invoice-locked" : ""}`} style={{
+              <fieldset disabled={readOnly || invoiceStatus !== "draft"} className={`invoice-editor no-print${invoiceStatus !== "draft" ? " invoice-locked" : ""}`} style={{
                 background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, margin: 0, minWidth: 0,
                 padding: "44px 52px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
@@ -1951,7 +1952,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <details className="no-print" style={{ marginBottom: 16 }}>
                 <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
-                  <DocumentOptionToggles values={reportOptions}
+                  <DocumentOptionToggles values={reportOptions} disabled={readOnly}
                     keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
                     disabledKeys={quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
                     onChange={(key, next) => {
@@ -1989,9 +1990,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               {/* Scope & Resolution notes — admin-edited, persisted, included in the report */}
               <div style={{ marginBottom: 16 }} className="no-print">
                 <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
-                <textarea value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
-                <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>
-                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+                <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+                {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
+                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input disabled={readOnly} value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { if (!readOnly) void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
               </div>
 
               <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} quote={pageQuote} />

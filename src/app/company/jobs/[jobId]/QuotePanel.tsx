@@ -300,7 +300,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
           </div>
         </div>
-        <CustomerVersionPanel draft={!!draft} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
+        <CustomerVersionPanel draft={!!draft} readOnlyRole={readOnly} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
           lineSubtotal={lineSubtotal} savedLineSubtotal={projectPriceAnchor} customerSubtotal={quote.customerSubtotal} customerTotal={total}
           adjustmentNote={quote.adjustmentNote} onChange={(patch) => { if (patch.customerSubtotal !== undefined) setProjectPriceAnchor(lineSubtotal); change(patch); }}
           onPreview={() => { previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); previewRef.current?.focus(); }} />
