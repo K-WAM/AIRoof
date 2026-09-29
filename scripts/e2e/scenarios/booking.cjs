@@ -222,7 +222,9 @@ async function runBookingScenarios({ log = console.log, tag = Date.now().toStrin
       const booked = await callTools([["bookAppointment", { name: `S4 Confirm ${tag}`, serviceType: "Roof inspection", startTime: `${day}T08:00` }]]);
       const body = booked[0].result ?? {};
       expectMatch(body.sayToCaller, /You're booked for .* at 8:00 AM/, "booked");
-      expectMatch(body.sayToCaller, /office will confirm first thing/i, "morning confirmation flag");
+      // T-154 (2026-09-28) replaced "the office will confirm first thing" with honest channel + time wording:
+      // "The office will call you when we open tomorrow at 8 AM to confirm it." / "…confirm it by text shortly."
+      expectMatch(body.sayToCaller, /The office will (call you|confirm it by (text|email)) .*(when (we|the office) open|shortly)/i, "office-confirmation line");
       return text.slice(0, 140);
     });
 

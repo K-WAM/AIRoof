@@ -41,7 +41,7 @@ test("the request is in the Pipeline; Review request opens the card; Confirm ema
   const page = await as("owner");
   await page.goto("/company/pipeline");
   await settle(page);
-  await page.getByRole("button", { name: /^Appointments/ }).click();
+  await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
   const card = page.getByText(caller.name).first().locator("xpath=ancestor::*[.//button[normalize-space()='Create Job']][1]");
   await expect(card).toBeVisible();
   await expect(card.getByText("New request")).toBeVisible();
@@ -63,7 +63,7 @@ test("Create Job turns the request into a job that remembers the call", async ({
   const page = await as("owner");
   await page.goto("/company/pipeline");
   await settle(page);
-  await page.getByRole("button", { name: /^Appointments/ }).click();
+  await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
   const card = page.getByText(caller.name).first().locator("xpath=ancestor::*[.//button[normalize-space()='Create Job']][1]");
   await card.getByRole("button", { name: "Create Job" }).click();
   await page.waitForURL(/\/company\/jobs\/J-\d+/, { timeout: 30_000 });

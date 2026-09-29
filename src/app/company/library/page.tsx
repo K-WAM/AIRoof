@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import type { LibraryPricing, LibraryMaterial, LibraryLaborRate, LibraryDocument, LibraryLogo, Crew, CrewPerson } from "@/types/library";
-import type { CustomerSlim } from "@/types/customer";
 import type { WorkCatalog } from "@/types/workCatalog";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -13,7 +12,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
-import { CustomersSection } from "./CustomersSection";
 import { CrewsSection } from "./CrewsSection";
 import { LogosSection } from "./LogosSection";
 import { WorkCatalogSection } from "./WorkCatalogSection";
@@ -26,7 +24,9 @@ import {
   Trash2,
 } from "lucide-react";
 
-type Section = "customers" | "pricing" | "crews" | "documents" | "branding" | "work-catalog";
+// Customers are NOT a Library tab (2026-09-28): they have their own page in the nav (/company/customers) rendering the
+// same CustomersSection, and two screens doing one job is exactly the clutter the owner asked us to remove.
+type Section = "pricing" | "crews" | "documents" | "branding" | "work-catalog";
 
 export default function LibraryPage() {
   const businessId = useBusinessId();
@@ -36,17 +36,24 @@ export default function LibraryPage() {
   // (dental, property mgmt) has no use for it, but still needs the roster + docs.
   const hasPricing = isEnabled("pricing");
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialSection = searchParams?.get("section");
-  const initialCustomerId = searchParams?.get("customerId");
   const [section, setSection] = useState<Section>(
-    initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "customers" || initialSection === "branding" || initialSection === "work-catalog"
+    initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "branding" || initialSection === "work-catalog"
       ? initialSection
-      : "customers"
+      : hasPricing ? "pricing" : "crews"
   );
+  // An old "Library → Customers" link lands on the Customers page (same list, its own nav item).
+  useEffect(() => {
+    if (initialSection !== "customers") return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("section");
+    const query = params.toString();
+    router.replace(`/company/customers${query ? `?${query}` : ""}`);
+  }, [initialSection, router, searchParams]);
   const [library, setLibrary] = useState<LibraryPricing>({ materials: [], laborRates: [], documents: [] });
   const [crews, setCrews] = useState<Crew[]>([]);
   const [crewPeople, setCrewPeople] = useState<CrewPerson[]>([]);
-  const [customers, setCustomers] = useState<CustomerSlim[]>([]);
   const [logos, setLogos] = useState<LibraryLogo[]>([]);
   const [workCatalog, setWorkCatalog] = useState<WorkCatalog>({ items: [] });
   const [loading, setLoading] = useState(true);
@@ -67,10 +74,6 @@ export default function LibraryPage() {
         if (!r.ok) throw new Error("Crews request failed");
         return r.json();
       }),
-      fetch(`/api/company/customers?businessId=${businessId}`).then((r) => {
-        if (!r.ok) throw new Error("Customers request failed");
-        return r.json();
-      }),
       fetch(`/api/company/library/logos?businessId=${businessId}`).then((r) => {
         if (!r.ok) throw new Error("Logos request failed");
         return r.json();
@@ -80,11 +83,10 @@ export default function LibraryPage() {
         return r.json();
       }),
     ])
-      .then(([lib, cr, cu, lo, wc]) => {
+      .then(([lib, cr, lo, wc]) => {
         setLibrary(lib.library ?? { materials: [], laborRates: [], documents: [] });
         setCrews(cr.crews ?? []);
         setCrewPeople(cr.people ?? []);
-        setCustomers(cu.customers ?? []);
         setLogos(lo.logos ?? []);
         setWorkCatalog(wc.catalog ?? { items: [] });
       })
@@ -204,13 +206,11 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["customers", "pricing", "crews", "documents", "branding", "work-catalog"] as Section[])
+          {(["pricing", "crews", "documents", "branding", "work-catalog"] as Section[])
             .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")))
             .map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
-                {s === "customers"
-                  ? `${vocab.customerNounPlural} (${customers.length})`
-                  : s === "pricing"
+                {s === "pricing"
                   ? "Pricing"
                   : s === "crews"
                     ? `${vocab.resourceNounPlural} (${crews.length})`
@@ -224,14 +224,6 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {section === "customers" && (
-        <CustomersSection
-          businessId={businessId}
-          customers={customers}
-          setCustomers={setCustomers}
-          initialCustomerId={initialCustomerId}
-        />
-      )}
       {section === "pricing" && hasPricing && (
         <PricingSection library={library} onSave={saveLibrary} onLoadExamples={loadStarterKit} loadingKit={loadingKit} readOnly={readOnly} />
       )}

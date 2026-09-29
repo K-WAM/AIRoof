@@ -41,7 +41,7 @@ test("the booked appointment appears in the Pipeline and on the Calendar at its 
   // Pipeline: the request is listed with its caller.
   await page.goto("/company/pipeline");
   await settle(page);
-  await page.getByRole("button", { name: /^Appointments/ }).click();
+  await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
   await expect(page.getByText(callerName).first()).toBeVisible({ timeout: 15_000 });
   await shot(page, "booking-pipeline");
   await expectHealthy(page);

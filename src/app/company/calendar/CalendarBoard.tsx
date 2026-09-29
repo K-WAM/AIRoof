@@ -2,7 +2,17 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection, type CollisionDetection, type DragEndEvent } from "@dnd-kit/core";
+
+/**
+ * A drop lands on the day under the finger/pointer — not the day the dragged CARD overlaps most (dnd-kit's default).
+ * With the default, a card grabbed near one edge, or a page that scrolled mid-drag, dropped one day off (2026-09-28:
+ * aimed at Wednesday, landed on Thursday). Overlap is only the fallback when the pointer is between cells.
+ */
+const dropUnderPointer: CollisionDetection = (args) => {
+  const underPointer = pointerWithin(args);
+  return underPointer.length > 0 ? underPointer : rectIntersection(args);
+};
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -680,7 +690,7 @@ export default function CalendarBoard() {
           />
         </section>
       ) : (
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={dropUnderPointer} onDragEnd={onDragEnd}>
         <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
           {/* Needs-a-resource rail */}
           <section className="panel">
