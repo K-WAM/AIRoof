@@ -1,3 +1,15 @@
+/* ── Design tokens (T-157) ─────────────────────────────────────────────────
+   One source of truth for the whole app. Token families:
+   · surfaces/text   — --surface, --surface-muted, --background, --border, --text, --text-muted
+   · accent          — --accent, --accent-dark, --accent-soft (one teal; per-family overrides below)
+   · state pairs     — --c-{danger,success,info,warn,neutral}-{bg,fg,bd}; use the tone, never a raw colour
+   · radius          — --r-{sm,md,lg,pill}
+   · focus           — --ring / --ring-dark (applied via :focus-visible app-wide)
+   · spacing         — --sp-1 … --sp-6 (4px rhythm: 4/8/12/16/24/32). Use these for new UI. The older
+                       --s1…--s8 scale matches the same rhythm and stays for existing rules; new code
+                       and the Phase 32 · D block below prefer --sp-*.
+   · control size    — --control-h: 44px, the minimum touch target applied only under (pointer: coarse).
+   Rule: no new hex colours. Every new rule reads a token; if a value has no token, add a token above first. */
 :root {
   --background: #f1f5f9;
   --surface: #ffffff;
@@ -40,6 +52,15 @@
   --s5: 20px;
   --s6: 24px;
   --s8: 32px;
+
+  /* Phase 32 (C-D) canonical spacing scale and touch-target height. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --control-h: 44px;
 
   /* Semantic status colors — one source of truth for chips/tags/tints */
   --c-danger-bg: #fee2e2;  --c-danger-fg: #b91c1c;  --c-danger-bd: #fecaca;
@@ -1160,32 +1181,13 @@ a.metric:hover {
   line-height: 1.5;
 }
 
-.sc--scheduled     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--escalated     { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.sc--lead_captured { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--no_action     { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--urgent        { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.sc--normal        { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--new           { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--contacted     { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.sc--converted     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--lost          { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
-.sc--confirmed     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--requested     { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--cancelled     { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.sc--open          { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--in_progress   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--complete      { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--after_hours   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--emergency     { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.sc--scheduling    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--service       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--general       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--outbound      { background: #f0fdf4; color: #0f766e; border-color: #a7f3d0; }
-.sc--inspection    { background: var(--c-info-bg);  color: var(--c-info-fg);  border-color: var(--c-info-bd); }
-.sc--quoted        { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
-.sc--invoiced      { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
-.sc--pending       { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
+/* One tone → one token pair for every status (T-157). StatusChip maps each
+   status string to a tone; these are the only chip colours in the system. */
+.sc--danger  { background: var(--c-danger-bg);  color: var(--c-danger-fg);  border-color: var(--c-danger-bd); }
+.sc--success { background: var(--c-success-bg); color: var(--c-success-fg); border-color: var(--c-success-bd); }
+.sc--info    { background: var(--c-info-bg);    color: var(--c-info-fg);    border-color: var(--c-info-bd); }
+.sc--warn    { background: var(--c-warn-bg);    color: var(--c-warn-fg);    border-color: var(--c-warn-bd); }
+.sc--neutral { background: var(--c-neutral-bg); color: var(--c-neutral-fg); border-color: var(--c-neutral-bd); }
 
 /* ── Today Feed (dashboard) ─────────────── */
 
@@ -3072,3 +3074,15 @@ a.metric:hover {
 .badge-ended { background: var(--surface-muted); color: var(--text-muted); }
 @keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }
+
+/* ?? Phase 32 � D ?? */
+
+/* Touch targets: every button and text-like form control grows to the shared
+   44px control height only on coarse pointers; desktop density is unchanged. */
+@media (pointer: coarse) {
+  .button,
+  .button.small { min-height: var(--control-h); }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select:not([multiple]),
+  textarea { min-height: var(--control-h); }
+}

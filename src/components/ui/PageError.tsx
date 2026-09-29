@@ -21,12 +21,12 @@ export function PageError({
       style: {
         borderColor: "var(--danger)",
         background: "var(--surface)",
-        padding: 24,
+        padding: "var(--sp-5, 24px)",
       },
     },
     createElement(
       "h1",
-      { style: { margin: "0 0 8px", color: "var(--danger)", fontSize: 20 } },
+      { style: { margin: "0 0 var(--sp-2, 8px)", color: "var(--danger)", fontSize: 20 } },
       title
     ),
     createElement(
@@ -41,7 +41,7 @@ export function PageError({
             className: "button secondary",
             type: "button",
             onClick: onRetry,
-            style: { marginTop: 16 },
+            style: { marginTop: "var(--sp-4, 16px)" },
           },
           "Try again"
         )
