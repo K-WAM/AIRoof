@@ -306,7 +306,7 @@ Field update flow:
 | `public/guides/pitch-deck.html` | HTML pitch deck |
 | `public/Luxor-AI-Pitch.pptx` | 3-slide PPTX pitch deck |
 | `scripts/seed-demo-business.mjs` | Demo data init (run once) |
-| `scripts/provision-superadmin.mjs` | Set custom claim + businessUsers doc |
+| `scripts/grant-superadmin.mjs` | Grant/revoke the superadmin claim (T-170; replaces provision-superadmin.mjs) |
 | `firestore.rules` | Tenant isolation + jobs subcollection rules |
 
 ---

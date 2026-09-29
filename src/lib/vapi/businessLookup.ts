@@ -3,10 +3,34 @@
 
 import { getAdminFirestore } from "@/lib/firebase/admin";
 
-const assistantCache = new Map<string, string>();
-const phoneNumberCache = new Map<string, string>();
-const elevenLabsAgentCache = new Map<string, string>();
-const elevenLabsPhoneCache = new Map<string, string>();
+// T-171: entries expire after a minute. They used to live for the whole life of a warm instance, so moving a number to
+// a new client (go-live) or rolling it back (retire) kept routing calls to the OLD tenant on warm servers.
+const ROUTING_CACHE_TTL_MS = 60_000;
+
+class ExpiringCache {
+  private readonly entries = new Map<string, { value: string; exp: number }>();
+  has(key: string): boolean {
+    const entry = this.entries.get(key);
+    if (!entry) return false;
+    if (entry.exp <= Date.now()) {
+      this.entries.delete(key);
+      return false;
+    }
+    return true;
+  }
+  get(key: string): string | undefined {
+    return this.has(key) ? this.entries.get(key)?.value : undefined;
+  }
+  set(key: string, value: string): void {
+    if (this.entries.size >= 500) this.entries.clear();
+    this.entries.set(key, { value, exp: Date.now() + ROUTING_CACHE_TTL_MS });
+  }
+}
+
+const assistantCache = new ExpiringCache();
+const phoneNumberCache = new ExpiringCache();
+const elevenLabsAgentCache = new ExpiringCache();
+const elevenLabsPhoneCache = new ExpiringCache();
 
 export async function findBusinessByVapiAssistantId(
   assistantId: string

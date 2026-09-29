@@ -134,6 +134,8 @@ describe("POST /api/webhooks/elevenlabs/tools/[tool]", () => {
         businessId: "biz_stored",
         callId: "call_elevenlabs_conv_1",
         callerPhone: "+1 (305) 555-0100",
+        // T-169: the dialed line comes from the stored (initiation-webhook) record, never from tool parameters.
+        calledNumber: "+17542837658",
         provider: "elevenlabs",
         providerIds: { elevenLabsConversationId: "conv_1" },
       }

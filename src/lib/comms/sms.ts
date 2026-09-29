@@ -7,6 +7,8 @@ import {
   startOperationAttempt,
 } from "@/lib/ops/ledger";
 import type { NotificationDeliveryState } from "@/lib/comms/send";
+import { resolveSmsSender } from "@/lib/phoneLines/sender";
+import type { SmsPurpose } from "@/types/phoneLine";
 
 export type { NotificationDeliveryState };
 
@@ -20,7 +22,6 @@ const TWILIO_TIMEOUT_MS = 10_000;
 
 interface SmsBusiness {
   smsEnabled?: boolean;
-  smsFromNumber?: string;
 }
 
 /** Texting is on only when the env flag + Twilio creds are present AND the tenant hasn't opted out. */
@@ -120,6 +121,10 @@ export async function sendSms(opts: {
   body: string;
   messageType: string;
   entityId: string;
+  /** Which kind of text this is — a line must allow it (phone-line registry, T-169). */
+  purpose: SmsPurpose;
+  /** The line the caller dialed, when the record came from a call. The text goes out from exactly this line or not at all. */
+  calledNumber?: string | null;
 }): Promise<NotificationDeliveryState> {
   const firestore = getAdminFirestore();
   if (!firestore) return "unconfigured";
@@ -133,8 +138,9 @@ export async function sendSms(opts: {
     console.warn(`sms: refusing an invalid recipient number (…${last4(typeof opts.to === "string" ? opts.to : "")})`);
     return "failed";
   }
-  const from = sanitizePhone((business as SmsBusiness).smsFromNumber ?? process.env.TWILIO_PHONE_NUMBER);
-  if (!from) return "unconfigured";
+  // T-169: the sender is the dialed line (or, with no dialed line, the tenant's default sender) — only when that line's
+  // texting is Ready. No env/other-country fallback: a refusal is recorded on the ledger and the caller gets email/a call.
+  const sender = await resolveSmsSender(firestore, { businessId: opts.businessId, calledNumber: opts.calledNumber, purpose: opts.purpose });
 
   const opId = createSmsOperationId(opts.messageType, opts.entityId);
   const claim = await claimOperation(
@@ -152,9 +158,25 @@ export async function sendSms(opts: {
     { firestore }
   );
 
+  if (!sender.ok) {
+    // Retryable on purpose: once the line's texting is Ready, the office's next Confirm can send it.
+    console.warn(`sms: no eligible sender for ${opts.messageType} (${sender.reason}); nothing sent`);
+    await completeOperationAttempt(
+      {
+        businessId: opts.businessId,
+        opId,
+        attemptId: attempt.attemptId,
+        state: "failed",
+        failure: { classification: "retryable", code: `sender_${sender.reason}` },
+      },
+      { firestore }
+    );
+    return "unconfigured";
+  }
+
   const result = isE2EHarness()
-    ? await writeToHarnessOutbox(firestore, opts, to)
-    : await postToTwilio(to, from, opts.body);
+    ? await writeToHarnessOutbox(firestore, opts, to, sender.from)
+    : await postToTwilio(to, sender.from, opts.body);
 
   if (result.status === "delivered") {
     await completeOperationAttempt(
@@ -189,13 +211,15 @@ export async function sendSms(opts: {
 async function writeToHarnessOutbox(
   firestore: Firestore,
   opts: { businessId: string; body: string; messageType: string; entityId: string },
-  to: string
+  to: string,
+  from: string
 ): Promise<SmsAttemptResult> {
   const id = `sms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   await firestore.collection(E2E_OUTBOX_COLLECTION).doc(id).set({
     id,
     channel: "sms",
     to,
+    from,
     body: opts.body,
     messageType: opts.messageType,
     entityId: opts.entityId,

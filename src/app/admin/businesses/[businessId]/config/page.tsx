@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
+import { PhoneLinesPanel } from "./PhoneLinesPanel";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 import type { VoiceRef } from "@/types";
 import {
@@ -632,6 +633,9 @@ export default function AdminBusinessConfigPage({
               </div>
             </div>
           </section>
+
+          {/* ─── Phone lines (T-171): registry lifecycle, test-call proof, dry-run cutover ─── */}
+          <PhoneLinesPanel businessId={businessId} />
 
           {/* ─── AI Model and Voice ─── */}
           <section className="panel" aria-labelledby="ai-config-title">

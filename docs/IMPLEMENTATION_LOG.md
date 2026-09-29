@@ -1676,3 +1676,68 @@ assign anyway?" check lives in the appointment route per the plan); the inspecto
 - Review finding fixed: GET /api/company/crews refused the Crew role, so a field-only Inspector never saw My schedule (Codex's e2e inspector was Staff). A Crew login now gets only its own row.
 - B5 answer to Codex's QUESTION FOR INTEGRATOR: NOT accepted as specified. A bearer webcal link carrying phone numbers and gate codes is a physical-security risk. Built instead: `src/lib/calendar/ics.ts` (RFC 5545, CRLF, escaping, 75-octet folding), `feedToken.ts` (32 random bytes, sha256 stored), GET `/api/calendar/feed/[token]` (bare 404 for unknown/malformed/disabled/no-row; own row's bookings + blocks, 7 days back to 60 ahead; `private, no-store`), POST/DELETE `/api/company/team/me/calendar-feed` (create/rotate/off), `CalendarFeedLink` on My schedule. Events: time, "<service> — Carla E.", address, TENTATIVE until confirmed, sign-in link. 7 tests incl. "never contains phone / 1010 / URGENT / surname".
 - Not run: e2e:call, e2e:booking, full e2e:test, next build (owner: comprehensive harness later). Nothing pushed.
+
+## 2026-09-29 — Integrator, Stream I: T-170 tenant isolation and superadmin authority (Phase 32)
+- **Live exposure closed (pending deploy):** `firestore.rules` `isSuperadmin()` is now the custom claim only. The old
+  `businessUsers.superadmin` fallback let a doc flag grant direct Firestore superadmin; the read-only production audit
+  (`scripts/audit-superadmins.mjs`, run 2026-09-29) found exactly that on kwamwad@gmail.com's doc (owner of
+  `carlita-elevenlabs-test`, no claim). connect@luxordev.com is the only claim holder. Also: a disabled member
+  (`active == false`) is no longer a member in the rules.
+- `confirmSuperadminClaim()` (`src/lib/firebase/admin.ts`): a token's claim counts only while the live Auth record holds it
+  (removed claim, disabled account or revoked sessions → refused at once, 30 s memo). Used by `verifyAuthAndRole` and
+  `/api/auth/profile`. A stored `role: "superadmin"` and an empty `businessId` never satisfy a tenant check.
+- Team routes (`[uid]` PATCH, resend) refuse the platform operator's account (its doc pointed at `demo-roofing`, so a
+  demo-tenant owner could have disabled the operator's login). Audit actor on 3 admin routes = verified session.
+- `scripts/grant-superadmin.mjs` replaces `provision-superadmin.mjs` (exact uid+email, typed confirmation, refuses client
+  members, merges claims, audit event, revoke also revokes sessions, never writes businessUsers).
+- Tests: `npm run test:rules` (new; emulator via REST, no new dependency — 9 cases, 4 of them fail on the old rules);
+  `route-guards.test.ts` (every API handler runs a central guard or is a justified public route; proven with a probe
+  route); `tenant-isolation.test.ts` (30 cases through the real guard + handlers; 14 fail if the tenant check is removed);
+  `confirmSuperadmin.test.ts`; verifyRole/profile/team/subscription additions. tsc clean.
+- Deviation from the work order: no `@firebase/rules-unit-testing` devDependency (emulator REST instead — nothing to
+  install into the shared node_modules while workers run). Removals: `scripts/provision-superadmin.mjs` (references
+  updated in CLAUDE.md, HANDOFF.md, docs/HANDOFF.md, docs/README.md). Nothing pushed or deployed.
+
+## 2026-09-29 — Integrator, Stream I: T-171 client phone lines without touching the shared demo (Phase 32)
+- Registry on `businessPhoneNumbers` (contract C-B, `src/types/phoneLine.ts`): purpose client/demo, lifecycle Draft →
+  Provisioned → Connected → Test passed → Live → Retired, texting readiness, default sender. It routes nothing by itself.
+- `findLineConflicts()` (`src/lib/phoneLines/registry.ts`) is the one check for "already taken": another tenant's
+  primary/extra ElevenLabs number, another tenant's registry line, a demo line given to a client, a client line added to
+  the demo tenant. Used by client creation (now BEFORE any Auth user is created — an owner login used to be created and
+  orphaned on a later 409), the config PUT (replaces its narrower primary/extra loop) and the new line routes.
+- `POST/GET /api/admin/phone-lines`, `PATCH /api/admin/phone-lines/[lineId]` (mark_provisioned/connected, record_test —
+  the call must be in this tenant, on this number, after connection —, go_live/retire dry-run by default with the typed
+  number, previousRouting kept and restored, demo lines refuse retire, set_sms "ready" needs the typed number and keeps one
+  default sender), `GET /api/company/phone-lines` (own tenant, no provider, no retired lines). All audited with session
+  identity. Admin config page: "Phone lines" panel; onboarding: how the line is obtained, server phone errors at the field,
+  honest "Draft" status on success; temp password now uses crypto.
+- The ElevenLabs initiation webhook now stores `calledNumber` on the live call row (test-call proof; T-169 sender).
+  Routing caches in `businessLookup.ts` now expire after 60 s (they never expired, so a cutover/rollback would not reach
+  warm servers).
+- Contract C-A: `accountPurpose` + `effectiveAccountPurpose()` (demo derived; missing = unclassified); in GET
+  /api/admin/businesses rows and settable (client/test/archived) through the config PUT.
+- Scripts (dry-run by default, typed APPLY): `phone-lines.mjs`, `classify-accounts.mjs`. Production dry runs 2026-09-29
+  (read-only): the Canadian demo number +17789079769 is NOT in demo-roofing's routing (T-130's app side was never done);
+  the US demo number's old registry doc `demo-roofing-main` only needs its missing fields filled; classification
+  suggestions listed for the owner (NH-30 D7).
+- Tests: registry/lifecycle (10), phone-line routes (11), create-line (5), config conflicts rewritten on the shared fake
+  (demo both ways), account purpose (3); the shared `fakeFirestore` gained dotted field paths. 709 tests in api/auth/
+  phoneLines/vapi/admin green; tsc clean. Nothing pushed, no production write.
+
+## 2026-09-29 — Integrator, Stream I: T-169 texts come from the line the caller dialed (Phase 32; SMS stays OFF)
+- `resolveSmsSender()` (`src/lib/phoneLines/sender.ts`): a record with a dialed line texts only from exactly that line of
+  this tenant, and only when its registry texting status is Ready for that purpose; no dialed line (office booking, staff
+  notice) → the tenant's default sender if Ready; otherwise nothing, with a retryable ledger failure `sender_<reason>`.
+  The `smsFromNumber` / env `TWILIO_PHONE_NUMBER` fallback is removed (that fallback is how the T-156 "Canadian" test
+  text could only ever have come from the US number).
+- The dialed line flows from the authenticated ElevenLabs conversation record → dispatcher context → `calledNumber` on the
+  appointment and on the callback request; the office's Confirm text uses `appt.calledNumber`; inspector notices use the
+  default sender. Vapi has no called number in its payload types, so Vapi records use the default-sender rule.
+- The phone AI promises "by text" only when the sender resolves (booking-change gate: wording path) — otherwise the
+  email/"the office will call you" sentence. Harness outbox records `from`.
+- Production (read-only, 2026-09-29): `vercel env ls production` has NO `SMS_ENABLED` — the app sends no texts in
+  production today. `TWILIO_PHONE_NUMBER` exists only for Preview. No flag flipped, no text sent, no provider write.
+- Tests: sms (15, incl. Canadian caller → US line and US caller → Canadian line, unknown/malformed/pending/blocked/
+  cross-tenant/purpose refusals), dispatcher wording (3), inspector notice, tools route. Tools/scheduling (booking
+  scenario suite)/comms/appointments/webhooks/voice/vapi: 372 green. Still owed after deploy: ElevenLabs agent test of
+  the booking wording + one real call and transcript read (Booking-change gate).

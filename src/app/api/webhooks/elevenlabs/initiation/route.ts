@@ -118,6 +118,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           callId: `call_elevenlabs_${conversationId}`,
           businessId,
           callerPhone: callerId ?? null,
+          // T-171/T-169: the line the caller dialed — proves which line a test call arrived on, and is the line a
+          // confirmation text must come from.
+          calledNumber: calledNumber ?? null,
           status: "in_progress",
           provider: "elevenlabs",
           startedAt: now,

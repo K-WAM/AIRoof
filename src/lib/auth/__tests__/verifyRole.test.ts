@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
+  confirmSuperadminClaim: vi.fn(),
 }));
 
 function makeDb(member: Record<string, unknown> | undefined) {
@@ -25,6 +26,7 @@ function makeDb(member: Record<string, unknown> | undefined) {
 vi.mock("@/lib/firebase/admin", () => ({
   getAdminFirestore: () => currentDb,
   verifyIdToken: mocks.verifyIdToken,
+  confirmSuperadminClaim: mocks.confirmSuperadminClaim,
 }));
 
 let currentDb: unknown = null;
@@ -35,10 +37,72 @@ function sessionRequest(path = "/api/x") {
   });
 }
 
+// T-170, negative cases first: a businessUsers document can never grant platform authority, and a claim only counts
+// while the live Auth record still holds it.
+describe("superadmin authority is the verified, live custom claim only", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    mocks.verifyIdToken.mockReset();
+    mocks.confirmSuperadminClaim.mockReset();
+  });
+
+  it("a doc-only `superadmin: true` + role superadmin cannot pass verifySuperadmin", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "u1", email: "u1@x.com" });
+    currentDb = makeDb({ role: "superadmin", superadmin: true, businessId: "", active: true }).db;
+    const { verifySuperadmin } = await import("@/lib/auth/verifyRole");
+    const result = await verifySuperadmin(sessionRequest("/api/admin/businesses"));
+    expect("error" in result && result.error.status).toBe(403);
+    expect(mocks.confirmSuperadminClaim).not.toHaveBeenCalled();
+  });
+
+  it("a doc role of superadmin never satisfies a tenant route that lists superadmin", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "u1", email: "u1@x.com" });
+    currentDb = makeDb({ role: "superadmin", superadmin: true, businessId: "biz-1", active: true }).db;
+    const { verifyAuthAndRole } = await import("@/lib/auth/verifyRole");
+    const result = await verifyAuthAndRole(sessionRequest(), "biz-1", ["owner", "staff", "viewer", "superadmin"]);
+    expect("error" in result && result.error.status).toBe(403);
+  });
+
+  it("a doc flag on a real member does not widen access beyond that member's own tenant", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "u1", email: "u1@x.com" });
+    currentDb = makeDb({ role: "owner", superadmin: true, businessId: "biz-1", active: true }).db;
+    const { verifyAuthAndRole } = await import("@/lib/auth/verifyRole");
+    const result = await verifyAuthAndRole(sessionRequest(), "biz-OTHER", ["owner", "superadmin"]);
+    expect("error" in result && result.error.status).toBe(403);
+  });
+
+  it("a token claim the live Auth record no longer holds is refused", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "root", email: "root@x.com", superadmin: true, auth_time: 1 });
+    mocks.confirmSuperadminClaim.mockResolvedValue(false);
+    currentDb = null;
+    const { verifySuperadmin } = await import("@/lib/auth/verifyRole");
+    const result = await verifySuperadmin(sessionRequest("/api/admin/businesses"));
+    expect("error" in result && result.error.status).toBe(403);
+  });
+
+  it("a confirmed claim passes verifySuperadmin", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "root", email: "root@x.com", superadmin: true, auth_time: 1 });
+    mocks.confirmSuperadminClaim.mockResolvedValue(true);
+    currentDb = null;
+    const { verifySuperadmin } = await import("@/lib/auth/verifyRole");
+    const result = await verifySuperadmin(sessionRequest("/api/admin/businesses"));
+    expect("user" in result && result.user.superadmin).toBe(true);
+  });
+
+  it("an empty businessId never matches a member (no accidental platform scope)", async () => {
+    mocks.verifyIdToken.mockResolvedValue({ uid: "u1", email: "u1@x.com" });
+    currentDb = makeDb({ role: "owner", businessId: "", active: true }).db;
+    const { verifyAuthAndRole } = await import("@/lib/auth/verifyRole");
+    const result = await verifyAuthAndRole(sessionRequest(), "", ["owner"]);
+    expect("error" in result && result.error.status).toBe(403);
+  });
+});
+
 describe("verifyAuthAndRole", () => {
   beforeEach(() => {
     vi.resetModules();
     mocks.verifyIdToken.mockReset();
+    mocks.confirmSuperadminClaim.mockReset().mockResolvedValue(true);
   });
 
   it("uses a point read (doc(uid).get()), not a composite where() query", async () => {

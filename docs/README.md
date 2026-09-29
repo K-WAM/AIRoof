@@ -49,7 +49,7 @@ Useful operational scripts:
 
 ```powershell
 node scripts/seed-demo-business.mjs
-node scripts/provision-superadmin.mjs
+node scripts/grant-superadmin.mjs --uid <uid> --email <email> --reason "<why>"
 node scripts/create-pitch-deck.cjs
 ```
 

@@ -529,6 +529,9 @@ export async function PATCH(
           }),
           messageType: "customer-confirmation",
           entityId: `${appointmentId}:${startTime}`,
+          purpose: "appointment_confirmed",
+          // T-169: from the line this caller dialed (or the business's default line when the office booked it).
+          calledNumber: typeof appointment.calledNumber === "string" ? appointment.calledNumber : null,
         });
         statuses.push(notificationStatus);
         if (notificationStatus === "delivered") notifiedChannels.push("sms");

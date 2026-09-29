@@ -1,4 +1,5 @@
 // Core multi-tenant data types for AI Receptionist Platform
+import type { PhoneLineRegistryFields } from "./phoneLine";
 
 export interface VoiceRef {
   provider: "vapi" | "11labs" | "cartesia" | "openai";
@@ -122,8 +123,14 @@ export interface BusinessConfig {
   // Phase 31 (T-152): texting on/off for this tenant. Missing = true, but texting still needs env SMS_ENABLED=true
   // (US carriers block business texts from an unregistered number — NH-29).
   smsEnabled?: boolean;
-  // Phase 31 (T-152): the registered Twilio number texts come from; falls back to env TWILIO_PHONE_NUMBER.
+  // DEPRECATED (T-169, Phase 32): ignored. Texts come from the phone-line registry — the line the caller dialed, else the
+  // business's default sender — and only when that line's texting is Ready (src/lib/phoneLines/sender.ts).
   smsFromNumber?: string;
+  // Phase 32 (T-166, contract C-A): why this tenant exists. Superadmin-set only; missing = "unclassified". The effective
+  // value for DEMO_BUSINESS_IDS / isDemo tenants is always "demo" (effectiveAccountPurpose, src/lib/accounts/purpose.ts).
+  accountPurpose?: AccountPurpose;
+  /** Demo marker required by Demo Studio / the sandbox before they touch a tenant (T-035). */
+  isDemo?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -145,8 +152,9 @@ export interface BusinessOnboardingStatus {
   notes?: string;
 }
 
-// Phone number mapping used by Twilio webhooks to identify the tenant
-export interface BusinessPhoneNumber {
+// One inbound line. Since Phase 32 (T-171) this is also the phone-line REGISTRY (src/types/phoneLine.ts): lifecycle, owner
+// tenant, purpose (client/demo) and texting readiness. It does not route calls — see phoneLine.ts.
+export interface BusinessPhoneNumber extends PhoneLineRegistryFields {
   phoneNumberId: string;
   businessId: string;
   phoneNumber: string;
@@ -156,6 +164,10 @@ export interface BusinessPhoneNumber {
   createdAt: number;
   updatedAt: number;
 }
+
+/** Why a tenant exists (Phase 32, T-166 — contract C-A). Missing = "unclassified"; demo tenants are server-derived. */
+export type AccountPurpose = "client" | "demo" | "test" | "archived";
+export const ACCOUNT_PURPOSES: readonly AccountPurpose[] = ["client", "demo", "test", "archived"];
 
 export interface BusinessIntegrationStatus {
   businessId: string;
@@ -227,6 +239,8 @@ export interface Lead {
   callerPhone?: string;
   /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
   callbackPhone?: string;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
   callerEmail?: string;
   serviceRequested?: string;
   address?: string;
@@ -263,6 +277,8 @@ export interface Appointment {
   callerPhone?: string;
   /** A different number the caller gave to be reached on (caller ID stays in callerPhone). Use contactPhone(). */
   callbackPhone?: string;
+  /** T-169: the line the caller dialed (E.164) — confirmation texts must come from exactly this line. */
+  calledNumber?: string;
   callerEmail?: string;
   serviceType?: string;
   address?: string;

@@ -69,9 +69,20 @@ describe("notifyInspector", () => {
     vi.stubEnv("TWILIO_PHONE_NUMBER", "+13055550999");
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ sid: "SM1" }) });
     vi.stubGlobal("fetch", fetchMock);
+    // T-169: a staff notice has no dialed line, so it comes from the business's default sender — only once that line's
+    // texting is Ready. The env TWILIO_PHONE_NUMBER above is never used.
     expect(await notifyInspector({ db: fake(), businessId: "biz", appointment: APPT, change: "assigned", crewId: "c1" }))
+      .toEqual({ emailed: 2, texted: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    db.__seed("businessPhoneNumbers", "biz-main", {
+      businessId: "biz", normalizedPhoneNumber: "+13055550100", status: "live",
+      sms: { status: "ready", purposes: ["inspector_assigned"], isDefaultSender: true },
+    });
+    expect(await notifyInspector({ db: fake(), businessId: "biz", appointment: { ...APPT, appointmentId: "appt2" }, change: "assigned", crewId: "c1" }))
       .toEqual({ emailed: 2, texted: 1 });
     expect(fetchMock).toHaveBeenCalledOnce();
+    expect(new URLSearchParams((fetchMock.mock.calls[0] as [string, { body: string }])[1].body).get("From")).toBe("+13055550100");
     expect(db.__list("_e2eOutbox")).toHaveLength(0);
   });
 

@@ -301,7 +301,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - public/guides/field-operations-guide.html — Printable 4-section field ops guide (Luxor branded)
 - public/guides/onboarding-guide.html — Printable demo + onboarding guide
 - scripts/seed-demo-business.mjs — Demo data init (plain ESM — run with node, not ts-node)
-- scripts/provision-superadmin.mjs — Set custom claim + businessUsers doc for superadmin
+- scripts/grant-superadmin.mjs — grant/revoke the superadmin custom claim (the only platform authority, T-170; typed confirmation + audit event; never writes businessUsers). scripts/audit-superadmins.mjs — read-only audit of claims vs. doc flags
 - docs/ADMIN-ONBOARDING.md — Complete business onboarding guide
 - docs/archive/PERFORMANCE-CLEANUP.md — Phase 4 spec (done; archived)
 - docs/archive/EPIC-PLAN.md — Field Ops + Calendar Powerhouse + Library epic plan (the 7-phase build that's now complete; archived)
