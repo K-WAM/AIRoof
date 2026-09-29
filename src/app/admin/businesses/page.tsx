@@ -170,7 +170,7 @@ export default function AdminBusinessesPage() {
             style={{ display: "inline-flex", alignItems: "center", gap: "var(--sp-1)" }}
           >
             <Plus size={15} strokeWidth={1.75} />
-            + Client
+            New client
           </button>
         </div>
       </header>
@@ -228,7 +228,7 @@ export default function AdminBusinessesPage() {
           {visible.length === 0 ? (
             <p style={{ padding: "var(--sp-5)", color: "var(--text-muted)", fontSize: 14 }}>
               {filter === "clients"
-                ? "No client accounts in this view. Click “+ Client” to onboard one."
+                ? "No client accounts in this view. Click “New client” to onboard one."
                 : `No ${FILTERS.find((f) => f.id === filter)?.label.toLowerCase()} accounts.`}
             </p>
           ) : (
