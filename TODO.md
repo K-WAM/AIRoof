@@ -1367,6 +1367,14 @@ an active queue.*
         paged 25 at a time. Dashboard "Agent Setup" panel removed (header pill opens Settings). Team: never crashes on an
         odd role, superadmin hidden + not a seat, cards on a phone; sidebar badge shows the user type. Documents format the
         customer phone. Test text to +1 825 488 7791 DELIVERED (Canadian number — US numbers still need NH-29).
+        **PUSHED + DEPLOYED 2026-09-28 ~7 PM PT** (crm.luxordev.com Ready, health ok). Gates on the final tree: vitest 1,596
+        (+2 known load-flakes green alone), next build ok, e2e:call 12/12, e2e:booking 7/7, Playwright: full run 110 passed then
+        the failures fixed + re-run (desktop 57/57 + smoke 34/34, phone 62/62). Live ElevenLabs: bookAppointment/createLead/
+        escalateCall schemas updated, addBookingNote created + attached (8 tools). Agent tests WITH the live per-call prompt
+        (fetched from the prod initiation webhook, no writes): 13/15; the 2 fails are date-bound tests (expect preferredDate
+        2026-09-28 for "Monday" — written on Sunday) → re-author them with an LLM date check. Outbound tests (confirm/voicemail)
+        need the outbound prompt section as their override — not re-run. NOTE for agent tests: the override must carry the
+        agent's whole prompt block (tool_ids, built_in_tools) or every tool test fails "no tool called".
         **Still open:** the Calendar shows each phone booking twice (left list + "Phone bookings" row) — keep one;
         the crew time picker lists 12:00 AM first for a round-the-clock tenant (fine for 24/7, odd for others).
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
