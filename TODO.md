@@ -1322,7 +1322,7 @@ an active queue.*
   - [x] **T-152 (I1, Deepseek V4.1 Flash, Thinking: Hard)** — **MERGED to local main 2026-09-28 (`ba885e3`) after an integrator review against plan §3; follow-ups fixed in T-154 (bounded block query, force comment). Not pushed yet.** Contracts (Step 0, merged first), cleanCallerName + nextOpeningLabel,
         time-blocks API (+ open-times), texting module OFF until NH-29, inspector notifications (assigned/moved/reassigned/cancelled),
         confirm route (text → email, inspector_busy 409 + force), post-call callSummary, bootstrap smsEnabled.
-  - [~] **T-153 (I2, Codex GPT-6 Sol medium) — BLOCKED 2026-09-28 on explicit bearer-feed risk approval (B5); all other screen work and gates are complete on `task/call-ux`.** — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
+  - [x] **T-153 (I2, Codex GPT-6 Sol medium) — MERGED to local main 2026-09-28 (`f74d6f7`, not pushed).** B5 (phone-calendar feed) was built by the integrator on a REDUCED exposure model instead of the spec's: the bearer link shows only time, "Inspection — Carla E.", the address and a sign-in link — no phone, notes, Access/URGENT or call summary (Codex rightly refused the original; widening it is an owner decision). Also fixed after review: a Crew-login inspector got no My schedule (crews GET refused Crew — now its own row only). — nav Dashboard → Calls → Pipeline; Pipeline Booked / Callbacks;
         Calls → "Booked · open in Pipeline"; "after hours" only when true; booking details everywhere; Inspector title + inspector rows
         + drag + blocks on the Calendar; "My schedule" + Block time on the Field screen; private .ics phone-calendar feed; "Tell them
         by: Text / Email / I'll call them".

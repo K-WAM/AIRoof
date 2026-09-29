@@ -14,6 +14,7 @@ import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/
 import type { Crew } from "@/types/library";
 import type { TimeBlock } from "@/types/schedule";
 import { BookingDetails, type BookingDetailsValue } from "@/components/appointments/BookingDetails";
+import { CalendarFeedLink } from "@/components/field/CalendarFeedLink";
 import {
   Check,
   ChevronDown,
@@ -700,6 +701,7 @@ function FieldPageContent() {
                   setBlockStart(local(start)); setBlockEnd(local(end)); setBlockFormOpen(true);
                 }}>＋ Block time</button>
               </div>
+              {businessId && <CalendarFeedLink businessId={businessId} />}
               {scheduleError && <p role="alert" style={{ color: "#fca5a5", fontSize: 12 }}>{scheduleError}</p>}
               {blockFormOpen && <div style={{ display: "grid", gap: 8, padding: 10, borderRadius: 10, background: "#0f172a", marginBottom: 10 }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{["Site visit", "Materials pickup", "Office", "Off"].map((label) => <button key={label} className={`button small${blockLabel === label ? " primary" : ""}`} type="button" onClick={() => setBlockLabel(label)}>{label}</button>)}</div>
