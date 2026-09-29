@@ -23,7 +23,7 @@ export function buildJobReportEmailHtml(input: {
   technicians?: string[];
   photos?: Array<JobPhotoMeta & { fullB64: string }>;
   /** The job's quote, loaded server-side. Only used when options.includeQuote is on AND it was sent/accepted (reportQuote.ts). */
-  quote?: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "sentAt" | "answeredAt"> | null;
+  quote?: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "priceMode" | "subtotal" | "sentAt" | "answeredAt"> | null;
 }): string {
   const brand = resolveLetterhead(input.business, input.logos);
   const sections = reportSections(input.parsed, input.options);

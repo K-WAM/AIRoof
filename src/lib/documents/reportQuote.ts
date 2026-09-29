@@ -1,6 +1,5 @@
 import type { DocumentOptions } from "@/types/documentOptions";
 import type { JobQuote } from "@/types/quote";
-import { quoteTotal } from "@/lib/billing/jobQuote";
 import { quoteGroups, type DocumentGroup } from "./groups";
 
 /** A quote is only shown to the customer once it has actually been sent to them (or they accepted it). */
@@ -22,7 +21,7 @@ export interface ReportQuoteSection {
  * quote's "on" (quoteGroups() alone would let it: it spreads report options over the quote's).
  */
 export function reportQuoteSection(
-  quote: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "sentAt" | "answeredAt"> | null | undefined,
+  quote: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "priceMode" | "subtotal" | "sentAt" | "answeredAt"> | null | undefined,
   options: Partial<DocumentOptions> | null | undefined,
   fmtDate: (ms: number) => string,
 ): ReportQuoteSection | null {
@@ -35,6 +34,6 @@ export function reportQuoteSection(
   return {
     heading: `Quote ${quote.quoteId} · ${accepted ? "Accepted" : "Sent"}${at ? ` ${fmtDate(at)}` : ""}`,
     groups,
-    total: quoteTotal(quote.lines),
+    total: quote.subtotal,
   };
 }

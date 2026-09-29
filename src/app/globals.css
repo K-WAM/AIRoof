@@ -3085,3 +3085,15 @@ a.metric:hover {
 .job-tab-group-label { align-self: center; flex: none; padding: 0 var(--sp-2, 8px); font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
 .job-tabs-grouped .job-tab { flex: none; }
 @media (max-width: 640px) { .job-tabs-grouped { width: 100%; } }
+.customer-version-panel { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--sp-4, 16px); display: grid; gap: var(--sp-3, 12px); margin-bottom: var(--sp-4, 16px); background: var(--surface-muted); }
+.customer-version-panel__top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-2, 8px); }
+.customer-version-panel__top h3 { margin: 0; font-size: 17px; }
+.customer-version-panel__top strong { font-size: 18px; }
+.customer-version-panel .segmented-control { display: flex; flex-wrap: wrap; width: fit-content; max-width: 100%; }
+.customer-version-panel .segment { min-height: var(--control-h, 44px); }
+.customer-version-panel label { display: grid; gap: var(--sp-2, 8px); font-weight: 600; }
+.customer-version-panel input[type='number'] { max-width: 220px; min-height: var(--control-h, 44px); }
+.customer-version-panel__check { display: flex !important; align-items: center; font-weight: 400 !important; }
+.customer-version-panel__internal { font-size: 13px; color: var(--text-muted); }
+.customer-version-panel p { margin: 0; font-size: 13px; }
+@media (max-width: 640px) { .customer-version-panel .segmented-control { width: 100%; } .customer-version-panel .segment { flex: 1 1 100%; text-align: left; } .quote-panel-body input[aria-label='Quantity'], .quote-panel-body input[aria-label='Unit price'] { min-width: 92px; min-height: var(--control-h, 44px); } }

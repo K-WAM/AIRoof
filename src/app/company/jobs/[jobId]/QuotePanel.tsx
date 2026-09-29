@@ -12,6 +12,8 @@ import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
+import { customerTotals } from "@/lib/billing/jobCustomerTotals";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useFormat } from "@/hooks/useFormat";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
@@ -69,16 +71,18 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const [cSolution, setCSolution] = useState("");
   const [cPrice, setCPrice] = useState("");
   const [cSave, setCSave] = useState(false);
+  const [projectPriceAnchor, setProjectPriceAnchor] = useState<number | undefined>();
   const version = useRef(0);
   const autoCreated = useRef(false);
   const creating = useRef<Promise<JobQuote | null> | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const draft = quote?.status === "draft" && !readOnly;
 
   useEffect(() => {
     let live = true;
     fetch(`/api/jobs/${job.jobId}/quote?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: { quote: JobQuote | null }) => { if (live) setQuote(d.quote); })
+      .then((d: { quote: JobQuote | null }) => { if (live) { setQuote(d.quote); setProjectPriceAnchor(d.quote?.calculatedSubtotal); } })
       .catch(() => { if (live) setError("Could not load quote"); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
@@ -135,6 +139,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
         body: JSON.stringify({
           businessId, lines: quote.lines, findings: quote.findings, notes: quote.notes ?? "", hideMaterials: quote.hideMaterials,
           hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true, technicians: quote.technicians ?? [],
+          priceMode: quote.priceMode ?? "lines", customerSubtotal: quote.customerSubtotal, adjustmentNote: quote.adjustmentNote ?? "",
           narrative: quote.narrative ?? "", photoIds: selectedDocumentPhotoIds(photos, quote.photoIds),
           // The server refuses a past date; an old quote keeps its stored date instead of failing every autosave.
           ...(quote.validUntil > Date.now() ? { validUntil: quote.validUntil } : {}),
@@ -217,7 +222,10 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
   const groups = useMemo(() => (quote ? groupQuoteItems(quote) : []), [quote]);
   const addedItemIds = useMemo(() => new Set((quote?.findings ?? []).flatMap((f) => (f.itemId ? [f.itemId] : []))), [quote?.findings]);
-  const total = quote ? quoteTotal(quote.lines) : 0;
+  const lineSubtotal = quote ? quoteTotal(quote.lines) : 0;
+  const quoteAmounts = quote ? customerTotals({ kind: "quote", lineSubtotal, priceMode: quote.priceMode, customerSubtotal: quote.customerSubtotal }) : null;
+  const total = quoteAmounts?.total ?? 0;
+  const customerQuote = quote && quoteAmounts ? { ...quote, subtotal: quoteAmounts.subtotal, total } : null;
 
   if (loading) return <section className="panel"><div className="panel-body">Loading quote…</div></section>;
 
@@ -292,6 +300,10 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
           </div>
         </div>
+        <CustomerVersionPanel draft={!!draft} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
+          lineSubtotal={lineSubtotal} savedLineSubtotal={projectPriceAnchor} customerSubtotal={quote.customerSubtotal} customerTotal={total}
+          adjustmentNote={quote.adjustmentNote} onChange={(patch) => { if (patch.customerSubtotal !== undefined) setProjectPriceAnchor(lineSubtotal); change(patch); }}
+          onPreview={() => { previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); previewRef.current?.focus(); }} />
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {draft && <>
             <input aria-label="Quote recipient email" type="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Customer email" style={{ flex: "1 1 220px" }} />
@@ -385,9 +397,9 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
           </div>
         </details>
 
-        <div className="quote-preview-wrap"><h3 className="no-print">Customer preview</h3><DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
+        <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3><DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
-          billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(quote)} totalLabel="Estimated Total" total={total}
+          billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} /></div>
         <label className="no-print">Notes<textarea disabled={!draft} value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>

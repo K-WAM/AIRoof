@@ -102,6 +102,21 @@ describe("job quote routes", () => {
     expect(state.docs.get("businesses/b/quotes/Q-1000")).toMatchObject({ hideMaterials: true, hideLabor: true, showTechnicians: true, technicians: ["Roofer"], narrative: "Repair completed." });
   });
 
+  it("validates draft project price and keeps the line total separate from the customer total", async () => {
+    await POST(bodyReq("quote", { businessId: "b" }), context);
+    for (const customerSubtotal of [null, "130", -1, 10_000_000.01, 1.001]) {
+      expect((await PATCH(bodyReq("quote", { businessId: "b", priceMode: "project", customerSubtotal }, "PATCH"), context)).status).toBe(400);
+    }
+    const saved = await PATCH(bodyReq("quote", { businessId: "b", priceMode: "project", customerSubtotal: 130.25, adjustmentNote: "Office adjustment" }, "PATCH"), context);
+    expect(saved.status).toBe(200);
+    expect(state.docs.get("businesses/b/quotes/Q-1000")).toMatchObject({ calculatedSubtotal: 100, subtotal: 130.25, total: 130.25, adjustmentNote: "Office adjustment" });
+    const revised = await PATCH(bodyReq("quote", { businessId: "b", lines: [{ lineId: "f", kind: "labor", description: "Extra work", quantity: 1, unitPrice: 175 }] }, "PATCH"), context);
+    expect(revised.status).toBe(200);
+    expect(state.docs.get("businesses/b/quotes/Q-1000")).toMatchObject({ calculatedSubtotal: 175, subtotal: 130.25, total: 130.25 });
+    expect((await SEND(bodyReq("quote/send", { businessId: "b", to: "client@example.com" }), context)).status).toBe(200);
+    expect((await PATCH(bodyReq("quote", { businessId: "b", customerSubtotal: 100 }, "PATCH"), context)).status).toBe(409);
+  });
+
   it("rejects cross-job, cross-tenant, over-limit, duplicate, and deleted photo ids with clear 400s", async () => {
     await POST(bodyReq("quote", { businessId: "b" }), context);
     const current = { photoId: "current", label: "Current job", thumbB64: "thumb", createdAt: 1, includeInReport: true };

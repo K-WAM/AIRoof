@@ -11,7 +11,9 @@ import type { LibraryPricing, LibraryLogo } from "@/types/library";
 import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
-import { computeTotals, canSendInvoice } from "./jobInvoice";
+import { canSendInvoice } from "./jobInvoice";
+import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
@@ -173,6 +175,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [otherRows, setOtherRows] = useState<OtherRow[]>([]);
   const [taxRate, setTaxRate] = useState("0");
+  const [invoiceDiscount, setInvoiceDiscount] = useState<JobInvoice["discount"]>();
   const [invoiceNotes, setInvoiceNotes] = useState("");
   const [invoiceOpening, setInvoiceOpening] = useState("");
   const [invoiceClosing, setInvoiceClosing] = useState("");
@@ -194,6 +197,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [markingPaid, setMarkingPaid] = useState(false);
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
+  const [invoicePriceMode, setInvoicePriceMode] = useState<"lines" | "project">("lines");
+  const [invoiceCustomerSubtotal, setInvoiceCustomerSubtotal] = useState<number | undefined>();
+  const [invoiceCalculatedSubtotal, setInvoiceCalculatedSubtotal] = useState<number | undefined>();
+  const [invoiceAdjustmentNote, setInvoiceAdjustmentNote] = useState("");
+  const invoicePreviewRef = useRef<HTMLDivElement>(null);
   const [showTechnicians, setShowTechnicians] = useState(false);
   const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
@@ -449,8 +457,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setMaterialRows(materialLinesToRows(inv.materials));
         setOtherRows(otherLinesToRows(inv.other));
         setTaxRate(String(inv.taxRate));
+        setInvoiceDiscount(inv.discount);
         setHideMaterials(inv.hideMaterials);
         setHideLabor(inv.hideLabor === true);
+        setInvoicePriceMode(inv.priceMode ?? "lines");
+        setInvoiceCustomerSubtotal(inv.customerSubtotal);
+        setInvoiceCalculatedSubtotal(inv.calculatedSubtotal);
+        setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
         setShowTechnicians(inv.showTechnicians === true);
         setInvoicePhotoIds(inv.photoIds);
         setTechnicians(inv.technicians ?? []);
@@ -549,8 +562,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setMaterialRows(materialLinesToRows(inv.materials));
       setOtherRows(otherLinesToRows(inv.other));
       setTaxRate(String(inv.taxRate));
+      setInvoiceDiscount(inv.discount);
       setHideMaterials(inv.hideMaterials);
       setHideLabor(inv.hideLabor === true);
+      setInvoicePriceMode(inv.priceMode ?? "lines");
+      setInvoiceCustomerSubtotal(inv.customerSubtotal);
+      setInvoiceCalculatedSubtotal(inv.calculatedSubtotal);
+      setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
       setShowTechnicians(inv.showTechnicians === true);
       setInvoicePhotoIds(inv.photoIds);
       setTechnicians(inv.technicians ?? []);
@@ -791,12 +809,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }
   // The exact same computeTotals the server's PATCH handler runs — client preview and persisted
   // totals can never drift apart. Pure/O(rows); safe on every render, no memo needed.
-  const { laborSubtotal, materialSubtotal, subtotal, taxAmount: tax, total: grandTotal } = computeTotals({
+  const { laborSubtotal, materialSubtotal, otherSubtotal, calculatedSubtotal, subtotal, taxAmount: tax, total: grandTotal } = customerTotals({ kind: "invoice", invoice: {
     labor: laborRowsToLines(laborRows),
     materials: materialRowsToLines(materialRows),
     other: otherRowsToLines(otherRows),
     taxRate: parseFloat(taxRate) || 0,
-  });
+    discount: invoiceDiscount,
+  }, priceMode: invoicePriceMode, customerSubtotal: invoiceCustomerSubtotal });
 
   // Autosave (debounced 1200ms) — PATCH only while a real draft invoice exists; the server
   // itself refuses a PATCH once status !== "draft", and this mirrors that so an edit after
@@ -821,6 +840,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               taxRate: parseFloat(taxRate) || 0,
               hideMaterials,
               hideLabor,
+              priceMode: invoicePriceMode,
+              customerSubtotal: invoiceCustomerSubtotal,
+              adjustmentNote: invoiceAdjustmentNote,
               showTechnicians,
               photoIds: selectedDocumentPhotoIds(photos, invoicePhotoIds),
               technicians,
@@ -844,7 +866,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -916,7 +938,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const defaultLogo = pickDefaultLogo(logos);
   const invoiceLogoSrc = defaultLogo ? logoDataUri(defaultLogo) : businessConfig?.logoUrl;
   const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos);
-  const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, hideMaterials, hideLabor } as JobInvoice;
+  const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, discount: invoiceDiscount, hideMaterials, hideLabor, priceMode: invoicePriceMode, subtotal, total: grandTotal, laborSubtotal, materialSubtotal, otherSubtotal } as JobInvoice;
 
   return (
     <>
@@ -1422,6 +1444,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
+                lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
+                adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
+                onChange={(patch) => {
+                  if (patch.priceMode !== undefined) setInvoicePriceMode(patch.priceMode);
+                  if (patch.hideMaterials !== undefined) setHideMaterials(patch.hideMaterials);
+                  if (patch.hideLabor !== undefined) setHideLabor(patch.hideLabor);
+                  if (patch.customerSubtotal !== undefined) { setInvoiceCustomerSubtotal(patch.customerSubtotal); setInvoiceCalculatedSubtotal(calculatedSubtotal); }
+                  if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
+                }}
+                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
@@ -1481,7 +1514,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   🔒 {invoiceStatus === "paid"
                     ? `Paid${invoiceMeta.paidAt ? ` on ${fmt.fmtDayTime(invoiceMeta.paidAt)}` : ""}.`
                     : `Sent${invoiceMeta.sentTo ? ` to ${invoiceMeta.sentTo}` : ""}${invoiceMeta.sentAt ? ` on ${fmt.fmtDayTime(invoiceMeta.sentAt)}` : ""}.`}
-                  {" "}This invoice is locked: new field updates or edits on the job won&apos;t change it.
+                  {" "}This invoice is locked: new field updates or edits on the job won&apos;t change it. Create a new quote after talking to the customer.
                 </div>
               )}
 
@@ -1859,7 +1892,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   )}
                 </div>
               </fieldset>
-              <div style={{ marginTop: 24 }}>
+              <div style={{ marginTop: 24 }} ref={invoicePreviewRef} tabIndex={-1}>
                 <h3 className="no-print">Customer preview</h3>
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
@@ -1916,7 +1949,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               </div>
 
               <details className="no-print" style={{ marginBottom: 16 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
                   <DocumentOptionToggles values={reportOptions}
                     keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}

@@ -6,13 +6,14 @@ import { computeTotals } from "@/app/company/jobs/[jobId]/jobInvoice";
 import { quoteTotal } from "@/lib/billing/jobQuote";
 
 export interface DocumentRow { item?: string; description: string; detail?: string; quantity?: number; unitPrice?: number; amount: number }
-export interface DocumentGroup { title: "Labor" | "Materials" | "Other"; rows: DocumentRow[]; subtotal: number }
+export interface DocumentGroup { title: "Labor" | "Materials" | "Other" | "Project price"; rows: DocumentRow[]; subtotal: number }
 
 function collapse(title: DocumentGroup["title"], rows: DocumentRow[], subtotal: number, hidden: boolean): DocumentGroup {
   return { title, rows: hidden && rows.length ? [{ description: title, amount: subtotal }] : rows, subtotal };
 }
 
 export function invoiceGroups(invoice: JobInvoice, options?: Partial<DocumentOptions>): DocumentGroup[] {
+  if (invoice.priceMode === "project") return [{ title: "Project price", rows: [{ description: "Project price", amount: invoice.subtotal }], subtotal: invoice.subtotal }];
   const flags = normalizeDocumentOptions({ ...invoice, ...options });
   const totals = computeTotals(invoice);
   return [
@@ -23,6 +24,7 @@ export function invoiceGroups(invoice: JobInvoice, options?: Partial<DocumentOpt
 }
 
 export function quoteGroups(quote: JobQuote, options?: Partial<DocumentOptions>): DocumentGroup[] {
+  if (quote.priceMode === "project") return [{ title: "Project price", rows: [{ description: "Project price", amount: quote.subtotal }], subtotal: quote.subtotal }];
   const flags = normalizeDocumentOptions({ ...quote, ...options });
   const byKind = (kind: JobQuote["lines"][number]["kind"]) => quote.lines.filter((line) => line.kind === kind);
   return (["labor", "material", "other"] as const).map((kind) => {

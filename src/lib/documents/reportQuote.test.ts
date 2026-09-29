@@ -5,7 +5,7 @@ import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const quote = {
   quoteId: "Q-1000", status: "accepted" as const, sentAt: Date.UTC(2026, 8, 24), answeredAt: Date.UTC(2026, 8, 25),
-  hideMaterials: false, hideLabor: false,
+  hideMaterials: false, hideLabor: false, subtotal: 960,
   lines: [
     { lineId: "l1", kind: "labor" as const, description: "Roof mechanic", quantity: 8, unit: "hours", unitPrice: 75 },
     { lineId: "m1", kind: "material" as const, description: "Architectural shingles", quantity: 12, unit: "bundles", unitPrice: 30 },
