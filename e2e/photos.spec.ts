@@ -23,7 +23,7 @@ async function orderOf(owner: Awaited<ReturnType<typeof api>>, jobId: string): P
 async function openPhotos(page: import("@playwright/test").Page, jobId: string) {
   await page.goto(`/company/jobs/${jobId}`);
   await settle(page);
-  await page.getByRole("button", { name: /^Photos/ }).click();
+  await page.getByTestId("job-tab-photos").click(); // T-161: job sections are tabs now
   await settle(page);
 }
 
@@ -53,7 +53,7 @@ test.describe("Photos tab", () => {
 
     await page.reload();
     await settle(page);
-    await page.getByRole("button", { name: /^Photos/ }).click();
+    await page.getByTestId("job-tab-photos").click(); // T-161: job sections are tabs now
     await settle(page);
     const shown = await page.getByRole("button", { name: /^Reorder / }).evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")?.replace("Reorder ", "")));
     expect(shown, "the page shows the saved order after a reload").toEqual(await orderOf(owner, jobId));

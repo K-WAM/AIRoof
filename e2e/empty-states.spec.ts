@@ -20,7 +20,8 @@ async function resetEmptyTenant() {
 
 /** The EmptyState with this testId is visible, has this title, and (optionally) this one primary action. */
 async function expectEmpty(page: Page, testId: string, title: RegExp, primary?: string | RegExp) {
-  const state = page.getByTestId(testId);
+  // Some screens render a phone copy and a desktop copy of the same state (one is hidden) — check the one on screen.
+  const state = page.getByTestId(testId).filter({ visible: true }).first();
   await expect(state).toBeVisible();
   await expect(state.getByRole("heading", { name: title })).toBeVisible();
   if (primary) await expect(state.locator(".button.primary")).toHaveText(primary);
@@ -46,7 +47,7 @@ test("every empty screen says what goes there and offers one next step", async (
   const page = await as("emptyOwner");
 
   await visit(page, "/company/dashboard");
-  await expect(page.getByRole("heading", { name: /Get your business ready — \d\/7/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Get your business ready — \d of \d+ done/ })).toBeVisible(); // T-164
   await expect(page.getByTestId("setup-checklist").locator(".button.primary")).toHaveCount(1);
   await check(page, "dashboard");
 
@@ -112,7 +113,7 @@ test("every empty screen says what goes there and offers one next step", async (
   await check(page, "team");
 
   await visit(page, "/company/field");
-  const fieldTitle = page.getByTestId("field-empty").getByRole("heading", { name: "No jobs for you today" });
+  const fieldTitle = page.getByTestId("field-empty").getByRole("heading", { name: "No job assigned to you today" }); // T-164 wording
   await expect(fieldTitle).toBeVisible();
   // The field screen is dark: "visible" is not enough, the title must actually be light enough to read.
   const titleColor = await fieldTitle.evaluate((el) => getComputedStyle(el).color);
@@ -152,18 +153,21 @@ test("a new job's tabs each explain themselves", async ({ as }) => {
 test("the setup checklist counts up when the owner loads example prices", async ({ as }) => {
   const page = await as("emptyOwner");
   await visit(page, "/company/dashboard");
-  const heading = page.getByRole("heading", { name: /Get your business ready — \d\/7/ });
-  const before = Number((await heading.innerText()).match(/(\d)\/7/)?.[1]);
+  // T-164: "Get your business ready — N of M done", showing only the next step until "Show all steps".
+  const heading = page.getByRole("heading", { name: /Get your business ready — \d+ of \d+ done/ });
+  const [, before, total] = (await heading.innerText()).match(/(\d+) of (\d+) done/)!.map(Number);
 
   // The checklist's own link lands on the exact place that fixes the item.
-  await page.getByTestId("setup-checklist").getByRole("link", { name: "Add prices" }).click();
+  const addPrices = page.getByTestId("setup-checklist").getByRole("link", { name: "Add prices" });
+  if (!(await addPrices.isVisible())) await page.getByRole("button", { name: "Show all steps" }).click();
+  await addPrices.click();
   await page.waitForURL(/\/company\/library\?section=pricing/);
   await settle(page);
   await page.getByTestId("library-pricing-empty").getByRole("button", { name: "Load example prices" }).click();
   await expect(page.getByRole("heading", { name: "Material prices" })).toBeVisible({ timeout: 15_000 });
 
   await visit(page, "/company/dashboard");
-  await expect(page.getByRole("heading", { name: new RegExp(`Get your business ready — ${before + 1}/7`) })).toBeVisible();
+  await expect(page.getByRole("heading", { name: new RegExp(`Get your business ready — ${before + 1} of ${total} done`) })).toBeVisible();
   await shot(page, "empty-dashboard-after-prices");
 });
 

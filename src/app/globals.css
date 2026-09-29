@@ -3075,7 +3075,7 @@ a.metric:hover {
 @keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }
 
-/* ?? Phase 32 · D ?? */
+/* ?? Phase 32 ï¿½ D ?? */
 
 /* Touch targets: every button and text-like form control grows to the shared
    44px control height only on coarse pointers; desktop density is unchanged. */
@@ -3322,7 +3322,7 @@ a.metric:hover {
     margin-top: var(--sp-2);
   }
   /* Row actions stay on one line inside the card; the deciding fields remain
-     (Usage: Company · Phone line · Calls · Booking), the rest collapse. */
+     (Usage: Company ï¿½ Phone line ï¿½ Calls ï¿½ Booking), the rest collapse. */
   .business-table[data-responsive] .hide-phone { display: none; }
 }
 
@@ -3517,3 +3517,12 @@ a.metric:hover {
 .settings-unsaved { color: var(--c-warn-fg); }
 .settings-advanced { display: grid; gap: var(--sp-4, 16px); }
 @media (max-width: 640px) { .settings-phase32-layout { display: block; } .settings-section-list { display: none; } .settings-jump-phone { display: grid; gap: var(--sp-2, 8px); margin-bottom: var(--sp-4, 16px); } .settings-jump-phone select { min-height: var(--control-h, 44px); } }
+
+/* â”€â”€ Phase 32 Â· integration â”€â”€ */
+/* A closed disclosure (the More menus, Team â†’ More) takes no space: its hidden panel used to be laid out past the right
+   edge of Jobs (desktop) and Team (phone) and failed the no-sideways-scroll check. */
+details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. .team-more .panel-body { display: grid } */
+.c1-more-menu[open] > .c1-more-actions { max-width: calc(100vw - 32px); }
+.team-role-list { margin: 0; display: grid; gap: var(--sp-3, 12px); }
+.team-role-list dt { font-weight: 600; }
+.team-role-list dd { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }

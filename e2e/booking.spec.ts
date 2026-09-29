@@ -64,14 +64,26 @@ async function findOnCalendar(page: import("@playwright/test").Page, callerName:
   for (let week = 0; week <= 20; week++) {
     const visible = await page
       .getByText(callerName)
+      .filter({ visible: true })
       .first()
       .waitFor({ state: "visible", timeout: 2_000 })
       .then(() => true)
       .catch(() => false);
     if (visible) return true;
-    const next = page.getByRole("button", { name: "Next week" });
-    if ((await next.count()) === 0) return false;
-    await next.click();
+    // Desktop pages by week; a phone's day agenda (T-162) pages by day and loads each week as it goes.
+    const nextWeek = page.getByRole("button", { name: "Next week" });
+    if (await nextWeek.isVisible()) {
+      await nextWeek.click();
+    } else {
+      const nextDay = page.getByRole("button", { name: "Next day" });
+      if (!(await nextDay.isVisible())) return false;
+      for (let d = 0; d < 7; d++) {
+        if (await page.getByText(callerName).filter({ visible: true }).first().isVisible()) return true;
+        await nextDay.click();
+        await settle(page, 300);
+      }
+      continue;
+    }
     await settle(page, 400);
   }
   return false;

@@ -179,9 +179,9 @@ export default function JobsPage() {
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
         <div className="c1-page-actions">
-          {/* The empty state retains its own new-job action for an empty list. */}
+          {/* While the list is empty its EmptyState holds the one primary action (T-144); otherwise New job is primary (T-164). */}
           {!readOnly && (
-            <button className="button primary" onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button className={`button${listEmpty ? "" : " primary"}`} onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               {!showForm && <Plus size={15} strokeWidth={1.75} />}
               {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
             </button>

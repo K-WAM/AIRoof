@@ -638,6 +638,13 @@ export default function CalendarBoard() {
     );
   }
 
+  // The phone agenda walks day by day, but bookings, blocks and time are loaded one week at a time (weekStart). Moving
+  // the agenda into another week must load that week too, or a booked day would show "No bookings".
+  const stepAgenda = (delta: number) => {
+    const next = addDays(agendaDay, delta);
+    setAgendaDay(next);
+    if (next < weekStart || next >= addDays(weekStart, 7)) setWeekStart(startOfWeek(next));
+  };
   const rangeLabel = `${MONTHS[weekStart.getMonth()]} ${weekStart.getDate()} – ${MONTHS[days[days.length - 1].getMonth()]} ${days[days.length - 1].getDate()}`;
 
   return (
@@ -682,12 +689,19 @@ export default function CalendarBoard() {
 
       <section className="c1-calendar-agenda panel" aria-label="Day agenda">
         <div className="panel-header c1-agenda-header">
-          <button type="button" className="button small" aria-label="Previous day" onClick={() => setAgendaDay(addDays(agendaDay, -1))}><ChevronLeft size={16} /></button>
+          <button type="button" className="button small" aria-label="Previous day" onClick={() => stepAgenda(-1)}><ChevronLeft size={16} /></button>
           <strong>{agendaDay.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</strong>
-          <button type="button" className="button small" aria-label="Next day" onClick={() => setAgendaDay(addDays(agendaDay, 1))}><ChevronRight size={16} /></button>
+          <button type="button" className="button small" aria-label="Next day" onClick={() => stepAgenda(1)}><ChevronRight size={16} /></button>
         </div>
         <div className="panel-body c1-agenda-list">
-          {crews.length === 0 && <p>Add a {vocab.resourceNoun.toLowerCase()} in <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`}>Library</Link> to assign bookings.</p>}
+          {/* Same next step as the desktop board: an empty agenda with nothing to assign to is a locked door (T-144). */}
+          {crews.length === 0 && <EmptyState
+            icon={Users}
+            title={`Add your first ${vocab.resourceNoun.toLowerCase()}`}
+            body={readOnly ? `Ask the owner to add your ${vocab.resourceNounPlural.toLowerCase()}.` : `Then assign ${apptMode ? "bookings" : vocab.jobNounPlural.toLowerCase()} to their day here.`}
+            action={readOnly ? undefined : { label: `Add ${vocab.resourceNoun.toLowerCase()}`, onClick: () => openQuickAdd("crew") }}
+            testId="calendar-no-resources"
+          />}
           {!apptMode && jobs.filter((job) => !job.scheduledStart || !job.assignedCrewId).map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
             <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
             {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
@@ -1228,7 +1242,7 @@ function PhoneBookingChip({ appt, tz, pending, previewSuffix }: { appt: Appointm
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `phone-strip:${appt.appointmentId}` });
   return (
     <div ref={setNodeRef} style={{ position: "relative", transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.5 : 1 }}>
-      <button type="button" {...listeners} {...attributes} style={{ width: "100%", textAlign: "left", cursor: "grab", touchAction: "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
+      <button type="button" {...listeners} {...attributes} data-testid={`phone-booking-${appt.appointmentId}`} style={{ width: "100%", textAlign: "left", cursor: "grab", touchAction: "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
         <GripVertical size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
         <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</strong> {appt.callerName ?? "Booking"}
       </button>

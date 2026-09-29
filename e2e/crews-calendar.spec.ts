@@ -153,13 +153,20 @@ test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149
 
   await page.goto("/company/calendar");
   await settle(page);
-  await page.getByRole("button", { name: "Next week" }).click();
-  await settle(page);
-  await page.getByTestId(`calendar-cell-${crewId}-${day}`).getByRole("button", { name: "Change time", exact: true }).click();
+  // T-162: a phone gets a day agenda; step forward to that Tuesday (the agenda loads each week as it goes).
+  const agenda = page.getByRole("region", { name: "Day agenda" });
+  const item = agenda.locator(".c1-agenda-item").filter({ hasText: title });
+  for (let i = 0; i < 14 && !(await item.isVisible()); i++) {
+    await page.getByRole("button", { name: "Next day" }).click();
+    await settle(page, 300);
+  }
+  await item.getByRole("button", { name: "Change time", exact: true }).click();
   const picker = page.getByTestId("calendar-slot-picker");
   await expect(picker).toBeInViewport();
-  const box = (await picker.boundingBox())!;
-  expect(box.width).toBeGreaterThan(360); // full-width sheet, not a clipped 320 px popover
+  // The picker sits inside the shared bottom Sheet (T-158); the sheet spans the phone, not a clipped 320 px popover.
+  const sheet = page.getByRole("dialog").filter({ has: picker });
+  const box = (await sheet.boundingBox())!;
+  expect(box.width).toBeGreaterThan(360);
   await shot(page, "calendar-change-time-sheet");
   await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${crewId}`);
 });
@@ -170,11 +177,10 @@ test("Team: type help, the Inspector type and Disable (T-150, T-155)", async ({ 
   await page.goto("/company/team");
   await settle(page);
   await expect(page.getByText("sam@", { exact: false }).or(page.getByText("staff@roofing.e2e.test"))).toBeVisible();
-  await page.getByRole("button", { name: "What each type can do" }).first().click();
-  await expect(page.getByRole("dialog", { name: "What each type can do" })).toContainText("their own schedule");
+  await page.getByRole("button", { name: "What each role can do" }).first().click(); // T-168
+  await expect(page.getByRole("dialog", { name: "What each role can do" })).toContainText("their own schedule");
   await shot(page, "team-role-help");
   await page.keyboard.press("Escape");
-  await page.mouse.click(5, 5);
   await expect(page.getByRole("button", { name: "Lock" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Disable" }).first()).toBeVisible();
   await expect(page.getByLabel("Crew for staff@roofing.e2e.test")).toBeAttached();

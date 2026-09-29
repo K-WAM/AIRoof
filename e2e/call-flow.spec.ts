@@ -73,12 +73,15 @@ test("call → booked → inspector schedule follows the real workflow", async (
   });
 
   if (testInfo.project.name === "phone") {
-    const shortcuts = owner.getByRole("navigation", { name: "Mobile workflow shortcuts" });
-    await expect(shortcuts.getByRole("link")).toHaveCount(4);
-    await expect(shortcuts.getByRole("link").nth(0)).toHaveAttribute("aria-label", "Calls");
-    await expect(shortcuts.getByRole("link").nth(1)).toHaveAttribute("aria-label", "Calendar");
-    await expect(shortcuts.getByRole("link").nth(2)).toHaveAttribute("aria-label", "Jobs");
-    await expect(shortcuts.getByRole("link").nth(3)).toHaveAttribute("aria-label", "Library");
+    // T-159: no icon-only shortcuts — a labelled "New" and a labelled "Menu" that lists every route in workflow order.
+    await expect(owner.getByRole("navigation", { name: "Mobile workflow shortcuts" })).toHaveCount(0);
+    await expect(owner.getByRole("button", { name: /New/ }).first()).toBeVisible();
+    await owner.getByRole("button", { name: "Open menu" }).click();
+    const menu = owner.locator("#company-mobile-nav");
+    await expect(menu).toBeVisible();
+    const menuLabels = (await menu.getByRole("link").allTextContents()).map((label) => label.trim());
+    expect(menuLabels.filter((label) => ["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"].includes(label))).toEqual(["Dashboard", "Calls", "Pipeline", "Calendar", "Jobs", "Field", "Customers", "Library"]);
+    await owner.keyboard.press("Escape");
   } else {
     const nav = owner.locator('nav[aria-label="Company navigation"]').first();
     const labels = await nav.getByRole("link").allTextContents();
@@ -90,8 +93,11 @@ test("call → booked → inspector schedule follows the real workflow", async (
   await expect(owner.getByRole("button", { name: /Booked/ })).toHaveAttribute("aria-pressed", "true");
   const firstBooking = owner.locator(".appt-card").filter({ hasText: firstName });
   await expect(firstBooking).toBeVisible();
-  await expect(firstBooking.getByText("Access: gate 1010", { exact: true })).toBeVisible();
-  await expect(firstBooking.getByText("From the call", { exact: true })).toBeVisible();
+  // The card renders its details once for phone and once for desktop (one is hidden) — check the one on screen.
+  // On a phone the card leads with the deciding fields; notes are behind its labelled Details expander (T-162).
+  if (testInfo.project.name === "phone") await firstBooking.getByText("Details", { exact: true }).filter({ visible: true }).first().click();
+  await expect(firstBooking.getByText("Access: gate 1010", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(firstBooking.getByText("From the call", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
   const created = await api(owner, "POST", "/api/company/crews", { businessId: BUSINESS_ID, name: inspectorName, email: "dominic@inspector.e2e.test", kind: "inspector" });
   expect(created.ok, JSON.stringify(created.data)).toBeTruthy();
@@ -121,7 +127,8 @@ test("call → booked → inspector schedule follows the real workflow", async (
       .find((appointment) => appointment.callerName === firstName);
     expect(firstAppointment).toBeTruthy();
     owner.once("dialog", (dialog) => dialog.accept());
-    await dragTo(owner, `unassigned-appointment-${firstAppointment!.appointmentId}`, `calendar-cell-${inspectorId}-${moved.key}`);
+    // T-160: an unassigned booking shows once, in the Phone bookings row — drag it from there.
+    await dragTo(owner, `phone-booking-${firstAppointment!.appointmentId}`, `calendar-cell-${inspectorId}-${moved.key}`);
     await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${moved.key}`).getByText(firstName, { exact: true })).toBeVisible();
     await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${second.key}`).getByText(secondName, { exact: true })).toBeVisible();
 

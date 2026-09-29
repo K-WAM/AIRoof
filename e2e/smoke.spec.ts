@@ -39,16 +39,22 @@ for (const { role, label, paths } of SWEEP) {
 }
 
 test.describe("industry gating", () => {
-  test("roofing shows Jobs, dental does not", async ({ as }) => {
+  test("roofing shows Jobs, dental does not", async ({ as }, testInfo) => {
+    // On a phone the routes live in the Menu (T-159), not in header shortcuts.
+    const openNav = async (page: import("@playwright/test").Page) => {
+      if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
+    };
     const roofing = await as("owner");
     await roofing.goto("/company/dashboard");
     await settle(roofing);
-    await expect(roofing.getByRole("link", { name: /^Jobs$/ }).first()).toBeVisible();
+    await openNav(roofing);
+    await expect(roofing.getByRole("link", { name: /^Jobs$/ }).filter({ visible: true }).first()).toBeVisible();
     const dental = await as("dentalOwner");
     await dental.goto("/company/dashboard");
     await settle(dental);
+    await openNav(dental);
     await expect(dental.getByRole("link", { name: /^Jobs$/ })).toHaveCount(0);
-    await expect(dental.getByRole("link", { name: /Calendar/ }).first()).toBeVisible();
+    await expect(dental.getByRole("link", { name: /Calendar/ }).filter({ visible: true }).first()).toBeVisible();
   });
 
   test("a client owner is not shown the admin shell", async ({ as }) => {

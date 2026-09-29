@@ -42,15 +42,17 @@ test("the request is in the Pipeline; Review request opens the card; Confirm ema
   await page.goto("/company/pipeline");
   await settle(page);
   await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
-  const card = page.getByText(caller.name).first().locator("xpath=ancestor::*[.//button[normalize-space()='Create Job']][1]");
+  const card = page.locator(".appt-card").filter({ hasText: caller.name }).first();
   await expect(card).toBeVisible();
-  await expect(card.getByText("New request")).toBeVisible();
+  await expect(card.getByText("New request").filter({ visible: true }).first()).toBeVisible();
   await shot(page, "pipeline-new-request");
 
-  await card.getByRole("button", { name: "Review request" }).click();
+  // T-164: a booking waiting for the office leads with Confirm; the full request review lives under More.
+  await card.getByText("More", { exact: true }).click();
+  await card.getByRole("button", { name: "Review details" }).click();
   await settle(page);
   await shot(page, "pipeline-review-card");
-  await expect(page.getByText(caller.email).first()).toBeVisible();
+  await expect(page.getByText(caller.email).filter({ visible: true }).first()).toBeVisible();
 
   await page.keyboard.press("Escape");
   // The button names what will happen: "Confirm & email + text" / "Confirm & email" / "Confirm & text" / "Confirm".
@@ -88,7 +90,7 @@ test("the API scenario finishes the job: field note, photos, quote, report, invo
   await settle(page);
   await expect(page.getByText(/Invoiced|Paid/i).first()).toBeVisible();
   for (const tab of [/^Activity/, /^Photos/, /^Materials/, /^Labor/, /Findings/, /Quote/, /Report/, /Invoice/]) {
-    await page.getByRole("button", { name: tab }).first().click();
+    await page.getByRole("tab", { name: tab }).first().click(); // T-161: job sections are tabs now
     await settle(page, 500);
     await shot(page, `job-tab-${String(tab).replace(/[^a-z]/gi, "")}`);
     const wide = await overflowingElements(page);

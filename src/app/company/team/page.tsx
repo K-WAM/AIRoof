@@ -34,6 +34,8 @@ export default function TeamPage() {
   const [controlError, setControlError] = useState<{ key: string; text: string } | null>(null);
   const [filter, setFilter] = useState<"Active" | "Invited" | "Disabled">("Active");
   const [inviteOpen, setInviteOpen] = useState(false);
+  // T-168: the always-available role comparison (it was only reachable inside the invite/change-role forms).
+  const [roleHelpOpen, setRoleHelpOpen] = useState(false);
   const [roleEditing, setRoleEditing] = useState<string | null>(null);
   const [roleDraft, setRoleDraft] = useState<UserType>("office");
   const [email, setEmail] = useState("");
@@ -150,9 +152,15 @@ export default function TeamPage() {
         </div>
         <div className="team-header-actions">
           {seatLimit !== null && <span className="status-pill">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
+          <button type="button" className="button secondary" onClick={() => setRoleHelpOpen(true)}>What each role can do</button>
           <button type="button" className="button primary" onClick={() => setInviteOpen(true)}>Invite person</button>
         </div>
       </header>
+      <Modal open={roleHelpOpen} onClose={() => setRoleHelpOpen(false)} title="What each role can do">
+        <dl className="team-role-list">
+          {typeOptions.map((type) => <div key={type.id}><dt>{type.label}</dt><dd>{type.help}</dd></div>)}
+        </dl>
+      </Modal>
       {message && <p role="status">{message}</p>}
       <div className="team-filters" aria-label="Member status">
         {(["Active", "Invited", "Disabled"] as const).map((status) =>
@@ -161,7 +169,10 @@ export default function TeamPage() {
           </button>)}
       </div>
       <section aria-label="Team members" className="team-roster">
-        {loading ? <p>Loading members…</p> : visibleMembers.length === 0
+        {loading ? <p>Loading members…</p> : filter === "Active" && members.length === 1 && members[0]?.uid === user?.uid
+          // A brand-new account: say so instead of showing a roster of one. "Invite person" above is the one action.
+          ? <EmptyState compact title="Just you so far" body="Invite your office and crew with Invite person. They get an email to join." testId="team-empty" />
+          : visibleMembers.length === 0
           ? <EmptyState compact title={"No " + filter.toLowerCase() + " members"} body={filter === "Active" ? "Invite a person to get started." : "People in this state will appear here."} testId="team-empty" />
           : visibleMembers.map((member) => {
             const memberState = stateOf(member);
