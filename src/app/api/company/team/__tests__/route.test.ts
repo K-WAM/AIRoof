@@ -121,6 +121,7 @@ const mockGeneratePasswordResetLink = vi.hoisted(() => vi.fn());
 const mockGetUsers = vi.hoisted(() => vi.fn());
 const mockUpdateUser = vi.hoisted(() => vi.fn());
 const mockRevokeRefreshTokens = vi.hoisted(() => vi.fn());
+const mockGetUser = vi.hoisted(() => vi.fn(async () => ({ customClaims: {} })));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   verifyAuthAndRole: mockVerifyAuthAndRole,
@@ -139,6 +140,7 @@ function createFakeAuth() {
     getUsers: mockGetUsers,
     updateUser: mockUpdateUser,
     revokeRefreshTokens: mockRevokeRefreshTokens,
+    getUser: mockGetUser,
   };
 }
 
@@ -413,6 +415,27 @@ describe("/api/company/team/[uid]", () => {
     expect(firestore.documents.get("businessUsers/target")?.role).toBe("staff");
   });
 
+  // T-170: the platform operator's account can carry a tenant-pointing businessUsers doc (old provisioning script put it
+  // on demo-roofing). A tenant owner must never be able to edit or disable it.
+  it("refuses to edit or disable the platform operator's account (doc role superadmin)", async () => {
+    firestore.seed("businessUsers/root", { businessId: "biz-1", role: "superadmin", superadmin: true, active: true });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    const res = await PATCH(patchRequest({ businessId: "biz-1", active: false }), { params: Promise.resolve({ uid: "root" }) });
+    expect(res.status).toBe(404);
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
+    expect(firestore.documents.get("businessUsers/root")?.active).toBe(true);
+  });
+
+  it("refuses to edit an account that holds the superadmin claim even if its doc looks like a tenant role", async () => {
+    firestore.seed("businessUsers/root", { businessId: "biz-1", role: "staff", active: true });
+    mockGetUser.mockResolvedValueOnce({ customClaims: { superadmin: true } });
+    const { PATCH } = await import("@/app/api/company/team/[uid]/route");
+    const res = await PATCH(patchRequest({ businessId: "biz-1", role: "viewer" }), { params: Promise.resolve({ uid: "root" }) });
+    expect(res.status).toBe(404);
+    expect(firestore.documents.get("businessUsers/root")?.role).toBe("staff");
+  });
+
   // T-148/T-150 (2026-09-28)
   it("puts a member on one of this business's crews, and refuses a crew that doesn't exist", async () => {
     firestore.seed("businessUsers/target", { businessId: "biz-1", role: "staff", active: true });
@@ -458,6 +481,13 @@ describe("Team follow-up actions", () => {
     expect(mockSendTeamInviteEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "target@example.com" }));
     firestore.seed("businessUsers/target", { businessId: "other", role: "staff", email: "target@example.com", active: true });
     expect((await POST(postRequest({ businessId: "biz-1" }), context)).status).toBe(404);
+  });
+
+  it("never sends an invite/reset email to the platform operator's account (T-170)", async () => {
+    firestore.seed("businessUsers/root", { businessId: "biz-1", role: "superadmin", email: "root@luxor.test", active: true });
+    const { POST } = await import("@/app/api/company/team/[uid]/resend/route");
+    expect((await POST(postRequest({ businessId: "biz-1" }), { params: Promise.resolve({ uid: "root" }) })).status).toBe(404);
+    expect(mockSendTeamInviteEmail).not.toHaveBeenCalled();
   });
 
   it("rotates the business field key only for an owner", async () => {

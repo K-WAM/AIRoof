@@ -155,7 +155,7 @@ describe("POST /api/admin/businesses — welcome email", () => {
       }),
     }));
 
-    mockVerifySuperadmin.mockResolvedValue({ uid: "admin-1" });
+    mockVerifySuperadmin.mockResolvedValue({ user: { uid: "admin-1", email: "connect@luxordev.com", superadmin: true } });
   });
 
   afterEach(() => {

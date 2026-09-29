@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { isPlatformAccount } from "@/lib/auth/platformAccount";
 import { sendTeamInviteEmail } from "@/lib/notify";
 import { defaultLandingPath } from "@/lib/team/landing";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   const member = memberSnap.data();
   const business = businessSnap.data();
   if (!memberSnap.exists || member?.businessId !== businessId) return NextResponse.json({ error: "Team member not found" }, { status: 404 });
+  // T-170: never send a password-reset invite to the platform operator's account from a tenant's Team screen.
+  if (!gate.user.superadmin && (await isPlatformAccount(auth, uid, member))) return NextResponse.json({ error: "Team member not found" }, { status: 404 });
   if (member?.active === false) return NextResponse.json({ error: "Unlock this member before resending an invite" }, { status: 409 });
   if (!businessSnap.exists || !business) return NextResponse.json({ error: "Business not found" }, { status: 404 });
 

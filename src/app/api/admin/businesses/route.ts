@@ -254,8 +254,8 @@ export async function POST(
 
     const auditEvent: AdminAuditEvent = {
       auditEventId: auditRef.id,
-      actorUid: body.actorUid || "system",
-      actorEmail: body.actorEmail,
+      actorUid: gate.user.uid, // T-170: the verified session, never the request body
+      actorEmail: gate.user.email,
       businessId,
       action: "business.created",
       targetPath: `businesses/${businessId}`,

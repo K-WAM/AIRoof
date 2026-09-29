@@ -1676,3 +1676,24 @@ assign anyway?" check lives in the appointment route per the plan); the inspecto
 - Review finding fixed: GET /api/company/crews refused the Crew role, so a field-only Inspector never saw My schedule (Codex's e2e inspector was Staff). A Crew login now gets only its own row.
 - B5 answer to Codex's QUESTION FOR INTEGRATOR: NOT accepted as specified. A bearer webcal link carrying phone numbers and gate codes is a physical-security risk. Built instead: `src/lib/calendar/ics.ts` (RFC 5545, CRLF, escaping, 75-octet folding), `feedToken.ts` (32 random bytes, sha256 stored), GET `/api/calendar/feed/[token]` (bare 404 for unknown/malformed/disabled/no-row; own row's bookings + blocks, 7 days back to 60 ahead; `private, no-store`), POST/DELETE `/api/company/team/me/calendar-feed` (create/rotate/off), `CalendarFeedLink` on My schedule. Events: time, "<service> — Carla E.", address, TENTATIVE until confirmed, sign-in link. 7 tests incl. "never contains phone / 1010 / URGENT / surname".
 - Not run: e2e:call, e2e:booking, full e2e:test, next build (owner: comprehensive harness later). Nothing pushed.
+
+## 2026-09-29 — Integrator, Stream I: T-170 tenant isolation and superadmin authority (Phase 32)
+- **Live exposure closed (pending deploy):** `firestore.rules` `isSuperadmin()` is now the custom claim only. The old
+  `businessUsers.superadmin` fallback let a doc flag grant direct Firestore superadmin; the read-only production audit
+  (`scripts/audit-superadmins.mjs`, run 2026-09-29) found exactly that on kwamwad@gmail.com's doc (owner of
+  `carlita-elevenlabs-test`, no claim). connect@luxordev.com is the only claim holder. Also: a disabled member
+  (`active == false`) is no longer a member in the rules.
+- `confirmSuperadminClaim()` (`src/lib/firebase/admin.ts`): a token's claim counts only while the live Auth record holds it
+  (removed claim, disabled account or revoked sessions → refused at once, 30 s memo). Used by `verifyAuthAndRole` and
+  `/api/auth/profile`. A stored `role: "superadmin"` and an empty `businessId` never satisfy a tenant check.
+- Team routes (`[uid]` PATCH, resend) refuse the platform operator's account (its doc pointed at `demo-roofing`, so a
+  demo-tenant owner could have disabled the operator's login). Audit actor on 3 admin routes = verified session.
+- `scripts/grant-superadmin.mjs` replaces `provision-superadmin.mjs` (exact uid+email, typed confirmation, refuses client
+  members, merges claims, audit event, revoke also revokes sessions, never writes businessUsers).
+- Tests: `npm run test:rules` (new; emulator via REST, no new dependency — 9 cases, 4 of them fail on the old rules);
+  `route-guards.test.ts` (every API handler runs a central guard or is a justified public route; proven with a probe
+  route); `tenant-isolation.test.ts` (30 cases through the real guard + handlers; 14 fail if the tenant check is removed);
+  `confirmSuperadmin.test.ts`; verifyRole/profile/team/subscription additions. tsc clean.
+- Deviation from the work order: no `@firebase/rules-unit-testing` devDependency (emulator REST instead — nothing to
+  install into the shared node_modules while workers run). Removals: `scripts/provision-superadmin.mjs` (references
+  updated in CLAUDE.md, HANDOFF.md, docs/HANDOFF.md, docs/README.md). Nothing pushed or deployed.

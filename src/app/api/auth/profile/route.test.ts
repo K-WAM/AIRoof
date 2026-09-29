@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), doc: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), doc: vi.fn(), confirm: vi.fn() }));
 
 vi.mock("@/lib/firebase/admin", () => ({
   verifyIdToken: mocks.verify,
+  confirmSuperadminClaim: mocks.confirm,
   getAdminFirestore: () => ({ collection: () => ({ doc: () => ({ get: mocks.doc }) }) }),
 }));
 
@@ -18,6 +19,17 @@ describe("GET /api/auth/profile — superadmin comes from the token claim only",
   beforeEach(() => {
     mocks.verify.mockReset();
     mocks.doc.mockReset();
+    // The live Auth record agrees with the token unless a test says otherwise.
+    mocks.confirm.mockReset().mockImplementation(async (decoded: { superadmin?: unknown }) => decoded.superadmin === true);
+  });
+
+  it("drops a claim the live Auth record no longer holds (removed/disabled/revoked)", async () => {
+    mocks.verify.mockResolvedValue({ uid: "u5", email: "former@x.com", superadmin: true });
+    mocks.confirm.mockResolvedValue(false);
+    mocks.doc.mockResolvedValue({ exists: true, data: () => ({ role: "superadmin", superadmin: true }) });
+    const { profile } = await (await GET(req())).json();
+    expect(profile.superadmin).toBe(false);
+    expect(profile.role).toBe("viewer");
   });
 
   it("does not trust a stale superadmin field on a client owner's doc", async () => {

@@ -67,3 +67,6 @@ Marketing Tools/
 test-results/
 playwright-report/
 e2e/.auth/
+
+# Firestore rules-test emulator log (npm run test:rules)
+firestore-debug.log

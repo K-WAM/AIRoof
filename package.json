@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-rules-test --config firebase.rules-test.json \"npx vitest run --config tests/rules/vitest.config.ts\"",
     "e2e:up": "node scripts/e2e/up.mjs",
     "e2e:up:bg": "node scripts/e2e/up.mjs --detach",
     "e2e:down": "node scripts/e2e/down.mjs",

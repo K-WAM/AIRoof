@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
+import { confirmSuperadminClaim, getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
 import { jsonWithCache } from "@/lib/http/cache";
 
 // GET /api/auth/profile — the current session's businessUsers/{uid} doc,
@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
   // "superadmin" is decided ONLY by the verified token claim (the same thing verifySuperadmin trusts on every /api/admin
   // route) — never by a field on the businessUsers doc. A stale `superadmin: true` on a client owner's doc (left over from
   // the provisioning script) used to open the whole admin shell for them while every admin API then rejected them.
-  const isSuperadmin = (decoded as { superadmin?: unknown }).superadmin === true;
+  // T-170: and only while the live Auth record still holds that claim — the same confirmation the API guards use.
+  const isSuperadmin = await confirmSuperadminClaim(decoded);
   profile.superadmin = isSuperadmin;
   if (!isSuperadmin && profile.role === "superadmin") profile.role = "viewer";
 

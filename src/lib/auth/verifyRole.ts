@@ -1,7 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnv } from "@/lib/config/env";
-import { verifyIdToken, getAdminFirestore } from "@/lib/firebase/admin";
+import { confirmSuperadminClaim, verifyIdToken, getAdminFirestore } from "@/lib/firebase/admin";
 import { getCachedMember, setCachedMember } from "@/lib/auth/memberCache";
 import type { TeamMemberDoc } from "@/lib/team/invite";
 
@@ -416,8 +416,13 @@ export async function verifyAuthAndRole(
     return { error: NextResponse.json({ error: "Invalid session" }, { status: 401 }) };
   }
 
-  // Superadmins bypass role checks
+  // Superadmins bypass role checks — but only while the live Auth record still carries the claim (T-170: a removed claim,
+  // a disabled account or revoked sessions stop working at once, not when the token expires). The claim is the ONLY
+  // platform authority: a `superadmin`/`role: "superadmin"` field on a businessUsers doc confers nothing anywhere.
   if (decoded.superadmin === true) {
+    if (!(await confirmSuperadminClaim(decoded))) {
+      return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    }
     return { user: { uid: decoded.uid, email: decoded.email, superadmin: true } };
   }
 
@@ -432,11 +437,12 @@ export async function verifyAuthAndRole(
   // field existed have no such property at all, and treating that as "not
   // active" 403s legitimate legacy members — a real behavior fix, not just
   // a perf one. invite.ts already uses this same convention.
-  if (!member || member.active === false || member.businessId !== businessId) {
+  if (!member || member.active === false || !businessId || member.businessId !== businessId) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  if (!allowedRoles.includes(member.role)) {
+  // A stored role of "superadmin" (written by the old provisioning script) is not a tenant role and never passes.
+  if ((member.role as string) === "superadmin" || !allowedRoles.includes(member.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
@@ -484,7 +490,7 @@ export async function verifyOwnBusinessRole(
   }
 
   const member = await loadCachedMember(db, decoded.uid, allowedRoles.includes("owner"));
-  if (!member || member.active === false || !allowedRoles.includes(member.role)) {
+  if (!member || member.active === false || (member.role as string) === "superadmin" || !allowedRoles.includes(member.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

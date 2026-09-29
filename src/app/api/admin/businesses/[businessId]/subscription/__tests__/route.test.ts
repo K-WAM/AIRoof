@@ -124,6 +124,17 @@ describe("/api/admin/businesses/[businessId]/subscription", () => {
     expect(audit?.[1]).toMatchObject({ action: "subscription.paused", businessId: "biz-1" });
   });
 
+  it("records the verified admin in the audit event, never an actor named in the request body (T-170)", async () => {
+    const { POST } = await import("@/app/api/admin/businesses/[businessId]/subscription/route");
+    const res = await POST(
+      postRequest({ action: "pause", actorUid: "someone-else", actorEmail: "spoofed@example.com" }),
+      { params: Promise.resolve({ businessId: "biz-1" }) }
+    );
+    expect(res.status).toBe(200);
+    const audit = [...firestore.documents.entries()].find(([path]) => path.startsWith("adminAuditEvents/"));
+    expect(audit?.[1]).toMatchObject({ actorUid: "admin-1", actorEmail: "connect@luxordev.com" });
+  });
+
   it("resumes a paused business and clears pausedAt/pausedReason", async () => {
     firestore.seed("businesses/biz-1", {
       businessName: "Biz One",

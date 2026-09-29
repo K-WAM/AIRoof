@@ -7,25 +7,22 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      // Check Firebase custom claim first (fastest path, no extra read)
-      // Fall back to businessUsers document flag (covers accounts without custom claims)
-      return signedIn() && (
-        request.auth.token.superadmin == true ||
-        (
-          exists(/databases/$(database)/documents/businessUsers/$(request.auth.uid)) &&
-          get(/databases/$(database)/documents/businessUsers/$(request.auth.uid)).data.superadmin == true
-        )
-      );
+      // T-170: the verified custom claim is the ONLY platform authority — the same thing every server API trusts.
+      // A `superadmin` field (or role "superadmin") on a businessUsers doc confers nothing here any more; the old
+      // document-flag fallback let any account carrying a stale flag read and write every tenant directly.
+      return signedIn() && request.auth.token.superadmin == true;
     }
 
     function membershipDoc() {
       return get(/databases/$(database)/documents/businessUsers/$(request.auth.uid));
     }
 
+    // A disabled member (active == false) is no longer a member — the API guards already refuse them.
     function isBusinessMember(businessId) {
       return signedIn()
         && exists(/databases/$(database)/documents/businessUsers/$(request.auth.uid))
-        && membershipDoc().data.businessId == businessId;
+        && membershipDoc().data.businessId == businessId
+        && membershipDoc().data.get('active', true) != false;
     }
 
     function isBusinessOwnerOrStaff(businessId) {

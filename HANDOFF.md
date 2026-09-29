@@ -1130,7 +1130,7 @@ Driven by a multi-agent UX audit (7 surfaces, 83 findings → 5 themes). Three c
 
 ## Demo Instructions (universal line)
 
-1. Log in at `/login` → connect@luxordev.com (must be superadmin; if admin pages 401, run `node scripts/provision-superadmin.mjs` then sign out/in).
+1. Log in at `/login` → connect@luxordev.com (must be superadmin; if admin pages 401, run `node scripts/grant-superadmin.mjs --uid <uid> --email connect@luxordev.com --reason "<why>"` then sign out/in).
 2. `/admin/demo` → pick industry → enter prospect company + email → **Launch**.
 3. The launch panel shows the live number **for every vertical** now. Hand the prospect the phone → the agent answers **as that industry/company**, confirms their number from caller ID, optionally asks for an email, books.
 4. **Open dashboard** (opens the live line) → show Calls/Pipeline + the seeded **after-hours "Pending Your Approval"** booking → **Confirm & notify customer** (emails the customer).

@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { invalidateCachedMember } from "@/lib/auth/memberCache";
+import { isPlatformAccount } from "@/lib/auth/platformAccount";
 import { TEAM_ROLES, TRADE_TITLES, type TeamRole, type TradeTitle } from "@/types/team";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 
@@ -47,6 +48,10 @@ export async function PATCH(
   const memberRef = db.collection("businessUsers").doc(uid);
   const memberSnap = await memberRef.get();
   if (!memberSnap.exists || memberSnap.data()?.businessId !== businessId) {
+    return NextResponse.json({ error: "Team member not found" }, { status: 404 });
+  }
+  // T-170: the platform operator's account is never a tenant's to edit or disable.
+  if (!gate.user.superadmin && (await isPlatformAccount(getAdminAuth(), uid, memberSnap.data()))) {
     return NextResponse.json({ error: "Team member not found" }, { status: 404 });
   }
   if (role === "crew") {
