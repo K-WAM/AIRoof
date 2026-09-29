@@ -171,7 +171,8 @@ export async function countActiveTeamMembers(db: Firestore, businessId: string):
     .where("businessId", "==", businessId)
     .where("active", "==", true)
     .get();
-  return snap.size;
+  // Luxor's superadmin never takes one of the client's seats.
+  return snap.docs.filter((doc) => doc.data().role !== "superadmin").length;
 }
 
 export const DEFAULT_SEAT_LIMIT = 5;

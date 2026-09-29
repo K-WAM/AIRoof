@@ -9,6 +9,9 @@ describe("user types", () => {
     expect(userTypeOf({ role: "crew", trade: "foreman" })).toBe("technician");
     expect(userTypeOf({ role: "crew" })).toBe("technician");
     expect(userTypeOf({ role: "viewer" })).toBe("viewer");
+    // Never undefined — an unexpected role on a member doc used to crash the Team page.
+    expect(userTypeOf({ role: "superadmin" })).toBe("viewer");
+    expect(userTypeOf({ role: undefined })).toBe("viewer");
   });
 
   it("writes the role + title each type stands for, keeping a fitting older title", () => {

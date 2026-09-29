@@ -869,6 +869,25 @@ a.panel:hover {
   .company-nav-secondary { margin-top: 8px; }
 }
 
+/* Team members on a phone: one card per person, each value under its label, so the Type and Crew dropdowns are on
+   screen (the 900 px table put them off the right edge — 2026-09-28). */
+@media (max-width: 640px) {
+  .team-table { min-width: 0 !important; }
+  .team-table thead { display: none; }
+  .team-table, .team-table tbody, .team-table tr, .team-table td { display: block; width: 100%; }
+  .team-table tr { padding: 10px 4px; }
+  .team-table td { padding: 4px 12px !important; }
+  .team-table td[data-label]:not([data-label=""])::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+}
+
 /* Team / Settings / Guide / Feedback stay pinned at the bottom of the sidebar's scroll area — on a laptop-height
    window they used to sit below the fold, which is why the owner couldn't find Feedback (2026-09-28). The workflow
    links above scroll under them instead. Desktop sidebar only: the phone menu sheet scrolls as one list. */

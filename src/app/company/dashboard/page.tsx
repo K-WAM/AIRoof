@@ -329,7 +329,7 @@ export default function CompanyDashboardPage() {
               : "Urgent leads, today's appointments, and agent status."}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
           {pendingAppts.length > 0 && (
             <Link
               href={apptTabHref}
@@ -342,7 +342,7 @@ export default function CompanyDashboardPage() {
           {/* The one place the AI's status shows; tap it to change what the AI says (Settings). The old "Agent Setup"
               panel repeated Settings in technical terms ("5 configured", the escalation number) — removed 2026-09-28. */}
           <Link className="status-pill" href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
-            {isAgentActive ? "AI receptionist: answering calls" : "AI receptionist: off"}
+            {isAgentActive ? "AI answering calls" : "AI receptionist off"}
           </Link>
         </div>
       </header>

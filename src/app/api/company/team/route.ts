@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
   ]);
 
   const memberDocs = teamSnap.docs
+    // Luxor's own superadmin account can carry a businessUsers doc for a tenant (demo/preview). It is not the
+    // client's teammate: never list it where the client could change or disable it (2026-09-28).
+    .filter((d) => d.data().role !== "superadmin")
     .map((d) => {
       const data = d.data() as Partial<TeamMemberDoc>;
       return {

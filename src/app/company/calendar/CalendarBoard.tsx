@@ -5,6 +5,13 @@ import Link from "next/link";
 import { DndContext, useDraggable, useDroppable, PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection, type CollisionDetection, type DragEndEvent } from "@dnd-kit/core";
 
 /**
+ * Auto-scroll only when the pointer is right at the grid's edge. dnd-kit's default starts scrolling within 20% of the
+ * edge — on a 1280 px window that zone covered most of Wednesday, so hovering over Wednesday slid the week sideways and
+ * the drop landed on Thursday (2026-09-28, call-flow spec: week scrolled 168 px under a still pointer).
+ */
+const EDGE_ONLY_AUTOSCROLL = { threshold: { x: 0.04, y: 0.1 } };
+
+/**
  * A drop lands on the day under the finger/pointer — not the day the dragged CARD overlaps most (dnd-kit's default).
  * With the default, a card grabbed near one edge, or a page that scrolled mid-drag, dropped one day off (2026-09-28:
  * aimed at Wednesday, landed on Thursday). Overlap is only the fallback when the pointer is between cells.
@@ -690,7 +697,7 @@ export default function CalendarBoard() {
           />
         </section>
       ) : (
-      <DndContext sensors={sensors} collisionDetection={dropUnderPointer} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={dropUnderPointer} autoScroll={EDGE_ONLY_AUTOSCROLL} onDragEnd={onDragEnd}>
         <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
           {/* Needs-a-resource rail */}
           <section className="panel">

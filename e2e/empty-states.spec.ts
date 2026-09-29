@@ -175,7 +175,8 @@ test("a viewer is never offered a write action by an empty state", async ({ as }
   const { job } = must(await owner.post("/api/jobs", { businessId: TENANTS.roofing.id, title: `Viewer empty check ${Date.now().toString(36)}` }), "create job");
   const page = await as("viewer");
   // Switching tabs ("Show all") is fine for a viewer; anything that creates, sends or calls is not.
-  const WRITE = /add|new|create|invite|upload|load|send|call|generate|make|field qr/i;
+  // Whole words: "Show callbacks" switches to another tab (read-only) and must not count as "call".
+  const WRITE = /\b(add|new|create|invite|upload|load|send|call|generate|make|field qr)\b/i;
   const noButtonsInEmptyStates = async (where: string) => {
     const states = page.locator(".empty-state");
     for (let i = 0; i < await states.count(); i++) {

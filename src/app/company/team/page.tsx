@@ -201,14 +201,14 @@ export default function TeamPage() {
         {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
           // The invite form right above is the one action, so this carries no second "Invite" button.
           members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-            <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
+            <table className="team-table" style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Type", ...(hasField ? ["Crew"] : []), "Status", "Last sign-in", "Invited", "Actions"].map((heading) => (
                 <th key={heading} style={th}>{heading}{heading === "Type" && <TypeHelp types={typeOptions} />}</th>
               ))}</tr></thead>
               <tbody>{members.map((member) => (
                 <tr key={member.uid} style={{ borderBottom: "1px solid var(--border)", ...(member.active ? {} : { opacity: 0.7 }) }}>
-                  <td style={td}>{member.displayName || "—"}</td><td style={td}>{member.email}</td>
-                  <td style={td}>
+                  <td style={td} data-label="Name">{member.displayName || "—"}</td><td style={td} data-label="Email">{member.email}</td>
+                  <td style={td} data-label="Type">
                     <select aria-label={`Type for ${member.email}`} value={userTypeOf(member)} disabled={busy !== null || !member.active}
                       onChange={(event) => change(member, fieldsForUserType(event.target.value as UserType, member.trade), "Type updated")}>
                       {[...typeOptions, ...(typeOptions.some((type) => type.id === userTypeOf(member)) ? [] : [userTypeDef(userTypeOf(member))])]
@@ -216,14 +216,14 @@ export default function TeamPage() {
                     </select>
                     {member.trade && !TYPE_TITLES.has(member.trade) && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Title: {TRADE_TITLE_LABEL[member.trade]}</div>}
                   </td>
-                  {hasField && <td style={td}>{CREW_MEMBER_ROLES.has(member.role) ? (
+                  {hasField && <td style={td} data-label="Crew">{CREW_MEMBER_ROLES.has(member.role) ? (
                     crews.length > 0
                       ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>
                       : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add crews in Library</span>
                   ) : <span style={{ color: "var(--text-muted)" }}>—</span>}</td>}
-                  <td style={td}><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{statusLabel(member.status ?? (member.active ? "Active" : "Locked"))}</span></td>
-                  <td style={td}>{dateLabel(member.lastSignInTime)}</td><td style={td}>{dateLabel(member.createdAt)}</td>
-                  <td style={td}>
+                  <td style={td} data-label="Status"><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{statusLabel(member.status ?? (member.active ? "Active" : "Locked"))}</span></td>
+                  <td style={td} data-label="Last sign-in">{dateLabel(member.lastSignInTime)}</td><td style={td} data-label="Invited">{dateLabel(member.createdAt)}</td>
+                  <td style={td} data-label="">
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {/* Disable turns the login off AND revokes its sessions; Enable restores it. (There is no separate "Remove":
                           it did exactly what this does, and a disabled member no longer takes a seat.) Stored as active:false —

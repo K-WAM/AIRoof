@@ -45,12 +45,14 @@ export function userTypesFor(hasField: boolean): UserTypeDef[] {
  * Which type an existing member is. Role decides first (it is what they can actually do); for a field-only login the
  * title tells Inspector from Technician. Older titles (Foreman, Installer…) fold into the nearest type.
  */
-export function userTypeOf(member: { role: TeamRole; trade?: TradeTitle | null }): UserType {
+export function userTypeOf(member: { role: TeamRole | string | undefined; trade?: TradeTitle | string | null }): UserType {
   switch (member.role) {
     case "owner": return "admin";
     case "staff": return "office";
-    case "viewer": return "viewer";
     case "crew": return member.trade === "inspector" ? "inspector" : "technician";
+    // "viewer" — and anything unexpected on an old or hand-made member doc (e.g. role "superadmin") — reads as the
+    // least-privileged type. It must never crash the Team page (2026-09-28: it did, on the harness superadmin's row).
+    default: return "viewer";
   }
 }
 
