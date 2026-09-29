@@ -3072,3 +3072,16 @@ a.metric:hover {
 .badge-ended { background: var(--surface-muted); color: var(--text-muted); }
 @keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }
+
+/* ── Phase 32 · C2 ── */
+.job-customer-details { margin-top: var(--sp-2, 8px); font-size: 13px; }
+.job-customer-details > summary { cursor: pointer; color: var(--text-muted); font-weight: 600; min-height: var(--control-h, 44px); display: flex; align-items: center; }
+.job-customer-details[open] > summary { margin-bottom: var(--sp-2, 8px); }
+.job-action-menu { position: relative; }
+.job-action-menu > summary { cursor: pointer; list-style: none; min-height: var(--control-h, 44px); display: flex; align-items: center; }
+.job-action-menu > summary::-webkit-details-marker { display: none; }
+.job-action-menu__items { position: absolute; right: 0; z-index: 10; min-width: 190px; padding: var(--sp-2, 8px); display: grid; gap: var(--sp-2, 8px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: 0 8px 20px var(--backdrop); }
+.job-tabs-grouped { overflow-x: auto; flex-wrap: nowrap; scroll-behavior: smooth; }
+.job-tab-group-label { align-self: center; flex: none; padding: 0 var(--sp-2, 8px); font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.job-tabs-grouped .job-tab { flex: none; }
+@media (max-width: 640px) { .job-tabs-grouped { width: 100%; } }

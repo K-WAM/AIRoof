@@ -107,7 +107,7 @@ describe("job detail page structure", () => {
     expect(screen.getByRole("article", { name: "Finding 1" })).toBeTruthy();
     expect(screen.getByText(/Quote Q-1000 was accepted on 2026-09-25\. It is locked/)).toBeTruthy();
     fireEvent.click(screen.getByText("Labor (0)"));
-    expect(screen.getByText(/Quote Q-1000 was accepted/)).toBeTruthy();
+    expect(screen.queryByText(/Quote Q-1000 was accepted/)).toBeNull();
   });
 
   it("the Invoice tab offers Create invoice (never auto-creates) and Next opens the right tab once work is complete", async () => {

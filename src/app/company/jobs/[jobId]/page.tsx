@@ -132,6 +132,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const selectedTab = searchParams?.get("tab");
+  useEffect(() => {
+    if (selectedTab && ["timeline", "photos", "materials", "labor", "findings", "quote", "report", "invoice"].includes(selectedTab)) {
+      setActiveTab(selectedTab as typeof activeTab);
+    }
+  }, [selectedTab]);
+  useEffect(() => {
+    tabStripRef.current?.querySelector<HTMLElement>("[aria-selected='true']")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [activeTab]);
 
   // No-login field QR: a one-time, ten-minute grant for a crew member who
   // has no portal account. "Copy field link" above is the authenticated
@@ -982,6 +992,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <h1 className="page-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
             <Briefcase size={20} strokeWidth={1.75} />
             {job.title}
+            <span className="status-pill">{job.status}</span>
           </h1>
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
@@ -989,7 +1000,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="button" title="Copies a field-log link you can text or email to your crew" onClick={() => {
+          <details className="job-action-menu"><summary className="button">Field access</summary><div className="job-action-menu__items"><button className="button" title="Copies a field-log link you can text or email to your crew" onClick={() => {
             const link = `${window.location.origin}/company/field?businessId=${businessId}&jobId=${jobId}`;
             navigator.clipboard.writeText(link).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); }).catch(() => prompt("Copy this link for your foreman:", link));
           }} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -999,9 +1010,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <button className="button" title="A QR code a crew member can scan with no portal login — expires in 10 minutes" onClick={openFieldQr} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <QrCode size={15} strokeWidth={1.75} />
             Field QR
-          </button>
+          </button></div></details>
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
-          <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />
+          {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
       </header>
 
@@ -1012,7 +1023,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           const done = i < currentIdx;
           const active = i === currentIdx;
           const isUpdating = updatingStatus === step.key;
-          const isClickable = step.key !== job.status && !updatingStatus;
+          const isClickable = !readOnly && step.key !== job.status && !updatingStatus;
           return (
             <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < JOB_STEPS.length - 1 ? "1" : "0" }}>
               <div
@@ -1037,18 +1048,19 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* Tab bar */}
-      <div className="job-tabs no-print">
+      <div className="job-tabs no-print job-tabs-grouped" ref={tabStripRef} role="tablist" aria-label="Job sections">
+        <span className="job-tab-group-label">Job details</span>
         {TABS.map((tab) => (
-          <button className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
+          <button role="tab" aria-selected={activeTab === tab.id} className={`job-tab ${activeTab === tab.id ? "active" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
             {tab.label}
           </button>
         ))}
-        <span className="job-tabs-divider" aria-hidden="true" />
+        <span className="job-tab-group-label">Documents</span>
         {WORKFLOW_TABS.map((tab) => {
           const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft"
             ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
             : null;
-          return <button className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
+          return <button role="tab" aria-selected={activeTab === tab.id} className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
             <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
@@ -1058,7 +1070,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {["materials", "labor"].includes(activeTab) && editBar}
 
       {/* ── Activity: field updates, then the work log, then the job history — all newest first ── */}
-      {activeTab === "timeline" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "timeline" && (
         <section className="panel no-print" style={{ marginBottom: 16 }}>
           <div className="panel-header">
@@ -1141,7 +1152,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "timeline" && <JobHistory businessId={businessId!} jobId={jobId} version={job.updatedAt} />}
 
       {/* ── Materials ── */}
-      {activeTab === "materials" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "materials" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
@@ -1199,7 +1209,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* ── Labor ── */}
-      {activeTab === "labor" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "labor" && (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
@@ -1375,7 +1384,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
       {activeTab === "quote" && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
-        photos={photos}
+        photos={photos} readOnly={readOnly}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
         onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
         onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
@@ -1441,26 +1450,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </details>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {invoiceStatus === "draft" && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
-                  <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, background: showSendPanel ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <Send size={14} strokeWidth={1.75} />
-                    {invoiceStatus === "draft" ? "Send to Customer" : "Send again"}
-                  </button>
-                  {invoiceStatus === "sent" && (
+                  {invoiceStatus === "sent" && !readOnly && (
                     <button className="button primary" onClick={() => void markInvoicePaid()} disabled={markingPaid} style={{ fontSize: 13 }}>
                       {markingPaid ? "Saving…" : "Mark paid"}
                     </button>
                   )}
+                  {invoiceStatus === "draft" && !readOnly && <button className="button primary" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <Send size={14} strokeWidth={1.75} />
+                    Send to Customer
+                  </button>}
+                  <details className="job-action-menu"><summary className="button">More invoice actions</summary><div className="job-action-menu__items">
+                  {invoiceStatus === "draft" && !readOnly && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
+                  {invoiceStatus !== "draft" && !readOnly && <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }}>Send again</button>}
                   <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Printer size={14} strokeWidth={1.75} />
                     Print / Save as PDF
                   </button>
-                  {invoiceStatus === "draft" && (
+                  {invoiceStatus === "draft" && !readOnly && (
                     <button className="button" onClick={() => generateInvoice(true)} disabled={generatingInvoice} title="Rebuild labor/materials from the latest field updates" style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <RefreshCw size={14} strokeWidth={1.75} />
                       {generatingInvoice ? "Regenerating…" : "Regenerate"}
                     </button>
                   )}
+                  </div></details>
                 </div>
               </div>
 
@@ -1888,18 +1900,19 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
-                <button className="button" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, background: showReportSend ? "#eff6ff" : undefined, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {!readOnly && <button className="button primary" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Send size={14} strokeWidth={1.75} />
                   Mail report
-                </button>
-                <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                </button>}
+                <details className="job-action-menu"><summary className="button">More report actions</summary><div className="job-action-menu__items"><button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Printer size={14} strokeWidth={1.75} />
                   Print / Save as PDF
                 </button>
-                <button className="button" onClick={() => { setReport(null); setTimeout(generateReport, 0); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {!readOnly && <button className="button" onClick={() => { setReport(null); setTimeout(generateReport, 0); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <RefreshCw size={14} strokeWidth={1.75} />
                   Regenerate
-                </button>
+                </button>}
+                </div></details>
               </div>
 
               <details className="no-print" style={{ marginBottom: 16 }}>

@@ -40,13 +40,14 @@ function NumberField({ value, onCommit, label, width, disabled, min = 0, step = 
   );
 }
 
-export function QuotePanel({ job, businessId, businessConfig, logos, catalog, photos = [], onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
+export function QuotePanel({ job, businessId, businessConfig, logos, catalog, photos = [], readOnly = false, onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
   job: Job;
   businessId: string;
   businessConfig: BusinessConfig | null;
   logos: LibraryLogo[];
   catalog: CatalogState;
   photos?: JobPhotoMeta[];
+  readOnly?: boolean;
   onStatus: (status: Job["status"]) => void;
   onFindingsChanged: (findings: JobFinding[]) => void;
   /** The job page mirrors the quote's status (tab label, lock notes, the report's optional quote section). */
@@ -71,7 +72,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const version = useRef(0);
   const autoCreated = useRef(false);
   const creating = useRef<Promise<JobQuote | null> | null>(null);
-  const draft = quote?.status === "draft";
+  const draft = quote?.status === "draft" && !readOnly;
 
   useEffect(() => {
     let live = true;
@@ -117,12 +118,12 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
   // A job with findings already has everything a quote needs: start the draft for the user instead of asking.
   useEffect(() => {
-    if (loading || quote || autoCreated.current) return;
+    if (loading || quote || autoCreated.current || readOnly) return;
     if (!(job.findings ?? []).some((finding) => finding.includeInQuote)) return;
     autoCreated.current = true;
     void createDraft();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, quote, job.findings]);
+  }, [loading, quote, job.findings, readOnly]);
 
   async function save(): Promise<boolean> {
     if (!quote) return false;
@@ -222,7 +223,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
   const pickerAndCustom = (
     <>
-      {draft || !quote ? (
+      {draft || (!quote && !readOnly) ? (
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="button primary" type="button" disabled={busy || catalog.loading} onClick={() => setPickerOpen(true)}>＋ Add item</button>
           <button className="button" type="button" disabled={busy} onClick={() => setCustomOpen((open) => !open)}>＋ Custom item</button>
@@ -257,7 +258,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
         </p>
       )}
       {/* Once sent, a quote is locked (the server refuses edits). Say so plainly, with the date it happened. */}
-      {quote && !draft && (
+      {quote && quote.status !== "draft" && (
         <div className="no-print" role="status" style={{
           padding: "10px 14px", borderRadius: 8, fontSize: 14, lineHeight: 1.45,
           ...(quote.status === "accepted"
@@ -290,6 +291,21 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Estimated total</div>
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
           </div>
+        </div>
+        <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {draft && <>
+            <input aria-label="Quote recipient email" type="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Customer email" style={{ flex: "1 1 220px" }} />
+            <button className="button primary" type="button" disabled={busy || quote.lines.length === 0} onClick={() => void send()}>Send quote</button>
+          </>}
+          {quote.status === "sent" && !readOnly && <button className="button primary" type="button" disabled={busy} onClick={() => void mark("accepted")}>Mark accepted</button>}
+          <details className="job-action-menu"><summary className="button">More quote actions</summary><div className="job-action-menu__items">
+            <button className="button" type="button" onClick={() => window.print()}>Print / Save as PDF</button>
+            {quote.status === "sent" && !readOnly && <>
+              <button className="button" type="button" disabled={busy} onClick={() => void mark("declined")}>Mark declined</button>
+              <button className="button" type="button" disabled={busy} onClick={() => void mark("expired")}>Mark expired</button>
+            </>}
+          </div></details>
+          {draft && quote.lines.length === 0 && <small style={{ color: "var(--text-muted)" }}>Add at least one priced item to send.</small>}
         </div>
 
         <label className="no-print">Valid until <input type="date" disabled={!draft} value={new Date(quote.validUntil).toISOString().slice(0, 10)}
@@ -374,24 +390,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
           billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(quote)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} /></div>
-        <button className="button no-print" type="button" onClick={() => window.print()}>Print / Save as PDF</button>
         <label className="no-print">Notes<textarea disabled={!draft} value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>
-
-        {draft && (
-          <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <input aria-label="Quote recipient email" type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="Customer email" style={{ flex: "1 1 220px" }} />
-            <button className="button primary" type="button" disabled={busy || quote.lines.length === 0} onClick={() => void send()}>Send quote</button>
-            {quote.lines.length === 0 && <small style={{ color: "var(--text-muted)" }}>Add at least one priced item to send.</small>}
-          </div>
-        )}
-        {quote.status === "sent" && (
-          <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <small style={{ color: "var(--text-muted)" }}>Sent{quote.sentTo ? ` to ${quote.sentTo}` : ""}. Record their answer:</small>
-            <button className="button" type="button" disabled={busy} onClick={() => void mark("accepted")}>Mark accepted</button>
-            <button className="button" type="button" disabled={busy} onClick={() => void mark("declined")}>Mark declined</button>
-            <button className="button" type="button" disabled={busy} onClick={() => void mark("expired")}>Mark expired</button>
-          </div>
-        )}
       </>}
       {error && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: 0 }}>{error}</p>}
     </div>

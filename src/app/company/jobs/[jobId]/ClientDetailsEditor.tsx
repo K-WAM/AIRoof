@@ -76,7 +76,8 @@ export function ClientDetailsEditor({ job, businessId, canEdit, locked, onSaved 
   }
 
   return (
-    <>
+    <details className="job-customer-details">
+      <summary>Customer details{job.clientName ? ` · ${job.clientName}` : ""}</summary>
       {job.address && <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>{job.address}</p>}
       <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {job.clientName && <span>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}{job.clientEmail ? ` · ${job.clientEmail}` : ""}</span>}
@@ -86,6 +87,6 @@ export function ClientDetailsEditor({ job, businessId, canEdit, locked, onSaved 
               <Pencil size={12} strokeWidth={1.75} /> Edit customer details
             </button>)}
       </p>
-    </>
+    </details>
   );
 }

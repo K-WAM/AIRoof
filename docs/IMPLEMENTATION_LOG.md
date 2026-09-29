@@ -1676,3 +1676,26 @@ assign anyway?" check lives in the appointment route per the plan); the inspecto
 - Review finding fixed: GET /api/company/crews refused the Crew role, so a field-only Inspector never saw My schedule (Codex's e2e inspector was Staff). A Crew login now gets only its own row.
 - B5 answer to Codex's QUESTION FOR INTEGRATOR: NOT accepted as specified. A bearer webcal link carrying phone numbers and gate codes is a physical-security risk. Built instead: `src/lib/calendar/ics.ts` (RFC 5545, CRLF, escaping, 75-octet folding), `feedToken.ts` (32 random bytes, sha256 stored), GET `/api/calendar/feed/[token]` (bare 404 for unknown/malformed/disabled/no-row; own row's bookings + blocks, 7 days back to 60 ahead; `private, no-store`), POST/DELETE `/api/company/team/me/calendar-feed` (create/rotate/off), `CalendarFeedLink` on My schedule. Events: time, "<service> — Carla E.", address, TENTATIVE until confirmed, sign-in link. 7 tests incl. "never contains phone / 1010 / URGENT / surname".
 - Not run: e2e:call, e2e:booking, full e2e:test, next build (owner: comprehensive harness later). Nothing pushed.
+
+## Phase 32 C2 — pre-change Job action inventory (2026-09-28)
+
+The existing Job header shows Copy field link, Field QR, NextStepButton, customer edit, and clickable lifecycle steps before the tabs. The eight tabs expose Activity edit/save/cancel and log rows, Photos capture/manage, Materials and Labor edit/save/cancel and row controls, Findings add/remove/autosave, Quote compose/send/print/answer, Report generate/send/print/options, and Invoice create/edit/send/mark paid/print/regenerate/options.
+
+| Area | Owner and staff | Crew | Viewer |
+|---|---|---|---|
+| Header | Copy field link, Field QR, edit customer details until invoice locks, NextStepButton, lifecycle status steps | Same visible controls if a crew account reaches this office page; server guards decide writes | Field access and next/status controls are presently visible but writes are denied; customer edit hidden |
+| Activity / Materials / Labor | Edit, save, cancel; add/remove log, material and labor rows; retry failed parse | Same office controls if page reachable | Edit controls presently visible, server refuses writes |
+| Photos | Open, capture, reorder, include, delete, edit | Same rendered controls | Some writes are blocked by API; page does not hide every action |
+| Findings | Add from Library, add custom, remove, retry save | Same unless server rejects | Add/remove hidden by readOnly |
+| Quote | Create draft, add/custom items and rows, edit narrative/options, send, print, mark accepted/declined/expired | Same rendered controls; server controls authority | QuotePanel currently lacks readOnly prop and may show write controls; API guard decides |
+| Report | Generate/regenerate, edit notes/options/photos, mail, print | Same rendered controls; server controls authority | Generate/mail/print and note controls currently visible; API guard decides |
+| Invoice | Create/regenerate, edit line rows/options/copy, add findings, send/resend, mark paid, print | Same rendered controls; server controls authority | Create empty-state action hidden, but existing-invoice controls currently visible; API guard decides |
+
+The inventory records rendered behavior, including inappropriate affordances, separately from the API's role checks. The after-action map and verification evidence will be appended with the task commits.
+
+### T-161 / T-164 Job detail (C2-1)
+Before, customer metadata, two field-access buttons, and eight ungrouped tabs competed with the next action; print and regenerate sat beside send. After, the header shows the job identity/status/NextStepButton, customer details disclose in place, field links share a labelled menu, and the tab strip groups Job details and Documents with the selected tab scrolled into view.
+
+Old action → new location: edit customer details → Customer details; copy field link / Field QR → Field access; lifecycle status changes → same five-step tracker; Activity, Photos, Materials, Labor, Findings, Quote, Report, Invoice → same tabs under the two group labels; Quote send / mark accepted → Quote action area; Quote print / decline / expire → More quote actions; Invoice send / mark paid → Invoice action area; Invoice add findings / send again / print / regenerate → More invoice actions; Report mail → Report action area; Report print / regenerate → More report actions; line editing and document options → their existing tab sections. Viewer next/status and quote/invoice/report write actions are hidden while print remains available. Existing API guards remain the authority.
+
+Evidence: `npx tsc --noEmit` clean; changed-file eslint 0 errors (three existing img warnings); Job page and guide unit tests 16/16 after the deliberate LockNote placement assertion update. Integrator owns phone/desktop screenshots and e2e under P32-T. Deviation: the existing page has no tab URL writer; C2 now reads `?tab=` on entry but does not change the URL on every selection.
