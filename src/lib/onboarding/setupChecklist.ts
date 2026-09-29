@@ -58,14 +58,16 @@ export function setupChecklist(
   );
   items.push(
     { id: "team", label: "Invite your team", outcome: "Teammates can see the work assigned to them.", done: input.teamMembers >= 2, href: "/company/team", cta: "Invite someone" },
+  );
+  if (modules.isEnabled("library")) items.push(
     { id: "logo", label: "Upload your logo", outcome: "Your documents can carry your brand.", done: input.hasLogo, href: "/company/library?section=branding", cta: "Upload logo" },
-    {
+  );
+  items.push({
       id: "testCall",
       label: "Make a test call",
       outcome: "Hear the receptionist and check that the call appears in Calls.",
       done: input.calls > 0,
       ...(input.phoneNumber ? { href: `tel:${input.phoneNumber}`, cta: "Call your line" } : {}),
-    },
-  );
+    });
   return items;
 }

@@ -61,6 +61,12 @@ describe("setupChecklist", () => {
     expect(setupChecklist(empty, modulesFor(["pricing"]), roofing.vocab).map((item) => item.id)).not.toContain("prices");
   });
 
+  it("skips Library destinations if that module is unavailable", () => {
+    const ids = setupChecklist(empty, modulesFor(["library"]), roofing.vocab).map((item) => item.id);
+    expect(ids).not.toContain("resource");
+    expect(ids).not.toContain("logo");
+  });
+
   it("uses the vertical's own resource noun (dental)", () => {
     const items = setupChecklist(empty, modulesFor(dental.disabledModules), dental.vocab);
     const resource = items.find((item) => item.id === "resource");

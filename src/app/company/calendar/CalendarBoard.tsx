@@ -35,6 +35,8 @@ import { displayRequestState } from "@/lib/requests/displayState";
 import { orderOpenTimes } from "@/lib/calendar/openTimes";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { Modal } from "@/components/ui/Modal";
+import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
@@ -930,17 +932,15 @@ export default function CalendarBoard() {
             job={job}
             crew={crew}
             day={picker.day}
-            anchor={picker.anchor}
             tz={tz}
             onPick={(start, durationMs) => placeJob(job.jobId, crew.crewId, start, durationMs)}
             onClose={() => setPicker(null)}
           />
         );
       })()}
-      {blockForm && (
-        <div role="dialog" aria-modal="true" aria-label="Block time" style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", padding: 16 }}>
-          <div className="panel" style={{ width: "min(460px, 100%)", padding: 20 }}>
-            <h2 style={{ marginTop: 0 }}>Block time</h2>
+      <Modal open={!!blockForm} onClose={() => setBlockForm(null)} title="Block time">
+        {blockForm && (
+          <div>
             <div className="form-grid">
               <div className="field full"><label>Label</label><input value={blockForm.label} onChange={(event) => setBlockForm({ ...blockForm, label: event.target.value })} placeholder="Site visit, Materials pickup, Office, Off" /></div>
               <div className="field"><label>Start</label><input type="datetime-local" value={blockForm.start} onChange={(event) => setBlockForm({ ...blockForm, start: event.target.value })} /></div>
@@ -948,8 +948,8 @@ export default function CalendarBoard() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button className="button primary" type="button" onClick={() => void saveBlock()}>Add block</button><button className="button" type="button" onClick={() => setBlockForm(null)}>Cancel</button></div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </>
   );
 }
@@ -967,13 +967,12 @@ function countMembers(people: unknown): Record<string, number> {
 // The open start times come from GET /api/company/crews/open-times (the business's own hours and time zone, minus the
 // crew's jobs and bookings). Picking one saves it exactly like the old drop did — grey until "Confirm + email crew".
 function SlotPicker({
-  businessId, job, crew, day, anchor, tz, onPick, onClose,
+  businessId, job, crew, day, tz, onPick, onClose,
 }: {
   businessId: string;
   job: Job;
   crew: Crew;
   day: Date;
-  anchor: SlotPickerState["anchor"];
   tz: string;
   onPick: (start: number, durationMs: number) => void;
   onClose: () => void;
@@ -999,11 +998,8 @@ function SlotPicker({
   const [narrow, setNarrow] = useState(false);
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
     setNarrow(window.innerWidth < 640);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -1047,27 +1043,8 @@ function SlotPicker({
         ? "That day has already passed."
         : `${crew.name} has no open time on ${dayLabel} for ${lengthLabel(lengthMin)}.`;
 
-  const width = 320;
-  const panelStyle: React.CSSProperties = narrow
-    ? { position: "fixed", left: 0, right: 0, bottom: 0, maxHeight: "75vh", borderRadius: "16px 16px 0 0" }
-    : anchor
-      ? {
-          position: "fixed", width,
-          left: Math.max(16, Math.min(anchor.left + anchor.width / 2 - width / 2, (typeof window === "undefined" ? 1280 : window.innerWidth) - width - 16)),
-          top: Math.max(16, Math.min(anchor.top + 24, (typeof window === "undefined" ? 800 : window.innerHeight) - 460)),
-          maxHeight: "min(440px, calc(100vh - 32px))", borderRadius: 12,
-        }
-      : { position: "fixed", width, left: "50%", top: "50%", transform: "translate(-50%, -50%)", maxHeight: "min(440px, calc(100vh - 32px))", borderRadius: 12 };
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 40, background: narrow ? "rgba(15,23,42,0.35)" : "transparent" }} />
-      <div
-        role="dialog"
-        aria-label={`Pick a time for ${job.title}`}
-        data-testid="calendar-slot-picker"
-        style={{ ...panelStyle, zIndex: 41, background: "#fff", border: "1px solid var(--border)", boxShadow: "0 16px 40px rgba(15,23,42,0.22)", display: "flex", flexDirection: "column", overflow: "hidden" }}
-      >
+  const content = (
+      <div data-testid="calendar-slot-picker" className="c1-slot-picker">
         <div style={{ padding: "12px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 8, alignItems: "flex-start" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
@@ -1076,9 +1053,6 @@ function SlotPicker({
             </div>
             <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job.title}</div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cancel" style={{ border: "none", background: "transparent", cursor: "pointer", color: "#94a3b8", padding: 4, minWidth: 32, minHeight: 32 }}>
-            <X size={16} />
-          </button>
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px 4px", fontSize: 12, fontWeight: 600, color: "#475569" }}>
           How long
@@ -1130,8 +1104,10 @@ function SlotPicker({
           )}
         </div>
       </div>
-    </>
   );
+  return narrow
+    ? <Sheet open onClose={onClose} title={`Pick a time for ${job.title}`}>{content}</Sheet>
+    : <Modal open onClose={onClose} title={`Pick a time for ${job.title}`}>{content}</Modal>;
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
