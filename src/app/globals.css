@@ -3092,3 +3092,35 @@ a.metric:hover {
 .c1-inline-error { color: var(--c-danger-fg); background: var(--c-danger-bg); border: 1px solid var(--c-danger-bd); padding: var(--sp-2, 8px); margin: 0; }
 .c1-page-actions { display: flex; gap: var(--sp-2, 8px); align-items: center; flex-wrap: wrap; }
 .c1-active-filter { display: flex; align-items: center; gap: var(--sp-2, 8px); margin-top: var(--sp-2, 8px); }
+.c1-calendar-agenda, .c1-phone-only { display: none; }
+.c1-customer-card { padding: var(--sp-2, 8px) var(--sp-3, 12px); border-bottom: 1px solid var(--border); min-width: 0; }
+.c1-customer-card[data-selected="true"] { background: var(--accent-soft); }
+.c1-customer-open { display: grid; gap: 2px; width: 100%; min-height: var(--control-h, 44px); text-align: left; border: 0; background: transparent; color: var(--text); cursor: pointer; overflow-wrap: anywhere; }
+.c1-customer-open span { font-size: 12px; color: var(--text-muted); }
+.c1-customer-card summary { color: var(--accent); cursor: pointer; }
+@media (max-width: 640px) {
+  .c1-calendar-agenda, .c1-phone-only { display: block; }
+  .c1-calendar-board, .c1-desktop-only { display: none; }
+  .c1-agenda-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2, 8px); }
+  .c1-agenda-list { display: flex; flex-direction: column; gap: var(--sp-3, 12px); }
+  .c1-agenda-item { display: grid; gap: var(--sp-2, 8px); padding: var(--sp-3, 12px); border: 1px solid var(--border); border-radius: var(--r-md, 8px); min-width: 0; }
+  .c1-agenda-item strong, .c1-agenda-item span { overflow-wrap: anywhere; }
+  .c1-agenda-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2, 8px); }
+  .c1-agenda-actions select, .c1-agenda-actions .button { min-height: var(--control-h, 44px); max-width: 100%; }
+  .company-main, .panel, .panel-body, .toolbar { min-width: 0; }
+  .call-row, .lead-card, .appt-card, .customers-grid { min-width: 0; overflow-wrap: anywhere; }
+  .c1-card-list { display: grid; gap: var(--sp-3, 12px); padding: var(--sp-3, 12px); }
+  .c1-list-card { display: grid; gap: var(--sp-2, 8px); min-width: 0; padding: var(--sp-3, 12px); border: 1px solid var(--border); border-radius: var(--r-md, 8px); overflow-wrap: anywhere; }
+  .c1-list-card .button { justify-self: start; min-height: var(--control-h, 44px); }
+  .c1-list-card details, .c1-call-actions details, .c1-phone-only details { min-width: 0; }
+  .c1-list-card summary, .c1-call-actions summary, .c1-phone-only summary { cursor: pointer; font-weight: 600; color: var(--accent); padding: var(--sp-2, 8px) 0; }
+  .c1-call-actions { display: flex; align-items: center; gap: var(--sp-3, 12px); flex-wrap: wrap; }
+  .c1-customer-extra { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+  .c1-pricing-table, .c1-pricing-table tbody, .c1-pricing-table tr, .c1-pricing-table td { display: block; width: 100%; min-width: 0; }
+  .c1-pricing-table thead { display: none; }
+  .c1-pricing-table tr { border: 1px solid var(--border); border-radius: var(--r-md, 8px); padding: var(--sp-3, 12px); margin-bottom: var(--sp-3, 12px); }
+  .c1-pricing-table td { padding: var(--sp-2, 8px) 0 !important; text-align: left !important; }
+  .c1-pricing-table td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); }
+  .c1-pricing-table input { max-width: 100%; }
+  .segmented-control { max-width: 100%; overflow-x: auto; }
+}

@@ -156,6 +156,11 @@ function sameDay(aMs: number, b: Date, timeZone: string): boolean {
   return a.year === b.getFullYear() && a.month === b.getMonth() + 1 && a.day === b.getDate();
 }
 
+function minuteOfDay(timestamp: number, timeZone: string): number {
+  const parts = dateParts(timestamp, timeZone);
+  return parts.hour * 60 + parts.minute;
+}
+
 /**
  * Move a booking to another day without losing its time of day — a 10:30 cleaning
  * dragged to Thursday is still at 10:30. (A job dropped on a day opens the time picker
@@ -183,6 +188,10 @@ export default function CalendarBoard() {
   const previewSuffix = preview ? `?preview=${preview}` : "";
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
+  const [agendaDay, setAgendaDay] = useState<Date>(() => {
+    const local = dateParts(Date.now(), tz);
+    return new Date(local.year, local.month - 1, local.day);
+  });
   // Default to the full 7-day week so weekends are always visible/schedulable (emergencies).
   const [fullWeek, setFullWeek] = useState(true);
   const [crews, setCrews] = useState<Crew[]>([]);
@@ -669,6 +678,53 @@ export default function CalendarBoard() {
         </div>
       )}
 
+      <section className="c1-calendar-agenda panel" aria-label="Day agenda">
+        <div className="panel-header c1-agenda-header">
+          <button type="button" className="button small" aria-label="Previous day" onClick={() => setAgendaDay(addDays(agendaDay, -1))}><ChevronLeft size={16} /></button>
+          <strong>{agendaDay.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</strong>
+          <button type="button" className="button small" aria-label="Next day" onClick={() => setAgendaDay(addDays(agendaDay, 1))}><ChevronRight size={16} /></button>
+        </div>
+        <div className="panel-body c1-agenda-list">
+          {crews.length === 0 && <p>Add a {vocab.resourceNoun.toLowerCase()} in <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`}>Library</Link> to assign bookings.</p>}
+          {!apptMode && jobs.filter((job) => !job.scheduledStart || !job.assignedCrewId).map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
+            <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
+            {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
+              <option value="">Schedule…</option>{workCrews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
+            </select>}
+          </article>)}
+          {!readOnly && crews.length > 0 && <select aria-label="Block time for" value="" onChange={(event) => { if (event.target.value) openBlockForm(event.target.value); }}><option value="">Block time for…</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>}
+          {blocks.filter((block) => sameDay(block.startTime, agendaDay, tz)).map((block) => <article className="c1-agenda-item" style={{ order: minuteOfDay(block.startTime, tz) }} key={block.blockId}>
+            <strong>{new Date(block.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {block.label}</strong>
+            <span>{crews.find((crew) => crew.crewId === block.crewId)?.name ?? vocab.resourceNoun} · Blocked</span>
+            {!readOnly && <button type="button" className="button small" onClick={() => void deleteBlock(block.blockId)}>Remove block</button>}
+          </article>)}
+          {appts.filter((appt) => sameDay(appt.startTime, agendaDay, tz) && appt.status !== "cancelled").sort((a, b) => a.startTime - b.startTime).map((appt) => {
+            const assignees = apptMode ? crews : inspectors;
+            return <article className="c1-agenda-item" style={{ order: minuteOfDay(appt.startTime, tz) }} key={appt.appointmentId}>
+              <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</strong>
+              <span>{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}</span>
+              <div className="c1-agenda-actions">
+                {!readOnly && <select aria-label={`Assign ${appt.callerName ?? "booking"}`} value={appt.assignedCrewId ?? ""} disabled={busyJob === appt.appointmentId} onChange={(event) => { if (event.target.value) void placeAppt(appt.appointmentId, event.target.value, agendaDay); else void unassignAppt(appt.appointmentId); }}>
+                  <option value="">Unassigned</option>{assignees.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
+                </select>}
+                {!readOnly && appt.assignedCrewId && appt.status !== "confirmed" && <button type="button" className="button small primary" disabled={busyJob === appt.appointmentId} onClick={() => void confirmAppt(appt)}>{busyJob === appt.appointmentId ? "Confirming…" : "Confirm"}</button>}
+                <Link className="button small" href={`/company/pipeline?tab=appointments&appt=${appt.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`}>Details</Link>
+              </div>
+            </article>;
+          })}
+          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
+            <strong>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</strong>
+            <span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span>
+            <div className="c1-agenda-actions">
+              {!readOnly && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
+              {!readOnly && job.assignedCrewId && <button type="button" className="button small" onClick={() => openChangeTime(job)}>Change time</button>}
+              <Link className="button small" href={`/company/jobs/${job.jobId}${previewSuffix}`}>Open {vocab.jobNoun.toLowerCase()}</Link>
+            </div>
+          </article>)}
+          {appts.every((appt) => !sameDay(appt.startTime, agendaDay, tz) || appt.status === "cancelled") && jobs.every((job) => !job.scheduledStart || !sameDay(job.scheduledStart, agendaDay, tz)) && blocks.every((block) => !sameDay(block.startTime, agendaDay, tz)) && <p>No bookings or {vocab.jobNounPlural.toLowerCase()} this day.</p>}
+        </div>
+      </section>
+      <div className="c1-calendar-board">
       {/* Week nav */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -862,6 +918,7 @@ export default function CalendarBoard() {
         </div>
       </DndContext>
       )}
+      </div>
       {picker && businessId && (() => {
         const job = jobs.find((candidate) => candidate.jobId === picker.jobId);
         const crew = crews.find((candidate) => candidate.crewId === picker.crewId);

@@ -522,9 +522,11 @@ export default function PipelinePage() {
             </div>
           )}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
-          <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} />
+          <p className="c1-phone-only appt-detail">{appt.callerPhone ?? "No phone"} · {appt.address ?? "No address"}</p>
+          <div className="c1-desktop-only"><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} /></div>
+          <details className="c1-phone-only"><summary>Details</summary><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} /><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></details>
           {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
-          <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
+          <div className="c1-desktop-only"><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></div>
         </div>
 
         <div className="appt-actions">
@@ -629,6 +631,7 @@ export default function PipelinePage() {
                 </button>
               ))}
             </div>
+            {leadFilter !== "all" && <div className="c1-active-filter">Filter: {leadFilter} <button type="button" className="button small" onClick={() => setLeadFilter("all")}>Clear</button></div>}
           </div>
 
           <div className="lead-workspace">
@@ -673,7 +676,7 @@ export default function PipelinePage() {
                             {isNewRequest(lead.status) ? <span className="tag">New request</span> : <StatusChip status={lead.status} />}
                           </div>
                         </div>
-                        <div className="lead-detail-grid">
+                        <div className="lead-detail-grid c1-desktop-only">
                           <div className="detail-block">
                             <span className="detail-label">Service</span>
                             <span className="detail-value">{lead.serviceRequested ?? "—"}</span>
@@ -684,11 +687,12 @@ export default function PipelinePage() {
                           </div>
                         </div>
                         {lead.notes && (
-                          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#475569", fontStyle: "italic", lineHeight: 1.4 }}>
+                          <p className="c1-desktop-only" style={{ margin: "4px 0 0", fontSize: 12, color: "#475569", fontStyle: "italic", lineHeight: 1.4 }}>
                             &ldquo;{lead.notes.length > 100 ? lead.notes.slice(0, 100) + "…" : lead.notes}&rdquo;
                           </p>
                         )}
                         <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
+                        <details className="c1-phone-only" onClick={(event) => event.stopPropagation()}><summary>Details</summary><p>{lead.serviceRequested || "No service"} · {lead.address || "No address"}</p>{lead.notes && <p>{lead.notes}</p>}</details>
                         <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
                           {linkedJobId(lead, appointments) && (
                             <Link className="button small" href={`/company/jobs/${linkedJobId(lead, appointments)}${previewSuffix}`}>

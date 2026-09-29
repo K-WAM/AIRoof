@@ -268,6 +268,7 @@ export default function CompanyCallsPage() {
                 </button>
               ))}
             </div>
+            {dirFilter !== "all" && <button type="button" className="button small" onClick={() => setDirFilter("all")}>Clear filter</button>}
           </div>
           <div className="panel-body">
             {filteredCalls.length === 0 ? (
@@ -331,6 +332,10 @@ export default function CompanyCallsPage() {
                           </>
                         )}
                       </p>
+                      <div className="c1-phone-only c1-call-actions" onClick={(event) => event.stopPropagation()}>
+                        <button type="button" className="button small primary" onClick={() => { setSelected(call); requestAnimationFrame(() => document.getElementById("call-detail-title")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Open call</button>
+                        <details><summary>Details</summary><p>{callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}</p></details>
+                      </div>
                     </article>
                   );
                 })}

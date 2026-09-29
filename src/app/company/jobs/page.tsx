@@ -338,7 +338,7 @@ export default function JobsPage() {
       ) : (
         <section className="panel">
           <div className="panel-body" style={{ padding: 0 }}>
-            <table className="jobs-list-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <table className="jobs-list-table c1-desktop-only" style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
                   <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Job ID</th>
@@ -396,6 +396,17 @@ export default function JobsPage() {
                 ))}
               </tbody>
             </table>
+            <div className="c1-phone-only c1-card-list">
+              {visibleJobs.map((job) => <article className="c1-list-card" key={job.jobId}>
+                <strong>{job.jobId} · {job.title}</strong>
+                <span>{job.clientName ?? "No customer"}</span>
+                <StatusChip status={job.status} />
+                <span>Next: {job.status === "inspection" || job.status === "open" ? "Prepare quote" : job.status === "quoted" ? "Review quote" : job.status === "complete" ? "Prepare invoice" : job.status === "invoiced" ? "Review payment" : "Continue work"}</span>
+                <a className="button primary" href={`/company/jobs/${job.jobId}${previewSuffix}`}>Open {vocab.jobNoun.toLowerCase()}</a>
+                <details><summary>Details</summary><p>{job.address || "No address"} · {job.clientPhone || "No phone"} · Created {formatDate(job.createdAt)}</p></details>
+              </article>)}
+              {visibleJobs.length === 0 && <p>No {vocab.jobNounPlural.toLowerCase()} match this filter.</p>}
+            </div>
           </div>
           {hasMore && nextBefore !== null && <div style={{ padding: 16, textAlign: "center" }}><button type="button" className="button" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)}>{loadingOlder ? "Loading…" : "Load older jobs"}</button></div>}
         </section>
