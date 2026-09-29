@@ -58,15 +58,16 @@ test.describe("industry gating", () => {
     expect(new URL(page.url()).pathname).not.toBe("/admin/businesses");
   });
 
-  test("feedback button is hidden for superadmin, shown for clients", async ({ as, isMobile }) => {
+  // Owner, 2026-09-28: "add a feedback button for users, i cant find it". Every user sees it — the superadmin too while
+  // previewing a client — and it must be IN VIEW at laptop height (it used to sit below the sidebar's fold).
+  test("Feedback is on screen for clients and for a superadmin previewing one", async ({ as, isMobile }) => {
     test.skip(isMobile, "the desktop sidebar is what this checks");
-    const sup = await as("superadmin");
-    await sup.goto("/company/dashboard?preview=e2e-roofing");
-    await settle(sup);
-    await expect(sup.getByText(/^Feedback$/)).toHaveCount(0);
-    const owner = await as("owner");
-    await owner.goto("/company/dashboard");
-    await settle(owner);
-    await expect(owner.getByText(/Feedback/).first()).toBeVisible();
+    for (const [who, path] of [["owner", "/company/dashboard"], ["superadmin", "/company/dashboard?preview=e2e-roofing"]] as const) {
+      const page = await as(who);
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await page.goto(path);
+      await settle(page);
+      await expect(page.getByRole("button", { name: "Send feedback" })).toBeInViewport();
+    }
   });
 });
