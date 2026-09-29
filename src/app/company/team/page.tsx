@@ -207,7 +207,7 @@ export default function TeamPage() {
                 </div>
               </div>}
               <div className="team-member-card__actions">
-                {memberState === "Active" && roleEditing !== member.uid && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { setRoleDraft(currentRole); setRoleEditing(member.uid); }}>Change role</button>}
+                {memberState === "Active" && roleEditing !== member.uid && <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setRoleDraft(currentRole); setRoleEditing(member.uid); }}>Change role</button>}
                 {memberState === "Invited" && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { void send("/api/company/team/" + encodeURIComponent(member.uid) + "/resend", {}, member.uid, "Invite resent"); }}>Resend invite</button>}
                 {memberState === "Disabled" && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { void change(member, { active: true }, "Access re-enabled"); }}>Re-enable</button>}
                 <details className="job-action-menu"><summary className="button">More</summary><div className="job-action-menu__items">

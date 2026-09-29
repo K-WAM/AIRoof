@@ -205,7 +205,7 @@ test("a viewer is never offered a write action by an empty state", async ({ as }
 test("dental reads in its own words", async ({ as }) => {
   const page = await as("dentalOwner");
   await visit(page, "/company/calendar");
-  const empty = page.getByTestId("calendar-no-resources");
+  const empty = page.getByTestId("calendar-no-resources").filter({ visible: true }).first(); // phone + desktop copies
   if (await empty.count()) {
     await expect(empty).toContainText(/Add your first provider/i);
     await expect(empty).not.toContainText(/crew|job/i);

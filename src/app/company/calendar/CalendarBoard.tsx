@@ -640,6 +640,7 @@ export default function CalendarBoard() {
 
   // The phone agenda walks day by day, but bookings, blocks and time are loaded one week at a time (weekStart). Moving
   // the agenda into another week must load that week too, or a booked day would show "No bookings".
+  const unscheduledJobs = jobs.filter((job) => !job.scheduledStart || !job.assignedCrewId);
   const stepAgenda = (delta: number) => {
     const next = addDays(agendaDay, delta);
     setAgendaDay(next);
@@ -702,12 +703,18 @@ export default function CalendarBoard() {
             action={readOnly ? undefined : { label: `Add ${vocab.resourceNoun.toLowerCase()}`, onClick: () => openQuickAdd("crew") }}
             testId="calendar-no-resources"
           />}
-          {!apptMode && jobs.filter((job) => !job.scheduledStart || !job.assignedCrewId).map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
-            <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
-            {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
-              <option value="">Schedule…</option>{workCrews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
-            </select>}
-          </article>)}
+          {/* The chosen day comes first; unscheduled work waits in one labelled, collapsed list below it (order: last). */}
+          {!apptMode && unscheduledJobs.length > 0 && <details className="c1-agenda-unscheduled" style={{ order: 100000 }}>
+            <summary>Unscheduled {vocab.jobNounPlural.toLowerCase()} ({unscheduledJobs.length})</summary>
+            <div className="c1-agenda-list">
+              {unscheduledJobs.map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
+                <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
+                {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
+                  <option value="">Schedule…</option>{workCrews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
+                </select>}
+              </article>)}
+            </div>
+          </details>}
           {!readOnly && crews.length > 0 && <select aria-label="Block time for" value="" onChange={(event) => { if (event.target.value) openBlockForm(event.target.value); }}><option value="">Block time for…</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>}
           {blocks.filter((block) => sameDay(block.startTime, agendaDay, tz)).map((block) => <article className="c1-agenda-item" style={{ order: minuteOfDay(block.startTime, tz) }} key={block.blockId}>
             <strong>{new Date(block.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {block.label}</strong>
