@@ -1360,6 +1360,15 @@ an active queue.*
         (TitleHelp is gone); team.ts/landing.ts inspector hunks are identical on both sides.
         **Owner decisions open:** Inspector = field-only (no prices; the office prices the quote from their findings) — flip to
         Office staff per person if an inspector should also quote. Technician = field-only too.
+  - [x] **T-156 (integrator) — owner's harness + UX pass, 2026-09-28 evening.** Feedback: every user (and the superadmin
+        previewing a client) sees it, pinned in view at laptop height; email "[Feedback · <category>] <company> — …" with
+        sender/type/page, reply-to the sender; Crew logins allowed. Calendar: drops land on the aimed day (pointer collision +
+        edge-only auto-scroll — a Wednesday drop landed on Thursday). Customers is one screen (Library tab removed). Calls
+        paged 25 at a time. Dashboard "Agent Setup" panel removed (header pill opens Settings). Team: never crashes on an
+        odd role, superadmin hidden + not a seat, cards on a phone; sidebar badge shows the user type. Documents format the
+        customer phone. Test text to +1 825 488 7791 DELIVERED (Canadian number — US numbers still need NH-29).
+        **Still open:** the Calendar shows each phone booking twice (left list + "Phone bookings" row) — keep one;
+        the crew time picker lists 12:00 AM first for a round-the-clock tenant (fine for 24/7, odd for others).
 - [ ] Phase 27 — "No training needed": the workflow is the tutorial (owner-directed, 2026-09-27)
       The main sales claim (see the one-pager) is that nobody needs training — the competitor charged $10–15K setup plus two days of training and weekly
       training for a year. Spec: **`docs/NO-TRAINING-UX-PLAN.md`** (rules, per-screen empty-state copy, prerequisite chains, test rig). Prompts:
