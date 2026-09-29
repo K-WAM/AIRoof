@@ -17,7 +17,7 @@ import { setupChecklist, type SetupChecklistInput } from "@/lib/onboarding/setup
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { fmtPhone } from "@/lib/format";
-import { AlertTriangle, Bot, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Settings, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
   leadId: string;
@@ -265,17 +265,6 @@ export default function CompanyDashboardPage() {
       })), totalCallsTile]
     : genericMetrics;
 
-  const agentSettings = agent
-    ? [
-        ["Agent name", agent.agentName ?? "AI receptionist"],
-        ["Status", isAgentActive ? "Active — answering calls" : "Inactive"],
-        ["Escalation", agent.escalationPhone ?? "—"],
-        ["Approved services", `${agent.approvedServices?.length ?? 0} configured`],
-        ["Approved FAQs", `${agent.approvedFaqs?.length ?? 0} answers`],
-        ["Calendar", "Scheduling enabled"],
-      ]
-    : [];
-
   const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
   const checklistDone = checklist.filter((item) => item.done).length;
@@ -350,7 +339,11 @@ export default function CompanyDashboardPage() {
               {pendingAppts.length} pending approval
             </Link>
           )}
-          <span className="status-pill">{isAgentActive ? "Agent active" : "Agent inactive"}</span>
+          {/* The one place the AI's status shows; tap it to change what the AI says (Settings). The old "Agent Setup"
+              panel repeated Settings in technical terms ("5 configured", the escalation number) — removed 2026-09-28. */}
+          <Link className="status-pill" href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
+            {isAgentActive ? "AI receptionist: answering calls" : "AI receptionist: off"}
+          </Link>
         </div>
       </header>
 
@@ -405,7 +398,7 @@ export default function CompanyDashboardPage() {
         ))}
       </section>
 
-      <div className="ops-grid">
+      <div>
         {/* Today Feed */}
         <div>
           {pendingAppts.length > 0 && (
@@ -533,33 +526,6 @@ export default function CompanyDashboardPage() {
           ))}
         </div>
 
-        {/* Agent Setup panel - unchanged */}
-        <aside className="panel" aria-labelledby="agent-title">
-          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 className="panel-title" id="agent-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Bot size={16} strokeWidth={1.75} />
-              Agent Setup
-            </h2>
-            <Link href={`/company/settings${previewSuffix}`} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <Settings size={13} strokeWidth={1.75} />
-              Settings
-            </Link>
-          </div>
-          <div className="panel-body">
-            {agentSettings.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 14 }}>Agent config not loaded.</p>
-            ) : (
-              <div className="settings-list">
-                {agentSettings.map(([label, value]) => (
-                  <div className="settings-row" key={label}>
-                    <p>{label}</p>
-                    <span>{value}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </aside>
       </div>
     </>
   );

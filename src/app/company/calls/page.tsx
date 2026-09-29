@@ -61,6 +61,8 @@ interface AppointmentRef {
   textOk?: boolean; assignedCrewId?: string; assignedBy?: "ai" | "office"; callSummary?: string;
 }
 
+const CALLS_PAGE = 25;
+
 function formatTime(ms: number, tz: string): string {
   return new Date(ms).toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
@@ -111,6 +113,8 @@ export default function CompanyCallsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
+  // The newest calls first, 25 at a time — the whole history on one page made Calls a 10,000 px scroll (2026-09-28).
+  const [shownCount, setShownCount] = useState(CALLS_PAGE);
   // T-084: leads/appointments lists, fetched solely to resolve which lead or
   // appointment (if any) each call produced, by matching on sourceCallId.
   const [linkedLeads, setLinkedLeads] = useState<LeadRef[]>([]);
@@ -275,7 +279,7 @@ export default function CompanyCallsPage() {
             ) : (
               <div className="call-list">
                 <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Click a call to read its transcript and play the recording.</p>
-                {filteredCalls.map((call) => {
+                {filteredCalls.slice(0, shownCount).map((call) => {
                   const msgs = conversationMessages(call);
                   const category = guessCategory(msgs);
                   const dur = callDuration(call);
@@ -329,6 +333,12 @@ export default function CompanyCallsPage() {
                     </article>
                   );
                 })}
+                {filteredCalls.length > shownCount && (
+                  <button type="button" className="button" style={{ width: "100%", marginTop: 8 }}
+                    onClick={() => setShownCount((count) => count + CALLS_PAGE)}>
+                    Show {Math.min(CALLS_PAGE, filteredCalls.length - shownCount)} older calls
+                  </button>
+                )}
               </div>
             )}
           </div>

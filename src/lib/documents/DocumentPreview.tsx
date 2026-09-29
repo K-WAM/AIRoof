@@ -4,6 +4,7 @@ import type { ReportQuoteSection } from "./reportQuote";
 import type { RenderedNotice } from "./notices";
 import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
+import { fmtPhone } from "@/lib/format/phone";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
@@ -31,7 +32,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       </div>
       <div><h2 style={{ margin: "0 0 8px", fontSize: 28, color: accent }}>{title}</h2>{meta.map(([key, value]) => <div key={key} style={{ fontSize: 12 }}><strong>{key}:</strong> {value}</div>)}</div>
     </header>
-    <section style={{ padding: "20px 0", borderBottom: "1px solid #e2e8f0" }}><strong>{partyLabel}</strong><div>{billTo.name}</div>{billTo.address && <div>{billTo.address}</div>}{billTo.phone && <div>{billTo.phone}</div>}</section>
+    <section style={{ padding: "20px 0", borderBottom: "1px solid #e2e8f0" }}><strong>{partyLabel}</strong><div>{billTo.name}</div>{billTo.address && <div>{billTo.address}</div>}{billTo.phone && <div>{fmtPhone(billTo.phone)}</div>}</section>
     {opening && <section style={{ padding: "20px 0", whiteSpace: "pre-wrap" }}><p>{opening}</p></section>}
     {!!findings?.length && <section style={{ padding: "18px 0" }}><strong>{title === "Invoice" ? "Findings and corrective action" : "Issues found & work recommended"}</strong>{findings.map((finding, index) => <p key={index} style={{ whiteSpace: "pre-wrap" }}>{title === "Invoice" ? <><strong>Problem:</strong> {finding.problem}<br /><strong>Corrective action:</strong> {finding.solution}</> : <><strong>{finding.problem}</strong><br />{finding.solution}</>}{finding.note?.trim() && <><br /><em style={{ color: "#475569" }}>Inspector&apos;s note: {finding.note.trim()}</em></>}</p>)}</section>}
     {narrative && <section style={{ padding: "20px 0", whiteSpace: "pre-wrap" }}><strong>Description of work</strong><p>{narrative}</p></section>}

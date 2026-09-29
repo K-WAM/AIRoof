@@ -19,6 +19,7 @@ import { QuickAddProvider } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { defaultLandingPath } from "@/lib/team/landing";
 import type { TeamRole, TradeTitle } from "@/types/team";
+import { userTypeDef, userTypeOf } from "@/lib/team/userTypes";
 
 // Routes that only exist for industries using that module. Hiding the nav tab
 // isn't enough — a dental tenant typing /company/jobs must not land on it.
@@ -168,7 +169,10 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const roleLabel = user.superadmin ? "Superadmin" : (user.role ?? "Viewer");
+  // The same words as the Team page's Type (Admin / Office staff / Inspector / Technician / View only), not "crew"/"staff".
+  const roleLabel = user.superadmin
+    ? "Superadmin"
+    : userTypeDef(userTypeOf({ role: (user.role ?? "viewer") as TeamRole, trade: user.trade as TradeTitle | undefined })).label;
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const crewSuffix = preview ? `?preview=${preview}&section=crews` : "?section=crews";

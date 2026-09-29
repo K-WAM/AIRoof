@@ -5,6 +5,7 @@ import type { ReportQuoteSection } from "./reportQuote";
 import type { RenderedNotice } from "./notices";
 import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
+import { fmtPhone } from "@/lib/format/phone";
 
 const money = (value: number) => `$${value.toFixed(2)}`;
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
@@ -19,7 +20,7 @@ export function letterheadBlock(brand: Letterhead, title: string, meta: [string,
 
 export function billToBlock(billTo: { name: string; address?: string; phone?: string }, label = "Bill to"): string {
   if (!billTo.name && !billTo.address) return "";
-  return `<section style="padding:20px 0;border-bottom:1px solid #e2e8f0"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b">${escapeHtml(label)}</div><strong>${escapeHtml(billTo.name)}</strong>${billTo.address ? `<div>${escapeHtml(billTo.address)}</div>` : ""}${billTo.phone ? `<div>${escapeHtml(billTo.phone)}</div>` : ""}</section>`;
+  return `<section style="padding:20px 0;border-bottom:1px solid #e2e8f0"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b">${escapeHtml(label)}</div><strong>${escapeHtml(billTo.name)}</strong>${billTo.address ? `<div>${escapeHtml(billTo.address)}</div>` : ""}${billTo.phone ? `<div>${escapeHtml(fmtPhone(billTo.phone))}</div>` : ""}</section>`;
 }
 
 export function narrativeBlock(narrative?: string): string {

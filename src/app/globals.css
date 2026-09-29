@@ -869,6 +869,17 @@ a.panel:hover {
   .company-nav-secondary { margin-top: 8px; }
 }
 
+/* Team / Settings / Guide / Feedback stay pinned at the bottom of the sidebar's scroll area — on a laptop-height
+   window they used to sit below the fold, which is why the owner couldn't find Feedback (2026-09-28). The workflow
+   links above scroll under them instead. Desktop sidebar only: the phone menu sheet scrolls as one list. */
+.company-sidebar-nav .company-nav-secondary {
+  position: sticky;
+  bottom: 0;
+  background: #ffffff;
+  padding-bottom: 4px;
+  z-index: 1;
+}
+
 .mobile-menu-btn {
   display: none;
   align-items: center;
