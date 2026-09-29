@@ -3160,3 +3160,71 @@ a.metric:hover {
 .cmd-type--job { color: var(--accent); }
 .cmd-type--appt { color: var(--c-info-fg); }
 .cmd-type--customer { color: var(--text-muted); }
+
+/* ?? Shared states and words (T-163) ?? */
+.page-error {
+  border-color: var(--c-danger-bd);
+  background: var(--surface);
+  padding: var(--sp-5);
+}
+.page-error-title {
+  margin: 0 0 var(--sp-2);
+  color: var(--c-danger-fg);
+  font-size: 20px;
+}
+.page-error-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+.page-error-next {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 560px;
+}
+.page-error .button { margin-top: var(--sp-4); }
+
+.blocked-action-reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 420px;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.field-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-danger-fg);
+}
+
+.inline-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-md);
+  background: var(--c-warn-bg);
+  color: var(--c-warn-fg);
+  font-size: 13px;
+}
+.inline-notice-retry {
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--c-warn-fg);
+  font: inherit;
+  font-weight: 700;
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+}
+.inline-notice-retry:hover { background: var(--surface-muted); }
