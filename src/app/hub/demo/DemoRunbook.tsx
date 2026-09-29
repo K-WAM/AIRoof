@@ -21,7 +21,7 @@ const RUN = [
 export function DemoRunbook() {
   return (
     <section className="panel" aria-labelledby="demo-runbook-title" style={{ marginTop: "1.5rem" }}>
-      <div className="panel-header"><h2 className="panel-title" id="demo-runbook-title">2 · Run the demo</h2></div>
+      <div className="panel-header"><h2 className="panel-title" id="demo-runbook-title">Optional · Full 20-minute runbook</h2></div>
       <div className="panel-body">
         <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
           {RUN.map((step, index) => (

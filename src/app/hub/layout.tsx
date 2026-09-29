@@ -3,12 +3,13 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { HubNav } from "./hub-nav";
+import { AdminNav } from "@/app/admin/admin-nav";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
-// Same superadmin gate as /admin (AdminShell) — this is a re-route/re-skin
-// only (T-055), not a new auth system. Demo Studio, the onboarding wizard,
-// and Playbooks live here now; Businesses/Usage/Invoices stay under /admin.
+// Same Admin shell and nav as /admin (T-166, D6/R8) — this is a re-skin only,
+// not a new auth system. The superadmin gate below is copied exactly from
+// src/app/admin/layout.tsx; do not loosen or tighten it. Demo Studio, the
+// onboarding wizard and Playbooks keep their /hub/* URLs.
 function HubShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -46,9 +47,9 @@ function HubShell({ children }: { children: React.ReactNode }) {
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="admin-brand-logo" />
-          <span className="admin-brand-sub">Hub</span>
+          <span className="admin-brand-sub">Superadmin</span>
         </div>
-        <HubNav />
+        <AdminNav />
         <div className="admin-sidebar-footer">
           <span className="admin-sidebar-email">{user.email}</span>
           <button className="admin-signout-btn" onClick={handleLogout}>Sign out</button>

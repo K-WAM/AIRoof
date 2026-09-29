@@ -129,4 +129,77 @@ describe("Modal", () => {
     );
     expect(screen.getByLabelText("Message")).toHaveFocus();
   });
+
+  it("focuses the first field when none is autoFocus'd", () => {
+    render(
+      <Modal open onClose={() => {}} title="Quick add">
+        <input aria-label="First field" />
+        <input aria-label="Second field" />
+      </Modal>
+    );
+    expect(screen.getByLabelText("First field")).toHaveFocus();
+  });
+
+  // T-158: the optional dirty prop guards closing behind a "Discard changes?".
+  it("closes on Escape when not dirty", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open onClose={onClose} title="Edit" dirty={false}>
+        Hello
+      </Modal>
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before discarding and stays open when the user cancels", () => {
+    const onClose = vi.fn();
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    render(
+      <Modal open onClose={onClose} title="Edit" dirty>
+        Hello
+      </Modal>
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(window.confirm).toHaveBeenCalledWith("Discard changes?");
+    expect(onClose).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("closes on Escape when the user confirms discarding", () => {
+    const onClose = vi.fn();
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    render(
+      <Modal open onClose={onClose} title="Edit" dirty>
+        Hello
+      </Modal>
+    );
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("does not discard on a backdrop click while dirty unless confirmed", () => {
+    const onClose = vi.fn();
+    vi.stubGlobal("confirm", vi.fn(() => false));
+    render(
+      <Modal open onClose={onClose} title="Edit" dirty>
+        Hello
+      </Modal>
+    );
+    fireEvent.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    expect(onClose).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("locks body scroll while open and restores it on close", () => {
+    const { unmount } = render(
+      <Modal open onClose={() => {}} title="Quick add">
+        Hello
+      </Modal>
+    );
+    expect(document.body.style.overflow).toBe("hidden");
+    unmount();
+    expect(document.body.style.overflow).toBe("");
+  });
 });

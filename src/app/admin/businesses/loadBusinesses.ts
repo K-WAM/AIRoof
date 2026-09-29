@@ -9,6 +9,8 @@ export interface BizRow {
   serviceArea?: string[];
   createdAt: number;
   subscriptionStatus?: "active" | "paused" | "trial";
+  /** Contract C-A: the server's classification (demo derived, missing = "unclassified"), not the stored field. */
+  accountPurpose?: string | null;
 }
 
 export type BusinessesLoadResult =
@@ -25,7 +27,7 @@ export async function loadBusinesses(
     return {
       status: "success",
       businesses: (data.businesses ?? []).map(
-        (row: { business: BizRow }) => row.business
+        (row: { business: BizRow; accountPurpose?: string }) => ({ ...row.business, accountPurpose: row.accountPurpose ?? row.business.accountPurpose })
       ),
     };
   } catch {

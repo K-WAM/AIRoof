@@ -1,3 +1,15 @@
+/* ── Design tokens (T-157) ─────────────────────────────────────────────────
+   One source of truth for the whole app. Token families:
+   · surfaces/text   — --surface, --surface-muted, --background, --border, --text, --text-muted
+   · accent          — --accent, --accent-dark, --accent-soft (one teal; per-family overrides below)
+   · state pairs     — --c-{danger,success,info,warn,neutral}-{bg,fg,bd}; use the tone, never a raw colour
+   · radius          — --r-{sm,md,lg,pill}
+   · focus           — --ring / --ring-dark (applied via :focus-visible app-wide)
+   · spacing         — --sp-1 … --sp-6 (4px rhythm: 4/8/12/16/24/32). Use these for new UI. The older
+                       --s1…--s8 scale matches the same rhythm and stays for existing rules; new code
+                       and the Phase 32 · D block below prefer --sp-*.
+   · control size    — --control-h: 44px, the minimum touch target applied only under (pointer: coarse).
+   Rule: no new hex colours. Every new rule reads a token; if a value has no token, add a token above first. */
 :root {
   --background: #f1f5f9;
   --surface: #ffffff;
@@ -40,6 +52,15 @@
   --s5: 20px;
   --s6: 24px;
   --s8: 32px;
+
+  /* Phase 32 (C-D) canonical spacing scale and touch-target height. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --control-h: 44px;
 
   /* Semantic status colors — one source of truth for chips/tags/tints */
   --c-danger-bg: #fee2e2;  --c-danger-fg: #b91c1c;  --c-danger-bd: #fecaca;
@@ -1160,32 +1181,13 @@ a.metric:hover {
   line-height: 1.5;
 }
 
-.sc--scheduled     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--escalated     { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.sc--lead_captured { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--no_action     { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--urgent        { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.sc--normal        { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--new           { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--contacted     { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.sc--converted     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--lost          { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; }
-.sc--confirmed     { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--requested     { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--cancelled     { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-.sc--open          { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.sc--in_progress   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--complete      { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--after_hours   { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.sc--emergency     { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.sc--scheduling    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
-.sc--service       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--general       { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
-.sc--outbound      { background: #f0fdf4; color: #0f766e; border-color: #a7f3d0; }
-.sc--inspection    { background: var(--c-info-bg);  color: var(--c-info-fg);  border-color: var(--c-info-bd); }
-.sc--quoted        { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
-.sc--invoiced      { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
-.sc--pending       { background: var(--c-warn-bg);  color: var(--c-warn-fg);  border-color: var(--c-warn-bd); }
+/* One tone → one token pair for every status (T-157). StatusChip maps each
+   status string to a tone; these are the only chip colours in the system. */
+.sc--danger  { background: var(--c-danger-bg);  color: var(--c-danger-fg);  border-color: var(--c-danger-bd); }
+.sc--success { background: var(--c-success-bg); color: var(--c-success-fg); border-color: var(--c-success-bd); }
+.sc--info    { background: var(--c-info-bg);    color: var(--c-info-fg);    border-color: var(--c-info-bd); }
+.sc--warn    { background: var(--c-warn-bg);    color: var(--c-warn-fg);    border-color: var(--c-warn-bd); }
+.sc--neutral { background: var(--c-neutral-bg); color: var(--c-neutral-fg); border-color: var(--c-neutral-bd); }
 
 /* ── Today Feed (dashboard) ─────────────── */
 
@@ -3072,3 +3074,334 @@ a.metric:hover {
 .badge-ended { background: var(--surface-muted); color: var(--text-muted); }
 @keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }
+
+/* ?? Phase 32 � D ?? */
+
+/* Touch targets: every button and text-like form control grows to the shared
+   44px control height only on coarse pointers; desktop density is unchanged. */
+@media (pointer: coarse) {
+  .button,
+  .button.small { min-height: var(--control-h); }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select:not([multiple]),
+  textarea { min-height: var(--control-h); }
+}
+
+/* Dialog contract (T-158): one visible 44px close button with an accessible
+   name across Modal and Sheet. */
+.modal-close,
+[data-dialog-close] {
+  width: var(--control-h);
+  height: var(--control-h);
+  min-width: var(--control-h);
+  min-height: var(--control-h);
+}
+
+/* Sheet header: title + close on one line; the title keeps its own styling. */
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.sheet-head .sheet-title { margin: 0; }
+
+/* Visually hidden, available to assistive tech (dialog titles, live labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Command bar (T-158): active option, footer status line, retry, clear. */
+.cmd-result--active { background: var(--surface-muted); }
+.cmd-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+.cmd-footer .cmd-hint { padding: 0; border: 0; }
+.cmd-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cmd-retry {
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+}
+.cmd-retry:hover { background: var(--surface-muted); }
+.cmd-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 var(--sp-1);
+}
+.cmd-type--lead { color: var(--c-info-fg); }
+.cmd-type--job { color: var(--accent); }
+.cmd-type--appt { color: var(--c-info-fg); }
+.cmd-type--customer { color: var(--text-muted); }
+
+/* ?? Shared states and words (T-163) ?? */
+.page-error {
+  border-color: var(--c-danger-bd);
+  background: var(--surface);
+  padding: var(--sp-5);
+}
+.page-error-title {
+  margin: 0 0 var(--sp-2);
+  color: var(--c-danger-fg);
+  font-size: 20px;
+}
+.page-error-message {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+.page-error-next {
+  margin: var(--sp-2) 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 560px;
+}
+.page-error .button { margin-top: var(--sp-4); }
+
+.blocked-action-reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 420px;
+}
+
+.field-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.field-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c-danger-fg);
+}
+
+.inline-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-md);
+  background: var(--c-warn-bg);
+  color: var(--c-warn-fg);
+  font-size: 13px;
+}
+.inline-notice-retry {
+  border: 1px solid var(--c-warn-bd);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--c-warn-fg);
+  font: inherit;
+  font-weight: 700;
+  padding: 2px var(--sp-2);
+  cursor: pointer;
+}
+.inline-notice-retry:hover { background: var(--surface-muted); }
+
+/* ?? Admin client list + dense data on a phone (T-166, T-162) ?? */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.filter-chip {
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.purpose-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.purpose-badge--client { background: var(--c-success-bg); color: var(--c-success-fg); border-color: var(--c-success-bd); }
+.purpose-badge--demo { background: var(--c-info-bg); color: var(--c-info-fg); border-color: var(--c-info-bd); }
+.purpose-badge--test { background: var(--c-warn-bg); color: var(--c-warn-fg); border-color: var(--c-warn-bd); }
+.purpose-badge--archived { background: var(--c-neutral-bg); color: var(--c-neutral-fg); border-color: var(--c-neutral-bd); }
+.purpose-badge--unclassified { background: var(--c-danger-bg); color: var(--c-danger-fg); border-color: var(--c-danger-bd); }
+
+.cell-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.advanced-disclosure {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: var(--sp-3) var(--sp-4);
+}
+.advanced-disclosure > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.advanced-disclosure-note {
+  margin: var(--sp-3) 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Phone: the admin/usage tables become one card per row with the deciding
+   fields; nothing scrolls sideways at 390px. */
+@media (max-width: 640px) {
+  .business-table[data-responsive] thead { display: none; }
+  .business-table[data-responsive],
+  .business-table[data-responsive] tbody,
+  .business-table[data-responsive] tr,
+  .business-table[data-responsive] td { display: block; width: 100%; }
+  .business-table[data-responsive] tr {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+  .business-table[data-responsive] td {
+    border: 0;
+    padding: 3px 0;
+  }
+  .business-table[data-responsive] td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .business-table[data-responsive] td:last-child {
+    margin-top: var(--sp-2);
+  }
+  /* Row actions stay on one line inside the card; the deciding fields remain
+     (Usage: Company � Phone line � Calls � Booking), the rest collapse. */
+  .business-table[data-responsive] .hide-phone { display: none; }
+}
+
+.booking-problems {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-danger-fg);
+}
+
+/* ?? Guide: run a demo in 5 minutes (T-167) ?? */
+.demo-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+.demo-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+}
+.demo-step:first-child { border-top: 0; }
+.demo-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.demo-step-body { min-width: 0; }
+.demo-step-title { margin: 0 0 var(--sp-1); font-weight: 700; }
+.demo-step-expects { margin: 0 0 var(--sp-2); font-size: 14px; color: var(--text-muted); }
+.demo-step-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.demo-step-fail {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+/* ?? Demo Studio: per-line cards (T-167) ?? */
+.demo-line-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--sp-3);
+}
+.demo-line-card { padding: var(--sp-4); }
+.demo-line-number {
+  margin: 0 0 var(--sp-1);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.demo-line-meta { margin: 0 0 var(--sp-1); font-size: 14px; }
+.demo-line-note { margin: 0; font-size: 12px; color: var(--text-muted); }
+.demo-line-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.demo-diag-list {
+  margin: 0;
+  padding-left: var(--sp-5);
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
