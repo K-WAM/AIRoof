@@ -5,6 +5,9 @@ import { Suspense } from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const authState = vi.hoisted(() => ({ role: "owner" }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { role: authState.role } }) }));
+
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(), useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("@/hooks/useBusinessId", () => ({ useBusinessId: () => "biz" }));
 vi.mock("@/hooks/useLiveRefresh", () => ({ useLiveRefresh: () => undefined }));
@@ -40,6 +43,7 @@ const quote = { quoteId: "Q-1000", businessId: "biz", jobId: "J-1", status: "acc
 
 let job: Record<string, unknown>;
 beforeEach(() => {
+  authState.role = "owner";
   job = { ...baseJob };
   vi.stubGlobal("fetch", vi.fn(async (input: string) => {
     const url = String(input);
@@ -66,6 +70,19 @@ async function openPage() {
 const tabs = () => Array.from(document.querySelectorAll(".job-tabs .job-tab")).map((el) => (el.textContent ?? "").replace(/\s+/g, " ").trim());
 
 describe("job detail page structure", () => {
+  it("shows a viewer the record without offering office write actions", async () => {
+    authState.role = "viewer";
+    await openPage();
+    expect(screen.queryByText("Field QR")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Next:/ })).toBeNull();
+    fireEvent.click(screen.getByText("Materials (0)"));
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    fireEvent.click(screen.getByText(/② Quote/));
+    expect(screen.queryByRole("button", { name: "Mark accepted" })).toBeNull();
+    fireEvent.click(screen.getByText(/③ Report/));
+    expect(await screen.findByText(/No prices included/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mail report" })).toBeNull();
+  });
   it("has plain record tabs on the left and the four numbered workflow tabs on the right — no Issues tab", async () => {
     await openPage();
     await waitFor(() => expect(tabs().some((t) => t.includes("Accepted"))).toBe(true)); // the Quote pill learns its status without opening the tab
@@ -107,7 +124,7 @@ describe("job detail page structure", () => {
     expect(screen.getByRole("article", { name: "Finding 1" })).toBeTruthy();
     expect(screen.getByText(/Quote Q-1000 was accepted on 2026-09-25\. It is locked/)).toBeTruthy();
     fireEvent.click(screen.getByText("Labor (0)"));
-    expect(screen.getByText(/Quote Q-1000 was accepted/)).toBeTruthy();
+    expect(screen.queryByText(/Quote Q-1000 was accepted/)).toBeNull();
   });
 
   it("the Invoice tab offers Create invoice (never auto-creates) and Next opens the right tab once work is complete", async () => {

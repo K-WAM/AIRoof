@@ -6,43 +6,11 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useFormat } from "@/hooks/useFormat";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CREW_MEMBER_ROLES, TRADE_TITLES, TRADE_TITLE_LABEL, type TeamMember, type TradeTitle } from "@/types/team";
-import { fieldsForUserType, parseUserType, userTypeDef, userTypeOf, userTypesFor, type UserType, type UserTypeDef } from "@/lib/team/userTypes";
+import { fieldsForUserType, parseUserType, userTypeDef, userTypeOf, userTypesFor, type UserType } from "@/lib/team/userTypes";
 import type { Crew } from "@/types/library";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
-import { Info } from "lucide-react";
-
-// ⓘ next to Type (T-150): tap-to-open, not a hover tooltip — phones never show those.
-function InfoButton({ label, children }: { label: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 4 }}>
-      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((value) => !value)}
-        style={{ border: "none", background: "transparent", padding: 2, cursor: "pointer", color: "var(--text-muted)", display: "inline-flex" }}>
-        <Info size={14} strokeWidth={2} />
-      </button>
-      {open && (
-        <>
-          <span onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
-          <span role="dialog" aria-label={label} style={{ position: "absolute", top: "calc(100% + 6px)", left: -8, zIndex: 31, width: "min(320px, calc(100vw - 32px))", padding: "12px 14px", background: "#fff", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 8px 24px rgba(15,23,42,0.14)", fontSize: 13, fontWeight: 400, color: "var(--text)", lineHeight: 1.5, whiteSpace: "normal", textAlign: "left" }}>
-            {children}
-          </span>
-        </>
-      )}
-    </span>
-  );
-}
-
-function TypeHelp({ types }: { types: UserTypeDef[] }) {
-  return (
-    <InfoButton label="What each type can do">
-      {types.map((type) => (
-        <span key={type.id} style={{ display: "block", marginBottom: 6 }}><strong>{type.label}</strong> — {type.help}</span>
-      ))}
-      <span style={{ display: "block", color: "var(--text-muted)" }}>No account? A crew member can use a job&apos;s QR code instead.</span>
-    </InfoButton>
-  );
-}
+import { Modal } from "@/components/ui/Modal";
 
 /** Titles the five types don't cover (Foreman, Installer…) stay visible, so changing a type never hides them. */
 const TYPE_TITLES: ReadonlySet<TradeTitle> = new Set(["office", "inspector", "technician"]);
@@ -63,6 +31,11 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [controlError, setControlError] = useState<{ key: string; text: string } | null>(null);
+  const [filter, setFilter] = useState<"Active" | "Invited" | "Disabled">("Active");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [roleEditing, setRoleEditing] = useState<string | null>(null);
+  const [roleDraft, setRoleDraft] = useState<UserType>("office");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   // One Type per person (owner, 2026-09-28: Admin / Office staff / Inspector / Technician) — a preset over role + title.
@@ -75,6 +48,8 @@ export default function TeamPage() {
   const typeOptions = userTypesFor(hasField);
   const inviteRole = userTypeDef(userType).role;
   const activeOwners = members.filter((member) => member.role === "owner" && member.active).length;
+  const stateOf = (member: TeamMember): "Active" | "Invited" | "Disabled" => !member.active ? "Disabled" : member.status === "Invited" || !member.lastSignInTime ? "Invited" : "Active";
+  const visibleMembers = members.filter((member) => stateOf(member) === filter);
 
   const refresh = useCallback(async () => {
     if (!businessId || !canManage) return;
@@ -106,6 +81,7 @@ export default function TeamPage() {
   async function send(path: string, payload: object, key: string, success: string, method = "POST") {
     setBusy(key);
     setMessage(null);
+    setControlError(null);
     try {
       const response = await fetch(path, {
         method,
@@ -118,7 +94,9 @@ export default function TeamPage() {
       setMessage(success);
       return data;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "The team change could not be saved");
+      const text = error instanceof Error ? error.message : "The team change could not be saved";
+      setControlError({ key, text });
+      if (key === "invite" || key === "csv" || key === "revoke") setMessage(text);
       return null;
     } finally {
       setBusy(null);
@@ -135,7 +113,7 @@ export default function TeamPage() {
     const data = await send("/api/company/team", {
       email: email.trim(), displayName: name.trim() || undefined, ...inviteFields(userType), crewId: crewId || undefined,
     }, "invite", "Team member added");
-    if (data) { setEmail(""); setName(""); setUserType("office"); setCrewId(""); }
+    if (data) { setEmail(""); setName(""); setUserType("office"); setCrewId(""); setInviteOpen(false); setFilter("Invited"); }
   }
 
   async function importCsv(file: File | undefined) {
@@ -157,104 +135,113 @@ export default function TeamPage() {
   }
 
   function change(member: TeamMember, payload: object, action: string) {
-    void send(`/api/company/team/${encodeURIComponent(member.uid)}`, payload, member.uid, action, "PATCH");
+    return send(`/api/company/team/${encodeURIComponent(member.uid)}`, payload, member.uid, action, "PATCH");
   }
 
   if (authLoading) return <p>Loading team…</p>;
   if (!canManage) return <p>Only an admin can manage the team.</p>;
-
-  const th = { padding: "10px 12px", textAlign: "left" as const, fontWeight: 600, color: "var(--text-muted)", fontSize: 13, whiteSpace: "nowrap" as const };
-  const td = { padding: "10px 12px", verticalAlign: "middle" as const, fontSize: 14 };
-  const statusTag = (status: string) => (status === "Locked" ? "tag urgent" : status === "Active" ? "tag success" : "tag");
-  const statusLabel = (status: string) => (status === "Locked" ? "Disabled" : status);
 
   return (
     <>
       <header className="page-header">
         <div>
           <h1 className="page-title">Team</h1>
-          <p className="page-subtitle">Invite teammates, control who can get in, and revoke field QR links.</p>
+          <p className="page-subtitle">Invite people and control access to your business.</p>
         </div>
-        {seatLimit !== null && <span className="status-pill">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
+        <div className="team-header-actions">
+          {seatLimit !== null && <span className="status-pill">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
+          <button type="button" className="button primary" onClick={() => setInviteOpen(true)}>Invite person</button>
+        </div>
       </header>
-      {message && <p role="status" style={{ margin: "0 0 12px", fontSize: 14 }}>{message}</p>}
-
-      <section className="panel" aria-label="Invite a teammate" style={{ marginBottom: 20 }}>
-        <div className="panel-header"><h2 className="panel-title">Invite a teammate</h2></div>
+      {message && <p role="status">{message}</p>}
+      <div className="team-filters" aria-label="Member status">
+        {(["Active", "Invited", "Disabled"] as const).map((status) =>
+          <button type="button" key={status} className="button" aria-pressed={filter === status} onClick={() => setFilter(status)}>
+            {status} <span>{members.filter((member) => stateOf(member) === status).length}</span>
+          </button>)}
+      </div>
+      <section aria-label="Team members" className="team-roster">
+        {loading ? <p>Loading members…</p> : visibleMembers.length === 0
+          ? <EmptyState compact title={"No " + filter.toLowerCase() + " members"} body={filter === "Active" ? "Invite a person to get started." : "People in this state will appear here."} testId="team-empty" />
+          : visibleMembers.map((member) => {
+            const memberState = stateOf(member);
+            const currentRole = userTypeOf(member);
+            const roleOptions = [...typeOptions, ...(typeOptions.some((type) => type.id === currentRole) ? [] : [userTypeDef(currentRole)])];
+            const isSelf = member.uid === user?.uid;
+            const lastOwner = member.role === "owner" && activeOwners <= 1;
+            return <article className="panel team-member-card" key={member.uid}>
+              <div className="team-member-card__identity">
+                <div><strong>{member.displayName || member.email}</strong><div>{member.email}</div></div>
+                <span className={"tag " + (memberState === "Active" ? "success" : memberState === "Disabled" ? "urgent" : "")}>{memberState}</span>
+              </div>
+              <div className="team-member-card__details">
+                <span><strong>Role</strong> {userTypeDef(currentRole).label}</span>
+                {member.trade && !TYPE_TITLES.has(member.trade) && <span><strong>Title</strong> {TRADE_TITLE_LABEL[member.trade]}</span>}
+                {hasField && CREW_MEMBER_ROLES.has(member.role) && <span><strong>Crew</strong> {crews.find((crew) => crew.crewId === member.crewId)?.name ?? "No crew"}</span>}
+                <span><strong>Last sign-in</strong> {dateLabel(member.lastSignInTime)}</span>
+                <span><strong>Invited</strong> {dateLabel(member.createdAt)}</span>
+              </div>
+              {roleEditing === member.uid && memberState === "Active" && <div className="team-role-review">
+                <label>Role
+                  <select aria-label={"Role for " + member.email} value={roleDraft} onChange={(event) => setRoleDraft(event.target.value as UserType)}>
+                    {roleOptions.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
+                  </select>
+                </label>
+                <p>Changing {member.displayName || member.email} from {userTypeDef(currentRole).label} to {userTypeDef(roleDraft).label}. {userTypeDef(roleDraft).help}</p>
+                <div className="team-member-card__actions">
+                  <button className="button primary" disabled={busy !== null || roleDraft === currentRole} onClick={async () => {
+                    if (await change(member, fieldsForUserType(roleDraft, member.trade), "Role updated")) setRoleEditing(null);
+                  }}>Save role</button>
+                  <button className="button" onClick={() => setRoleEditing(null)}>Cancel</button>
+                </div>
+              </div>}
+              <div className="team-member-card__actions">
+                {memberState === "Active" && roleEditing !== member.uid && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { setRoleDraft(currentRole); setRoleEditing(member.uid); }}>Change role</button>}
+                {memberState === "Invited" && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { void send("/api/company/team/" + encodeURIComponent(member.uid) + "/resend", {}, member.uid, "Invite resent"); }}>Resend invite</button>}
+                {memberState === "Disabled" && <button type="button" className="button primary" disabled={busy !== null} onClick={() => { void change(member, { active: true }, "Access re-enabled"); }}>Re-enable</button>}
+                <details className="job-action-menu"><summary className="button">More</summary><div className="job-action-menu__items">
+                  {memberState === "Active" && !isSelf && !lastOwner && <button className="button" disabled={busy !== null} onClick={() => {
+                    if (window.confirm("Disable access for " + member.email + "? They will be signed out, cannot sign in, and their seat will be freed. Re-enable them here to restore access.")) void change(member, { active: false }, "Access disabled — seat freed");
+                  }}>Disable access</button>}
+                  {memberState === "Active" && (isSelf || lastOwner) && <span className="team-control-help">{isSelf ? "You cannot disable your own access here." : "The last active admin cannot be disabled."}</span>}
+                  {memberState === "Invited" && <button className="button" disabled={busy !== null} onClick={() => {
+                    if (window.confirm("Cancel the invite for " + member.email + "? They will not be able to sign in. Re-enable them here if needed.")) void change(member, { active: false }, "Invite canceled");
+                  }}>Cancel invite</button>}
+                  {hasField && CREW_MEMBER_ROLES.has(member.role) && memberState === "Active" && (crews.length > 0
+                    ? <label>Crew<select aria-label={"Crew for " + member.email} value={member.crewId ?? ""} disabled={busy !== null} onChange={(event) => { void change(member, { crewId: event.target.value || null }, "Crew updated"); }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>
+                    : <span className="team-control-help">Add crews in Library</span>)}
+                </div></details>
+              </div>
+              {controlError?.key === member.uid && <p role="alert" className="team-control-error">{controlError.text}</p>}
+            </article>;
+          })}
+      </section>
+      <details className="panel team-more">
+        <summary>More team tools</summary>
         <div className="panel-body">
-          <form onSubmit={(event) => void invite(event)} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
-            <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} style={{ display: "block" }} /></label>
-            <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} style={{ display: "block" }} /></label>
-            <label>Type<TypeHelp types={typeOptions} /><select aria-label="Invite type" value={userType} onChange={(event) => setUserType(event.target.value as UserType)} style={{ display: "block" }}>{typeOptions.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
-            {hasField && CREW_MEMBER_ROLES.has(inviteRole) && crews.length > 0 && <label>Crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)} style={{ display: "block" }}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
-            <button className="button primary" disabled={busy !== null}>Send invite</button>
-          </form>
-          <label style={{ display: "block", marginTop: 14, fontSize: 13, color: "var(--text-muted)" }}>Import CSV (email, type — Admin, Office staff, Inspector, Technician or View only)
-            <input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.target.value = ""; }} style={{ display: "block", marginTop: 4 }} />
+          <label>Import CSV (email, role — Admin, Office staff, Inspector, Technician or View only)
+            <input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.target.value = ""; }} />
           </label>
-        </div>
-      </section>
-
-      <section className="panel" aria-label="Team members">
-        <div className="panel-header"><h2 className="panel-title">Members</h2></div>
-        <div className="panel-body" style={{ padding: 0 }}>
-        {loading ? <p style={{ padding: 20 }}>Loading members…</p> : (
-          // The invite form right above is the one action, so this carries no second "Invite" button.
-          members.length === 1 && members[0]?.uid === user?.uid ? <EmptyState compact title="Just you so far" body="Invite your office and crew above. They get an email to join." testId="team-empty" /> : <div style={{ overflowX: "auto", maxWidth: "100%" }}>
-            <table className="team-table" style={{ width: "100%", minWidth: 900, borderCollapse: "collapse", textAlign: "left" }}>
-              <thead><tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-muted, transparent)" }}>{["Name", "Email", "Type", ...(hasField ? ["Crew"] : []), "Status", "Last sign-in", "Invited", "Actions"].map((heading) => (
-                <th key={heading} style={th}>{heading}{heading === "Type" && <TypeHelp types={typeOptions} />}</th>
-              ))}</tr></thead>
-              <tbody>{members.map((member) => (
-                <tr key={member.uid} style={{ borderBottom: "1px solid var(--border)", ...(member.active ? {} : { opacity: 0.7 }) }}>
-                  <td style={td} data-label="Name">{member.displayName || "—"}</td><td style={td} data-label="Email">{member.email}</td>
-                  <td style={td} data-label="Type">
-                    <select aria-label={`Type for ${member.email}`} value={userTypeOf(member)} disabled={busy !== null || !member.active}
-                      onChange={(event) => change(member, fieldsForUserType(event.target.value as UserType, member.trade), "Type updated")}>
-                      {[...typeOptions, ...(typeOptions.some((type) => type.id === userTypeOf(member)) ? [] : [userTypeDef(userTypeOf(member))])]
-                        .map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
-                    </select>
-                    {member.trade && !TYPE_TITLES.has(member.trade) && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Title: {TRADE_TITLE_LABEL[member.trade]}</div>}
-                  </td>
-                  {hasField && <td style={td} data-label="Crew">{CREW_MEMBER_ROLES.has(member.role) ? (
-                    crews.length > 0
-                      ? <select aria-label={`Crew for ${member.email}`} value={member.crewId ?? ""} disabled={busy !== null || !member.active} onChange={(event) => change(member, { crewId: event.target.value || null }, "Crew updated")}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>
-                      : <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Add crews in Library</span>
-                  ) : <span style={{ color: "var(--text-muted)" }}>—</span>}</td>}
-                  <td style={td} data-label="Status"><span className={statusTag(member.status ?? (member.active ? "Active" : "Locked"))}>{statusLabel(member.status ?? (member.active ? "Active" : "Locked"))}</span></td>
-                  <td style={td} data-label="Last sign-in">{dateLabel(member.lastSignInTime)}</td><td style={td} data-label="Invited">{dateLabel(member.createdAt)}</td>
-                  <td style={td} data-label="">
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {/* Disable turns the login off AND revokes its sessions; Enable restores it. (There is no separate "Remove":
-                          it did exactly what this does, and a disabled member no longer takes a seat.) Stored as active:false —
-                          the API and data still call it "Locked". Not offered on your own row or the last active owner. */}
-                      {member.uid !== user?.uid && !(member.active && member.role === "owner" && activeOwners <= 1) && (
-                        <button className="button small" disabled={busy !== null} onClick={() => { if (!member.active || window.confirm(`Disable ${member.email}? They are signed out, can't sign in until you enable them again, and their seat is freed.`)) change(member, { active: !member.active }, member.active ? "Member disabled — seat freed" : "Member enabled"); }}>{member.active ? "Disable" : "Enable"}</button>
-                      )}
-                      {member.active && !member.lastSignInTime && (
-                        <button className="button small" disabled={busy !== null} onClick={() => { void send(`/api/company/team/${encodeURIComponent(member.uid)}/resend`, {}, member.uid, "Invite resent"); }}>Resend invite</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}</tbody>
-            </table>
+          <div>
+            <strong>Field QR links</strong>
+            <p>Revoke every field QR link and open field session for this business. Crews will need a fresh QR code from a job to regain field access.</p>
+            <button className="button" disabled={busy !== null} onClick={() => {
+              if (window.confirm("Revoke all field QR links? Every open QR screen will need a new link from its job.")) void send("/api/company/team/revoke-field-links", {}, "revoke", "All field QR links revoked");
+            }}>Revoke all field QR links</button>
           </div>
-        )}
         </div>
-      </section>
-
-      <section className="panel" style={{ marginTop: 20 }}>
-        <div className="panel-header"><h2 className="panel-title">Field QR links</h2></div>
-        <div className="panel-body">
-          <p style={{ margin: "0 0 12px", fontSize: 14 }}>A job&apos;s QR code lets a crew member work without an account. If a phone is lost or a link got shared, revoke every QR link and open field session at once; crews then need a fresh QR code.</p>
-          <button className="button" disabled={busy !== null} onClick={() => {
-            if (window.confirm("Revoke all field QR links? Every open QR screen will need a new link.")) {
-              void send("/api/company/team/revoke-field-links", {}, "revoke", "All field QR links revoked");
-            }
-          }}>Revoke all field QR links</button>
-        </div>
-      </section>
+      </details>
+      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite person">
+        <form onSubmit={(event) => void invite(event)} className="team-invite-form">
+          <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label>Email<input aria-label="Invite email" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>Role<select aria-label="Invite role" value={userType} onChange={(event) => setUserType(event.target.value as UserType)}>{typeOptions.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}</select></label>
+          <p>{userTypeDef(userType).help}</p>
+          {hasField && CREW_MEMBER_ROLES.has(inviteRole) && crews.length > 0 && <label>Optional crew<select aria-label="Invite crew" value={crewId} onChange={(event) => setCrewId(event.target.value)}><option value="">No crew</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select></label>}
+          {controlError?.key === "invite" && <p role="alert" className="team-control-error">{controlError.text}</p>}
+          <button className="button primary" disabled={busy !== null}>Send invite</button>
+        </form>
+      </Modal>
     </>
   );
 }

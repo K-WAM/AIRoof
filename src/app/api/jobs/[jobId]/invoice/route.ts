@@ -19,6 +19,8 @@ import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { DEFAULT_INVOICE_COPY, fillInvoiceCopy } from "@/lib/documents/invoiceCopy";
 import { fmtDate } from "@/lib/format";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
+import type { JobQuote } from "@/types/quote";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -98,13 +100,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
         return NextResponse.json({ error: `Invoice is ${existingInvoice.status} and can no longer be regenerated` }, { status: 409 });
       }
       const rebuilt = await rebuildDraft(db, businessId, job);
-      const patch = { ...rebuilt.draft, ...rebuilt.totals, updatedAt: Date.now() };
+      const patch = { ...rebuilt.draft, ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode: existingInvoice.priceMode, customerSubtotal: existingInvoice.customerSubtotal }), updatedAt: Date.now() };
       await existingRef.update(patch);
       return NextResponse.json({ invoice: { ...existingInvoice, ...patch } });
     }
   }
 
-  const { draft, totals, business } = await rebuildDraft(db, businessId, job);
+  const { draft, business } = await rebuildDraft(db, businessId, job);
+  const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
+  const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
+  const priceMode = acceptedQuote?.priceMode ?? "lines";
+  const customerSubtotal = priceMode === "project" ? acceptedQuote?.subtotal : undefined;
+  const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });
   const invoiceId = await allocateJobInvoiceNumber(db, businessId);
   const now = Date.now();
   const name = typeof business?.businessName === "string" ? business.businessName : "";
@@ -124,7 +131,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     thankYou: fillInvoiceCopy(copy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, values),
     terms: copy.terms ?? DEFAULT_INVOICE_COPY.terms,
     ...draft,
-    hideMaterials: false,
+    hideMaterials: acceptedQuote?.hideMaterials ?? false,
+    hideLabor: acceptedQuote?.hideLabor ?? false,
+    priceMode,
+    ...(customerSubtotal === undefined ? {} : { customerSubtotal }),
     ...totals,
     createdAt: now,
     updatedAt: now,
@@ -162,6 +172,9 @@ interface PatchBody {
   dueAt?: number;
   notes?: string;
   discount?: JobInvoiceDiscount | null;
+  priceMode?: "lines" | "project";
+  customerSubtotal?: number;
+  adjustmentNote?: string;
 }
 
 // PATCH /api/jobs/[jobId]/invoice — edit a draft invoice's rows/settings and recompute totals
@@ -173,6 +186,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return NextResponse.json({ error: "Invalid hideMaterials" }, { status: 400 });
   if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return NextResponse.json({ error: "Invalid hideLabor" }, { status: 400 });
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });
+  if (body.priceMode !== undefined && body.priceMode !== "lines" && body.priceMode !== "project") return NextResponse.json({ error: "Invalid priceMode" }, { status: 400 });
+  if (body.customerSubtotal !== undefined && !validCustomerSubtotal(body.customerSubtotal)) return NextResponse.json({ error: "Invalid customerSubtotal" }, { status: 400 });
+  if (body.adjustmentNote !== undefined && (typeof body.adjustmentNote !== "string" || body.adjustmentNote.length > 1000 || /[<>\u0000-\u001f]/.test(body.adjustmentNote))) return NextResponse.json({ error: "Invalid adjustmentNote" }, { status: 400 });
   if (body.technicians !== undefined && !validTechnicians(body.technicians)) return NextResponse.json({ error: "Invalid technicians" }, { status: 400 });
   if (body.narrative !== undefined && !validNarrative(body.narrative)) return NextResponse.json({ error: "Invalid narrative" }, { status: 400 });
   for (const key of ["opening", "closing", "thankYou", "terms", "poNumber"] as const) {
@@ -235,8 +251,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     }
     const merged = addFindingsToInvoice(current, job.findings ?? [], librarySnap.exists ? librarySnap.data() as LibraryPricing : null);
     const patch = { labor: merged.labor, materials: merged.materials, other: merged.other,
-      laborSubtotal: merged.laborSubtotal, materialSubtotal: merged.materialSubtotal, otherSubtotal: merged.otherSubtotal,
-      subtotal: merged.subtotal, taxAmount: merged.taxAmount, total: merged.total, updatedAt: Date.now() };
+      ...customerTotals({ kind: "invoice", invoice: merged, priceMode: current.priceMode, customerSubtotal: current.customerSubtotal }), updatedAt: Date.now() };
     await invRef.update(patch);
     return NextResponse.json({ invoice: { ...current, ...patch } });
   }
@@ -248,11 +263,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     taxRate: body.taxRate ?? current.taxRate,
     discount: body.discount === null ? undefined : body.discount ?? current.discount,
   };
-  const totals = computeTotals(merged);
+  const priceMode = body.priceMode ?? current.priceMode ?? "lines";
+  const customerSubtotal = body.customerSubtotal ?? current.customerSubtotal;
+  if (priceMode === "project" && !validCustomerSubtotal(customerSubtotal)) return NextResponse.json({ error: "Project price requires a valid customer subtotal" }, { status: 400 });
+  const totals = customerTotals({ kind: "invoice", invoice: merged, priceMode, customerSubtotal });
 
   const patch: Partial<JobInvoice> = {
     ...merged,
     ...totals,
+    priceMode,
+    ...(priceMode === "project" ? { customerSubtotal } : {}),
+    ...(body.adjustmentNote !== undefined ? { adjustmentNote: body.adjustmentNote } : {}),
     updatedAt: Date.now(),
     ...(body.hideMaterials !== undefined ? { hideMaterials: body.hideMaterials } : {}),
     ...(body.hideLabor !== undefined ? { hideLabor: body.hideLabor } : {}),

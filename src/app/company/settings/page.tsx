@@ -15,9 +15,10 @@ import {
   defaultRecordingDisclosureText,
   RECORDING_DISCLOSURE_MAX_LENGTH,
 } from "@/lib/recordingDisclosure";
-import { Bell, Clock3, Globe2, Languages, Mic, Save, Settings } from "lucide-react";
+import { Bell, Clock3, Mic, Save, Settings } from "lucide-react";
 import { DEFAULT_INVOICE_COPY, type InvoiceCopyDefaults } from "@/lib/documents/invoiceCopy";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
+import type { PhoneLineView } from "@/types/phoneLine";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
@@ -39,6 +40,12 @@ interface Settings {
   recordingDisclosure?: { enabled: boolean; text: string };
 }
 
+
+const SECTIONS = [
+  ["company", "Company"], ["hours", "Hours & timezone"], ["phone", "Phone & notifications"],
+  ["documents", "Documents"], ["terms", "Terms & notices"], ["advanced", "Advanced"],
+] as const;
+
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
@@ -53,6 +60,8 @@ export default function CompanySettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [hoursValid, setHoursValid] = useState(true);
+  const [phoneLines, setPhoneLines] = useState<PhoneLineView[] | null>(null);
+  const savedSettingsRef = useRef("");
   const notificationEmailRef = useRef<HTMLInputElement>(null);
   const contactPhoneRef = useRef<HTMLInputElement>(null);
   const contactEmailRef = useRef<HTMLInputElement>(null);
@@ -64,10 +73,31 @@ export default function CompanySettingsPage() {
         if (!r.ok) throw new Error("Settings request failed");
         return r.json();
       })
-      .then(d => setSettings(d))
+      .then(d => { setSettings(d); savedSettingsRef.current = JSON.stringify(d); })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    let live = true;
+    fetch("/api/company/phone-lines?businessId=" + encodeURIComponent(businessId))
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((data: { lines?: PhoneLineView[] }) => { if (live) setPhoneLines(Array.isArray(data.lines) ? data.lines : null); })
+      .catch(() => { if (live) setPhoneLines(null); });
+    return () => { live = false; };
+  }, [businessId]);
+
+  const dirty = settings !== null && savedSettingsRef.current !== "" && JSON.stringify(settings) !== savedSettingsRef.current;
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError || !settings) {
@@ -145,6 +175,7 @@ export default function CompanySettingsPage() {
         throw new Error(typeof data.error === "string" ? data.error : "Settings save failed");
       }
       setSaved(true);
+      savedSettingsRef.current = JSON.stringify(settings);
       if (data.vapiSyncWarning) setWarning(data.vapiSyncWarning);
       // Clear timezone cache so next nav picks up new value
       try { sessionStorage.removeItem(`tz_${businessId}`); } catch {}
@@ -196,227 +227,95 @@ export default function CompanySettingsPage() {
         </div>
       )}
 
-      <div className="settings-page-layout">
-        <div style={{ display: "grid", gap: 20 }}>
-        <section className="panel">
-          <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
-          <div className="panel-body">
-            <p>Default invoice wording. Each draft invoice can be edited before it is sent.</p>
-            {(["opening", "closing", "thankYou", "terms"] as const).map((key) => <div className="field" key={key}>
-              <label htmlFor={`invoice-${key}`}>{key === "thankYou" ? "Thank-you line" : key[0].toUpperCase() + key.slice(1)}</label>
-              <textarea id={`invoice-${key}`} rows={key === "terms" ? 2 : 3} value={(settings.invoiceCopy ?? DEFAULT_INVOICE_COPY)[key]} onChange={(event) => setSettings((prev) => prev ? { ...prev, invoiceCopy: { ...(prev.invoiceCopy ?? DEFAULT_INVOICE_COPY), [key]: event.target.value } } : prev)} />
-            </div>)}
-            <p style={{ fontSize: 12 }}>Use {"{businessName}"}, {"{address}"}, {"{visitDate}"}, and {"{industryNoun}"} for invoice-specific details.</p>
-          </div>
-        </section>
-        <NoticesPanel businessId={businessId} />
-        {/* Business hours */}
-        <section className="panel">
-          <div className="panel-header">
-            <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Clock3 size={16} strokeWidth={1.75} />
-              Business Hours
-            </h2>
-          </div>
-          <div className="panel-body">
-            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 16px" }}>
-              Your receptionist offers appointments during these hours.
-            </p>
-            <HoursEditor
-              value={settings.businessHours || DEFAULT_BUSINESS_HOURS}
-              onChange={(businessHours) => setSettings((prev) => prev ? { ...prev, businessHours } : prev)}
-              onValidityChange={setHoursValid}
-              idPrefix="settings-hours"
-            />
-          </div>
-        </section>
-
-        {/* Call recording notice — owner/superadmin only */}
-        {canManageTeam && (
-          <section className="panel">
-            <div className="panel-header">
-              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Mic size={16} strokeWidth={1.75} />
-                Call Recording Notice
-              </h2>
-            </div>
-            <div className="panel-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px" }}>
-                In Florida and several other states, every party on a call must be told it may be
-                recorded. When this is on, the notice below is spoken as one short sentence at the
-                start of every greeting.
-              </p>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#1e293b", fontWeight: 600, marginBottom: 12 }}>
-                <Toggle
-                  checked={disclosure.enabled}
-                  onChange={(next) => setSettings(prev => prev ? { ...prev, recordingDisclosure: { ...disclosure, enabled: next } } : prev)}
-                  label="Speak the recording notice on every call"
-                />
-                Speak the notice at the start of every call
-              </div>
-              {disclosure.enabled && (
-                <>
-                  <div className="field">
-                    <label htmlFor="recordingText">Spoken notice</label>
-                    <textarea
-                      id="recordingText"
-                      rows={3}
-                      maxLength={RECORDING_DISCLOSURE_MAX_LENGTH}
-                      value={disclosure.text}
-                      onChange={e => setSettings(prev => prev ? { ...prev, recordingDisclosure: { ...disclosure, text: e.target.value } } : prev)}
-                      placeholder={defaultRecordingDisclosureText(settings.agentLanguage)}
-                      style={{ resize: "vertical" }}
-                    />
-                    <p style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0 0" }}>
-                      {disclosure.text.length}/{RECORDING_DISCLOSURE_MAX_LENGTH} characters.
-                      {disclosure.text.trim().length === 0
-                        ? ` If left blank, the default "${defaultRecordingDisclosureText(settings.agentLanguage)}" is spoken.`
-                        : ""}
-                    </p>
-                  </div>
-                  <div style={{ marginTop: 14 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", margin: "0 0 6px" }}>Live preview — what callers hear first</p>
-                    <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
-                      <span style={{ fontWeight: 600, color: "#0f766e", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.4px" }}>Business hours</span>
-                      <p style={{ margin: "4px 0 0" }}>{previewGreeting}</p>
-                    </div>
-                    <div style={{ padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#334155", lineHeight: 1.5, marginTop: 8 }}>
-                      <span style={{ fontWeight: 600, color: "#0f766e", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.4px" }}>After hours</span>
-                      <p style={{ margin: "4px 0 0" }}>{previewAfterHours}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-              <p style={{ fontSize: 12, color: "#64748b", margin: "12px 0 0", padding: "10px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-                The default wording is a <strong>draft, not legal advice</strong>. Recording-consent
-                requirements vary by state — have counsel review this wording before you rely on it.
-              </p>
-            </div>
-          </section>
-        )}
-        </div>
-
-        {/* Timezone + Contact */}
-        <div style={{ display: "grid", gap: 20 }}>
-          <section className="panel">
-            <div className="panel-header">
-              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Globe2 size={16} strokeWidth={1.75} />
-                Timezone
-              </h2>
-            </div>
-            <div className="panel-body">
-              <div className="field">
-                <label htmlFor="tz">Your business timezone</label>
-                <select
-                  id="tz"
-                  value={settings.timezone}
-                  onChange={e => setSettings(prev => prev ? { ...prev, timezone: e.target.value } : prev)}
-                >
-                  {SUPPORTED_TIMEZONES.map(tz => (
-                    <option key={tz.value} value={tz.value}>{tz.label}</option>
-                  ))}
-                </select>
-              </div>
+      {dirty && <p role="status" className="settings-unsaved">Unsaved changes — save before leaving this page.</p>}
+      <div className="settings-jump-phone">
+        <label htmlFor="settings-jump">Jump to</label>
+        <select id="settings-jump" defaultValue="" onChange={(event) => { if (event.target.value) document.getElementById(event.target.value)?.scrollIntoView({ behavior: "smooth" }); }}>
+          <option value="" disabled>Choose a section</option>
+          {SECTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </div>
+      <div className="settings-phase32-layout">
+        <nav className="settings-section-list" aria-label="Settings sections">
+          {SECTIONS.map(([id, label]) => <a key={id} href={"#" + id}>{label}</a>)}
+        </nav>
+        <div className="settings-section-content">
+          <section id="company" className="panel">
+            <div className="panel-header"><h2 className="panel-title">Company</h2></div>
+            <div className="panel-body form-grid">
+              <div className="field full"><label>Business name</label><p>{settings.businessName}</p></div>
+              <div className="field"><label htmlFor="contactPhone">Public contact phone</label><input id="contactPhone" ref={contactPhoneRef} type="tel" required pattern="\+?[\d\s().-]{7,20}" value={settings.contactPhone} onChange={(event) => setSettings((prev) => prev ? { ...prev, contactPhone: event.target.value } : prev)} /></div>
+              <div className="field"><label htmlFor="contactEmail">Public contact email</label><input id="contactEmail" ref={contactEmailRef} type="email" value={settings.contactEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, contactEmail: event.target.value } : prev)} /></div>
+              <div className="field"><label htmlFor="licenseNumber">License number</label><input id="licenseNumber" maxLength={40} value={settings.licenseNumber ?? ""} onChange={(event) => setSettings((prev) => prev ? { ...prev, licenseNumber: event.target.value } : prev)} /></div>
             </div>
           </section>
 
-          <section className="panel">
-            <div className="panel-header">
-              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Languages size={16} strokeWidth={1.75} />
-                Phone AI Language
-              </h2>
-            </div>
+          <section id="hours" className="panel">
+            <div className="panel-header"><h2 className="panel-title"><Clock3 size={16} strokeWidth={1.75} /> Hours &amp; timezone</h2></div>
             <div className="panel-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px" }}>
-                Switches immediately on save — the next call greets in this language. Field voice
-                updates always understand English and Spanish automatically, regardless of this setting.
-              </p>
-              <div className="segmented-control" aria-label="Phone AI language" style={{ maxWidth: 260 }}>
-                <button
-                  type="button"
-                  className="segment"
-                  aria-pressed={settings.agentLanguage === "en"}
-                  onClick={() => setSettings(prev => prev ? { ...prev, agentLanguage: "en" } : prev)}
-                >
-                  English
-                </button>
-                <button
-                  type="button"
-                  className="segment"
-                  aria-pressed={settings.agentLanguage === "es"}
-                  onClick={() => setSettings(prev => prev ? { ...prev, agentLanguage: "es" } : prev)}
-                >
-                  Español
-                </button>
-              </div>
+              <p>Your receptionist offers appointments during these hours.</p>
+              <HoursEditor value={settings.businessHours || DEFAULT_BUSINESS_HOURS} onChange={(businessHours) => setSettings((prev) => prev ? { ...prev, businessHours } : prev)} onValidityChange={setHoursValid} idPrefix="settings-hours" />
+              <div className="field"><label htmlFor="tz">Your business timezone</label><select id="tz" value={settings.timezone} onChange={(event) => setSettings((prev) => prev ? { ...prev, timezone: event.target.value } : prev)}>
+                {SUPPORTED_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+              </select></div>
             </div>
           </section>
 
-          <section className="panel">
-            <div className="panel-header">
-              <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Bell size={16} strokeWidth={1.75} />
-                Notifications &amp; Contact
-              </h2>
-            </div>
+          <section id="phone" className="panel">
+            <div className="panel-header"><h2 className="panel-title"><Bell size={16} strokeWidth={1.75} /> Phone &amp; notifications</h2></div>
             <div className="panel-body">
-              <p style={{ margin: "0 0 14px", fontSize: 13 }}><strong>Text messages:</strong> {smsEnabled ? "On" : "Off — waiting for carrier registration (ask Luxor)"}</p>
-              <div className="form-grid">
-                <div className="field full">
-                  <label htmlFor="notifEmail">Notification email</label>
-                  <input
-                    id="notifEmail"
-                    ref={notificationEmailRef}
-                    type="email"
-                    required
-                    value={settings.notificationEmail}
-                    onChange={e => setSettings(prev => prev ? { ...prev, notificationEmail: e.target.value } : prev)}
-                    placeholder="alerts@yourcompany.com"
-                  />
-                  <p style={{ fontSize: 11, color: "#94a3b8", margin: "4px 0 0" }}>Receives booking + lead notifications from your AI receptionist.</p>
-                </div>
-                <div className="field full">
-                  <label htmlFor="contactPhone">Public contact phone</label>
-                  <input
-                    id="contactPhone"
-                    ref={contactPhoneRef}
-                    type="tel"
-                    required
-                    pattern="\+?[\d\s().-]{7,20}"
-                    value={settings.contactPhone}
-                    onChange={e => setSettings(prev => prev ? { ...prev, contactPhone: e.target.value } : prev)}
-                    placeholder="+1 (305) 555-0100"
-                  />
-                </div>
-                <div className="field full">
-                  <label htmlFor="contactEmail">Public contact email</label>
-                  <input
-                    id="contactEmail"
-                    ref={contactEmailRef}
-                    type="email"
-                    value={settings.contactEmail}
-                    onChange={e => setSettings(prev => prev ? { ...prev, contactEmail: e.target.value } : prev)}
-                    placeholder="hello@yourcompany.com"
-                  />
-                </div>
-                <div className="field full">
-                  <label htmlFor="licenseNumber">License number</label>
-                  <input id="licenseNumber" maxLength={40} value={settings.licenseNumber ?? ""} onChange={e => setSettings(prev => prev ? { ...prev, licenseNumber: e.target.value } : prev)} />
-                </div>
+              <div className="field"><label htmlFor="notifEmail">Notification email</label><input id="notifEmail" ref={notificationEmailRef} type="email" required value={settings.notificationEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, notificationEmail: event.target.value } : prev)} /><p>Receives booking and request notifications.</p></div>
+              <div className="field"><label htmlFor="agentLanguage">Phone AI language</label><select id="agentLanguage" value={settings.agentLanguage} onChange={(event) => setSettings((prev) => prev ? { ...prev, agentLanguage: event.target.value as "en" | "es" } : prev)}><option value="en">English</option><option value="es">Español</option></select><p>Changes the greeting on the next call. Field updates continue to understand English and Spanish.</p></div>
+              <div className="settings-phone-lines">
+                <h3>Phone lines and texting</h3>
+                {phoneLines === null ? <p>Line status unavailable</p> : phoneLines.length === 0 ? <p>No line on record — Luxor sets this up</p> : phoneLines.map((line) => <div key={line.lineId} className="settings-phone-line">
+                  <strong>{line.label || line.display}</strong><span>{line.display}</span>
+                  <span>{line.sms.status === "ready" ? (smsEnabled ? "Texting ready" : "SMS ready on this line; texting is off") : line.sms.status === "pending_registration" ? "Texting registration pending" : line.sms.status === "blocked" ? "Texting blocked" : "Texting not configured"}</span>
+                  <small>{line.nextStep}</small>
+                </div>)}
               </div>
+              <a href="mailto:connect@luxordev.com">Contact Luxor to change your phone line</a>
             </div>
           </section>
 
-          <div style={{ padding: "12px 16px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#64748b" }}>
-            <p style={{ margin: 0, fontWeight: 700, color: "#1e293b", marginBottom: 4 }}>Need to change other settings?</p>
-            <p style={{ margin: 0 }}>For services, FAQs, agent voice, or phone line settings — contact your Luxor account manager at connect@luxordev.com.</p>
-          </div>
+          <section id="documents" className="panel">
+            <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
+            <div className="panel-body">
+              <p>Default invoice wording. Each draft invoice can be edited before it is sent.</p>
+              {(["opening", "closing", "thankYou", "terms"] as const).map((key) => <div className="field" key={key}>
+                <label htmlFor={"invoice-" + key}>{key === "thankYou" ? "Thank-you line" : key[0].toUpperCase() + key.slice(1)}</label>
+                <textarea id={"invoice-" + key} rows={key === "terms" ? 2 : 3} value={(settings.invoiceCopy ?? DEFAULT_INVOICE_COPY)[key]} onChange={(event) => setSettings((prev) => prev ? { ...prev, invoiceCopy: { ...(prev.invoiceCopy ?? DEFAULT_INVOICE_COPY), [key]: event.target.value } } : prev)} />
+              </div>)}
+              <p>Use {"{businessName}"}, {"{address}"}, {"{visitDate}"}, and {"{industryNoun}"} for invoice-specific details.</p>
+            </div>
+          </section>
+
+          <section id="terms" aria-label="Terms & notices">
+            <h2>Terms &amp; notices</h2>
+            <NoticesPanel businessId={businessId} />
+          </section>
+
+          <section id="advanced" className="settings-advanced">
+            <h2>Advanced</h2>
+            {canManageTeam && <section className="panel">
+              <div className="panel-header"><h3 className="panel-title"><Mic size={16} strokeWidth={1.75} /> Call recording notice</h3></div>
+              <div className="panel-body">
+                <p>The default wording is a draft, not legal advice. Have counsel review it before relying on it.</p>
+                <Toggle checked={disclosure.enabled} onChange={(next) => setSettings((prev) => prev ? { ...prev, recordingDisclosure: { ...disclosure, enabled: next } } : prev)} label="Speak the recording notice on every call" />
+                <span> Speak the notice at the start of every call</span>
+                {disclosure.enabled && <div className="field">
+                  <label htmlFor="recordingText">Spoken notice</label>
+                  <textarea id="recordingText" rows={3} maxLength={RECORDING_DISCLOSURE_MAX_LENGTH} value={disclosure.text} onChange={(event) => setSettings((prev) => prev ? { ...prev, recordingDisclosure: { ...disclosure, text: event.target.value } } : prev)} placeholder={defaultRecordingDisclosureText(settings.agentLanguage)} />
+                  <p>{disclosure.text.length}/{RECORDING_DISCLOSURE_MAX_LENGTH} characters. {disclosure.text.trim() ? "" : "The default notice is spoken if this is blank."}</p>
+                  <strong>Live preview — what callers hear first</strong><p>{previewGreeting}</p><strong>After hours</strong><p>{previewAfterHours}</p>
+                </div>}
+              </div>
+            </section>}
+            {canManageTeam && <TeamPanel businessId={businessId} />}
+            <p>For services, FAQs, agent voice, or other setup changes, contact <a href="mailto:connect@luxordev.com">connect@luxordev.com</a>.</p>
+          </section>
         </div>
       </div>
-
-      {canManageTeam && <TeamPanel businessId={businessId} />}
     </>
   );
 }

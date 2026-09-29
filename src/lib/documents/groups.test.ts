@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { JobInvoice } from "@/types/invoice";
 import type { JobQuote } from "@/types/quote";
@@ -5,6 +6,10 @@ import { invoiceGroups, quoteGroups } from "./groups";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
 import { escapeHtml, resolveLetterhead } from "./letterhead";
+import { reportQuoteSection } from "./reportQuote";
+import { DocumentPreview } from "./DocumentPreview";
+import { createElement } from "react";
+import { render } from "@testing-library/react";
 
 const invoice = {
   invoiceId: "INV-1", businessId: "b", jobId: "j", billTo: { name: "Customer" }, status: "draft",
@@ -21,6 +26,22 @@ const quote = {
 } as JobQuote;
 
 describe("customer document groups", () => {
+  it("renders only one project price row across saved quote, invoice and report presentations", () => {
+    const projectQuote = { ...quote, status: "accepted" as const, priceMode: "project" as const, customerSubtotal: 250, subtotal: 250, total: 250, adjustmentNote: "INTERNAL_NOTE" };
+    const projectInvoice = { ...invoice, priceMode: "project" as const, customerSubtotal: 250, subtotal: 250, total: 250, adjustmentNote: "INTERNAL_NOTE" };
+    expect(quoteGroups(projectQuote)).toEqual([{ title: "Project price", rows: [{ description: "Project price", amount: 250 }], subtotal: 250 }]);
+    expect(invoiceGroups(projectInvoice)).toEqual([{ title: "Project price", rows: [{ description: "Project price", amount: 250 }], subtotal: 250 }]);
+    const report = reportQuoteSection(projectQuote, { includeQuote: true }, () => "today");
+    expect(report?.total).toBe(250);
+    expect(report?.groups).toEqual(quoteGroups(projectQuote));
+    for (const html of [buildQuoteEmailHtml(projectQuote, { businessName: "Business" }), buildJobInvoiceEmailHtml(projectInvoice, { businessName: "Business" })]) {
+      expect(html).toContain("Project price");
+      for (const secret of ["SECRET_WORKER", "SECRET_PART", "INTERNAL_NOTE", "$30.00", "$40.00", "Qty", "Unit price"]) expect(html).not.toContain(secret);
+    }
+    const preview = render(createElement(DocumentPreview, { title: "Invoice", brand: resolveLetterhead({ businessName: "Business" }), meta: [], billTo: { name: "Customer" }, groups: invoiceGroups(projectInvoice), totalLabel: "Total Due", total: 250 })).container.innerHTML;
+    expect(preview).toContain("Project price");
+    for (const secret of ["SECRET_WORKER", "SECRET_PART", "$30.00", "$40.00", "Qty", "Unit price"]) expect(preview).not.toContain(secret);
+  });
   for (const hideMaterials of [false, true]) for (const hideLabor of [false, true]) {
     it(`preserves true totals and visibility for invoice material=${hideMaterials} labor=${hideLabor}`, () => {
       const document = { ...invoice, hideMaterials, hideLabor };

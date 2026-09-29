@@ -62,6 +62,10 @@ export interface JobInvoice {
   // presentational: materialSubtotal is still computed from the real lines below, which are
   // always stored and always shown in the app itself.
   hideMaterials: boolean;
+  priceMode?: "lines" | "project";
+  customerSubtotal?: number;
+  calculatedSubtotal?: number;
+  adjustmentNote?: string;
   hideLabor?: boolean;
   showTechnicians?: boolean;
   photoIds?: string[];

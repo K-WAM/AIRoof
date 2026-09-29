@@ -11,6 +11,7 @@ import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteStatus } from "@/types/quote";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -101,6 +102,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 2000 || /[<>\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body.notes))) return err("Invalid notes", 400);
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return err("Invalid hideMaterials", 400);
   if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return err("Invalid hideLabor", 400);
+  if (body.priceMode !== undefined && body.priceMode !== "lines" && body.priceMode !== "project") return err("Invalid priceMode", 400);
+  if (body.customerSubtotal !== undefined && !validCustomerSubtotal(body.customerSubtotal)) return err("Invalid customerSubtotal", 400);
+  if (body.adjustmentNote !== undefined && (typeof body.adjustmentNote !== "string" || body.adjustmentNote.length > 1000 || /[<>\u0000-\u001f]/.test(body.adjustmentNote))) return err("Invalid adjustmentNote", 400);
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return err("Invalid showTechnicians", 400);
   if (body.technicians !== undefined && !validTechnicians(body.technicians)) return err("Invalid technicians", 400);
   if (body.narrative !== undefined && !validNarrative(body.narrative)) return err("Invalid narrative", 400);
@@ -110,8 +114,14 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   }
   if (body.validUntil !== undefined && (typeof body.validUntil !== "number" || !Number.isFinite(body.validUntil) || body.validUntil <= Date.now() || body.validUntil > Date.now() + 10 * 365 * 86400000)) return err("Invalid validUntil", 400);
   const lines = (body.lines ?? quote.lines) as JobQuote["lines"];
-  const total = quoteTotal(lines);
-  const patch: Partial<JobQuote> = { updatedAt: Date.now(), subtotal: total, total,
+  const priceMode = (body.priceMode ?? quote.priceMode ?? "lines") as "lines" | "project";
+  const customerSubtotal = body.customerSubtotal === undefined ? quote.customerSubtotal : body.customerSubtotal as number;
+  if (priceMode === "project" && !validCustomerSubtotal(customerSubtotal)) return err("Project price requires a valid customer subtotal", 400);
+  const totals = customerTotals({ kind: "quote", lineSubtotal: quoteTotal(lines), priceMode, customerSubtotal });
+  const patch: Partial<JobQuote> = { updatedAt: Date.now(), subtotal: totals.subtotal, total: totals.total, calculatedSubtotal: totals.calculatedSubtotal,
+    priceMode,
+    ...(priceMode === "project" ? { customerSubtotal } : {}),
+    ...(body.adjustmentNote !== undefined ? { adjustmentNote: body.adjustmentNote as string } : {}),
     ...(body.lines !== undefined ? { lines } : {}),
     ...(body.findings !== undefined ? { findings: body.findings as JobQuote["findings"] } : {}),
     ...(body.notes !== undefined ? { notes: body.notes as string } : {}),
