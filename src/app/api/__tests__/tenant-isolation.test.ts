@@ -4,6 +4,9 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb, type FakeDb } from "@/test-utils/fakeFirestore";
 
+// The first test in this file imports several route modules; under a full parallel `vitest run` that alone can pass 5 s.
+vi.setConfig({ testTimeout: 30_000 });
+
 // T-170 — negative-first tenant isolation through the REAL guard (verifyAuthAndRole / verifySuperadmin / verifyFieldAccess)
 // and the REAL route handlers. Only the Firebase edge is faked: the session cookie names a test identity, and Firestore is
 // the in-memory fake. Every case below must be refused, and no other tenant's data may appear in the response.

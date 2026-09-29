@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// The first test in this file imports several route modules; under a full parallel `vitest run` that alone can pass 5 s.
+vi.setConfig({ testTimeout: 30_000 });
+
 type StoredDocument = Record<string, unknown>;
 type QueryFilter = [field: string, operator: string, expected: unknown];
 
