@@ -178,19 +178,19 @@ export default function JobsPage() {
           </h1>
           <p className="page-subtitle">Field jobs created from appointments or manually.</p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {businessId && <a className="button" href={`/api/jobs/export?businessId=${encodeURIComponent(businessId)}`}>Export CSV</a>}
-          <a className="button" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <ExternalLink size={15} strokeWidth={1.75} />
-            Field view
-          </a>
-          {/* While the list is empty its EmptyState holds the one primary action. */}
+        <div className="c1-page-actions">
+          {/* The empty state retains its own new-job action for an empty list. */}
           {!readOnly && (
-            <button className={`button${listEmpty ? "" : " primary"}`} onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button className="button primary" onClick={() => setShowForm((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               {!showForm && <Plus size={15} strokeWidth={1.75} />}
               {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
             </button>
           )}
+          <a className="button secondary" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <ExternalLink size={15} strokeWidth={1.75} />
+            Field view
+          </a>
+          {businessId && <details className="c1-more-menu"><summary className="button secondary">More</summary><div className="c1-more-actions"><a className="button" href={`/api/jobs/export?businessId=${encodeURIComponent(businessId)}`}>Export CSV</a></div></details>}
         </div>
       </header>
 
@@ -313,6 +313,7 @@ export default function JobsPage() {
               );
             })}
           </div>
+          {statusFilter !== "all" && <div className="c1-active-filter">Filter: {statusFilter.replaceAll("_", " ")} <button type="button" className="button small" onClick={() => setStatusFilter("all")}>Clear</button></div>}
       </div>
 
       {jobs.length === 0 ? (

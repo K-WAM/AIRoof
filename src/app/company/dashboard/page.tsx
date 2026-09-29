@@ -109,6 +109,7 @@ export default function CompanyDashboardPage() {
   const phoneLine = useBootstrap().data?.business.phoneLine ?? null;
   const [setup, setSetup] = useState<SetupChecklistInput | null>(null);
   const [checklistHidden, setChecklistHidden] = useState(false);
+  const [checklistExpanded, setChecklistExpanded] = useState(false);
   const hideKey = user?.uid ? `setup-checklist-hidden:${user.uid}` : null;
   useEffect(() => {
     if (!hideKey) return;
@@ -268,7 +269,8 @@ export default function CompanyDashboardPage() {
   const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
   const checklistDone = checklist.filter((item) => item.done).length;
-  const nextItemId = checklist.find((item) => !item.done && item.href)?.id;
+  const nextItemId = checklist.find((item) => !item.done)?.id;
+  const nextItem = checklist.find((item) => !item.done);
   const showsChecklist = canSeeChecklist && checklist.length > 0 && checklistDone < checklist.length;
   const neverHadCall = callCount === 0;
   const lineConnected = setup ? setup.phoneConfigured : !!agent?.phoneLineConnected;
@@ -287,36 +289,6 @@ export default function CompanyDashboardPage() {
 
   return (
     <>
-      {showsChecklist && checklistHidden && (
-        <div className="panel setup-checklist-collapsed" style={{ marginBottom: 20 }}>
-          <span>Setup {checklistDone}/{checklist.length}</span>
-          <button type="button" className="button small" onClick={() => toggleChecklist(false)}>Continue</button>
-        </div>
-      )}
-      {showsChecklist && !checklistHidden && (
-        <section className="panel" aria-label="Get your business ready" style={{ marginBottom: 20 }}>
-          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <h2 className="panel-title">Get your business ready — {checklistDone}/{checklist.length}</h2>
-            <button type="button" className="button ghost small" onClick={() => toggleChecklist(true)}>Hide for now</button>
-          </div>
-          <div className="panel-body">
-            <ul className="setup-checklist" data-testid="setup-checklist">
-              {checklist.map((item) => (
-                <li key={item.id} className={`setup-checklist-row${item.done ? " is-done" : ""}`}>
-                  {item.done
-                    ? <CheckCircle2 size={18} strokeWidth={1.75} aria-label="Done" />
-                    : <Circle size={18} strokeWidth={1.75} aria-label="Not done" />}
-                  <span>{item.label}</span>
-                  {/* Only the next step is primary, so the card never shows a row of competing teal buttons. */}
-                  {!item.done && item.href && item.cta && (
-                    <Link className={`button small${item.id === nextItemId ? " primary" : ""}`} href={item.href}>{item.cta}</Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
       <header className="page-header">
         <div>
           <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -524,7 +496,40 @@ export default function CompanyDashboardPage() {
               testId="dashboard-empty-connecting"
             />
           ))}
+        {showsChecklist && checklistHidden && (
+        <div className="panel setup-checklist-collapsed" style={{ marginBottom: 20 }}>
+          <span>Setup {checklistDone} of {checklist.length} done</span>
+          <button type="button" className="button small" onClick={() => toggleChecklist(false)}>Continue</button>
         </div>
+      )}
+      {showsChecklist && !checklistHidden && (
+        <section className="panel c1-checklist" aria-label="Get your business ready" style={{ marginBottom: 20 }}>
+          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <h2 className="panel-title">Get your business ready — {checklistDone} of {checklist.length} done</h2>
+            <button type="button" className="button ghost small" onClick={() => toggleChecklist(true)}>Hide for now</button>
+          </div>
+          <div className="panel-body">
+            <ul className="setup-checklist" data-testid="setup-checklist">
+              {(checklistExpanded ? checklist : nextItem ? [nextItem] : []).map((item) => (
+                <li key={item.id} className={`setup-checklist-row${item.done ? " is-done" : ""}`}>
+                  {item.done
+                    ? <CheckCircle2 size={18} strokeWidth={1.75} aria-label="Done" />
+                    : <Circle size={18} strokeWidth={1.75} aria-label="Not done" />}
+                  <span><strong>{item.label}</strong><br />{item.outcome}</span>
+                  {/* Only the next step is primary, so the card never shows a row of competing teal buttons. */}
+                  {!item.done && item.href && item.cta && (
+                    <Link className={`button small${item.id === nextItemId ? " primary" : ""}`} href={item.href}>{item.cta}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="button ghost small" onClick={() => setChecklistExpanded((value) => !value)}>
+              {checklistExpanded ? "Show next step" : "Show all steps"}
+            </button>
+          </div>
+        </section>
+      )}
+      </div>
 
       </div>
     </>

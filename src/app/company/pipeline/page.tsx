@@ -178,6 +178,8 @@ export default function PipelinePage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
+  const confirmingIds = useRef(new Set<string>());
+  const [confirmErrors, setConfirmErrors] = useState<Record<string, string>>({});
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
   const bootstrapBusiness = useBootstrap().data?.business;
   const phoneLine = bootstrapBusiness?.phoneLine ?? null;
@@ -383,6 +385,9 @@ export default function PipelinePage() {
   }
 
   async function sendConfirmation(appt: Appointment): Promise<boolean> {
+    if (confirmingIds.current.has(appt.appointmentId)) return false;
+    confirmingIds.current.add(appt.appointmentId);
+    setConfirmErrors((previous) => ({ ...previous, [appt.appointmentId]: "" }));
     setApptUpdating(appt.appointmentId + "_confirm");
     try {
       const res = await fetch(`/api/appointments/${appt.appointmentId}`, {
@@ -410,11 +415,14 @@ export default function PipelinePage() {
         return true;
       }
       showToast("Couldn't confirm the appointment. Try again.");
+      setConfirmErrors((previous) => ({ ...previous, [appt.appointmentId]: "Couldn't confirm the booking. Retry." }));
       return false;
     } catch {
       showToast("Network error — couldn't confirm the appointment.");
+      setConfirmErrors((previous) => ({ ...previous, [appt.appointmentId]: "Network error. Retry confirmation." }));
       return false;
     } finally {
+      confirmingIds.current.delete(appt.appointmentId);
       setApptUpdating(null);
     }
   }
@@ -520,56 +528,27 @@ export default function PipelinePage() {
 
         <div className="appt-actions">
           {isNewRequest(appt.status) && <span className="tag">New request</span>}
-          {!isPast && appt.status !== "cancelled" && <button className="button small secondary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>}
-          {justConfirmed ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#15803d", fontWeight: 700, fontSize: 13 }}>
-              ✓ Confirmation sent
-            </div>
-          ) : !isPast && !isConfirmed && !(isPending && timePassed) ? (
-            <button
-              className="button primary"
-              disabled={busy || apptCalling === appt.appointmentId}
-              onClick={async () => {
-                await sendConfirmation(appt);
-              }}
-              style={{ fontSize: 13, ...(isPending ? { background: "#f59e0b", borderColor: "#f59e0b" } : {}) }}
-            >
-              {apptUpdating === appt.appointmentId + "_confirm" ? "Sending…" : confirmButtonLabel(channelsFor(appt))}
+          {appt.jobId && showJobActions ? (
+            <Link className="button primary" href={`/company/jobs/${appt.jobId}${previewSuffix}`}>Open {vocab.jobNoun} {appt.jobId}</Link>
+          ) : !isPast && appt.status !== "cancelled" && isPending && !timePassed ? (
+            <button className="button primary" disabled={busy || apptCalling === appt.appointmentId} onClick={() => void sendConfirmation(appt)}>
+              {busy ? "Confirming…" : confirmErrors[appt.appointmentId] ? "Retry confirmation" : confirmButtonLabel(channelsFor(appt))}
             </button>
+          ) : !isPast && appt.status !== "cancelled" && !isConfirmed ? (
+            <button className="button primary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>
+          ) : showJobActions && isConfirmed && !appt.jobId ? (
+            <button className="button primary" disabled={busy} onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })}>Create {vocab.jobNoun}</button>
           ) : null}
-
-          {appt.callerPhone && (
-            <button
-              className="button secondary"
-              disabled={apptCalling === appt.appointmentId}
-              onClick={() => callBackAppt(appt)}
-              style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}
-              title={`Call ${appt.callerPhone}`}
-            >
-              <Phone size={13} />
-              {apptCalling === appt.appointmentId ? "Calling…" : "Call Back"}
-            </button>
-          )}
-          {showJobActions && (appt.jobId ? (
-            <Link className="button secondary" href={`/company/jobs/${appt.jobId}${previewSuffix}`} style={{ fontSize: 13, textAlign: "center" }}>
-              Open {vocab.jobNoun} {appt.jobId}
-            </Link>
-          ) : (
-            <button className="button secondary" onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })} style={{ fontSize: 13 }}>
-              Create {vocab.jobNoun}
-            </button>
-          ))}
-
-          {!isPast && !isConfirmed && !justConfirmed && (
-            <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")} style={{ fontSize: 12 }} title="Mark confirmed without emailing the customer">
-              Confirm without email
-            </button>
-          )}
-          {!isPast && appt.status !== "cancelled" && (
-            <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }} style={{ fontSize: 12 }}>
-              Cancel
-            </button>
-          )}
+          {confirmErrors[appt.appointmentId] && <p role="alert" className="c1-inline-error">{confirmErrors[appt.appointmentId]}</p>}
+          <details className="c1-more-menu">
+            <summary className="button secondary">More</summary>
+            <div className="c1-more-actions">
+              {appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
+              {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
+              {!isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
+              {!isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
+            </div>
+          </details>
         </div>
       </article>
     );
@@ -947,7 +926,7 @@ export default function PipelinePage() {
         canCreateJob={showJobActions}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
-        onAccept={async () => { if (!reviewAppt) return; await sendConfirmation(reviewAppt); if (showJobActions) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
+        onAccept={async () => { if (!reviewAppt) return; if (!await sendConfirmation(reviewAppt)) return; if (showJobActions && !reviewAppt.jobId) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />
     </>
   );
