@@ -3072,3 +3072,14 @@ a.metric:hover {
 .badge-ended { background: var(--surface-muted); color: var(--text-muted); }
 @keyframes row-new-fade { from { background: var(--accent-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .row-new { animation: none; background: var(--accent-soft); } }
+
+/* ── Phase 32 · C1 ── */
+.company-nav-group { display: flex; flex-direction: column; gap: 2px; }
+.company-nav-group + .company-nav-group { margin-top: var(--sp-3, 12px); padding-top: var(--sp-3, 12px); border-top: 1px solid var(--border); }
+.company-nav-primary .company-nav-section-label { margin-top: 0; }
+.company-sidebar-nav .company-nav-help { position: sticky; bottom: 0; background: var(--surface); z-index: 1; }
+@media (max-width: 900px) {
+  .mobile-new-btn { margin-left: auto; width: auto; min-width: 76px; gap: 4px; padding: 0 10px; font-weight: 600; }
+  .company-topbar > .mobile-menu-btn:last-child { width: auto; min-width: 76px; gap: 4px; padding: 0 10px; }
+  .mobile-nav-sheet { display: flex; max-height: min(70vh, 640px); overflow-y: auto; }
+}

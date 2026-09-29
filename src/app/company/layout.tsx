@@ -2,20 +2,19 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Briefcase, CalendarDays, Menu, Phone, Users, X } from "lucide-react";
+import { Menu, Plus, X } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BootstrapProvider } from "@/contexts/BootstrapContext";
-import { QuickAddProvider } from "@/contexts/QuickAddContext";
+import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { defaultLandingPath } from "@/lib/team/landing";
 import type { TeamRole, TradeTitle } from "@/types/team";
@@ -31,15 +30,17 @@ const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
   { prefix: "/company/customers", module: "library" },
 ];
 
+function MobileNewButton() {
+  const { openMenu } = useQuickAdd();
+  return <button type="button" className="mobile-menu-btn mobile-new-btn" onClick={openMenu}><Plus size={16} /> New</button>;
+}
+
 function CompanyShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileNavRef = useRef<HTMLDivElement>(null);
-  // Focus should follow a nav-link navigation, not snap back to the hamburger.
-  const skipNavFocusReturn = useRef(false);
   const { ready: modulesReady, isEnabled, family, subscriptionStatus, disabledModules } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
@@ -98,17 +99,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
   // Close the mobile nav sheet whenever the route changes (link tap, back button, etc.)
   useEffect(() => {
-    skipNavFocusReturn.current = true;
     setMobileMenuOpen(false);
   }, [pathname]);
-
-  // Mobile nav sheet behavior (T-114): Escape closes, Tab stays inside while
-  // open, and closing returns focus to the hamburger that opened it.
-  useFocusTrap(mobileMenuOpen, mobileNavRef, {
-    initialFocus: "first",
-    returnFocus: !skipNavFocusReturn.current,
-    onEscape: () => setMobileMenuOpen(false),
-  });
 
   async function handleLogout() {
     const auth = await getFirebaseAuth();
@@ -175,7 +167,6 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     : userTypeDef(userTypeOf({ role: (user.role ?? "viewer") as TeamRole, trade: user.trade as TradeTitle | undefined })).label;
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
-  const crewSuffix = preview ? `?preview=${preview}&section=crews` : "?section=crews";
 
   return (
     <QuickAddProvider>
@@ -203,61 +194,25 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <div className="company-brand">
             <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
           </div>
-          {!crewOnly && <nav style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto" }} aria-label="Mobile workflow shortcuts">
-            <QuickAddButton variant="icon" />
-            <Tooltip content="Calls">
-              <Link className="mobile-menu-btn" href={`/company/calls${previewSuffix}`} aria-label="Calls">
-                <Phone size={18} strokeWidth={1.75} />
-              </Link>
-            </Tooltip>
-            <Tooltip content="Calendar">
-              <Link className="mobile-menu-btn" href={`/company/calendar${previewSuffix}`} aria-label="Calendar">
-                <CalendarDays size={18} strokeWidth={1.75} />
-              </Link>
-            </Tooltip>
-            {modulesReady && isEnabled("jobs") && (
-              <Tooltip content="Jobs">
-                <Link className="mobile-menu-btn" href={`/company/jobs${previewSuffix}`} aria-label="Jobs">
-                  <Briefcase size={18} strokeWidth={1.75} />
-                </Link>
-              </Tooltip>
-            )}
-            {modulesReady && isEnabled("library") && (
-              <Tooltip content="Library">
-                <Link className="mobile-menu-btn" href={`/company/library${crewSuffix}`} aria-label="Library">
-                  <Users size={18} strokeWidth={1.75} />
-                </Link>
-              </Tooltip>
-            )}
-          </nav>}
-          <Tooltip content={mobileMenuOpen ? "Close menu" : "Open menu"}>
+          {!crewOnly && <MobileNewButton />}
             <button
               type="button"
               className="mobile-menu-btn"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="company-mobile-nav"
-              onClick={() => {
-                skipNavFocusReturn.current = false;
-                setMobileMenuOpen((v) => !v);
-              }}
+              onClick={() => setMobileMenuOpen((v) => !v)}
             >
               {mobileMenuOpen ? <X size={22} strokeWidth={1.75} /> : <Menu size={22} strokeWidth={1.75} />}
+              <span>Menu</span>
             </button>
-          </Tooltip>
         </header>
 
-        {mobileMenuOpen && (
-          <div
-            className="mobile-nav-sheet"
-            id="company-mobile-nav"
-            ref={mobileNavRef}
-            tabIndex={-1}
-          >
+        <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
+          <div className="mobile-nav-sheet" id="company-mobile-nav">
             <CompanyNav />
             {!crewOnly && (
               <div className="mobile-nav-search">
-                <QuickAddButton />
                 <CommandBar />
               </div>
             )}
@@ -268,7 +223,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
             </div>
             <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
           </div>
-        )}
+        </Sheet>
 
         <main className="company-main">
           {user.isSandboxVisitor && (

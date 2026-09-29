@@ -85,6 +85,17 @@ export default function GuidePage() {
         </div>
       </header>
 
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="panel-body">
+          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Where things are</h2>
+          <p style={{ margin: 0, lineHeight: 1.6 }}>
+            Dashboard, Calls, Pipeline and Calendar follow the day&apos;s work{hasJobs ? `, with ${vocab.jobNounPlural} and Field beside them` : ""}.
+            Customers and Library are under Manage; Team and Settings are under Account; this Guide and Feedback are under Help.
+            On a phone, open Menu to see every page or use + New to create a record.
+          </p>
+        </div>
+      </section>
+
       {/* ── The big idea ───────────────────────────────────────── */}
       <section className="panel" style={{ marginBottom: 20, borderColor: "var(--accent)", borderWidth: 1 }}>
         <div className="panel-body" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>

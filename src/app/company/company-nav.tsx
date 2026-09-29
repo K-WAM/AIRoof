@@ -3,122 +3,68 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import {
-  LayoutDashboard,
-  Phone,
-  Workflow,
-  Briefcase,
-  Mic,
-  CalendarDays,
-  BookOpen,
-  Settings,
-  Compass,
-  MessageSquareText,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
+import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, type LucideIcon } from "lucide-react";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
+import { visibleNavLinks, type NavGroup } from "./navModel";
 
-// Workflow order, not alphabetical: the call log first, then the booked/callback
-// Pipeline it feeds, followed by scheduling and
-// execution, then reference material. Same order for every industry — the
-// per-vertical `module` filter is what actually hides what doesn't apply,
-// not reordering it. Guide moved into the "Help" group below (T-114) with
-// Feedback; it stays reachable, so the Navigation Completeness Rule holds.
-const LINKS: { path: string; label: string; Icon: LucideIcon; module: CompanyModule | null }[] = [
-  { path: "/company/dashboard", label: "Dashboard", Icon: LayoutDashboard, module: null },
-  { path: "/company/calls",     label: "Calls",     Icon: Phone,           module: null },
-  { path: "/company/pipeline",  label: "Pipeline",  Icon: Workflow,        module: null },
-  { path: "/company/calendar",  label: "Calendar",  Icon: CalendarDays,    module: null },
-  { path: "/company/jobs",      label: "Jobs",      Icon: Briefcase,       module: "jobs" },
-  { path: "/company/field",     label: "Field",     Icon: Mic,             module: "jobs" },
-  // Label is replaced by the industry word (Patients, Clients…) at render time — see visibleLinks below.
-  { path: "/company/customers", label: "Customers", Icon: Users,           module: "library" },
-  { path: "/company/library",   label: "Library",   Icon: BookOpen,        module: "library" },
-];
+const icons: Record<string, LucideIcon> = {
+  "/company/dashboard": LayoutDashboard,
+  "/company/calls": Phone,
+  "/company/pipeline": Workflow,
+  "/company/calendar": CalendarDays,
+  "/company/jobs": Briefcase,
+  "/company/field": Mic,
+  "/company/customers": Users,
+  "/company/library": BookOpen,
+  "/company/team": Users,
+  "/company/settings": Settings,
+  "/company/guide": Compass,
+  feedback: MessageSquareText,
+};
+const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 
 export function CompanyNav() {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const preview = searchParams?.get("preview");
-  const suffix = preview ? `?preview=${preview}` : "";
-
+  const preview = useSearchParams()?.get("preview");
+  const suffix = preview ? `?preview=${encodeURIComponent(preview)}` : "";
   const { isEnabled, vocab } = useBusinessModules();
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // Every signed-in user of a company sees Feedback (owner, 2026-09-28: "add a feedback button for users, i cant find
-  // it" — T-114 had hidden it from superadmins, so the owner, previewing a client, never saw what users see). A
-  // superadmin outside a ?preview= has no company to send it from. Nothing renders until the profile has resolved.
   const { user, loading } = useAuth();
-  const showFeedback = !loading && !!user && (!user.superadmin || !!preview);
-
-  // A Crew login (T-150) works only on the Field screen — the layout redirects everything else there.
-  const crewOnly = !loading && user?.role === "crew" && !user.superadmin;
-  const visibleLinks = LINKS.filter((link) => (!link.module || isEnabled(link.module)) && (!crewOnly || link.path === "/company/field"));
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const links = visibleNavLinks({
+    role: loading ? undefined : user?.role,
+    superadmin: user?.superadmin,
+    preview: !!preview,
+    isEnabled,
+    vocab,
+  }).filter((link) => link.path !== "feedback" || (!loading && !!user));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
-      <div className="company-nav-primary">
-        {visibleLinks.map(({ path, label: defaultLabel, Icon }) => {
-          const label = path === "/company/customers" ? (vocab?.customerNounPlural ?? defaultLabel) : defaultLabel;
-          return (
-          <Link
-            href={`${path}${suffix}`}
-            key={path}
-            aria-current={pathname === path ? "page" : undefined}
-          >
-            <Icon size={16} strokeWidth={1.75} />
-            {label}
-          </Link>
-          );
-        })}
-      </div>
-      {/* Settings isn't part of the day-to-day workflow above, and Guide +
-          Feedback are the "Help" group — both pinned to the bottom of the
-          nav, set off by a divider. */}
-      <div className="company-nav-secondary">
-        {!loading && (user?.role === "owner" || user?.superadmin) && (
-          <Link href={`/company/team${suffix}`} aria-current={pathname === "/company/team" ? "page" : undefined}>
-            <Users size={16} strokeWidth={1.75} />
-            Team
-          </Link>
-        )}
-        {!crewOnly && (
-          <Link
-            href={`/company/settings${suffix}`}
-            aria-current={pathname === "/company/settings" ? "page" : undefined}
-          >
-            <Settings size={16} strokeWidth={1.75} />
-            Settings
-          </Link>
-        )}
-        <p className="company-nav-section-label" id="company-nav-help-label">Help</p>
-        {!crewOnly && (
-          <Link
-            href={`/company/guide${suffix}`}
-            aria-current={pathname === "/company/guide" ? "page" : undefined}
-            aria-describedby="company-nav-help-label"
-          >
-            <Compass size={16} strokeWidth={1.75} />
-            Guide
-          </Link>
-        )}
-        {showFeedback && (
-          <button
-            type="button"
-            className="company-nav-trigger"
-            data-state={feedbackOpen ? "open" : undefined}
-            onClick={() => setFeedbackOpen(true)}
-            aria-haspopup="dialog"
-            aria-label="Send feedback"
-          >
-            <MessageSquareText size={16} strokeWidth={1.75} />
-            Feedback
-          </button>
-        )}
-      </div>
-      {showFeedback && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
+      {groups.map((group) => {
+        const items = links.filter((link) => link.group === group);
+        if (!items.length) return null;
+        return (
+          <div key={group} className={`company-nav-group company-nav-${group.toLowerCase()}`}>
+            <p className="company-nav-section-label">{group}</p>
+            {items.map(({ path, label }) => {
+              const Icon = icons[path];
+              return path === "feedback" ? (
+                <button key={path} type="button" className="company-nav-trigger" data-state={feedbackOpen ? "open" : undefined}
+                  onClick={() => setFeedbackOpen(true)} aria-haspopup="dialog" aria-label="Send feedback">
+                  <Icon size={16} strokeWidth={1.75} />{label}
+                </button>
+              ) : (
+                <Link href={`${path}${suffix}`} key={path} aria-current={pathname === path ? "page" : undefined}>
+                  <Icon size={16} strokeWidth={1.75} />{label}
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })}
+      {links.some((link) => link.path === "feedback") && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );
 }
