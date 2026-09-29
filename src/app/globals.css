@@ -3333,3 +3333,75 @@ a.metric:hover {
   line-height: 1.5;
   color: var(--c-danger-fg);
 }
+
+/* ?? Guide: run a demo in 5 minutes (T-167) ?? */
+.demo-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+.demo-step {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--border);
+}
+.demo-step:first-child { border-top: 0; }
+.demo-step-num {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.demo-step-body { min-width: 0; }
+.demo-step-title { margin: 0 0 var(--sp-1); font-weight: 700; }
+.demo-step-expects { margin: 0 0 var(--sp-2); font-size: 14px; color: var(--text-muted); }
+.demo-step-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.demo-step-fail {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+/* ?? Demo Studio: per-line cards (T-167) ?? */
+.demo-line-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--sp-3);
+}
+.demo-line-card { padding: var(--sp-4); }
+.demo-line-number {
+  margin: 0 0 var(--sp-1);
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.demo-line-meta { margin: 0 0 var(--sp-1); font-size: 14px; }
+.demo-line-note { margin: 0; font-size: 12px; color: var(--text-muted); }
+.demo-line-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.demo-diag-list {
+  margin: 0;
+  padding-left: var(--sp-5);
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
