@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Send } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBusinessId } from "@/hooks/useBusinessId";
 
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -22,24 +23,22 @@ interface Props {
 }
 
 /**
- * Client-facing feedback, sent to the Luxor team (T-044/T-114). Deliberately
- * not mounted for superadmins — the navs gate it (see admin-nav/hub-nav/
- * company-nav), and this component itself bails out for them as a second
- * guard. Uses the shared Modal shell so spacing/backdrop/close/focus behavior
- * matches every other dialog.
+ * Feedback to the Luxor team (T-044/T-114), emailed to connect@luxordev.com with the sender as reply-to and the page
+ * they were on. The navs decide who sees the button (company-nav: every user, and a superadmin while previewing a
+ * client). Uses the shared Modal shell so spacing/backdrop/close/focus behavior matches every other dialog.
  */
 export function FeedbackForm({ open, onClose }: Props) {
   const { user } = useAuth();
+  const businessId = useBusinessId();
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState<string>("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const sending = useRef(false);
 
-  if (!user || user.superadmin || !open) return null;
+  if (!user || !open) return null;
 
   const userEmail = user.email ?? user.uid;
-  const businessId = user.businessId ?? "";
 
   function reset() {
     setMessage("");
@@ -74,6 +73,8 @@ export function FeedbackForm({ open, onClose }: Props) {
           businessId,
           message: trimmed,
           category: category || undefined,
+          // Which screen they were on — the first question every bug report needs answered.
+          page: typeof window !== "undefined" ? window.location.pathname : undefined,
         }),
       });
 

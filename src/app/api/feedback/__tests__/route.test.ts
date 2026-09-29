@@ -239,7 +239,7 @@ describe("POST /api/feedback", () => {
     expect(mockVerifyAuthAndRole).toHaveBeenCalledWith(
       expect.any(NextRequest),
       "test-biz",
-      ["owner", "staff", "viewer", "superadmin"],
+      ["owner", "staff", "viewer", "crew", "superadmin"],
     );
   });
 

@@ -21,6 +21,11 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState.value,
 }));
 
+const searchState = vi.hoisted(() => ({ value: "" }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(searchState.value),
+}));
+
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 
 const clientUser = {
@@ -102,16 +107,22 @@ describe("FeedbackForm (T-114)", () => {
     expect(alert).toHaveTextContent(/Failed to send feedback/);
   });
 
-  it("does not mount for a superadmin", () => {
+  it("sends the company being previewed and the page, for a superadmin previewing a client (2026-09-28)", async () => {
     authState.value = {
-      user: { ...clientUser, superadmin: true, role: "superadmin" },
+      user: { uid: "sa", email: "connect@luxordev.com", superadmin: true, role: "superadmin" },
       loading: false,
       idToken: null,
     };
+    searchState.value = "preview=demo-roofing";
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
     render(<FeedbackForm open onClose={() => {}} />);
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByText("Send feedback to Luxor")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Message"), { target: { value: "Testing the form" } });
+    fireEvent.click(screen.getByRole("button", { name: /^send$/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body).toMatchObject({ businessId: "demo-roofing", message: "Testing the form", page: "/" });
+    searchState.value = "";
   });
 
   it("renders nothing before the auth profile resolves", () => {

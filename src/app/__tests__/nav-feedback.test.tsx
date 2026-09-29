@@ -73,7 +73,7 @@ describe("Feedback access in the three navs (T-114)", () => {
     }
   });
 
-  it("never shows the Feedback control — or mounts the form — for a superadmin", () => {
+  it("never shows the Feedback control — or mounts the form — for a superadmin outside a client preview", () => {
     authState.value = {
       user: { ...clientUser, superadmin: true, role: "superadmin" },
       loading: false,
@@ -87,7 +87,9 @@ describe("Feedback access in the three navs (T-114)", () => {
     }
   });
 
-  it("hides Feedback for a superadmin previewing a client through ?preview=", () => {
+  // Owner, 2026-09-28: "add a feedback button for users, i cant find it" — previewing a client, the superadmin must see
+  // exactly what that client's users see, Feedback included.
+  it("shows Feedback to a superadmin previewing a client through ?preview=", () => {
     authState.value = {
       user: { ...clientUser, superadmin: true, role: "superadmin" },
       loading: false,
@@ -95,7 +97,7 @@ describe("Feedback access in the three navs (T-114)", () => {
     };
     routeState.search = "preview=demo-roofing";
     const view = render(<CompanyNav />);
-    expect(screen.queryByRole("button", { name: "Send feedback" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send feedback" })).toBeInTheDocument();
     view.unmount();
     routeState.search = "";
   });

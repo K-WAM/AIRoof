@@ -47,11 +47,11 @@ export function CompanyNav() {
 
   const { isEnabled, vocab } = useBusinessModules();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // Feedback is for client users only (T-114): a superadmin — including one
-  // previewing a client via ?preview= — never sees the control or the form,
-  // and nothing renders until the profile has resolved so it can't flash.
+  // Every signed-in user of a company sees Feedback (owner, 2026-09-28: "add a feedback button for users, i cant find
+  // it" — T-114 had hidden it from superadmins, so the owner, previewing a client, never saw what users see). A
+  // superadmin outside a ?preview= has no company to send it from. Nothing renders until the profile has resolved.
   const { user, loading } = useAuth();
-  const showFeedback = !loading && !user?.superadmin;
+  const showFeedback = !loading && !!user && (!user.superadmin || !!preview);
 
   // A Crew login (T-150) works only on the Field screen — the layout redirects everything else there.
   const crewOnly = !loading && user?.role === "crew" && !user.superadmin;

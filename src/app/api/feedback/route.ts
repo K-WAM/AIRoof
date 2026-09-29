@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 10, keyPrefix: "feedback" });
   if (limited) return limited;
 
-  let body: { businessId?: string; message?: string; category?: string };
+  let body: { businessId?: string; message?: string; category?: string; page?: string };
   try {
     body = await request.json();
   } catch {
@@ -40,10 +40,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid category" }, { status: 400 });
   }
 
+  // A path like "/company/calendar" only — anything else is dropped, never echoed into the email.
+  const page = typeof body.page === "string" && /^\/[\w\-/[\]]{0,120}$/.test(body.page) ? body.page : undefined;
+
+  // Crew (field-only) logins can send feedback too — they are users of the app like everyone else.
   const auth = await verifyAuthAndRole(request, businessId, [
     "owner",
     "staff",
     "viewer",
+    "crew",
     "superadmin",
   ]);
   if ("error" in auth) return auth.error;
@@ -59,6 +64,8 @@ export async function POST(request: NextRequest) {
     businessId,
     category: category?.trim() || undefined,
     message: message.trim(),
+    page,
+    role: auth.user.superadmin ? "superadmin" : auth.user.role,
   });
 
   if (result.status === "unconfigured") {

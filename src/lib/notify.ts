@@ -249,19 +249,25 @@ export function buildFeedbackEmail(opts: {
   businessId: string;
   category?: string;
   message: string;
+  /** The screen they were on, e.g. "/company/calendar". */
+  page?: string;
+  role?: string;
 }): { subject: string; html: string } {
-  const preview = opts.message.slice(0, 40).replace(/\s+/g, " ").trim();
+  // "[Feedback \u00b7 Bug report] Apex Roofing \u2014 The calendar won't let me drag\u2026" \u2014 sortable in the inbox at a glance.
+  const flat = opts.message.replace(/\s+/g, " ").trim();
+  const preview = flat.length > 60 ? `${flat.slice(0, 60).trim()}\u2026` : flat;
   const body = `
     <p style="margin:0 0 12px;font-size:15px;color:#334155;line-height:1.6">
       ${opts.category ? `<strong>Category:</strong> ${esc(opts.category)}<br/>` : ""}
-      <strong>From:</strong> ${esc(opts.submitterName)} &lt;${esc(opts.submitterEmail)}&gt;<br/>
-      <strong>Tenant:</strong> ${esc(opts.businessId)}
+      <strong>From:</strong> ${esc(opts.submitterName)} &lt;${esc(opts.submitterEmail)}&gt;${opts.role ? ` (${esc(opts.role)})` : ""}<br/>
+      <strong>Company:</strong> ${esc(opts.businessName)} (${esc(opts.businessId)})
+      ${opts.page ? `<br/><strong>Page:</strong> ${esc(opts.page)}` : ""}
     </p>
     <div style="background:#f8fafc;border-radius:8px;padding:14px 16px;font-size:14px;color:#334155;line-height:1.6;white-space:pre-wrap">${esc(opts.message)}</div>
-    <p style="margin:12px 0 0;font-size:13px;color:#94a3b8">Reply directly to this email to follow up with the submitter.</p>`;
+    <p style="margin:12px 0 0;font-size:13px;color:#94a3b8">Reply to this email to answer ${esc(opts.submitterName)} directly.</p>`;
 
   return {
-    subject: `[Feedback] ${opts.businessName} \u2014 ${preview}`,
+    subject: `[Feedback \u00b7 ${opts.category ?? "General"}] ${opts.businessName} \u2014 ${preview}`,
     html: shell(
       { businessName: "Luxor AI", brandColor: "#1e3a5f" },
       `Feedback from ${esc(opts.submitterName)}`,
@@ -278,10 +284,13 @@ export async function sendFeedbackEmail(
     businessId: string;
     category?: string;
     message: string;
+    page?: string;
+    role?: string;
   },
 ): Promise<CommSendResult> {
   const { subject, html } = buildFeedbackEmail(opts);
-  return sendEmail({ to: "connect@luxordev.com", subject, html });
+  // Reply-to is the person who wrote it, so "Reply" in the inbox answers them (the email said so; it never did).
+  return sendEmail({ to: "connect@luxordev.com", subject, html, replyTo: opts.submitterEmail || null });
 }
 
 function buildWebhookHealthAlertEmail(opts: {

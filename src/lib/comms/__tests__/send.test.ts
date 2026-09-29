@@ -351,7 +351,8 @@ describe("subject format convention", () => {
       businessId: "test-123",
       message: "Great app, needs dark mode.",
     });
-    expect(result.subject).toMatch(/^\[Feedback\] /);
+    // "[Feedback · <category>] <company> — <message start>" (2026-09-28: sortable by type in the inbox).
+    expect(result.subject).toBe("[Feedback · General] Test Co — Great app, needs dark mode.");
   });
 });
 
