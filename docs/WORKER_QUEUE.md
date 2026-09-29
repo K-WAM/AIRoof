@@ -1290,3 +1290,330 @@ Run T-154 (docs/WORKER_QUEUE.md section I, plan docs/CALL-FLOW-FIX-PLAN.md). Ord
    dry-run), agent tests (urgent leak books, email/OK-to-text/access asked before booking, no early "anything else", "Es Carla" →
    "Carla", addBookingNote after booking), then the owner's real call and the transcript read.
 ```
+
+---
+
+## J — Phase 32 (screen + security audit, T-157–T-171) — FOUR prompts, all start together (written 2026-09-28)
+
+Spec: `MASTER_PLAN.md` → "Phase 32 review — verified corrections, decisions, contracts and stream work orders" (P32-R/D/C/S/T and one
+work order per stream). Status: `TODO.md` Phase 32 stream table. The four streams are file-disjoint; the only shared file is
+`globals.css`, where each stream writes only inside its own marked block. Workers do not run browser tests (owner, 2026-09-28) —
+the integrator runs every e2e/rules/booking gate and reads the screenshots at merge.
+
+| Prompt | Agent + model | Why this agent | Tasks |
+|---|---|---|---|
+| J0 | Claude Opus 5.5 (integrator) | security, the live call path (toolDispatcher = Booking-change gate), production read-only checks, merges | T-170, T-171, T-169 |
+| J1 | Codex **GPT-6 Sol, medium** | Codex does UX best; many screens, role/industry-aware nav | T-159, T-164, T-160, T-162 |
+| J2 | Codex **GPT-6 Sol, medium** | money math (customer price, tax) + the 2,200-line Job page; never below Sol | T-161, T-164 Job detail, T-165, T-168 |
+| J3 | Deepseek **V4.1 Flash, Thinking: Hard** | well-specified shared components, admin-only UI and guide content; no live/security path | T-157, T-158, T-163, T-166, T-167 |
+
+J1 and J2 touch different files: run them in two Codex sessions at once, or J2 after J1 in the same session.
+
+### J0 — Integrator, **Claude Opus 5.5** — Stream I: T-170 → T-171 → T-169, then merge everything
+```
+You are the integrator (Claude Code) on the AI Receptionist platform. Run Phase 32 Stream I, then merge the other three streams.
+Spec: MASTER_PLAN.md → "Phase 32 review — verified corrections, decisions, contracts and stream work orders" — read P32-R, P32-D,
+P32-C, P32-S, P32-T and "Work order — Stream I". AGENTS.md rules apply (you are the only agent that merges; nothing is pushed or
+deployed until the owner says "approve push"; never print a secret).
+
+0. Housekeeping: for each old worktree (air-wt-booking-verify, air-wt-call-flow, air-wt-call-live, air-wt-call-ux, air-wt-setup-ux)
+   `git rev-list --count main..<branch>` — report any unmerged commits before starting. Then:
+   git worktree add "D:/Apps/air-wt-p32-authority" -b task/p32-authority main ; junction node_modules (AGENTS.md). If MASTER_PLAN/TODO
+   Phase 32 edits are still uncommitted on main, tell the owner (workers read them from the main checkout meanwhile).
+1. I-1 T-170 (negative tests first): audit-superadmins.mjs (read-only, run against production, masked output to the owner);
+   firestore.rules isSuperadmin() = claim only; @firebase/rules-unit-testing devDependency + tests/rules + `test:rules`;
+   verifyIdToken checkRevoked for superadmin tokens; grant-superadmin.mjs replaces provision-superadmin.mjs (never writes
+   superadmin/role/businessId to businessUsers); audit actor = gate.user in the three admin routes; route-guards inventory test;
+   negative route tests per family (foreign businessId, preview tampering, disabled member, cross-tenant team uid, invite roles,
+   last owner). Commit "T-170: …".
+2. I-2 T-171 + contracts: src/types/phoneLine.ts (C-B) and BusinessConfig.accountPurpose (C-A) FIRST, commit them, and tell the owner
+   "contracts are on task/p32-authority" (workers use local stand-ins until merge). Then registry.ts conflicts (primary, extra,
+   registry, demo-reserved), create-route + config-route checks, POST/PATCH /api/admin/phone-lines (dry-run diffs, record_test by
+   callId, go_live with typed confirm + previousRouting, retire restores), GET admin + company phone-lines, phone-lines.mjs and
+   classify-accounts.mjs (dry-run default), onboarding phone step + config-page "Phone lines" panel, tests. Commit "T-171: …".
+3. I-3 T-169 (SMS stays OFF): calledNumber from the ElevenLabs conversation → dispatcher → appointment/request; resolveSmsSender();
+   sendSms uses it (fallback removed); dispatcher promises a text only when the sender resolves; outbox records `from`; tests incl.
+   contradictory caller area codes. Booking-change gate: booking scenario suite green + a note of the agent test to run after deploy.
+   `vercel env ls production` (names only) — report whether SMS_ENABLED exists. Commit "T-169: …".
+4. Merge: Stream I first, then J3 (Deepseek), J1 and J2 (Codex) as each reports — review each diff against its work order ROW BY ROW
+   (never the worker's summary), swap their local C-A/C-B/C-C stand-in types for the shared imports, resolve globals.css blocks
+   byte-wise. Per merged stream: full vitest + next build once; extend/run the affected e2e specs and read the 390px screenshots; take
+   over any partial worker item yourself instead of sending a resume prompt. After I + C1 + C2: e2e:call once. Final tree: full
+   e2e:test once.
+5. Report to the owner: what shipped per task, the NH-30 decisions still open, the superadmin audit result (NH-28), the SMS_ENABLED
+   finding, and exactly what "approve push" will deploy (app + firestore rules). After approval and deploy: ElevenLabs agent tests +
+   one real call and its transcript (Booking-change gate), rules deployed and re-verified with the audit script.
+```
+
+### J1 — Codex, **GPT-6 Sol, medium** — Stream C1: the workday screens (T-159, T-164, T-160, T-162)
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase). Phase 32, Stream C1: "the workday
+screens" — T-159, T-164 (all but the Job-detail bullet), T-160, T-162. Three other agents work in parallel on other files; stay
+inside your file list.
+
+SETUP (PowerShell, once):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-p32-workday" -b task/p32-workday main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-p32-workday\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-p32-workday"
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-p32-workday and
+`git branch --show-current` must print task/p32-workday. Never edit files under D:\Apps\6 - AI Receptionist. Never push, merge or
+rebase. A patch "context mismatch" is CRLF line endings — use the LF conversion in AGENTS.md "Known hiccups" (no permission needed).
+
+READ FIRST (from the MAIN checkout, read-only — the Phase 32 spec may not be committed yet):
+1. D:\Apps\6 - AI Receptionist\MASTER_PLAN.md → "Phase 32 review — verified corrections, decisions, contracts and stream work orders":
+   P32-R, P32-D, P32-C, P32-S, P32-T, then "Work order — Stream C1" — THAT IS YOUR COMPLETE JOB LIST. The T-159/T-160/T-162/T-164
+   paragraphs just above that section describe today's screens in words (you do not need the auditor's screenshots).
+2. AGENTS.md "Protected context" + "Worker etiquette"; CLAUDE.md "Industry-Applicability Rule" (useBusinessModules()/vocab — never
+   hardcode "Job"/"Crew"/"shingles"), "Navigation Completeness Rule", the one-teal rule (.button variants, var(--accent)).
+Big files (pipeline/page.tsx, calendar/CalendarBoard.tsx): grep, don't read whole. Moving a piece into its own component file with
+no behavior change is welcome.
+
+YOUR FILES (edit only these): src/app/company/layout.tsx; src/app/company/company-nav.tsx; new src/app/company/navModel.ts (+test);
+src/app/company/{dashboard,pipeline,calendar,calls,customers,library,guide}/**; src/app/company/jobs/page.tsx (the LIST only);
+src/app/company/field/page.tsx; src/components/field/** (no-job state only); src/lib/calendar/**;
+src/app/api/company/crews/open-times/**; src/lib/onboarding/setupChecklist.ts (+test); src/app/api/company/setup-status/**;
+new src/lib/requests/displayState.ts (+test); src/app/api/jobs/from-request/** (ONLY if the C1-2 reproduction proves a real
+duplicate-job bug); ONE block at the very END of src/app/globals.css marked /* ── Phase 32 · C1 ── */; docs/IMPLEMENTATION_LOG.md
+(append only).
+DO NOT TOUCH: src/app/company/jobs/[jobId]/**, src/app/company/{team,settings}/** (Stream C2); src/components/ui/**,
+src/app/admin/**, src/app/hub/**, the rest of globals.css (Stream D); src/lib/scheduling/**, src/lib/tools/**, src/lib/voice/**,
+src/lib/comms/**, src/app/api/webhooks/**, src/app/api/admin/**, firestore.rules, src/types/**, TODO.md (integrator).
+Anything outside the list → "QUESTION FOR INTEGRATOR" in your final message, never an edit.
+
+WHAT OTHER STREAMS ARE BUILDING RIGHT NOW (use today's versions — they upgrade in place, no API change):
+- Modal / Sheet in src/components/ui keep their current props — use them for every dialog; never hand-roll an overlay.
+- Tokens: var(--sp-3, 12px), var(--control-h, 44px) WITH the fallback; state colours = existing --c-{danger,success,info,warn,
+  neutral}-{bg,fg,bd}; no new hex colours.
+- Words (C-F): Request / Booking / Confirmed / Job (vocab.jobNoun) / Callback.
+- Settings anchors Stream C2 is adding: #company #hours #phone #documents #terms #advanced — link checklist items to them.
+
+DO THE WORK ORDER IN ORDER — one commit per task, message "T-1xx: <summary>":
+C1-1 T-159 navigation: navModel.ts = one visibleNavLinks() for sidebar AND phone menu. Groups Primary / Manage / Account / Help with
+     the CURRENT labels (decision D1). Phone header = labelled "+ New" (QuickAdd trigger with text) + labelled "Menu" only — remove
+     the Calls/Calendar/Jobs/Library icon shortcuts. Menu lists every permitted route in the same groups, marks the current page
+     (aria-current), scrolls. Crew stays Field-only; keep ?preview= suffixes. Add a short "Where things are" section to
+     /company/guide. Test navModel.test.ts: roofing owner/staff/viewer/crew, dental owner, superadmin-preview — each sees exactly its
+     permitted routes, none lost vs today.
+C1-2 T-164: Dashboard checklist collapses to "3 of 7 done" + the next step with its one action (+ "Show all steps"; Hide/Continue
+     kept); urgent items (new calls, bookings awaiting OK, escalations) always above it; checklist width capped ~720px on desktop.
+     setupChecklist.ts order: confirm line → hours/timezone → services/prices → crew/team → logo → test call (module/vocab-aware; one
+     verb + one-sentence outcome + one destination each). Pipeline card: FIRST reproduce whether a converted request still offers
+     Create Job (code already swaps to "Open job" when jobId is set — MASTER_PLAN R10); then ONE primary action from state
+     (Review → Confirm → Create job → Open job), Call back + Cancel inside a labelled "More" menu (Cancel keeps its confirm and
+     disappears once converted); card keeps time, customer, contact, address. Jobs list: New job primary; Export CSV in "More";
+     Field view as a secondary link; active filter + "Clear". Field with no job: one sentence ("No job assigned to you today — ask
+     the office to assign one") + the time clock (enabled/disabled state obvious); hide the dead mic/Photo/Finding controls until a
+     job is selected.
+C1-3 T-160: src/lib/requests/displayState.ts — pure map from existing request/appointment fields to { label, whatHappened,
+     nextAction, tone }, used by Dashboard, Pipeline, Calendar and Calls (no engine field changes). Calendar: a phone booking shows
+     ONCE — keep the time-anchored "Phone bookings" row, drop the left-list duplicate, move any action that only lived there into
+     the row item's detail. openTimes.ts: regular tenants start at opening time; 24/7 tenants start at the first slot ≥ 7:00 AM
+     local, with "Show earlier times". Confirm/assign buttons: disabled while pending, inline error + Retry, no double submit.
+     Tests: displayState.test.ts (every state incl. declined/failed confirmation and past) + an openTimes ordering test.
+C1-4 T-162: at ≤ 640px, Calls / Pipeline / Jobs / Customers / Library catalog become cards with the 2–4 deciding fields (Calls: time,
+     caller, outcome, open · Jobs: id+title, customer, status, next action · Customers: name, phone, open jobs · Library: name, unit,
+     price) + a labelled "Details" expander; filters stay visible with Clear; every row action reachable. Calendar ≤ 640px = a day
+     agenda (prev/next day; time · assignee · state · action) instead of the board; desktop board unchanged ≥ 1024px. CSS only in
+     your globals.css block. Nothing scrolls sideways at 390px.
+Never remove a capability: every moved action must stay reachable — keep an old → new location list as you go.
+
+CHECKS — only these; the integrator runs every browser/e2e test and reads the screenshots afterwards: before each commit
+`npx tsc --noEmit` and `npx eslint <changed files>`; `npx vitest run <your new/changed test files>`. If an existing unit test
+asserts old copy you deliberately changed, update the assertion (keep its intent). Do NOT run Playwright, npm run e2e:*, full
+vitest or next build.
+
+WRAP UP: append ONE entry to docs/IMPLEMENTATION_LOG.md (per task: two-sentence before/after, the old → new action list,
+deviations). Commit "Phase 32 C1 complete". Run to the end — don't stop between tasks to report; commit WIP at least every
+~45 min. Final message: commit table (hash · task · one line), the old → new action map, deviations, "Noticed, not done",
+QUESTION FOR INTEGRATOR (if any).
+```
+
+### J2 — Codex, **GPT-6 Sol, medium** — Stream C2: Job record, customer documents, Team + Settings (T-161, T-164 Job detail, T-165, T-168)
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase). Phase 32, Stream C2: the Job record,
+the customer-facing Quote/Report/Invoice, and the owner's Team + Settings — T-161, T-164 (Job-detail bullet), T-165, T-168. This
+stream touches MONEY (customer price, tax): be exact, keep one source of truth for totals. Three other agents work in parallel on
+other files; stay inside your file list.
+
+SETUP (PowerShell, once):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-p32-documents" -b task/p32-documents main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-p32-documents\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-p32-documents"
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-p32-documents and
+`git branch --show-current` must print task/p32-documents. Never edit files under D:\Apps\6 - AI Receptionist. Never push, merge
+or rebase. A patch "context mismatch" is CRLF — use the LF conversion in AGENTS.md "Known hiccups".
+
+READ FIRST (from the MAIN checkout, read-only):
+1. D:\Apps\6 - AI Receptionist\MASTER_PLAN.md → "Phase 32 review — verified corrections, decisions, contracts and stream work orders":
+   P32-R (especially R6), P32-D (D2, D3, D10), P32-C (C-B, C-C), P32-S, P32-T, then "Work order — Stream C2" — YOUR COMPLETE JOB
+   LIST. The T-161/T-164/T-165/T-168 paragraphs above that section describe today's screens in words.
+2. AGENTS.md "Protected context" (manual send gates, sent/accepted/paid documents immutable) + "Worker etiquette"; CLAUDE.md
+   "Industry-Applicability Rule", the one-teal rule; the owner decision that reports carry NO prices unless "Include quote" is ticked.
+src/app/company/jobs/[jobId]/page.tsx is ~2,200 lines: grep, don't read whole; extracting regions into sibling component files with
+no behavior change is welcome (it makes this work reviewable).
+
+YOUR FILES (edit only these): src/app/company/jobs/[jobId]/**; src/lib/billing/{jobQuote*,jobInvoice*,jobReportEmailHtml,
+quoteItems}.ts (+tests); src/lib/documents/**; src/components/documents/**; src/app/api/jobs/[jobId]/{quote,invoice,report}/**
+(including their send routes); src/types/quote.ts; src/types/invoice.ts; src/types/documentOptions.ts (OPTIONAL fields only);
+src/app/company/{team,settings}/**; src/lib/team/** (copy/labels only); ONE block at the very END of src/app/globals.css marked
+/* ── Phase 32 · C2 ── */; docs/IMPLEMENTATION_LOG.md (append only).
+DO NOT TOUCH: other src/app/company/** pages, layout/nav (Stream C1); src/components/ui/**, src/app/admin/**, src/app/hub/**, the
+rest of globals.css (Stream D); src/app/api/company/team/** and every other API route (server behavior for Team is unchanged);
+src/lib/scheduling/**, src/lib/tools/**, src/lib/comms/**, src/lib/billing/stripePayments.ts, firestore.rules, src/types/index.ts,
+TODO.md (integrator). Anything outside → "QUESTION FOR INTEGRATOR", never an edit.
+
+WHAT OTHER STREAMS ARE BUILDING RIGHT NOW (use today's versions; they upgrade in place):
+- Modal / Sheet keep their current props — use them (Invite person form, confirmations). No hand-rolled overlays.
+- Tokens var(--sp-3, 12px) / var(--control-h, 44px) with fallbacks; existing --c-* state colours; no new hex colours.
+- Phone-line status (contract C-B) comes from GET /api/company/phone-lines?businessId=… which the integrator is building now.
+  Declare a local PhoneLineView type copied from MASTER_PLAN C-B (the integrator swaps it for the shared import at merge). Until it
+  exists: 404/failure → "Line status unavailable"; empty → "No line on record — Luxor sets this up"; NEVER say texting is on unless
+  sms.status === "ready".
+
+DO THE WORK ORDER IN ORDER — one commit per task, message "T-1xx: <summary>":
+C2-1 T-161 + T-164 Job detail: FIRST write the current action inventory (every button × owner/staff/crew/viewer) into your log
+     entry. Header: job id, title, status chip, one next action (existing NextStepButton). Labelled "Customer details" disclosure
+     (with Edit customer details). Copy field link + Field QR behind one labelled "Field access" menu button. Lifecycle tracker
+     kept. Tabs under two labels — "Job details" (Activity, Photos, Materials, Labor) and "Documents" (Findings, Quote, Report,
+     Invoice); on a phone one scrollable strip with group labels and the active tab scrolled into view; ?tab= deep links unchanged.
+     LockNote once, in the document's action area. Each document tab: status + ONE primary action; Print / Regenerate / Copy link /
+     similar in a labelled "More" menu. Nothing removed — the after-inventory maps every old action to its new place.
+C2-2 T-165 Customer version (C-C + D2/D3/D10): Quote and Invoice get a draft-only "Customer version" panel at the top beside the
+     customer total: Itemized · Bundle materials · Project price, plus "Also bundle labor" for the first two (Itemized =
+     priceMode "lines" + hideMaterials false; Bundle materials = "lines" + hideMaterials true; Project price = priceMode "project").
+     Sentence: "This controls what your customer receives; your line items stay visible only to your team." Button "Preview what the
+     customer gets" scrolls to and focuses the real DocumentPreview. Project price: currency input (pre-tax), staff-only line "Line
+     items $X · Price adjustment ±$Y · Customer price $Z", "Reset to line total", optional internal note (adjustmentNote — never
+     rendered to the customer); a later line edit shows "Line items changed to $X — Reset customer price?" and never overwrites.
+     ONE pure helper customerTotals() for totals (quote: total = customer subtotal; invoice in project mode: discount ignored, tax on
+     the customer subtotal; otherwise today's computeTotals). Server (quote/invoice routes): finite, ≥ 0, ≤ 10,000,000, 2 decimals,
+     draft only, tenant from the session (never the body); stored subtotal/total = the customer figures, calculatedSubtotal = the
+     line sum. Renderers (DocumentPreview, jobQuoteEmailHtml, jobInvoiceEmailHtml, reportQuote, print) show Project price as ONE
+     "Project price" line (scope title/narrative + amount) — no material/labor rows, quantities or unit prices anywhere; Bundle modes
+     unchanged. D3: invoice POST (not force) on a job with an ACCEPTED quote inherits its mode + hide flags, and in project mode
+     prefills the customer price with the quote's customer subtotal, showing staff "Accepted quote $Z · actual line items $X".
+     Report: its customer disclosure names the outcome — "No prices included" / "Includes the accepted quote's total" — and with
+     includeQuote renders the quote's SAVED presentation. Locked (sent/accepted/paid) documents: read-only panel + the D10 sentence.
+     Tests: customerTotals() every mode incl. tax + rounding; server rejects NaN/negative/over-limit/non-draft/foreign tenant;
+     Project-price renderer output contains no line prices; D3 inheritance.
+C2-3 T-168 Team + Settings (server behavior unchanged — resend and active:false already exist): Team roster with Active · Invited ·
+     Disabled chips + seat count; ONE "Invite person" button → Sheet/Modal form (name, email, Role with the one-line descriptions from
+     TEAM_ROLE_HELP / userTypes, then an optional crew step); "Type" becomes "Role" everywhere. Actions by state — Active: Change role
+     (review line says exactly what changes before save), Disable access (confirm with the consequence); Invited: Resend invite,
+     "Cancel invite" (the same active:false call, invite wording); Disabled: Re-enable. When the server refuses (last active owner,
+     seat limit) show its reason next to the control. CSV import + "Revoke all field QR links" move to a lower "More" area (revoke
+     keeps its confirm; states scope + recovery first). Phone ≤ 640px: member cards (name, role, state, one action + More).
+     Settings sections in this order with anchors: Company #company, Hours & timezone #hours, Phone & notifications #phone,
+     Documents #documents, Terms & notices #terms, Advanced #advanced — sticky section list on desktop, "Jump to" select on phone;
+     legal notices keep their draft/reviewed gate; unsaved-change warnings kept. Phone & notifications: email notifications, each
+     line's SMS status in words (C-B), one "Contact Luxor to change your phone line" (mailto:connect@luxordev.com).
+
+CHECKS — only these; the integrator runs every browser/e2e test and reads the screenshots afterwards: before each commit
+`npx tsc --noEmit` and `npx eslint <changed files>`; `npx vitest run <your new/changed test files>` (plus the existing
+src/app/company/jobs/[jobId]/**/*.test.tsx, src/lib/billing/__tests__ and src/app/company/team/page.test.tsx you touched — update
+assertions on copy you deliberately changed, keep their intent). Do NOT run Playwright, npm run e2e:*, full vitest or next build.
+
+WRAP UP: append ONE entry to docs/IMPLEMENTATION_LOG.md (per task: two-sentence before/after, the before/after action inventory,
+deviations). Commit "Phase 32 C2 complete". Run to the end; commit WIP at least every ~45 min. Final message: commit table
+(hash · task · one line), the action map, deviations, "Noticed, not done", QUESTION FOR INTEGRATOR (if any).
+```
+
+### J3 — Deepseek, **V4.1 Flash, Thinking: Hard** — Stream D: shared UI system + the superadmin area (T-157, T-158, T-163, T-166, T-167)
+```
+You are Deepseek working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase). Phase 32, Stream D: the shared UI
+system (design tokens, dialogs, search, error/empty states) and the superadmin area (one Admin shell, an honest client list, Demo
+Studio, the playbooks). Tasks T-157, T-158, T-163 (shared parts), T-166 (UI), T-167, plus T-162 for Admin Usage. Three other agents
+work in parallel on other files; stay inside your file list. No live services, no keys, no auth/guard changes.
+
+SETUP (PowerShell, once):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-p32-system" -b task/p32-system main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-p32-system\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-p32-system"
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-p32-system and
+`git branch --show-current` must print task/p32-system. Never edit files under D:\Apps\6 - AI Receptionist. Never push, merge or
+rebase. A patch "context mismatch" is CRLF — use the LF conversion in AGENTS.md "Known hiccups".
+
+READ FIRST (from the MAIN checkout, read-only):
+1. D:\Apps\6 - AI Receptionist\MASTER_PLAN.md → "Phase 32 review — verified corrections, decisions, contracts and stream work orders":
+   P32-R (R7, R8, R11), P32-D (D6, D7), P32-C (C-A, C-B, C-D, C-E, C-F), P32-S, P32-T, then "Work order — Stream D" — YOUR COMPLETE
+   JOB LIST. The T-157/T-158/T-163/T-166/T-167 paragraphs above that section describe today's screens in words.
+2. AGENTS.md "Protected context" + "Worker etiquette"; CLAUDE.md one-teal rule and "Cache-Control Rule".
+
+YOUR FILES (edit only these): src/app/globals.css — ONLY the :root token block at the top and ONE block marked
+/* ── Phase 32 · D ── */; src/components/ui/** (+ tests in src/components/ui/__tests__); src/hooks/useFocusTrap.ts;
+new src/lib/copy/glossary.ts; src/app/admin/layout.tsx; src/app/admin/admin-nav.tsx; src/app/admin/businesses/page.tsx (the LIST
+page only); src/app/admin/usage/**; src/app/hub/layout.tsx; src/app/hub/hub-nav.tsx (delete); src/app/hub/page.tsx;
+src/app/hub/demo/**; src/app/hub/guide/**; public/guides/**; new src/app/__tests__/tokens.test.ts; docs/IMPLEMENTATION_LOG.md
+(append only).
+DO NOT TOUCH: src/app/company/** (Codex C1/C2); src/app/api/** — every API route, including admin and demo-customize;
+src/app/hub/onboarding/**, src/app/admin/businesses/[businessId]/** (integrator); src/lib/auth/**, firestore.rules, src/types/**,
+scripts/** (especially scripts/setup-elevenlabs-agent.mjs — its ai-roof.vercel.app URL is intentional), TODO.md.
+Component rule: every change to Modal, Sheet, EmptyState, StatusChip, PageError, BlockedAction, QuickAddButton is ADDITIVE —
+existing props keep working with the same meaning (Codex is using today's API in parallel). Anything outside the list →
+"QUESTION FOR INTEGRATOR", never an edit.
+
+DATA YOU DISPLAY THAT THE INTEGRATOR IS BUILDING NOW (contracts C-A, C-B in MASTER_PLAN — copy the types locally; the integrator
+swaps them for shared imports at merge):
+- accountPurpose on each row of GET /api/admin/businesses: missing → "unclassified"; businessId "demo-roofing" → "demo".
+- GET /api/admin/phone-lines[?businessId=] → { lines: PhoneLineView[] }. Until it exists (404/failure): show "Status unavailable".
+  NEVER show Ready/Live unless the API says status "test_passed"/"live"; Dial/Copy buttons only for those two statuses.
+
+DO THE WORK ORDER IN ORDER — one commit per task, message "T-1xx: <summary>":
+D-1 T-157: add --sp-1 4px … --sp-6 32px and --control-h 44px to :root with a short usage comment above the token block (what each
+    family is for; "no new hex colours"). The state tokens already exist (--c-{danger,success,info,warn,neutral}-{bg,fg,bd}) — replace
+    hard-coded colours/spacing in src/components/ui/** and the admin/hub pages you own with tokens. StatusChip: one tone → --c-*
+    mapping for every tone. .button and form controls: min-height var(--control-h) under @media (pointer: coarse) only. Test
+    tokens.test.ts: parse globals.css; each --c-*-fg on its --c-*-bg and --text-muted on --surface have contrast ≥ 4.5:1.
+D-2 T-158: one dialog behavior inside Modal, Sheet and CommandBar (share it via useFocusTrap): role="dialog", aria-modal,
+    aria-labelledby the title; focus the first field (else the close button); Tab/Shift+Tab stay inside; Escape and backdrop close —
+    unless the new OPTIONAL prop dirty is true, then confirm "Discard changes?"; body scroll locked while open; focus returns to the
+    trigger; visible 44px close button with an accessible name. CommandBar: Ctrl/Cmd+K opens; input is a labelled combobox ("Search
+    calls, requests, jobs and customers"); results a listbox with aria-activedescendant; ↑/↓/Enter/Escape; an aria-live="polite"
+    status line: "Searching…", "N results", "No matches for “x”", or "Search failed" + a Retry button (today every fetch failure is
+    silently turned into an empty list — tell failure apart from empty); navigate with router.push, not window.location; SAME
+    endpoints, same auth, no extra data. Tests (testing-library, same style as Modal.test.tsx): open/close/focus restore, Tab
+    containment, Escape with and without dirty, arrows + Enter selects, injected fetch failure shows Retry.
+D-3 T-163: PageError = what happened + one next step + Retry (no raw error text, no customer data). BlockedAction always shows its
+    reason as visible text. New src/components/ui/FormField.tsx (visible label, optional hint, error wired with aria-describedby +
+    aria-invalid, role="alert" for submit errors). New src/components/ui/InlineNotice.tsx for a background refresh failure: "Couldn't
+    refresh — showing what was loaded at 10:42 · Retry" (never replaces loaded content). src/lib/copy/glossary.ts per C-F (Request,
+    Booking, Confirmed, Job via vocab, Callback — each with a one-line plain meaning). Tests for FormField wiring and InlineNotice.
+D-4 T-166: src/app/hub/layout.tsx renders the SAME shell and AdminNav as /admin — copy the existing superadmin gate EXACTLY (do not
+    loosen or tighten it); delete hub-nav.tsx and the "Open Hub" link; /hub redirects to /hub/demo; every /hub/* URL keeps working.
+    AdminNav groups: Clients (Client accounts → /admin/businesses, "+ New client" → /hub/onboarding) · Operations (Demo Studio →
+    /hub/demo) · Billing (Usage, Invoices) · Resources (Playbooks → /hub/guide). Client list /admin/businesses: filter chips
+    Clients (default = client + unclassified) · Demo & test · Archived; purpose badge per row (Client / Demo / Test / Archived /
+    Needs classifying); columns Business, Industry, Purpose, Phone line (from admin phone-lines; fallback = the row's own number
+    labelled "not verified"), Voice provider (ElevenLabs / Vapi / None from voiceProvider — never "Needs Vapi" for an ElevenLabs
+    tenant), Connection (line status in words), Actions (Edit, Preview). Summary cards: Clients (excludes demo/test), Lines live,
+    Needs attention, Demo & test. The "Sync live phone assistants" card becomes a collapsed "Advanced · Vapi assistants (N
+    eligible)" disclosure listing only tenants with voiceProvider vapi and a vapiAssistantId — its behavior unchanged. Admin Usage
+    (T-162): phone cards with the 2–4 deciding fields, nothing scrolls sideways at 390px.
+D-5 T-167: /hub/demo — top card "Run a demo": industry/prospect → Launch. Below it one card per demo line (phone-lines
+    ?businessId=demo-roofing): number, country, status in words (Live · Connected — not yet tested · Provisioned — awaiting app
+    connection · Status unavailable), last test; Dial/Copy only for test_passed/live; until the API exists show BOTH numbers
+    (+1 (689) 204-2643 US, +1 (778) 907-9769 Canada) as "Status unavailable". Missing config → "Demo calling isn't ready — open
+    connection details"; raw env/provider key names ONLY inside a collapsed "Advanced diagnostics". "20-minute demo" → "5-minute
+    demo" + link "20-minute deep dive (optional)". Reset keeps its confirmation, moves away from Launch (secondary, lower). /hub/guide
+    — default tab "Run a demo in 5 minutes": 7 steps (choose prospect/industry → Launch → call the line → open Calls / Pipeline →
+    open the prepared job → show Field → show Quote/Invoice), each with its expected result, one deep link built with getAppUrl()
+    (src/lib/config/appUrl.ts), and an "If this fails" link; the existing long playbook becomes a second tab "Full playbook
+    (20-minute deep dive)". public/guides/*.html: every user-facing ai-roof.vercel.app → https://crm.luxordev.com (19 in
+    onboarding-guide.html, 1 in pitch-deck.html); relabel Vapi-as-current passages "Legacy (Vapi) — only for tenants still on Vapi";
+    delete stale claims instead of footnoting them. Test src/app/hub/guide/__tests__/guide-urls.test.ts: fails on
+    ai-roof.vercel.app, localhost or 127.0.0.1 in public/guides/*.html except inside an element marked data-ops-fallback.
+Never remove a capability; keep an old → new location list for everything you move.
+
+CHECKS — only these; the integrator runs every browser/e2e test and reads the screenshots afterwards: before each commit
+`npx tsc --noEmit` and `npx eslint <changed files>`; `npx vitest run <your new/changed test files>` (existing
+src/components/ui/__tests__ must stay green — update an assertion only where you deliberately changed copy). Do NOT run Playwright,
+npm run e2e:*, full vitest or next build.
+
+WRAP UP: append ONE entry to docs/IMPLEMENTATION_LOG.md (per task: two-sentence before/after, the old → new location list,
+deviations). Commit "Phase 32 D complete". Run to the end — don't stop between tasks; commit WIP at least every ~45 min (credits can
+run out). Final message: commit table (hash · task · one line), the moved-items list, deviations, "Noticed, not done",
+QUESTION FOR INTEGRATOR (if any).
+```
