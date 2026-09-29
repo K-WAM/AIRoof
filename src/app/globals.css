@@ -3097,3 +3097,38 @@ a.metric:hover {
 .customer-version-panel__internal { font-size: 13px; color: var(--text-muted); }
 .customer-version-panel p { margin: 0; font-size: 13px; }
 @media (max-width: 640px) { .customer-version-panel .segmented-control { width: 100%; } .customer-version-panel .segment { flex: 1 1 100%; text-align: left; } .quote-panel-body input[aria-label='Quantity'], .quote-panel-body input[aria-label='Unit price'] { min-width: 92px; min-height: var(--control-h, 44px); } }
+.team-header-actions, .team-filters, .team-member-card__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2, 8px); }
+.team-filters { margin-bottom: var(--sp-4, 16px); }
+.team-filters .button[aria-pressed='true'] { border-color: var(--accent); color: var(--accent); }
+.team-roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr)); gap: var(--sp-4, 16px); }
+.team-member-card { padding: var(--sp-4, 16px); min-width: 0; }
+.team-member-card__identity { display: flex; justify-content: space-between; align-items: start; gap: var(--sp-3, 12px); overflow-wrap: anywhere; }
+.team-member-card__identity strong { font-size: 16px; }
+.team-member-card__identity div div { font-size: 13px; color: var(--text-muted); }
+.team-member-card__details { display: grid; gap: var(--sp-2, 8px); margin: var(--sp-4, 16px) 0; font-size: 13px; }
+.team-member-card__details strong { display: inline-block; min-width: 80px; }
+.team-role-review { padding: var(--sp-3, 12px); margin-bottom: var(--sp-3, 12px); background: var(--surface-muted); border-radius: var(--r-md); }
+.team-role-review label, .team-invite-form label { display: grid; gap: var(--sp-2, 8px); }
+.team-role-review p, .team-invite-form p { font-size: 13px; }
+.team-control-error { color: var(--c-danger-fg); font-size: 13px; margin-bottom: 0; }
+.team-control-help { display: block; font-size: 12px; color: var(--text-muted); }
+.team-more { margin-top: var(--sp-5, 24px); }
+.team-more > summary { cursor: pointer; padding: var(--sp-4, 16px); font-weight: 700; }
+.team-more .panel-body, .team-invite-form { display: grid; gap: var(--sp-4, 16px); }
+.team-more input[type='file'] { display: block; margin-top: var(--sp-2, 8px); max-width: 100%; }
+@media (max-width: 640px) { .team-roster { display: block; } .team-member-card { margin-bottom: var(--sp-3, 12px); } .team-member-card__details span:nth-child(n+3) { display: none; } .team-member-card__actions > .button { flex: 1; } }
+.settings-phase32-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: start; gap: var(--sp-5, 24px); }
+.settings-section-list { position: sticky; top: var(--sp-5, 24px); display: grid; gap: var(--sp-2, 8px); padding: var(--sp-3, 12px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); }
+.settings-section-list a { color: var(--text); font-size: 13px; padding: var(--sp-2, 8px); text-decoration: none; border-radius: var(--r-sm); }
+.settings-section-list a:hover, .settings-section-list a:focus-visible { color: var(--accent); background: var(--surface-muted); }
+.settings-section-content { display: grid; gap: var(--sp-5, 24px); min-width: 0; }
+.settings-section-content > section { scroll-margin-top: var(--sp-5, 24px); }
+.settings-section-content .panel-title { display: flex; align-items: center; gap: var(--sp-2, 8px); }
+.settings-jump-phone { display: none; }
+.settings-phone-lines { display: grid; gap: var(--sp-3, 12px); margin: var(--sp-4, 16px) 0; }
+.settings-phone-lines h3 { font-size: 15px; margin: 0; }
+.settings-phone-line { display: grid; gap: var(--sp-1, 4px); padding: var(--sp-3, 12px); background: var(--surface-muted); border-radius: var(--r-sm); }
+.settings-phone-line small { color: var(--text-muted); }
+.settings-unsaved { color: var(--c-warn-fg); }
+.settings-advanced { display: grid; gap: var(--sp-4, 16px); }
+@media (max-width: 640px) { .settings-phase32-layout { display: block; } .settings-section-list { display: none; } .settings-jump-phone { display: grid; gap: var(--sp-2, 8px); margin-bottom: var(--sp-4, 16px); } .settings-jump-phone select { min-height: var(--control-h, 44px); } }

@@ -19,7 +19,7 @@ export interface UserTypeDef {
 
 export const USER_TYPES: UserTypeDef[] = [
   { id: "admin", label: "Admin", role: "owner", field: false,
-    help: "Everything, including the Team page (adding people and changing their type) and Settings." },
+    help: "Everything, including the Team page (adding people and changing their role) and Settings." },
   { id: "office", label: "Office staff", role: "staff", trade: "office", field: false,
     help: "The office: Pipeline, Calendar, jobs, quotes and invoices. Can also use the Field screen. Can't manage the team." },
   { id: "inspector", label: "Inspector", role: "crew", trade: "inspector", field: true,
