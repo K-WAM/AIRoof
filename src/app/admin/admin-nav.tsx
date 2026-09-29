@@ -4,28 +4,54 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ArrowRight,
-  Building2,
   BarChart2,
-  Receipt,
   BookOpen,
-  Rocket,
+  Building2,
+  ExternalLink,
   MessageSquareText,
+  Plus,
+  QrCode,
+  Receipt,
+  Rocket,
 } from "lucide-react";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
 
-const mainLinks = [
-  { href: "/admin/businesses", label: "Clients", Icon: Building2 },
-  { href: "/admin/usage", label: "Usage", Icon: BarChart2 },
-];
+interface NavLink {
+  href: string;
+  label: string;
+  Icon: typeof Building2;
+}
 
-// Demo Studio + Playbooks live in the Hub (T-055) but are what an operator reaches for first — link them straight
-// from here so the demo runbook and the admin playbook are one click away, not behind "Open Hub".
-const toolLinks = [
-  { href: "/admin/invoices", label: "Invoices", Icon: Receipt },
-  { href: "/hub/demo", label: "Demo Studio", Icon: Rocket },
-  { href: "/hub/guide", label: "Playbooks", Icon: BookOpen },
+// One Admin shell (T-166, D6/R8): the same nav for /admin/* and /hub/*. Groups
+// are the operator's jobs, not the old Platform/Tools split.
+const GROUPS: Array<{ label: string; links: NavLink[] }> = [
+  {
+    label: "Clients",
+    links: [
+      { href: "/admin/businesses", label: "Client accounts", Icon: Building2 },
+      { href: "/hub/onboarding", label: "+ New client", Icon: Plus },
+    ],
+  },
+  {
+    label: "Operations",
+    links: [
+      { href: "/hub/demo", label: "Demo Studio", Icon: Rocket },
+      // Demo entry points kept from the old Hub nav (same destinations).
+      { href: "/company/field?businessId=demo-roofing", label: "Demo: Field screen", Icon: QrCode },
+    ],
+  },
+  {
+    label: "Billing",
+    links: [
+      { href: "/admin/usage", label: "Usage", Icon: BarChart2 },
+      { href: "/admin/invoices", label: "Invoices", Icon: Receipt },
+    ],
+  },
+  {
+    label: "Resources",
+    links: [{ href: "/hub/guide", label: "Playbooks", Icon: BookOpen }],
+  },
 ];
 
 export function AdminNav() {
@@ -38,53 +64,48 @@ export function AdminNav() {
 
   return (
     <nav className="admin-nav" aria-label="Admin navigation">
+      {GROUPS.map((group) => (
+        <div className="nav-section" key={group.label}>
+          <p className="nav-section-label">{group.label}</p>
+          {group.links.map(({ href, label, Icon }) => (
+            <Link
+              href={href}
+              key={href}
+              className="nav-link"
+              aria-current={pathname === href ? "page" : undefined}
+            >
+              <Icon size={15} strokeWidth={1.75} className="nav-link-icon" />
+              {label}
+            </Link>
+          ))}
+        </div>
+      ))}
       <div className="nav-section">
-        <p className="nav-section-label">Platform</p>
-        {mainLinks.map(({ href, label, Icon }) => (
-          <Link
-            href={href}
-            key={href}
-            className="nav-link"
-            aria-current={pathname === href ? "page" : undefined}
-          >
-            <Icon size={15} strokeWidth={1.75} className="nav-link-icon" />
-            {label}
-          </Link>
-        ))}
-      </div>
-      <div className="nav-section">
-        <p className="nav-section-label">Tools</p>
-        {toolLinks.map(({ href, label, Icon }) => (
-          <Link
-            href={href}
-            key={href}
-            className="nav-link"
-            aria-current={pathname === href ? "page" : undefined}
-          >
-            <Icon size={15} strokeWidth={1.75} className="nav-link-icon" />
-            {label}
-          </Link>
-        ))}
-        {showFeedback && (
-          <button
-            type="button"
-            className="nav-link"
-            data-state={feedbackOpen ? "open" : undefined}
-            onClick={() => setFeedbackOpen(true)}
-            aria-label="Send feedback"
-          >
-            <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
-            Feedback
-          </button>
-        )}
+        <p className="nav-section-label">Demo</p>
+        {/* Kept from the old Hub nav: the client-view preview opens in a new tab. */}
+        <a
+          href="/company/dashboard?preview=demo-roofing"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="nav-link"
+        >
+          <ExternalLink size={15} strokeWidth={1.75} className="nav-link-icon" />
+          Demo: Client view
+        </a>
       </div>
       <div className="nav-spacer" />
-      {/* Demo Studio, the onboarding wizard, and Playbooks moved to their own
-          Hub (T-055) — this is the one link back, not a duplicated nav. */}
-      <Link href="/hub" className="nav-divider-link">
-        <ArrowRight size={13} strokeWidth={1.75} className="nav-link-icon" />
-        Open Hub (Demo, Onboarding, Playbooks)
-      </Link>
+      {showFeedback && (
+        <button
+          type="button"
+          className="nav-link"
+          data-state={feedbackOpen ? "open" : undefined}
+          onClick={() => setFeedbackOpen(true)}
+          aria-label="Send feedback"
+        >
+          <MessageSquareText size={15} strokeWidth={1.75} className="nav-link-icon" />
+          Feedback
+        </button>
+      )}
       {showFeedback && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );

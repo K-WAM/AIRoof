@@ -3228,3 +3228,108 @@ a.metric:hover {
   cursor: pointer;
 }
 .inline-notice-retry:hover { background: var(--surface-muted); }
+
+/* ?? Admin client list + dense data on a phone (T-166, T-162) ?? */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.filter-chip {
+  min-height: 32px;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.purpose-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.purpose-badge--client { background: var(--c-success-bg); color: var(--c-success-fg); border-color: var(--c-success-bd); }
+.purpose-badge--demo { background: var(--c-info-bg); color: var(--c-info-fg); border-color: var(--c-info-bd); }
+.purpose-badge--test { background: var(--c-warn-bg); color: var(--c-warn-fg); border-color: var(--c-warn-bd); }
+.purpose-badge--archived { background: var(--c-neutral-bg); color: var(--c-neutral-fg); border-color: var(--c-neutral-bd); }
+.purpose-badge--unclassified { background: var(--c-danger-bg); color: var(--c-danger-fg); border-color: var(--c-danger-bd); }
+
+.cell-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.advanced-disclosure {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: var(--sp-3) var(--sp-4);
+}
+.advanced-disclosure > summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.advanced-disclosure-note {
+  margin: var(--sp-3) 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Phone: the admin/usage tables become one card per row with the deciding
+   fields; nothing scrolls sideways at 390px. */
+@media (max-width: 640px) {
+  .business-table[data-responsive] thead { display: none; }
+  .business-table[data-responsive],
+  .business-table[data-responsive] tbody,
+  .business-table[data-responsive] tr,
+  .business-table[data-responsive] td { display: block; width: 100%; }
+  .business-table[data-responsive] tr {
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+  .business-table[data-responsive] td {
+    border: 0;
+    padding: 3px 0;
+  }
+  .business-table[data-responsive] td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .business-table[data-responsive] td:last-child {
+    margin-top: var(--sp-2);
+  }
+  /* Row actions stay on one line inside the card; the deciding fields remain
+     (Usage: Company · Phone line · Calls · Booking), the rest collapse. */
+  .business-table[data-responsive] .hide-phone { display: none; }
+}
+
+.booking-problems {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--c-danger-fg);
+}

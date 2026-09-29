@@ -44,7 +44,6 @@ vi.mock("next/link", () => ({
 }));
 
 import { AdminNav } from "@/app/admin/admin-nav";
-import { HubNav } from "@/app/hub/hub-nav";
 import { CompanyNav } from "@/app/company/company-nav";
 
 const clientUser = {
@@ -55,9 +54,10 @@ const clientUser = {
   superadmin: false,
 };
 
+// T-166: /hub uses the same AdminNav as /admin (HubNav was deleted), so there
+// are two distinct shells left to check: the admin shell and the company shell.
 const navs = [
   { name: "admin", render: () => <AdminNav /> },
-  { name: "hub", render: () => <HubNav /> },
   { name: "company", render: () => <CompanyNav /> },
 ];
 

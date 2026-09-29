@@ -31,16 +31,19 @@ export default function AdminUsagePage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true);
     fetch("/api/admin/usage")
       .then((r) => {
         if (!r.ok) throw new Error("Usage request failed");
         return r.json();
       })
-      .then((d) => setRows(d.businesses ?? []))
+      .then((d) => { setRows(d.businesses ?? []); setLoadError(false); })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { load(); }, []);
 
   const totals = rows.reduce(
     (acc, r) => ({ calls: acc.calls + r.calls, leads: acc.leads + r.leads, appts: acc.appts + r.appointments }),
@@ -51,8 +54,8 @@ export default function AdminUsagePage() {
   if (loadError) {
     return (
       <PageError
-        message="Usage data could not be loaded. No activity totals are being shown."
-        onRetry={() => window.location.reload()}
+        message="Usage data could not be loaded, so no activity totals are being shown."
+        onRetry={load}
       />
     );
   }
@@ -61,7 +64,7 @@ export default function AdminUsagePage() {
     <>
       <header className="page-header">
         <div>
-          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 className="page-title" style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
             <BarChart3 size={20} strokeWidth={1.75} />
             Usage
           </h1>
@@ -69,7 +72,7 @@ export default function AdminUsagePage() {
         </div>
       </header>
 
-      <section className="metric-grid" aria-label="Platform totals" style={{ marginBottom: 24 }}>
+      <section className="metric-grid" aria-label="Platform totals" style={{ marginBottom: "var(--sp-5)" }}>
         <article className="metric">
           <p className="metric-label">Active tenants</p>
           <p className="metric-value">{rows.filter((r) => r.active && (r.vapiAssistantId || r.elevenLabsAgentId)).length}</p>
@@ -90,24 +93,24 @@ export default function AdminUsagePage() {
 
       <section className="panel">
         <div className="panel-header">
-          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: "var(--sp-1)" }}>
             <Activity size={16} strokeWidth={1.75} />
             Per-Business Activity
           </h2>
         </div>
         <div className="panel-body" style={{ padding: 0 }}>
           {rows.length === 0 ? (
-            <p style={{ padding: 20, color: "#888", fontSize: 14 }}>No data yet.</p>
+            <p style={{ padding: "var(--sp-5)", color: "var(--text-muted)", fontSize: 14 }}>No data yet.</p>
           ) : (
-            <table className="business-table">
+            <table className="business-table" data-responsive>
               <thead>
                 <tr>
                   <th>Company</th>
-                  <th>Industry</th>
+                  <th className="hide-phone">Industry</th>
                   <th>Phone line</th>
-                  <th style={{ textAlign: "right" }}>Calls</th>
-                  <th style={{ textAlign: "right" }}>Leads</th>
-                  <th style={{ textAlign: "right" }}>Appts</th>
+                  <th className="hide-phone" style={{ textAlign: "right" }}>Calls</th>
+                  <th className="hide-phone" style={{ textAlign: "right" }}>Leads</th>
+                  <th className="hide-phone" style={{ textAlign: "right" }}>Appts</th>
                   <th>Booking</th>
                   <th></th>
                 </tr>
@@ -118,9 +121,12 @@ export default function AdminUsagePage() {
                     <td>
                       <p className="business-name">{r.businessName}</p>
                       <p className="business-id">{r.businessId}</p>
+                      {/* The call count is the two-to-four deciding field on a phone
+                          (Industry/Leads/Appts collapse on this card). */}
+                      <p className="cell-note">Calls: {r.calls} · Leads: {r.leads} · Appts: {r.appointments}</p>
                     </td>
-                    <td style={{ textTransform: "capitalize" }}>{r.industry}</td>
-                    <td>
+                    <td className="hide-phone" data-label="Industry" style={{ textTransform: "capitalize" }}>{r.industry}</td>
+                    <td data-label="Phone line">
                       {r.voiceProvider === "elevenlabs" && r.elevenLabsAgentId ? (
                         <span className="tag success" title="Answered by an ElevenLabs agent">Live · ElevenLabs</span>
                       ) : r.vapiAssistantId ? (
@@ -131,10 +137,10 @@ export default function AdminUsagePage() {
                         <a href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }} title="This client has no phone agent connected yet">No phone line — set up ↗</a>
                       )}
                     </td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.calls}</td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.leads}</td>
-                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.appointments}</td>
-                    <td style={{ maxWidth: 260 }}>
+                    <td className="hide-phone" data-label="Calls" style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.calls}</td>
+                    <td className="hide-phone" data-label="Leads" style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.leads}</td>
+                    <td className="hide-phone" data-label="Appts" style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.appointments}</td>
+                    <td data-label="Booking" style={{ maxWidth: 260 }}>
                       {!r.bookingCheck ? (
                         <span className="tag" title="The daily booking canary has not run for this tenant yet">Not checked</span>
                       ) : r.bookingCheck.ok ? (
@@ -142,7 +148,7 @@ export default function AdminUsagePage() {
                       ) : (
                         <>
                           <span className="tag urgent">Check failed</span>
-                          <ul style={{ margin: "6px 0 0", paddingLeft: 16, fontSize: 12, color: "#7f1d1d", lineHeight: 1.5 }}>
+                          <ul className="booking-problems">
                             {r.bookingCheck.problems.map((problem) => (
                               <li key={problem}>{problem}</li>
                             ))}
@@ -150,7 +156,7 @@ export default function AdminUsagePage() {
                         </>
                       )}
                     </td>
-                    <td style={{ display: "flex", gap: 6 }}>
+                    <td data-label="Actions" style={{ display: "flex", gap: "var(--sp-1)" }}>
                       <a
                         href={`/admin/businesses/${r.businessId}/config`}
                         className="button small"
