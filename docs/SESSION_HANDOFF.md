@@ -1,15 +1,16 @@
 # SESSION_HANDOFF.md — Current state
 
-Updated: 2026-09-29 (Claude, integrator) — **Phase 32 (T-157–T-171) built and merged to LOCAL main; nothing pushed or
-deployed.** Four file-disjoint streams per `MASTER_PLAN.md` "Phase 32 review …" (P32-R/D/C/S/T): Stream I (Claude:
+Updated: 2026-09-29 (Claude, integrator) — **Phase 32 (T-157–T-171) built, merged, PUSHED and DEPLOYED (`0b09946`,
+crm.luxordev.com Ready, health ok; `firestore:rules` released; the superadmin audit re-run after deploy is unchanged — the stale
+flag on kwamwad@gmail.com is now inert).** Four file-disjoint streams per `MASTER_PLAN.md` "Phase 32 review …" (P32-R/D/C/S/T): Stream I (Claude:
 T-170 authority, T-171 client phone lines, T-169 dialed-line sender), D (Deepseek: T-157/158/163/166/167), C1 (Codex:
 T-159/160/162/164), C2 (Codex: T-161/164 job detail/165/168). Integration fixes at merge are listed in `TODO.md`'s Phase 32
 stream table. Gates on the final tree: full vitest green (2 import-heavy suites timed out under load → longer per-file
 timeout, green), `next build` green, `npm run test:rules` 9/9, `npm run e2e:call` 12/12, full Playwright on the final tree 141 passed / 2 failed / 5 skipped (37 min; the 2 were one spec not expecting the Calendar empty state phone+desktop copies — fixed, green alone). The first merged-tree run found 20 failures: most were specs asserting pre-Phase-32 screens (updated), and 6 were real regressions, fixed in `945e123`, plus phone-screenshot polish in `bcd7ee4` (phone Calendar agenda showed booked days as empty in other weeks; closed More menus made Jobs/Team wider than the screen; empty Jobs had two primary buttons; Team lost its role comparison and its "Just you so far" state).
 Production read-only findings (TODO NH-28/NH-31): one real superadmin claim; kwamwad@gmail.com's stale doc flag still
 grants direct Firestore superadmin until the new rules deploy; the Canadian demo number is not in demo-roofing's routing;
-`SMS_ENABLED` is absent in production. **Next:** owner says "approve push" → push, deploy app + `firestore:rules`, re-run
-`scripts/audit-superadmins.mjs`, ElevenLabs agent test for the booking wording + one real call and transcript read.
+`SMS_ENABLED` is absent in production. **Next:** the owner's real booking call on the demo line + the integrator's transcript read (the Booking-change
+gate; agent tests can't cover it — their tool calls are mocked), then NH-30 decisions and NH-31 cleanup (`docs/NEXT_SESSION.md`).
 
 Updated: 2026-09-25 (Claude) — launch-readiness session, all merged + pushed to `main` and deployed. Found and fixed: prod `RESEND_FROM` was Resend's sandbox sender (now `Luxor CRM <crm@luxordev.com>`; tenant-name From, Reply-To, inline CID images, text part; invoice/quote/report no longer mark "sent" on failed delivery — T-122); ElevenLabs calls were invisible in Calls (no `startedAt`), `/api/auth/profile` now derives superadmin only from the token claim, Usage "Phone line" column is provider-aware, Demo Studio takes an optional business phone, admin nav links Demo Studio + Playbooks (T-123). Merged Codex T-113 (request review + decline), T-107a/b (shared letterhead document suite; reports carry NO pricing per owner) and Deepseek's guide refresh. Verified live: one ElevenLabs call booked an appointment. NOT verified: the rest of the chain end to end — see `docs/NEXT_SESSION.md` (start there; T-124 smoke-test prompt is in it, section C5 of `docs/WORKER_QUEUE.md`) and `TODO.md` Phase 23 + NH-24..NH-28. Incident: a parse error printed the Firebase service-account key into the session transcript — rotate it (NH-24). Owner decision: Firebase stays on Spark (no Blaze yet).
 

@@ -8,6 +8,10 @@
 
 **Phases 21–23 (2026-09-24/25):** demo experience (T-115/T-116/T-121), Vapi→ElevenLabs migration (T-117; ElevenLabs test tenant `carlita-elevenlabs-test` live end-to-end), and launch readiness (Phase 23: email deliverability fix, call-visibility/superadmin fixes, document suite T-107a/b with **price-free reports**, request review T-113). **Only the first link of the customer story has been proven live — run the T-124 smoke test and the owner's NH-26 run-through before selling.** Start every session at `docs/NEXT_SESSION.md`.
 
+**Phase 32 (2026-09-29) — screen + security audit, deployed.** Claim-only superadmin rules, phone-line registry with demo-line guards,
+texts from the dialed line, Admin/Hub shell, company screens and customer price modes. See "Phase 32 Key Files" below and
+`docs/NEXT_SESSION.md` for the owner's open items.
+
 **Phase 24 (2026-09-25) — the 20-minute roofing demo, ElevenLabs only (Vapi retired from demos).** T-124 smoke test is done (offline, all pass). Spec + status: `docs/DEMO-READINESS-PLAN.md` (STATUS block at the top lists what shipped, what deviated and what is unproven); TODO.md Phase 24. All three tasks (D1 phone line + Demo Studio, D2 job loop, D3 roofing content) are built and deployed; the demo line is +1 (689) 204-2643 on tenant `demo-roofing`. **Not yet proven on a real phone** — owner verification (Twilio Upgrade, scripted calls, dry runs) is the next step.
 
 **Active Handoff**: Read `HANDOFF.md` first. It contains the current Vapi architecture, confirmed working state, pending items, and demo instructions.
@@ -233,7 +237,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 ## Key Files
 
 - src/types/index.ts — Type definitions (includes vapiAssistantId, vapiPhoneNumberId on BusinessConfig)
-- firestore.rules — Tenant isolation rules (isSuperadmin checks businessUsers doc as fallback)
+- firestore.rules — Tenant isolation rules. Since T-170 (2026-09-29) `isSuperadmin()` is the verified custom claim ONLY (the old businessUsers-doc fallback is gone) and a disabled member (`active == false`) is not a member. Tests: `npm run test:rules` (emulator)
 - src/middleware.ts — Next.js route protection (__session cookie check for /admin/* and /company/*)
 - src/contexts/AuthContext.tsx — Sets/clears __session cookie on auth state change
 - src/app/api/webhooks/vapi/route.ts — Single Vapi webhook handler (7 tools + outcome tagging + after-hours)
@@ -256,8 +260,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - vercel.json — Cron schedule for follow-up-calls
 - src/app/hub/onboarding/page.tsx — Six-step onboarding wizard, incl. Vapi IDs + branding (moved from /admin/onboarding, T-055)
 - src/hooks/useBusinessId.ts — Returns ?preview=businessId for superadmin, user.businessId otherwise
-- src/app/admin/admin-nav.tsx — Sidebar nav: Clients/Usage/Invoices + a link to the Hub
-- src/app/hub/hub-nav.tsx — Hub's own sidebar nav: Demo Studio/Onboarding/Playbooks (T-055)
+- src/app/admin/admin-nav.tsx — the ONE superadmin sidebar (Clients · Operations · Billing · Resources), used by /admin and /hub (T-166)
+- src/app/hub/hub-nav.tsx — deleted (T-166): /hub/* renders the Admin shell + AdminNav; /hub redirects to /hub/demo
 - src/app/hub/layout.tsx — Hub shell, same superadmin gate as /admin (T-055)
 - src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
 - src/app/api/admin/usage/route.ts — Firestore count aggregation per business
@@ -381,6 +385,28 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
   overlap guard stays the only authority. `Job.requestedStart/End` = the time the caller booked (from Pipeline → Create Job) — a picker hint,
   never `scheduledStart` (that would count the visit twice against the phone AI's capacity).
 - **Confirm + email crew** (`POST /api/jobs/[jobId]/assign`): crew email + every active member with an email, one ledger entry each.
+
+## Phase 32 (T-157–T-171, deployed 2026-09-29) Key Files — screen + security audit
+
+- **Authority (T-170):** `confirmSuperadminClaim()` (`src/lib/firebase/admin.ts`) — a superadmin token counts only while the live Auth
+  record still holds the claim; a stored `role: "superadmin"`/`superadmin: true` on businessUsers confers nothing anywhere. Team routes
+  refuse to touch the platform account (`src/lib/auth/platformAccount.ts`). `scripts/grant-superadmin.mjs` / `audit-superadmins.mjs`.
+  `src/app/api/__tests__/route-guards.test.ts` fails CI when an API route has no central guard; `tenant-isolation.test.ts` drives the
+  real guard + handlers across tenants.
+- **Phone lines (T-171):** the registry lives on `businessPhoneNumbers` (`src/types/phoneLine.ts`) — Draft → Provisioned → Connected →
+  Test passed → Live → Retired; it does NOT route calls. `findLineConflicts()` (`src/lib/phoneLines/registry.ts`) is the one "already
+  taken" check (other tenants, demo lines both ways). `/api/admin/phone-lines` (+`[lineId]`: record_test / go_live / retire are dry-run by
+  default, typed confirm, previousRouting) and `/api/company/phone-lines`. Routing caches in `businessLookup.ts` expire after 60 s.
+- **Texts (T-169):** `resolveSmsSender()` (`src/lib/phoneLines/sender.ts`) — a text comes only from the line the caller dialed
+  (`calledNumber` on the appointment/request, from the ElevenLabs conversation record), or the tenant's default sender when there was no
+  call; only when that line's texting is Ready. No env/`smsFromNumber` fallback.
+- **Account purpose (T-166):** `effectiveAccountPurpose()` (`src/lib/accounts/purpose.ts`) — demo tenants are server-derived; missing =
+  "unclassified". `scripts/classify-accounts.mjs`, `scripts/phone-lines.mjs` (dry-run by default).
+- **Customer price (T-165):** `customerTotals()` (`src/lib/billing/jobCustomerTotals.ts`) is the one total; `priceMode: "project"` renders
+  one "Project price" line everywhere; `adjustmentNote` is staff-only.
+- **Shared UI (T-157/158/163):** tokens `--sp-*`/`--control-h`; `Modal`/`Sheet` optional `dirty`; `FormField`, `InlineNotice`,
+  `src/lib/copy/glossary.ts`. A closed `<details>` takes no space (globals.css integration block). Company nav comes from
+  `src/app/company/navModel.ts`; request wording from `src/lib/requests/displayState.ts`.
 
 ## Navigation Completeness Rule
 

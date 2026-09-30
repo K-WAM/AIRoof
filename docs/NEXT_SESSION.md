@@ -1,5 +1,20 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-09-29 (evening) — read this first
+- **Phase 32 is live** (T-157–T-171, `0b09946`, crm.luxordev.com, `firestore:rules` released). Spec + review: `MASTER_PLAN.md`
+  "Phase 32 review …"; state: `TODO.md` Phase 32 stream table; prompts used: `docs/WORKER_QUEUE.md` section J.
+- **Gates run before the push:** full vitest, `next build`, `npm run test:rules` 9/9, `e2e:call` 12/12, full Playwright 141 passed
+  (the 2 failures were one spec, fixed, green alone). The merged-tree browser run caught 6 real regressions the workers' own checks
+  missed — fixed in `945e123`/`bcd7ee4`. Lesson kept in memory: the integrator's full browser run on the merged tree is not optional.
+- **Owner, next (in this order):**
+  1. One real booking call to +1 (689) 204-2643 (Booking-change gate for T-169) — then the integrator reads the transcript.
+  2. Decide the NH-30 defaults (nav labels, project price, quote→invoice, text sender, Canada texting, no quote revisions).
+  3. NH-31: add +1 (778) 907-9769 to demo-roofing (Admin → demo-roofing → Configure → Phone lines / ElevenLabs numbers) and make a
+     test call; delete the stale `VAPI_AUTH_BYPASS` in Vercel; approve `scripts/phone-lines.mjs --apply` and the
+     `scripts/classify-accounts.mjs` mapping. NH-28: delete the stale `superadmin` field on kwamwad@gmail.com (inert now).
+- **Texting stays OFF** (`SMS_ENABLED` absent in production). When NH-29 clears: set a line's texting to Ready in Admin → Configure →
+  Phone lines (texts only ever come from the line the caller dialed), then flip `SMS_ENABLED`.
+
 ## CURRENT STATE 2026-09-28 (morning) — read this first
 - **Pushed:** H2 (Deepseek: booking scenarios `npm run e2e:booking`, `docs/BOOKING-TEST-SCRIPT.md`, the daily booking canary cron at
   11:00 UTC + Admin Usage "Booking" column) and **Phase 30** built by the integrator: crews are editable with members (Library → Crews),
