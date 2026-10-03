@@ -1827,3 +1827,13 @@ C-B consumption: GET company phone lines is read-only; a missing endpoint shows 
 ### Phase 32 C2 completion review
 A final role pass found viewer write affordances still exposed on the Job record despite API refusals. Viewer now receives read-only Activity/Materials/Labor, photos, Quote, Invoice and Report controls; Field QR and automatic report generation are withheld, while the existing print and view paths remain reachable. The viewer-specific Job test confirms the missing write actions. No route guard or collection rule changed. Pending integrator verification: desktop/390px screenshots, combined regression gates, and the post-merge call-to-cash flow required by P32-T.
 Viewer follow-up: Report generation on tab open only prepares a local preview and reads photo blobs, so it remains enabled for viewers; mail, options, and note edits remain unavailable. The viewer test now checks the price-free preview and absence of Mail report.
+
+### Roofing hardening + Nielsen usability audit (2026-10-03, branch ccr-8c0916c7-3r7kkm)
+Full write-up, per-screen heuristic findings (fixed vs open) and load numbers: `docs/USABILITY-AUDIT-2026-10-03.md`.
+Commits: af6069e (one booking → one job from the New Job form; POST /api/jobs input validation), d6f2567 (field-QR write
+paths: photo base64/size/id, prompt-injection seam, note caps, NaN corrections, 400 on bad JSON; dashboard/jobs/job/field
+declutter), the live-refresh Firestore read cut + Calendar/count-pill fixes, 692b294 (legacy duplicate-job backstop),
+1ff134d (sidebar fits 1280×800, job tabs, paid step), 4a98c72 (Settings length). Evidence: tsc clean, full vitest 1,781
+pass, e2e:call 12/12, e2e/screen-audit.spec.ts added. Removed: the Jobs page "Field view" button (dead end for a
+signed-in user). NEEDS-HUMAN raised: move Firebase to Blaze before selling (Spark's daily read cap is a platform-wide
+single point of failure even after the 10× polling cut).

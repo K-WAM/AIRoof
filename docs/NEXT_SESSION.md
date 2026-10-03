@@ -1,5 +1,13 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-10-03 — read this first
+- **Roofing hardening + usability audit on branch `ccr-8c0916c7-3r7kkm` (not merged/deployed).** Read
+  `docs/USABILITY-AUDIT-2026-10-03.md`: security fixes on the no-login field-QR write paths (photo HTML injection into
+  report emails, prompt injection via client job context, NaN corrections), the duplicate-job bug from the New Job form,
+  a ~10× cut in live-refresh Firestore reads (Spark quota), and per-screen Nielsen fixes (sidebar at 1280×800, Jobs tab
+  counts, dashboard phone layout, Settings length, dead "Field view" button). Open ⚠️ items are listed per screen.
+- **Owner:** review + merge; then decide Blaze (NEEDS-HUMAN — Spark's daily cap can take every tenant down at once).
+
 ## CURRENT STATE 2026-09-29 (evening) — read this first
 - **Phase 32 is live** (T-157–T-171, `0b09946`, crm.luxordev.com, `firestore:rules` released). Spec + review: `MASTER_PLAN.md`
   "Phase 32 review …"; state: `TODO.md` Phase 32 stream table; prompts used: `docs/WORKER_QUEUE.md` section J.
