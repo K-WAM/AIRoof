@@ -84,6 +84,10 @@ export function NoticesPanel({ businessId }: { businessId: string }) {
         {!view && !loadFailed && <p style={{ color: "var(--text-muted)" }}>Loading…</p>}
         {view && status && <>
           <p role="status" style={{ fontSize: 13, fontWeight: 600, color: status.tone === "ok" ? "#15803d" : "#92400e" }}>{status.text}</p>
+          {/* The nine notices are long legal text: folded by default so Settings stays scannable; the status line
+              above and the buttons below stay visible. */}
+          <details className="notices-list">
+          <summary className="button" style={{ marginBottom: 12 }}>Edit notices ({view.notices.filter((n) => draft[n.id]?.enabled).length} of {view.notices.length} on)</summary>
           <div style={{ display: "grid", gap: 14 }}>
             {view.notices.map((notice) => {
               const value = draft[notice.id];
@@ -95,10 +99,12 @@ export function NoticesPanel({ businessId }: { businessId: string }) {
                     {notice.title}
                     {notice.statutory && <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>Residential jobs over ${notice.thresholdUsd?.toLocaleString("en-US")} only</span>}
                   </label>
-                  <textarea aria-label={`${notice.title} wording`} rows={4} value={value.text} disabled={!value.enabled} style={{ width: "100%" }}
-                    onChange={(event) => update(notice.id, { text: event.target.value })} />
+                  {/* A switched-off notice is one line; its wording opens when it is switched on (nine open textareas made
+                      this the longest screen in the app). */}
+                  {value.enabled && <textarea aria-label={`${notice.title} wording`} rows={4} value={value.text} style={{ width: "100%" }}
+                    onChange={(event) => update(notice.id, { text: event.target.value })} />}
                   {blocking.has(notice.id) && value.enabled && <small style={{ color: "#92400e" }}>Still contains a [DRAFT placeholder. Replace it or switch this notice off.</small>}
-                  {!notice.statutory && <div style={{ display: "flex", gap: 14, fontSize: 13 }}>
+                  {!notice.statutory && value.enabled && <div style={{ display: "flex", gap: 14, fontSize: 13 }}>
                     <span style={{ color: "var(--text-muted)" }}>Show on:</span>
                     {(["quote", "invoice"] as NoticeDoc[]).map((doc) => (
                       <label key={doc} style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -113,6 +119,7 @@ export function NoticesPanel({ businessId }: { businessId: string }) {
             })}
           </div>
           <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Use {"{businessName}"} and {"{licenseNumber}"} in the wording.</p>
+          </details>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <button className="button" type="button" disabled={busy || !dirty} onClick={() => void put({ notices: overrides() }, "Wording saved. Approve it to put it on documents.")}>Save wording</button>
             <button className="button primary" type="button" disabled={busy || dirty || view.approval.status === "approved" || view.approval.status === "draft-markers"}

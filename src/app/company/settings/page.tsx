@@ -291,7 +291,6 @@ export default function CompanySettingsPage() {
           </section>
 
           <section id="terms" aria-label="Terms & notices">
-            <h2>Terms &amp; notices</h2>
             <NoticesPanel businessId={businessId} />
           </section>
 

@@ -3038,8 +3038,16 @@ a.metric:hover {
 .hours-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 12px; font-weight: 600; }
 
 @media (max-width: 600px) {
-  .hours-day { grid-template-columns: 1fr; }
-  .hours-time-fields { grid-template-columns: 1fr 1fr; }
+  /* One compact card per day on a phone: the selects keep their own aria-labels ("Monday Open"), so the visible
+     Open/Close captions give way to an en dash between the two times. */
+  .hours-day { grid-template-columns: 1fr; gap: 6px; padding: 8px 10px; }
+  .hours-day-heading { min-height: 36px; }
+  .hours-closed { min-height: 36px; }
+  .hours-time-fields { grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
+  .hours-time-fields label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hours-time-fields::before { content: "–"; grid-column: 2; grid-row: 1; color: var(--text-muted); }
+  .hours-time-fields label:first-of-type { grid-column: 1; grid-row: 1; }
+  .hours-time-fields label:nth-of-type(2) { grid-column: 3; grid-row: 1; }
 }
 .setup-checklist { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 /* icon | label | button — the button always sits at the right edge, the label wraps instead of the button. */
