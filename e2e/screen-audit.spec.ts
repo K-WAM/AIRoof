@@ -42,7 +42,7 @@ test("every screen renders fast, without overflow or errors", async ({ as }, inf
       const u = new URL(r.url());
       if (!u.pathname.startsWith("/api/")) return;
       const len = Number(r.headers()["content-length"] ?? 0) || (await r.body().catch(() => Buffer.alloc(0))).length;
-      api.push({ url: u.pathname + u.search, bytes: len });
+      api.push({ url: (u.pathname + u.search).replace(/\d{10,}/g, "<t>"), bytes: len }); // a timestamp in the query is the same request
     });
     const t0 = Date.now();
     await page.goto(s.path);

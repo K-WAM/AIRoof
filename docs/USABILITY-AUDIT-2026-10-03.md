@@ -93,6 +93,8 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
   (Field is in the nav; crew links are the job's Field QR).
 
 ### Job detail
+- ✅ H5/H1: a background refresh marked the draft invoice "Unsaved changes" every few seconds and **Send was refused**
+  ("Still saving your edits") though nothing was edited.
 - ✅ H2: status pill showed the raw enum ("invoiced") → StatusChip, "Paid" once the invoice is paid; invoice badge
   reads Draft/Sent/Void instead of lowercase enums.
 - ✅ H1: a paid job left the last progress step open → all five done.
@@ -125,6 +127,11 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
 - `npx tsc --noEmit` clean; full `npx vitest run` 1,781 pass (new: jobs POST, photo store, field input, legacy
   from-request, idle back-off).
 - `npm run e2e:call` 12/12 on the final code.
-- Full `npm run e2e:test` on the final tree — see the commit/handoff note for the result.
+- Full `npm run e2e:test` (150 tests, 47 min): 138 passed, 3 flaky (passed on retry), 4 failed. Resolution:
+  screen-audit ×2 — budgets too tight for pages that legitimately make 11 requests (fixed in the spec);
+  **doc-photos (phone) — a real bug**: the invoice autosave re-fired on every 5 s refresh and refused Send with
+  "Still saving your edits" (fixed, 9d5e626); booking calendar (phone) — leftover bookings from an earlier failed run
+  held Monday 8:00 (reseeded; no booking code changed). Reruns on the final code: doc-photos, empty-states,
+  screen-audit, booking all pass on phone; doc-photos + screen-audit pass on desktop.
 - Not done: a real phone call (no booking/scheduling code changed — the Booking-change gate is not triggered), and no
   production deploy from this session.
