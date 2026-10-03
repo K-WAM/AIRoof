@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
-import { nextJobId } from "@/lib/jobs/createJob";
+import { nextJobId, nextJobIdInTransaction } from "@/lib/jobs/createJob";
 
 // GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
 // (session or field key)
@@ -67,12 +67,34 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/jobs — create job
+/** Trimmed string capped at `max` characters; anything else (missing, wrong type, blank) is undefined. */
+function cleanText(value: unknown, max: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim().slice(0, max);
+  return trimmed || undefined;
+}
+
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const { businessId, title, address, clientName, clientPhone, clientEmail, serviceType, appointmentId, notes, customerId } = body;
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid body" }, { status: 400 });
+  const businessId = cleanText(body.businessId, 128);
+  const title = cleanText(body.title, 200);
+  // A pasted novel can't bloat the job doc toward Firestore's 1 MB limit (the doc also carries the updates ledger).
+  const address = cleanText(body.address, 300);
+  const clientName = cleanText(body.clientName, 200);
+  const clientPhone = cleanText(body.clientPhone, 40);
+  const clientEmail = cleanText(body.clientEmail, 254);
+  const serviceType = cleanText(body.serviceType, 120);
+  const notes = cleanText(body.notes, 4000);
+  const customerId = cleanText(body.customerId, 128);
+  const appointmentId = cleanText(body.appointmentId, 128);
 
   if (!businessId || !title) {
     return NextResponse.json({ error: "businessId and title required" }, { status: 400 });
+  }
+  if ((customerId && customerId.includes("/")) || (appointmentId && appointmentId.includes("/"))) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
@@ -81,27 +103,52 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  // Atomically increment job counter to produce short human-friendly ID (J-1042, J-1043, …)
-  const jobId = await nextJobId(db, businessId);
   const now = Date.now();
-  const job: Job = {
-    jobId,
+  const fields: Omit<Job, "jobId"> = {
     businessId,
-    title: title.trim(),
+    title,
     status: "open",
-    address: address ?? undefined,
-    clientName: clientName ?? undefined,
-    clientPhone: clientPhone ?? undefined,
-    clientEmail: clientEmail ?? undefined,
-    customerId: customerId ?? undefined,
-    serviceType: serviceType ?? undefined,
-    appointmentId: appointmentId ?? undefined,
-    notes: notes ?? undefined,
+    address,
+    clientName,
+    clientPhone,
+    clientEmail,
+    customerId,
+    serviceType,
+    appointmentId,
+    notes,
     createdAt: now,
     updatedAt: now,
   };
+  const jobs = db.collection(`businesses/${businessId}/jobs`);
 
-  await db.collection(`businesses/${businessId}/jobs`).doc(jobId).set(job);
+  let job: Job;
+  if (appointmentId) {
+    // "New Job" prefilled from a booking: one booking makes one job — the same rule (and the same marker doc) as
+    // POST /api/jobs/from-request. Without it the booking card kept offering "Create Job" and a second job got made.
+    const appointment = db.collection(`businesses/${businessId}/appointments`).doc(appointmentId);
+    const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`appointment_${appointmentId}`);
+    const result = await db.runTransaction(async (tx) => {
+      const [existing, appt] = await Promise.all([tx.get(marker), tx.get(appointment)]);
+      if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false };
+      const jobId = await nextJobIdInTransaction(tx, db.collection("businesses").doc(businessId));
+      tx.create(jobs.doc(jobId), { ...fields, jobId });
+      if (appt.exists) {
+        tx.create(marker, { jobId, createdAt: now });
+        tx.update(appointment, { jobId });
+      }
+      return { jobId, created: true };
+    });
+    if (!result.created) {
+      const stored = await jobs.doc(result.jobId).get();
+      return NextResponse.json({ job: { jobId: result.jobId, ...stored.data() }, created: false }, { status: 200 });
+    }
+    job = { ...fields, jobId: result.jobId };
+  } else {
+    // Atomically increment job counter to produce short human-friendly ID (J-1042, J-1043, …)
+    const jobId = await nextJobId(db, businessId);
+    job = { ...fields, jobId };
+    await jobs.doc(jobId).set(job);
+  }
 
   // An existing customer was picked in the job-create combobox (as opposed
   // to a novel name, which instead triggers the non-blocking
@@ -115,5 +162,5 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ job }, { status: 201 });
+  return NextResponse.json({ job, created: true }, { status: 201 });
 }

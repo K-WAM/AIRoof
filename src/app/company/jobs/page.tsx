@@ -117,6 +117,11 @@ export default function JobsPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.job) throw new Error("Job creation failed");
+      if (data.created === false) {
+        // This booking already has a job — open it rather than listing a second copy.
+        window.location.href = `/company/jobs/${data.job.jobId}${previewSuffix}`;
+        return;
+      }
       setJobs((prev) => [data.job, ...prev]);
       setShowForm(false);
       setJustCreatedId(data.job.jobId);
