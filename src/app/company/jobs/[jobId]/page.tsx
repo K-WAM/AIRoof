@@ -822,6 +822,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // itself refuses a PATCH once status !== "draft", and this mirrors that so an edit after
   // sending doesn't even attempt a doomed request. hydratingInvoiceRef skips the single pass
   // triggered by loading/generating the invoice — that's a load, not an edit.
+  // The photos the invoice carries, as a value: the live refresh hands back a NEW photos array every few seconds, and
+  // depending on the array itself marked the draft "unsaved" on every refresh — Send then refused with "Still saving
+  // your edits" though nobody had edited anything (2026-10-03).
+  const invoicePhotoKey = selectedDocumentPhotoIds(photos, invoicePhotoIds).join(",");
   useEffect(() => {
     if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; return; }
     if (!invoiceId || invoiceStatus !== "draft" || !businessId || readOnly) return;
@@ -845,7 +849,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               customerSubtotal: invoiceCustomerSubtotal,
               adjustmentNote: invoiceAdjustmentNote,
               showTechnicians,
-              photoIds: selectedDocumentPhotoIds(photos, invoicePhotoIds),
+              photoIds: invoicePhotoKey ? invoicePhotoKey.split(",") : [],
               technicians,
                narrative,
                opening: invoiceOpening,
@@ -867,7 +871,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoIds, photos, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
+  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoKey, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
