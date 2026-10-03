@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusChip } from "@/components/ui/StatusChip";
 import { use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -1014,7 +1015,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <h1 className="page-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
             <Briefcase size={20} strokeWidth={1.75} />
             {job.title}
-            <span className="status-pill">{job.status}</span>
+            <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" ? "Paid" : undefined} />
           </h1>
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
@@ -1465,7 +1466,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       padding: "2px 8px", borderRadius: 10,
                       background: invoiceStatus === "paid" ? "#dcfce7" : invoiceStatus === "draft" ? "#eff6ff" : "#f0fdf4",
                       color: invoiceStatus === "draft" ? "#3b82f6" : "#15803d",
-                    }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus}</span>
+                    }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus === "draft" ? "Draft" : invoiceStatus === "sent" ? "Sent" : invoiceStatus === "void" ? "Void" : invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
                   <details>

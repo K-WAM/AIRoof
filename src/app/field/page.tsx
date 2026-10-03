@@ -172,9 +172,10 @@ function FieldApp() {
       })
       .then((d) => {
         const loaded = d.job ? [d.job as Job] : (d.jobs ?? []) as Job[];
-        const open = loaded.filter((j) => j.status !== "complete");
+        const open = loaded.filter((j) => j.status !== "complete" && j.status !== "invoiced");
         setJobs(open);
         if (sessionJobId && open.find((j) => j.jobId === sessionJobId)) setSelectedJobId(sessionJobId);
+        else if (open.length === 1) setSelectedJobId((current) => current || open[0].jobId);
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
@@ -361,9 +362,14 @@ function FieldApp() {
               <p style={{ margin: 0, fontSize: 13, color: "#f1a8a8", lineHeight: 1.5 }}>
                 Scan the current QR code from the office to open the field screen. If you keep seeing this, ask the office for a fresh field link.
               </p>
+              <p style={{ margin: "10px 0 0", fontSize: 13, color: "#f1a8a8" }}>
+                Have a login? <a href="/company/field" style={{ color: "#fecaca", fontWeight: 700 }}>Sign in to the field screen</a>
+              </p>
             </div>
           )}
 
+          {/* Without access every control below is dead (no jobs, nothing saves) — show only the way back in. */}
+          {!accessDenied && <>
           {/* Job selector */}
           <div>
             <div style={{ position: "relative" }}>
@@ -633,6 +639,7 @@ function FieldApp() {
               )}
             </div>
           )}
+          </>}
 
         </div>
       </div>

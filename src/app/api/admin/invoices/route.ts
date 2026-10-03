@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
   const invoiceId = await nextLuxorInvoiceNumber(db);
   const now = Date.now();

@@ -464,10 +464,14 @@ function FieldPageContent() {
     fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
       .then((r) => r.json())
       .then((d) => {
-        const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
+        // Finished work (complete, or already invoiced) is not something the crew logs against.
+        const open = ((d.jobs ?? []) as Job[]).filter((j) => j.status !== "complete" && j.status !== "invoiced");
         setJobs(open);
         if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) {
           setSelectedJobId(prefillJobId);
+        } else if (!prefillJobId && open.length === 1) {
+          // One job on the list: it is the job — skip the "Tap to select" step.
+          setSelectedJobId((current) => current || open[0].jobId);
         }
       })
       .catch(console.error)

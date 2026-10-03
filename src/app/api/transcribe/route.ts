@@ -26,7 +26,8 @@ function validateAudioInput(audioBase64: string, mimeType?: string): { error?: s
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { audioBase64, mimeType, businessId } = body;
 
   if (!audioBase64) return NextResponse.json({ error: "audioBase64 required" }, { status: 400 });

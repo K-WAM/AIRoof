@@ -12,12 +12,16 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
-import { Briefcase, ExternalLink, FilePlus, Plus, Search } from "lucide-react";
+import { Briefcase, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { matchesJobSearch } from "@/lib/jobs/search";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
+// Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
+const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
+  all: "All", inspection: "Needs quote", quoted: "Quote sent", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
+};
 
 export default function JobsPage() {
   const businessId = useBusinessId();
@@ -39,6 +43,10 @@ export default function JobsPage() {
   const [nextBefore, setNextBefore] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  // True once the unfiltered list arrived whole (≤100 jobs). Then a status tab filters in memory — instant, no
+  // round trip — and every tab's count is real. Past 100 jobs each tab asks the server for its own status instead.
+  const [allComplete, setAllComplete] = useState(false);
+  const serverFilter: StatusFilter = allComplete ? "all" : statusFilter;
 
   // Prefill from the Pipeline's "Create <jobNoun>" buttons (appointments and
   // leads share this one handshake — see src/lib/pipeline/jobPrefill.ts).
@@ -63,7 +71,7 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async (before?: number) => {
     if (!businessId) return;
     if (before !== undefined) setLoadingOlder(true);
-    fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}${statusFilter !== "all" ? `&status=${statusFilter}` : ""}${before !== undefined ? `&before=${before}` : ""}`)
+    fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}${serverFilter !== "all" ? `&status=${serverFilter}` : ""}${before !== undefined ? `&before=${before}` : ""}`)
       .then((r) => {
         if (!r.ok) throw new Error("Jobs request failed");
         return r.json();
@@ -71,12 +79,13 @@ export default function JobsPage() {
       .then((d) => {
         setJobs((current) => before === undefined ? (d.jobs ?? []) : [...new Map([...current, ...(d.jobs ?? [])].map((job: Job) => [job.jobId, job])).values()]);
         setHasMore(Boolean(d.hasMore));
+        if (serverFilter === "all" && before === undefined) setAllComplete(!d.hasMore);
         setNextBefore(typeof d.nextBefore === "number" ? d.nextBefore : null);
         setLoadError(false);
       })
       .catch(() => before === undefined ? setLoadError(true) : setActionError("Older jobs could not be loaded. Try again."))
       .finally(() => { setLoading(false); setLoadingOlder(false); });
-  }, [businessId, statusFilter]);
+  }, [businessId, serverFilter]);
 
   useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
@@ -191,10 +200,8 @@ export default function JobsPage() {
               {showForm ? "Cancel" : `New ${vocab.jobNoun}`}
             </button>
           )}
-          <a className="button secondary" href={`/field?businessId=${businessId}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <ExternalLink size={15} strokeWidth={1.75} />
-            Field view
-          </a>
+          {/* "Field view" (the no-login QR screen) was removed 2026-10-03: for a signed-in user it only ever showed
+              "This link isn't active". The crew screen is the Field tab; a crew member's link is the job's Field QR. */}
           {businessId && <details className="c1-more-menu"><summary className="button secondary">More</summary><div className="c1-more-actions"><a className="button" href={`/api/jobs/export?businessId=${encodeURIComponent(businessId)}`}>Export CSV</a></div></details>}
         </div>
       </header>
@@ -278,7 +285,8 @@ export default function JobsPage() {
         </div>
       )}
 
-      <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* No jobs at all: the search box and six "(0)" tabs are noise — the empty state below says what to do. */}
+      {!listEmpty && <div className="toolbar" style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ position: "relative", maxWidth: 340 }}>
             <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
             <input
@@ -291,15 +299,7 @@ export default function JobsPage() {
             />
           </div>
           <div className="segmented-control" aria-label="Filter by status">
-            {([
-              // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
-              { key: "all",         label: "All" },
-              { key: "inspection",  label: "Needs quote" },
-              { key: "quoted",      label: "Quote sent" },
-              { key: "in_progress", label: "In progress" },
-              { key: "complete",    label: "Ready to invoice" },
-              { key: "invoiced",    label: "Invoiced" },
-            ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => {
+            {(Object.entries(STATUS_FILTER_LABEL) as [StatusFilter, string][]).map(([key, label]) => {
               const count = key === "all"
                 ? jobs.length
                 : key === "inspection"
@@ -313,13 +313,13 @@ export default function JobsPage() {
                   aria-pressed={statusFilter === key}
                   onClick={() => setStatusFilter(key)}
                 >
-                  {label} <span style={{ opacity: 0.6, fontSize: 11 }}>({count})</span>
+                  {label}{allComplete && <> <span style={{ opacity: 0.6, fontSize: 11 }}>({count})</span></>}
                 </button>
               );
             })}
           </div>
-          {statusFilter !== "all" && <div className="c1-active-filter">Filter: {statusFilter.replaceAll("_", " ")} <button type="button" className="button small" onClick={() => setStatusFilter("all")}>Clear</button></div>}
-      </div>
+          {statusFilter !== "all" && <div className="c1-active-filter">Filter: {STATUS_FILTER_LABEL[statusFilter]} <button type="button" className="button small" onClick={() => setStatusFilter("all")}>Clear</button></div>}
+      </div>}
 
       {jobs.length === 0 ? (
         <section className="panel">

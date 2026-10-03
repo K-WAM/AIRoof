@@ -28,7 +28,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 // customer-facing report (includeInReport).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string; photoId: string }> }) {
   const { jobId, photoId } = await params;
-  const { businessId, includeInReport, label, phase, pairId, sort } = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const { businessId, includeInReport, label, phase, pairId, sort } = body;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
   const db = getAdminFirestore();
@@ -43,6 +45,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (label !== undefined || phase !== undefined || pairId !== undefined || sort !== undefined) {
     const gate = await verifyFieldAccess(req, businessId, { write: true });
     if ("error" in gate) return gate.error;
+    // A non-string label (reachable from a no-login field QR) would crash every screen that renders the photo.
+    if (label !== undefined && (typeof label !== "string" || !label.trim())) {
+      return NextResponse.json({ error: "A description is required." }, { status: 400 });
+    }
     if (phase !== undefined && !VALID_PHASES.has(phase)) {
       return NextResponse.json({ error: "Invalid phase" }, { status: 400 });
     }
@@ -64,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
       }
     }
     await updatePhotoMeta(db, businessId, jobId, photoId, {
-      ...(label !== undefined ? { label } : {}),
+      ...(label !== undefined ? { label: label.trim().slice(0, 200) } : {}),
       ...(phase !== undefined ? { phase } : {}),
       ...(pairId !== undefined ? { pairId } : {}),
       ...(sort !== undefined ? { sort } : {}),

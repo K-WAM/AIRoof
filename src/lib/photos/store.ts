@@ -16,6 +16,7 @@ import type { JobPhotoMeta, PhotoPhase } from "@/types/jobs";
 // size) would cap a whole business at ~46 maxed-out jobs, but 24 × ~400KB (the new target) keeps
 // that closer to ~100. MAX_FULL_BYTES stays the hard reject either way.
 export const MAX_PHOTOS_PER_JOB = 24;
+export const MAX_THUMB_BYTES = 150_000;         // thumbs ride on every photo-list read; the client makes ~10–30 KB ones
 export const MAX_FULL_BYTES = 900_000;          // ~900 KB base64 cap (forgiving); under Firestore's 1 MiB doc limit
 
 function deriveOrientation(w?: number, h?: number): "portrait" | "landscape" | "square" | undefined {
@@ -72,12 +73,28 @@ async function touchJob(db: DB, businessId: string, jobId: string): Promise<void
   }
 }
 
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+function isBase64(value: string): boolean {
+  return value.length > 0 && value.length % 4 === 0 && BASE64.test(value);
+}
+function finiteDimension(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 && value < 20_000 ? Math.round(value) : undefined;
+}
+
 export async function putPhoto(
   db: DB,
   businessId: string,
   jobId: string,
   input: { label: string; thumbB64: string; fullB64: string; uploadedBy?: string; w?: number; h?: number; phase?: PhotoPhase }
 ): Promise<{ photoId: string } | { error: string }> {
+  // Validate before any read. The base64 strings are interpolated into the emailed report's HTML
+  // (src/lib/documents/emailBlocks.ts) and the upload is reachable with a no-login field QR, so anything that is not
+  // plain base64 (a quote, a tag) is refused here rather than escaped at every render site.
+  if (typeof input.thumbB64 !== "string" || typeof input.fullB64 !== "string" || !isBase64(input.thumbB64) || !isBase64(input.fullB64)) {
+    return { error: "That photo could not be read. Take it again." };
+  }
+  if (input.thumbB64.length > MAX_THUMB_BYTES) return { error: "Photo is too large even after compression. Try a smaller shot." };
+  if (typeof input.label !== "string") return { error: "A description is required." };
   const existing = await photosCol(db, businessId, jobId).count().get();
   if (existing.data().count >= MAX_PHOTOS_PER_JOB) {
     return { error: `Limit reached — max ${MAX_PHOTOS_PER_JOB} photos per job.` };
@@ -87,18 +104,21 @@ export async function putPhoto(
   }
   if (!input.label?.trim()) return { error: "A description is required." };
 
-  const photoId = `ph_${Date.now()}`;
+  // The random suffix keeps two photos saved in the same millisecond (a multi-select upload) from overwriting each other.
+  const photoId = `ph_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const w = finiteDimension(input.w);
+  const h = finiteDimension(input.h);
   const meta: JobPhotoMeta = {
     photoId,
-    label: input.label.trim(),
-    uploadedBy: input.uploadedBy,
+    label: input.label.trim().slice(0, 200),
+    uploadedBy: typeof input.uploadedBy === "string" ? input.uploadedBy.trim().slice(0, 80) || undefined : undefined,
     createdAt: Date.now(),
     includeInReport: false,
     thumbB64: input.thumbB64,
-    w: input.w,
-    h: input.h,
+    w,
+    h,
     ...(input.phase ? { phase: input.phase } : {}),
-    ...(deriveOrientation(input.w, input.h) ? { orientation: deriveOrientation(input.w, input.h) } : {}),
+    ...(deriveOrientation(w, h) ? { orientation: deriveOrientation(w, h) } : {}),
   };
   await photosCol(db, businessId, jobId).doc(photoId).set(meta);
   await blobsCol(db, businessId, jobId).doc(photoId).set({ fullB64: input.fullB64 });

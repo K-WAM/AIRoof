@@ -18,7 +18,8 @@ export async function POST(
   if ("error" in gate) return gate.error;
 
   const { businessId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { ownerEmail } = body;
 
   if (!ownerEmail || typeof ownerEmail !== "string") {

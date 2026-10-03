@@ -50,7 +50,8 @@ export async function PATCH(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, status, parsed, reportNotes, reportOptions, reportTechnicians, findings, assignedCrewId, scheduledStart, scheduledEnd, crewConfirmed, customerId, propertyType } = body as {
     businessId?: string; status?: string; parsed?: ParsedUpdate; reportNotes?: string;
     reportOptions?: Partial<DocumentOptions>; reportTechnicians?: string[];

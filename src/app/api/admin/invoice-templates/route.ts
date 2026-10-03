@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   if (!body.name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const now = Date.now();
@@ -37,7 +39,11 @@ export async function DELETE(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
-  const { templateId } = await req.json();
+  const body = await req.json().catch(() => null);
+
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+
+  const { templateId } = body;
   if (!templateId) return NextResponse.json({ error: "templateId required" }, { status: 400 });
 
   await db.collection("luxorInvoiceTemplates").doc(templateId).delete();

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isValidCorrection, storedJobContext, workerName } from "@/lib/jobs/fieldInput";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
@@ -43,10 +44,12 @@ function isTranscriptEmpty(transcript: string): boolean {
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const body = await req.json();
-  const { businessId, audioBase64, mimeType, submittedBy, jobContext, confirmCorrection, forceNormal } = body;
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const { businessId, audioBase64, mimeType, submittedBy, confirmCorrection, forceNormal } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  if (confirmCorrection && !isValidCorrection(confirmCorrection)) return NextResponse.json({ error: "Invalid correction" }, { status: 400 });
 
   const gate = await verifyFieldAccess(req, businessId, { write: true });
   if ("error" in gate) return gate.error;
@@ -57,17 +60,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const updatesCol = db.collection(`businesses/${businessId}/jobs/${jobId}/updates`);
   const now = Date.now();
 
-  if (confirmCorrection && confirmCorrection.targetUpdateId && confirmCorrection.item) {
+  if (confirmCorrection) {
     const corrId = `cor_${now}`;
     await updatesCol.doc(corrId).set({
       updateId: corrId,
       kind: "correction",
-      rawText: confirmCorrection.rawText ?? "",
-      submittedBy: submittedBy || "Crew (no name given)",
+      rawText: typeof confirmCorrection.rawText === "string" ? confirmCorrection.rawText.slice(0, 2000) : "",
+      submittedBy: workerName(submittedBy),
       createdAt: now,
       targetUpdateId: confirmCorrection.targetUpdateId,
       correctionField: confirmCorrection.field === "labor" ? "labor" : "materials",
-      correctionItem: confirmCorrection.item,
+      correctionItem: confirmCorrection.item.trim().slice(0, 200),
       correctionNewValue: Number(confirmCorrection.newValue),
     } as FieldUpdate);
     const ledger = await loadLedger(db, businessId, jobId);
@@ -91,11 +94,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   // Fetched before transcription (not after, like before Spanish) — the biasing prompt now needs
   // agentLanguages/industry/Library material names, all of which live here.
-  const [bizSnap, libSnap] = await Promise.all([
+  const [bizSnap, libSnap, jobSnap] = await Promise.all([
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/library`).doc("pricing").get(),
+    db.collection(`businesses/${businessId}/jobs`).doc(jobId).get(),
   ]);
+  if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   const biz = bizSnap.data();
+  // From the stored job, never the request body (a field-QR holder could otherwise steer the model).
+  const jobContext = storedJobContext(jobSnap.data());
   const libraryMaterialNames = ((libSnap.data() as LibraryPricing | undefined)?.materials ?? []).map((m) => m.name);
 
   // Timings (ms) for the one log line at the end — how long a technician really waits, by phase. Durations only, no content.
@@ -145,7 +152,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   try {
     parsed = await parseFieldUpdate({
       rawText: transcript,
-      businessName: biz?.businessName || jobContext?.businessName || "the business",
+      businessName: biz?.businessName || "the business",
       industry: biz?.industry,
       language: detectedLanguage ?? "en",
       jobContext,
@@ -162,7 +169,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
         kind: "normal",
         rawText: transcript,
         language: detectedLanguage ?? "en",
-        submittedBy: submittedBy || "Crew (no name given)",
+        submittedBy: workerName(submittedBy),
         createdAt: now,
         parseError: err.message,
       } as FieldUpdate);
@@ -202,7 +209,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     rawText: transcript,
     language: detectedLanguage ?? "en",
     ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
-    submittedBy: submittedBy || "Crew (no name given)",
+    submittedBy: workerName(submittedBy),
     createdAt: now,
     parsed,
   } as FieldUpdate);

@@ -15,7 +15,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const { jobId } = await params;
   if (!isCommsConfigured()) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
 
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, to, reportNotes } = body as {
     businessId?: string; to?: string; reportNotes?: string;
   };

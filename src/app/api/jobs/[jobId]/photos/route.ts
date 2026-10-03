@@ -25,7 +25,8 @@ const VALID_PHASES = new Set(["before", "after", "other"]);
 // body: { businessId, label, thumbB64, fullB64, uploadedBy?, w?, h?, phase? }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, label, thumbB64, fullB64, uploadedBy, w, h, phase } = body;
 
   if (!businessId || !thumbB64 || !fullB64) {

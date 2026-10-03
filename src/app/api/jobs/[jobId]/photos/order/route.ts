@@ -8,7 +8,9 @@ import { listPhotoMetas, MAX_PHOTOS_PER_JOB } from "@/lib/photos/store";
 // customer-facing documentation set.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const { businessId, order } = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  const { businessId, order } = body;
   if (!businessId || !Array.isArray(order) || order.some((id) => typeof id !== "string" || !id)) {
     return NextResponse.json({ error: "businessId and order are required" }, { status: 400 });
   }

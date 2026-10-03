@@ -3526,3 +3526,13 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .team-role-list { margin: 0; display: grid; gap: var(--sp-3, 12px); }
 .team-role-list dt { font-weight: 600; }
 .team-role-list dd { margin: 2px 0 0; color: var(--text-muted); font-size: 13px; }
+/* Phone dashboard: the four summary numbers read as one 2×2 block instead of four full-width cards (2026-10-03 audit —
+   four stacked tiles pushed the actual work below the fold). */
+@media (max-width: 900px) {
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .metric-grid .metric { padding: 14px; }
+  .metric-grid .metric-label { margin-bottom: 6px; font-size: 11px; }
+  .metric-grid .metric-value { font-size: 24px; }
+}
+.status-pill--ok { border-color: #bbf7d0; color: var(--success); background: #f0fdf4; }
+.status-pill--off { border-color: #fecaca; color: var(--danger); background: #fef2f2; }

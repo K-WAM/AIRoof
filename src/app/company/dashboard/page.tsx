@@ -123,6 +123,7 @@ export default function CompanyDashboardPage() {
   }
 
   const initialLoadDone = useRef(false);
+  const staticLoadedFor = useRef<string | null>(null);
   const loadDashboard = useCallback(async () => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
     if (!businessId || !modulesReady) return;
@@ -138,16 +139,21 @@ export default function CompanyDashboardPage() {
         // A two-day margin covers the tenant's local day across timezones and DST;
         // isToday below selects the exact local day. The range has no oldest-first cap.
         const now = Date.now();
+        // The AI's settings and the setup checklist change only when someone edits Settings/Library — read them on
+        // the first load, not on every 10-second refresh (each refresh is Firestore reads against the free quota;
+        // the checklist alone is several count queries).
+        const staticKey = `${businessId}|${canSeeChecklist}`;
+        const firstLoad = staticLoadedFor.current !== staticKey;
         const [callCountRes, leadsRes, apptsRes, pendingRes, bizRes, jobsRes, actionsRes, setupRes] = await Promise.all([
           fetch(`${base}/calls?countOnly=1`),
           fetch(`${base}/leads?limit=20`),
           fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`),
           fetch(`${base}/appointments?pending=1`),
-          fetch(`${base}/agent-config`),
+          firstLoad ? fetch(`${base}/agent-config`) : Promise.resolve(null),
           hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
           fetch(`${base}/agent-actions?limit=50`),
           // Only the owner (or a superadmin previewing) sees the checklist — nobody else pays for its count queries.
-          canSeeChecklist ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
+          canSeeChecklist && firstLoad ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
         ]);
 
         if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
@@ -166,7 +172,7 @@ export default function CompanyDashboardPage() {
         // Matches the old bizDoc.exists() check — a missing business doc
         // (pathological, but possible) leaves the Agent Setup panel empty
         // instead of failing the whole dashboard load.
-        if (bizRes.ok) {
+        if (bizRes?.ok) {
           const d = await bizRes.json();
           setAgent({
             agentName: d.agentName,
@@ -217,6 +223,7 @@ export default function CompanyDashboardPage() {
           )
         );
         initialLoadDone.current = true;
+        if (firstLoad) staticLoadedFor.current = staticKey;
       } catch {
         // A failed background refresh keeps the dashboard on screen; only a failed first load shows the error state.
         if (!initialLoadDone.current) setLoadError(true);
@@ -314,7 +321,7 @@ export default function CompanyDashboardPage() {
           )}
           {/* The one place the AI's status shows; tap it to change what the AI says (Settings). The old "Agent Setup"
               panel repeated Settings in technical terms ("5 configured", the escalation number) — removed 2026-09-28. */}
-          <Link className="status-pill" href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
+          <Link className={`status-pill ${isAgentActive ? "status-pill--ok" : "status-pill--off"}`} href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
             {isAgentActive ? "AI answering calls" : "AI receptionist off"}
           </Link>
         </div>

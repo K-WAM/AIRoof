@@ -72,7 +72,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
 // invoice has been sent (same immutability rule PATCH enforces).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, force } = body;
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
 
@@ -182,7 +183,8 @@ interface PatchBody {
 // Refuses once the invoice has been sent — a sent invoice is immutable (void + reissue instead).
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const body = (await req.json()) as PatchBody;
+  const body = (await req.json().catch(() => null)) as PatchBody | null;
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return NextResponse.json({ error: "Invalid hideMaterials" }, { status: 400 });
   if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return NextResponse.json({ error: "Invalid hideLabor" }, { status: 400 });
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });

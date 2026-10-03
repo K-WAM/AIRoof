@@ -11,7 +11,8 @@ function renderSection(title: string, lines: string[]): string {
 // POST /api/jobs/[jobId]/report — generate plain-text report from all parsed updates
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
