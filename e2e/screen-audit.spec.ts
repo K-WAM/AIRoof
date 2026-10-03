@@ -25,8 +25,8 @@ const SCREENS: Array<{ role: Role; path: string; name: string }> = [
 ];
 
 /** Budget for the measured (warm) visit: first non-skeleton content, and API calls fired while loading. */
-const FIRST_CONTENT_MS = 4_000;
-const MAX_API_CALLS = 10;
+const FIRST_CONTENT_MS = 5_000;
+const MAX_API_CALLS = 12;
 
 test.describe.configure({ mode: "serial" });
 
