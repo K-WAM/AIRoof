@@ -3409,7 +3409,7 @@ a.metric:hover {
 .company-nav-group { display: flex; flex-direction: column; gap: 2px; }
 .company-nav-group + .company-nav-group { margin-top: var(--sp-3, 12px); padding-top: var(--sp-3, 12px); border-top: 1px solid var(--border); }
 .company-nav-primary .company-nav-section-label { margin-top: 0; }
-.company-sidebar-nav .company-nav-help { position: sticky; bottom: 0; background: var(--surface); z-index: 1; }
+/* (Help used to be sticky at the bottom here; on a 1280×800 laptop it slid over Team and Settings — 2026-10-03.) */
 @media (max-width: 900px) {
   .mobile-new-btn { margin-left: auto; width: auto; min-width: 76px; gap: 4px; padding: 0 10px; font-weight: 600; }
   .company-topbar > .mobile-menu-btn:last-child { width: auto; min-width: 76px; gap: 4px; padding: 0 10px; }
@@ -3537,3 +3537,19 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .status-pill--ok { border-color: #bbf7d0; color: var(--success); background: #f0fdf4; }
 .status-pill--off { border-color: #fecaca; color: var(--danger); background: #fef2f2; }
 .status-pill--neutral { border-color: var(--border); color: var(--text-muted); background: var(--surface); }
+/* Short laptop screens (≤ 900 px tall): every sidebar link fits without a hidden scroll — tighter rows, section
+   labels give way to the dividers, and the footer's account row is one line. */
+@media (min-width: 901px) and (max-height: 900px) {
+  .company-sidebar .company-brand { padding: 14px 20px 8px; }
+  .company-nav a, .company-nav-trigger { min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
+  .company-nav-section-label { display: none; }
+  .company-nav-group + .company-nav-group { margin-top: 6px; padding-top: 6px; }
+  .company-sidebar-footer { padding: 10px 16px; gap: 8px; }
+  .company-sidebar-footer .logout-btn { min-height: 32px; }
+}
+/* Job page tabs below 1440 px: the two group labels shrink to a divider so the last tab (Invoice) is on screen at
+   1280 px instead of scrolled off the right edge (2026-10-03). */
+@media (max-width: 1440px) {
+  .job-tabs-grouped .job-tab-group-label { font-size: 0; padding: 0; width: 1px; height: 24px; margin: 0 6px; background: var(--border); }
+  .job-tabs-grouped .job-tab-group-label:first-child { display: none; }
+}

@@ -1042,7 +1042,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {/* Job progress bar — 5 steps, shared by every field-service vertical */}
       <div className="job-progress no-print">
         {JOB_STEPS.map((step, i) => {
-          const currentIdx = statusToStepIdx(job.status);
+          // A paid invoice closes the job: every step shows done.
+          const currentIdx = invoiceStatus === "paid" ? JOB_STEPS.length : statusToStepIdx(job.status);
           const done = i < currentIdx;
           const active = i === currentIdx;
           const isUpdating = updatingStatus === step.key;
