@@ -124,6 +124,7 @@ export default function CompanyDashboardPage() {
 
   const initialLoadDone = useRef(false);
   const staticLoadedFor = useRef<string | null>(null);
+  const slowLoadedAt = useRef(0);
   const loadDashboard = useCallback(async () => {
     // Wait for the industry to resolve so we don't fetch jobs for a tenant that has none.
     if (!businessId || !modulesReady) return;
@@ -144,19 +145,22 @@ export default function CompanyDashboardPage() {
         // the checklist alone is several count queries).
         const staticKey = `${businessId}|${canSeeChecklist}`;
         const firstLoad = staticLoadedFor.current !== staticKey;
+        // The job list (up to 100 docs) and the escalation log (50) are the heavy reads — refresh them once a minute,
+        // the small lists (new requests, today's bookings) on every tick.
+        const slowDue = firstLoad || now - slowLoadedAt.current >= 60_000;
         const [callCountRes, leadsRes, apptsRes, pendingRes, bizRes, jobsRes, actionsRes, setupRes] = await Promise.all([
           fetch(`${base}/calls?countOnly=1`),
           fetch(`${base}/leads?limit=20`),
           fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`),
           fetch(`${base}/appointments?pending=1`),
           firstLoad ? fetch(`${base}/agent-config`) : Promise.resolve(null),
-          hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
-          fetch(`${base}/agent-actions?limit=50`),
+          hasJobs && slowDue ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
+          slowDue ? fetch(`${base}/agent-actions?limit=50`) : Promise.resolve(null),
           // Only the owner (or a superadmin previewing) sees the checklist — nobody else pays for its count queries.
           canSeeChecklist && firstLoad ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
         ]);
 
-        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || !actionsRes.ok || (jobsRes && !jobsRes.ok)) {
+        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || (actionsRes && !actionsRes.ok) || (jobsRes && !jobsRes.ok)) {
           throw new Error("Dashboard data request failed");
         }
 
@@ -165,8 +169,8 @@ export default function CompanyDashboardPage() {
           leadsRes.json(),
           apptsRes.json(),
           pendingRes.json(),
-          jobsRes ? jobsRes.json() : Promise.resolve({ jobs: [] }),
-          actionsRes.json(),
+          jobsRes ? jobsRes.json() : Promise.resolve(null),
+          actionsRes ? actionsRes.json() : Promise.resolve(null),
         ]);
 
         // Matches the old bizDoc.exists() check — a missing business doc
@@ -192,12 +196,12 @@ export default function CompanyDashboardPage() {
           ([...((apptsData.appointments ?? []) as ApptSnapshot[]), ...((pendingData.appointments ?? []) as ApptSnapshot[])])
             .map((appt) => [appt.appointmentId, appt] as const)
         ).values()].sort((a, b) => a.startTime - b.startTime);
-        const nextJobs = (jobsData.jobs ?? []) as JobSnapshot[];
+        if (slowDue) slowLoadedAt.current = now;
         setLeads(nextLeads); leadRows.track(nextLeads);
         setAppointments(nextAppointments); appointmentRows.track(nextAppointments);
-        setJobs(nextJobs); jobRows.track(nextJobs);
+        if (jobsData) { const nextJobs = (jobsData.jobs ?? []) as JobSnapshot[]; setJobs(nextJobs); jobRows.track(nextJobs); }
         const latestEscalationByCall = new Map<string, EscalationSnapshot>();
-        for (const action of (actionsData.actions ?? []) as Array<Record<string, unknown>>) {
+        for (const action of (actionsData?.actions ?? []) as Array<Record<string, unknown>>) {
           const output = action.output as { status?: unknown } | undefined;
           if (
             action.type !== "escalateCall" ||
@@ -217,7 +221,7 @@ export default function CompanyDashboardPage() {
             createdAt: typeof action.createdAt === "number" ? action.createdAt : 0,
           });
         }
-        setEscalationAlerts(
+        if (actionsData) setEscalationAlerts(
           [...latestEscalationByCall.values()].filter(
             (item) => item.status !== "delivered"
           )
@@ -242,7 +246,7 @@ export default function CompanyDashboardPage() {
   const trulyUrgentCount = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent").length;
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
   const pendingAppts = appointments.filter((a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled");
-  const activeJobs = jobs.filter((j) => j.status !== "complete");
+  const activeJobs = jobs.filter((j) => j.status !== "complete" && j.status !== "invoiced");
   // Crew notes (voice or typed) used to be visible only inside each job (2026-09-28: "does it get noticed somewhere?").
   const fieldActivity = jobs
     .filter((j) => j.lastFieldUpdate && Date.now() - j.lastFieldUpdate.at < 7 * 86_400_000)

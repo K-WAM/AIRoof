@@ -127,22 +127,28 @@ export default function CompanyCallsPage() {
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
 
   const initialLoadDone = useRef(false);
+  const callsRef = useRef<Call[]>([]);
+  useEffect(() => { callsRef.current = calls; }, [calls]);
   const loadCalls = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK read instead of a direct client Firestore
     // query — see the leads route for the full round-trip-time rationale.
-    return fetch(`/api/businesses/${businessId}/calls`)
+    // A background refresh reads only the newest calls and merges them in: a call doc carries the whole transcript,
+    // and re-reading 100 of them every few seconds was the biggest Firestore cost in the app (free plan: 50k reads/day).
+    const firstLoad = !initialLoadDone.current;
+    return fetch(`/api/businesses/${businessId}/calls${firstLoad ? "" : "?limit=15"}`)
       .then((r) => {
         if (!r.ok) throw new Error("Calls request failed");
         return r.json();
       })
       .then(({ calls }: { calls: Call[] }) => {
-        const data = calls ?? [];
+        const fresh = calls ?? [];
+        const data = firstLoad ? fresh : [...new Map([...callsRef.current, ...fresh].map((call) => [call.callId, call])).values()]
+          .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
         setCalls(data);
         callRows.track(data);
         // First load selects the newest call. A background refresh keeps the call the user is reading (matched by id,
         // so a Live call's transcript still updates) instead of snapping back to the top every 10 seconds.
-        const firstLoad = !initialLoadDone.current;
         setSelected((prev) => firstLoad
           ? data[0] ?? null
           : (prev && data.find((c) => c.callId === prev.callId)) ?? data[0] ?? null);
@@ -251,7 +257,7 @@ export default function CompanyCallsPage() {
             Every call your AI receptionist answered — full transcript and AI summary.
           </p>
         </div>
-        <span className="status-pill">{calls.length} total</span>
+        <span className="status-pill status-pill--neutral">{calls.length >= 100 ? "100+ calls" : `${calls.length} call${calls.length === 1 ? "" : "s"}`}</span>
       </header>
 
       <div className="call-workspace">

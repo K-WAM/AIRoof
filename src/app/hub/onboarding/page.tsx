@@ -243,7 +243,7 @@ export default function OnboardingPage() {
             voice, services, rules, routing, and launch readiness.
           </p>
         </div>
-        <span className="status-pill">Draft setup</span>
+        <span className="status-pill status-pill--neutral">Draft setup</span>
       </header>
 
       <form

@@ -151,7 +151,7 @@ export default function TeamPage() {
           <p className="page-subtitle">Invite people and control access to your business.</p>
         </div>
         <div className="team-header-actions">
-          {seatLimit !== null && <span className="status-pill">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
+          {seatLimit !== null && <span className="status-pill status-pill--neutral">{members.filter((member) => member.active).length} of {seatLimit} seats in use</span>}
           <button type="button" className="button secondary" onClick={() => setRoleHelpOpen(true)}>What each role can do</button>
           <button type="button" className="button primary" onClick={() => setInviteOpen(true)}>Invite person</button>
         </div>

@@ -310,7 +310,8 @@ export default function CalendarBoard() {
   // A job whose crew is not on the board (removed, or turned off in Library) counts as unscheduled too — before
   // T-148 it sat on no row and in no rail, so it vanished from the Calendar.
   const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
-  const unscheduled = jobs.filter((j) => !j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId));
+  // An invoiced job is finished work, not something waiting for a crew slot (it stays on the board where it was scheduled).
+  const unscheduled = jobs.filter((j) => j.status !== "invoiced" && (!j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId)));
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
   const inspectors = crews.filter((crew) => crew.kind === "inspector");
   const workCrews = crews.filter((crew) => crew.kind !== "inspector");
@@ -640,7 +641,7 @@ export default function CalendarBoard() {
 
   // The phone agenda walks day by day, but bookings, blocks and time are loaded one week at a time (weekStart). Moving
   // the agenda into another week must load that week too, or a booked day would show "No bookings".
-  const unscheduledJobs = jobs.filter((job) => !job.scheduledStart || !job.assignedCrewId);
+  const unscheduledJobs = jobs.filter((job) => job.status !== "invoiced" && (!job.scheduledStart || !job.assignedCrewId));
   const stepAgenda = (delta: number) => {
     const next = addDays(agendaDay, delta);
     setAgendaDay(next);

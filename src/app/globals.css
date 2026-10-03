@@ -3536,3 +3536,4 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 }
 .status-pill--ok { border-color: #bbf7d0; color: var(--success); background: #f0fdf4; }
 .status-pill--off { border-color: #fecaca; color: var(--danger); background: #fef2f2; }
+.status-pill--neutral { border-color: var(--border); color: var(--text-muted); background: var(--surface); }

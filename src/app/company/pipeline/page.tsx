@@ -198,6 +198,12 @@ export default function PipelinePage() {
     setTimeout(() => setToast(null), 4500);
   }
 
+  // What the last load left on screen — background refreshes merge into it (see loadPipeline).
+  const leadsRef = useRef<Lead[]>([]);
+  const apptsRef = useRef<Appointment[]>([]);
+  // Synced from state (not just from loads) so a local edit — a status change, a cancel — is what the next merge keeps.
+  useEffect(() => { leadsRef.current = leads; }, [leads]);
+  useEffect(() => { apptsRef.current = appointments; }, [appointments]);
   const loadPipeline = useCallback(async () => {
     if (!businessId) return;
     // T-071: server-side admin-SDK reads instead of direct client Firestore
@@ -205,31 +211,45 @@ export default function PipelinePage() {
     const base = `/api/businesses/${businessId}`;
     // Returned so useLiveRefresh's "never overlap requests" guard actually waits for it.
     const now = Date.now();
-    return Promise.all([
-      fetch(`${base}/leads`),
-      fetch(`${base}/appointments?from=${now}&to=8640000000000000`),
-      fetch(`${base}/appointments?order=desc&limit=500`),
-      fetch(`${base}/appointments?pending=1`),
-      fetch(`/api/company/crews?businessId=${businessId}`),
-    ])
-      .then(async ([leadsRes, upcomingRes, recentRes, pendingRes, crewsRes]) => {
-        if ([leadsRes, upcomingRes, recentRes, pendingRes, crewsRes].some((res) => !res.ok)) throw new Error("Pipeline data request failed");
-        const [leadsPage, upcomingPage, recentPage, pendingPage, crewsPage] = await Promise.all([
-          leadsRes.json(), upcomingRes.json(), recentRes.json(), pendingRes.json(), crewsRes.json(),
-        ]) as [{ leads: Lead[] }, { appointments: Appointment[] }, { appointments: Appointment[] }, { appointments: Appointment[] }, { crews: Array<{ crewId: string; name: string }> }];
-        const leadsData = leadsPage.leads;
-        const appointmentPages = [upcomingPage, recentPage, pendingPage];
-        const apptsData = [...new Map(appointmentPages.flatMap((page) => page.appointments ?? []).map((appt) => [appt.appointmentId, appt])).values()];
-        setCrewNames(Object.fromEntries((crewsPage.crews ?? []).map((crew) => [crew.crewId, crew.name])));
-        setLeads(leadsData ?? []);
-        leadRows.track(leadsData ?? []);
+    // The first load reads everything the page shows. A background refresh (every few seconds while the page is open)
+    // reads only what can have changed — the newest callbacks, the next two weeks, and requests awaiting a decision —
+    // and merges it into what is on screen. Re-reading every booking each tick cost hundreds of Firestore reads per
+    // refresh against the free plan's 50k/day.
+    const firstLoad = !initialLoadDone.current;
+    const requests = firstLoad
+      ? [
+        fetch(`${base}/leads`),
+        fetch(`${base}/appointments?from=${now}&to=8640000000000000`),
+        fetch(`${base}/appointments?order=desc&limit=500`),
+        fetch(`${base}/appointments?pending=1`),
+        fetch(`/api/company/crews?businessId=${businessId}`),
+      ]
+      : [
+        fetch(`${base}/leads?limit=30`),
+        fetch(`${base}/appointments?from=${now - 86_400_000}&to=${now + 14 * 86_400_000}`),
+        fetch(`${base}/appointments?pending=1`),
+      ];
+    return Promise.all(requests)
+      .then(async (responses) => {
+        if (responses.some((res) => !res.ok)) throw new Error("Pipeline data request failed");
+        const pages = await Promise.all(responses.map((res) => res.json())) as Array<{ leads?: Lead[]; appointments?: Appointment[]; crews?: Array<{ crewId: string; name: string }> }>;
+        const [leadsPage, ...rest] = pages;
+        const appointmentPages = firstLoad ? rest.slice(0, 3) : rest;
+        if (firstLoad) setCrewNames(Object.fromEntries((rest[3]?.crews ?? []).map((crew) => [crew.crewId, crew.name])));
+        const freshLeads = leadsPage.leads ?? [];
+        const freshAppts = appointmentPages.flatMap((page) => page.appointments ?? []);
+        // Merge by id: a background page updates the rows it carries and adds new ones; older rows stay as loaded.
+        const leadsData = firstLoad ? freshLeads : [...new Map([...leadsRef.current, ...freshLeads].map((lead) => [lead.leadId, lead])).values()]
+          .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        const apptsData = [...new Map([...(firstLoad ? [] : apptsRef.current), ...freshAppts].map((appt) => [appt.appointmentId, appt])).values()];
+        setLeads(leadsData);
+        leadRows.track(leadsData);
         // The ?lead= deep link and "first lead" default apply ONLY to the first load. A background refresh must keep
         // whichever lead the user is looking at (matched by id, so its data still updates).
-        const firstLoad = !initialLoadDone.current;
-        const chosenLead = leadParam ? leadsData?.find((l) => l.leadId === leadParam) : undefined;
+        const chosenLead = leadParam ? leadsData.find((l) => l.leadId === leadParam) : undefined;
         setSelectedLead((prev) => {
-          if (firstLoad) return chosenLead ?? leadsData?.[0] ?? null;
-          return (prev && leadsData?.find((l) => l.leadId === prev.leadId)) || leadsData?.[0] || null;
+          if (firstLoad) return chosenLead ?? leadsData[0] ?? null;
+          return (prev && leadsData.find((l) => l.leadId === prev.leadId)) || leadsData[0] || null;
         });
         setAppointments(apptsData);
         appointmentRows.track(apptsData);
@@ -588,7 +608,7 @@ export default function PipelinePage() {
             </span>
           )}
           {newLeadsCount > 0 && (
-            <span className="status-pill">{newLeadsCount} new callbacks</span>
+            <span className="status-pill status-pill--neutral">{newLeadsCount} new callbacks</span>
           )}
         </div>
       </header>

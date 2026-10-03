@@ -33,4 +33,20 @@ describe("useLiveRefresh", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
+
+  it("slows to once a minute on an untouched screen and catches up on the first touch", async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    renderHook(() => useLiveRefresh(refresh, { intervalMs: 10_000 }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(3 * 60_000); });
+    const busy = refresh.mock.calls.length;
+    expect(busy).toBeGreaterThanOrEqual(17);
+    await act(async () => { await vi.advanceTimersByTimeAsync(3 * 60_000); });
+    expect(refresh.mock.calls.length - busy).toBeLessThanOrEqual(4);
+    const idleCount = refresh.mock.calls.length;
+    await act(async () => { window.dispatchEvent(new Event("pointerdown")); await Promise.resolve(); });
+    expect(refresh).toHaveBeenCalledTimes(idleCount + 1);
+    vi.useRealTimers();
+  });
 });
