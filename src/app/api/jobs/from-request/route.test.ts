@@ -36,6 +36,15 @@ describe("POST /api/jobs/from-request", () => {
     expect(await response.json()).toMatchObject({ created: false, job: { jobId: "J-1016" } });
     expect(db.__peek("businesses/biz/appointments", "a2")?.jobId).toBe("J-1016");
   });
+  it("opens a job the New Job form made for this booking before it was stamped (pre-2026-10-03 data)", async () => {
+    db.__seed("businesses/biz/appointments", "a4", { callerName: "Old", callerPhone: "+15550001111", address: "4 Main" });
+    db.__seed("businesses/biz/jobs", "J-1005", { jobId: "J-1005", appointmentId: "a4" });
+    const response = await POST(request({ businessId: "biz", appointmentId: "a4" }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).job.jobId).toBe("J-1005");
+    expect(db.__peek("businesses/biz/appointments", "a4")?.jobId).toBe("J-1005");
+    expect(db.__list("businesses/biz/jobs")).toHaveLength(1);
+  });
   it("is idempotent for concurrent and sequential taps", async () => {
     db.__seed("businesses/biz/leads", "l1", { callerName: "Lee", callerPhone: "+15550000000", address: "2 Main", serviceRequested: "Repair" });
     const responses = await Promise.all([POST(request({ businessId: "biz", leadId: "l1" })), POST(request({ businessId: "biz", leadId: "l1" }))]);

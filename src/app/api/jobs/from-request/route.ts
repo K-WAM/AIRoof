@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
       .flatMap((snap) => snap.docs)
       .filter((doc) => doc.ref.path !== source.ref.path)
     : [];
-  const siblingJobId = siblings.map((doc) => doc.data().jobId).find((id): id is string => typeof id === "string" && !!id);
+  // Jobs made from the New Job form before 2026-10-03 carry appointmentId/leadId but were never stamped on the request
+  // (no marker): find them so this tap opens that job instead of making a second one.
+  const legacyJobId = (await jobs.where(appointmentId ? "appointmentId" : "leadId", "==", requestId).limit(1).get()).docs[0]?.id;
+  const siblingJobId = siblings.map((doc) => doc.data().jobId).find((id): id is string => typeof id === "string" && !!id) ?? legacyJobId;
   const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`${appointmentId ? "appointment" : "lead"}_${requestId}`);
   // The request doc also gets the jobId so the Pipeline card can show "Open Job J-…" instead of "Create Job" — it
   // used to keep offering Create, and the idempotent answer (the existing job) looked like a random old job opening.
