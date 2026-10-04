@@ -62,7 +62,7 @@ interface AppointmentRef {
   textOk?: boolean; assignedCrewId?: string; assignedBy?: "ai" | "office"; callSummary?: string;
 }
 
-const CALLS_PAGE = 25;
+const CALLS_PAGE = 15;
 
 function formatTime(ms: number, tz: string): string {
   return new Date(ms).toLocaleString("en-US", {

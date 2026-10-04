@@ -134,6 +134,9 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
   );
 }
 
+/** Long lists are bounded (C10): each section shows this many, then "Show more". */
+const PIPELINE_PAGE = 10;
+
 export default function PipelinePage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
@@ -177,6 +180,9 @@ export default function PipelinePage() {
 
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [upcomingShown, setUpcomingShown] = useState(PIPELINE_PAGE);
+  const [pastShown, setPastShown] = useState(PIPELINE_PAGE);
+  const [leadsShown, setLeadsShown] = useState(PIPELINE_PAGE);
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
   const [apptUpdating, setApptUpdating] = useState<string | null>(null);
   const confirmingIds = useRef(new Set<string>());
@@ -544,7 +550,6 @@ export default function PipelinePage() {
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="c1-phone-only appt-detail">{appt.callerPhone ?? "No phone"} · {appt.address ?? "No address"}</p>
           <div className="c1-desktop-only"><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} /></div>
-          <details className="c1-phone-only"><summary>Details</summary><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} /><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></details>
           {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
           <div className="c1-desktop-only"><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></div>
         </div>
@@ -566,6 +571,11 @@ export default function PipelinePage() {
           <details className="c1-more-menu">
             <summary className="button secondary">More</summary>
             <div className="c1-more-actions">
+              {/* T-182: on a phone the booking details live here too — one disclosure per card, not "Details" + "More". */}
+              <div className="c1-phone-only" style={{ display: "grid", gap: 6, paddingBottom: 8, borderBottom: "1px solid var(--border)", marginBottom: 4 }}>
+                <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} />
+                <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
+              </div>
               {appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
               {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
               {!isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
@@ -673,7 +683,7 @@ export default function PipelinePage() {
                   />
                 ) : (
                   <div className="queue-list">
-                    {filteredLeads.map((lead) => (
+                    {filteredLeads.slice(0, leadsShown).map((lead) => (
                       <article
                         className={`lead-card${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}
                         key={lead.leadId}
@@ -745,6 +755,11 @@ export default function PipelinePage() {
                         </div>
                       </article>
                     ))}
+                    {filteredLeads.length > leadsShown && (
+                      <button type="button" className="button" onClick={() => setLeadsShown((n) => n + PIPELINE_PAGE)}>
+                        Show {Math.min(PIPELINE_PAGE, filteredLeads.length - leadsShown)} more of {filteredLeads.length}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -889,30 +904,41 @@ export default function PipelinePage() {
                 />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
-                  {upcomingAppts.map((appt) => (
+                  {upcomingAppts.slice(0, upcomingShown).map((appt) => (
                     <AppointmentCard key={appt.appointmentId} appt={appt} />
                   ))}
+                  {upcomingAppts.length > upcomingShown && (
+                    <button type="button" className="button" onClick={() => setUpcomingShown((n) => n + PIPELINE_PAGE)}>
+                      Show {Math.min(PIPELINE_PAGE, upcomingAppts.length - upcomingShown)} more of {upcomingAppts.length}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </section>
 
+          {/* T-182: history is folded away — it is looked up, not worked from. */}
           {pastAppts.length > 0 && (
-            <section className="panel" aria-labelledby="past-title" style={{ marginTop: 20 }}>
-              <div className="panel-header">
-                <h2 className="panel-title" id="past-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <details className="panel pipeline-past" style={{ marginTop: 20 }}>
+              <summary className="panel-header" style={{ cursor: "pointer", listStyle: "none" }}>
+                <h2 className="panel-title" id="past-title" style={{ display: "flex", alignItems: "center", gap: 6, margin: 0 }}>
                   <History size={16} strokeWidth={1.75} />
-                  Past &amp; Cancelled
+                  Past and cancelled ({pastAppts.length})
                 </h2>
-              </div>
+              </summary>
               <div className="panel-body">
                 <div style={{ display: "grid", gap: 16 }}>
-                  {pastAppts.map((appt) => (
+                  {pastAppts.slice(0, pastShown).map((appt) => (
                     <AppointmentCard key={appt.appointmentId} appt={appt} isPast />
                   ))}
+                  {pastAppts.length > pastShown && (
+                    <button type="button" className="button" onClick={() => setPastShown((n) => n + PIPELINE_PAGE)}>
+                      Show {Math.min(PIPELINE_PAGE, pastAppts.length - pastShown)} more of {pastAppts.length}
+                    </button>
+                  )}
                 </div>
               </div>
-            </section>
+            </details>
           )}
         </>
       )}

@@ -3573,3 +3573,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 @media (max-width: 900px) {
   .segmented-control > .segment:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
+/* T-183: a list card that IS the link (Jobs) — reads as a row, the whole thing is the tap target. */
+.c1-list-card--link { color: inherit; text-decoration: none; background: var(--surface); gap: 4px !important; }
+.c1-list-card--link:active { background: var(--surface-muted); }
+.c1-list-card__sub { font-size: 13px; color: var(--text-muted); }
+.c1-list-card__next { font-size: 13px; color: var(--accent); font-weight: 600; }

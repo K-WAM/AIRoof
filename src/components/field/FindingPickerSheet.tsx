@@ -149,11 +149,13 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
  * The field screens' "＋ Finding" control (same look as ＋ Photo). Uses the narrow, field-grant-safe endpoint:
  * the picker sees item NAMES only (no prices) and the server copies the chosen item onto this one job.
  */
-export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
+export function FieldFindingsButton({ businessId, jobId, disabled, onAdded, showList = true }: {
   businessId: string;
   jobId: string | null;
   disabled?: boolean;
   onAdded?: (problem: string) => void;
+  /** False where the screen already lists the job's findings (the field screens' "Work on this job"). */
+  showList?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PickerItem[]>([]);
@@ -209,7 +211,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
       >
         ＋ Finding
       </button>
-      {onJob.length > 0 && jobId && (
+      {showList && onJob.length > 0 && jobId && (
         <div style={{ margin: "10px 2px 0" }}>
           <p style={{ margin: "0 0 6px", fontSize: 13, fontWeight: 700, color: "#cbd5e1" }}>
             Findings on this job ({onJob.length})
@@ -229,13 +231,13 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded }: {
   );
 }
 
-interface OnJobFinding { findingId?: string; problem: string; note?: string }
+export interface OnJobFinding { findingId?: string; problem: string; note?: string; detail?: string }
 
 /**
  * One finding on the field screen, with the inspector's comment ("north slope, about 12 tiles"). The comment prints under
  * the finding on the report and the quote, so the screen says so — no surprise on a customer's document.
  */
-function FindingCommentRow({ businessId, jobId, finding, disabled, onSaved }: {
+export function FindingCommentRow({ businessId, jobId, finding, disabled, onSaved }: {
   businessId: string;
   jobId: string;
   finding: OnJobFinding;
@@ -271,7 +273,10 @@ function FindingCommentRow({ businessId, jobId, finding, disabled, onSaved }: {
   return (
     <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(15,23,42,0.6)", border: "1px solid #1e2a4a" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 600, overflowWrap: "anywhere" }}>{finding.problem}</span>
+        <span style={{ fontSize: 14, color: "#e2e8f0", fontWeight: 600, overflowWrap: "anywhere" }}>
+          {finding.problem}
+          {finding.detail && <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "#94a3b8" }}>{finding.detail}</span>}
+        </span>
         {canComment && !editing && (
           <button type="button" onClick={() => { setDraft(finding.note ?? ""); setEditing(true); }}
             style={{ flex: "0 0 auto", minHeight: 36, padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "transparent", color: "#7dd3fc", fontSize: 13, fontWeight: 700 }}>

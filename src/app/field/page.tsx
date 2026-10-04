@@ -6,6 +6,7 @@ import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
 import { JobPicker } from "@/components/field/JobPicker";
+import { WorkScope } from "@/components/field/WorkScope";
 import { FieldNoteComposer } from "@/components/field/FieldNoteComposer";
 import { RecentNotes } from "@/components/field/RecentNotes";
 import type { WorkerDay } from "@/types/timeclock";
@@ -62,6 +63,7 @@ function FieldApp() {
   });
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [notesVersion, setNotesVersion] = useState(0);
+  const [jobsVersion, setJobsVersion] = useState(0);
   const [clockedInJobId, setClockedInJobId] = useState<string | null>(null);
   const [recentJobId, setRecentJobId] = useState<string | null>(() => { try { return localStorage.getItem(LAST_JOB_STORE); } catch { return null; } });
   useEffect(() => {
@@ -172,7 +174,7 @@ function FieldApp() {
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [bootstrapComplete, businessId, sessionJobId]);
+  }, [bootstrapComplete, businessId, sessionJobId, jobsVersion]);
 
   // Remember the worker's name on this device for next time (see the useState above).
   useEffect(() => {
@@ -255,6 +257,8 @@ function FieldApp() {
           {/* 2. Which job */}
           <JobPicker jobs={jobs} loading={loadingJobs} selectedId={selectedJobId} onSelect={setSelectedJobId} clockedInJobId={clockedInJobId} recentJobId={recentJobId} />
 
+          <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
+
           {/* 3. Hours */}
           {bootstrapComplete && businessId && hasWorkerName && (
             <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} onDayChange={handleDay} />
@@ -284,7 +288,8 @@ function FieldApp() {
               jobId={selectedJobId || null}
               businessId={businessId}
               disabled={!hasWorkerName}
-              onAdded={(problem) => flashSaved(`Finding added to ${selectedJobId}: ${problem}`)}
+              showList={false}
+              onAdded={(problem) => { flashSaved(`Finding added to ${selectedJobId}: ${problem}`); setJobsVersion((v) => v + 1); }}
             />
           </div>
 

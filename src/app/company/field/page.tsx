@@ -8,6 +8,7 @@ import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
 import { JobPicker } from "@/components/field/JobPicker";
+import { WorkScope } from "@/components/field/WorkScope";
 import { FieldNoteComposer, type SavedReceipt } from "@/components/field/FieldNoteComposer";
 import { RecentNotes } from "@/components/field/RecentNotes";
 import type { WorkerDay } from "@/types/timeclock";
@@ -330,6 +331,8 @@ function FieldPageContent() {
             />
           </div>
 
+          <WorkScope findings={selectedJob?.findings} businessId={businessId} jobId={selectedJobId || null} canComment={user?.role !== "viewer"} />
+
           <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />
 
           {selectedJobId && <>
@@ -346,7 +349,7 @@ function FieldPageContent() {
           {/* Photo and Finding side by side — two taps that belong together */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
-            <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
+            <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} showList={false} onAdded={() => loadJobs()} />
           </div>
 
           {soFar && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#94a3b8" }}>So far on {selectedJobId}: {soFar}</p>}

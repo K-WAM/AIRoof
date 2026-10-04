@@ -19,6 +19,12 @@ import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
 // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
+const JOBS_PAGE = 15;
+/** The one next step for a job, in the office's words (shown on each phone card instead of a button). */
+const NEXT_STEP: Record<string, string> = {
+  open: "Next: inspect and quote", inspection: "Next: inspect and quote", quoted: "Waiting on the customer's answer",
+  in_progress: "Work under way", complete: "Next: send the invoice", invoiced: "Invoiced — waiting for payment",
+};
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "All", inspection: "Needs quote", quoted: "Quote sent", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
 };
@@ -46,6 +52,8 @@ export default function JobsPage() {
   // True once the unfiltered list arrived whole (≤100 jobs). Then a status tab filters in memory — instant, no
   // round trip — and every tab's count is real. Past 100 jobs each tab asks the server for its own status instead.
   const [allComplete, setAllComplete] = useState(false);
+  const [shownCount, setShownCount] = useState(JOBS_PAGE);
+  useEffect(() => { setShownCount(JOBS_PAGE); }, [statusFilter, query]);
   const serverFilter: StatusFilter = allComplete ? "all" : statusFilter;
 
   // Prefill from the Pipeline's "Create <jobNoun>" buttons (appointments and
@@ -171,6 +179,8 @@ export default function JobsPage() {
       (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
     )
     .filter((j) => matchesJobSearch(j, query));
+  // Long lists are bounded (C10): the newest PAGE first, "Show more" for the rest. Search still covers every loaded job.
+  const shownJobs = visibleJobs.slice(0, shownCount);
 
   if (loading) return <PageSkeleton rows={6} />;
   if (loadError) {
@@ -351,19 +361,18 @@ export default function JobsPage() {
                   <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Client</th>
                   <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Status</th>
                   <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}>Created</th>
-                  <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: "#64748b" }}></th>
                 </tr>
               </thead>
               <tbody>
                 {visibleJobs.length === 0 && (
                   <tr>
-                    <td colSpan={6} style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
+                    <td colSpan={5} style={{ padding: "20px 16px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>
                       {query.trim() ? `No jobs match "${query}".` : "No jobs match this filter."}
                       {query.trim() && hasMore && nextBefore !== null && <button type="button" className="button small" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)} style={{ marginLeft: 8 }}>{loadingOlder ? "Searching…" : "Search older jobs"}</button>}
                     </td>
                   </tr>
                 )}
-                {visibleJobs.map((job) => (
+                {shownJobs.map((job) => (
                   <tr
                     key={job.jobId}
                     onClick={() => { window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`; }}
@@ -372,7 +381,7 @@ export default function JobsPage() {
                     onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = job.jobId === justCreatedId ? "#f0fdf4" : ""; }}
                   >
                     <td data-label="Job ID" style={{ padding: "12px 16px", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
-                      {job.jobId}
+                      <a href={`/company/jobs/${job.jobId}${previewSuffix}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{job.jobId}</a>
                     </td>
                     <td data-label="Job" style={{ padding: "12px 16px" }}>
                       <div style={{ fontWeight: 600 }}>{job.title}</div>
@@ -388,32 +397,29 @@ export default function JobsPage() {
                     <td data-label="Created" style={{ padding: "12px 16px", color: "#64748b", fontSize: 13 }}>
                       {formatDate(job.createdAt)}
                     </td>
-                    <td data-label="" className="jobs-list-action" style={{ padding: "12px 16px" }}>
-                      <a
-                        href={`/company/jobs/${job.jobId}${previewSuffix}`}
-                        className="button"
-                        style={{ fontSize: 12, padding: "4px 12px" }}
-                      >
-                        View →
-                      </a>
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <div className="c1-phone-only c1-card-list">
-              {visibleJobs.map((job) => <article className="c1-list-card" key={job.jobId}>
-                <strong>{job.jobId} · {job.title}</strong>
-                <span>{job.clientName ?? "No customer"}</span>
-                <StatusChip status={job.status} />
-                <span>Next: {job.status === "inspection" || job.status === "open" ? "Prepare quote" : job.status === "quoted" ? "Review quote" : job.status === "complete" ? "Prepare invoice" : job.status === "invoiced" ? "Review payment" : "Continue work"}</span>
-                <a className="button primary" href={`/company/jobs/${job.jobId}${previewSuffix}`}>Open {vocab.jobNoun.toLowerCase()}</a>
-                <details><summary>Details</summary><p>{job.address || "No address"} · {job.clientPhone || "No phone"} · Created {formatDate(job.createdAt)}</p></details>
-              </article>)}
+              {/* T-183: the whole card opens the job — no per-card button or Details expander (C2/C6). */}
+              {shownJobs.map((job) => <a className="c1-list-card c1-list-card--link" key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} data-testid="job-card">
+                <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                  <strong>{job.jobId} · {job.title}</strong>
+                  <StatusChip status={job.status} />
+                </span>
+                <span className="c1-list-card__sub">{[job.clientName, job.address].filter(Boolean).join(" · ") || "No customer yet"}</span>
+                <span className="c1-list-card__next">{NEXT_STEP[job.status] ?? "Open to see where it stands"}</span>
+              </a>)}
               {visibleJobs.length === 0 && <p>No {vocab.jobNounPlural.toLowerCase()} match this filter.</p>}
             </div>
           </div>
-          {hasMore && nextBefore !== null && <div style={{ padding: 16, textAlign: "center" }}><button type="button" className="button" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)}>{loadingOlder ? "Loading…" : "Load older jobs"}</button></div>}
+          {visibleJobs.length > shownCount && (
+            <div style={{ padding: 16, textAlign: "center" }}>
+              <button type="button" className="button" onClick={() => setShownCount((n) => n + JOBS_PAGE)}>Show {Math.min(JOBS_PAGE, visibleJobs.length - shownCount)} more of {visibleJobs.length}</button>
+            </div>
+          )}
+          {visibleJobs.length <= shownCount && hasMore && nextBefore !== null && <div style={{ padding: 16, textAlign: "center" }}><button type="button" className="button" disabled={loadingOlder} onClick={() => fetchJobs(nextBefore)}>{loadingOlder ? "Loading…" : "Load older jobs"}</button></div>}
         </section>
       )}
     </>

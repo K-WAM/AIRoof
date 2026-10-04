@@ -94,8 +94,8 @@ test("call → booked → inspector schedule follows the real workflow", async (
   const firstBooking = owner.locator(".appt-card").filter({ hasText: firstName });
   await expect(firstBooking).toBeVisible();
   // The card renders its details once for phone and once for desktop (one is hidden) — check the one on screen.
-  // On a phone the card leads with the deciding fields; notes are behind its labelled Details expander (T-162).
-  if (testInfo.project.name === "phone") await firstBooking.getByText("Details", { exact: true }).filter({ visible: true }).first().click();
+  // On a phone the booking details are inside the card's one "More" menu (T-182, 2026-10-04).
+  if (testInfo.project.name === "phone") await firstBooking.getByText("More", { exact: true }).filter({ visible: true }).first().click();
   await expect(firstBooking.getByText("Access: gate 1010", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(firstBooking.getByText("From the call", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 

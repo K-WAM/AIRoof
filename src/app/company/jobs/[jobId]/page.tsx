@@ -50,14 +50,13 @@ import {
   AlertCircle,
   ArrowLeft,
   Briefcase,
-  ClipboardCopy,
   ClipboardList,
   ExternalLink,
   FileText,
   Pencil,
   Plus,
   Printer,
-  QrCode,
+  Share2,
   Receipt,
   RefreshCw,
   Save,
@@ -134,7 +133,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [pageQuote, setPageQuote] = useState<JobQuote | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const tabStripRef = useRef<HTMLDivElement>(null);
   const selectedTab = searchParams?.get("tab");
   useEffect(() => {
@@ -1027,17 +1025,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <details className="job-action-menu"><summary className="button">Field access</summary><div className="job-action-menu__items"><button className="button" title="Copies a field-log link you can text or email to your crew" onClick={() => {
-            const link = `${window.location.origin}/company/field?businessId=${businessId}&jobId=${jobId}`;
-            navigator.clipboard.writeText(link).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); }).catch(() => prompt("Copy this link for your foreman:", link));
-          }} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <ClipboardCopy size={15} strokeWidth={1.75} />
-            {linkCopied ? "Link copied" : "Copy field link"}
-          </button>
-          {!readOnly && <button className="button" title="A QR code a crew member can scan with no portal login — expires in 10 minutes" onClick={openFieldQr} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <QrCode size={15} strokeWidth={1.75} />
-            Field QR
-          </button>}</div></details>
+          {/* One way to bring someone onto the job (C6): a link they open on their phone — no account, no app. Team
+              members with a login already have the Field tab, so the old "Copy field link" (login-only) is gone. */}
+          {!readOnly && <button className="button" type="button" onClick={() => void openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
+            <Share2 size={15} strokeWidth={1.75} /> Send field link
+          </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
           {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
@@ -1051,13 +1043,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           const done = i < currentIdx;
           const active = i === currentIdx;
           const isUpdating = updatingStatus === step.key;
-          const isClickable = !readOnly && step.key !== job.status && !updatingStatus;
+          // Forward progress happens through the real actions (the Next button, accepting a quote, sending the
+          // invoice) — a stray tap on a later step used to mark a job "Invoiced" with no invoice. Only an EARLIER step
+          // is tappable, to move a job back, and that asks first (2026-10-04, error prevention).
+          const isClickable = !readOnly && done && invoiceStatus !== "paid" && job.status !== "invoiced" && !updatingStatus;
           return (
             <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < JOB_STEPS.length - 1 ? "1" : "0" }}>
               <div
                 className="job-progress-step-wrapper"
-                onClick={() => isClickable && updateStatus(step.key)}
-                title={isClickable ? `Move to ${step.label}` : undefined}
+                role={isClickable ? "button" : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={() => { if (isClickable && window.confirm(`Move ${jobId} back to "${step.label}"?`)) void updateStatus(step.key); }}
+                title={isClickable ? `Move back to ${step.label}` : undefined}
                 style={{ cursor: isClickable ? "pointer" : "default", opacity: isUpdating ? 0.5 : 1 }}
               >
                 <div className={`job-progress-step ${done ? "done" : active ? "active" : "pending"}`}>
@@ -1116,7 +1113,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 compact
                 title="No field notes yet"
                 body={readOnly ? "The crew's notes appear here as they work." : "Send the field link; the crew talks, it fills in here."}
-                secondary={readOnly ? undefined : { label: "Show field QR", onClick: () => void openFieldQr() }}
+                secondary={readOnly ? undefined : { label: "Send field link", onClick: () => void openFieldQr() }}
                 testId="job-activity-empty"
               />
             ) : (
@@ -1359,8 +1356,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}>
               <X size={18} strokeWidth={1.75} />
             </button>
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Scan to log this job</h2>
-            <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>No portal login needed — hand this to a crew member on-site.</p>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Field link for {jobId}</h2>
+            <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>Text it to a worker or contractor, or let them scan the code. No account or app needed — they type their name and start.</p>
             {qrLoading ? (
               <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 8, fontSize: 13, color: "#94a3b8" }}>
                 Generating…
@@ -1374,7 +1371,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             )}
             {qrExpiresAt && !qrLoading && !qrError && (
               <p style={{ fontSize: 11, color: "#94a3b8", margin: "12px 0 0" }}>
-                Expires {fmt.fmtTime(qrExpiresAt)} — one scan only
+                Works on one phone · open by {fmt.fmtDayTime(qrExpiresAt)}
               </p>
             )}
             {qrFieldUrl && !qrLoading && (
@@ -1394,16 +1391,21 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "center" }}>
               {qrFieldUrl && !qrLoading && (
-                <button className="button" style={{ fontSize: 12 }} onClick={() => {
-                  navigator.clipboard.writeText(qrFieldUrl).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => {});
+                <button className="button primary" style={{ fontSize: 13 }} data-testid="share-field-link" onClick={() => {
+                  // The phone's own share sheet (Messages, WhatsApp…) where there is one; otherwise copy.
+                  const text = `Log your work on ${jobId}${job?.address ? ` (${job.address})` : ""}: ${qrFieldUrl}`;
+                  const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
+                  if (typeof nav.share === "function") { void nav.share({ title: `Field link — ${jobId}`, text }).catch(() => {}); return; }
+                  navigator.clipboard.writeText(text).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => {});
                 }}>
-                  {qrLinkCopied ? "Link copied" : "Copy link"}
+                  {qrLinkCopied ? "Copied — paste it in a text" : "Text or copy link"}
                 </button>
               )}
-              <button className="button" style={{ fontSize: 12 }} onClick={openFieldQr} disabled={qrLoading}>
-                <RefreshCw size={13} strokeWidth={1.75} style={{ marginRight: 4 }} />
-                {qrError ? "Try again" : "New code"}
-              </button>
+              {qrError && (
+                <button className="button" style={{ fontSize: 12 }} onClick={openFieldQr} disabled={qrLoading}>
+                  <RefreshCw size={13} strokeWidth={1.75} style={{ marginRight: 4 }} /> Try again
+                </button>
+              )}
             </div>
           </div>
         </div>

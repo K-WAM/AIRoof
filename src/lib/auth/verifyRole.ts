@@ -22,7 +22,10 @@ export interface VerifiedUser {
 }
 
 export const FIELD_ACCESS_COOKIE = "__field_access";
-export const FIELD_EXCHANGE_TTL_MS = 10 * 60 * 1000;
+// A field link can be TEXTED to a contractor (2026-10-04, owner: "no sign-up steps, make it quick"), so it has to
+// survive until they open it: 24 h, still one use, still pinned to one job, still revoked by rotating the field key.
+// (It was 10 min, which only worked for a QR shown in person.) The session it opens lasts FIELD_SESSION_TTL_MS.
+export const FIELD_EXCHANGE_TTL_MS = 24 * 60 * 60 * 1000;
 export const FIELD_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 const FIELD_TOKEN_VERSION = 1;
