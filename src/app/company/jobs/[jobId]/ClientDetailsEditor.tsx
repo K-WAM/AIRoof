@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtPhone } from "@/lib/format/phone";
 import { useState } from "react";
 import { Pencil } from "lucide-react";
 import type { Job } from "@/types/jobs";
@@ -80,7 +81,7 @@ export function ClientDetailsEditor({ job, businessId, canEdit, locked, onSaved 
       <summary>Customer details{job.clientName ? ` · ${job.clientName}` : ""}</summary>
       {job.address && <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>{job.address}</p>}
       <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        {job.clientName && <span>{job.clientName}{job.clientPhone ? ` · ${job.clientPhone}` : ""}{job.clientEmail ? ` · ${job.clientEmail}` : ""}</span>}
+        {job.clientName && <span>{job.clientName}{job.clientPhone ? ` · ${fmtPhone(job.clientPhone)}` : ""}{job.clientEmail ? ` · ${job.clientEmail}` : ""}</span>}
         {canEdit && (locked
           ? <span title="The invoice has been sent, so these details are locked">🔒 Customer details locked</span>
           : <button type="button" className="button small" onClick={open} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>

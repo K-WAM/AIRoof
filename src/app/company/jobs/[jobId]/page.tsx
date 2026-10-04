@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtPhone } from "@/lib/format/phone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { use, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
@@ -39,6 +40,7 @@ import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { FieldLinkSheet } from "@/components/jobs/FieldLinkSheet";
+import { NumberField } from "@/components/ui/NumberField";
 import { JobCrewLine } from "@/components/jobs/JobCrewLine";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -1108,8 +1110,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <div style={{ display: "grid", gap: 8 }}>
                 {timeline.map((t, i) => (
                   <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <InlineInput value={t.time ?? ""} onChange={(v) => mutate(p => { p.timeline[i].time = v; })} placeholder="time" width={70} />
-                    <InlineInput value={t.description} onChange={(v) => mutate(p => { p.timeline[i].description = v; })} placeholder="What happened" />
+                    <InlineInput label="Time" value={t.time ?? ""} onChange={(v) => mutate(p => { p.timeline[i].time = v; })} placeholder="time" width={70} />
+                    <InlineInput label="What happened" value={t.description} onChange={(v) => mutate(p => { p.timeline[i].description = v; })} placeholder="What happened" />
                     <button className="no-print" onClick={() => mutate(p => { p.timeline.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button>
                   </div>
                 ))}
@@ -1173,10 +1175,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       {editing ? (
                         <>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.item} onChange={(v) => mutate(p => { p.materials[i].item = v; })} placeholder="Item" /></td>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.quantity ?? ""} onChange={(v) => mutate(p => { p.materials[i].quantity = v; })} placeholder="0" /></td>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={m.unit ?? ""} onChange={(v) => mutate(p => { p.materials[i].unit = v; })} placeholder="unit" /></td>
-                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<InlineInput value={m.cost != null ? String(m.cost) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.materials[i].cost = n; else delete p.materials[i].cost; })} placeholder="0.00" align="right" width={64} /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Material" value={m.item} onChange={(v) => mutate(p => { p.materials[i].item = v; })} placeholder="Item" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Quantity" value={m.quantity ?? ""} onChange={(v) => mutate(p => { p.materials[i].quantity = v; })} placeholder="0" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Unit" value={m.unit ?? ""} onChange={(v) => mutate(p => { p.materials[i].unit = v; })} placeholder="unit" /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<NumberField label={`Cost of ${m.item || "material"}`} value={m.cost ?? undefined} onCommit={(n) => mutate(p => { p.materials[i].cost = n; })} onClear={() => mutate(p => { delete p.materials[i].cost; })} placeholder="0.00" width={64} style={{ border: "none", borderBottom: "1px dashed #cbd5e1", background: "transparent", fontSize: 13, color: "#1e293b", padding: "2px 4px", textAlign: "right", fontFamily: "inherit", outline: "none" }} /></td>
                           <td className="no-print" style={{ padding: "8px 8px", textAlign: "right" }}><button onClick={() => mutate(p => { p.materials.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button></td>
                         </>
                       ) : (
@@ -1231,11 +1233,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                       {editing ? (
                         <>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.description} onChange={(v) => mutate(p => { p.labor[i].description = v; })} placeholder="Name" /></td>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.arrivalTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].arrivalTime = v; })} placeholder="8:00 AM" /></td>
-                          <td style={{ padding: "8px 16px" }}><InlineInput value={l.departureTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].departureTime = v; })} placeholder="4:00 PM" /></td>
-                          <td style={{ padding: "8px 16px", textAlign: "right" }}><InlineInput value={l.hours != null ? String(l.hours) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.labor[i].hours = n; else delete p.labor[i].hours; })} placeholder="0" align="right" width={48} /></td>
-                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<InlineInput value={l.rate != null ? String(l.rate) : ""} onChange={(v) => mutate(p => { const n = parseFloat(v); if (Number.isFinite(n)) p.labor[i].rate = n; else delete p.labor[i].rate; })} placeholder={defaultLaborRate} align="right" width={48} /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Who / what" value={l.description} onChange={(v) => mutate(p => { p.labor[i].description = v; })} placeholder="Name" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Arrival time" value={l.arrivalTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].arrivalTime = v; })} placeholder="8:00 AM" /></td>
+                          <td style={{ padding: "8px 16px" }}><InlineInput label="Departure time" value={l.departureTime ?? ""} onChange={(v) => mutate(p => { p.labor[i].departureTime = v; })} placeholder="4:00 PM" /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}><NumberField label={`Hours for ${l.description || "labor"}`} value={l.hours ?? undefined} onCommit={(n) => mutate(p => { p.labor[i].hours = n; })} onClear={() => mutate(p => { delete p.labor[i].hours; })} placeholder="0" width={48} style={{ border: "none", borderBottom: "1px dashed #cbd5e1", background: "transparent", fontSize: 13, color: "#1e293b", padding: "2px 4px", textAlign: "right", fontFamily: "inherit", outline: "none" }} /></td>
+                          <td style={{ padding: "8px 16px", textAlign: "right" }}>$<NumberField label={`Rate for ${l.description || "labor"}`} value={l.rate ?? undefined} onCommit={(n) => mutate(p => { p.labor[i].rate = n; })} onClear={() => mutate(p => { delete p.labor[i].rate; })} placeholder={String(defaultLaborRate)} width={48} style={{ border: "none", borderBottom: "1px dashed #cbd5e1", background: "transparent", fontSize: 13, color: "#1e293b", padding: "2px 4px", textAlign: "right", fontFamily: "inherit", outline: "none" }} /></td>
                           <td className="no-print" style={{ padding: "8px 8px", textAlign: "right" }}><button onClick={() => mutate(p => { p.labor.splice(i, 1); })} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16 }} title="Remove">×</button></td>
                         </>
                       ) : (
@@ -1533,7 +1535,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Bill To</div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{job.clientName || "—"}</div>
-                    {job.clientPhone && <div style={{ fontSize: 13, color: "#64748b" }}>{job.clientPhone}</div>}
+                    {job.clientPhone && <div style={{ fontSize: 13, color: "#64748b" }}>{fmtPhone(job.clientPhone)}</div>}
                     {job.address && <div style={{ fontSize: 13, color: "#64748b" }}>{job.address}</div>}
                   </div>
                   <div>
@@ -1589,20 +1591,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       <tbody>
                         {laborRows.map((row, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                            <td style={tdStyle()}><InlineInput value={row.name} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Name" /></td>
-                            <td style={tdStyle()}><InlineInput value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => {
+                            <td style={tdStyle()}><InlineInput label="Technician" value={row.name} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Name" /></td>
+                            <td style={tdStyle()}><InlineInput label="Arrival time" value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => {
                               if (j !== i) return x;
                               const u = { ...x, arrival: v };
                               u.hours = u.hours === "" || u.hours === calcHours(x.arrival, x.departure) ? calcHours(v, u.departure) : u.hours;
                               return u;
                             }))} placeholder="8:00 AM" /></td>
-                            <td style={tdStyle()}><InlineInput value={row.departure} onChange={(v) => setLaborRows(r => r.map((x, j) => {
+                            <td style={tdStyle()}><InlineInput label="Departure time" value={row.departure} onChange={(v) => setLaborRows(r => r.map((x, j) => {
                               if (j !== i) return x;
                               const u = { ...x, departure: v };
                               u.hours = u.hours === "" || u.hours === calcHours(x.arrival, x.departure) ? calcHours(u.arrival, v) : u.hours;
                               return u;
                             }))} placeholder="4:00 PM" /></td>
-                            <td style={tdStyle("right")}><InlineInput value={row.hours} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, hours: v } : x))} placeholder="0" align="right" /></td>
+                            <td style={tdStyle("right")}><InlineInput label="Hours" value={row.hours} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, hours: v } : x))} placeholder="0" align="right" /></td>
                             <td style={tdStyle("right")}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
                                 {laborCatalog.length > 0 && (
@@ -1622,7 +1624,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                     ))}
                                   </select>
                                 )}
-                                $<InlineInput value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} />
+                                $<InlineInput label="Hourly rate" value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} />
                               </div>
                             </td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${laborTotal(row).toFixed(2)}</td>
@@ -1675,9 +1677,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           const unpriced = row.item.trim() !== "" && row.unitPrice.trim() === "";
                           return (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                            <td style={tdStyle()}><InlineInput value={row.item} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, item: v } : x))} placeholder="Item" /></td>
-                            <td style={tdStyle("right")}><InlineInput value={row.quantity} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, quantity: v } : x))} placeholder="0" align="right" width={56} /></td>
-                            <td style={tdStyle()}><InlineInput value={row.unit} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unit: v } : x))} placeholder="sq/pieces/lbs" /></td>
+                            <td style={tdStyle()}><InlineInput label="Material" value={row.item} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, item: v } : x))} placeholder="Item" /></td>
+                            <td style={tdStyle("right")}><InlineInput label="Quantity" value={row.quantity} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, quantity: v } : x))} placeholder="0" align="right" width={56} /></td>
+                            <td style={tdStyle()}><InlineInput label="Unit" value={row.unit} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unit: v } : x))} placeholder="sq/pieces/lbs" /></td>
                             <td style={tdStyle("right")}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
                                 {unpriced && (
@@ -1695,7 +1697,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                     </button>
                                   </Tooltip>
                                 )}
-                                $<InlineInput value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} />
+                                $<InlineInput label="Unit price" value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} />
                               </div>
                             </td>
                             <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialTotal(row).toFixed(2)}</td>
@@ -1732,10 +1734,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     {otherRows.map((row, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <InlineInput value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
+                          <InlineInput label="Charge description" value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
                         </div>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 2, flex: "0 0 auto" }}>
-                          $<InlineInput value={row.amount} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, amount: v } : x))} placeholder="0.00" align="right" width={80} />
+                          $<InlineInput label="Charge amount" value={row.amount} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, amount: v } : x))} placeholder="0.00" align="right" width={80} />
                         </span>
                         <button className="no-print" type="button" onClick={() => setOtherRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove" aria-label="Remove charge">×</button>
                       </div>
@@ -1761,8 +1763,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                             <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
                               Tax (
                               <input
+                                aria-label="Tax rate (%)"
+                                inputMode="decimal"
                                 value={taxRate}
-                                onChange={(e) => setTaxRate(e.target.value)}
+                                onChange={(e) => setTaxRate(e.target.value.replace(/[^0-9.]/g, ""))}
                                 style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px" }}
                               />
                               %)
@@ -2100,13 +2104,18 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
 }
 
 // ── Inline editable input cell ────────────────────────────────────────────────
-function InlineInput({ value, onChange, placeholder, align, width }: {
-  value: string; onChange: (v: string) => void; placeholder?: string; align?: "right"; width?: number;
+// Right-aligned inline boxes are always numbers (qty, hours, rate, price, amount): decimal keypad on a phone, and only
+// digits and one dot get in, so "12.50" stays 12.50 and a pasted "$1,250.00" stays a number.
+function InlineInput({ value, onChange, placeholder, align, width, label }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; align?: "right"; width?: number; label?: string;
 }) {
+  const numeric = align === "right";
   return (
     <input
+      aria-label={label ?? placeholder}
+      inputMode={numeric ? "decimal" : undefined}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(numeric ? e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1") : e.target.value)}
       placeholder={placeholder}
       style={{
         border: "none", borderBottom: "1px dashed #cbd5e1", background: "transparent",

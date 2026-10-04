@@ -3,6 +3,7 @@
 // the user edits) and the server (POST builds the draft, PATCH recomputes on every save) import
 // computeTotals, so preview and persisted totals can never drift apart.
 
+import { roundCents } from "@/lib/format/money";
 import type { ParsedUpdate } from "@/types/jobs";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
 import type { LibraryPricing } from "@/types/library";
@@ -80,7 +81,7 @@ export function buildDraftFromProjection(
       departure: l.departureTime,
       hours,
       rate,
-      total: Math.round(hours * rate * 100) / 100,
+      total: roundCents(hours * rate),
       source: l.source === "punch" ? "punch" : "voice",
       day: l.dayKey,
     };
@@ -96,7 +97,7 @@ export function buildDraftFromProjection(
       quantity: qty,
       unit: m.unit,
       unitPrice: unitPrice ?? 0,
-      total: unitPrice != null ? Math.round(unitPrice * qty * 100) / 100 : 0,
+      total: unitPrice != null ? roundCents(unitPrice * qty) : 0,
       source: fromField != null ? "voice" : fromCatalog != null ? "catalog" : "manual",
     };
   });
@@ -125,7 +126,7 @@ export function computeTotals(inv: TotalsInput): Totals {
 }
 
 function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+  return roundCents(n);
 }
 
 /** A saved invoice can only be sent once it exists, has no unsaved edits, and has a valid

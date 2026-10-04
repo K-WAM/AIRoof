@@ -1,5 +1,6 @@
 "use client";
 
+import { fmtPhone } from "@/lib/format/phone";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -254,7 +255,7 @@ export default function JobsPage() {
                 </div>
                 <div className="field">
                   <label>{vocab.customerNoun} phone</label>
-                  <input value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
+                  <input type="tel" autoComplete="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
                 </div>
                 <div className="field full">
                   <label>Address</label>
@@ -389,7 +390,7 @@ export default function JobsPage() {
                     </td>
                     <td data-label="Client" style={{ padding: "12px 16px" }}>
                       {job.clientName ?? <span style={{ color: "#94a3b8" }}>—</span>}
-                      {job.clientPhone && <div style={{ fontSize: 12, color: "#64748b" }}>{job.clientPhone}</div>}
+                      {job.clientPhone && <div style={{ fontSize: 12, color: "#64748b" }}>{fmtPhone(job.clientPhone)}</div>}
                     </td>
                     <td data-label="Status" style={{ padding: "12px 16px" }}>
                       <StatusChip status={job.status} />

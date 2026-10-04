@@ -1,5 +1,6 @@
 "use client";
 
+import { roundCents } from "@/lib/format/money";
 import React, { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { daysOverdue } from "@/lib/billing/luxorNotices";
 import { NumberField } from "@/components/ui/NumberField";
@@ -42,7 +43,7 @@ function blankItem(): LineItem {
 }
 
 function calcItem(item: LineItem): LineItem {
-  return { ...item, total: item.quantity * item.unitPrice };
+  return { ...item, total: roundCents(item.quantity * item.unitPrice) };
 }
 
 function AdminInvoicesPageInner() {
@@ -145,9 +146,9 @@ function AdminInvoicesPageInner() {
   }, [dirty]);
 
   // Derived totals
-  const subtotal = lineItems.reduce((s, i) => s + i.total, 0);
-  const taxAmount = subtotal * taxRate / 100;
-  const total = subtotal + taxAmount;
+  const subtotal = roundCents(lineItems.reduce((s, i) => s + i.total, 0));
+  const taxAmount = roundCents(subtotal * taxRate / 100);
+  const total = roundCents(subtotal + taxAmount);
 
   function loadInvoice(inv: LuxorInvoice) {
     setEditingId(inv.invoiceId);
@@ -451,7 +452,7 @@ function AdminInvoicesPageInner() {
                 </div>
                 <div className="field">
                   <label>Due date</label>
-                  <input type="date" required value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true); }} />
+                  <input type="date" aria-label="Due date" required value={dueDate} onChange={e => { setDueDate(e.target.value); setDirty(true); }} />
                 </div>
               </div>
 
@@ -517,11 +518,11 @@ function AdminInvoicesPageInner() {
                       <span className="print-only" style={{ fontSize: 13 }}>{item.description}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      <input value={item.quantity} onChange={e => updateItem(i, "quantity", e.target.value)} style={{ ...inlineInput, width: 56, textAlign: "right" }} className="no-print" />
+                      <NumberField label="Quantity" value={item.quantity} onCommit={(n) => updateItem(i, "quantity", String(n))} style={{ ...inlineInput, width: 56, textAlign: "right" }} className="no-print" />
                       <span className="print-only">{item.quantity}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      $<input value={item.unitPrice} onChange={e => updateItem(i, "unitPrice", e.target.value)} style={{ ...inlineInput, width: 72, textAlign: "right" }} className="no-print" />
+                      $<NumberField label="Unit price" value={item.unitPrice} onCommit={(n) => updateItem(i, "unitPrice", String(n))} style={{ ...inlineInput, width: 72, textAlign: "right" }} className="no-print" />
                       <span className="print-only">${item.unitPrice.toFixed(2)}</span>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>${item.total.toFixed(2)}</td>
@@ -569,7 +570,7 @@ function AdminInvoicesPageInner() {
             {/* Notes */}
             <div style={{ marginTop: 32, paddingTop: 20, borderTop: "1px solid #e2e8f0" }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94a3b8", marginBottom: 6 }}>Notes & Payment Terms</div>
-              <textarea value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); }} rows={3} style={{ width: "100%", fontSize: 13, color: "#475569", border: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, background: "transparent" }} className="no-print" />
+              <textarea aria-label="Invoice notes" value={notes} onChange={e => { setNotes(e.target.value); setDirty(true); }} rows={3} style={{ width: "100%", fontSize: 13, color: "#475569", border: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6, background: "transparent" }} className="no-print" />
               <p className="print-only" style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, margin: 0 }}>{notes}</p>
             </div>
 

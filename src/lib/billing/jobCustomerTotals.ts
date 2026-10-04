@@ -1,3 +1,4 @@
+import { roundCents } from "@/lib/format/money";
 import { computeTotals } from "@/app/company/jobs/[jobId]/jobInvoice";
 import type { JobInvoice } from "@/types/invoice";
 
@@ -7,7 +8,7 @@ export function validCustomerSubtotal(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10_000_000 && Math.abs(Math.round(value * 100) - value * 100) < 1e-7;
 }
 
-const round2 = (value: number) => Math.round(value * 100) / 100;
+const round2 = roundCents;
 
 /** The only calculation of persisted customer figures for quote and invoice. */
 type QuoteInput = { kind: "quote"; lineSubtotal: number; priceMode?: PriceMode; customerSubtotal?: number };

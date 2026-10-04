@@ -210,7 +210,7 @@ function JobQuickAddForm({
         </div>
         <div className="field">
           <label htmlFor="qa-job-clientPhone">Client phone</label>
-          <input id="qa-job-clientPhone" name="clientPhone" placeholder="+1 (305) 555-0100" />
+          <input id="qa-job-clientPhone" name="clientPhone" type="tel" autoComplete="tel" placeholder="+1 (305) 555-0100" />
         </div>
         <div className="field full">
           <label htmlFor="qa-job-address">Address</label>
@@ -300,7 +300,7 @@ function CrewQuickAddForm({
         </div>
         <div className="field full">
           <label htmlFor="qa-crew-phone">Phone</label>
-          <input id="qa-crew-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
+          <input id="qa-crew-phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
         </div>
       </div>
       <div className="button-row">

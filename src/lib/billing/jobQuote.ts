@@ -1,3 +1,4 @@
+import { roundCents } from "@/lib/format/money";
 import type { JobFinding } from "@/types/workCatalog";
 import type { JobQuote, QuoteLine, QuoteStatus } from "@/types/quote";
 import { validLine } from "@/lib/jobs/findings";
@@ -9,7 +10,7 @@ export function quoteLinesFromFindings(findings: JobFinding[]): QuoteLine[] {
   })));
 }
 export function quoteTotal(lines: QuoteLine[]): number {
-  return Math.round(lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0) * 100) / 100;
+  return roundCents(lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0));
 }
 export function validQuoteLines(lines: unknown): lines is QuoteLine[] {
   return Array.isArray(lines) && lines.length <= 200 && lines.every((value) => {

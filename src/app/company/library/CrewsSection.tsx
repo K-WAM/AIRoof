@@ -238,7 +238,7 @@ export function CrewsSection({
                   <div className="form-grid" style={{ alignItems: "end", marginTop: 12 }}>
                     <div className="field"><label>{resource} name</label><input aria-label={`${resource} name`} value={editing.draft.name} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, name: e.target.value } })} /></div>
                     <div className="field"><label>Email</label><input aria-label={`${resource} email`} type="email" value={editing.draft.email} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, email: e.target.value } })} placeholder="name@company.com" /></div>
-                    <div className="field"><label>Phone</label><input aria-label={`${resource} phone`} value={editing.draft.phone} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, phone: e.target.value } })} /></div>
+                    <div className="field"><label>Phone</label><input aria-label={`${resource} phone`} type="tel" autoComplete="tel" value={editing.draft.phone} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, phone: e.target.value } })} /></div>
                     <div className="field"><label>Type</label><select aria-label={`${resource} type`} value={editing.draft.kind} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, kind: e.target.value as "crew" | "inspector" } })}><option value="crew">Crew</option><option value="inspector">Inspector</option></select></div>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44, fontSize: 13 }}>
                       <input type="checkbox" checked={editing.draft.active} onChange={(e) => setEditing({ ...editing, draft: { ...editing.draft, active: e.target.checked } })} style={{ width: 18, height: 18 }} />
@@ -340,7 +340,7 @@ export function CrewsSection({
           <div className="form-grid" style={{ alignItems: "end" }}>
             <div className="field"><label>{resource} name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.resourcePlaceholder} /></div>
             <div className="field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" /></div>
-            <div className="field"><label>Phone</label><input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
+            <div className="field"><label htmlFor="crew-phone">Phone</label><input id="crew-phone" type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 (305) 555-0100" /></div>
             <div className="field"><label>Type</label><select aria-label="Resource type" value={kind} onChange={(e) => setKind(e.target.value as "crew" | "inspector")}><option value="crew">Crew</option><option value="inspector">Inspector</option></select></div>
             <div className="field">
               <button className="button primary" onClick={addCrew} disabled={adding || !name.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

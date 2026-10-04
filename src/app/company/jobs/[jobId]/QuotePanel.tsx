@@ -1,5 +1,6 @@
 "use client";
 
+import { roundCents } from "@/lib/format/money";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteLine } from "@/types/quote";
@@ -347,7 +348,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
                     <NumberField label="Quantity" width={70} min={0.01} disabled={!draft} value={line.quantity} onCommit={(n) => changeLine(line.lineId, { quantity: n })} />
                     <input aria-label="Unit" disabled={!draft} value={line.unit ?? ""} onChange={(e) => changeLine(line.lineId, { unit: e.target.value })} style={{ width: 64 }} />
                     <NumberField label="Unit price" width={86} disabled={!draft} value={line.unitPrice} onCommit={(n) => changeLine(line.lineId, { unitPrice: n })} />
-                    <span style={{ minWidth: 72, textAlign: "right", fontWeight: 600 }}>{money(Math.round(line.quantity * line.unitPrice * 100) / 100)}</span>
+                    <span style={{ minWidth: 72, textAlign: "right", fontWeight: 600 }}>{money(roundCents(line.quantity * line.unitPrice))}</span>
                     {draft && <button className="button small" type="button" aria-label="Remove line" onClick={() => change({ lines: quote.lines.filter((v) => v.lineId !== line.lineId) })}>✕</button>}
                   </div>
                 ))}
