@@ -37,13 +37,14 @@ function emptyDay(workerKey: string, workerName: string, dk: string): WorkerDay 
 /** Resolve the punching worker's identity, mirroring verifyFieldAccess's own two paths. A
  *  logged-in session's workerKey is always derived from the verified uid — never trusts a
  *  client-supplied one; a QR/anonymous crew member is identified by name only. */
-function resolveWorker(uid: string, bodyWorkerName: unknown): { workerKey: string; workerName: string } | { error: string } {
-  const suppliedName = typeof bodyWorkerName === "string" ? bodyWorkerName.trim() : "";
-  if (uid.startsWith("field:")) {
+function resolveWorker(user: { uid: string; displayName?: string; email?: string }, bodyWorkerName: unknown): { workerKey: string; workerName: string } | { error: string } {
+  const suppliedName = typeof bodyWorkerName === "string" ? bodyWorkerName.trim().slice(0, 80) : "";
+  if (user.uid.startsWith("field:")) {
     if (!suppliedName) return { error: "workerName required" };
     return { workerKey: `name:${normalizeName(suppliedName)}`, workerName: suppliedName };
   }
-  return { workerKey: `uid:${uid}`, workerName: suppliedName || "Team member" };
+  // A signed-in worker's name is their account's, so the hours land under the same name as their field notes.
+  return { workerKey: `uid:${user.uid}`, workerName: user.displayName?.trim() || user.email?.trim() || suppliedName || "Team member" };
 }
 
 async function loadTodaysPunches(
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
   const gate = await verifyFieldAccess(req, businessId, jobId ? { jobId } : { allowOfficePunch: true });
   if ("error" in gate) return gate.error;
 
-  const worker = resolveWorker(gate.user.uid, workerNameParam);
+  const worker = resolveWorker(gate.user, workerNameParam);
   if ("error" in worker) return NextResponse.json({ error: worker.error }, { status: 400 });
 
   const db = getAdminFirestore();
@@ -87,7 +88,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, type, jobId, workerName, closeOpen } = body;
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
   );
   if ("error" in gate) return gate.error;
 
-  const worker = resolveWorker(gate.user.uid, workerName);
+  const worker = resolveWorker(gate.user, workerName);
   if ("error" in worker) return NextResponse.json({ error: worker.error }, { status: 400 });
 
   const db = getAdminFirestore();

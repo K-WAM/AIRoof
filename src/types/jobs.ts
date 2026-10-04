@@ -44,6 +44,10 @@ export interface FieldUpdate {
   language?: string;   // "en" | "es" — Whisper's auto-detected language, or the typed-text heuristic
   rawTextEn?: string;  // canonical English rendering of rawText — absent when language === "en"
   submittedBy?: string;
+  /** The signed-in account that sent it (absent for a no-login field-QR note, which carries the typed name only). */
+  submittedByUid?: string;
+  /** How the author was identified: their login, or the name typed on a field-QR link. */
+  submittedVia?: "login" | "qr";
   createdAt: number;
   parsed?: ParsedUpdate;
   parseError?: string;

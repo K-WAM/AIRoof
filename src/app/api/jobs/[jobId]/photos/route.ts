@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveAuthor } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { listPhotoMetas, putPhoto } from "@/lib/photos/store";
@@ -40,8 +41,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  // Who took it comes from the login (or the name typed on a field-QR link), never from the request body alone.
+  const author = resolveAuthor(gate.user, uploadedBy);
+  if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
   const result = await putPhoto(db, businessId, jobId, {
-    label, thumbB64, fullB64, uploadedBy, w, h,
+    label, thumbB64, fullB64, uploadedBy: author.name, w, h,
     phase: VALID_PHASES.has(phase) ? phase : undefined,
   });
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });

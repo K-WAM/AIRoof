@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { FieldMaterial, FieldLaborEntry, FieldTimelineEvent, ProposedCorrection } from "@/types/jobs";
 
 export type FieldAudioStatus = null | "recording" | "transcribing" | "success" | "error";
@@ -8,6 +8,9 @@ export type FieldAudioStatus = null | "recording" | "transcribing" | "success" |
 export interface FieldAudioResult {
   transcript: string;
   changesSummary: string;
+  /** The job the server saved it to, and under whose name — the screen's receipt shows both. */
+  jobId?: string;
+  submittedBy?: string;
   updatedJob: {
     materials: FieldMaterial[];
     laborEntries: FieldLaborEntry[];
@@ -66,6 +69,15 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
   const [transcript, setTranscript] = useState("");
   const [lastResult, setLastResult] = useState<FieldAudioResult | null>(null);
   const [proposedCorrection, setProposedCorrection] = useState<ProposedCorrection | null>(null);
+  // The job a pending correction was proposed for. Confirming applies it THERE, even if the screen has since moved
+  // to another job — and a job switch drops the card (see the effect below), so it can never land on the wrong job.
+  const [proposedFor, setProposedFor] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useEffect(() => {
+    setProposedCorrection(null);
+    setProposedFor(null);
+    setErrorMessage(null);
+  }, [jobId]);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -91,11 +103,13 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
 
   // Apply a correction the user confirmed on the device.
   const confirmCorrection = useCallback(async () => {
-    if (!proposedCorrection || !jobId) return;
+    const targetJobId = proposedFor ?? jobId;
+    if (!proposedCorrection || !targetJobId) return;
     setStatus("transcribing");
+    setErrorMessage(null);
     startProgress();
     try {
-      const res = await fetch(`/api/jobs/${jobId}/field-audio`, {
+      const res = await fetch(`/api/jobs/${targetJobId}/field-audio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -106,9 +120,11 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
       const data = await res.json();
       if (res.ok && data.success) {
         setProposedCorrection(null);
+        setProposedFor(null);
         setStatus("success");
-        options.onSuccess?.({ transcript: "", changesSummary: "Correction applied", updatedJob: data.updatedJob });
+        options.onSuccess?.({ transcript: "", changesSummary: "Correction applied", updatedJob: data.updatedJob, jobId: data.jobId ?? targetJobId, submittedBy: data.submittedBy });
       } else {
+        setErrorMessage(typeof data.error === "string" ? data.error : null);
         setStatus("error");
       }
     } catch {
@@ -117,9 +133,9 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
       stopProgress();
       setTimeout(() => setStatus(null), 2500);
     }
-  }, [proposedCorrection, jobId, options, startProgress, stopProgress]);
+  }, [proposedCorrection, proposedFor, jobId, options, startProgress, stopProgress]);
 
-  const cancelCorrection = useCallback(() => setProposedCorrection(null), []);
+  const cancelCorrection = useCallback(() => { setProposedCorrection(null); setProposedFor(null); }, []);
 
   const startRecording = useCallback(async (e?: React.PointerEvent) => {
     e?.preventDefault();
@@ -144,8 +160,10 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
       };
 
       recorder.start();
+      setErrorMessage(null);
       setStatus("recording");
     } catch {
+      setErrorMessage("The microphone is blocked. Allow it in your browser settings, or type the note instead.");
       setStatus("error");
       setTimeout(() => setStatus(null), 3000);
     }
@@ -173,6 +191,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
         reader.onloadend = async () => {
           const base64 = (reader.result as string).split(",")[1];
           setStatus("transcribing");
+          setErrorMessage(null);
           startProgress();
 
           try {
@@ -197,13 +216,15 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
               // Correction detected — surface a one-tap confirm card; don't apply yet.
               setTranscript(data.transcript || "");
               setProposedCorrection(data.proposedCorrection);
+              setProposedFor(jobId);
               setStatus(null);
             } else if (res.ok && data.success) {
               setTranscript(data.transcript || "");
               setLastResult(data);
               setStatus("success");
-              options.onSuccess?.(data);
+              options.onSuccess?.({ ...data, jobId: data.jobId ?? jobId ?? undefined });
             } else {
+              setErrorMessage(typeof data.error === "string" ? data.error : res.ok ? "No speech heard — hold the button while you talk." : null);
               setStatus("error");
             }
           } catch {
@@ -220,5 +241,5 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     });
   }, [jobId, options, startProgress, stopProgress]);
 
-  return { status, progress, transcript, lastResult, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording };
+  return { status, progress, transcript, lastResult, proposedCorrection, proposedFor, errorMessage, confirmCorrection, cancelCorrection, startRecording, stopRecording };
 }

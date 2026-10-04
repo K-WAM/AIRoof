@@ -1,9 +1,16 @@
 "use client";
 
-// Tap-based time clock (Phase 12, Phase 5 — docs/PLATFORM-EXPANSION-PLAN.md). Shared between the
-// authenticated field screen (src/app/company/field/page.tsx) and the QR/anonymous one
-// (src/app/field/page.tsx) — the only difference between those two callers is where `workerName`
-// comes from (the logged-in user vs. a typed name), which the server resolves anyway.
+// Tap-based time clock (Phase 12, Phase 5 — docs/PLATFORM-EXPANSION-PLAN.md), shared by the signed-in field screen and
+// the no-login QR one. Reworked 2026-10-04 ("arrived at office / started lunch… were confusing, but we want the
+// functionality"):
+//   - Plain verbs that say what the tap DOES: "Clock in at J-1001", "Clock in at the shop", "Start lunch", "End lunch",
+//     "Leave J-1001", "Clock out for the day".
+//   - One big status line with a running timer ("At J-1001 · 1h 05m"), and today's total so far.
+//   - Only the taps that make sense right now; the likeliest one is filled.
+//   - "Clock out for the day" asks once (it ends the paid day).
+//   - Shop time is explained where it is offered: paid, but not billed to a job.
+// The parent hears every state change (onDayChange) so the note composer can warn when notes and hours point at
+// different jobs.
 
 import { useCallback, useEffect, useState } from "react";
 import { Building2, Coffee, Home, LogIn, LogOut, MapPin } from "lucide-react";
@@ -19,14 +26,14 @@ interface ConflictInfo {
   tz?: string;
 }
 
-/** What each tap is called on the buttons — the "Last tap" line reuses it so the two can never disagree. */
-const PUNCH_LABEL: Record<PunchType, string> = {
-  office_in: "Arrived at office",
-  site_in: "Arrived at job",
+/** What each tap did, in the past tense — the "Last tap" line. */
+const PUNCH_DONE: Record<PunchType, string> = {
+  office_in: "Clocked in at the shop",
+  site_in: "Clocked in at a job",
   break_start: "Started lunch",
-  break_end: "Back from lunch",
-  site_out: "Left job",
-  office_out: "Done for the day",
+  break_end: "Ended lunch",
+  site_out: "Left the job",
+  office_out: "Clocked out for the day",
 };
 
 function emptyDay(): WorkerDay {
@@ -40,25 +47,42 @@ function clockError(status: number, message?: string): string {
   return message || "Time clock unavailable — please try again.";
 }
 
+/** "1h 05m" / "12m". */
+export function fmtDuration(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+}
+
 export function TimeClock({
   businessId,
   jobId,
   workerName,
+  onDayChange,
 }: {
   businessId: string | null;
   jobId: string | null;
   workerName: string;
+  onDayChange?: (day: WorkerDay) => void;
 }) {
-  const [day, setDay] = useState<WorkerDay>(emptyDay());
-  // The server resolves the business's real timezone (see loadBusinessTz) and returns it with
-  // every response — this component has no other way to know it (the QR/anonymous field page
-  // it also renders on has no BootstrapContext to read useBusinessTimezone() from).
+  const [day, setDayState] = useState<WorkerDay>(emptyDay());
+  const [fetchedAt, setFetchedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  // The server returns the business's timezone with every response (the QR page has no BootstrapContext to read it from).
   const [tz, setTz] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsName, setNeedsName] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
+  const [confirmingOut, setConfirmingOut] = useState(false);
+
+  const setDay = useCallback((next: WorkerDay) => {
+    setDayState(next);
+    setFetchedAt(Date.now());
+    onDayChange?.(next);
+  }, [onDayChange]);
 
   const refresh = useCallback(() => {
     if (!businessId) return;
@@ -79,14 +103,21 @@ export function TimeClock({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load time clock"))
       .finally(() => setLoading(false));
-  }, [businessId, jobId, workerName]);
+  }, [businessId, jobId, workerName, setDay]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // The running timer: one tick a minute is enough for an "h m" display.
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function punch(type: PunchType, opts: { closeOpen?: boolean } = {}) {
     if (!businessId || busy) return;
     setBusy(true);
     setError(null);
+    setConfirmingOut(false);
     try {
       const res = await fetch("/api/timeclock/punch", {
         method: "POST",
@@ -101,7 +132,7 @@ export function TimeClock({
           closeOpen: opts.closeOpen,
         }),
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
       if (res.status === 409) {
         setConflict(body as ConflictInfo);
         if (body.tz) setTz(body.tz);
@@ -114,8 +145,9 @@ export function TimeClock({
       setConflict(null);
       setDay(body.day);
       setTz(body.tz);
+      setNow(Date.now());
     } catch {
-      setError("Punch failed — check your connection");
+      setError("Not saved — no connection. Tap again when you have signal.");
     } finally {
       setBusy(false);
     }
@@ -123,8 +155,6 @@ export function TimeClock({
 
   if (!businessId) return null;
 
-  // One big button per likely next step, in the order a day actually runs (owner, 2026-09-28: "arrived office,
-  // left office… should be smooth and logical"). The likeliest next tap is the filled one; nothing hides behind a hover.
   const btnStyle: React.CSSProperties = {
     flex: "1 1 140px",
     display: "flex",
@@ -142,107 +172,126 @@ export function TimeClock({
     cursor: busy ? "not-allowed" : "pointer",
     opacity: busy ? 0.6 : 1,
   };
-  const primaryStyle: React.CSSProperties = { ...btnStyle, background: "var(--accent)", border: "1px solid var(--accent)", color: "#fff" };
+  const primaryStyle: React.CSSProperties = { ...btnStyle, flex: "1 1 100%", background: "var(--accent)", border: "1px solid var(--accent)", color: "#fff", fontSize: 15 };
 
-  const since = (ms?: number) => (ms && tz ? ` since ${fmtTime(ms, tz)}` : "");
-  const statusLine = (() => {
-    switch (day.state) {
-      // Back from a job without going home: still on the clock, but not necessarily at the office.
-      case "office": return day.lastPunchType === "site_out" ? `On the clock — between jobs${since(day.openSince)}` : `At the office${since(day.openSince)}`;
-      case "site": return `At ${day.openJobId ?? "the job"}${since(day.openSince)}`;
-      case "break_office": return "On lunch";
-      case "site_break": return `On lunch — ${day.openJobId ?? "job"}`;
-      default: return "Not clocked in";
-    }
-  })();
-  const lastTap = day.lastPunchType && day.lastPunchAt && tz
-    ? `Last tap: ${PUNCH_LABEL[day.lastPunchType]} · ${fmtTime(day.lastPunchAt, tz)}`
-    : null;
+  // Live elapsed: the server folded everything up to `fetchedAt`; add the minutes since while a clock is running.
+  const accruing = day.state === "office" || day.state === "site";
+  const liveExtra = accruing ? Math.max(0, now - fetchedAt) : 0;
+  const totalMs = day.officeMs + Object.values(day.jobs).reduce((sum, j) => sum + j.ms, 0) + liveExtra;
+  const sinceStart = day.openSince ? now - day.openSince : day.lastPunchAt ? now - day.lastPunchAt : 0;
   const onJob = day.state === "site" || day.state === "site_break";
   const switching = day.state === "site" && !!jobId && jobId !== day.openJobId;
-  const needsJobPick = !jobId && (day.state === "off" || day.state === "office");
 
-  const arrivedAtJob = (primary: boolean) => (
-    <button style={primary ? primaryStyle : btnStyle} disabled={busy || !jobId} onClick={() => punch("site_in")}>
-      <MapPin size={16} strokeWidth={1.75} /> Arrived at job{jobId ? ` ${jobId}` : ""}
+  const status = (() => {
+    switch (day.state) {
+      case "office": return day.lastPunchType === "site_out"
+        ? { text: "On the clock — between jobs", sub: `${fmtDuration(sinceStart)} since you left the last job` }
+        : { text: "At the shop", sub: `${fmtDuration(sinceStart)} · paid, not billed to a job` };
+      case "site": return { text: `At ${day.openJobId ?? "the job"}`, sub: `${fmtDuration(sinceStart)} · these hours go on the job` };
+      case "break_office": return { text: "On lunch", sub: `${fmtDuration(sinceStart)} · not paid` };
+      case "site_break": return { text: `On lunch — ${day.openJobId ?? "job"}`, sub: `${fmtDuration(sinceStart)} · not paid` };
+      default: return { text: "Off the clock", sub: jobId ? `Tap "Clock in at ${jobId}" when you get there.` : "Pick your job above, or start at the shop." };
+    }
+  })();
+  const lastTap = day.lastPunchType && day.lastPunchAt && tz ? `Last tap: ${PUNCH_DONE[day.lastPunchType]} · ${fmtTime(day.lastPunchAt, tz)}` : null;
+
+  const clockInAtJob = (primary: boolean) => (
+    <button style={primary ? primaryStyle : btnStyle} disabled={busy || !jobId} onClick={() => punch("site_in")} data-testid="clock-site-in">
+      <MapPin size={16} strokeWidth={1.75} /> {jobId ? `Clock in at ${jobId}` : "Pick a job to clock in there"}
+    </button>
+  );
+  const clockOut = (
+    <button style={btnStyle} disabled={busy} onClick={() => setConfirmingOut(true)}>
+      <Home size={16} strokeWidth={1.75} /> Clock out for the day
+    </button>
+  );
+  const lunch = (
+    <button style={btnStyle} disabled={busy} onClick={() => punch("break_start")}>
+      <Coffee size={16} strokeWidth={1.75} /> Start lunch
     </button>
   );
 
   return (
-    <div style={{
+    <section aria-label="Time clock" data-testid="time-clock" style={{
       background: "rgba(15,23,42,0.6)",
-      border: "1px solid rgba(148,163,184,0.2)",
+      border: `1px solid ${onJob ? "rgba(94,234,212,0.4)" : "rgba(148,163,184,0.2)"}`,
       borderRadius: 14,
       padding: "12px 14px",
       marginBottom: 20,
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8" }}>
-          Time clock
-        </span>
-        <span style={{ fontSize: 14, fontWeight: 600, color: onJob ? "#5eead4" : "#e2e8f0" }}>{loading ? "…" : statusLine}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8" }}>Time clock</span>
+        {totalMs > 0 && <span style={{ fontSize: 12, color: "#94a3b8" }}>Today: <strong style={{ color: "#e2e8f0" }}>{fmtDuration(totalMs)}</strong></span>}
+      </div>
+      <div role="status" aria-live="polite" style={{ margin: "6px 0 10px" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: onJob ? "#5eead4" : "#f8fafc" }}>{loading && !day.dayKey ? "…" : status.text}</div>
+        {!(loading && !day.dayKey) && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{status.sub}</div>}
       </div>
 
       {needsName ? (
         <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>Enter your name above to use the time clock.</p>
+      ) : confirmingOut ? (
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(51,65,85,0.45)" }}>
+          <p style={{ margin: "0 0 8px", fontSize: 14, color: "#f8fafc" }}>
+            Clock out for the day{onJob ? ` (this also leaves ${day.openJobId})` : ""}? Your hours today: <strong>{fmtDuration(totalMs)}</strong>.
+          </p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={btnStyle} disabled={busy} onClick={() => setConfirmingOut(false)}>Not yet</button>
+            <button style={{ ...btnStyle, background: "var(--accent)", border: "1px solid var(--accent)", color: "#fff" }} disabled={busy} onClick={() => punch("office_out")} data-testid="clock-out-confirm">
+              <LogOut size={16} strokeWidth={1.75} /> Yes, clock out
+            </button>
+          </div>
+        </div>
       ) : (
         <>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {day.state === "off" && (
               <>
-                {arrivedAtJob(!!jobId)}
+                {clockInAtJob(!!jobId)}
                 <button style={jobId ? btnStyle : primaryStyle} disabled={busy} onClick={() => punch("office_in")}>
-                  <Building2 size={16} strokeWidth={1.75} /> Arrived at office
+                  <Building2 size={16} strokeWidth={1.75} /> Clock in at the shop
                 </button>
               </>
             )}
             {day.state === "office" && (
               <>
-                {arrivedAtJob(true)}
-                <button style={btnStyle} disabled={busy} onClick={() => punch("break_start")}>
-                  <Coffee size={16} strokeWidth={1.75} /> Start lunch
-                </button>
-                <button style={btnStyle} disabled={busy} onClick={() => punch("office_out")}>
-                  <LogOut size={16} strokeWidth={1.75} /> Done for the day
-                </button>
+                {clockInAtJob(true)}
+                {lunch}
+                {clockOut}
               </>
             )}
             {day.state === "break_office" && (
               <button style={primaryStyle} disabled={busy} onClick={() => punch("break_end")}>
-                <Coffee size={16} strokeWidth={1.75} /> Back from lunch
+                <Coffee size={16} strokeWidth={1.75} /> End lunch
               </button>
             )}
             {day.state === "site" && (
               <>
                 {switching && (
                   <button style={primaryStyle} disabled={busy} onClick={() => punch("site_in", { closeOpen: true })}>
-                    <MapPin size={16} strokeWidth={1.75} /> Arrived at {jobId}
+                    <MapPin size={16} strokeWidth={1.75} /> Switch to {jobId} (leaves {day.openJobId})
                   </button>
                 )}
                 <button style={switching ? btnStyle : primaryStyle} disabled={busy} onClick={() => punch("site_out")}>
-                  <LogOut size={16} strokeWidth={1.75} /> Left {day.openJobId ?? "job"}
+                  <LogOut size={16} strokeWidth={1.75} /> Leave {day.openJobId ?? "job"}
                 </button>
-                <button style={btnStyle} disabled={busy} onClick={() => punch("break_start")}>
-                  <Coffee size={16} strokeWidth={1.75} /> Start lunch
-                </button>
-                <button style={btnStyle} disabled={busy} onClick={() => punch("office_out")}>
-                  <Home size={16} strokeWidth={1.75} /> Done for the day
-                </button>
+                {lunch}
+                {clockOut}
               </>
             )}
             {day.state === "site_break" && (
               <>
                 <button style={primaryStyle} disabled={busy} onClick={() => punch("break_end")}>
-                  <Coffee size={16} strokeWidth={1.75} /> Back from lunch
+                  <Coffee size={16} strokeWidth={1.75} /> End lunch
                 </button>
                 <button style={btnStyle} disabled={busy} onClick={() => punch("site_out")}>
-                  <LogOut size={16} strokeWidth={1.75} /> Left {day.openJobId ?? "job"}
+                  <LogOut size={16} strokeWidth={1.75} /> Leave {day.openJobId ?? "job"}
                 </button>
               </>
             )}
           </div>
-          {needsJobPick && (
-            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#94a3b8" }}>Pick a job above to clock in at it.</p>
+          {day.state === "off" && (
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Shop time is paid but not billed to a job. Job time goes on that job&apos;s labor automatically.</p>
           )}
           {lastTap && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#94a3b8" }}>{lastTap}</p>}
         </>
@@ -250,9 +299,9 @@ export function TimeClock({
 
       {conflict?.suggestion && (
         <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.4)", borderRadius: 10 }}>
-          <p style={{ margin: "0 0 8px", fontSize: 12, color: "#fdba74" }}>
+          <p style={{ margin: "0 0 8px", fontSize: 13, color: "#fdba74" }}>
             You&apos;re still clocked in at <strong>{conflict.openJobId}</strong>
-            {conflict.openSince && conflict.tz ? ` (since ${fmtTime(conflict.openSince, conflict.tz)})` : ""}. {conflict.suggestion}
+            {conflict.openSince && conflict.tz ? ` (since ${fmtTime(conflict.openSince, conflict.tz)})` : ""}. Leave it and clock in at {jobId}?
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ ...btnStyle, flex: "none" }} onClick={() => setConflict(null)}>Cancel</button>
@@ -263,7 +312,7 @@ export function TimeClock({
         </div>
       )}
 
-      {error && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#fca5a5" }}>{error}</p>}
-    </div>
+      {error && <p role="alert" style={{ margin: "8px 0 0", fontSize: 12, color: "#fca5a5" }}>{error}</p>}
+    </section>
   );
 }

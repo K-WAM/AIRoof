@@ -109,5 +109,5 @@ describe("demoSeedFor call transcripts", () => {
         expect(morning.length, `launch hour ${launchHour}, ${preferredDate}`).toBeGreaterThanOrEqual(6);
       }
     }
-  });
+  }, 20_000); // heavy loop over every launch hour: ~4 s alone, flaked at the 5 s default under the full parallel run
 });

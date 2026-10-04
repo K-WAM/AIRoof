@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidCorrection, storedJobContext, workerName } from "@/lib/jobs/fieldInput";
+import { authorFields, englishRendering, isValidCorrection, ledgerId, refuseClosedJob, resolveAuthor, storedJobContext, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
@@ -57,16 +57,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  const author = resolveAuthor(gate.user, submittedBy);
+  if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
+  // The job is checked before anything is transcribed (Whisper costs money): it must exist and still be open.
+  const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
+  if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  const closed = refuseClosedJob(jobSnap.data(), jobId);
+  if (closed) return NextResponse.json({ error: closed }, { status: 409 });
+
   const updatesCol = db.collection(`businesses/${businessId}/jobs/${jobId}/updates`);
   const now = Date.now();
 
   if (confirmCorrection) {
-    const corrId = `cor_${now}`;
+    const corrId = ledgerId("cor", now);
     await updatesCol.doc(corrId).set({
       updateId: corrId,
       kind: "correction",
       rawText: typeof confirmCorrection.rawText === "string" ? confirmCorrection.rawText.slice(0, 2000) : "",
-      submittedBy: workerName(submittedBy),
+      ...authorFields(author),
       createdAt: now,
       targetUpdateId: confirmCorrection.targetUpdateId,
       correctionField: confirmCorrection.field === "labor" ? "labor" : "materials",
@@ -75,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     } as FieldUpdate);
     const ledger = await loadLedger(db, businessId, jobId);
     const projection = await writeJobProjection(db, businessId, jobId, { ledger });
-    return NextResponse.json({ success: true, corrected: true, updatedJob: parsedToFieldLog(projection) });
+    return NextResponse.json({ success: true, corrected: true, updatedJob: parsedToFieldLog(projection), jobId, submittedBy: author.name, changesSummary: "Correction applied" });
   }
 
   const audioCheck = validateAudioInput(audioBase64, mimeType);
@@ -94,12 +102,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   // Fetched before transcription (not after, like before Spanish) — the biasing prompt now needs
   // agentLanguages/industry/Library material names, all of which live here.
-  const [bizSnap, libSnap, jobSnap] = await Promise.all([
+  const [bizSnap, libSnap] = await Promise.all([
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/library`).doc("pricing").get(),
-    db.collection(`businesses/${businessId}/jobs`).doc(jobId).get(),
   ]);
-  if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   const biz = bizSnap.data();
   // From the stored job, never the request body (a field-QR holder could otherwise steer the model).
   const jobContext = storedJobContext(jobSnap.data());
@@ -144,7 +150,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
 
   if (isTranscriptEmpty(transcript)) {
-    return NextResponse.json({ success: false, error: "No speech detected", transcript: "" });
+    return NextResponse.json({ success: false, error: "No speech heard. Hold the button the whole time you talk, then let go.", transcript: "" });
   }
 
   const parseStart = Date.now();
@@ -163,13 +169,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     if (detectedLanguage) parsed.sourceLanguage = detectedLanguage;
   } catch (err) {
     if (err instanceof ParseFieldUpdateError && err.needsConfirmation) {
-      const updateId = `upd_${now}`;
+      const updateId = ledgerId("upd", now);
       await updatesCol.doc(updateId).set({
         updateId,
         kind: "normal",
         rawText: transcript,
         language: detectedLanguage ?? "en",
-        submittedBy: workerName(submittedBy),
+        ...authorFields(author),
         createdAt: now,
         parseError: err.message,
       } as FieldUpdate);
@@ -202,14 +208,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
 
   const writeStart = Date.now();
-  const updateId = `upd_${now}`;
+  const updateId = ledgerId("upd", now);
   await updatesCol.doc(updateId).set({
     updateId,
     kind: "normal",
     rawText: transcript,
     language: detectedLanguage ?? "en",
-    ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
-    submittedBy: workerName(submittedBy),
+    ...(englishRendering(transcript, parsed.transcriptEn) ? { rawTextEn: parsed.transcriptEn } : {}),
+    ...authorFields(author),
     createdAt: now,
     parsed,
   } as FieldUpdate);
@@ -218,16 +224,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const projection = await writeJobProjection(db, businessId, jobId, { ledger });
   const log = parsedToFieldLog(projection);
 
-  const parts: string[] = [];
-  if (parsed.timeline.length) parts.push(`${parsed.timeline.length} timeline event(s)`);
-  if (parsed.materials.length) parts.push(`${parsed.materials.length} material(s)`);
-  if (parsed.labor.length) parts.push(`${parsed.labor.length} labor entry(s)`);
-  if (parsed.issues.length) parts.push(`${parsed.issues.length} note(s)`);
-  const changesSummary = parts.length ? `Added ${parts.join(", ")}` : "No structured data extracted";
+  const changesSummary = summarizeParsed(parsed);
   console.info("field-audio timing", JSON.stringify({
     jobId, audioKB: Math.round((audioBase64.length * 3) / 4 / 1024), language: detectedLanguage ?? "en",
     transcribeMs, parseMs: writeStart - parseStart, saveMs: Date.now() - writeStart, totalMs: Date.now() - now,
   }));
 
-  return NextResponse.json({ success: true, transcript, changesSummary, updatedJob: log });
+  return NextResponse.json({ success: true, transcript, changesSummary, updatedJob: log, jobId, submittedBy: author.name });
 }

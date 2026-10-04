@@ -4,10 +4,12 @@ import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
-import { useFieldAudio, FieldAudioResult } from "@/hooks/useFieldAudio";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
+import { FieldNoteComposer, type SavedReceipt } from "@/components/field/FieldNoteComposer";
+import { RecentNotes } from "@/components/field/RecentNotes";
+import type { WorkerDay } from "@/types/timeclock";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Job, FieldMaterial, FieldLaborEntry, FieldTimelineEvent } from "@/types/jobs";
@@ -16,13 +18,11 @@ import type { TimeBlock } from "@/types/schedule";
 import { BookingDetails, type BookingDetailsValue } from "@/components/appointments/BookingDetails";
 import { CalendarFeedLink } from "@/components/field/CalendarFeedLink";
 import {
-  Check,
   ChevronDown,
   ChevronUp,
   ClipboardList,
   Clock3,
   MapPin,
-  Mic,
   Package,
   RefreshCw,
   StickyNote,
@@ -38,11 +38,14 @@ function JobSelector({
   loading,
   selectedId,
   onSelect,
+  myCrewId,
 }: {
   jobs: Job[];
   loading: boolean;
   selectedId: string;
   onSelect: (id: string) => void;
+  /** The signed-in person's crew: their crew's jobs are tagged so the right one is easy to spot. */
+  myCrewId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selected = jobs.find((j) => j.jobId === selectedId);
@@ -131,8 +134,10 @@ function JobSelector({
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#0f172a")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <div style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>
-                  #{job.jobId}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>#{job.jobId}</span>
+                  {myCrewId && job.assignedCrewId === myCrewId && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(94,234,212,0.15)", color: "#5eead4" }}>Your crew</span>}
+                  {job.jobId === selectedId && <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>Selected</span>}
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
                   {job.title}
@@ -145,86 +150,6 @@ function JobSelector({
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-// ─── Mic Button ──────────────────────────────────────────────────────────────
-
-function MicButton({
-  status,
-  disabled,
-  onPressStart,
-  onPressEnd,
-}: {
-  status: "idle" | "recording" | "busy" | "success" | "error";
-  disabled: boolean;
-  onPressStart: (e: React.PointerEvent) => void;
-  onPressEnd: (e: React.PointerEvent) => void;
-}) {
-  const isRecording = status === "recording";
-  const isBusy = status === "busy";
-
-  const btnBg = disabled || isBusy
-    ? "#334155"
-    : isRecording
-    ? "#f97316"
-    : "#1e293b";
-
-  return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      {/* Pulse rings when recording */}
-      {isRecording && (
-        <>
-          <div style={{
-            position: "absolute",
-            width: 160,
-            height: 160,
-            borderRadius: "50%",
-            background: "rgba(249,115,22,0.15)",
-            animation: "fieldPulse 1.5s ease-in-out infinite",
-          }} />
-          <div style={{
-            position: "absolute",
-            width: 144,
-            height: 144,
-            borderRadius: "50%",
-            background: "rgba(249,115,22,0.1)",
-            animation: "fieldPulse 1.5s ease-in-out 0.2s infinite",
-          }} />
-        </>
-      )}
-
-      <button
-        onPointerDown={onPressStart}
-        onPointerUp={onPressEnd}
-        onPointerLeave={onPressEnd}
-        onPointerCancel={onPressEnd}
-        disabled={disabled || isBusy}
-        style={{
-          position: "relative",
-          zIndex: 1,
-          width: 120,
-          height: 120,
-          borderRadius: "50%",
-          border: "none",
-          background: btnBg,
-          cursor: disabled || isBusy ? "not-allowed" : "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: isRecording
-            ? "0 0 40px rgba(249,115,22,0.5)"
-            : "0 4px 20px rgba(0,0,0,0.4)",
-          transition: "background 0.15s, box-shadow 0.2s, transform 0.1s",
-          transform: isRecording ? "scale(0.96)" : "scale(1)",
-          touchAction: "none",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-        }}
-      >
-        <Mic size={48} strokeWidth={1.75} style={{ color: isRecording ? "#fff" : "#94a3b8" }} />
-      </button>
     </div>
   );
 }
@@ -458,11 +383,12 @@ function FieldPageContent() {
   // they have one, so a large team's field screen isn't the whole business's
   // open jobs. Scope-as-convenience only (verifyFieldAccess still grants
   // business-wide read) — see src/lib/team/landing.ts's doc comment.
-  useEffect(() => {
+  const loadJobs = useCallback(() => {
     if (!businessId) return;
+    setLoadingJobs(true);
     const crewParams = user?.crewId ? `&crewId=${encodeURIComponent(user.crewId)}&includeUnassigned=1` : "";
     fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : { jobs: [] }))
       .then((d) => {
         // Finished work (complete, or already invoiced) is not something the crew logs against.
         const open = ((d.jobs ?? []) as Job[]).filter((j) => j.status !== "complete" && j.status !== "invoiced");
@@ -477,6 +403,7 @@ function FieldPageContent() {
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
   }, [businessId, prefillJobId, user?.crewId]);
+  useEffect(() => { loadJobs(); }, [loadJobs]);
 
   const loadMySchedule = useCallback(async () => {
     if (!businessId || !user?.crewId) {
@@ -561,53 +488,21 @@ function FieldPageContent() {
     });
   }, [selectedJobId, jobs]);
 
-  const handleSuccess = useCallback((result: FieldAudioResult) => {
-    setJobLogData(result.updatedJob);
+  // A saved note updates this screen's job log only if it was for the job still on screen.
+  const [notesVersion, setNotesVersion] = useState(0);
+  const handleSaved = useCallback((receipt: SavedReceipt) => {
+    if (receipt.updatedJob && receipt.jobId === selectedJobId) setJobLogData(receipt.updatedJob);
+    setNotesVersion((v) => v + 1);
+  }, [selectedJobId]);
+
+  // The job this person is clocked in at (from the time clock). Opening the screen already clocked in at a job selects
+  // that job, so the first note goes where the hours are.
+  const [clockedInJobId, setClockedInJobId] = useState<string | null>(null);
+  const handleDay = useCallback((day: WorkerDay) => {
+    const open = day.state === "site" || day.state === "site_break" ? day.openJobId ?? null : null;
+    setClockedInJobId(open);
+    if (open) setSelectedJobId((current) => current || open);
   }, []);
-
-  const { status: audioStatus, progress: audioProgress, transcript, proposedCorrection, confirmCorrection, cancelCorrection, startRecording, stopRecording } = useFieldAudio(
-    selectedJobId || null,
-    {
-      businessId,
-      submittedBy: workerDisplayName || undefined,
-      jobContext: selectedJob
-        ? {
-            title: selectedJob.title,
-            address: selectedJob.address,
-            serviceType: selectedJob.serviceType,
-            clientName: selectedJob.clientName,
-          }
-        : undefined,
-      onSuccess: handleSuccess,
-    }
-  );
-
-  // Map hook status to button display status
-  const btnStatus =
-    audioStatus === "recording"
-      ? "recording"
-      : audioStatus === "transcribing"
-      ? "busy"
-      : audioStatus === "success"
-      ? "success"
-      : audioStatus === "error"
-      ? "error"
-      : "idle";
-
-  const statusLabel =
-    !selectedJobId ? "Select a job first" :
-    btnStatus === "recording" ? "Listening…" :
-    btnStatus === "busy" ? (audioProgress ?? "Transcribing…") :
-    btnStatus === "success" ? "✓ Logged" :
-    btnStatus === "error" ? "Failed — try again" :
-    "HOLD TO SPEAK";
-
-  const statusColor =
-    btnStatus === "recording" ? "#f97316" :
-    btnStatus === "busy" ? "#94a3b8" :
-    btnStatus === "success" ? "#22c55e" :
-    btnStatus === "error" ? "#ef4444" :
-    "#475569";
 
   return (
     <>
@@ -656,29 +551,8 @@ function FieldPageContent() {
               )}
             </div>
             <button
-              onClick={() => {
-                if (!businessId) return;
-                setLoadingJobs(true);
-                const crewParams = user?.crewId ? `&crewId=${encodeURIComponent(user.crewId)}&includeUnassigned=1` : "";
-                fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
-                  .then((r) => r.json())
-                  .then((d) => {
-                    const open = (d.jobs as Job[]).filter((j) => j.status !== "complete");
-                    setJobs(open);
-                    const refreshed = open.find((j) => j.jobId === selectedJobId);
-                    if (refreshed) {
-                      setJobLogData({
-                        materials: refreshed.materials || [],
-                        laborEntries: refreshed.laborEntries || [],
-                        timelineEvents: refreshed.timelineEvents || [],
-                        fieldNotes: refreshed.fieldNotes || [],
-                        totalLaborHours: refreshed.totalLaborHours || 0,
-                      });
-                    }
-                  })
-                  .catch(console.error)
-                  .finally(() => setLoadingJobs(false));
-              }}
+              onClick={() => { loadJobs(); setNotesVersion((v) => v + 1); }}
+              aria-label="Refresh jobs"
               style={{
                 background: "transparent",
                 border: "none",
@@ -741,54 +615,21 @@ function FieldPageContent() {
               loading={loadingJobs}
               selectedId={selectedJobId}
               onSelect={setSelectedJobId}
+              myCrewId={user?.crewId}
             />
           </div>
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} />
+          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />
 
           {selectedJobId && <>
-          {/* Mic Button */}
-          <div style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 20,
-            marginBottom: 40,
-          }}>
-            <MicButton
-              status={btnStatus}
-              disabled={!selectedJobId}
-              onPressStart={startRecording}
-              onPressEnd={stopRecording}
+          <div style={{ marginBottom: 20 }}>
+            <FieldNoteComposer
+              businessId={businessId}
+              job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : { jobId: selectedJobId }}
+              authorName={workerDisplayName}
+              clockedInJobId={clockedInJobId}
+              onSaved={handleSaved}
             />
-
-            <p style={{
-              margin: 0,
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              color: statusColor,
-              transition: "color 0.2s",
-            }}>
-              {statusLabel}
-            </p>
-
-            {/* Transcript preview */}
-            {transcript && btnStatus !== "recording" && (
-              <p style={{
-                margin: 0,
-                fontSize: 12,
-                color: "#475569",
-                fontStyle: "italic",
-                textAlign: "center",
-                maxWidth: 320,
-                lineHeight: 1.5,
-              }}>
-                &ldquo;{transcript}&rdquo;
-              </p>
-            )}
           </div>
 
           {/* Photo capture */}
@@ -800,31 +641,11 @@ function FieldPageContent() {
           <div style={{ marginBottom: 20 }}>
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
           </div>
-          </>}
 
-          {/* One-tap correction confirm card */}
-          {proposedCorrection && (
-            <div style={{ marginBottom: 20, padding: "16px", background: "#1e293b", border: "1.5px solid #f97316", borderRadius: 16 }}>
-              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 800, color: "#fdba74", textTransform: "uppercase", letterSpacing: "0.06em" }}>Confirm correction</p>
-              <p style={{ margin: "0 0 4px", fontSize: 15, color: "#f8fafc", lineHeight: 1.5 }}>
-                Change <strong style={{ textTransform: "capitalize" }}>{proposedCorrection.item}</strong> from{" "}
-                <strong style={{ color: "#fca5a5" }}>{proposedCorrection.oldValue}</strong> → <strong style={{ color: "#86efac" }}>{proposedCorrection.newValue}</strong>?
-              </p>
-              <p style={{ margin: "0 0 14px", fontSize: 13, color: "#94a3b8" }}>
-                Running total becomes <strong style={{ color: "#f8fafc" }}>{proposedCorrection.newTotal}</strong> (was {proposedCorrection.currentTotal}).
-              </p>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={cancelCorrection} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1.5px solid #334155", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <X size={15} strokeWidth={1.75} />
-                  Cancel
-                </button>
-                <button onClick={confirmCorrection} style={{ flex: 2, padding: "12px", borderRadius: 12, border: "none", background: "#f97316", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  <Check size={15} strokeWidth={1.75} />
-                  Confirm change
-                </button>
-              </div>
-            </div>
-          )}
+          <div style={{ marginBottom: 20 }}>
+            <RecentNotes businessId={businessId} jobId={selectedJobId} refreshKey={notesVersion} />
+          </div>
+          </>}
 
           {/* Job Log Card */}
           <JobLogCard data={jobLogData} />

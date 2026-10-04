@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidCorrection, storedJobContext, workerName } from "@/lib/jobs/fieldInput";
+import { authorFields, englishRendering, isValidCorrection, ledgerId, refuseClosedJob, resolveAuthor, storedJobContext, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
@@ -60,17 +60,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  const author = resolveAuthor(gate.user, submittedBy);
+  if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
+  const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
+  if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  const closed = refuseClosedJob(jobSnap.data(), jobId);
+  if (closed) return NextResponse.json({ error: closed }, { status: 409 });
+
   const now = Date.now();
   const updatesCol = db.collection(`businesses/${businessId}/jobs/${jobId}/updates`);
 
   // ── Confirm step: write the correction event the user approved ──
   if (confirmCorrection) {
-    const corrId = `cor_${now}`;
+    const corrId = ledgerId("cor", now);
     const corrEntry: FieldUpdate = {
       updateId: corrId,
       kind: "correction",
       rawText: typeof confirmCorrection.rawText === "string" ? confirmCorrection.rawText.slice(0, 2000) : "",
-      submittedBy: workerName(submittedBy),
+      ...authorFields(author),
       createdAt: now,
       targetUpdateId: confirmCorrection.targetUpdateId,
       correctionField: confirmCorrection.field === "labor" ? "labor" : "materials",
@@ -80,7 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     await updatesCol.doc(corrId).set(corrEntry);
     const ledger = await loadLedger(db, businessId, jobId);
     const projection = await writeJobProjection(db, businessId, jobId, { ledger, bumpStatus: false });
-    return NextResponse.json({ ok: true, corrected: true, projection }, { status: 201 });
+    return NextResponse.json({ ok: true, corrected: true, projection, jobId, submittedBy: author.name, changesSummary: "Correction applied" }, { status: 201 });
   }
 
   if (!rawText?.trim()) {
@@ -88,12 +95,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
 
   // ── Parse + correction detection — industry-aware (multi-vertical platform) ──
-  const [bizSnap, jobSnap] = await Promise.all([
-    db.collection("businesses").doc(businessId).get(),
-    db.collection(`businesses/${businessId}/jobs`).doc(jobId).get(),
-  ]);
-  if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  const biz = bizSnap.data();
+  const biz = (await db.collection("businesses").doc(businessId).get()).data();
   // The job's own record is the context the model sees — never client-sent text (that was a prompt-injection seam
   // open to anyone holding a field QR). The body's jobContext/businessName are ignored.
   const serverJobContext = storedJobContext(jobSnap.data());
@@ -114,8 +116,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     if (detectedLanguage) parsed.sourceLanguage = detectedLanguage;
   } catch (err) {
     // Store raw so nothing is lost; projection unchanged
-    const updateId = `upd_${now}`;
-    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: detectedLanguage ?? "en", submittedBy: workerName(submittedBy), createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
+    const updateId = ledgerId("upd", now);
+    await updatesCol.doc(updateId).set({ updateId, kind: "normal", rawText: rawText.trim(), language: detectedLanguage ?? "en", ...authorFields(author), createdAt: now, parseError: err instanceof Error ? err.message : "Parse failed" });
     return NextResponse.json({ update: { updateId, rawText: rawText.trim(), parseError: true } }, { status: 201 });
   }
 
@@ -137,14 +139,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
 
   // ── Normal path: append entry, recompute projection ──
-  const updateId = `upd_${now}`;
+  const updateId = ledgerId("upd", now);
   const entry: FieldUpdate = {
     updateId,
     kind: "normal",
     rawText: rawText.trim(),
     language: detectedLanguage ?? "en",
-    ...(parsed.transcriptEn ? { rawTextEn: parsed.transcriptEn } : {}),
-    submittedBy: workerName(submittedBy),
+    ...(englishRendering(rawText.trim(), parsed.transcriptEn) ? { rawTextEn: parsed.transcriptEn } : {}),
+    ...authorFields(author),
     createdAt: now,
     parsed,
   };
@@ -152,5 +154,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const ledger = await loadLedger(db, businessId, jobId);
   const projection = await writeJobProjection(db, businessId, jobId, { ledger });
 
-  return NextResponse.json({ update: { ...entry, parsed }, projection }, { status: 201 });
+  return NextResponse.json({ update: { ...entry, parsed }, projection, jobId, submittedBy: author.name, changesSummary: summarizeParsed(parsed) }, { status: 201 });
 }

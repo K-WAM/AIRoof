@@ -2032,7 +2032,8 @@ function statusToStepIdx(status: string): number {
 // ── Parsed field update card ──────────────────────────────────────────────────
 function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; index: number; onRetry?: (updateId: string) => Promise<string | null> }) {
   const { fmtDayTime } = useFormat();
-  const [showRaw, setShowRaw] = useState(false);
+  // T-174: the note's own words lead; the AI's extraction (already summed into the Work log and the tabs) folds away.
+  const [showParsed, setShowParsed] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   async function retry() {
@@ -2072,7 +2073,8 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: hasData ? 12 : 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>Update {index + 1}</span>
-          {update.submittedBy && <span style={{ fontSize: 12, color: "#94a3b8" }}>by {update.submittedBy}</span>}
+          {update.submittedBy && <span style={{ fontSize: 12, color: "#475569" }}>from <strong>{update.submittedBy}</strong></span>}
+          {update.submittedVia === "qr" && <span title="Sent from a no-login field link; the name is the one they typed" style={{ fontSize: 11, color: "#64748b", background: "#f1f5f9", borderRadius: 4, padding: "1px 6px" }}>field link</span>}
           {p && !update.parseError && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 4, padding: "1px 6px" }}>✓ AI parsed</span>
           )}
@@ -2091,8 +2093,27 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
         </span>
       </div>
 
-      {/* Parsed content */}
+      {/* What they said — verbatim, or the English rendering of a Spanish note */}
+      <p style={{ margin: "2px 0 0", fontSize: 13, color: "#334155", lineHeight: 1.5, wordBreak: "break-word" }}>
+        &ldquo;{update.rawTextEn && !showVerbatim ? update.rawTextEn : update.rawText}&rdquo;
+      </p>
+      {update.rawTextEn && (
+        <button
+          onClick={() => setShowVerbatim((v) => !v)}
+          style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#64748b", background: "#f1f5f9", border: "none", borderRadius: 20, padding: "2px 8px", cursor: "pointer" }}
+        >
+          {showVerbatim ? "Show English" : "Show original"}
+        </button>
+      )}
       {p && hasData && (
+        <button type="button" onClick={() => setShowParsed((v) => !v)} aria-expanded={showParsed}
+          style={{ display: "block", marginTop: 8, fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+          {showParsed ? "Hide what the AI read" : `What the AI read (${totalItems} item${totalItems === 1 ? "" : "s"})`}
+        </button>
+      )}
+
+      {/* Parsed content */}
+      {p && hasData && showParsed && (
         <div style={{ display: "grid", gap: 10 }}>
           {p.timeline.length > 0 && (
             <div>
@@ -2160,28 +2181,6 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
       )}
       {retryError && <p role="alert" style={{ margin: "4px 0 0", fontSize: 13, color: "#b91c1c" }}>{retryError}</p>}
 
-      {/* View original disclosure */}
-      <button
-        onClick={() => setShowRaw((r) => !r)}
-        style={{ marginTop: 10, fontSize: 11, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}
-      >
-        {showRaw ? "Hide original" : "View original"}
-      </button>
-      {showRaw && (
-        <>
-          <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.5, wordBreak: "break-word", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: "8px 10px" }}>
-            {update.rawTextEn && !showVerbatim ? update.rawTextEn : update.rawText}
-          </p>
-          {update.rawTextEn && (
-            <button
-              onClick={() => setShowVerbatim((v) => !v)}
-              style={{ marginTop: 4, fontSize: 10, fontWeight: 700, color: "#64748b", background: "#f1f5f9", border: "none", borderRadius: 20, padding: "2px 8px", cursor: "pointer" }}
-            >
-              {showVerbatim ? "Original" : "ES → EN"}
-            </button>
-          )}
-        </>
-      )}
     </div>
   );
 }
