@@ -1847,3 +1847,6 @@ e2e:call 12/12, new e2e/field-updates.spec.ts 4/4; full e2e:test result in the h
 mic/typing/correction/recent code in both field pages (replaced by the shared components), the phone "Jump to" select.
 Final gate 2026-10-04: full e2e:test 149 passed / 0 failed / 0 flaky (27 min) after 5fcab12 (warm dev routes + audit
 best-of-two); 7f8c5f3 fixed the QR composer race found by the full run.
+Field passes 2–3 (2026-10-04): 47f3969 (all open jobs, fewer boxes), 04be1ce (JobPicker, finished jobs reachable, office
+wording, invoiced-job refusal removed), 82ff7ba (crew name on office note cards). Final gate on 82ff7ba: full e2e:test
+149 passed / 0 failed / 0 flaky (25.6 min).

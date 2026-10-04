@@ -6,7 +6,7 @@
   clocked in at a different job, and leaves a receipt naming both; server-side author identity (login, or the typed
   name on a QR link); a plain-words time clock with a running timer and a confirm on Clock out. Details + Nielsen
   table: `docs/USABILITY-AUDIT-2026-10-03.md` (follow-up section). T-180 is a plan only (`docs/T-180-ACTIVITY-SIGNAL-PLAN.md`).
-- **Gates on the final tree:** full e2e:test 149/149 (0 flaky), full vitest 1,790, e2e:call 12/12.
+- **Gates on the final tree (`82ff7ba`):** full e2e:test 149/149, 0 flaky, 25.6 min; vitest green; e2e:call 12/12. Field passes 2–3 the same day: JobPicker (search + 5 likeliest + Show all), finished jobs reachable, "office" not "shop", crew name on office note cards.
 - **Owner:** merge the branch; decide NH-32 (Blaze); then try the field screen on a real phone (hold-to-talk and
   tap-to-start, Clock in → note → Clock out).
 
