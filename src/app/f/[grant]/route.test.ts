@@ -4,10 +4,12 @@ import { _resetRateLimitState } from "@/lib/auth/rateLimit";
 
 const mocks = vi.hoisted(() => ({
   consume: vi.fn(),
+  openJobLink: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/verifyRole", () => ({
   consumeFieldExchangeToken: mocks.consume,
+  openFieldJobLink: mocks.openJobLink,
   FIELD_ACCESS_COOKIE: "__field_access",
   FIELD_SESSION_TTL_MS: 43_200_000,
 }));
@@ -17,7 +19,7 @@ vi.mock("@/lib/firebase/admin", () => ({
   getAdminFirestore: () => currentDb,
 }));
 
-function makeGrantDb(grant: Record<string, unknown> | undefined) {
+function makeGrantDb(grant: Record<string, unknown> | undefined, jobLink?: Record<string, unknown>) {
   const deletes: string[] = [];
   const ref = {
     get: async () => ({ exists: grant !== undefined, data: () => grant }),
@@ -25,6 +27,7 @@ function makeGrantDb(grant: Record<string, unknown> | undefined) {
   };
   const db = {
     collection: (name: string) => {
+      if (name === "fieldJobLinks") return { doc: () => ({ get: async () => ({ exists: jobLink !== undefined, data: () => jobLink }) }) };
       if (name !== "fieldAccessGrants") throw new Error(`unexpected collection ${name}`);
       return { doc: () => ref };
     },
@@ -37,6 +40,32 @@ function requestFor(grant: string) {
 }
 
 import { GET } from "@/app/f/[grant]/route";
+
+describe("GET /f/[grant] — reusable job link", () => {
+  beforeEach(() => { mocks.consume.mockReset(); mocks.openJobLink.mockReset(); _resetRateLimitState(); });
+
+  it("opens on any number of phones: each open gets a session, the link is never deleted", async () => {
+    const { db, deletes } = makeGrantDb(undefined, { businessId: "biz-1", jobId: "J-1", fieldKeyTag: "t", createdAt: Date.now() });
+    currentDb = db;
+    mocks.openJobLink.mockResolvedValue({ ok: true, token: "session-a", businessId: "biz-1", jobId: "J-1", expiresAt: Date.now() + 43_200_000 });
+    for (let i = 0; i < 3; i++) {
+      const response = await GET(requestFor("link1"), { params: Promise.resolve({ grant: "link1" }) });
+      expect(response.headers.get("location")).toBe("http://localhost/field");
+      expect(response.headers.get("set-cookie")).toContain("__field_access=session-a");
+    }
+    expect(mocks.openJobLink).toHaveBeenCalledTimes(3);
+    expect(deletes).toHaveLength(0);
+    expect(mocks.consume).not.toHaveBeenCalled();
+  });
+
+  it("a stopped link is denied and clears any old session cookie", async () => {
+    const { db } = makeGrantDb(undefined, { businessId: "biz-1", jobId: "J-1", revokedAt: 1 });
+    currentDb = db;
+    mocks.openJobLink.mockResolvedValue({ ok: false, status: 401, error: "Field link stopped" });
+    const response = await GET(requestFor("link1"), { params: Promise.resolve({ grant: "link1" }) });
+    expect(response.headers.get("location")).toBe("http://localhost/field?access=denied");
+  });
+});
 
 describe("GET /f/[grant]", () => {
   beforeEach(() => {

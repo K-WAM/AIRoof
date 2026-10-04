@@ -3,6 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
 import {
   consumeFieldExchangeToken,
+  openFieldJobLink,
   FIELD_ACCESS_COOKIE,
   FIELD_SESSION_TTL_MS,
   type FieldTokenExchangeResult,
@@ -49,6 +50,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return setNoCredentialHeaders(NextResponse.redirect(deniedUrl, 303));
   }
 
+  // The reusable per-job link (texted/emailed by the office) — works on any number of phones until stopped.
+  const jobLinkSnap = await db.collection("fieldJobLinks").doc(shortGrantId).get();
+  if (jobLinkSnap.exists) {
+    const result = await openFieldJobLink(shortGrantId, jobLinkSnap.data() ?? {}, request);
+    const response = NextResponse.redirect(result.ok ? new URL("/field", request.url) : deniedUrl, 303);
+    if (result.ok) setFieldSessionCookie(response, result);
+    else response.cookies.delete(FIELD_ACCESS_COOKIE);
+    return setNoCredentialHeaders(response);
+  }
+
+  // Older one-use links (made before 2026-10-04) still resolve once.
   const ref = db.collection("fieldAccessGrants").doc(shortGrantId);
   const snap = await ref.get();
   // Delete on lookup regardless of outcome — this alias is meant for exactly

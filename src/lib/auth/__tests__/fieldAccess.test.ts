@@ -72,8 +72,11 @@ import {
   exchangeLegacyFieldKey,
   FIELD_ACCESS_COOKIE,
   FIELD_EXCHANGE_TTL_MS,
+  FIELD_JOB_LINK_MAX_AGE_MS,
   FIELD_SESSION_TTL_MS,
+  fieldKeyFingerprint,
   mintFieldExchangeToken,
+  openFieldJobLink,
   verifyFieldAccess,
 } from "@/lib/auth/verifyRole";
 
@@ -173,6 +176,22 @@ describe("scoped field access tokens", () => {
       request(`/api/jobs?businessId=${BUSINESS_ID}`, session.ok ? session.token : ""),
       BUSINESS_ID,
     ))).toBe(401);
+  });
+
+  it("a reusable job link opens many times into a job-pinned session, and stops on Stop, key rotation or age", async () => {
+    const link = { businessId: BUSINESS_ID, jobId: "J-1", fieldKeyTag: fieldKeyFingerprint(FIELD_KEY), createdAt: NOW.getTime() };
+    for (let i = 0; i < 3; i++) {
+      const session = await openFieldJobLink("link1", link);
+      expect(session).toMatchObject({ ok: true, businessId: BUSINESS_ID, jobId: "J-1" });
+      // The session is pinned to that job: another job is refused.
+      expect(statusOf(await verifyFieldAccess(request(`/api/jobs/J-2?businessId=${BUSINESS_ID}`, session.ok ? session.token : ""), BUSINESS_ID, { jobId: "J-2" }))).toBe(403);
+    }
+    expect(await openFieldJobLink("link1", { ...link, revokedAt: 1 })).toMatchObject({ ok: false, error: "Field link stopped" });
+    vi.setSystemTime(NOW.getTime() + FIELD_JOB_LINK_MAX_AGE_MS + 1);
+    expect(await openFieldJobLink("link1", link)).toMatchObject({ ok: false, error: "Field link expired" });
+    vi.setSystemTime(NOW);
+    mocks.firestore!.documents.set(`businesses/${BUSINESS_ID}`, { fieldKey: "rotated-key-0123456789abcdef" });
+    expect(await openFieldJobLink("link1", link)).toMatchObject({ ok: false, error: "Field access revoked" });
   });
 
   it("rejects an expired field session", async () => {

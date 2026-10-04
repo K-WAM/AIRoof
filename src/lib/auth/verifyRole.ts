@@ -240,7 +240,7 @@ async function validateCurrentFieldKey(
 }
 
 type FieldAccessAuditEvent = {
-  action: "exchange" | "legacy_exchange" | "access" | "legacy_access";
+  action: "exchange" | "legacy_exchange" | "access" | "legacy_access" | "job_link";
   businessId: string;
   tokenId: string;
   jobId?: string;
@@ -282,6 +282,49 @@ async function recordFieldAccessAudit(
   await db.collection("fieldAccessAuditEvents").doc(`field_${now}_${randomUUID()}`).set(
     fieldAccessAuditDocument(event),
   );
+}
+
+/**
+ * The reusable per-job field link (owner, 2026-10-04: "we are good with reusable code"). The office texts or emails
+ * one link per job; any worker or contractor opens it on any phone, types their name and logs work. It stops working
+ * when the office presses "Stop link" (revokedAt), when the business field key rotates (revokes everything), or after
+ * FIELD_JOB_LINK_MAX_AGE_MS. Each open mints an ordinary job-scoped 12 h session; opening it again next day is fine.
+ */
+export const FIELD_JOB_LINK_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
+
+export interface StoredFieldJobLink {
+  businessId: string;
+  jobId: string;
+  fieldKeyTag: string;
+  createdAt: number;
+  revokedAt?: number | null;
+}
+
+/** The digest a stored job link keeps, so rotating the field key revokes it without touching every link doc. */
+export function fieldKeyFingerprint(fieldKey: string): string {
+  const secret = fieldTokenSecret();
+  if (!secret) throw new Error("Field access is not configured");
+  return fieldKeyTag(fieldKey, secret);
+}
+
+export async function openFieldJobLink(
+  linkId: string,
+  link: Partial<StoredFieldJobLink>,
+  request?: NextRequest,
+): Promise<FieldTokenExchangeResult> {
+  if (link.revokedAt) return { ok: false, status: 401, error: "Field link stopped" };
+  if (!link.businessId || !link.jobId || typeof link.createdAt !== "number" || Date.now() - link.createdAt > FIELD_JOB_LINK_MAX_AGE_MS) {
+    return { ok: false, status: 401, error: "Field link expired" };
+  }
+  const secret = fieldTokenSecret();
+  if (!secret) return { ok: false, status: 503, error: "Field access is not configured" };
+  const current = await loadCurrentFieldKey(link.businessId);
+  if (!current.ok) return current;
+  if (typeof link.fieldKeyTag !== "string" || !safeEqual(link.fieldKeyTag, fieldKeyTag(current.fieldKey, secret))) {
+    return { ok: false, status: 401, error: "Field access revoked" };
+  }
+  await recordFieldAccessAudit(current.db, { action: "job_link", businessId: link.businessId, tokenId: linkId, jobId: link.jobId, request }).catch(() => {});
+  return mintToken("session", link.businessId, current.fieldKey, link.jobId, FIELD_SESSION_TTL_MS);
 }
 
 /** Consume a signed QR grant exactly once and issue a longer-lived field session. */

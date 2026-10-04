@@ -73,7 +73,7 @@ describe("job detail page structure", () => {
   it("shows a viewer the record without offering office write actions", async () => {
     authState.role = "viewer";
     await openPage();
-    expect(screen.queryByText("Field QR / link")).toBeNull();
+    expect(screen.queryByText("Send to a worker")).toBeNull();
     expect(screen.queryByRole("button", { name: /Next:/ })).toBeNull();
     fireEvent.click(screen.getByText("Materials (0)"));
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();

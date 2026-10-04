@@ -70,6 +70,21 @@ export function buildCrewAssignmentEmail(opts: {
   };
 }
 
+/** The one wording for a job's field link, so the text and the email say the same thing. */
+export function fieldLinkMessage(opts: { businessName: string; jobTitle: string; address?: string | null; url: string }): string {
+  const where = opts.address ? ` at ${opts.address}` : "";
+  return `${opts.businessName}: log your work on "${opts.jobTitle}"${where}. Open, type your name, talk or type. No app or account: ${opts.url}`;
+}
+
+export function buildFieldLinkEmail(opts: { brand: Branding; jobTitle: string; address?: string | null; url: string }): { subject: string; html: string } {
+  const body = `
+    <p style="margin:0 0 8px;font-size:15px;color:#334155;line-height:1.6"><strong>${esc(opts.jobTitle)}</strong>${opts.address ? `<br/>${esc(opts.address)}` : ""}</p>
+    <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6">Open the link on your phone, type your name, then talk or type what you did. No app or account.</p>
+    <div style="margin:20px 0"><a href="${escapeHtml(opts.url)}" style="display:inline-block;background:${/^#[0-9a-f]{6}$/i.test(opts.brand.brandColor ?? "") ? opts.brand.brandColor : "#0f766e"};color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">Log my work</a></div>
+    <p style="margin:0;font-size:13px;color:#94a3b8">Keep this email — the same link works every day of the job.</p>`;
+  return { subject: `Log your work: ${opts.jobTitle}`, html: shell(opts.brand, "Your job link", body) };
+}
+
 export type InspectionChange = "assigned" | "moved" | "reassigned" | "cancelled";
 
 const INSPECTION_SUBJECT: Record<InspectionChange, string> = {

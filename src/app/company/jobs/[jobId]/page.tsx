@@ -38,6 +38,7 @@ import { NextStepButton } from "./NextStepButton";
 import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
+import { FieldLinkSheet } from "@/components/jobs/FieldLinkSheet";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
@@ -56,7 +57,6 @@ import {
   Pencil,
   Plus,
   Printer,
-  QrCode,
   Receipt,
   RefreshCw,
   Save,
@@ -148,12 +148,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // has no portal account. "Copy field link" above is the authenticated
   // path — this is the unauthenticated one.
   const [qrOpen, setQrOpen] = useState(false);
-  const [qrLoading, setQrLoading] = useState(false);
-  const [qrError, setQrError] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [qrFieldUrl, setQrFieldUrl] = useState("");
-  const [qrExpiresAt, setQrExpiresAt] = useState<number | null>(null);
-  const [qrLinkCopied, setQrLinkCopied] = useState(false);
 
   // Photos (Phase 2) — metas loaded lazily when the tab opens; full blobs on lightbox open.
   const [photos, setPhotos] = useState<JobPhotoMeta[]>([]);
@@ -649,35 +643,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     );
   }
 
-  async function openFieldQr() {
+  function openFieldQr() {
     setQrOpen(true);
-    setQrLoading(true);
-    setQrError(null);
-    try {
-      const res = await fetch(`/api/jobs/${jobId}/field-qr`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not generate a field QR code");
-      // Dynamic import (not a static top-level one) so `qrcode` only enters
-      // this route's bundle once a staff member actually opens the QR modal
-      // — same code-splitting principle T-068 applied to Calendar's dnd-kit.
-      const { default: QRCode } = await import("qrcode");
-      const dataUrl = await QRCode.toDataURL(data.fieldUrl as string, {
-        width: 220,
-        margin: 2,
-        color: { dark: "#0f172a", light: "#ffffff" },
-      });
-      setQrDataUrl(dataUrl);
-      setQrFieldUrl(data.fieldUrl as string);
-      setQrExpiresAt(data.expiresAt as number);
-    } catch (err) {
-      setQrError(err instanceof Error ? err.message : "Could not generate a field QR code");
-    } finally {
-      setQrLoading(false);
-    }
   }
 
   async function saveReportNotes(nextOptions = reportOptions, nextTechnicians = reportTechnicians, nextNotes = reportNotes) {
@@ -1027,8 +994,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {/* One way to bring someone onto the job (C6): a link they open on their phone — no account, no app. Team
               members with a login already have the Field tab, so the old "Copy field link" (login-only) is gone. */}
-          {!readOnly && <button className="button" type="button" onClick={() => void openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
-            <QrCode size={15} strokeWidth={1.75} /> Field QR / link
+          {!readOnly && <button className="button" type="button" onClick={() => openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
+            <Send size={15} strokeWidth={1.75} /> Send to a worker
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
           {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
@@ -1113,7 +1080,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 compact
                 title="No field notes yet"
                 body={readOnly ? "The crew's notes appear here as they work." : "Send the field link; the crew talks, it fills in here."}
-                secondary={readOnly ? undefined : { label: "Field QR / link", onClick: () => void openFieldQr() }}
+                secondary={readOnly ? undefined : { label: "Send to a worker", onClick: () => openFieldQr() }}
                 testId="job-activity-empty"
               />
             ) : (
@@ -1349,66 +1316,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </div>
       )}
 
-      {/* Field QR popup */}
-      {qrOpen && (
-        <div onClick={() => setQrOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 320, width: "100%", textAlign: "center", position: "relative" }}>
-            <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}>
-              <X size={18} strokeWidth={1.75} />
-            </button>
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Scan to log work on {jobId}</h2>
-            <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>Text it to a worker or contractor, or let them scan the code. No account or app needed — they type their name and start.</p>
-            {qrLoading ? (
-              <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 8, fontSize: 13, color: "#94a3b8" }}>
-                Generating…
-              </div>
-            ) : qrError ? (
-              <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#fef2f2", borderRadius: 8, fontSize: 13, color: "#b91c1c", padding: 16 }} role="alert">
-                {qrError}
-              </div>
-            ) : (
-              <img src={qrDataUrl} alt="Field access QR code" style={{ width: 220, height: 220, display: "block", margin: "0 auto", borderRadius: 8, border: "1px solid #e2e8f0" }} />
-            )}
-            {qrExpiresAt && !qrLoading && !qrError && (
-              <p style={{ fontSize: 11, color: "#94a3b8", margin: "12px 0 0" }}>
-                Works on one phone · open by {fmt.fmtDayTime(qrExpiresAt)}
-              </p>
-            )}
-            {qrFieldUrl && !qrLoading && (
-              // A short opaque path now (see /f/[grant]), not the raw signed
-              // token — safe to show. A visible, selectable field also
-              // doubles as the copy fallback, so there's no prompt() dialog
-              // exposing anything if the Clipboard API is unavailable.
-              <input
-                type="text"
-                readOnly
-                value={qrFieldUrl}
-                onFocus={(e) => e.currentTarget.select()}
-                onClick={(e) => e.currentTarget.select()}
-                aria-label="Field link"
-                style={{ width: "100%", marginTop: 14, fontSize: 12, padding: "8px 10px", border: "1px solid #e2e8f0", borderRadius: 8, color: "#334155", fontFamily: "monospace", textAlign: "center", background: "#f8fafc" }}
-              />
-            )}
-            <div style={{ display: "flex", gap: 8, marginTop: 10, justifyContent: "center" }}>
-              {qrFieldUrl && !qrLoading && (
-                <button className="button primary" style={{ fontSize: 13 }} data-testid="share-field-link" onClick={() => {
-                  // The phone's own share sheet (Messages, WhatsApp…) where there is one; otherwise copy.
-                  const text = `Log your work on ${jobId}${job?.address ? ` (${job.address})` : ""}: ${qrFieldUrl}`;
-                  const nav = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
-                  if (typeof nav.share === "function") { void nav.share({ title: `Field link — ${jobId}`, text }).catch(() => {}); return; }
-                  navigator.clipboard.writeText(text).then(() => { setQrLinkCopied(true); setTimeout(() => setQrLinkCopied(false), 2500); }).catch(() => {});
-                }}>
-                  {qrLinkCopied ? "Copied — paste it in a text" : "Text or copy link"}
-                </button>
-              )}
-              {qrError && (
-                <button className="button" style={{ fontSize: 12 }} onClick={openFieldQr} disabled={qrLoading}>
-                  <RefreshCw size={13} strokeWidth={1.75} style={{ marginRight: 4 }} /> Try again
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {businessId && job && (
+        <FieldLinkSheet open={qrOpen} onClose={() => setQrOpen(false)} businessId={businessId} jobId={jobId}
+          jobTitle={job.title} address={job.address ?? null} />
       )}
 
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}

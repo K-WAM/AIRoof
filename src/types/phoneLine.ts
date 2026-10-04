@@ -18,8 +18,8 @@ export type SmsStatus = "not_configured" | "pending_registration" | "ready" | "b
 export const SMS_STATUSES: readonly SmsStatus[] = ["not_configured", "pending_registration", "ready", "blocked"];
 
 /** Which texts a line may send. Only messages that exist today — there is no OTP/identity-verification text. */
-export type SmsPurpose = "booking_received" | "appointment_confirmed" | "inspector_assigned";
-export const SMS_PURPOSES: readonly SmsPurpose[] = ["booking_received", "appointment_confirmed", "inspector_assigned"];
+export type SmsPurpose = "booking_received" | "appointment_confirmed" | "inspector_assigned" | "field_link";
+export const SMS_PURPOSES: readonly SmsPurpose[] = ["booking_received", "appointment_confirmed", "inspector_assigned", "field_link"];
 
 export interface LineSms {
   status: SmsStatus;

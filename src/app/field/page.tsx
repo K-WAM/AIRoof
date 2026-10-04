@@ -220,7 +220,7 @@ function FieldApp() {
             <div style={{ padding: "16px", background: "#2d0f0f", border: "1px solid #7f1d1d", borderRadius: 14 }}>
               <p style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#fca5a5" }}>This link isn&apos;t active</p>
               <p style={{ margin: 0, fontSize: 13, color: "#f1a8a8", lineHeight: 1.5 }}>
-                Scan the current QR code from the office to open the field screen. If you keep seeing this, ask the office for a fresh field link.
+                The office stopped this link or sent a newer one. Ask them to send it to you again.
               </p>
               <p style={{ margin: "10px 0 0", fontSize: 13, color: "#f1a8a8" }}>
                 Have a login? <a href="/company/field" style={{ color: "#fecaca", fontWeight: 700 }}>Sign in to the field screen</a>
