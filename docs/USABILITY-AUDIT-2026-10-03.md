@@ -67,13 +67,13 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
 - ✅ H8/H7 phone: four full-width number cards pushed the work below the fold → 2×2 block.
 - ✅ H1/H4: "AI answering calls" was warning-orange whether the AI was on or off → green on, red off.
 - ✅ H2: an invoiced job counted as "active".
-- ⚠️ H8: the subtitle repeats what the tiles say; consider dropping it.
+- ✅ (T-179, 2026-10-04) H8: the subtitle repeats what the tiles say; consider dropping it.
 
 ### Calls
 - ✅ H2/H4: "1 total" pill was warning-orange and capped silently at 100 → neutral "N calls" / "100+ calls".
-- ⚠️ H8 phone: each call card offers "Open call", "Details" and "Booked · open in Pipeline" — three ways in. Keep one
+- ✅ (T-172, 2026-10-04) H8 phone: each call card offers "Open call", "Details" and "Booked · open in Pipeline" — three ways in. Keep one
   primary ("Open call") and fold the rest into Details.
-- ⚠️ H8: transcripts show the classifier's internal reason line; only useful to staff debugging.
+- ✅ (T-173, 2026-10-04) H8: transcripts show the classifier's internal reason line; only useful to staff debugging.
 
 ### Pipeline
 - ✅ H5: "Create Job" on a booking that already had a job (made from the New Job form) → now "Open Job J-…".
@@ -81,7 +81,7 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
 
 ### Calendar
 - ✅ H2: an invoiced job showed under "Unscheduled jobs".
-- ⚠️ H4: "+ Manage crews" uses an add icon for a manage action.
+- ✅ (T-175, 2026-10-04) H4: "+ Manage crews" uses an add icon for a manage action.
 
 ### Jobs list
 - ✅ H1: clicking a status tab refetched and **zeroed every other tab's count** → tabs filter in memory, counts real
@@ -100,24 +100,24 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
 - ✅ H1: a paid job left the last progress step open → all five done.
 - ✅ H6 desktop: the Invoice tab (the money step) was scrolled off the right edge at 1280 px → group labels become a
   divider below 1440 px.
-- ⚠️ H8: Activity shows each note's parsed chips *and* the Work log below repeats the same lines. Consider collapsing
+- ✅ (T-174, 2026-10-04) H8: Activity shows each note's parsed chips *and* the Work log below repeats the same lines. Consider collapsing
   the per-note chips behind "View parsed" once the Work log has them.
 
 ### Field (office login and Crew login) and Field QR
 - ✅ H7: a sole open job is preselected (one fewer tap per visit); invoiced jobs no longer listed.
 - ✅ H9: an inactive QR link showed the error *plus* a page of dead controls → only the message and a sign-in link.
-- ⚠️ H8: the "Add to Home Screen" banner still shows above the inactive-link message.
+- ✅ (T-176, 2026-10-04) H8: the "Add to Home Screen" banner still shows above the inactive-link message.
 
 ### Customers · Library · Team · Guide
 - — Library: one primary per empty state ("Load example prices"), counts on tabs.
 - ✅ H4: Team "seats in use" pill neutral, not warning.
-- ⚠️ H8 phone: Library's five tabs wrap to three rows with "Work catalog" alone on the last.
+- ✅ (T-177, 2026-10-04) H8 phone: Library's five tabs wrap to three rows with "Work catalog" alone on the last.
 
 ### Settings
 - ✅ H8: phone page was ~7,200 px. The nine legal notices (2,438 px of textareas) now fold behind "Edit notices
   (n of 9 on)" with status + approve visible; switched-off notices are one line; duplicate "Terms & notices" heading
   removed; hours are one compact card per day on a phone. (Terms −83 %, Hours −19 %.)
-- ⚠️ H7: still the longest screen; a sticky section switcher (instead of the "Jump to" select) would help.
+- ✅ (T-178, 2026-10-04) H7: still the longest screen; a sticky section switcher (instead of the "Jump to" select) would help.
 
 ### Admin / Hub (superadmin)
 - — Loads in ~1.1 s; not part of the roofing customer's path. Not re-audited beyond load/overflow.
@@ -135,3 +135,29 @@ Legend: ✅ fixed this pass · ⚠️ open (recommendation, not done) · — no 
   screen-audit, booking all pass on phone; doc-photos + screen-audit pass on desktop.
 - Not done: a real phone call (no booking/scheduling code changed — the Booking-change gate is not triggered), and no
   production deploy from this session.
+
+
+## Follow-up 2026-10-04 — field updates (T-181) against the 10 heuristics
+
+Owner: "a lot can go wrong with updates going to the wrong job… knows who provided an update… the arrived at office
+and started lunch buttons were confusing." Both field screens now share one `FieldNoteComposer`, `RecentNotes` and the
+reworked `TimeClock`. Proven by `e2e/field-updates.spec.ts` (desktop + phone).
+
+| Heuristic | Before | After |
+|---|---|---|
+| H1 Visibility of status | "✓ Logged" for 2–3 s, no job named; clock showed "At J-1003" with no time | Receipt stays: "Saved to J-1001 by Carlos · Added 1 material, 8 h labor, 1 issue"; clock: "At J-1001 · 1h 05m", today's total |
+| H2 Match the real world | "Arrived at office / Done for the day"; "Update 1 by Crew (no name given)" | "Clock in at the shop / at J-1001 / Leave J-1001 / Clock out for the day"; "from Carlos" (+ "field link" for QR) |
+| H3 User control | One tap ended the paid day; correction applied to whatever job was selected | Clock out asks once; a correction is tied to its job and a job switch drops it; "Keep as is" |
+| H4 Consistency | Two different field screens (orange vs purple, typing only on one) | One composer, one clock, one recent list on both |
+| H5 Error prevention | Notes and hours could point at different jobs silently; same-ms notes overwrote each other; anonymous notes; body-supplied names | "Notes go to J-…" before talking; warning when clocked in elsewhere; clocked-in job auto-selected; random-suffix ids; QR needs a name, login name can't be spoofed; invoiced jobs refuse notes |
+| H6 Recognition over recall | Crew had to remember which job was selected | Job + address + "Sent as" printed at the button; "Your crew" tag in the job list |
+| H7 Flexibility | Hold-to-talk only (signed-in) | Hold OR tap-start/tap-stop; type on both screens |
+| H8 Minimalist | Job page repeated parsed chips and the Work log | The note's words lead; AI extraction folds behind "What the AI read (n)" |
+| H9 Error recovery | "Failed — try again" | Says what to do: mic blocked → allow or type; no speech → hold the whole time; invoiced → ask the office; no signal → text kept, try again |
+| H10 Help | None at the button | One example line under the mic; shop time explained where offered |
+
+**Who is on a job (the "assigned by number?" question):** jobs have a number (J-1001) and are assigned to a **crew**
+on the Calendar; a person belongs to one crew (Library → Crews). A signed-in person is identified by their login
+(stored as a uid), a QR user by the name they type — every note, photo and clock tap carries that identity, and
+punched hours go onto the job's labor under the same name. Not yet shown: the author's crew name on office note
+cards (TODO T-181 follow-up).

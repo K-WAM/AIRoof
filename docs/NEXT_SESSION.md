@@ -1,5 +1,14 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-10-04 — read this first
+- **Phase 33 done on branch `ccr-8c0916c7-3r7kkm`** (still not merged/deployed): T-172–T-179 polish, and **T-181 field
+  updates** — one note composer for both field screens that prints the job + author before talking, warns when
+  clocked in at a different job, and leaves a receipt naming both; server-side author identity (login, or the typed
+  name on a QR link); a plain-words time clock with a running timer and a confirm on Clock out. Details + Nielsen
+  table: `docs/USABILITY-AUDIT-2026-10-03.md` (follow-up section). T-180 is a plan only (`docs/T-180-ACTIVITY-SIGNAL-PLAN.md`).
+- **Owner:** merge the branch; decide NH-32 (Blaze); then try the field screen on a real phone (hold-to-talk and
+  tap-to-start, Clock in → note → Clock out).
+
 ## CURRENT STATE 2026-10-03 — read this first
 - **Roofing hardening + usability audit on branch `ccr-8c0916c7-3r7kkm` (not merged/deployed).** Read
   `docs/USABILITY-AUDIT-2026-10-03.md`: security fixes on the no-login field-QR write paths (photo HTML injection into

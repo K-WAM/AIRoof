@@ -9,7 +9,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 **Phase 33 (roofing hardening + Nielsen audit, 2026-10-03) — on branch `ccr-8c0916c7-3r7kkm`, NOT merged/deployed.**
 Security fixes on the field-QR write paths, the duplicate-job and invoice-Send bugs, ~10x fewer live-refresh reads,
-per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. Open follow-ups: T-172–T-180 (Phase 33 below), NH-32.
+per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. 2026-10-04: T-172–T-179 done, T-181 field-updates pass done (which job / who / time clock); T-180 planned only; NH-32 open.
 
 **Phase 32 (screen + security audit, T-157–T-171) — PUSHED + DEPLOYED 2026-09-29** (`0b09946`, crm.luxordev.com Ready, health ok;
 `firestore:rules` released — the custom claim is now the only superadmin authority, so NH-28's stale doc flag is inert). Built as four
@@ -2774,29 +2774,37 @@ eslint on changed files, `npx vitest related <files>`, and on the harness (`npm 
 to fill the screens) `npx playwright test e2e/screen-audit.spec.ts` **plus** the changed screen's own spec; read the
 phone screenshot `test-results/screens/phone/audit-<screen>.png`. Mark `[x]` with the commit.
 
-- [ ] **T-172 — Calls: one way into a call (H8).** Phone call card shows "Open call", "Details" and "Booked · open in
+- [x] **T-172 — (done `b3fada4`, 2026-10-04) Calls: one way into a call (H8).** Phone call card shows "Open call", "Details" and "Booked · open in
   Pipeline". Keep "Open call" as the only button; move the Pipeline link inside Details. File: `src/app/company/calls/page.tsx`.
   Accept: one button per card at 375 px; `e2e/call-flow.spec.ts` + `e2e/call-to-cash.spec.ts` green.
-- [ ] **T-173 — Calls: hide the classifier's internal reason line (H8).** The "[…] Caller provided contact info…" line
+- [x] **T-173 — (done `b3fada4`, 2026-10-04) Calls: hide the classifier's internal reason line (H8).** The "[…] Caller provided contact info…" line
   under the outcome badge is internal; show it to superadmin only. File: `src/app/company/calls/page.tsx`.
-- [ ] **T-174 — Job page: no duplicate field-note content (H8).** Activity shows each note's parsed chips and the Work log
+- [x] **T-174 — (done `df33e46`, 2026-10-04) Job page: no duplicate field-note content (H8).** Activity shows each note's parsed chips and the Work log
   repeats the same lines. Collapse a note's chips behind "View parsed" (keep the AI-parsed badge and View original).
   File: `src/app/company/jobs/[jobId]/page.tsx` (`ParsedUpdateCard`). Accept: `page.test.tsx` + `e2e/call-to-cash.spec.ts` green.
-- [ ] **T-175 — Calendar: "Manage crews" icon (H4).** Uses a + (add) icon for a manage link; use a Users icon.
+- [x] **T-175 — (done `b3fada4`, 2026-10-04) Calendar: "Manage crews" icon (H4).** Uses a + (add) icon for a manage link; use a Users icon.
   File: `src/app/company/calendar/` header. Accept: `e2e/crews-calendar.spec.ts` green.
-- [ ] **T-176 — Field QR: no install banner on an inactive link (H8).** Hide `<InstallPrompt />` while `accessDenied`.
+- [x] **T-176 — (done `df33e46`, 2026-10-04) Field QR: no install banner on an inactive link (H8).** Hide `<InstallPrompt />` while `accessDenied`.
   File: `src/app/field/page.tsx`.
-- [ ] **T-177 — Library tabs on a phone (H8).** Five tabs wrap 2+2+1 with "Work catalog" alone. Make the strip one
+- [x] **T-177 — (done `b3fada4`, 2026-10-04) Library tabs on a phone (H8).** Five tabs wrap 2+2+1 with "Work catalog" alone. Make the strip one
   horizontal scroll row (like the job tabs) or a 3+2 grid. Files: `src/app/company/library/page.tsx`, `globals.css`.
-- [ ] **T-178 — Settings: sticky section switcher (H7).** Replace the "Jump to" select with a sticky chip row (Company ·
+- [x] **T-178 — (done `b3fada4`, 2026-10-04) Settings: sticky section switcher (H7).** Replace the "Jump to" select with a sticky chip row (Company ·
   Hours · Phone · Documents · Terms · Advanced) that highlights the section in view. File: `src/app/company/settings/page.tsx`.
   Accept: `page.test.tsx` green; phone screenshot shows the row pinned while scrolling.
-- [ ] **T-179 — Dashboard subtitle (H8, owner taste).** Subtitle repeats the tiles; drop it or replace it with the one
+- [x] **T-179 — (done `b3fada4`, 2026-10-04) Dashboard subtitle (H8, owner taste).** Subtitle repeats the tiles; drop it or replace it with the one
   next thing to do. File: `src/app/company/dashboard/page.tsx`. Cosmetic — ask the owner if unsure.
-- [ ] **T-180 — Live data without polling (perf, larger).** Polling is ~10x cheaper after the audit but still reads
+- [ ] **T-180 — (PLANNED, not built — see `docs/T-180-ACTIVITY-SIGNAL-PLAN.md`: it touches Booking-change-gate code that needs a real call; unnecessary once NH-32 is done) Live data without polling (perf, larger).** Polling is ~10x cheaper after the audit but still reads
   Firestore every 10–60 s per open screen. Add one cheap "anything changed?" signal (e.g. `lastActivityAt` on
   `businesses/{id}`, bumped by the call/booking/job writers) so screens re-fetch only when it moves. Touches many
   writers — write a short plan in `docs/` first. Optional if NH-32 (Blaze) is done.
+
+- [x] **T-181 — Field updates: which job, who, and a clear time clock (owner, 2026-10-04; done `df33e46`).** One
+  `FieldNoteComposer` for both field screens (job + author printed before talking, wrong-job warning when clocked in
+  elsewhere, receipt that names job + author, correction bound to its job, type option on both screens); server-side
+  author (`resolveAuthor`: login name/uid, QR typed name required) stored as `submittedBy/submittedByUid/submittedVia`;
+  collision-proof ledger ids; invoiced jobs refuse notes; time clock in plain verbs with a running timer, today's
+  total and a confirm on Clock out. Spec: `e2e/field-updates.spec.ts`. Open follow-ups: show the author's crew name on
+  office note cards (store `crewId` with the note); the per-member "who's on which job today" board.
 
 ## Historical assignments (none active)
 

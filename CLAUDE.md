@@ -329,6 +329,7 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/timeclock/punch/route.ts — the cross-job punch guard (GET today's state, POST a punch; the atomic "Switch job" flow lives here)
 - src/app/api/cron/close-punches/route.ts — nightly auto-close of any punch left open from a prior day (vercel.json: 9am UTC)
 - src/components/field/TimeClock.tsx — the punch-buttons widget shared by both field screens (`/field` and `/company/field`)
+- src/components/field/FieldNoteComposer.tsx + RecentNotes.tsx — the ONE way to send a field note on both field screens (T-181, 2026-10-04): job + author printed before talking, wrong-job warning, receipt naming job + author, job-bound corrections. Server-side author identity: `resolveAuthor()` in src/lib/jobs/fieldInput.ts (login name/uid; a QR note needs the typed name) — never trust a body-supplied name for a signed-in user
 - src/app/api/jobs/[jobId]/photos/blobs/route.ts — batched full-res photo fetch (≤12 ids/request, `immutable` cache tier) — kills the report/lightbox N+1
 - src/components/ui/Sheet.tsx — generic bottom-sheet shell (Modal.tsx's mobile-appropriate sibling); `.sheet`/`.sheet-backdrop`/`.sheet-handle` in globals.css
 - src/components/field/PhotoEditSheet.tsx — after-the-fact photo label/phase editing (wired into the job detail page's Photos tab); the `includeInReport` toggle only renders when `canCurate` is passed

@@ -1837,3 +1837,11 @@ declutter), the live-refresh Firestore read cut + Calendar/count-pill fixes, 692
 pass, e2e:call 12/12, e2e/screen-audit.spec.ts added. Removed: the Jobs page "Field view" button (dead end for a
 signed-in user). NEEDS-HUMAN raised: move Firebase to Blaze before selling (Spark's daily read cap is a platform-wide
 single point of failure even after the 10× polling cut).
+
+### Phase 33 completion + T-181 field updates (2026-10-04, branch ccr-8c0916c7-3r7kkm)
+df33e46 (T-181 + T-174 + T-176): shared `FieldNoteComposer`/`RecentNotes`, reworked `TimeClock`, server-side author
+(`resolveAuthor`/`authorFields`, `submittedByUid`/`submittedVia` on FieldUpdate), `ledgerId` collision-proof ids,
+invoiced-job refusal, `englishRendering` guard, job-bound corrections in `useFieldAudio`. b3fada4: T-172/173/175/177/
+178/179. T-180: plan only. Evidence: new updates route test, fieldInput/TimeClock tests, full vitest 1,790 pass,
+e2e:call 12/12, new e2e/field-updates.spec.ts 4/4; full e2e:test result in the handoff. Removed: the separate
+mic/typing/correction/recent code in both field pages (replaced by the shared components), the phone "Jump to" select.
