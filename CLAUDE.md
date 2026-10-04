@@ -409,6 +409,12 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
   `src/lib/copy/glossary.ts`. A closed `<details>` takes no space (globals.css integration block). Company nav comes from
   `src/app/company/navModel.ts`; request wording from `src/lib/requests/displayState.ts`.
 
+## Screen Clarity Rule (read before touching any company screen)
+
+`docs/SCREEN-CLARITY-HEURISTICS.md` — ten pass/fail rules (one job, one primary action, next step visible, show less first,
+say it once, one way per thing, plain words, status colour = risk only, no dead ends, long lists bounded) plus a 5-minute
+review method. Judge with 30 rows of data on a 375 px screenshot. Open clutter: T-182–T-186 in `TODO.md`.
+
 ## Navigation Completeness Rule
 
 Every `page.tsx` must have a reachable UI path before being committed:

@@ -1,5 +1,12 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-10-04 (late) — read this first
+- **New standard:** `docs/SCREEN-CLARITY-HEURISTICS.md` — ten pass/fail clarity rules (C1–C10) on top of Nielsen. Phone audit with
+  seeded data: Pipeline (~14.5k px), Jobs (~12.8k px) and Calls (~11.7k px) are still cluttered; filed as T-182–T-184
+  (T-185 admin config, T-186 automated budgets) in `TODO.md`. Everything else passes.
+- **T-180** (activity signal) stays a plan only. **T-181** (field updates) is done. Owner decisions still open: merge the
+  branch, NH-32 (Blaze), real-phone test of the field screen.
+
 ## CURRENT STATE 2026-10-04 — read this first
 - **Phase 33 done on branch `ccr-8c0916c7-3r7kkm`** (still not merged/deployed): T-172–T-179 polish, and **T-181 field
   updates** — one note composer for both field screens that prints the job + author before talking, warns when

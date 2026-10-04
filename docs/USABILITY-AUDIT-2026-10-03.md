@@ -189,3 +189,12 @@ composer saying "Pick a job" while the link's job was still loading. Screen audi
 - **"Clock in at the office"** (there is no shop); "Office time is paid, not billed to a job."
 - Verified: JobPicker unit tests (50 jobs → 5 rows + search + Show all; search finds a Done job; ranking), field
   specs desktop + phone, phone screenshots with 30 open jobs.
+
+
+## Follow-up 2026-10-04 (late) — clarity guideline and remaining clutter
+All ⚠️ items above are closed. A second look at phone screenshots with 30+ rows of data, judged against the new
+`docs/SCREEN-CLARITY-HEURISTICS.md` (C1–C10), found three list screens that grow without bound and repeat controls:
+Pipeline (Past & Cancelled expanded; Details + More on each card), Jobs (primary Open job + Details on every card),
+Calls (Open call + Details). Filed T-182–T-184; admin config (T-185) and an automated budget check (T-186) follow.
+Lesson: the earlier audit used the seeded demo data and judged each screen's first view; clutter shows up at 30 rows,
+so review with realistic volume.

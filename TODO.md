@@ -9,7 +9,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 **Phase 33 (roofing hardening + Nielsen audit, 2026-10-03) — on branch `ccr-8c0916c7-3r7kkm`, NOT merged/deployed.**
 Security fixes on the field-QR write paths, the duplicate-job and invoice-Send bugs, ~10x fewer live-refresh reads,
-per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. 2026-10-04: T-172–T-179 done, T-181 field-updates pass done (which job / who / time clock); T-180 planned only; NH-32 open.
+per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. 2026-10-04: T-172–T-179 done, T-181 field-updates pass done (which job / who / time clock); T-180 planned only; NH-32 open. Clarity guideline: `docs/SCREEN-CLARITY-HEURISTICS.md` (C1–C10); phone audit found Pipeline, Jobs list and Calls still cluttered (T-182–T-184).
 
 **Phase 32 (screen + security audit, T-157–T-171) — PUSHED + DEPLOYED 2026-09-29** (`0b09946`, crm.luxordev.com Ready, health ok;
 `firestore:rules` released — the custom claim is now the only superadmin authority, so NH-28's stale doc flag is inert). Built as four
@@ -2805,6 +2805,12 @@ phone screenshot `test-results/screens/phone/audit-<screen>.png`. Mark `[x]` wit
   collision-proof ledger ids; time clock in plain verbs with a running timer, today's
   total and a confirm on Clock out. Spec: `e2e/field-updates.spec.ts`. Second pass same day: `JobPicker` (search + 5 likeliest + Show all; finished jobs reachable, tagged Done; a sub from another crew finds the job), one-line target/so-far, Photo+Finding on one row, "office" not "shop", no refusal on finished jobs. Crew name on office note cards shipped
   (`submittedByCrewId`/`submittedByCrew`, 2026-10-04). Open follow-up: the per-member "who's on which job today" board.
+
+- [ ] **T-182 — Pipeline declutter (C4/C6/C10, found 2026-10-04).** Collapse "Past & Cancelled" by default ("Show 25 past"), cap each section to ~10 with "Show all N", and merge each card's "Details" and "More" into one disclosure. Files: `src/app/company/pipeline/page.tsx`. Accept: phone screenshot with 30 bookings ≤ 3 screen-heights; `e2e/booking.spec.ts` + screen-audit green.
+- [ ] **T-183 — Jobs list: the card is the link (C2/C6/C10).** Drop the per-card "Open job" button and "Details" disclosure; whole card opens the job, next step stays as one line; first 15 then "Show more". Files: `src/app/company/jobs/page.tsx`. Accept: ≤ 1 button per card, phone height at 30 jobs ≤ 3 screens, empty-states spec green.
+- [ ] **T-184 — Calls list: one way in (C4/C6/C10).** One "Open call" per card, details inside; show newest 15 with "Show more". Files: `src/app/company/calls/page.tsx`.
+- [ ] **T-185 — Admin client config: sticky section switcher (C1/C4, superadmin, low priority).** Reuse the Settings chip row. File: `src/app/admin/businesses/[businessId]/config/page.tsx`.
+- [ ] **T-186 — Automate C2/C4 (guard).** Extend `e2e/screen-audit.spec.ts` to record primary-button count, interactive elements above the fold and phone height per screen, with budgets from `docs/SCREEN-CLARITY-HEURISTICS.md`, so clutter fails CI instead of an audit.
 
 ## Historical assignments (none active)
 
