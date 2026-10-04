@@ -87,6 +87,9 @@ function lengthLabel(minutes: number): string {
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Narrow enough that a full week fits next to the rail at laptop width; tiles wrap their text.
+const DAY_MIN_PX = 96;
+const RAIL_PAGE = 8;
 
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
@@ -196,6 +199,8 @@ export default function CalendarBoard() {
   });
   // Default to the full 7-day week so weekends are always visible/schedulable (emergencies).
   const [fullWeek, setFullWeek] = useState(true);
+  const [railQuery, setRailQuery] = useState("");
+  const [railAll, setRailAll] = useState(false);
   const [crews, setCrews] = useState<Crew[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [appts, setAppts] = useState<Appointment[]>([]);
@@ -312,6 +317,12 @@ export default function CalendarBoard() {
   const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
   // An invoiced job is finished work, not something waiting for a crew slot (it stays on the board where it was scheduled).
   const unscheduled = jobs.filter((j) => j.status !== "invoiced" && (!j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId)));
+  // A busy roofer has 40 unscheduled jobs: the rail shows the first few, searchable, "Show all" for the rest (C10).
+  const railNeedle = railQuery.trim().toLowerCase();
+  const railMatches = railNeedle
+    ? unscheduled.filter((j) => [j.jobId, j.title, j.address, j.clientName].some((v) => v?.toLowerCase().includes(railNeedle)))
+    : unscheduled;
+  const railShown = railAll || railNeedle ? railMatches : railMatches.slice(0, RAIL_PAGE);
   const unassignedAppts = appts.filter((a) => !a.assignedCrewId);
   const inspectors = crews.filter((crew) => crew.kind === "inspector");
   const workCrews = crews.filter((crew) => crew.kind !== "inspector");
@@ -641,7 +652,6 @@ export default function CalendarBoard() {
 
   // The phone agenda walks day by day, but bookings, blocks and time are loaded one week at a time (weekStart). Moving
   // the agenda into another week must load that week too, or a booked day would show "No bookings".
-  const unscheduledJobs = jobs.filter((job) => job.status !== "invoiced" && (!job.scheduledStart || !job.assignedCrewId));
   const stepAgenda = (delta: number) => {
     const next = addDays(agendaDay, delta);
     setAgendaDay(next);
@@ -659,8 +669,8 @@ export default function CalendarBoard() {
           </h1>
           <p className="page-subtitle">
             {apptMode
-              ? `Your scheduling board — drag a booking onto a ${vocab.resourceNoun.toLowerCase()} and day, then confirm to notify the ${vocab.customerNoun.toLowerCase()}.`
-              : "Drag bookings onto inspectors and jobs onto crews, then confirm to send the right notifications."}
+              ? `Who sees which ${vocab.customerNoun.toLowerCase()}, and when.`
+              : `Who works where, and when. Confirm a slot to notify the people on it.`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -705,18 +715,20 @@ export default function CalendarBoard() {
             testId="calendar-no-resources"
           />}
           {/* The chosen day comes first; unscheduled work waits in one labelled, collapsed list below it (order: last). */}
-          {!apptMode && unscheduledJobs.length > 0 && <details className="c1-agenda-unscheduled" style={{ order: 100000 }}>
-            <summary>Unscheduled {vocab.jobNounPlural.toLowerCase()} ({unscheduledJobs.length})</summary>
+          {!apptMode && unscheduled.length > 0 && <details className="c1-agenda-unscheduled" style={{ order: 100000 }}>
+            <summary>Unscheduled {vocab.jobNounPlural.toLowerCase()} ({unscheduled.length})</summary>
             <div className="c1-agenda-list">
-              {unscheduledJobs.map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
+              {unscheduled.length > RAIL_PAGE && <input type="search" aria-label={`Search unscheduled ${vocab.jobNounPlural.toLowerCase()}`} placeholder={`Search ${unscheduled.length} ${vocab.jobNounPlural.toLowerCase()}`} value={railQuery} onChange={(event) => setRailQuery(event.target.value)} />}
+              {railShown.map((job) => <article className="c1-agenda-item" key={`unscheduled-${job.jobId}`}>
                 <strong>{job.jobId} · {job.title}</strong><span>Unscheduled · choose a {vocab.resourceNoun.toLowerCase()} and time</span>
                 {!readOnly && <select aria-label={`Schedule ${job.title}`} value="" onChange={(event) => { if (event.target.value) setPicker({ jobId: job.jobId, crewId: event.target.value, day: agendaDay, anchor: null }); }}>
                   <option value="">Schedule…</option>{workCrews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
                 </select>}
               </article>)}
+              {railMatches.length > railShown.length && <button type="button" className="button small" onClick={() => setRailAll(true)}>Show all {railMatches.length}</button>}
             </div>
           </details>}
-          {!readOnly && crews.length > 0 && <select aria-label="Block time for" value="" onChange={(event) => { if (event.target.value) openBlockForm(event.target.value); }}><option value="">Block time for…</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>}
+          {!readOnly && crews.length > 0 && <select aria-label="Block time for" style={{ order: 100001 }} value="" onChange={(event) => { if (event.target.value) openBlockForm(event.target.value); }}><option value="">Block time for…</option>{crews.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}</select>}
           {blocks.filter((block) => sameDay(block.startTime, agendaDay, tz)).map((block) => <article className="c1-agenda-item" style={{ order: minuteOfDay(block.startTime, tz) }} key={block.blockId}>
             <strong>{new Date(block.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {block.label}</strong>
             <span>{crews.find((crew) => crew.crewId === block.crewId)?.name ?? vocab.resourceNoun} · Blocked</span>
@@ -802,7 +814,7 @@ export default function CalendarBoard() {
         </section>
       ) : (
       <DndContext sensors={sensors} collisionDetection={dropUnderPointer} autoScroll={EDGE_ONLY_AUTOSCROLL} onDragEnd={onDragEnd}>
-        <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "208px minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
           {/* Needs-a-resource rail */}
           <section className="panel">
             <div className="panel-header">
@@ -813,10 +825,10 @@ export default function CalendarBoard() {
             </div>
             {!apptMode && !nothingToSchedule && (
               <p style={{ margin: 0, padding: "10px 16px 0", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.45 }} data-testid="calendar-unscheduled-help">
-                {vocab.jobNounPlural} with no {vocab.resourceNoun.toLowerCase()} or time yet. Drag one onto a {vocab.resourceNoun.toLowerCase()} and day.
+                No {vocab.resourceNoun.toLowerCase()} or time yet.
               </p>
             )}
-            <div className="panel-body" style={{ display: "grid", gap: 10, maxHeight: 680, overflowY: "auto" }}>
+            <div className="panel-body" style={{ display: "grid", gap: 10 }}>
               {crews.length > 0 && nothingToSchedule ? (
                 <EmptyState
                   compact
@@ -844,9 +856,17 @@ export default function CalendarBoard() {
                     <p style={{ fontSize: 12, color: "var(--text-muted)" }}>See each booking at its requested time in the Phone bookings row.</p>
                   </>}
                   {unscheduled.length > 0 && <strong style={{ fontSize: 12, marginTop: 6 }}>{vocab.jobNounPlural}</strong>}
-                  {unscheduled.map((job) => (
+                  {unscheduled.length > RAIL_PAGE && (
+                    <input type="search" aria-label={`Search unscheduled ${vocab.jobNounPlural.toLowerCase()}`} placeholder={`Search ${unscheduled.length} ${vocab.jobNounPlural.toLowerCase()}`}
+                      value={railQuery} onChange={(event) => setRailQuery(event.target.value)} style={{ width: "100%", fontSize: 13 }} />
+                  )}
+                  {railShown.map((job) => (
                     <JobTile key={job.jobId} job={job} tz={tz} crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)} />
                   ))}
+                  {railMatches.length === 0 && railQuery && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No match for “{railQuery}”.</p>}
+                  {railMatches.length > railShown.length && (
+                    <button type="button" className="button small" onClick={() => setRailAll(true)}>Show all {railMatches.length}</button>
+                  )}
                   {unscheduled.length === 0 && (inspectors.length === 0 || unassignedAppts.length === 0) && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Everything is scheduled 🎉</p>}
                 </>
               )}
@@ -855,7 +875,7 @@ export default function CalendarBoard() {
 
           {/* Crew × day grid */}
           <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff" }}>
-            <div style={{ display: "grid", gridTemplateColumns: `168px repeat(${days.length}, minmax(190px, 1fr))`, minWidth: 900 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${days.length}, minmax(${DAY_MIN_PX}px, 1fr))`, minWidth: 120 + days.length * DAY_MIN_PX }}>
               {/* Header row */}
               <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
@@ -1157,15 +1177,16 @@ function CrewRow({
 }) {
   return (
     <>
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 9 }}>
-        <span style={{ width: 13, height: 13, borderRadius: "50%", background: crew.color, flexShrink: 0, boxShadow: `0 0 0 3px ${crew.color}22` }} />
-        <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", lineHeight: 1.3 }}>
+      <div style={{ padding: "12px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
+        <span style={{ width: 11, height: 11, borderRadius: "50%", background: crew.color, flexShrink: 0, marginTop: 4, boxShadow: `0 0 0 3px ${crew.color}22` }} />
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, minWidth: 0, overflowWrap: "anywhere" }}>
           {crew.name}
           {memberCount > 0 && (
             <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
           )}
+          {/* Secondary: a quiet text link, so the crew's name stays the thing you read first. */}
+          {!readOnly && <button type="button" onClick={() => onAddBlock(crew.crewId)} style={{ display: "block", marginTop: 4, padding: 0, background: "none", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Block time</button>}
         </span>
-        {!readOnly && <button className="button small" type="button" onClick={() => onAddBlock(crew.crewId)} style={{ marginLeft: "auto" }}>＋ Block time</button>}
       </div>
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
