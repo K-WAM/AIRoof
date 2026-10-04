@@ -41,7 +41,7 @@ export default function LibraryPage() {
   const [section, setSection] = useState<Section>(
     initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "branding" || initialSection === "work-catalog"
       ? initialSection
-      : hasPricing ? "pricing" : "crews"
+      : isEnabled("jobs") ? "work-catalog" : hasPricing ? "pricing" : "crews"
   );
   // An old "Library → Customers" link lands on the Customers page (same list, its own nav item).
   useEffect(() => {
@@ -159,6 +159,7 @@ export default function LibraryPage() {
 
   const readOnly = user?.role === "viewer";
   const pricingEmpty = hasPricing && library.materials.length === 0 && library.laborRates.length === 0;
+  const hasStarterPrices = library.materials.some((m) => m.starter) || library.laborRates.some((r) => r.starter) || workCatalog.items.some((i) => i.starter);
 
   if (loading) return <PageSkeleton rows={5} />;
   if (loadError) {
@@ -180,15 +181,16 @@ export default function LibraryPage() {
           </h1>
           <p className="page-subtitle">
             {hasPricing
-              ? `Pricing, ${vocab.resourceNounPlural.toLowerCase()}, and shared documents. Invoices and reports pull pricing from here automatically.`
+              ? `What you charge, who does the work, and your logo. Quotes and invoices fill in from here.`
               : `Your ${vocab.resourceNounPlural.toLowerCase()} and shared documents. ${vocab.resourceNounPlural} appear as rows on the Calendar.`}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {saved && <span className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>✓ Saved</span>}
           {/* Hidden while the empty price list offers the same call, so the screen keeps one primary button. */}
-          {modulesReady && industry && isEnabled("library") && !readOnly && !(section === "pricing" && pricingEmpty) && (
-            <button type="button" className="button primary" onClick={loadStarterKit} disabled={loadingKit}>
+          {modulesReady && industry && isEnabled("library") && !readOnly && !(section === "pricing" && pricingEmpty) && !(section === "work-catalog" && workCatalog.items.length === 0) && (
+            // Secondary: each tab's own button (Add item, Add crew…) is the one primary on the screen.
+            <button type="button" className="button" onClick={loadStarterKit} disabled={loadingKit}>
               {loadingKit ? "Loading…" : "Load starter kit"}
             </button>
           )}
@@ -196,7 +198,8 @@ export default function LibraryPage() {
       </header>
 
       {kitMessage && <p role="status" style={{ margin: "0 0 16px", color: "var(--accent)" }}>{kitMessage}</p>}
-      {hasPricing && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Items marked “Starter” carry example prices — edit each price to match your rates before invoicing.</p>}
+      {/* Only when example prices are actually in the lists — otherwise it explains something that isn't there. */}
+      {hasPricing && hasStarterPrices && <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>Items marked “Starter” are example prices. Change them to your rates before you send a quote.</p>}
 
       {actionError && (
         <div role="alert" style={{ marginBottom: 16, color: "var(--danger)" }}>
@@ -206,19 +209,19 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["pricing", "crews", "documents", "branding", "work-catalog"] as Section[])
+          {(["work-catalog", "pricing", "crews", "branding", "documents"] as Section[])
             .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")))
             .map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
                 {s === "pricing"
-                  ? "Pricing"
+                  ? "Prices & rates"
                   : s === "crews"
                     ? `${vocab.resourceNounPlural} (${crews.length})`
                     : s === "documents"
                       ? `Documents (${library.documents?.length ?? 0})`
                       : s === "work-catalog"
-                        ? `Work catalog (${workCatalog.items.length})`
-                        : `Branding (${logos.length})`}
+                        ? `Common fixes (${workCatalog.items.length})`
+                        : logos.length ? "Logo ✓" : "Logo"}
               </button>
             ))}
         </div>

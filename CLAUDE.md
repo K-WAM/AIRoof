@@ -294,9 +294,11 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/api/jobs/[jobId]/photos/route.ts + [photoId]/route.ts — photo upload/list/blob/toggle/delete
 - src/app/api/jobs/[jobId]/report/send/route.ts — branded report email (Resend), manual Mail gate
 - src/app/api/jobs/[jobId]/assign/route.ts — crew assignment + branded crew email
-- src/app/api/jobs/[jobId]/field-qr/route.ts — mints a one-time, 10-min field-access grant for a job (staff-role
-  gated); the job detail page's "Field QR" button renders it as a scannable code via the `qrcode` package —
-  the no-login counterpart to "Copy field link" (which needs a portal account)
+- src/app/api/jobs/[jobId]/field-qr/route.ts — the job's ONE reusable field link (2026-10-04): POST returns/creates it and,
+  with `sendTo` (phone or email), delivers it; DELETE = "Stop link". `openFieldJobLink()` in verifyRole.ts decides when it
+  works (not stopped, field key unchanged, < 90 days); each open = a job-pinned 12 h session. The pointer lives in
+  `fieldJobLinkIndex`, never on the job doc (View-only users read jobs; the link is a credential). UI:
+  `src/components/jobs/FieldLinkSheet.tsx` ("Send to a worker")
 - src/lib/notify.ts — BizBranding email templates (wraps `src/lib/comms/send.ts`, T-041 unified comms service)
 - src/types/library.ts — LibraryPricing/Material/LaborRate/Document, Crew, lookupUnitPrice()
 - src/app/company/library/page.tsx + src/app/api/company/library/route.ts + crews/route.ts — Library (pricing/crews/docs)

@@ -106,6 +106,7 @@ test("every empty screen says what goes there and offers one next step", async (
 
   await visit(page, "/company/library?section=work-catalog");
   await expectEmpty(page, "library-work-catalog-empty", /Save your common fixes once/, "Load starter kit");
+  await expect(page.locator("main .button.primary")).toHaveCount(1); // no second "Load starter kit", no Add item over nothing
   await check(page, "library-work-catalog");
 
   await visit(page, "/company/team");

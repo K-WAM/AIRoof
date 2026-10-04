@@ -165,7 +165,8 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
 
   return (
     <div>
-      <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 16 }}>
+      {/* Search and Add only once there is something to search; an empty catalog is just its empty state (one button). */}
+      {catalog.items.length > 0 && <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 16 }}>
         <div style={{ position: "relative", flex: "1 1 240px" }}>
           <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
           <input
@@ -177,11 +178,11 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
           />
           {query && <button type="button" className="button small" onClick={() => setQuery("")}>Clear</button>}
         </div>
-        <button type="button" className="button primary" onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {!readOnly && <button type="button" className="button primary" onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <Plus size={15} strokeWidth={1.75} />
           Add item
-        </button>
-      </div>
+        </button>}
+      </div>}
 
       {catalog.items.length > 0 && (
         <p style={{ margin: "0 0 16px", fontSize: 12, color: "#64748b" }}>
@@ -198,7 +199,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
       {catalog.items.length === 0 ? (
         <section className="panel">
           <div className="panel-body">
-            {/* The work catalog is common problems + their fixes, not the price list (that's the Pricing section). */}
+            {/* The work catalog is common problems + their fixes, not the price list (that's the Prices & rates section). */}
             <EmptyState
               icon={ClipboardList}
               title="Save your common fixes once"
@@ -206,6 +207,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                 ? "Ask the owner to add your common fixes."
                 : `Tick one on a ${vocab.jobNoun.toLowerCase()}; it fills the report, quote and invoice.`}
               action={readOnly ? undefined : { label: loadingKit ? "Loading…" : "Load starter kit", onClick: loadStarterKit }}
+              secondary={readOnly ? undefined : { label: "Add my own", onClick: openNew }}
               testId="library-work-catalog-empty"
             />
           </div>

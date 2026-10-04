@@ -98,7 +98,7 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
       {(error || pickError) && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: "0 0 10px" }}>{error || pickError}</p>}
       {loading && <p style={{ color: "var(--text-muted)" }}>Loading the Library…</p>}
       {!loading && !error && items.length === 0 && (
-        <p style={{ color: "var(--text-muted)" }}>The Library has no items yet. Add some under Library → Work catalog.</p>
+        <p style={{ color: "var(--text-muted)" }}>The Library has no items yet. Add some under Library → Common fixes.</p>
       )}
       {!loading && items.length > 0 && groups.length === 0 && <p style={{ color: "var(--text-muted)" }}>Nothing matches &ldquo;{query}&rdquo;.</p>}
       <div className="sheet-list">

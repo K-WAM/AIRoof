@@ -392,7 +392,7 @@ function MaterialQuickAddForm({
         </div>
       </div>
       <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
-        Saved to your pricing catalog (Library → Pricing) — future field notes mentioning this material auto-fill
+        Saved to your pricing catalog (Library → Prices & rates) — future field notes mentioning this material auto-fill
         its price on invoices.
       </p>
       <div className="button-row">

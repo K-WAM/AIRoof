@@ -113,6 +113,16 @@ describe("POST /api/company/customers", () => {
     expect(body.customer.jobCount).toBe(0);
   });
 
+  it("an organization keeps its contact person (schools: the facilities manager), cleaned and capped", async () => {
+    const res = await POST(requestFor({
+      businessId: "biz-1", name: "Lincoln Elementary School", kind: "commercial", email: "facilities@lincoln.org",
+      contacts: [{ name: "  Dana Ortiz ", role: "Main contact" }, { name: "" }, "junk"],
+    }));
+    expect(res.status).toBe(201);
+    const { customer } = await res.json();
+    expect(customer).toMatchObject({ kind: "commercial", contacts: [{ name: "Dana Ortiz", role: "Main contact" }] });
+  });
+
   it("allocates sequential ids across multiple creates", async () => {
     const a = await POST(requestFor({ businessId: "biz-1", name: "Customer A" })).then((r) => r.json());
     const b = await POST(requestFor({ businessId: "biz-1", name: "Customer B" })).then((r) => r.json());

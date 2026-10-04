@@ -1,6 +1,19 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-10-04 (night) — read this first
+## CURRENT STATE 2026-10-04 (late night) — read this first
+- **Field link is now reusable and sent, not posted** (owner: "textable or emailable … we are good with reusable code"). Job page →
+  "Send to a worker": type a phone or email → the app emails it (letterhead), or texts it from the business line when texting is
+  Ready, else opens the office phone's Messages with the text written. One link per job, any number of phones, every day, until
+  "Stop link" / field-key rotation / 90 days (`openFieldJobLink`, `fieldJobLinks` + `fieldJobLinkIndex`, kept off the job doc).
+  QR is one tap away for someone standing next to you. Old one-use links still resolve once.
+- **Documents checked** (quote/invoice/report, desktop + phone, logo + Before/After photos, emails): photos are now picked by
+  thumbnail; the phone invoice editor stacks and its tables scroll; the logo is asserted in all three docs and emails
+  (`e2e/doc-photos.spec.ts`); invoiced jobs no longer say "Next: Report"; the header next-step button hides on its own tab.
+- **Library**: tabs in plain words, most-used first (Common fixes · Prices & rates · Crews · Logo · Documents); one primary per
+  empty tab. **Customers** for schools/institutions: "Who is it?" first (School or business / Person), organization name,
+  contact person, "Email for quotes and invoices"; the type defaults to what most existing customers are.
+
+## CURRENT STATE 2026-10-04 (night)
 - **Owner's standard saved:** `docs/ZERO-TRAINING-UX-STANDARD.md` (checklist: `docs/SCREEN-CLARITY-HEURISTICS.md`). Applied:
   Jobs/Pipeline/Calls bounded with the card as the one tap target (phone heights 12–14k px → 2.3–3.7k px); Calendar fits a full
   week at 1280 px, unscheduled list searchable + bounded; job page "Field QR / link" (one button: QR code to scan + Text/copy link, native share, 24 h one-use link

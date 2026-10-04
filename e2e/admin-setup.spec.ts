@@ -51,6 +51,6 @@ test("an old Library → Customers link lands on the Customers page (one screen 
   await page.waitForURL(/\/company\/customers/);
   await page.goto("/company/library");
   await settle(page);
-  await expect(page.getByRole("button", { name: /^Pricing/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Prices & rates/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /^(Customers|Clients) \(/ })).toHaveCount(0);
 });

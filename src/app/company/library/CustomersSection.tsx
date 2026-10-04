@@ -23,9 +23,23 @@ interface Props {
 
 type DraftFields = {
   name: string; kind: CustomerKind; phone: string; email: string; address: string; notes: string;
+  /** An organization's person to talk to (stored as contacts[0]). */
+  contactName: string;
 };
 
-const BLANK_DRAFT: DraftFields = { name: "", kind: "residential", phone: "", email: "", address: "", notes: "" };
+const BLANK_DRAFT: DraftFields = { name: "", kind: "residential", phone: "", email: "", address: "", notes: "", contactName: "" };
+const KIND_KEY = "customerKindLast";
+
+/** Smart default (owner, 2026-10-04: most customers are schools and institutions): the kind most of this business's
+ *  customers already are, else the kind this person picked last time, else a person. Always one tap to change. */
+function likelyKind(customers: CustomerSlim[]): CustomerKind {
+  if (customers.length >= 3) {
+    const orgs = customers.filter((c) => c.kind === "commercial").length;
+    return orgs * 2 >= customers.length ? "commercial" : "residential";
+  }
+  try { const last = localStorage.getItem(KIND_KEY); if (last === "commercial" || last === "residential") return last; } catch { /* private mode */ }
+  return "residential";
+}
 
 export function CustomersSection({ businessId, customers, setCustomers, initialCustomerId }: Props) {
   const { vocab } = useBusinessModules();
@@ -95,7 +109,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
                   compact
                   title={`No ${vocab.customerNounPlural.toLowerCase()} yet`}
                   body="They're added automatically when you accept a request."
-                  action={readOnly ? undefined : { label: `Add ${vocab.customerNoun.toLowerCase()}`, onClick: () => { setCreating(true); setSelectedId(null); } }}
+                  action={readOnly || creating ? undefined : { label: `Add ${vocab.customerNoun.toLowerCase()}`, onClick: () => { setCreating(true); setSelectedId(null); } }}
                   testId="customers-empty"
                 />
               ) : <p style={{ padding: "16px 14px", fontSize: 13, color: "var(--text-muted)" }}>No match for &ldquo;{query}&rdquo;.</p>
@@ -122,6 +136,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
         <CustomerDetail
           businessId={businessId}
           customerId={null}
+          defaultKind={likelyKind(customers)}
           vocabCustomerNoun={vocab.customerNoun}
           tz={tz}
           onClose={() => setCreating(false)}
@@ -154,10 +169,11 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
 
 // ── Detail / create panel ──────────────────────────────────────────────────
 function CustomerDetail({
-  businessId, customerId, vocabCustomerNoun, tz, onClose, onCreated, onUpdated,
+  businessId, customerId, defaultKind = "residential", vocabCustomerNoun, tz, onClose, onCreated, onUpdated,
 }: {
   businessId: string | null;
   customerId: string | null; // null = create mode
+  defaultKind?: CustomerKind;
   vocabCustomerNoun: string;
   tz: string;
   onClose: () => void;
@@ -181,7 +197,7 @@ function CustomerDetail({
     setLoadedFor(activeKey);
     setError(null);
     if (isCreate) {
-      setDraft(BLANK_DRAFT);
+      setDraft({ ...BLANK_DRAFT, kind: defaultKind });
       setCustomer(null);
       setJobs([]);
       setLoading(false);
@@ -204,6 +220,7 @@ function CustomerDetail({
           name: d.customer.name ?? "", kind: d.customer.kind ?? "residential",
           phone: d.customer.phone ?? "", email: d.customer.email ?? "",
           address: d.customer.address ?? "", notes: d.customer.notes ?? "",
+          contactName: d.customer.contacts?.[0]?.name ?? "",
         });
       })
       .catch(() => { if (!cancelled) setLoadError(true); })
@@ -215,12 +232,19 @@ function CustomerDetail({
     if (!businessId || !draft.name.trim()) return;
     setSaving(true);
     setError(null);
+    const { contactName, ...fields } = draft;
+    const keptContacts = (customer?.contacts ?? []).slice(1);
+    const payload = {
+      businessId, ...fields,
+      contacts: contactName.trim() ? [{ name: contactName.trim(), role: "Main contact" }, ...keptContacts] : keptContacts,
+    };
+    try { localStorage.setItem(KIND_KEY, draft.kind); } catch { /* private mode */ }
     try {
       if (isCreate) {
         const res = await fetch("/api/company/customers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessId, ...draft }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json();
         if (res.status === 409 && data.customerId) {
@@ -232,7 +256,7 @@ function CustomerDetail({
         const res = await fetch(`/api/company/customers/${customerId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessId, ...draft }),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error("Update failed");
         onUpdated({ customerId: customerId!, name: draft.name, kind: draft.kind, phone: draft.phone || undefined, address: draft.address || undefined });
@@ -263,36 +287,43 @@ function CustomerDetail({
       <div className="panel-body">
         {error && <p role="alert" style={{ color: "var(--danger)", marginTop: 0, fontSize: 13 }}>{error}</p>}
 
+        {/* Who is it? asked first, because it changes the words below (owner: most customers are schools). */}
         <div className="form-grid">
           <div className="field full">
-            <label>{vocabCustomerNoun} name *</label>
-            <input value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Jane Smith, or Walmart #2291 — Facilities" />
-          </div>
-          <div className="field">
-            <label>Type</label>
-            <div className="segmented-control">
-              {(["residential", "commercial"] as CustomerKind[]).map((k) => (
+            <span id="customer-kind-label" style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Who is it?</span>
+            <div className="segmented-control" role="group" aria-labelledby="customer-kind-label">
+              {(["commercial", "residential"] as CustomerKind[]).map((k) => (
                 <button key={k} type="button" className="segment" aria-pressed={draft.kind === k} onClick={() => setDraft((d) => ({ ...d, kind: k }))}>
-                  {k === "residential" ? "Residential" : "Commercial"}
+                  {k === "commercial" ? "School or business" : "Person or homeowner"}
                 </button>
               ))}
             </div>
           </div>
+          <div className="field full">
+            <label htmlFor="customer-name">{draft.kind === "commercial" ? "Organization name" : "Name"} *</label>
+            <input id="customer-name" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder={draft.kind === "commercial" ? "Lincoln Elementary School" : "Jane Smith"} />
+          </div>
+          {draft.kind === "commercial" && (
+            <div className="field full">
+              <label htmlFor="customer-contact">Contact person</label>
+              <input id="customer-contact" value={draft.contactName} onChange={(e) => setDraft((d) => ({ ...d, contactName: e.target.value }))} placeholder="e.g. the facilities manager" autoComplete="off" />
+            </div>
+          )}
           <div className="field">
-            <label>Phone</label>
-            <input value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} placeholder="+1 (305) 555-0100" />
+            <label htmlFor="customer-phone">{draft.kind === "commercial" ? "Contact phone" : "Phone"}</label>
+            <input id="customer-phone" type="tel" value={draft.phone} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} placeholder="(305) 555-0100" />
           </div>
           <div className="field">
-            <label>Email</label>
-            <input type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} placeholder="name@company.com" />
+            <label htmlFor="customer-email">{draft.kind === "commercial" ? "Email for quotes and invoices" : "Email"}</label>
+            <input id="customer-email" type="email" value={draft.email} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} placeholder={draft.kind === "commercial" ? "facilities@school.org" : "name@email.com"} />
           </div>
           <div className="field full">
-            <label>Address</label>
-            <input value={draft.address} onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))} placeholder="123 Main St, Miami, FL" />
+            <label htmlFor="customer-address">{draft.kind === "commercial" ? "Main address" : "Address"}</label>
+            <input id="customer-address" value={draft.address} onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))} placeholder="123 Main St, Miami, FL" autoComplete="street-address" />
           </div>
           <div className="field full">
-            <label>Notes</label>
-            <input value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Gate code, preferred contact time, anything worth remembering…" />
+            <label htmlFor="customer-notes">Notes</label>
+            <input id="customer-notes" value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} placeholder={draft.kind === "commercial" ? "Check in at the front office, work after 3 pm, PO needed…" : "Gate code, best time to call…"} />
           </div>
         </div>
         <div className="button-row" style={{ marginTop: 14 }}>

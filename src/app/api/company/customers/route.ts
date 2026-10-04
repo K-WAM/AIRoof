@@ -4,7 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import { resolveCustomer } from "@/lib/customers/resolve";
 import { tokenForQuery } from "@/lib/customers/search";
-import type { Customer, CustomerKind, CustomerSlim } from "@/types/customer";
+import type { Customer, CustomerContact, CustomerKind, CustomerSlim } from "@/types/customer";
 
 const SLIM_LIMIT = 1000;
 const SEARCH_LIMIT = 20;
@@ -67,10 +67,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const {
-    businessId, name, kind, phone, email, address, notes, tags, defaultTaxRate, defaultLaborRate,
+    businessId, name, kind, phone, email, address, notes, tags, defaultTaxRate, defaultLaborRate, contacts,
   } = body as {
     businessId?: string; name?: string; kind?: CustomerKind; phone?: string; email?: string;
     address?: string; notes?: string; tags?: string[]; defaultTaxRate?: number; defaultLaborRate?: number;
+    contacts?: CustomerContact[];
   };
 
   if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
@@ -96,6 +97,12 @@ export async function POST(req: NextRequest) {
   const extra: Record<string, unknown> = {};
   if (notes !== undefined) extra.notes = notes;
   if (Array.isArray(tags)) extra.tags = tags.slice(0, 10);
+  if (Array.isArray(contacts)) extra.contacts = contacts.slice(0, 10).filter((c) => c && typeof c === "object").map((c) => ({
+    ...(typeof c.name === "string" && c.name.trim() ? { name: c.name.trim().slice(0, 120) } : {}),
+    ...(typeof c.role === "string" && c.role.trim() ? { role: c.role.trim().slice(0, 60) } : {}),
+    ...(typeof c.phone === "string" && c.phone.trim() ? { phone: c.phone.trim().slice(0, 40) } : {}),
+    ...(typeof c.email === "string" && c.email.trim() ? { email: c.email.trim().slice(0, 200) } : {}),
+  })).filter((c) => Object.keys(c).length > 0);
   if (defaultTaxRate !== undefined) extra.defaultTaxRate = defaultTaxRate;
   if (defaultLaborRate !== undefined) extra.defaultLaborRate = defaultLaborRate;
   if (Object.keys(extra).length > 0) {

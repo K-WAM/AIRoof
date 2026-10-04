@@ -1570,7 +1570,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                   content={
                                     laborCatalog.length > 0
                                       ? "Pick a role to fill its saved Library rate, or type your own."
-                                      : `No roles saved yet — using your business default ($${defaultLaborRate}/hr). Add roles & rates in Library → Pricing to auto-fill rates here.`
+                                      : `No roles saved yet — using your business default ($${defaultLaborRate}/hr). Add roles & rates in Library → Prices & rates to auto-fill rates here.`
                                   }
                                 >
                                   <button type="button" aria-label="Where this rate comes from" style={{ background: "none", border: "none", padding: 0, cursor: "help", display: "inline-flex" }}>
