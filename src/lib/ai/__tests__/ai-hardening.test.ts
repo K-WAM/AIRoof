@@ -221,6 +221,25 @@ describe("deepseekClient — adversarial hardening", () => {
       expect(result).toContain("Follow up");
     });
 
+    it("uses OpenAI gpt-4o-mini when DeepSeek errors (e.g. out of credit)", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test");
+      vi.stubEnv("OPENAI_API_KEY", "sk-test");
+      const models: unknown[] = [];
+      vi.doMock("openai", () => ({
+        default: buildMockOpenAI((params) => {
+          models.push(params.model);
+          if (params.model !== "gpt-4o-mini") throw new Error("402 Insufficient Balance");
+          return { choices: [{ message: { content: '{"summary": "Caller wants a roof inspection.", "actionItems": []}' } }] };
+        }),
+      }));
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { summarizeTranscript } = await import("@/lib/ai/deepseekClient");
+      const result = await summarizeTranscript({ transcript: [{ role: "caller", text: "hi" }], businessName: "Test" });
+      expect(result).toContain("roof inspection");
+      expect(models).toEqual(["deepseek-chat", "gpt-4o-mini"]);
+      warn.mockRestore();
+    });
+
     it("falls back to raw content when schema rejects", async () => {
       vi.stubEnv("DEEPSEEK_API_KEY", "sk-test");
       vi.doMock("openai", () => ({

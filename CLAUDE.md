@@ -263,9 +263,13 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/admin/admin-nav.tsx — the ONE superadmin sidebar (Clients · Operations · Billing · Resources), used by /admin and /hub (T-166)
 - src/app/hub/hub-nav.tsx — deleted (T-166): /hub/* renders the Admin shell + AdminNav; /hub redirects to /hub/demo
 - src/app/hub/layout.tsx — Hub shell, same superadmin gate as /admin (T-055)
-- src/app/admin/usage/page.tsx — Platform-wide usage monitoring (calls/leads/appts per tenant)
-- src/app/api/admin/usage/route.ts — Firestore count aggregation per business
-- src/app/hub/guide/page.tsx — Playbooks — 3 tabs: Demo Playbook / Client Onboarding / Field Operations (moved from /admin/guide, T-055)
+- src/app/admin/usage/page.tsx + src/app/api/admin/usage/route.ts — Usage & costs (2026-10-04): per client per month — users, calls,
+  phone minutes, field notes, estimated cost. Unit rates live ONLY in `src/lib/billing/aiCostRates.ts`; field-note counts come from
+  `src/lib/usage/meter.ts` (`businesses/{id}/usageMonths/{YYYY-MM}`). Provider balances: `src/app/api/admin/ai-status/route.ts`
+- src/lib/billing/luxorNotices.ts — Luxor receipt + overdue reminder emails and the 1/7/14-day schedule (used by the invoice PUT
+  route and the `recurring-invoices` cron)
+- src/app/hub/guide/page.tsx — the superadmin Playbook (rewritten 2026-10-04): short tabs — Run a demo · Set up a client · Crews & field ·
+  AI & costs · Billing · Printable. Keep steps one line + a button; when a screen label changes, change it here too
 - src/app/admin/businesses/page.tsx — Live business list + Edit + Preview ↗ buttons
 - src/app/admin/businesses/[businessId]/config/page.tsx — Live config edit (Vapi IDs, branding, rules, timezone)
 - src/app/api/admin/businesses/route.ts — GET list + POST create business

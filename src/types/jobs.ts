@@ -43,6 +43,7 @@ export interface FieldUpdate {
   rawText: string;     // UNCHANGED — verbatim, spoken language
   language?: string;   // "en" | "es" — Whisper's auto-detected language, or the typed-text heuristic
   rawTextEn?: string;  // canonical English rendering of rawText — absent when language === "en"
+  audioSeconds?: number; // length of the voice recording (Whisper duration) — for the superadmin cost estimate
   submittedBy?: string;
   /** The signed-in account that sent it (absent for a no-login field-QR note, which carries the typed name only). */
   submittedByUid?: string;

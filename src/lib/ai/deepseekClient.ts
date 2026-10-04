@@ -202,9 +202,12 @@ export interface GenerateFaqSuggestionsOptions {
 export async function summarizeTranscript(
   options: SummarizeTranscriptOptions
 ): Promise<string> {
-  const { client } = selectClient("summarize");
+  // Same safety net as classifyCallOutcome: DeepSeek first (cheapest); if it errors or runs out of credit, OpenAI
+  // gpt-4o-mini writes the summary, so a call never ends up with no summary because one balance hit zero.
+  const primary = selectClient("summarize");
+  const fallback = selectClient("summarize", { backOfficeModel: "gpt-4o-mini" });
 
-  if (!client) {
+  if (!primary.client && !fallback.client) {
     if (isProduction()) {
       throw new Error("summarizeTranscript: DeepSeek provider not configured");
     }
@@ -218,29 +221,37 @@ export async function summarizeTranscript(
     .map((m) => `${m.role}: ${m.text}`)
     .join("\n");
 
-  const { selection } = selectClient("summarize");
+  const request = {
+    temperature: 0.2,
+    max_tokens: 300, // "2 sentences max" — a defensive ceiling, not a quality lever
+    response_format: { type: "json_object" as const },
+    messages: [
+      {
+        role: "system" as const,
+        content:
+          "You are a call summarizer for a local service business. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
+      },
+      {
+        role: "user" as const,
+        content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
+      },
+    ],
+  };
 
   let res;
   try {
-    res = await client.chat.completions.create({
-      model: selection.model,
-      temperature: 0.2,
-      max_tokens: 300, // "2 sentences max" — a defensive ceiling, not a quality lever
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a call summarizer for a local service business. Return JSON with keys: summary (2 sentences max), actionItems (array of strings). Be concise.",
-        },
-        {
-          role: "user",
-          content: `Business: ${options.businessName}\n\nTranscript:\n${lines}`,
-        },
-      ],
-    });
+    if (!primary.client) throw new Error("DeepSeek provider not configured");
+    res = await primary.client.chat.completions.create({ ...request, model: primary.selection.model });
   } catch (err) {
-    throw new Error(`summarizeTranscript: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+    if (!fallback.client) {
+      throw new Error(`summarizeTranscript: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
+    }
+    console.warn("summarize fell back to OpenAI");
+    try {
+      res = await fallback.client.chat.completions.create({ ...request, model: fallback.selection.model });
+    } catch (fallbackError) {
+      throw new Error(`summarizeTranscript: AI provider error — ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+    }
   }
 
   const rawContent = res.choices[0]?.message?.content ?? "{}";

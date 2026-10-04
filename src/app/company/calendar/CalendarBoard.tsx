@@ -316,7 +316,10 @@ export default function CalendarBoard() {
   // T-148 it sat on no row and in no rail, so it vanished from the Calendar.
   const boardCrewIds = new Set(crews.map((crew) => crew.crewId));
   // An invoiced job is finished work, not something waiting for a crew slot (it stays on the board where it was scheduled).
-  const unscheduled = jobs.filter((j) => j.status !== "invoiced" && (!j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId)));
+  // Newest first: the job someone just created (or just got back from a removed crew) is the one they want to place.
+  const unscheduled = jobs
+    .filter((j) => j.status !== "invoiced" && (!j.scheduledStart || !j.assignedCrewId || !boardCrewIds.has(j.assignedCrewId)))
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   // A busy roofer has 40 unscheduled jobs: the rail shows the first few, searchable, "Show all" for the rest (C10).
   const railNeedle = railQuery.trim().toLowerCase();
   const railMatches = railNeedle

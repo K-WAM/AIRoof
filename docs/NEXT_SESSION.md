@@ -1,6 +1,15 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-10-04 (late night) — read this first
+## CURRENT STATE 2026-10-04 (end) — read this first
+- **Superadmin**: Playbook rewritten as short tabs (`/hub/guide`); **Usage & costs** per client with live provider balances
+  (`/admin/usage`, rates in `src/lib/billing/aiCostRates.ts`); **billing automation** — receipt on Mark paid, reminders at
+  1/7/14 days overdue, Pause client from Invoices, auto-resume on payment.
+- **AI map**: calls = ElevenLabs Agents (old Vapi lines: gpt-4o-mini + Deepgram); voice notes = Whisper → gpt-4o reads them;
+  call summary/outcome = DeepSeek with OpenAI fallback; quotes/invoices/reports = no AI.
+- **Owner open items**: T-196 (prove ElevenLabs Spanish on a real call), T-197 (should inspectors build quotes?), T-190
+  (Twilio texting), NH-32, merge the branch.
+
+## CURRENT STATE 2026-10-04 (late night)
 - **Field link is now reusable and sent, not posted** (owner: "textable or emailable … we are good with reusable code"). Job page →
   "Send to a worker": type a phone or email → the app emails it (letterhead), or texts it from the business line when texting is
   Ready, else opens the office phone's Messages with the text written. One link per job, any number of phones, every day, until

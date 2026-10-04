@@ -1,3 +1,4 @@
+import { recordUsage } from "@/lib/usage/meter";
 import { NextRequest, NextResponse } from "next/server";
 import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { toFile } from "openai/uploads";
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   let transcribeMs = 0;
   let transcript: string;
   let detectedLanguage: string | undefined;
+  let audioSeconds = 0;
   try {
     const audioBuffer = Buffer.from(audioBase64, "base64");
     const ext = (mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
@@ -141,6 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     transcribeMs = Date.now() - transcribeStart;
     transcript = transcription.text.trim();
     detectedLanguage = normalizeLang(transcription.language);
+    audioSeconds = typeof (transcription as { duration?: number }).duration === "number" ? (transcription as { duration?: number }).duration! : 0;
   } catch (err) {
     return NextResponse.json(
       { error: "Transcription failed", details: err instanceof Error ? err.message : String(err) },
@@ -151,6 +154,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (isTranscriptEmpty(transcript)) {
     return NextResponse.json({ success: false, error: "No speech heard. Hold the button the whole time you talk, then let go.", transcript: "" });
   }
+
+  // Whisper has been paid for by now; count it (and the read below) for the superadmin's Usage & costs page.
+  void recordUsage(db, businessId, { voiceNotes: 1, voiceSeconds: Math.round(audioSeconds), notesRead: 1 });
 
   const parseStart = Date.now();
   let parsed;
@@ -214,6 +220,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     rawText: transcript,
     language: detectedLanguage ?? "en",
     ...(englishRendering(transcript, parsed.transcriptEn) ? { rawTextEn: parsed.transcriptEn } : {}),
+    ...(audioSeconds > 0 ? { audioSeconds: Math.round(audioSeconds) } : {}),
     ...authorFields(author),
     createdAt: now,
     parsed,

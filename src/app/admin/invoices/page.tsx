@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useState, useCallback, useRef } from "react";
+import { daysOverdue } from "@/lib/billing/luxorNotices";
 import { useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -296,13 +297,28 @@ function AdminInvoicesPageInner() {
     try {
       const response = await fetch(`/api/admin/invoices/${editingId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "paid" }) });
       if (!response.ok) throw new Error("Invoice update failed");
-      showToast("Marked as paid.");
+      const result = await response.json().catch(() => ({}));
+      showToast(`${result.receipt === "sent" ? "Marked paid — receipt emailed." : result.receipt === "not_sent" ? "Marked paid. The receipt email didn't go out — check email setup." : "Marked paid."}${result.resumed ? " Client turned back on." : ""}`);
       await load();
     } catch {
       setActionError("The invoice status could not be updated. Try again.");
     } finally {
       setMarkingPaid(false);
     }
+  }
+
+  // Non-payment: lock the client's dashboard from here. Their phone line keeps answering (see the subscription route).
+  async function pauseClient() {
+    const businessId = currentInvoice?.businessId;
+    if (!businessId || !editingId) return;
+    if (!confirm(`Pause ${currentInvoice?.clientName || "this client"}? Their dashboard locks until paid. Their phone keeps answering.`)) return;
+    setActionError(null);
+    const response = await fetch(`/api/admin/businesses/${businessId}/subscription`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "pause", reason: `Unpaid invoice ${editingId}` }),
+    });
+    if (response.ok) showToast("Client paused. Mark this invoice paid to turn them back on.");
+    else setActionError("The client could not be paused. Try again, or pause from their client page.");
   }
 
   async function saveTemplate() {
@@ -582,6 +598,11 @@ function AdminInvoicesPageInner() {
               <Download size={15} strokeWidth={1.75} />
               Download PDF
             </button>
+            {editingId && currentInvoice?.businessId && daysOverdue(currentInvoice) > 0 && (
+              <button className="button" type="button" onClick={pauseClient} style={{ color: "var(--danger)" }} data-testid="pause-client">
+                Pause client ({daysOverdue(currentInvoice)} days late)
+              </button>
+            )}
             {currentInvoice?.status !== "paid" && editingId && (
               <button className="button" onClick={markPaid} disabled={markingPaid} style={{ color: "#166534", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <CircleDollarSign size={15} strokeWidth={1.75} />
@@ -641,7 +662,9 @@ function AdminInvoicesPageInner() {
                     <div key={inv.invoiceId} onClick={() => loadInvoice(inv)} style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer", background: editingId === inv.invoiceId ? "#f0f9ff" : undefined }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <span style={{ fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{inv.invoiceId}</span>
-                        <span style={STATUS_STYLE[inv.status]}>{inv.status}</span>
+                        {daysOverdue(inv) > 0
+                          ? <span className="tag urgent" title={`${(inv as { remindersSent?: number[] }).remindersSent?.length ?? 0} reminder(s) emailed`}>Overdue {daysOverdue(inv)}d</span>
+                          : <span style={STATUS_STYLE[inv.status]}>{inv.status}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: "#64748b" }}>{inv.clientName || "—"}</div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>

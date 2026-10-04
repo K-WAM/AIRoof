@@ -44,11 +44,12 @@ test("Demo Studio shows both demo numbers and never claims a line is ready witho
   await shot(page, "p32-demo-studio");
 });
 
-test("Playbooks opens on the 5-minute path", async ({ as }) => {
+test("Playbook opens on Run a demo with one tab per superadmin job", async ({ as }) => {
   const page = await as("superadmin");
   await page.goto("/hub/guide");
   await settle(page);
-  await expect(page.getByText(/Run a demo in 5 minutes/i).first()).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Run a demo" })).toBeVisible();
+  for (const tab of ["Set up a client", "Crews & field", "AI & costs", "Billing"]) await expect(page.getByRole("tab", { name: tab })).toBeVisible();
   await shot(page, "p32-playbooks");
 });
 

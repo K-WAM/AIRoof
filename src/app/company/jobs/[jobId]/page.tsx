@@ -39,6 +39,7 @@ import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
 import { FieldLinkSheet } from "@/components/jobs/FieldLinkSheet";
+import { JobCrewLine } from "@/components/jobs/JobCrewLine";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
@@ -989,6 +990,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
             onSaved={(client) => { setJob((current) => current ? { ...current, ...client } : current); setClientVersion((v) => v + 1); }} />
+          {businessId && <JobCrewLine job={job} businessId={businessId} previewSuffix={previewSuffix} fmtDayTime={fmt.fmtDayTime} canEdit={!readOnly} />}
           {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

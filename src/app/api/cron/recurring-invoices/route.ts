@@ -1,4 +1,5 @@
-// Drafts a monthly Luxor invoice for clients who opted into billing.autoInvoice.
+// Drafts a monthly Luxor invoice for clients who opted into billing.autoInvoice, and (2026-10-04) emails overdue
+// reminders at 1, 7 and 14 days past due.
 // Deliberately drafts only — it never sends. A superadmin still reviews and
 // clicks "Send saved invoice" from /admin/invoices themselves, so a wrong
 // dollar amount can never go out unattended. Runs daily; each client's own
@@ -10,9 +11,12 @@ import { requireCronAuth } from "@/lib/auth/cronGuard";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { nextLuxorInvoiceNumber } from "@/lib/billing/invoiceNumber";
 import type { LuxorInvoice } from "@/app/admin/invoices/invoiceFlow";
+import { sendEmail } from "@/lib/comms/send";
+import { buildLuxorReminderEmail, daysOverdue, reminderDue } from "@/lib/billing/luxorNotices";
 
 const DUE_IN_DAYS = 30;
 const ELIGIBLE_QUERY_LIMIT = 50;
+const REMINDER_QUERY_LIMIT = 200;
 
 function addMonths(ms: number, months: number): number {
   const d = new Date(ms);
@@ -112,5 +116,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, drafted, skipped, errors });
+  // Overdue reminders (owner, 2026-10-04): 1, 7 and 14 days after the due date, each once, by email (Resend). Never
+  // more than one per invoice per run, and never a reminder for a paid or draft invoice.
+  const reminded: string[] = [];
+  try {
+    const sent = await db.collection("luxorInvoices").where("status", "==", "sent").limit(REMINDER_QUERY_LIMIT).get();
+    for (const doc of sent.docs) {
+      const invoice = doc.data() as LuxorInvoice & { remindersSent?: number[] };
+      const stage = reminderDue(invoice, now);
+      if (stage === null || !invoice.clientEmail) continue;
+      const { subject, html } = buildLuxorReminderEmail(invoice, daysOverdue(invoice, now));
+      const result = await sendEmail({ to: invoice.clientEmail, subject, html, fromName: "Luxor AI" });
+      if (result.status !== "delivered") {
+        errors.push(`${doc.id}: reminder not sent (${result.status})`);
+        continue;
+      }
+      await doc.ref.update({ remindersSent: [...(invoice.remindersSent ?? []), stage], lastReminderAt: now, updatedAt: now });
+      reminded.push(`${doc.id}:${stage}d`);
+    }
+  } catch (error) {
+    errors.push(`reminders: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return NextResponse.json({ ok: true, drafted, skipped, reminded, errors });
 }
