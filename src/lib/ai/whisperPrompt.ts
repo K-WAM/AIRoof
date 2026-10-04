@@ -28,11 +28,10 @@ export function buildWhisperPrompt(
     "Corrections sound like: make that 120 not 150, scratch that, I meant.",
   ];
 
-  // Spanish correction cues only when this tenant actually has Spanish enabled — otherwise this
-  // is dead weight against the 224-token cap for a business that will never hear it.
-  if (agentLanguages?.includes("es")) {
-    parts.push("Las correcciones suenan así: que sean 120 no 150, olvida eso, quise decir.");
-  }
+  // Always bilingual (owner, 2026-10-04): crews speak English, Spanish, or both in one sentence. A short mixed example
+  // keeps Whisper from "translating" Spanish words into English or dropping them. (agentLanguages is ignored now.)
+  void agentLanguages;
+  parts.push("Puse doce bundles de shingles en el lado norte, y Carlos trabajó ocho horas. Las correcciones suenan así: que sean 120 no 150, olvida eso, quise decir.");
 
   let prompt = parts.join(" ");
 

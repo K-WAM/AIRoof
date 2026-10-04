@@ -27,6 +27,7 @@ import {
   resolveRecordingDisclosure,
 } from "@/lib/recordingDisclosure";
 import { voiceForLanguage } from "@/lib/vapi/voices";
+import { CALL_START_LANGUAGE, withSpanishInvite } from "@/lib/i18n/bilingual";
 import { isOpenAt, nextOpeningLabel } from "@/lib/scheduling/hours";
 
 export const DEFAULT_ELEVENLABS_TIMEZONE = "America/New_York";
@@ -134,22 +135,24 @@ export function buildInitiationResponse(
     if (baseGreeting.trim()) {
       greeting = composeGreetingWithDisclosure(
         baseGreeting,
-        resolveRecordingDisclosure(config)
+        // Calls start in English, so the notice does too (a stored "es" no longer flips it).
+        resolveRecordingDisclosure({ ...config, agentLanguage: "en" })
       );
     }
   } catch (error) {
     console.error("elevenlabs initiation: failed to build dynamic prompt", error);
   }
 
-  const language = config.agentLanguage ?? "en";
-  // T-103: only a configured ElevenLabs-hosted voice overrides the dashboard TTS.
-  const voice =
-    language === "es" ? voiceForLanguage(config, "es") : voiceForLanguage(config, "en");
+  // Every call starts in English and is bilingual (src/lib/i18n/bilingual.ts) — no per-tenant language any more.
+  const language = CALL_START_LANGUAGE;
+  // T-103: only a configured ElevenLabs-hosted voice overrides the dashboard TTS. It must be a multilingual voice:
+  // the same voice speaks Spanish when the caller switches.
+  const voice = voiceForLanguage(config, "en");
   const ttsVoiceId = voice?.provider === "11labs" ? voice.voiceId : undefined;
 
   const agent: ElevenLabsInitiationResponse["conversation_config_override"]["agent"] = {};
   if (systemPrompt) agent.prompt = { prompt: systemPrompt };
-  if (greeting) agent.first_message = greeting;
+  if (greeting) agent.first_message = withSpanishInvite(greeting);
   agent.language = language;
 
   const override: ElevenLabsInitiationResponse["conversation_config_override"] = {

@@ -98,16 +98,11 @@ describe("buildInitiationResponse", () => {
     expect(response.conversation_config_override.agent?.prompt?.prompt).toContain("after business hours");
   });
 
-  it("uses the Spanish disclosure when the tenant language is Spanish", () => {
-    const response = buildInitiationResponse(
-      config({ agentLanguage: "es" }),
-      undefined,
-      WEDNESDAY_10AM_ET
-    );
-    expect(response.conversation_config_override.agent?.language).toBe("es");
-    expect(response.conversation_config_override.agent?.first_message).toContain(
-      DEFAULT_RECORDING_DISCLOSURE_ES
-    );
+  it("every call starts in English with one Spanish line, whatever language was stored before", () => {
+    const response = buildInitiationResponse(config({ agentLanguage: "es" }), undefined, WEDNESDAY_10AM_ET);
+    expect(response.conversation_config_override.agent?.language).toBe("en");
+    expect(response.conversation_config_override.agent?.first_message).toMatch(/También hablamos español\.$/);
+    expect(response.conversation_config_override.agent?.prompt?.prompt).toContain("English and Spanish, always");
   });
 
   it("keeps a custom greeting untouched when the disclosure is disabled", () => {
@@ -117,7 +112,7 @@ describe("buildInitiationResponse", () => {
       WEDNESDAY_10AM_ET
     );
     expect(response.conversation_config_override.agent?.first_message).toBe(
-      "Thanks for calling Apex Roofing."
+      "Thanks for calling Apex Roofing. También hablamos español."
     );
   });
 

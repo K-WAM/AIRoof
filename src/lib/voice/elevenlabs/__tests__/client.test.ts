@@ -8,19 +8,19 @@ beforeEach(() => vi.stubEnv("ELEVENLABS_API_KEY", "test-key"));
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("ElevenLabs client", () => {
-  it("PATCHes prompt, greeting and explicit language without touching dashboard voice", async () => {
+  it("PATCHes prompt and greeting, and always starts the agent in English (it follows callers into Spanish)", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true }); vi.stubGlobal("fetch", fetch);
     await pushPersona({ config, firstMessage: "Hola", systemPrompt: "Prompt", language: "es" });
     expect(fetch).toHaveBeenCalledWith("https://api.elevenlabs.io/v1/convai/agents/agent_123", {
       method: "PATCH", headers: { "Content-Type": "application/json", "xi-api-key": "test-key" },
-      body: JSON.stringify({ conversation_config: { agent: { prompt: { prompt: "Prompt" }, first_message: "Hola", language: "es" } } }),
+      body: JSON.stringify({ conversation_config: { agent: { prompt: { prompt: "Prompt" }, first_message: "Hola", language: "en" } } }),
     });
   });
 
-  it("uses only an explicit ElevenLabs voice override for the selected language", async () => {
+  it("an English-only voice model is swapped for its multilingual version, or Spanish could never be spoken", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true }); vi.stubGlobal("fetch", fetch);
-    await pushPersona({ config: { ...config, voice: { es: { provider: "11labs", voiceId: "warm_voice", model: "eleven_turbo_v2" } } }, firstMessage: "Hola", systemPrompt: "Prompt" });
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ conversation_config: { agent: { prompt: { prompt: "Prompt" }, first_message: "Hola" }, tts: { voice_id: "warm_voice", model_id: "eleven_turbo_v2" } } });
+    await pushPersona({ config: { ...config, voice: { en: { provider: "11labs", voiceId: "warm_voice", model: "eleven_turbo_v2" } } }, firstMessage: "Hola", systemPrompt: "Prompt" });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ conversation_config: { agent: { prompt: { prompt: "Prompt" }, first_message: "Hola", language: "en" }, tts: { voice_id: "warm_voice", model_id: "eleven_turbo_v2_5" } } });
   });
 
   it("POSTs exact outbound payload with dynamic variables and first-message override", async () => {

@@ -13,8 +13,9 @@ describe("defaultLandingPath", () => {
     expect(defaultLandingPath({ role: "crew", trade: "foreman" }, [])).toBe("/company/field");
   });
 
-  it("sends a foreman to /company/jobs", () => {
-    expect(defaultLandingPath({ role: "staff", trade: "foreman" }, [])).toBe("/company/jobs");
+  it("sends a foreman to the field screen, even one with an office login (the voice note is their main job)", () => {
+    expect(defaultLandingPath({ role: "staff", trade: "foreman" }, [])).toBe("/company/field");
+    expect(defaultLandingPath({ role: "crew", trade: "foreman" }, [])).toBe("/company/field");
   });
 
   it("sends everyone else (no trade, or an office-side trade) to the dashboard", () => {

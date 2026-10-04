@@ -47,17 +47,6 @@ const SECTIONS = [
   ["documents", "Documents"], ["terms", "Terms & notices"], ["advanced", "Advanced"],
 ] as const;
 
-type LanguageChoice = "en-es" | "es-en" | "en";
-/** Missing = both (owner, 2026-10-04: Spanish is critical; a line never drops it by default). */
-function languageChoice(settings: { agentLanguage: "en" | "es"; agentLanguages?: Array<"en" | "es"> }): LanguageChoice {
-  const langs = settings.agentLanguages ?? ["en", "es"];
-  if (langs.includes("es") && langs.includes("en")) return settings.agentLanguage === "es" ? "es-en" : "en-es";
-  return langs.includes("es") ? "es-en" : "en";
-}
-function languagesFor(choice: LanguageChoice): Array<"en" | "es"> {
-  return choice === "en" ? ["en"] : choice === "es-en" ? ["es", "en"] : ["en", "es"];
-}
-
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
@@ -190,10 +179,8 @@ export default function CompanySettingsPage() {
         contactPhone: settings.contactPhone,
         contactEmail: settings.contactEmail,
         licenseNumber: settings.licenseNumber,
-        agentLanguage: settings.agentLanguage,
-        // Save what the owner chose — this used to write [agentLanguage] on EVERY save, which silently switched
-        // a bilingual line to English-only (the phone AI then said "I can only help in English").
-        agentLanguages: languagesFor(languageChoice(settings)),
+        // No language fields: every line is English + Spanish, always (src/lib/i18n/bilingual.ts). Sending
+        // [agentLanguage] on every save is what silently made the phone AI English-only before.
       };
       if (canManageTeam) payload.recordingDisclosure = settings.recordingDisclosure;
       payload.invoiceCopy = settings.invoiceCopy ?? DEFAULT_INVOICE_COPY;
@@ -291,7 +278,7 @@ export default function CompanySettingsPage() {
             <div className="panel-header"><h2 className="panel-title"><Bell size={16} strokeWidth={1.75} /> Phone &amp; notifications</h2></div>
             <div className="panel-body">
               <div className="field"><label htmlFor="notifEmail">Notification email</label><input id="notifEmail" ref={notificationEmailRef} type="email" required value={settings.notificationEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, notificationEmail: event.target.value } : prev)} /><p>Receives booking and request notifications.</p></div>
-              <div className="field"><label htmlFor="agentLanguage">Phone AI language</label><select id="agentLanguage" value={languageChoice(settings)} onChange={(event) => { const choice = event.target.value as LanguageChoice; setSettings((prev) => prev ? { ...prev, agentLanguage: choice === "es-en" ? "es" : "en", agentLanguages: languagesFor(choice) } : prev); }}><option value="en-es">English + Spanish (starts in English)</option><option value="es-en">Spanish + English (starts in Spanish)</option><option value="en">English only</option></select><p>With both, the AI switches the moment a caller speaks the other language. Field notes understand both either way.</p></div>
+              <p className="settings-note" data-testid="language-note">The phone AI and field notes speak English and Spanish — callers and crews can switch any time, even mid-sentence.</p>
               <div className="settings-phone-lines">
                 <h3>Phone lines and texting</h3>
                 {phoneLines === null ? <p>Line status unavailable</p> : phoneLines.length === 0 ? <p>No line on record — Luxor sets this up</p> : phoneLines.map((line) => <div key={line.lineId} className="settings-phone-line">

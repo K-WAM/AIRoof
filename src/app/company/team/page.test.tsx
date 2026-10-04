@@ -50,7 +50,7 @@ describe("Team page", () => {
     await screen.findByText("alex@example.com");
     fireEvent.click(screen.getByText("Invite person"));
     const select = screen.getByLabelText("Invite role") as HTMLSelectElement;
-    expect(Array.from(select.options).map((option) => option.text)).toEqual(["Admin", "Office staff", "Inspector", "Technician", "View only"]);
+    expect(Array.from(select.options).map((option) => option.text)).toEqual(["Admin", "Office staff", "Inspector", "Foreman", "Technician", "View only"]);
     expect(select.value).toBe("office");
     fireEvent.change(select, { target: { value: "inspector" } });
     expect(screen.getByText(/their own schedule/)).toBeTruthy();

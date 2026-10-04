@@ -14,28 +14,21 @@ function config(overrides: Partial<BusinessConfig> = {}): BusinessConfig {
 }
 
 describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
-  it("defaults to English first AND Spanish when the caller speaks it (owner: Spanish is critical)", () => {
+  it("every line is English AND Spanish, always — start in English, follow the caller both ways, mixing is fine", () => {
     const prompt = buildAgentPrompt(config());
-    expect(prompt).toContain("## Language");
-    expect(prompt).toContain("Greet and answer in English.");
-    expect(prompt).toContain("If the caller speaks Spanish, switch and stay there");
+    expect(prompt).toContain("## Language — English and Spanish, always");
+    expect(prompt).toContain("Start in English.");
+    expect(prompt).toContain("mix both in one sentence");
+    expect(prompt).toContain("When they switch, you switch at once, in either direction");
     expect(prompt).toContain("Never say you can only help in one language.");
   });
 
-  it("an explicit English-only line has no switch instruction", () => {
-    const prompt = buildAgentPrompt(config({ agentLanguage: "en", agentLanguages: ["en"] }));
-    expect(prompt).not.toContain("switch and stay there");
-  });
-
-  it("Spanish first: greets in Spanish and follows a caller into English", () => {
-    const prompt = buildAgentPrompt(config({ agentLanguage: "es", agentLanguages: ["es", "en"] }));
-    expect(prompt).toContain("Greet and answer in Spanish.");
-    expect(prompt).toContain("If the caller speaks English, switch and stay there");
-  });
-
-  it("adds the bilingual switching instruction only when both languages are enabled", () => {
-    const prompt = buildAgentPrompt(config({ agentLanguage: "en", agentLanguages: ["en", "es"] }));
-    expect(prompt).toContain("If the caller speaks Spanish, switch and stay there");
+  it("an old stored English-only setting can no longer switch Spanish off", () => {
+    for (const stored of [{ agentLanguage: "en" as const, agentLanguages: ["en" as const] }, { agentLanguage: "es" as const, agentLanguages: ["es" as const] }]) {
+      const prompt = buildAgentPrompt(config(stored));
+      expect(prompt).toContain("You speak English and Spanish fluently.");
+      expect(prompt).toContain("Start in English.");
+    }
   });
 
   it("always tells the agent to record the caller's own words untranslated — the opposite rule from the field-update path", () => {
@@ -102,7 +95,7 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("Never read internal IDs");
     expect(prompt).toContain("sayToCaller");
     expect(prompt).toContain("Alex or someone from the team will follow up");
-    expect(prompt).toContain("continue in Spanish");
+    expect(prompt).toContain("¿Prefiere en español?");
     expect(prompt).not.toContain("you'll receive an email");
   });
 

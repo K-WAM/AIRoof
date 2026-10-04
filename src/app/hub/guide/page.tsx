@@ -89,7 +89,7 @@ function ClientTab() {
           { text: <>Client → <b>Phone provider</b>: ElevenLabs agent ID + number.</>, href: "/admin/businesses", go: "Clients" },
           { text: <>Client → <b>Phone lines</b>: <b>Record test call</b> → <b>Go live…</b></>, see: "the line reads Live" },
           { text: "Call the line once.", see: "the call appears in the client's Calls within seconds" },
-          { text: <>Language: client Settings → <b>Phone AI language</b> (English or Spanish).</> },
+          { text: <>Spanish: nothing to set — every line speaks both. New ElevenLabs agent? Run the bilingual script once (AI &amp; costs tab).</> },
           { text: <>Billing: <b>Invoices</b> → first invoice (or turn on monthly auto-draft on the client).</>, href: "/admin/invoices", go: "Invoices" },
         ]} />
       </Section>
@@ -109,7 +109,8 @@ function FieldTab() {
     ["Admin", "Everything, including Team and Settings."],
     ["Office staff", "Pipeline, Calendar, jobs, quotes, invoices."],
     ["Inspector", "Field screen + their own schedule: findings, photos, notes. No prices."],
-    ["Technician", "Field screen: time clock, notes, photos, findings. No prices."],
+    ["Foreman", "Field screen: logs the voice notes (English or Spanish), photos, findings, time clock. No prices."],
+    ["Technician", "Field screen: time clock, photos; logs notes when filling in for the foreman. No prices."],
     ["View only", "Looks at the office screens, changes nothing."],
     ["Contractor (no login)", "Gets a job link by text or email, types their name. That's it."],
   ];
@@ -159,11 +160,11 @@ function AiTab() {
           <li><b>Resend</b> (all email) and <b>Twilio</b> (texts, when on) — monthly plans; check once a month.</li>
         </ul>
       </Section>
-      <Section title="Spanish">
+      <Section title="Spanish — always on">
         <ul className="pb-list">
-          <li><b>Field voice notes</b> — works today. Speak Spanish or mix; the job stores English, the original is kept.</li>
-          <li><b>Phone AI</b> — client Settings → Phone AI language → Spanish.</li>
-          <li><b>Before selling Spanish calls</b> (once, in ElevenLabs): the agent uses a multilingual voice model (Flash or Turbo v2.5) and has Spanish enabled; pick a Spanish voice for the client; make one test call.</li>
+          <li><b>Every line, every call:</b> starts in English, follows the caller into Spanish and back, even mid-sentence. No setting to turn on.</li>
+          <li><b>Field voice notes:</b> English, Spanish or both in one note. The job stores English; the original words are kept.</li>
+          <li><b>Once per ElevenLabs agent</b> (at the PC with the key): <code>node scripts/elevenlabs-bilingual.mjs --agent-id …</code> — checks the voice model, adds Spanish, turns on language detection. Dry run first, then <code>--apply</code>.</li>
         </ul>
       </Section>
     </>

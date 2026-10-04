@@ -1,3 +1,4 @@
+import { CALL_START_LANGUAGE, multilingualModel } from "@/lib/i18n/bilingual";
 import { voiceForLanguage } from "@/lib/vapi/voices";
 import { voicemailVariables } from "./initiationConfig";
 import {
@@ -29,18 +30,19 @@ async function request(path: string, method: "PATCH" | "POST", body: unknown): P
 export async function pushPersona(input: PersonaPushInput): Promise<void> {
   const agentId = input.config.elevenlabs?.agentId;
   if (!agentId) throw new Error("ElevenLabs agent is not configured");
-  const language = input.language ?? input.config.agentLanguage ?? "en";
+  // Always bilingual: the agent starts in English and switches with the caller (src/lib/i18n/bilingual.ts).
+  const language = CALL_START_LANGUAGE;
   const voice = voiceForLanguage(input.config, language);
   const agent: Record<string, unknown> = {
     prompt: { prompt: input.systemPrompt },
     first_message: input.firstMessage,
-    ...(input.language ? { language: input.language } : {}),
+    language,
   };
   const conversationConfig: Record<string, unknown> = { agent };
   if (voice?.provider === "11labs") {
     conversationConfig.tts = {
       voice_id: voice.voiceId,
-      ...(voice.model ? { model_id: voice.model } : {}),
+      ...(voice.model ? { model_id: multilingualModel(voice.model) } : {}),
     };
   }
   await request(`/agents/${encodeURIComponent(agentId)}`, "PATCH", { conversation_config: conversationConfig });

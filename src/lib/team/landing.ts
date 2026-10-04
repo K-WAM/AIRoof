@@ -20,6 +20,8 @@ export function defaultLandingPath(
   // A Crew login (T-150) can only use the Field screen — the layout keeps it there.
   if (member.role === "crew") return "/company/field";
   if (member.trade && FIELD_LANDING_TRADES.has(member.trade)) return "/company/field";
-  if (member.trade === "foreman") return "/company/jobs";
+  // A foreman with an office login (Office staff by type, Foreman by title) still starts on the field screen: the voice
+  // note is the main thing they do (owner, 2026-10-04).
+  if (member.trade === "foreman") return "/company/field";
   return "/company/dashboard";
 }

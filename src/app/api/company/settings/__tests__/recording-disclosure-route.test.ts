@@ -209,13 +209,13 @@ describe("PUT /api/company/settings — recording notice save + persona push (T-
     expect(call.firstMessage).toBe(`${DEFAULT_RECORDING_DISCLOSURE_EN} Thanks for calling Apex Roofing, this is Roofus.`);
   });
 
-  it("a language-only save still passes transcriberLanguage and the composed greeting (existing behavior preserved)", async () => {
-    const res = await PUT(putRequest({ businessId: "biz-1", agentLanguage: "es" }));
+  it("an old client sending a language clears it (always bilingual now) and re-pushes the bilingual prompt", async () => {
+    const res = await PUT(putRequest({ businessId: "biz-1", agentLanguage: "es", agentLanguages: ["es"] }));
     expect(res.status).toBe(200);
     expect(mocks.updateAssistantPersona).toHaveBeenCalledTimes(1);
     const call = mocks.updateAssistantPersona.mock.calls[0][0];
-    expect(call.transcriberLanguage).toBe("es");
-    expect(call.systemPrompt).toContain("Greet and answer in Spanish");
+    expect(call.transcriberLanguage).toBe("en");
+    expect(call.systemPrompt).toContain("English and Spanish, always");
   });
 
   it("does not push Vapi when neither the language nor the disclosure changed", async () => {

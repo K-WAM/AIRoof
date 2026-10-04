@@ -60,13 +60,13 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   // folded into Response Style: the field-update path (buildProjection) canonicalizes everything
   // to English, but a caller's own spoken name/notes must NOT be translated — the two subsystems
   // have opposite requirements, and this is the one place that has to say so explicitly.
-  const primary = businessConfig.agentLanguage === "es" ? "Spanish" : "English";
-  // Missing = English AND Spanish (owner, 2026-10-04: Spanish is critical). Only an explicit ["en"] is English-only.
-  const languages = businessConfig.agentLanguages ?? ["en", "es"];
-  const isBilingual = languages.includes("en") && languages.includes("es");
-  const languageSection = `## Language
-- Greet and answer in ${primary}.${isBilingual ? `
-- If the caller speaks ${primary === "Spanish" ? "English" : "Spanish"}, switch and stay there. Follow them back to ${primary} if they switch. Never mix languages within a sentence. Never say you can only help in one language.` : ""}
+  // ALWAYS English and Spanish (owner, 2026-10-04: "the default should literally be both as the only option").
+  // There is no per-tenant language setting any more; stored agentLanguage/agentLanguages are ignored here.
+  const languageSection = `## Language — English and Spanish, always
+- You speak English and Spanish fluently. Start in English.
+- Callers may speak either language or mix both in one sentence. Understand all of it.
+- Answer in the language the caller is using right now. When they switch, you switch at once, in either direction, as often as they do.
+- Never say you can only help in one language. Never ask the caller to choose a language — just follow them.
 - Spell back names and addresses in the caller's language.
 - Record tool arguments (name, phone, email, serviceType, notes) in the language the caller used — do NOT translate the customer's own words into English.
 `;
@@ -218,7 +218,7 @@ ${escalationOn
 - Never promise an email or text unless a tool result explicitly says it will come.
 - For how and when a booking is confirmed, use the booking result's words — never say it is after hours unless the Current Context above says so.
 ${businessConfig.contactName ? `- For follow-up, say "${businessConfig.contactName} or someone from the team will follow up."` : "- For follow-up, say someone from the team will follow up."}
-${languages.includes("es") ? "- Invite the caller to continue in Spanish if they prefer." : ""}
+- If the caller sounds unsure in English, offer Spanish ("¿Prefiere en español?").
 
 ## Response Style
 - Use a ${agentTone} tone

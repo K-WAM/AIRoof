@@ -1,3 +1,4 @@
+import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -43,8 +44,8 @@ export async function GET(req: NextRequest) {
     brandColor: d.brandColor ?? null,
     logoUrl: d.logoUrl ?? null,
     // Spanish (Phase 12, Phase 6)
-    agentLanguage: d.agentLanguage ?? "en",
-    agentLanguages: d.agentLanguages ?? ["en", "es"],
+    agentLanguage: "en",
+    agentLanguages: ["en", "es"],
     // Call-recording notice (Phase 16, T-102): the stored greetings plus the
     // resolved disclosure feed the settings page's live spoken-greeting preview.
     greeting: d.greeting ?? "",
@@ -121,8 +122,12 @@ export async function PUT(req: NextRequest) {
   if (contactPhone !== undefined) update.contactPhone = contactPhone;
   if (contactEmail !== undefined) update.contactEmail = contactEmail;
   if (licenseNumber !== undefined) update.licenseNumber = licenseNumber.trim();
-  if (agentLanguage !== undefined) update.agentLanguage = agentLanguage;
-  if (agentLanguages !== undefined) update.agentLanguages = agentLanguages;
+  // Languages are not a setting any more (always English + Spanish). Old clients may still send these: a stored
+  // English-only value is cleared instead of saved, so nothing can switch Spanish off again.
+  if (agentLanguage !== undefined || agentLanguages !== undefined) {
+    update.agentLanguage = FieldValue.delete();
+    update.agentLanguages = FieldValue.delete();
+  }
   if (disclosureUpdate !== undefined) update.recordingDisclosure = disclosureUpdate;
   if (invoiceCopy !== undefined) update.invoiceCopy = { opening: invoiceCopy.opening, closing: invoiceCopy.closing, thankYou: invoiceCopy.thankYou, terms: invoiceCopy.terms };
 
@@ -151,7 +156,7 @@ export async function PUT(req: NextRequest) {
           systemPrompt: buildAgentPrompt(config),
           // Only touch the transcriber when the language actually changed; a
           // disclosure-only save must not disturb the speaking configuration.
-          ...(agentLanguage !== undefined ? { language: agentLanguage } : {}),
+          ...(agentLanguage !== undefined || agentLanguages !== undefined ? { language: "en" } : {}),
         });
       }
     } catch (err) {

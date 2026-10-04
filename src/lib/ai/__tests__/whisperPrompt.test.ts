@@ -8,9 +8,10 @@ describe("buildWhisperPrompt", () => {
     expect(prompt).toContain("Wynmoor");
   });
 
-  it("omits Spanish correction cues when the tenant has no Spanish enabled", () => {
+  it("always biases Whisper for English, Spanish and both in one sentence (no per-tenant switch)", () => {
     const prompt = buildWhisperPrompt(undefined, undefined, "roofing", []);
-    expect(prompt).not.toContain("Las correcciones");
+    expect(prompt).toContain("Las correcciones");
+    expect(prompt).toContain("Puse doce bundles de shingles");
   });
 
   it("includes Spanish correction cues only when agentLanguages includes es", () => {

@@ -4,7 +4,7 @@
 // new is stored, so existing members keep working and the server's checks are unchanged.
 import type { TeamRole, TradeTitle } from "@/types/team";
 
-export type UserType = "admin" | "office" | "inspector" | "technician" | "viewer";
+export type UserType = "admin" | "office" | "inspector" | "foreman" | "technician" | "viewer";
 
 export interface UserTypeDef {
   id: UserType;
@@ -24,8 +24,12 @@ export const USER_TYPES: UserTypeDef[] = [
     help: "The office: Pipeline, Calendar, jobs, quotes and invoices. Can also use the Field screen. Can't manage the team." },
   { id: "inspector", label: "Inspector", role: "crew", trade: "inspector", field: true,
     help: "Opens on the Field screen with their own schedule: their inspections, blocking time, findings with comments, photos and notes. No prices or invoices." },
+  // Owner, 2026-10-04: "really only the foremen will use the voice input, but the crews should still be able to
+  // substitute" — same Field screen and access for both; the type is the label and who the office expects notes from.
+  { id: "foreman", label: "Foreman", role: "crew", trade: "foreman", field: true,
+    help: "Runs the job on site: logs the voice notes (English or Spanish), photos, findings and the time clock. No prices or invoices." },
   { id: "technician", label: "Technician", role: "crew", trade: "technician", field: true,
-    help: "Opens on the Field screen: time clock, job notes, photos and findings. No Pipeline, prices or invoices." },
+    help: "Opens on the Field screen: time clock and photos, and can log voice notes when filling in for the foreman. No prices or invoices." },
   { id: "viewer", label: "View only", role: "viewer", field: false,
     help: "Can look around the office screens. Can't change anything." },
 ];
@@ -49,7 +53,7 @@ export function userTypeOf(member: { role: TeamRole | string | undefined; trade?
   switch (member.role) {
     case "owner": return "admin";
     case "staff": return "office";
-    case "crew": return member.trade === "inspector" ? "inspector" : "technician";
+    case "crew": return member.trade === "inspector" ? "inspector" : member.trade === "foreman" ? "foreman" : "technician";
     // "viewer" — and anything unexpected on an old or hand-made member doc (e.g. role "superadmin") — reads as the
     // least-privileged type. It must never crash the Team page (2026-09-28: it did, on the harness superadmin's row).
     default: return "viewer";
@@ -74,6 +78,7 @@ export function parseUserType(value: string | undefined): UserType | null {
     admin: "admin", owner: "admin",
     office: "office", officestaff: "office", staff: "office",
     inspector: "inspector",
+    foreman: "foreman", lead: "foreman", crewlead: "foreman",
     technician: "technician", tech: "technician", crew: "technician", field: "technician",
     viewer: "viewer", viewonly: "viewer",
   };
