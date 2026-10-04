@@ -1845,3 +1845,5 @@ invoiced-job refusal, `englishRendering` guard, job-bound corrections in `useFie
 178/179. T-180: plan only. Evidence: new updates route test, fieldInput/TimeClock tests, full vitest 1,790 pass,
 e2e:call 12/12, new e2e/field-updates.spec.ts 4/4; full e2e:test result in the handoff. Removed: the separate
 mic/typing/correction/recent code in both field pages (replaced by the shared components), the phone "Jump to" select.
+Final gate 2026-10-04: full e2e:test 149 passed / 0 failed / 0 flaky (27 min) after 5fcab12 (warm dev routes + audit
+best-of-two); 7f8c5f3 fixed the QR composer race found by the full run.

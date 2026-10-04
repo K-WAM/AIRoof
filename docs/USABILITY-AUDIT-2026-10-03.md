@@ -161,3 +161,10 @@ on the Calendar; a person belongs to one crew (Library → Crews). A signed-in p
 (stored as a uid), a QR user by the name they type — every note, photo and clock tap carries that identity, and
 punched hours go onto the job's labor under the same name. Not yet shown: the author's crew name on office note
 cards (TODO T-181 follow-up).
+
+**Verification (2026-10-04, final tree):** full `npm run e2e:test` — **149 passed, 0 failed, 0 flaky** (5 skipped by
+design), 27 min on a freshly seeded harness. Earlier runs that day failed at random because `next dev` evicted compiled
+routes every 60 s and stalled requests 5–15 s; `next.config.ts` now keeps dev routes warm (`onDemandEntries`, dev-only).
+Real bugs found by those runs and fixed: the previous job's notes showing under the next job's heading, and the QR
+composer saying "Pick a job" while the link's job was still loading. Screen audit (warm, phone): every screen
+1.0–1.9 s to first content, 2–10 API calls, no overflow. Also: full vitest 1,790 pass, `e2e:call` 12/12.
