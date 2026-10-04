@@ -276,7 +276,8 @@ function FieldApp() {
           {/* 4. Notes — the composer shows the job + name before anything is said, and a receipt after */}
           <FieldNoteComposer
             businessId={businessId || null}
-            job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : null}
+            // The QR link already names the job: use it straight away, before the job details finish loading.
+            job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : selectedJobId ? { jobId: selectedJobId } : null}
             authorName={workerName.trim()}
             blockedReason={!hasWorkerName ? "Type your name above first" : null}
             clockedInJobId={clockedInJobId}
