@@ -27,6 +27,10 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // `next dev` only (no effect on a production build): keep compiled pages/routes warm. The defaults (60 s, 5 pages)
+  // made the local smoke harness recompile routes all through a long Playwright run, stalling requests 5–15 s and
+  // failing specs at random (2026-10-04).
+  onDemandEntries: { maxInactiveAge: 60 * 60 * 1000, pagesBufferLength: 200 },
   // lucide-react is imported (icon-by-icon, which is already tree-shakeable)
   // in 30+ files; this lets Next's compiler rewrite those into per-icon
   // module paths at build time so bundling/minification has less to do per
