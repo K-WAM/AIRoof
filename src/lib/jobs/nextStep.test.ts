@@ -40,4 +40,8 @@ describe("jobSteps / currentStep", () => {
     expect(steps.find((s) => s.id === "findings")?.state).toBe("current");
     expect(steps.find((s) => s.id === "work")?.state).toBe("done");
   });
+
+  it("an invoiced job never asks for the report (it is optional paperwork)", () => {
+    expect(currentStep(jobSteps(j({ status: "invoiced", findings: [finding] })))).toBeNull();
+  });
 });

@@ -10,14 +10,17 @@ import { currentStep, jobSteps, type JobStep } from "@/lib/jobs/nextStep";
  * job complete (the crew no longer can) — every other step just opens its tab. Advice, not a gate: every tab stays open,
  * and when every step is done there is nothing left to press, so it renders nothing.
  */
-export function NextStepButton({ job, busy = false, onGo, onCompleteWork }: {
+export function NextStepButton({ job, busy = false, activeTab, onGo, onCompleteWork }: {
   job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">;
+  /** Already on that step's tab: the tab's own button (Send quote, Mail report…) is the one primary, so stay quiet. */
+  activeTab?: string;
   busy?: boolean;
   onGo: (tab: JobStep["tab"]) => void;
   onCompleteWork: () => void;
 }) {
   const now = currentStep(jobSteps(job));
   if (!now) return null;
+  if (now.id !== "work" && now.tab === activeTab) return null;
   if (now.id === "work") {
     return (
       <button type="button" className="button primary" title={now.hint} disabled={busy} onClick={onCompleteWork} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>

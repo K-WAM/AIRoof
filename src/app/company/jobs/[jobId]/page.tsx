@@ -998,7 +998,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <Send size={15} strokeWidth={1.75} /> Send to a worker
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
-          {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
+          {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} activeTab={activeTab} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
       </header>
 
@@ -1490,7 +1490,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
               }}>
                 {/* Letterhead */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, marginBottom: 24, paddingBottom: 24, borderBottom: `3px solid ${invoiceAccent}` }}>
+                <div className="invoice-editor-letterhead" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, marginBottom: 24, paddingBottom: 24, borderBottom: `3px solid ${invoiceAccent}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     {invoiceLogoSrc && (
                       <img src={invoiceLogoSrc} alt={invoiceBizName} style={{ height: 52, maxWidth: 140, objectFit: "contain" }} />
@@ -1527,7 +1527,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
 
                 {/* Bill To + Service Info */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}>
+                <div className="invoice-editor-billto" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Bill To</div>
                     <div style={{ fontWeight: 700, fontSize: 15 }}>{job.clientName || "—"}</div>
@@ -1555,7 +1555,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {laborRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Labor</div>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <div className="invoice-editor-scroll"><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                           <th style={thStyle("left")}>Technician</th>
@@ -1628,7 +1628,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                     <button className="no-print" onClick={() => setLaborRows(r => [...r, { name: "", arrival: "", departure: "", hours: "", rate: defaultLaborRate }])} style={{ marginTop: 6, fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
                       <Plus size={13} strokeWidth={1.75} />
                       Add technician
@@ -1646,7 +1646,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   {materialRows.length === 0 ? (
                     <p style={{ fontSize: 13, color: "#94a3b8", margin: "0 0 6px" }}>No materials extracted. Add manually below.</p>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 6 }}>
+                    <div className="invoice-editor-scroll"><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 6 }}>
                       <thead>
                         <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                           <th style={thStyle("left")}>Item</th>
@@ -1702,7 +1702,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           );
                         })}
                       </tbody>
-                    </table>
+                    </table></div>
                   )}
                   <button className="no-print" onClick={() => setMaterialRows(r => [...r, { item: "", quantity: "1", unit: "", unitPrice: "" }])} style={{ fontSize: 12, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 5 }}>
                     <Plus size={13} strokeWidth={1.75} />

@@ -233,7 +233,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
     <>
       {draft || (!quote && !readOnly) ? (
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="button primary" type="button" disabled={busy || catalog.loading} onClick={() => setPickerOpen(true)}>＋ Add item</button>
+          <button className="button" type="button" disabled={busy || catalog.loading} onClick={() => setPickerOpen(true)}>＋ Add item</button>
           <button className="button" type="button" disabled={busy} onClick={() => setCustomOpen((open) => !open)}>＋ Custom item</button>
         </div>
       ) : null}

@@ -23,7 +23,8 @@ export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "rep
   const findingsDone = (job.findings?.length ?? 0) > 0;
   const quoteDone = QUOTE_SENT_OR_LATER.includes(job.status);
   const workDone = job.status === "complete" || job.status === "invoiced";
-  const reportDone = !!job.reportNotes?.trim();
+  // The report is optional paperwork: once the job is invoiced, never nag "Next: Report" on a finished job.
+  const reportDone = !!job.reportNotes?.trim() || job.status === "invoiced";
   const invoiceDone = job.status === "invoiced";
 
   const raw: Array<Omit<JobStep, "state"> & { done: boolean }> = [

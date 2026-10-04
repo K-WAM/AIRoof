@@ -3,6 +3,15 @@ import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { expect, expectHealthy, settle, shot, test } from "./fixtures";
 
 const B = "e2e-roofing";
+const BIZ_NAME = "E2E Roofing Co";
+let uploadedLogoId: string | null = null;
+
+// The shared tenant goes back to "no logo" after each run, so other screens' screenshots don't change.
+test.afterEach(async () => {
+  if (!uploadedLogoId) return;
+  await (await api("owner")).del(`/api/company/library/logos?businessId=${B}&logoId=${uploadedLogoId}`).catch(() => {});
+  uploadedLogoId = null;
+});
 
 test("quote, invoice and report include selected Before/After photos", async ({ as }) => {
   test.setTimeout(180_000);
@@ -43,6 +52,13 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   must(await owner.patch(`/api/jobs/${jobId}/photos/${before.photoId}`, { businessId: B, includeInReport: true }), "select before for report");
   must(await owner.patch(`/api/jobs/${jobId}/photos/${after.photoId}`, { businessId: B, includeInReport: true, pairId: before.photoId }), "pair and select after for report");
 
+  // A company logo, set up once in Library → Branding, must show on all three documents and their emails.
+  const { logo } = must(await owner.post("/api/company/library/logos", {
+    businessId: B, name: `Logo ${tag}`, b64: pngBase64(120, 40, [15, 118, 110]), mimeType: "image/png", variant: "color", w: 120, h: 40,
+  }), "upload logo");
+  uploadedLogoId = logo.logoId as string;
+  if (!logo.isDefault) must(await owner.patch("/api/company/library/logos", { businessId: B, logoId: uploadedLogoId, isDefault: true }), "make logo default");
+
   must(await owner.post(`/api/jobs/${jobId}/quote`, { businessId: B }), "create quote");
   must(await owner.post(`/api/jobs/${jobId}/invoice`, { businessId: B }), "create invoice");
   must(await owner.patch(`/api/jobs/${jobId}/invoice`, { businessId: B, addFindings: true }), "add finding to invoice");
@@ -64,11 +80,13 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await settle(page, 1400);
   await expect(page.getByRole("img", { name: beforeLabel })).toBeVisible();
   await expect(page.getByRole("img", { name: afterLabel })).toBeVisible();
+  await expect(page.locator(`img[alt="${BIZ_NAME}"]`).filter({ visible: true }).first()).toBeVisible();
   await shot(page, "doc-photos-quote");
   await page.getByLabel("Quote recipient email").fill(email);
   await page.getByRole("button", { name: "Send quote" }).click();
   await expect.poll(async () => (await outbox({ to: email, subject: "[Quote]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
   const quoteMail = (await outbox({ to: email, subject: "[Quote]" }))[0];
+  expect(String(quoteMail.html), "logo in the quote email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(quoteMail.html)).toContain(beforeLabel);
   expect(String(quoteMail.html)).toContain(afterLabel);
   expect(String(quoteMail.html)).toMatch(/Before[\s\S]*After[\s\S]*Damage at section 12[\s\S]*Section 12 repaired/);
@@ -83,12 +101,14 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await settle(page, 1800);
   await expect(page.getByRole("img", { name: beforeLabel })).toBeVisible();
   await expect(page.getByRole("img", { name: afterLabel })).toBeVisible();
+  await expect(page.locator(`img[alt="${BIZ_NAME}"]`).filter({ visible: true }).first()).toBeVisible();
   await shot(page, "doc-photos-invoice");
   await page.getByRole("button", { name: "Send to Customer" }).click();
   await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
   await page.getByRole("button", { name: "Send Invoice" }).click();
   await expect.poll(async () => (await outbox({ to: email, subject: "[Invoice]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
   const invoiceMail = (await outbox({ to: email, subject: "[Invoice]" }))[0];
+  expect(String(invoiceMail.html), "logo in the invoice email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(invoiceMail.html)).toContain(beforeLabel);
   expect(String(invoiceMail.html)).toContain(afterLabel);
   expect(String(invoiceMail.html)).toMatch(/Before[\s\S]*After[\s\S]*Damage at section 12[\s\S]*Section 12 repaired/);
@@ -100,12 +120,14 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await settle(page, 1200);
   await expect(page.getByRole("img", { name: beforeLabel })).toBeVisible();
   await expect(page.getByRole("img", { name: afterLabel })).toBeVisible();
+  await expect(page.locator(`img[alt="${BIZ_NAME}"]`).filter({ visible: true }).first()).toBeVisible();
   await shot(page, "doc-photos-report");
   await page.getByRole("button", { name: "Mail report" }).click();
   await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
   await page.getByRole("button", { name: "Send report" }).click();
   await expect.poll(async () => (await outbox({ to: email, subject: "[Report]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
   const reportMail = (await outbox({ to: email, subject: "[Report]" }))[0];
+  expect(String(reportMail.html), "logo in the report email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(reportMail.html)).toContain(beforeLabel);
   expect(String(reportMail.html)).toContain(afterLabel);
   const reportText = String(reportMail.text ?? reportMail.html).replace(/<[^>]+>/g, " ");
