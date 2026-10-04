@@ -338,9 +338,9 @@ export default function CompanyCallsPage() {
                           </>
                         )}
                       </p>
+                      {/* T-172: one way in. ("Details" repeated the status line right above it.) */}
                       <div className="c1-phone-only c1-call-actions" onClick={(event) => event.stopPropagation()}>
                         <button type="button" className="button small primary" onClick={() => { setSelected(call); requestAnimationFrame(() => document.getElementById("call-detail-title")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Open call</button>
-                        <details><summary>Details</summary><p>{callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}</p></details>
                       </div>
                     </article>
                   );
@@ -431,7 +431,8 @@ export default function CompanyCallsPage() {
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                     <StatusChip status={selected.outcome} label={displayRequestState({ outcome: selected.outcome }).label} />
                     {selected.isAfterHours && <StatusChip status="after_hours" />}
-                    {selected.outcomeReason && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
+                    {/* T-173: the classifier's internal reason is for platform debugging, not the business's staff. */}
+                    {selected.outcomeReason && user?.superadmin && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
                   </div>
                 )}
 

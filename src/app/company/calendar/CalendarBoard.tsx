@@ -673,7 +673,7 @@ export default function CalendarBoard() {
             </button>
           )}
           <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <Plus size={13} strokeWidth={1.75} />
+            <Users size={13} strokeWidth={1.75} />
             Manage {vocab.resourceNounPlural.toLowerCase()}
           </Link>
         </div>

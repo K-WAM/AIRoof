@@ -53,6 +53,24 @@ export default function CompanySettingsPage() {
   const canManageTeam = user?.role === "owner" || !!user?.superadmin;
 
   const [settings, setSettings] = useState<Settings | null>(null);
+  const settingsLoaded = settings !== null;
+  // T-178: the section list is a sticky chip row on phones (it was a "Jump to" dropdown) and highlights where you are.
+  const [activeSection, setActiveSection] = useState<string>(SECTIONS[0][0]);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible[0]) setActiveSection(visible[0].target.id);
+    }, { rootMargin: "-120px 0px -55% 0px" });
+    const timer = window.setTimeout(() => {
+      for (const [id] of SECTIONS) { const el = document.getElementById(id); if (el) observer.observe(el); }
+    }, 0);
+    return () => { window.clearTimeout(timer); observer.disconnect(); };
+  }, [settingsLoaded]);
+  // Keep the highlighted chip on screen in the sideways-scrolling phone row.
+  useEffect(() => {
+    document.querySelector(`.settings-section-list a[href="#${activeSection}"]`)?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [activeSection]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -228,16 +246,10 @@ export default function CompanySettingsPage() {
       )}
 
       {dirty && <p role="status" className="settings-unsaved">Unsaved changes — save before leaving this page.</p>}
-      <div className="settings-jump-phone">
-        <label htmlFor="settings-jump">Jump to</label>
-        <select id="settings-jump" defaultValue="" onChange={(event) => { if (event.target.value) document.getElementById(event.target.value)?.scrollIntoView({ behavior: "smooth" }); }}>
-          <option value="" disabled>Choose a section</option>
-          {SECTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
-      </div>
       <div className="settings-phase32-layout">
         <nav className="settings-section-list" aria-label="Settings sections">
-          {SECTIONS.map(([id, label]) => <a key={id} href={"#" + id}>{label}</a>)}
+          {SECTIONS.map(([id, label]) => <a key={id} href={"#" + id} aria-current={activeSection === id ? "location" : undefined}
+            onClick={(event) => { event.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); setActiveSection(id); }}>{label}</a>)}
         </nav>
         <div className="settings-section-content">
           <section id="company" className="panel">

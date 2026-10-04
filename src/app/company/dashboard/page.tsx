@@ -287,6 +287,16 @@ export default function CompanyDashboardPage() {
   const neverHadCall = callCount === 0;
   const lineConnected = setup ? setup.phoneConfigured : !!agent?.phoneLineConnected;
 
+  const nextUp = pendingAppts.length > 0
+    ? `${pendingAppts.length} new booking${pendingAppts.length === 1 ? "" : "s"} to confirm — start there.`
+    : escalationAlerts.length > 0
+    ? "An urgent call needs a look."
+    : urgentLeads.length > 0
+    ? `${urgentLeads.length} caller${urgentLeads.length === 1 ? "" : "s"} waiting for a call back.`
+    : todayAppointments.length > 0
+    ? `${todayAppointments.length} visit${todayAppointments.length === 1 ? "" : "s"} on today's schedule.`
+    : "Nothing waiting on you right now.";
+
   if (loading) {
     return <PageSkeleton metrics={4} rows={4} />;
   }
@@ -307,11 +317,8 @@ export default function CompanyDashboardPage() {
             <LayoutDashboard size={20} strokeWidth={1.75} />
             Today&apos;s Work
           </h1>
-          <p className="page-subtitle">
-            {hasJobs
-              ? `Urgent leads, today's appointments, active ${vocab.jobNounPlural.toLowerCase()}, and agent status.`
-              : "Urgent leads, today's appointments, and agent status."}
-          </p>
+          {/* T-179: the subtitle listed what the tiles already show; it now says the one thing to do next. */}
+          <p className="page-subtitle">{nextUp}</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
           {pendingAppts.length > 0 && (

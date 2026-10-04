@@ -3524,7 +3524,14 @@ a.metric:hover {
 .settings-phone-line small { color: var(--text-muted); }
 .settings-unsaved { color: var(--c-warn-fg); }
 .settings-advanced { display: grid; gap: var(--sp-4, 16px); }
-@media (max-width: 640px) { .settings-phase32-layout { display: block; } .settings-section-list { display: none; } .settings-jump-phone { display: grid; gap: var(--sp-2, 8px); margin-bottom: var(--sp-4, 16px); } .settings-jump-phone select { min-height: var(--control-h, 44px); } }
+.settings-section-list a[aria-current="location"] { color: var(--accent); background: var(--surface-muted); font-weight: 700; }
+/* T-178: phones get a sticky, sideways-scrolling chip row under the top bar instead of a "Jump to" dropdown. */
+@media (max-width: 640px) {
+  .settings-phase32-layout { display: block; }
+  .settings-section-list { display: flex; gap: 6px; overflow-x: auto; top: 64px; z-index: 5; margin: 0 -20px var(--sp-4, 16px); padding: 8px 20px; border-radius: 0; border-left: 0; border-right: 0; scrollbar-width: none; }
+  .settings-section-list a { flex: none; white-space: nowrap; border: 1px solid var(--border); border-radius: 999px; padding: 8px 12px; min-height: 36px; display: inline-flex; align-items: center; }
+  .settings-section-content > section { scroll-margin-top: 130px; }
+}
 
 /* ── Phase 32 · integration ── */
 /* A closed disclosure (the More menus, Team → More) takes no space: its hidden panel used to be laid out past the right
@@ -3560,4 +3567,9 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 @media (max-width: 1440px) {
   .job-tabs-grouped .job-tab-group-label { font-size: 0; padding: 0; width: 1px; height: 24px; margin: 0 6px; background: var(--border); }
   .job-tabs-grouped .job-tab-group-label:first-child { display: none; }
+}
+/* T-177: a phone's two-column segmented control with an odd count (Library's five sections) lets the last option
+   span the row instead of sitting alone in half of it. */
+@media (max-width: 900px) {
+  .segmented-control > .segment:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
