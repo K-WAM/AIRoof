@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
+import { JobPicker } from "@/components/field/JobPicker";
 import { FieldNoteComposer } from "@/components/field/FieldNoteComposer";
 import { RecentNotes } from "@/components/field/RecentNotes";
 import type { WorkerDay } from "@/types/timeclock";
@@ -19,6 +20,7 @@ const ACCESS_STORE = "luxorFieldAccess";
 
 // Per-device remembered name — see the workerName useState's own comment.
 const WORKER_NAME_STORE = "luxorFieldWorkerName";
+const LAST_JOB_STORE = "luxorFieldLastJob";
 
 function loadStoredAccess(): { businessId: string; key: string } | null {
   try {
@@ -61,6 +63,12 @@ function FieldApp() {
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [notesVersion, setNotesVersion] = useState(0);
   const [clockedInJobId, setClockedInJobId] = useState<string | null>(null);
+  const [recentJobId, setRecentJobId] = useState<string | null>(() => { try { return localStorage.getItem(LAST_JOB_STORE); } catch { return null; } });
+  useEffect(() => {
+    if (!selectedJobId) return;
+    setRecentJobId(selectedJobId);
+    try { localStorage.setItem(LAST_JOB_STORE, selectedJobId); } catch {}
+  }, [selectedJobId]);
 
   // New QR links arrive through the server exchange redirect and already have an
   // HttpOnly cookie. Old ?key= links/localStorage entries get one migration POST.
@@ -157,9 +165,10 @@ function FieldApp() {
       .then((d) => {
         const loaded = d.job ? [d.job as Job] : (d.jobs ?? []) as Job[];
         const open = loaded.filter((j) => j.status !== "complete" && j.status !== "invoiced");
-        setJobs(open);
-        if (sessionJobId && open.find((j) => j.jobId === sessionJobId)) setSelectedJobId(sessionJobId);
+        setJobs(loaded);
+        if (sessionJobId && loaded.find((j) => j.jobId === sessionJobId)) setSelectedJobId(sessionJobId);
         else if (open.length === 1) setSelectedJobId((current) => current || open[0].jobId);
+        else if (loaded.length === 1) setSelectedJobId((current) => current || loaded[0].jobId);
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
@@ -244,29 +253,7 @@ function FieldApp() {
           </div>
 
           {/* 2. Which job */}
-          <div>
-            <label htmlFor="field-job" style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>Job</label>
-            <div style={{ position: "relative" }}>
-              <select
-                id="field-job"
-                value={selectedJobId}
-                onChange={e => setSelectedJobId(e.target.value)}
-                disabled={loadingJobs || jobs.length <= 1}
-                style={{
-                  width: "100%", padding: "13px 40px 13px 16px", borderRadius: 14,
-                  border: "1.5px solid #1e2a4a", fontSize: 15, fontWeight: 600,
-                  color: selectedJobId ? "#f1f5f9" : "#94a3b8",
-                  background: "#0f172a", appearance: "none", WebkitAppearance: "none",
-                  cursor: loadingJobs || jobs.length <= 1 ? "default" : "pointer", outline: "none",
-                }}
-              >
-                {loadingJobs ? <option>Loading jobs…</option>
-                  : jobs.length === 0 ? <option value="">No open job on this link</option>
-                  : <><option value="">Choose the job you&apos;re at…</option>{jobs.map(j => <option key={j.jobId} value={j.jobId}>{j.jobId} — {j.title}</option>)}</>}
-              </select>
-              {jobs.length > 1 && <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "#475569", pointerEvents: "none", fontSize: 12 }}>▾</div>}
-            </div>
-          </div>
+          <JobPicker jobs={jobs} loading={loadingJobs} selectedId={selectedJobId} onSelect={setSelectedJobId} clockedInJobId={clockedInJobId} recentJobId={recentJobId} />
 
           {/* 3. Hours */}
           {bootstrapComplete && businessId && hasWorkerName && (

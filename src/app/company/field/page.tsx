@@ -7,6 +7,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
+import { JobPicker } from "@/components/field/JobPicker";
 import { FieldNoteComposer, type SavedReceipt } from "@/components/field/FieldNoteComposer";
 import { RecentNotes } from "@/components/field/RecentNotes";
 import type { WorkerDay } from "@/types/timeclock";
@@ -18,158 +19,12 @@ import type { TimeBlock } from "@/types/schedule";
 import { BookingDetails, type BookingDetailsValue } from "@/components/appointments/BookingDetails";
 import { CalendarFeedLink } from "@/components/field/CalendarFeedLink";
 import {
-  ChevronDown,
-  ChevronUp,
   ClipboardList,
-  MapPin,
   RefreshCw,
   X,
 } from "lucide-react";
 
-// ─── Job Selector ────────────────────────────────────────────────────────────
-
-function JobSelector({
-  jobs,
-  loading,
-  selectedId,
-  onSelect,
-  myCrewId,
-}: {
-  jobs: Job[];
-  loading: boolean;
-  selectedId: string;
-  onSelect: (id: string) => void;
-  /** The signed-in person's crew: their crew's jobs are tagged so the right one is easy to spot. */
-  myCrewId?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = jobs.find((j) => j.jobId === selectedId);
-
-  // Nothing picked yet: show the jobs as a plain list under one question, no dropdown to discover (2026-10-04).
-  if (!loading && !selected && jobs.length > 1) {
-    return (
-      <div style={{ width: "100%" }}>
-        <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "#f8fafc" }}>Which job are you at?</p>
-        <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 16, overflow: "hidden" }}>
-          {jobs.map((job, i) => (
-            <button key={job.jobId} type="button" onClick={() => onSelect(job.jobId)}
-              style={{ width: "100%", textAlign: "left", padding: "14px 16px", background: "transparent", border: "none", borderBottom: i < jobs.length - 1 ? "1px solid #334155" : "none", cursor: "pointer", color: "#f8fafc" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>#{job.jobId}</span>
-                {myCrewId && job.assignedCrewId === myCrewId && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(94,234,212,0.15)", color: "#5eead4" }}>Your crew</span>}
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{job.title}</div>
-              {job.address && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ position: "relative", width: "100%" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%",
-          background: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: 16,
-          padding: "14px 16px",
-          textAlign: "left",
-          cursor: "pointer",
-          color: "#f8fafc",
-        }}
-      >
-        {loading ? (
-          <span style={{ color: "#64748b", fontSize: 15 }}>Loading jobs…</span>
-        ) : selected ? (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: "#f97316", fontSize: 13, fontWeight: 700 }}>#</span>
-              <span style={{ color: "#f97316", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>
-                {selected.jobId}
-              </span>
-              {open
-                ? <ChevronUp size={18} strokeWidth={1.75} style={{ marginLeft: "auto", color: "#64748b" }} />
-                : <ChevronDown size={18} strokeWidth={1.75} style={{ marginLeft: "auto", color: "#64748b" }} />}
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#f8fafc", marginTop: 4 }}>{selected.title}</div>
-            {selected.address && (
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                <MapPin size={12} strokeWidth={1.75} />
-                {selected.address}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "#64748b", fontSize: 15 }}>
-              {jobs.length === 0 ? "— No open jobs —" : "Tap to select a job…"}
-            </span>
-            {open
-              ? <ChevronUp size={18} strokeWidth={1.75} style={{ color: "#64748b" }} />
-              : <ChevronDown size={18} strokeWidth={1.75} style={{ color: "#64748b" }} />}
-          </div>
-        )}
-      </button>
-
-      {open && jobs.length > 0 && (
-        <>
-          <div
-            onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 40 }}
-          />
-          <div style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            left: 0,
-            right: 0,
-            zIndex: 50,
-            background: "#1e293b",
-            border: "1px solid #334155",
-            borderRadius: 16,
-            overflow: "hidden",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-          }}>
-            {jobs.map((job, i) => (
-              <button
-                key={job.jobId}
-                onClick={() => { onSelect(job.jobId); setOpen(false); }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "14px 16px",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: i < jobs.length - 1 ? "1px solid #334155" : "none",
-                  cursor: "pointer",
-                  color: "#f8fafc",
-                  transition: "background 0.1s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#0f172a")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>#{job.jobId}</span>
-                  {myCrewId && job.assignedCrewId === myCrewId && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(94,234,212,0.15)", color: "#5eead4" }}>Your crew</span>}
-                  {job.jobId === selectedId && <span style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8" }}>Selected</span>}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
-                  {job.title}
-                </div>
-                {job.address && (
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{job.address}</div>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+const LAST_JOB_STORE = "luxorFieldLastJob";
 
 // ─── Job Log Card ─────────────────────────────────────────────────────────────
 
@@ -230,12 +85,11 @@ function FieldPageContent() {
         // Every open job, this person's crew's jobs first. Not scoped to the crew any more (2026-10-04): a worker subbed in
         // from another crew — or helping out for a day — must find the job without the office changing assignments first.
         // Finished work (complete, or already invoiced) is not something the crew logs against.
-        const myCrew = user?.crewId;
-        const open = ((d.jobs ?? []) as Job[])
-          .filter((j) => j.status !== "complete" && j.status !== "invoiced")
-          .sort((a, b) => Number(!!myCrew && b.assignedCrewId === myCrew) - Number(!!myCrew && a.assignedCrewId === myCrew));
-        setJobs(open);
-        if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) {
+        // Finished jobs stay in the list (a late photo, a callback) — the picker ranks open ones first.
+        const all = (d.jobs ?? []) as Job[];
+        const open = all.filter((j) => j.status !== "complete" && j.status !== "invoiced");
+        setJobs(all);
+        if (prefillJobId && all.find((j) => j.jobId === prefillJobId)) {
           setSelectedJobId(prefillJobId);
         } else if (!prefillJobId && open.length === 1) {
           // One job on the list: it is the job — skip the "Tap to select" step.
@@ -346,6 +200,13 @@ function FieldPageContent() {
   // The job this person is clocked in at (from the time clock). Opening the screen already clocked in at a job selects
   // that job, so the first note goes where the hours are.
   const [clockedInJobId, setClockedInJobId] = useState<string | null>(null);
+  // The job last used on this phone floats to the top of the picker next time.
+  const [recentJobId, setRecentJobId] = useState<string | null>(() => { try { return localStorage.getItem(LAST_JOB_STORE); } catch { return null; } });
+  useEffect(() => {
+    if (!selectedJobId) return;
+    setRecentJobId(selectedJobId);
+    try { localStorage.setItem(LAST_JOB_STORE, selectedJobId); } catch { /* per-visit only */ }
+  }, [selectedJobId]);
   const handleDay = useCallback((day: WorkerDay) => {
     const open = day.state === "site" || day.state === "site_break" ? day.openJobId ?? null : null;
     setClockedInJobId(open);
@@ -455,15 +316,17 @@ function FieldPageContent() {
 
           {/* Job Selector */}
           {!loadingJobs && jobs.length === 0 && (
-            <EmptyState compact tone="dark" title="No open jobs right now" body="The office opens jobs from Pipeline. You can still clock in at the shop below." testId="field-empty" />
+            <EmptyState compact tone="dark" title="No jobs yet" body="The office opens jobs from Pipeline. You can still clock in at the office below." testId="field-empty" />
           )}
           <div style={{ marginBottom: 20 }}>
-            <JobSelector
+            <JobPicker
               jobs={jobs}
               loading={loadingJobs}
               selectedId={selectedJobId}
               onSelect={setSelectedJobId}
               myCrewId={user?.crewId}
+              clockedInJobId={clockedInJobId}
+              recentJobId={recentJobId}
             />
           </div>
 

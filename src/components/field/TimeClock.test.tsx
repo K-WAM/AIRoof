@@ -20,12 +20,12 @@ function serve(current: WorkerDay) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("TimeClock", () => {
-  it("off with no job picked: Clock in at the shop is the one to tap, and the job button says what it needs", async () => {
+  it("off with no job picked: Clock in at the office is the one to tap, and the job button says what it needs", async () => {
     serve(day({}));
     render(<TimeClock businessId="biz" jobId={null} workerName="" />);
     expect(await screen.findByText("Off the clock")).toBeTruthy();
     expect((screen.getByRole("button", { name: /Pick a job to clock in there/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole("button", { name: /Clock in at the shop/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Clock in at the office/ })).toBeTruthy();
     expect(screen.getByText(/paid, not billed to a job/)).toBeTruthy();
   });
 
@@ -58,7 +58,7 @@ describe("TimeClock", () => {
     expect(posts[0]).toMatchObject({ type: "site_in", jobId: "J-1004", closeOpen: true });
   });
 
-  it("back from a job without going home reads as between jobs, not at the shop", async () => {
+  it("back from a job without going home reads as between jobs, not at the office", async () => {
     serve(day({ state: "office", openSince: at, lastPunchType: "site_out", lastPunchAt: at }));
     const seen: string[] = [];
     render(<TimeClock businessId="biz" jobId="J-1004" workerName="" onDayChange={(d) => seen.push(d.state)} />);

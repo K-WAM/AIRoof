@@ -62,11 +62,6 @@ export function summarizeParsed(parsed: { materials?: unknown[]; labor?: Array<{
   return parts.length ? `Added ${parts.join(", ")}` : "Saved as a note";
 }
 
-/** Notes go only on work that is still open: an invoiced job's documents are already with the customer. */
-export function refuseClosedJob(job: Record<string, unknown> | undefined, jobId: string): string | null {
-  if (job?.status === "invoiced") return `${jobId} is already invoiced. Ask the office before adding to it.`;
-  return null;
-}
 
 /** Keep an English rendering only when it says something the original doesn't (a translation). An English note's
  *  "translation" is the same text and would put a pointless "Show original" toggle on it. */

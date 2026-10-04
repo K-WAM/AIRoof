@@ -2802,8 +2802,8 @@ phone screenshot `test-results/screens/phone/audit-<screen>.png`. Mark `[x]` wit
   `FieldNoteComposer` for both field screens (job + author printed before talking, wrong-job warning when clocked in
   elsewhere, receipt that names job + author, correction bound to its job, type option on both screens); server-side
   author (`resolveAuthor`: login name/uid, QR typed name required) stored as `submittedBy/submittedByUid/submittedVia`;
-  collision-proof ledger ids; invoiced jobs refuse notes; time clock in plain verbs with a running timer, today's
-  total and a confirm on Clock out. Spec: `e2e/field-updates.spec.ts`. Second pass same day: all open jobs listed (sub from another crew finds the job), inline job list, one-line target/so-far, Photo+Finding on one row. Open follow-ups: show the author's crew name on
+  collision-proof ledger ids; time clock in plain verbs with a running timer, today's
+  total and a confirm on Clock out. Spec: `e2e/field-updates.spec.ts`. Second pass same day: `JobPicker` (search + 5 likeliest + Show all; finished jobs reachable, tagged Done; a sub from another crew finds the job), one-line target/so-far, Photo+Finding on one row, "office" not "shop", no refusal on finished jobs. Open follow-ups: show the author's crew name on
   office note cards (store `crewId` with the note); the per-member "who's on which job today" board.
 
 ## Historical assignments (none active)

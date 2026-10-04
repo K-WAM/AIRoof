@@ -17,6 +17,9 @@ async function twoJobs() {
 test("signed-in crew: clock in, note, receipt, wrong-job warning, clock out asks first", async ({ as }) => {
   test.setTimeout(150_000);
   const { a, b } = await twoJobs();
+  // Start off the clock: a run that died mid-way leaves this account clocked in, and the screen then (correctly)
+  // opens on that job and offers "Switch" instead of "Clock in". 409 = already off, ignored.
+  await (await api("crew")).post("/api/timeclock/punch", { businessId: B, type: "office_out" });
   const page = await as("crew");
   await page.goto(`/company/field?jobId=${a}`);
   await settle(page);
@@ -42,8 +45,10 @@ test("signed-in crew: clock in, note, receipt, wrong-job warning, clock out asks
   await shot(page, "field-note-saved");
 
   // Pick the other job while clocked in here: warned before a note lands on the wrong job.
-  await page.getByRole("button", { name: new RegExp(a) }).first().click();
-  await page.getByRole("button", { name: new RegExp(`#${b}`) }).click();
+  await page.getByTestId("job-selected").click();
+  const search = page.getByLabel("Search jobs"); // only there once the shop has more than a handful of jobs
+  if (await search.isVisible()) await search.fill(b);
+  await page.getByTestId("job-option").filter({ hasText: b }).first().click();
   await expect(page.getByTestId("note-job-mismatch")).toContainText(`clocked in at ${a}`);
   // The list under the composer belongs to the job on screen: the note saved to the other job must not show here.
   await settle(page, 800);

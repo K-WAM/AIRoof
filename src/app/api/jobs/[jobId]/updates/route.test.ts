@@ -50,14 +50,12 @@ describe("POST /api/jobs/[jobId]/updates — who and where", () => {
     expect(stored.submittedByUid).toBeUndefined();
   });
 
-  it("refuses a note for a job that is gone or already invoiced, before the model runs", async () => {
-    expect((await post({ businessId: "biz", rawText: "note" }).then((r) => r.status))).toBe(201);
-    seenContext.length = 0;
+  it("a note on a finished job is still saved (a late photo or callback must not bounce), an unknown job is a 404", async () => {
     db.__seed("businesses/biz/jobs", "J-1", { jobId: "J-1", status: "invoiced" });
-    const res = await post({ businessId: "biz", rawText: "note" });
-    expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/already invoiced/);
-    expect(seenContext).toHaveLength(0);
+    expect((await post({ businessId: "biz", rawText: "note" })).status).toBe(201);
+    const params2 = { params: Promise.resolve({ jobId: "J-404" }) };
+    const res = await POST(new NextRequest("http://localhost/api/jobs/J-404/updates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ businessId: "biz", rawText: "note" }) }), params2);
+    expect(res.status).toBe(404);
   });
 
   it("two notes saved in the same millisecond are two notes", async () => {

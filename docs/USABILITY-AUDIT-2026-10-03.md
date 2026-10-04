@@ -149,7 +149,7 @@ reworked `TimeClock`. Proven by `e2e/field-updates.spec.ts` (desktop + phone).
 | H2 Match the real world | "Arrived at office / Done for the day"; "Update 1 by Crew (no name given)" | "Clock in at the shop / at J-1001 / Leave J-1001 / Clock out for the day"; "from Carlos" (+ "field link" for QR) |
 | H3 User control | One tap ended the paid day; correction applied to whatever job was selected | Clock out asks once; a correction is tied to its job and a job switch drops it; "Keep as is" |
 | H4 Consistency | Two different field screens (orange vs purple, typing only on one) | One composer, one clock, one recent list on both |
-| H5 Error prevention | Notes and hours could point at different jobs silently; same-ms notes overwrote each other; anonymous notes; body-supplied names | "Notes go to J-…" before talking; warning when clocked in elsewhere; clocked-in job auto-selected; random-suffix ids; QR needs a name, login name can't be spoofed; invoiced jobs refuse notes |
+| H5 Error prevention | Notes and hours could point at different jobs silently; same-ms notes overwrote each other; anonymous notes; body-supplied names | "Notes go to J-…" before talking; warning when clocked in elsewhere; clocked-in job auto-selected; random-suffix ids; QR needs a name, login name can't be spoofed |
 | H6 Recognition over recall | Crew had to remember which job was selected | Job + address + "Sent as" printed at the button; "Your crew" tag in the job list |
 | H7 Flexibility | Hold-to-talk only (signed-in) | Hold OR tap-start/tap-stop; type on both screens |
 | H8 Minimalist | Job page repeated parsed chips and the Work log | The note's words lead; AI extraction folds behind "What the AI read (n)" |
@@ -178,3 +178,14 @@ composer saying "Pick a job" while the link's job was still loading. Screen audi
   the four-section Job Log card is one line ("So far on J-1001: 12 bundles shingles · 8.0 h labor"); Photo and Finding
   share a row; the time clock lost its "Last tap" and helper paragraph (folded into the status line). Screen order:
   job → clock → talk → photo/finding → what's logged.
+
+### Third pass — many jobs, finished jobs, "office" not "shop"
+- **50 open jobs no longer means 50 rows.** `JobPicker` (both field screens): a search box (number, name or address),
+  the 5 likeliest jobs (the one you're clocked in at → the one you used last on this phone → your crew's, today's
+  first → newest), and "Show all N jobs". A picked job collapses to one card with "Change".
+- **Finished jobs are reachable.** They are in search and under Show all, tagged "Done", and accept notes — a late
+  photo or a callback should never bounce. The 2026-10-04 refusal on invoiced jobs was removed the same day: the
+  invoice is already locked, a note can't change it, and the office sees the note.
+- **"Clock in at the office"** (there is no shop); "Office time is paid, not billed to a job."
+- Verified: JobPicker unit tests (50 jobs → 5 rows + search + Show all; search finds a Done job; ranking), field
+  specs desktop + phone, phone screenshots with 30 open jobs.

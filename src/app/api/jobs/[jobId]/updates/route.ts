@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorFields, englishRendering, isValidCorrection, ledgerId, refuseClosedJob, resolveAuthor, storedJobContext, summarizeParsed } from "@/lib/jobs/fieldInput";
+import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
@@ -64,8 +64,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
   const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
   if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  const closed = refuseClosedJob(jobSnap.data(), jobId);
-  if (closed) return NextResponse.json({ error: closed }, { status: 409 });
 
   const now = Date.now();
   const updatesCol = db.collection(`businesses/${businessId}/jobs/${jobId}/updates`);

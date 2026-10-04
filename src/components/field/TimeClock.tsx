@@ -3,12 +3,12 @@
 // Tap-based time clock (Phase 12, Phase 5 — docs/PLATFORM-EXPANSION-PLAN.md), shared by the signed-in field screen and
 // the no-login QR one. Reworked 2026-10-04 ("arrived at office / started lunch… were confusing, but we want the
 // functionality"):
-//   - Plain verbs that say what the tap DOES: "Clock in at J-1001", "Clock in at the shop", "Start lunch", "End lunch",
+//   - Plain verbs that say what the tap DOES: "Clock in at J-1001", "Clock in at the office", "Start lunch", "End lunch",
 //     "Leave J-1001", "Clock out for the day".
 //   - One big status line with a running timer ("At J-1001 · 1h 05m"), and today's total so far.
 //   - Only the taps that make sense right now; the likeliest one is filled.
 //   - "Clock out for the day" asks once (it ends the paid day).
-//   - Shop time is explained where it is offered: paid, but not billed to a job.
+//   - Office time is explained where it is offered: paid, but not billed to a job.
 // The parent hears every state change (onDayChange) so the note composer can warn when notes and hours point at
 // different jobs.
 
@@ -28,7 +28,7 @@ interface ConflictInfo {
 
 /** What each tap did, in the past tense — the "Last tap" line. */
 const PUNCH_DONE: Record<PunchType, string> = {
-  office_in: "Clocked in at the shop",
+  office_in: "Clocked in at the office",
   site_in: "Clocked in at a job",
   break_start: "Started lunch",
   break_end: "Ended lunch",
@@ -186,11 +186,11 @@ export function TimeClock({
     switch (day.state) {
       case "office": return day.lastPunchType === "site_out"
         ? { text: "On the clock — between jobs", sub: `${fmtDuration(sinceStart)} since you left the last job` }
-        : { text: "At the shop", sub: `${fmtDuration(sinceStart)} · paid, not billed to a job` };
+        : { text: "At the office", sub: `${fmtDuration(sinceStart)} · paid, not billed to a job` };
       case "site": return { text: `At ${day.openJobId ?? "the job"}`, sub: `${fmtDuration(sinceStart)} · these hours go on the job` };
       case "break_office": return { text: "On lunch", sub: `${fmtDuration(sinceStart)} · not paid` };
       case "site_break": return { text: `On lunch — ${day.openJobId ?? "job"}`, sub: `${fmtDuration(sinceStart)} · not paid` };
-      default: return { text: "Off the clock", sub: jobId ? `Clock in at ${jobId} and your hours go on it. Shop time is paid, not billed to a job.` : "Pick your job above, or clock in at the shop (paid, not billed to a job)." };
+      default: return { text: "Off the clock", sub: jobId ? `Clock in at ${jobId} and your hours go on it. Office time is paid, not billed to a job.` : "Pick your job above, or clock in at the office (paid, not billed to a job)." };
     }
   })();
   const lastTap = day.lastPunchType && day.lastPunchAt && tz ? `Last tap: ${PUNCH_DONE[day.lastPunchType]} · ${fmtTime(day.lastPunchAt, tz)}` : null;
@@ -249,7 +249,7 @@ export function TimeClock({
               <>
                 {clockInAtJob(!!jobId)}
                 <button style={jobId ? btnStyle : primaryStyle} disabled={busy} onClick={() => punch("office_in")}>
-                  <Building2 size={16} strokeWidth={1.75} /> Clock in at the shop
+                  <Building2 size={16} strokeWidth={1.75} /> Clock in at the office
                 </button>
               </>
             )}
