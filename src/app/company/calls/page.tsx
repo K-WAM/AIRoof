@@ -111,6 +111,13 @@ export default function CompanyCallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const callRows = useNewRowIds<Call>((call) => call.callId);
   const [selected, setSelected] = useState<Call | null>(null);
+  // The card is the one way in (C6). On a phone the detail sits under the list, so bring it into view.
+  const openCall = (call: Call) => {
+    setSelected(call);
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      requestAnimationFrame(() => document.getElementById("call-detail-title")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [dirFilter, setDirFilter] = useState<"all" | "inbound" | "outbound">("all");
@@ -262,12 +269,12 @@ export default function CompanyCallsPage() {
 
       <div className="call-workspace">
         <section className="panel" aria-labelledby="call-list-title">
-          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <h2 className="panel-title" id="call-list-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <History size={16} strokeWidth={1.75} />
               Call History
             </h2>
-            <div className="segmented-control" style={{ fontSize: 12 }}>
+            <div className="segmented-control segmented-control--row" style={{ fontSize: 12 }}>
               {(["all", "inbound", "outbound"] as const).map((f) => (
                 <button key={f} className="segment" type="button" aria-pressed={dirFilter === f} onClick={() => setDirFilter(f)}>
                   {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -286,7 +293,7 @@ export default function CompanyCallsPage() {
               />
             ) : (
               <div className="call-list">
-                <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Click a call to read its transcript and play the recording.</p>
+                <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Tap a call to read it and play the recording.</p>
                 {filteredCalls.slice(0, shownCount).map((call) => {
                   const msgs = conversationMessages(call);
                   const category = guessCategory(msgs);
@@ -304,7 +311,11 @@ export default function CompanyCallsPage() {
                       className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
                       key={call.callId}
                       aria-selected={selected?.callId === call.callId}
-                      onClick={() => setSelected(call)}
+                      onClick={() => openCall(call)}
+                      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openCall(call); } }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open call ${displayPhone}`}
                       style={{ cursor: "pointer" }}
                     >
                       <div className="call-row-header">
@@ -338,10 +349,6 @@ export default function CompanyCallsPage() {
                           </>
                         )}
                       </p>
-                      {/* T-172: one way in. ("Details" repeated the status line right above it.) */}
-                      <div className="c1-phone-only c1-call-actions" onClick={(event) => event.stopPropagation()}>
-                        <button type="button" className="button small primary" onClick={() => { setSelected(call); requestAnimationFrame(() => document.getElementById("call-detail-title")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Open call</button>
-                      </div>
                     </article>
                   );
                 })}

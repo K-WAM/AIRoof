@@ -34,17 +34,7 @@ Add-ons that decide most reviews:
 3. Hand it to someone cold: "get a quote sent for this job". Time them; note every hesitation.
 4. File findings as one-screen tasks in `TODO.md` — never one giant redesign.
 
-## Status against these rules (2026-10-04, phone, seeded data)
-Clean: Dashboard, Calendar, Customers, Library, Team, Field (office/Crew/QR), Job detail tabs, Settings (after T-177/178).
-Cluttered, open (filed as T-182–T-185 in `TODO.md`):
-
-| Screen | Phone height | Fails | Why |
-|---|---|---|---|
-| Pipeline | ~14,500 px | C4, C6, C10 | Past & Cancelled expands every old booking by default (each with Details + More); cards carry both "Details" and "More". |
-| Jobs list | ~12,800 px | C2, C6, C10 | Every card has its own primary "Open job" plus a "Details" disclosure; 24+ cards, no paging. Make the whole card the link. |
-| Calls | ~11,700 px | C4, C6, C10 | Long unbounded transcript list; Open call / Details overlap. |
-| Admin client config | ~16,900 px | C1, C4 | One page edits identity, Vapi/ElevenLabs IDs, branding, rules, phone lines. Superadmin only, so lowest priority; use a sticky section switcher like Settings. |
-| Settings, Guide, Demo Studio | 7,000–9,700 px | C4 | Acceptable after T-177/178 (sticky switcher); watch, don't rebuild. |
-
-Heights come from the seeded test data (30+ rows); a real tenant with 5 jobs is shorter, but a busy roofer reaches
-this in a month, so the rule is "bounded by design".
+## Status against these rules (2026-10-04 night, phone, seeded data)
+All company screens pass. T-182–T-185 fixed (Pipeline 3.7k px, Jobs 2.3k px, Calls 3.1k px, Calendar fits a week, admin
+config has a sticky chip row). T-186: `e2e/screen-audit.spec.ts` enforces phone height ≤ 4,000 px (Settings/Guide/Demo
+Studio 5,500), ≤ 1 teal button and ≤ 16 tap targets above the fold. The numbers are a floor; still read the screenshots.

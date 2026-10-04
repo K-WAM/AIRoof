@@ -1368,7 +1368,7 @@ a.metric:hover {
     max-width: 100%;
   }
 
-  .admin-main { padding: 16px; overflow-x: hidden; }
+    .admin-main { padding: 16px; overflow-x: clip; } /* clip, not hidden: hidden makes main a scroll box and breaks sticky section chips */
 
   .hub-demo-page {
     box-sizing: border-box;
@@ -3578,3 +3578,13 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .c1-list-card--link:active { background: var(--surface-muted); }
 .c1-list-card__sub { font-size: 13px; color: var(--text-muted); }
 .c1-list-card__next { font-size: 13px; color: var(--accent); font-weight: 600; }
+/* Three short options (Calls' All / Inbound / Outbound) sit on one row on a phone instead of a 2+1 stack. */
+@media (max-width: 900px) {
+  .segmented-control.segmented-control--row { grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .segmented-control.segmented-control--row > .segment:last-child:nth-child(odd) { grid-column: auto; }
+}
+/* T-185: admin client config — the Settings chip row, horizontal at every width (the page has its own two columns). */
+.settings-section-list.config-section-nav { display: flex; flex-wrap: wrap; gap: 6px; top: 0; z-index: 5; margin-bottom: var(--sp-4, 16px); }
+.config-section-nav a { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+.panel[id] { scroll-margin-top: 80px; }
+@media (max-width: 900px) { .settings-section-list.config-section-nav { flex-wrap: nowrap; top: 0; } }

@@ -1,6 +1,16 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-10-04 (late) — read this first
+## CURRENT STATE 2026-10-04 (night) — read this first
+- **Owner's standard saved:** `docs/ZERO-TRAINING-UX-STANDARD.md` (checklist: `docs/SCREEN-CLARITY-HEURISTICS.md`). Applied:
+  Jobs/Pipeline/Calls bounded with the card as the one tap target (phone heights 12–14k px → 2.3–3.7k px); Calendar fits a full
+  week at 1280 px, unscheduled list searchable + bounded; job page "Send field link" (one button, native share, 24 h one-use link
+  for contractors — no account); "Work on this job" (the inspector's findings) on both field screens; admin config chip row.
+- **T-182–T-186 done.** `e2e/screen-audit.spec.ts` now fails on clutter (phone height, >1 teal button, >16 taps above the fold).
+- **Security posture change to confirm:** field link open window 10 min → 24 h (`FIELD_EXCHANGE_TTL_MS`, one constant). Still one
+  use, job-pinned, revocable by rotating the field key.
+- Owner decisions still open: merge the branch, NH-32 (Blaze), real-phone test of the field screen.
+
+## CURRENT STATE 2026-10-04 (late)
 - **New standard:** `docs/SCREEN-CLARITY-HEURISTICS.md` — ten pass/fail clarity rules (C1–C10) on top of Nielsen. Phone audit with
   seeded data: Pipeline (~14.5k px), Jobs (~12.8k px) and Calls (~11.7k px) are still cluttered; filed as T-182–T-184
   (T-185 admin config, T-186 automated budgets) in `TODO.md`. Everything else passes.

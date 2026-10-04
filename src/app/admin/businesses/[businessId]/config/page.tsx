@@ -103,6 +103,20 @@ const readinessChecks = [
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
 
+const CONFIG_SECTIONS: Array<[string, string]> = [
+  ["profile-config", "Profile"],
+  ["client-account", "Account"],
+  ["vapi-config", "Phone AI"],
+  ["ai-config", "AI rules"],
+  ["services-config", "Services"],
+  ["login-provision", "Login"],
+  ["subscription", "Plan"],
+  ["routing", "Routing"],
+  ["branding", "Branding"],
+  ["pricing", "Pricing"],
+  ["readiness", "Readiness"],
+];
+
 export default function AdminBusinessConfigPage({
   params,
 }: {
@@ -406,6 +420,11 @@ export default function AdminBusinessConfigPage({
         </a>
       </header>
 
+      {/* T-185: one long page edits a whole client; a sticky chip row jumps to each section (same pattern as Settings). */}
+      <nav className="settings-section-list config-section-nav" aria-label="Config sections">
+        {CONFIG_SECTIONS.map(([id, label]) => <a key={id} href={"#" + id}>{label}</a>)}
+      </nav>
+
       <form
         className="config-grid"
         onSubmit={handleSubmit}
@@ -416,7 +435,7 @@ export default function AdminBusinessConfigPage({
         <div className="section-stack">
 
           {/* ─── Business Profile ─── */}
-          <section className="panel" aria-labelledby="profile-config-title">
+          <section className="panel" id="profile-config" aria-labelledby="profile-config-title">
             <div className="panel-header">
               <h2 className="panel-title" id="profile-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Building2 size={16} strokeWidth={1.75} />
@@ -470,7 +489,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Client Account ─── */}
-          <section className="panel" aria-labelledby="client-account-title">
+          <section className="panel" id="client-account" aria-labelledby="client-account-title">
             <div className="panel-header">
               <h2 className="panel-title" id="client-account-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <FileText size={16} strokeWidth={1.75} />
@@ -492,7 +511,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Phone provider ─── */}
-          <section className="panel" aria-labelledby="vapi-config-title">
+          <section className="panel" id="vapi-config" aria-labelledby="vapi-config-title">
             <div className="panel-header">
               <h2 className="panel-title" id="vapi-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <PhoneCall size={16} strokeWidth={1.75} />
@@ -638,7 +657,7 @@ export default function AdminBusinessConfigPage({
           <PhoneLinesPanel businessId={businessId} />
 
           {/* ─── AI Model and Voice ─── */}
-          <section className="panel" aria-labelledby="ai-config-title">
+          <section className="panel" id="ai-config" aria-labelledby="ai-config-title">
             <div className="panel-header">
               <h2 className="panel-title" id="ai-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Bot size={16} strokeWidth={1.75} />
@@ -684,7 +703,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Services and Rules ─── */}
-          <section className="panel" aria-labelledby="services-config-title">
+          <section className="panel" id="services-config" aria-labelledby="services-config-title">
             <div className="panel-header">
               <h2 className="panel-title" id="services-config-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <ListChecks size={16} strokeWidth={1.75} />
@@ -720,7 +739,7 @@ export default function AdminBusinessConfigPage({
         <aside className="section-stack">
 
           {/* ─── Client Login ─── */}
-          <section className="panel" aria-labelledby="login-provision-title">
+          <section className="panel" id="login-provision" aria-labelledby="login-provision-title">
             <div className="panel-header">
               <h2 className="panel-title" id="login-provision-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <KeyRound size={16} strokeWidth={1.75} />
@@ -778,7 +797,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Subscription & Billing ─── */}
-          <section className="panel" aria-labelledby="subscription-title">
+          <section className="panel" id="subscription" aria-labelledby="subscription-title">
             <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 className="panel-title" id="subscription-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <CreditCard size={16} strokeWidth={1.75} />
@@ -848,7 +867,7 @@ export default function AdminBusinessConfigPage({
           <TeamPanel businessId={businessId} />
 
           {/* ─── Routing ─── */}
-          <section className="panel" aria-labelledby="routing-title">
+          <section className="panel" id="routing" aria-labelledby="routing-title">
             <div className="panel-header">
               <h2 className="panel-title" id="routing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Route size={16} strokeWidth={1.75} />
@@ -882,7 +901,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Branding ─── */}
-          <section className="panel" aria-labelledby="branding-title">
+          <section className="panel" id="branding" aria-labelledby="branding-title">
             <div className="panel-header">
               <h2 className="panel-title" id="branding-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Palette size={16} strokeWidth={1.75} />
@@ -916,7 +935,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Job Pricing ─── */}
-          <section className="panel" aria-labelledby="pricing-title">
+          <section className="panel" id="pricing" aria-labelledby="pricing-title">
             <div className="panel-header">
               <h2 className="panel-title" id="pricing-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Receipt size={16} strokeWidth={1.75} />
@@ -958,7 +977,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Launch Readiness ─── */}
-          <section className="panel" aria-labelledby="readiness-title">
+          <section className="panel" id="readiness" aria-labelledby="readiness-title">
             <div className="panel-header">
               <h2 className="panel-title" id="readiness-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Rocket size={16} strokeWidth={1.75} />
