@@ -203,6 +203,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [technicians, setTechnicians] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
   const [invoiceDirty, setInvoiceDirty] = useState(false);
+  const [sendQueued, setSendQueued] = useState(false);
   const [invoiceSaving, setInvoiceSaving] = useState(false);
   // Guards the autosave effect from firing the instant hydration (GET/POST) populates the rows —
   // that's a load, not an edit.
@@ -717,10 +718,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // Phase 12, Phase 4: the server now reads the SAVED invoice doc rather than trusting rows the
   // client sends — canSendInvoice gates the button so a send can't race an in-flight autosave.
   async function sendInvoice() {
-    if (!canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
-      setSendError(invoiceDirty ? "Still saving your edits — try again in a moment." : "Enter a recipient email.");
+    // Edits still saving (a photo just ticked, a line just typed): don't bounce the user — queue the send and fire it
+    // the moment the save lands (the effect below). The server still only ever sends the SAVED invoice.
+    if (invoiceDirty && invoiceId && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sendEmail.trim())) {
+      setSendError(null);
+      setSendQueued(true);
       return;
     }
+    if (!canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
+      setSendError("Enter a recipient email.");
+      return;
+    }
+    setSendQueued(false);
     setSending(true); setSendError(null);
     try {
       const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
@@ -747,6 +756,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setSending(false);
     }
   }
+
+  const sendInvoiceRef = useRef(sendInvoice);
+  sendInvoiceRef.current = sendInvoice;
+  useEffect(() => {
+    if (!sendQueued) return;
+    if (invoiceError) { setSendQueued(false); setSendError("Your edits didn't save, so nothing was sent. Fix the error above and send again."); return; }
+    if (!invoiceDirty && !invoiceSaving) void sendInvoiceRef.current();
+  }, [sendQueued, invoiceDirty, invoiceSaving, invoiceError]);
 
   // "Mark paid": the office records the payment (there is no online payment on job invoices).
   async function markInvoicePaid() {
@@ -1475,9 +1492,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         placeholder={job?.clientName ? `Email for ${job.clientName}` : "customer@email.com"}
                         style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }}
                       />
-                      <button onClick={sendInvoice} disabled={sending} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <button onClick={sendInvoice} disabled={sending || sendQueued} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <Send size={14} strokeWidth={1.75} />
-                        {sending ? "Sending…" : "Send Invoice"}
+                        {sending ? "Sending…" : sendQueued ? "Saving, then sending…" : "Send Invoice"}
                       </button>
                     </div>
                   )}
