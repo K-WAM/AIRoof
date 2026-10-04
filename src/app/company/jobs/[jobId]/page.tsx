@@ -984,8 +984,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </a>
             <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 18, color: "#1e293b" }}>{jobId}</span>
           </div>
-          <h1 className="page-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
-            <Briefcase size={20} strokeWidth={1.75} />
+          <h1 className="page-title job-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <Briefcase size={20} strokeWidth={1.75} className="job-title__icon" />
             {job.title}
             <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" ? "Paid" : undefined} />
           </h1>

@@ -24,9 +24,22 @@ describe("TimeClock", () => {
     serve(day({}));
     render(<TimeClock businessId="biz" jobId={null} workerName="" />);
     expect(await screen.findByText("Off the clock")).toBeTruthy();
-    expect((screen.getByRole("button", { name: /Pick a job to clock in there/ }) as HTMLButtonElement).disabled).toBe(true);
+    // Never a dead button: with no job it takes you to the job list instead of doing nothing.
+    const pick = screen.getByRole("button", { name: /Pick a job to clock in/ }) as HTMLButtonElement;
+    expect(pick.disabled).toBe(false);
+    fireEvent.click(pick);
+    expect(posts).toHaveLength(0);
     expect(screen.getByRole("button", { name: /Clock in at the office/ })).toBeTruthy();
     expect(screen.getByText(/paid, not billed to a job/)).toBeTruthy();
+  });
+
+  it("every tap says what it did, in words, where you tapped", async () => {
+    serve(day({}));
+    render(<TimeClock businessId="biz" jobId="J-1003" workerName="" />);
+    await screen.findByText("Off the clock");
+    serve(day({ state: "site", openJobId: "J-1003", openSince: Date.now(), lastPunchType: "site_in", lastPunchAt: Date.now() }));
+    fireEvent.click(screen.getByRole("button", { name: /Clock in at J-1003/ }));
+    expect((await screen.findByTestId("clock-done")).textContent).toMatch(/✓ Clocked in at J-1003 · \d/);
   });
 
   it("at a job: Leave, lunch and Clock out, with the running time", async () => {

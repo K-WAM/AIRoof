@@ -77,6 +77,14 @@ export function TimeClock({
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
   const [confirmingOut, setConfirmingOut] = useState(false);
+  // What the last tap just did, in big green words for a few seconds (owner, 2026-10-04: "nothing indicates what I
+  // tapped, I kept re-tapping"). Plus a short buzz on phones that support it.
+  const [justDone, setJustDone] = useState<string | null>(null);
+  useEffect(() => {
+    if (!justDone) return;
+    const t = window.setTimeout(() => setJustDone(null), 5000);
+    return () => window.clearTimeout(t);
+  }, [justDone]);
 
   const setDay = useCallback((next: WorkerDay) => {
     setDayState(next);
@@ -146,6 +154,10 @@ export function TimeClock({
       setDay(body.day);
       setTz(body.tz);
       setNow(Date.now());
+      const at = body.tz ? fmtTime(Date.now(), body.tz) : "";
+      const said = type === "site_in" && jobId ? `Clocked in at ${jobId}` : type === "site_out" && day.openJobId ? `Left ${day.openJobId}` : PUNCH_DONE[type];
+      setJustDone(`✓ ${said}${at ? ` · ${at}` : ""}`);
+      try { navigator.vibrate?.(40); } catch { /* not supported */ }
     } catch {
       setError("Not saved — no connection. Tap again when you have signal.");
     } finally {
@@ -195,9 +207,17 @@ export function TimeClock({
   })();
   const lastTap = day.lastPunchType && day.lastPunchAt && tz ? `Last tap: ${PUNCH_DONE[day.lastPunchType]} · ${fmtTime(day.lastPunchAt, tz)}` : null;
 
+  // No job picked yet: the button is never a dead end — it takes you to the job list (scrolls up and opens search).
+  const goPickJob = () => {
+    const picker = document.querySelector<HTMLElement>('[data-testid="job-picker"], [data-testid="job-selected"]');
+    picker?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const search = document.querySelector<HTMLInputElement>('[data-testid="job-picker"] input');
+    if (search) window.setTimeout(() => search.focus(), 300);
+    else (document.querySelector<HTMLElement>('[data-testid="job-selected"]'))?.click();
+  };
   const clockInAtJob = (primary: boolean) => (
-    <button style={primary ? primaryStyle : btnStyle} disabled={busy || !jobId} onClick={() => punch("site_in")} data-testid="clock-site-in">
-      <MapPin size={16} strokeWidth={1.75} /> {jobId ? `Clock in at ${jobId}` : "Pick a job to clock in there"}
+    <button style={primary ? primaryStyle : btnStyle} disabled={busy} onClick={() => (jobId ? punch("site_in") : goPickJob())} data-testid="clock-site-in">
+      <MapPin size={16} strokeWidth={1.75} /> {busy ? "Saving…" : jobId ? `Clock in at ${jobId}` : "Pick a job to clock in"}
     </button>
   );
   const clockOut = (
@@ -223,6 +243,11 @@ export function TimeClock({
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8" }}>Time clock</span>
         {totalMs > 0 && <span style={{ fontSize: 12, color: "#94a3b8" }}>Today: <strong style={{ color: "#e2e8f0" }}>{fmtDuration(totalMs)}</strong></span>}
       </div>
+      {justDone && (
+        <div role="alert" data-testid="clock-done" style={{ margin: "6px 0 0", padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.18)", border: "1px solid rgba(52,211,153,0.5)", color: "#6ee7b7", fontSize: 15, fontWeight: 800 }}>
+          {justDone}
+        </div>
+      )}
       <div role="status" aria-live="polite" style={{ margin: "6px 0 10px" }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: onJob ? "#5eead4" : "#f8fafc" }}>{loading && !day.dayKey ? "…" : status.text}</div>
         {!(loading && !day.dayKey) && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{status.sub}</div>}

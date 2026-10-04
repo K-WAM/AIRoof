@@ -33,6 +33,8 @@ test("signed-in crew: clock in, note, receipt, wrong-job warning, clock out asks
   const clock = page.getByTestId("time-clock");
   await clock.getByRole("button", { name: `Clock in at ${a}` }).click();
   await expect(clock.getByText(`At ${a}`, { exact: true })).toBeVisible();
+  // The tap says what it did, right where you tapped (no guessing, no re-tapping).
+  await expect(clock.getByTestId("clock-done")).toContainText(`Clocked in at ${a}`);
 
   // Type a note: the receipt names the job and the author and says what was added.
   await page.getByTestId("note-type-toggle").click();
@@ -61,6 +63,7 @@ test("signed-in crew: clock in, note, receipt, wrong-job warning, clock out asks
   await expect(clock.getByText(/this also leaves/)).toBeVisible();
   await clock.getByTestId("clock-out-confirm").click();
   await expect(clock.getByText("Off the clock", { exact: true })).toBeVisible();
+  await expect(clock.getByTestId("clock-done")).toContainText("Clocked out for the day");
   await expectHealthy(page);
 });
 

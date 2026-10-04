@@ -61,11 +61,12 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   // to English, but a caller's own spoken name/notes must NOT be translated — the two subsystems
   // have opposite requirements, and this is the one place that has to say so explicitly.
   const primary = businessConfig.agentLanguage === "es" ? "Spanish" : "English";
-  const languages = businessConfig.agentLanguages ?? (businessConfig.agentLanguage ? [businessConfig.agentLanguage] : ["en"]);
+  // Missing = English AND Spanish (owner, 2026-10-04: Spanish is critical). Only an explicit ["en"] is English-only.
+  const languages = businessConfig.agentLanguages ?? ["en", "es"];
   const isBilingual = languages.includes("en") && languages.includes("es");
   const languageSection = `## Language
 - Greet and answer in ${primary}.${isBilingual ? `
-- If the caller speaks Spanish, switch and stay there. Follow them back to English if they switch. Never mix languages within a sentence.` : ""}
+- If the caller speaks ${primary === "Spanish" ? "English" : "Spanish"}, switch and stay there. Follow them back to ${primary} if they switch. Never mix languages within a sentence. Never say you can only help in one language.` : ""}
 - Spell back names and addresses in the caller's language.
 - Record tool arguments (name, phone, email, serviceType, notes) in the language the caller used — do NOT translate the customer's own words into English.
 `;

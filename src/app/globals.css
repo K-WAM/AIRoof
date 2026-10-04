@@ -3637,3 +3637,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .provider-strip__detail { font-size: 13px; }
 .provider-strip__link { font-size: 12.5px; font-weight: 600; color: var(--accent); }
 .pb-tabs .filter-chip[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Job page on a phone: a long title reads as text, the status label wraps under it instead of squeezing beside it. */
+@media (max-width: 640px) {
+  .job-title { font-size: 22px; line-height: 1.25; align-items: flex-start !important; }
+  .job-title__icon { display: none; }
+}

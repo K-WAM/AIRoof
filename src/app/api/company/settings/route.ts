@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     logoUrl: d.logoUrl ?? null,
     // Spanish (Phase 12, Phase 6)
     agentLanguage: d.agentLanguage ?? "en",
-    agentLanguages: d.agentLanguages ?? ["en"],
+    agentLanguages: d.agentLanguages ?? ["en", "es"],
     // Call-recording notice (Phase 16, T-102): the stored greetings plus the
     // resolved disclosure feed the settings page's live spoken-greeting preview.
     greeting: d.greeting ?? "",
@@ -68,6 +68,9 @@ export async function PUT(req: NextRequest) {
   if (licenseNumber !== undefined && (typeof licenseNumber !== "string" || licenseNumber.length > 40 || /[<>\u0000-\u001f]/.test(licenseNumber))) return NextResponse.json({ error: "Invalid license number" }, { status: 400 });
   if (agentLanguage !== undefined && !["en", "es"].includes(agentLanguage)) {
     return NextResponse.json({ error: 'agentLanguage must be "en" or "es"' }, { status: 400 });
+  }
+  if (agentLanguages !== undefined && (!Array.isArray(agentLanguages) || agentLanguages.length === 0 || agentLanguages.length > 2 || agentLanguages.some((l: unknown) => l !== "en" && l !== "es"))) {
+    return NextResponse.json({ error: 'agentLanguages must be ["en"], ["en","es"] or ["es","en"]' }, { status: 400 });
   }
   if (invoiceCopy !== undefined && (invoiceCopy === null || typeof invoiceCopy !== "object" || Array.isArray(invoiceCopy) || ["opening", "closing", "thankYou", "terms"].some((key) => typeof invoiceCopy[key] !== "string" || invoiceCopy[key].length > 4000 || /[<>\u0000-\u001f]/.test(invoiceCopy[key])))) {
     return NextResponse.json({ error: "Invalid invoice copy" }, { status: 400 });
@@ -135,7 +138,7 @@ export async function PUT(req: NextRequest) {
   // never fails the save itself; it's surfaced back to the owner instead of silently leaving the
   // live line on the old state.
   let vapiSyncWarning: string | undefined;
-  if (agentLanguage !== undefined || disclosureUpdate !== undefined) {
+  if (agentLanguage !== undefined || agentLanguages !== undefined || disclosureUpdate !== undefined) {
     try {
       const freshSnap = await businessRef.get();
       const config = freshSnap.data() as BusinessConfig | undefined;

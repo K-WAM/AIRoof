@@ -14,17 +14,23 @@ function config(overrides: Partial<BusinessConfig> = {}): BusinessConfig {
 }
 
 describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
-  it("defaults to English with no bilingual switching instruction", () => {
+  it("defaults to English first AND Spanish when the caller speaks it (owner: Spanish is critical)", () => {
     const prompt = buildAgentPrompt(config());
     expect(prompt).toContain("## Language");
     expect(prompt).toContain("Greet and answer in English.");
-    expect(prompt).not.toContain("If the caller speaks Spanish, switch and stay there");
+    expect(prompt).toContain("If the caller speaks Spanish, switch and stay there");
+    expect(prompt).toContain("Never say you can only help in one language.");
   });
 
-  it("greets in Spanish when agentLanguage is es, still without the bilingual switch line", () => {
-    const prompt = buildAgentPrompt(config({ agentLanguage: "es" }));
+  it("an explicit English-only line has no switch instruction", () => {
+    const prompt = buildAgentPrompt(config({ agentLanguage: "en", agentLanguages: ["en"] }));
+    expect(prompt).not.toContain("switch and stay there");
+  });
+
+  it("Spanish first: greets in Spanish and follows a caller into English", () => {
+    const prompt = buildAgentPrompt(config({ agentLanguage: "es", agentLanguages: ["es", "en"] }));
     expect(prompt).toContain("Greet and answer in Spanish.");
-    expect(prompt).not.toContain("If the caller speaks Spanish, switch and stay there");
+    expect(prompt).toContain("If the caller speaks English, switch and stay there");
   });
 
   it("adds the bilingual switching instruction only when both languages are enabled", () => {

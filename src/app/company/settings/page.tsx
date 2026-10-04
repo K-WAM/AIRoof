@@ -33,6 +33,7 @@ interface Settings {
   businessName: string;
   invoiceCopy?: InvoiceCopyDefaults;
   agentLanguage: "en" | "es";
+  agentLanguages?: Array<"en" | "es">;
   // Call-recording notice (Phase 16, T-102) — optional so an older cached
   // response can never crash this page.
   greeting?: string;
@@ -45,6 +46,17 @@ const SECTIONS = [
   ["company", "Company"], ["hours", "Hours & timezone"], ["phone", "Phone & notifications"],
   ["documents", "Documents"], ["terms", "Terms & notices"], ["advanced", "Advanced"],
 ] as const;
+
+type LanguageChoice = "en-es" | "es-en" | "en";
+/** Missing = both (owner, 2026-10-04: Spanish is critical; a line never drops it by default). */
+function languageChoice(settings: { agentLanguage: "en" | "es"; agentLanguages?: Array<"en" | "es"> }): LanguageChoice {
+  const langs = settings.agentLanguages ?? ["en", "es"];
+  if (langs.includes("es") && langs.includes("en")) return settings.agentLanguage === "es" ? "es-en" : "en-es";
+  return langs.includes("es") ? "es-en" : "en";
+}
+function languagesFor(choice: LanguageChoice): Array<"en" | "es"> {
+  return choice === "en" ? ["en"] : choice === "es-en" ? ["es", "en"] : ["en", "es"];
+}
 
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
@@ -179,7 +191,9 @@ export default function CompanySettingsPage() {
         contactEmail: settings.contactEmail,
         licenseNumber: settings.licenseNumber,
         agentLanguage: settings.agentLanguage,
-        agentLanguages: [settings.agentLanguage],
+        // Save what the owner chose — this used to write [agentLanguage] on EVERY save, which silently switched
+        // a bilingual line to English-only (the phone AI then said "I can only help in English").
+        agentLanguages: languagesFor(languageChoice(settings)),
       };
       if (canManageTeam) payload.recordingDisclosure = settings.recordingDisclosure;
       payload.invoiceCopy = settings.invoiceCopy ?? DEFAULT_INVOICE_COPY;
@@ -277,7 +291,7 @@ export default function CompanySettingsPage() {
             <div className="panel-header"><h2 className="panel-title"><Bell size={16} strokeWidth={1.75} /> Phone &amp; notifications</h2></div>
             <div className="panel-body">
               <div className="field"><label htmlFor="notifEmail">Notification email</label><input id="notifEmail" ref={notificationEmailRef} type="email" required value={settings.notificationEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, notificationEmail: event.target.value } : prev)} /><p>Receives booking and request notifications.</p></div>
-              <div className="field"><label htmlFor="agentLanguage">Phone AI language</label><select id="agentLanguage" value={settings.agentLanguage} onChange={(event) => setSettings((prev) => prev ? { ...prev, agentLanguage: event.target.value as "en" | "es" } : prev)}><option value="en">English</option><option value="es">Español</option></select><p>Changes the greeting on the next call. Field updates continue to understand English and Spanish.</p></div>
+              <div className="field"><label htmlFor="agentLanguage">Phone AI language</label><select id="agentLanguage" value={languageChoice(settings)} onChange={(event) => { const choice = event.target.value as LanguageChoice; setSettings((prev) => prev ? { ...prev, agentLanguage: choice === "es-en" ? "es" : "en", agentLanguages: languagesFor(choice) } : prev); }}><option value="en-es">English + Spanish (starts in English)</option><option value="es-en">Spanish + English (starts in Spanish)</option><option value="en">English only</option></select><p>With both, the AI switches the moment a caller speaks the other language. Field notes understand both either way.</p></div>
               <div className="settings-phone-lines">
                 <h3>Phone lines and texting</h3>
                 {phoneLines === null ? <p>Line status unavailable</p> : phoneLines.length === 0 ? <p>No line on record — Luxor sets this up</p> : phoneLines.map((line) => <div key={line.lineId} className="settings-phone-line">
