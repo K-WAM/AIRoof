@@ -3,7 +3,7 @@
 ## CURRENT STATE 2026-10-04 (night) — read this first
 - **Owner's standard saved:** `docs/ZERO-TRAINING-UX-STANDARD.md` (checklist: `docs/SCREEN-CLARITY-HEURISTICS.md`). Applied:
   Jobs/Pipeline/Calls bounded with the card as the one tap target (phone heights 12–14k px → 2.3–3.7k px); Calendar fits a full
-  week at 1280 px, unscheduled list searchable + bounded; job page "Send field link" (one button, native share, 24 h one-use link
+  week at 1280 px, unscheduled list searchable + bounded; job page "Field QR / link" (one button: QR code to scan + Text/copy link, native share, 24 h one-use link
   for contractors — no account); "Work on this job" (the inspector's findings) on both field screens; admin config chip row.
 - **T-182–T-186 done.** `e2e/screen-audit.spec.ts` now fails on clutter (phone height, >1 teal button, >16 taps above the fold).
 - **Security posture change to confirm:** field link open window 10 min → 24 h (`FIELD_EXCHANGE_TTL_MS`, one constant). Still one

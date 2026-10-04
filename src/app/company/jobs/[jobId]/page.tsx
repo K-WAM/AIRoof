@@ -56,7 +56,7 @@ import {
   Pencil,
   Plus,
   Printer,
-  Share2,
+  QrCode,
   Receipt,
   RefreshCw,
   Save,
@@ -1028,7 +1028,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           {/* One way to bring someone onto the job (C6): a link they open on their phone — no account, no app. Team
               members with a login already have the Field tab, so the old "Copy field link" (login-only) is gone. */}
           {!readOnly && <button className="button" type="button" onClick={() => void openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
-            <Share2 size={15} strokeWidth={1.75} /> Send field link
+            <QrCode size={15} strokeWidth={1.75} /> Field QR / link
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
           {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
@@ -1113,7 +1113,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 compact
                 title="No field notes yet"
                 body={readOnly ? "The crew's notes appear here as they work." : "Send the field link; the crew talks, it fills in here."}
-                secondary={readOnly ? undefined : { label: "Send field link", onClick: () => void openFieldQr() }}
+                secondary={readOnly ? undefined : { label: "Field QR / link", onClick: () => void openFieldQr() }}
                 testId="job-activity-empty"
               />
             ) : (
@@ -1356,7 +1356,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <button onClick={() => setQrOpen(false)} aria-label="Close" style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}>
               <X size={18} strokeWidth={1.75} />
             </button>
-            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Field link for {jobId}</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>Scan to log work on {jobId}</h2>
             <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>Text it to a worker or contractor, or let them scan the code. No account or app needed — they type their name and start.</p>
             {qrLoading ? (
               <div style={{ width: 220, height: 220, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center", background: "#f1f5f9", borderRadius: 8, fontSize: 13, color: "#94a3b8" }}>
