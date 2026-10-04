@@ -2073,7 +2073,7 @@ function ParsedUpdateCard({ update, index, onRetry }: { update: FieldUpdate; ind
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: hasData ? 12 : 4 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>Update {index + 1}</span>
-          {update.submittedBy && <span style={{ fontSize: 12, color: "#475569" }}>from <strong>{update.submittedBy}</strong></span>}
+          {update.submittedBy && <span style={{ fontSize: 12, color: "#475569" }}>from <strong>{update.submittedBy}</strong>{update.submittedByCrew ? ` · ${update.submittedByCrew}` : ""}</span>}
           {update.submittedVia === "qr" && <span title="Sent from a no-login field link; the name is the one they typed" style={{ fontSize: 11, color: "#64748b", background: "#f1f5f9", borderRadius: 4, padding: "1px 6px" }}>field link</span>}
           {p && !update.parseError && (
             <span style={{ fontSize: 11, fontWeight: 600, color: "#15803d", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 4, padding: "1px 6px" }}>✓ AI parsed</span>

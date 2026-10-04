@@ -25,9 +25,9 @@ export function storedJobContext(job: Record<string, unknown> | undefined) {
 /** Who a field write is from. A signed-in person is always their own account (the request body cannot rename them);
  *  a no-login field-QR user is the name they typed, which is required — an unattributed note is the one thing the
  *  office can never fix afterwards. */
-export type FieldAuthor = { name: string; uid?: string; via: "login" | "qr" };
+export type FieldAuthor = { name: string; uid?: string; via: "login" | "qr"; crewId?: string; crewName?: string };
 export function resolveAuthor(
-  user: { uid: string; displayName?: string; email?: string },
+  user: { uid: string; displayName?: string; email?: string; crewId?: string },
   typedName: unknown,
 ): FieldAuthor | { error: string } {
   if (user.uid.startsWith("field:")) {
@@ -36,12 +36,15 @@ export function resolveAuthor(
     return { name, via: "qr" };
   }
   const name = (user.displayName?.trim() || user.email?.trim() || "Team member").slice(0, 80);
-  return { name, uid: user.uid, via: "login" };
+  return { name, uid: user.uid, via: "login", ...(user.crewId ? { crewId: user.crewId } : {}) };
 }
 
 /** The ledger fields that record the author on an update or photo. */
-export function authorFields(author: FieldAuthor): { submittedBy: string; submittedByUid?: string; submittedVia: "login" | "qr" } {
-  return { submittedBy: author.name, ...(author.uid ? { submittedByUid: author.uid } : {}), submittedVia: author.via };
+export function authorFields(author: FieldAuthor): { submittedBy: string; submittedByUid?: string; submittedVia: "login" | "qr"; submittedByCrewId?: string; submittedByCrew?: string } {
+  return {
+    submittedBy: author.name, ...(author.uid ? { submittedByUid: author.uid } : {}), submittedVia: author.via,
+    ...(author.crewId ? { submittedByCrewId: author.crewId } : {}), ...(author.crewName ? { submittedByCrew: author.crewName } : {}),
+  };
 }
 
 /** A collision-proof ledger id — two crew members saving in the same millisecond must never overwrite each other. */
@@ -69,4 +72,17 @@ export function englishRendering(original: string, english: string | undefined):
   if (!english?.trim()) return false;
   const squash = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   return squash(english) !== squash(original);
+}
+
+/** Adds the crew's display name to a signed-in author (one point read; a QR author has no crew). Best effort. */
+export async function withCrewName<T extends FieldAuthor>(
+  db: { collection(path: string): { doc(id: string): { get(): Promise<{ data(): Record<string, unknown> | undefined }> } } },
+  businessId: string,
+  author: T,
+): Promise<T> {
+  if (!author.crewId) return author;
+  try {
+    const name = (await db.collection(`businesses/${businessId}/crews`).doc(author.crewId).get()).data()?.name;
+    return typeof name === "string" && name.trim() ? { ...author, crewName: name.trim().slice(0, 80) } : author;
+  } catch { return author; }
 }

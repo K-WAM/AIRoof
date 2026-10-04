@@ -48,6 +48,9 @@ export interface FieldUpdate {
   submittedByUid?: string;
   /** How the author was identified: their login, or the name typed on a field-QR link. */
   submittedVia?: "login" | "qr";
+  /** The author's crew at the time (login users only) — the office note card shows the crew's name from it. */
+  submittedByCrewId?: string;
+  submittedByCrew?: string;
   createdAt: number;
   parsed?: ParsedUpdate;
   parseError?: string;

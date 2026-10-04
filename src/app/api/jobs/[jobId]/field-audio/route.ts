@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, summarizeParsed } from "@/lib/jobs/fieldInput";
+import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { toFile } from "openai/uploads";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
@@ -57,8 +57,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const author = resolveAuthor(gate.user, submittedBy);
-  if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
+  const resolved = resolveAuthor(gate.user, submittedBy);
+  if ("error" in resolved) return NextResponse.json({ error: resolved.error }, { status: 400 });
+  const author = await withCrewName(db, businessId, resolved);
   // The job is checked before anything is transcribed (Whisper costs money): it must exist and still be open.
   const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
   if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
 let db = makeFakeDb();
-let user: { uid: string; displayName?: string; email?: string } = { uid: "u1", displayName: "Carlos Reyes", email: "carlos@roof.test" };
+let user: { uid: string; displayName?: string; email?: string; crewId?: string } = { uid: "u1", displayName: "Carlos Reyes", email: "carlos@roof.test" };
 const seenContext: unknown[] = [];
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyFieldAccess: async () => ({ user }) }));
@@ -37,6 +37,14 @@ describe("POST /api/jobs/[jobId]/updates — who and where", () => {
     expect(data).toMatchObject({ jobId: "J-1", submittedBy: "Carlos Reyes", changesSummary: "Added 1 material, 8 h labor, 1 issue" });
     const [stored] = db.__list("businesses/biz/jobs/J-1/updates").map((d) => d.data);
     expect(stored).toMatchObject({ submittedBy: "Carlos Reyes", submittedByUid: "u1", submittedVia: "login" });
+  });
+
+  it("a signed-in author on a crew carries the crew's name, for the office card", async () => {
+    user = { uid: "u1", displayName: "Carlos Reyes", crewId: "c1" } as typeof user;
+    db.__seed("businesses/biz/crews", "c1", { name: "Crew A" });
+    await post({ businessId: "biz", rawText: "note" });
+    const [stored] = db.__list("businesses/biz/jobs/J-1/updates").map((d) => d.data);
+    expect(stored).toMatchObject({ submittedByCrewId: "c1", submittedByCrew: "Crew A" });
   });
 
   it("a field-QR note needs a typed name, and records it as typed", async () => {
