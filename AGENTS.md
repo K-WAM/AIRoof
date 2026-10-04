@@ -152,6 +152,17 @@ Lessons from T-144 (2026-09-27) — a green run can still hide a broken screen:
 - **Budget time for polling pages.** Pages that poll every 5 s never reach network-idle, so each `settle()` waits its full 15 s; a spec that
   walks 18 screens needs ~5 min. The full suite is ~94 tests / 13–19 min. Playwright wipes `test-results/` each run.
 
+- **Screen audit (2026-10-03).** `npx playwright test e2e/screen-audit.spec.ts` visits every roofing screen per role and
+  fails on first content > 5 s, > 12 distinct API calls while loading, or phone overflow; screenshots are
+  `test-results/screens/<project>/audit-<screen>.png`. Run it (after `npm run e2e:call`, so screens have data) whenever a
+  change touches a company screen's layout or data loading. Add new screens to its `SCREENS` list.
+- **Live refresh costs quota.** Firebase is on Spark (50k reads/day, platform-wide). A polling screen must refresh only what
+  can change (merge by id) and go through `useLiveRefresh` (idle back-off). Never re-read a full list every tick.
+- **Full-suite gotchas (2026-10-03).** Don't edit app code while `npm run e2e:test` runs — the dev server recompiles under
+  the tests and causes timeouts. If `e2e/booking.spec.ts` fails midway it leaves bookings that fill Monday 8:00 for the
+  next run: `npm run e2e:seed`, then rerun. A value that changes identity every refresh (an array from the poller) must not
+  feed an autosave effect — depend on a stable value (ids joined), or the draft never stops being "unsaved".
+
 ## Test expectations
 
 - vitest (from T-000). Unit-test auth boundaries with **negative cases first** (missing/wrong/expired/replayed).

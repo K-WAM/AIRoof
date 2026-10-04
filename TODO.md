@@ -7,6 +7,10 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot
 
+**Phase 33 (roofing hardening + Nielsen audit, 2026-10-03) — on branch `ccr-8c0916c7-3r7kkm`, NOT merged/deployed.**
+Security fixes on the field-QR write paths, the duplicate-job and invoice-Send bugs, ~10x fewer live-refresh reads,
+per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. Open follow-ups: T-172–T-180 (Phase 33 below), NH-32.
+
 **Phase 32 (screen + security audit, T-157–T-171) — PUSHED + DEPLOYED 2026-09-29** (`0b09946`, crm.luxordev.com Ready, health ok;
 `firestore:rules` released — the custom claim is now the only superadmin authority, so NH-28's stale doc flag is inert). Built as four
 parallel streams (Claude: security/phone lines/texts; Codex ×2: company screens + documents/Team/Settings; Deepseek: shared UI + admin
@@ -2761,6 +2765,39 @@ transcript read (Booking-change gate).
 
 Gates: `test:rules` 9/9, the booking scenario suite, `e2e:call` 12/12 and full `e2e:test` all ran before the push (evidence below). **Still owed after deploy:** one real booking call + transcript read (Booking-change gate for T-169's `toolDispatcher` change) — the owner's call. Live SMS enablement stays blocked on NH-29 (US) and D5 (Canada); client line go-live needs owner approval per line (T-171).
 
+## Phase 33 — Roofing hardening + Nielsen audit follow-ups (2026-10-03)
+
+Source: `docs/USABILITY-AUDIT-2026-10-03.md` (the ⚠️ items). The audit's fixes are on branch `ccr-8c0916c7-3r7kkm`
+(not merged/deployed). Each task below is small and independent. **How to do one:** read its audit-doc paragraph,
+change only the files named, keep "one primary action per card/screen" (T-144/T-164), then run `npx tsc --noEmit`,
+eslint on changed files, `npx vitest related <files>`, and on the harness (`npm run e2e:up:bg`, then `npm run e2e:call`
+to fill the screens) `npx playwright test e2e/screen-audit.spec.ts` **plus** the changed screen's own spec; read the
+phone screenshot `test-results/screens/phone/audit-<screen>.png`. Mark `[x]` with the commit.
+
+- [ ] **T-172 — Calls: one way into a call (H8).** Phone call card shows "Open call", "Details" and "Booked · open in
+  Pipeline". Keep "Open call" as the only button; move the Pipeline link inside Details. File: `src/app/company/calls/page.tsx`.
+  Accept: one button per card at 375 px; `e2e/call-flow.spec.ts` + `e2e/call-to-cash.spec.ts` green.
+- [ ] **T-173 — Calls: hide the classifier's internal reason line (H8).** The "[…] Caller provided contact info…" line
+  under the outcome badge is internal; show it to superadmin only. File: `src/app/company/calls/page.tsx`.
+- [ ] **T-174 — Job page: no duplicate field-note content (H8).** Activity shows each note's parsed chips and the Work log
+  repeats the same lines. Collapse a note's chips behind "View parsed" (keep the AI-parsed badge and View original).
+  File: `src/app/company/jobs/[jobId]/page.tsx` (`ParsedUpdateCard`). Accept: `page.test.tsx` + `e2e/call-to-cash.spec.ts` green.
+- [ ] **T-175 — Calendar: "Manage crews" icon (H4).** Uses a + (add) icon for a manage link; use a Users icon.
+  File: `src/app/company/calendar/` header. Accept: `e2e/crews-calendar.spec.ts` green.
+- [ ] **T-176 — Field QR: no install banner on an inactive link (H8).** Hide `<InstallPrompt />` while `accessDenied`.
+  File: `src/app/field/page.tsx`.
+- [ ] **T-177 — Library tabs on a phone (H8).** Five tabs wrap 2+2+1 with "Work catalog" alone. Make the strip one
+  horizontal scroll row (like the job tabs) or a 3+2 grid. Files: `src/app/company/library/page.tsx`, `globals.css`.
+- [ ] **T-178 — Settings: sticky section switcher (H7).** Replace the "Jump to" select with a sticky chip row (Company ·
+  Hours · Phone · Documents · Terms · Advanced) that highlights the section in view. File: `src/app/company/settings/page.tsx`.
+  Accept: `page.test.tsx` green; phone screenshot shows the row pinned while scrolling.
+- [ ] **T-179 — Dashboard subtitle (H8, owner taste).** Subtitle repeats the tiles; drop it or replace it with the one
+  next thing to do. File: `src/app/company/dashboard/page.tsx`. Cosmetic — ask the owner if unsure.
+- [ ] **T-180 — Live data without polling (perf, larger).** Polling is ~10x cheaper after the audit but still reads
+  Firestore every 10–60 s per open screen. Add one cheap "anything changed?" signal (e.g. `lastActivityAt` on
+  `businesses/{id}`, bumped by the call/booking/job writers) so screens re-fetch only when it moves. Touches many
+  writers — write a short plan in `docs/` first. Optional if NH-32 (Blaze) is done.
+
 ## Historical assignments (none active)
 
 | Agent | Worktree (absolute) | Branch | Tasks | Owned scope | Status |
@@ -2861,6 +2898,7 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-29 | **Text-message confirmations — carrier registration (A2P 10DLC).** Checked in Twilio 2026-09-28 (read-only): account upgraded (Full); +1 689 204 2643 is SMS-capable and **no text has ever been sent on the account**; no brand/campaign/Messaging Service/toll-free verification yet; the only Trust Hub profile is an *individual* one. Owner: add the SMS clause to luxordev.com's privacy policy, then Business profile → Low Volume Standard brand → campaign → add the 689 number (click-steps + paste-ready answers: `docs/NEEDS-HUMAN-CHECKLIST.md` NH-29). Code ships OFF (`SMS_ENABLED=false`, T-152); on approval Claude flips it and sends one test text. | T-146, T-152 | 30 min + 1–3 weeks carrier review |
 | NH-30 | **Phase 32 owner decisions** (`MASTER_PLAN.md` P32-D). Work proceeds on these defaults; override any: **D1** keep nav labels Dashboard/Calendar/Jobs (vs. Today/Schedule/Work); **D2** Project price = one typed customer price stored beside the line total, the only total the customer sees; **D3** a new invoice inherits an accepted quote's presentation and customer price; **D4** texts for bookings with no dialed line (office-made, email) come from the tenant's default Ready line, else no text; **D5** the Canadian line's texting stays off until a read-only provider check + your OK; **D7** approve the account-purpose list from `scripts/classify-accounts.mjs` (dry-run); **D9** name every account that should be a superadmin (expected: connect@luxordev.com only); **D10** no quote-revision flow (locked documents stay locked). Also: approve `scripts/phone-lines.mjs --apply` for the two demo lines, and each client line's go-live | T-159, T-165, T-166, T-169, T-170, T-171 | 10 min |
 | NH-31 | **Production facts found 2026-09-29 (read-only) — decide what to do:** (1) the Canadian demo number +1 (778) 907-9769 is **not in demo-roofing's routing** (`elevenlabs.extraPhoneNumbers`), so T-130's app-side step was never done — calls to it don't reach the demo tenant; add it on Admin → demo-roofing → Configure (it will pass the new conflict check) and make one test call. (2) `SMS_ENABLED` is **not set** in Vercel production, so the app sends no texts there today (the T-156 delivered text was not app-sent). (3) A stale `VAPI_AUTH_BYPASS` variable still exists in production; no code reads it — safe to delete. (4) `scripts/phone-lines.mjs` dry run: the US demo line's old record `demo-roofing-main` needs only its missing fields filled (purpose demo, status live) — approve `--apply`. (5) `scripts/classify-accounts.mjs` suggests: carlita-elevenlabs-test + the five "… Demo" sample tenants → test; coastal-landscaping, premier-hvac → client (confirm they are real) | T-130, T-166, T-169, T-171 | 15 min |
+| NH-32 | **Move Firebase to Blaze before selling** (2026-10-03 audit). Spark caps reads at 50k/day for the whole platform; when it runs out, every tenant's screens and the phone AI's booking tools fail together. Polling was cut ~10x on 2026-10-03, but the hard cap is still a single point of failure. At current volume Blaze costs cents/month; set a budget alert in Google Cloud. | T-180, T-128 | 10 min |
 
 ## Deferred (from CIB — do not schedule without owner request)
 
