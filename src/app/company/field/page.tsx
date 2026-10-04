@@ -21,14 +21,9 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardList,
-  Clock3,
   MapPin,
-  Package,
   RefreshCw,
-  StickyNote,
-  Users,
   X,
-  type LucideIcon,
 } from "lucide-react";
 
 // ─── Job Selector ────────────────────────────────────────────────────────────
@@ -49,6 +44,28 @@ function JobSelector({
 }) {
   const [open, setOpen] = useState(false);
   const selected = jobs.find((j) => j.jobId === selectedId);
+
+  // Nothing picked yet: show the jobs as a plain list under one question, no dropdown to discover (2026-10-04).
+  if (!loading && !selected && jobs.length > 1) {
+    return (
+      <div style={{ width: "100%" }}>
+        <p style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "#f8fafc" }}>Which job are you at?</p>
+        <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 16, overflow: "hidden" }}>
+          {jobs.map((job, i) => (
+            <button key={job.jobId} type="button" onClick={() => onSelect(job.jobId)}
+              style={{ width: "100%", textAlign: "left", padding: "14px 16px", background: "transparent", border: "none", borderBottom: i < jobs.length - 1 ? "1px solid #334155" : "none", cursor: "pointer", color: "#f8fafc" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 17, fontWeight: 900, color: "#f97316" }}>#{job.jobId}</span>
+                {myCrewId && job.assignedCrewId === myCrewId && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(94,234,212,0.15)", color: "#5eead4" }}>Your crew</span>}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{job.title}</div>
+              {job.address && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: "relative", width: "100%" }}>
@@ -164,185 +181,6 @@ interface JobLogData {
   totalLaborHours: number;
 }
 
-function JobLogSection({
-  title,
-  Icon,
-  count,
-  children,
-}: {
-  title: string;
-  Icon: LucideIcon;
-  count: number;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(true);
-  if (count === 0) return null;
-
-  return (
-    <div style={{ borderTop: "1px solid #334155" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "12px 16px",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          color: "#94a3b8",
-        }}
-      >
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon size={13} strokeWidth={1.75} />
-          {title}
-        </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            background: "#f97316",
-            color: "#fff",
-            fontSize: 10,
-            fontWeight: 800,
-            borderRadius: 10,
-            padding: "1px 6px",
-            minWidth: 18,
-            textAlign: "center",
-          }}>{count}</span>
-          {open
-            ? <ChevronUp size={13} strokeWidth={1.75} style={{ color: "#475569" }} />
-            : <ChevronDown size={13} strokeWidth={1.75} style={{ color: "#475569" }} />}
-        </div>
-      </button>
-      {open && (
-        <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LogRow({ left, right }: { left: string; right: string }) {
-  return (
-    <div style={{
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      background: "rgba(51,65,85,0.4)",
-      borderRadius: 8,
-      padding: "8px 12px",
-    }}>
-      <span style={{ fontSize: 13, color: "#f1f5f9" }}>{left}</span>
-      <span style={{ fontSize: 11, fontFamily: "monospace", color: "#94a3b8" }}>{right}</span>
-    </div>
-  );
-}
-
-function JobLogCard({ data }: { data: JobLogData }) {
-  const hasContent =
-    data.materials.length > 0 ||
-    data.laborEntries.length > 0 ||
-    data.timelineEvents.length > 0 ||
-    data.fieldNotes.length > 0;
-
-  if (!hasContent) return null;
-
-  return (
-    <div style={{
-      background: "#1e293b",
-      border: "1px solid #334155",
-      borderRadius: 16,
-      overflow: "hidden",
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: "12px 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", display: "flex", alignItems: "center", gap: 6 }}>
-          <ClipboardList size={16} strokeWidth={1.75} />
-          Job Log
-        </span>
-        {data.totalLaborHours > 0 && (
-          <span style={{ fontSize: 12, color: "#f97316", fontWeight: 600 }}>
-            {data.totalLaborHours.toFixed(1)}h total
-          </span>
-        )}
-      </div>
-
-      {/* Materials */}
-      <JobLogSection title="Materials" Icon={Package} count={data.materials.length}>
-        {data.materials.map((m, i) => (
-          <LogRow key={i} left={m.name} right={`${m.quantity} ${m.unit}`} />
-        ))}
-      </JobLogSection>
-
-      {/* Timeline */}
-      <JobLogSection title="Timeline" Icon={Clock3} count={data.timelineEvents.length}>
-        {data.timelineEvents.map((ev, i) => (
-          <LogRow key={i} left={ev.notes || ev.eventType} right={ev.time || ""} />
-        ))}
-      </JobLogSection>
-
-      {/* Labor */}
-      <JobLogSection title="Labor" Icon={Users} count={data.laborEntries.length}>
-        {data.laborEntries.map((e, i) => (
-          <div
-            key={i}
-            style={{
-              background: "rgba(51,65,85,0.4)",
-              borderRadius: 8,
-              padding: "8px 12px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 13, color: "#f1f5f9", fontWeight: 500 }}>
-                {e.workerName}{e.role ? ` · ${e.role}` : ""}
-              </div>
-              {(e.timeIn || e.timeOut) && (
-                <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                  {e.timeIn && `In: ${e.timeIn}`}
-                  {e.timeIn && e.timeOut ? " · " : ""}
-                  {e.timeOut && `Out: ${e.timeOut}`}
-                </div>
-              )}
-            </div>
-            {e.hours != null && (
-              <span style={{ fontSize: 14, color: "#f97316", fontWeight: 700, fontFamily: "monospace" }}>
-                {e.hours}h
-              </span>
-            )}
-          </div>
-        ))}
-      </JobLogSection>
-
-      {/* Notes */}
-      <JobLogSection title="Notes" Icon={StickyNote} count={data.fieldNotes.length}>
-        {data.fieldNotes.map((n, i) => (
-          <div
-            key={i}
-            style={{
-              background: "rgba(51,65,85,0.4)",
-              borderRadius: 8,
-              padding: "8px 12px",
-              fontSize: 13,
-              color: "#cbd5e1",
-            }}
-          >
-            {n}
-          </div>
-        ))}
-      </JobLogSection>
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 function FieldPageContent() {
@@ -386,12 +224,16 @@ function FieldPageContent() {
   const loadJobs = useCallback(() => {
     if (!businessId) return;
     setLoadingJobs(true);
-    const crewParams = user?.crewId ? `&crewId=${encodeURIComponent(user.crewId)}&includeUnassigned=1` : "";
-    fetch(`/api/jobs?businessId=${businessId}${crewParams}`)
+    fetch(`/api/jobs?businessId=${businessId}`)
       .then((r) => (r.ok ? r.json() : { jobs: [] }))
       .then((d) => {
+        // Every open job, this person's crew's jobs first. Not scoped to the crew any more (2026-10-04): a worker subbed in
+        // from another crew — or helping out for a day — must find the job without the office changing assignments first.
         // Finished work (complete, or already invoiced) is not something the crew logs against.
-        const open = ((d.jobs ?? []) as Job[]).filter((j) => j.status !== "complete" && j.status !== "invoiced");
+        const myCrew = user?.crewId;
+        const open = ((d.jobs ?? []) as Job[])
+          .filter((j) => j.status !== "complete" && j.status !== "invoiced")
+          .sort((a, b) => Number(!!myCrew && b.assignedCrewId === myCrew) - Number(!!myCrew && a.assignedCrewId === myCrew));
         setJobs(open);
         if (prefillJobId && open.find((j) => j.jobId === prefillJobId)) {
           setSelectedJobId(prefillJobId);
@@ -490,6 +332,12 @@ function FieldPageContent() {
 
   // A saved note updates this screen's job log only if it was for the job still on screen.
   const [notesVersion, setNotesVersion] = useState(0);
+  // One line instead of the old four-section "Job Log" card: the totals the crew cares about; details are on the job page.
+  const soFar = [
+    jobLogData.materials.length ? jobLogData.materials.slice(0, 3).map((m) => `${m.quantity} ${m.unit} ${m.name}`).join(", ") + (jobLogData.materials.length > 3 ? ` +${jobLogData.materials.length - 3} more` : "") : "",
+    jobLogData.totalLaborHours > 0 ? `${jobLogData.totalLaborHours.toFixed(1)} h labor` : "",
+  ].filter(Boolean).join(" · ");
+
   const handleSaved = useCallback((receipt: SavedReceipt) => {
     if (receipt.updatedJob && receipt.jobId === selectedJobId) setJobLogData(receipt.updatedJob);
     setNotesVersion((v) => v + 1);
@@ -545,8 +393,8 @@ function FieldPageContent() {
                 Field Log
               </h1>
               {user && (
-                <p style={{ margin: 0, fontSize: 11, color: "#475569", marginTop: 2 }}>
-                  {workerDisplayName}
+                <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+                  Signed in as {workerDisplayName}
                 </p>
               )}
             </div>
@@ -607,7 +455,7 @@ function FieldPageContent() {
 
           {/* Job Selector */}
           {!loadingJobs && jobs.length === 0 && (
-            <EmptyState compact tone="dark" title="No job assigned to you today" body="Ask the office to assign one. You can still use the time clock below." testId="field-empty" />
+            <EmptyState compact tone="dark" title="No open jobs right now" body="The office opens jobs from Pipeline. You can still clock in at the shop below." testId="field-empty" />
           )}
           <div style={{ marginBottom: 20 }}>
             <JobSelector
@@ -632,23 +480,17 @@ function FieldPageContent() {
             />
           </div>
 
-          {/* Photo capture */}
-          <div style={{ marginBottom: 20 }}>
+          {/* Photo and Finding side by side — two taps that belong together */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
-          </div>
-
-          {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
-          <div style={{ marginBottom: 20 }}>
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} />
           </div>
 
+          {soFar && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#94a3b8" }}>So far on {selectedJobId}: {soFar}</p>}
           <div style={{ marginBottom: 20 }}>
             <RecentNotes businessId={businessId} jobId={selectedJobId} refreshKey={notesVersion} />
           </div>
           </>}
-
-          {/* Job Log Card */}
-          <JobLogCard data={jobLogData} />
 
         </div>
       </div>

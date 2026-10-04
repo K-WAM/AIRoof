@@ -284,22 +284,22 @@ function FieldApp() {
             onSaved={() => setNotesVersion((v) => v + 1)}
           />
 
-          {/* Photo capture */}
-          <PhotoCapture
-            jobId={selectedJobId || null}
-            businessId={businessId}
-            submittedBy={workerName.trim() || undefined}
-            disabled={!hasWorkerName}
-            onUploaded={() => flashSaved(`Photo saved to ${selectedJobId}`)}
-          />
-
-          {/* Findings — pick from the Library (names only; the server copies it onto this job) */}
-          <FieldFindingsButton
-            jobId={selectedJobId || null}
-            businessId={businessId}
-            disabled={!hasWorkerName}
-            onAdded={(problem) => flashSaved(`Finding added to ${selectedJobId}: ${problem}`)}
-          />
+          {/* Photo and Finding side by side */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <PhotoCapture
+              jobId={selectedJobId || null}
+              businessId={businessId}
+              submittedBy={workerName.trim() || undefined}
+              disabled={!hasWorkerName}
+              onUploaded={() => flashSaved(`Photo saved to ${selectedJobId}`)}
+            />
+            <FieldFindingsButton
+              jobId={selectedJobId || null}
+              businessId={businessId}
+              disabled={!hasWorkerName}
+              onAdded={(problem) => flashSaved(`Finding added to ${selectedJobId}: ${problem}`)}
+            />
+          </div>
 
           {savedNote && (
             <div role="status" style={{ padding: "10px 14px", background: "#0f2d1a", border: "1px solid #166534", borderRadius: 10, fontSize: 13, color: "#86efac", fontWeight: 600 }}>

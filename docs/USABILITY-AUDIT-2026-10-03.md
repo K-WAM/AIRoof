@@ -168,3 +168,13 @@ routes every 60 s and stalled requests 5–15 s; `next.config.ts` now keeps dev 
 Real bugs found by those runs and fixed: the previous job's notes showing under the next job's heading, and the QR
 composer saying "Pick a job" while the link's job was still loading. Screen audit (warm, phone): every screen
 1.0–1.9 s to first content, 2–10 API calls, no overflow. Also: full vitest 1,790 pass, `e2e:call` 12/12.
+
+### Second pass, same day — "no training, no friction, really decluttered"
+- **A sub sees the job.** The signed-in field screen no longer hides jobs outside the person's crew (that was the
+  one thing a worker subbed in from another crew hit first). Every open job is listed, their own crew's first with a
+  "Your crew" tag. Empty state: "No open jobs right now" (was "No job assigned to you — ask the office", a dead end).
+- **Pick the job without a dropdown.** Nothing selected → the jobs are a plain list under "Which job are you at?".
+- **Fewer boxes.** The separate "Notes go to" card is one line above the button ("Note goes to J-1001 · as Carlos");
+  the four-section Job Log card is one line ("So far on J-1001: 12 bundles shingles · 8.0 h labor"); Photo and Finding
+  share a row; the time clock lost its "Last tap" and helper paragraph (folded into the status line). Screen order:
+  job → clock → talk → photo/finding → what's logged.

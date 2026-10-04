@@ -24,7 +24,7 @@ test("signed-in crew: clock in, note, receipt, wrong-job warning, clock out asks
   // Where + who, before anything is said.
   const target = page.getByTestId("note-target");
   await expect(target).toContainText(a);
-  await expect(target).toContainText("Sent as");
+  await expect(target).toContainText("as ");
 
   // Clock in at this job: the status reads in words.
   const clock = page.getByTestId("time-clock");
@@ -74,7 +74,7 @@ test("no-login field QR: the name comes first and goes on the note the office se
   await expect(page.getByText(/Type your name so the office knows who sent each note/)).toBeVisible();
   await expect(page.getByTestId("note-mic")).toBeDisabled();
   await page.getByLabel("Your name").fill(name);
-  await expect(page.getByTestId("note-target")).toContainText(`Sent as ${name}`);
+  await expect(page.getByTestId("note-target")).toContainText(`as ${name}`);
 
   await page.getByTestId("note-type-toggle").click();
   await page.getByLabel(`Note for ${a}`).fill("Tarped the back slope. Two hours.");

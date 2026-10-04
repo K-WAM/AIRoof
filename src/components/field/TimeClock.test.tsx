@@ -26,10 +26,10 @@ describe("TimeClock", () => {
     expect(await screen.findByText("Off the clock")).toBeTruthy();
     expect((screen.getByRole("button", { name: /Pick a job to clock in there/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("button", { name: /Clock in at the shop/ })).toBeTruthy();
-    expect(screen.getByText(/Shop time is paid but not billed to a job/)).toBeTruthy();
+    expect(screen.getByText(/paid, not billed to a job/)).toBeTruthy();
   });
 
-  it("at a job: Leave, lunch and Clock out, with the running time and the last tap", async () => {
+  it("at a job: Leave, lunch and Clock out, with the running time", async () => {
     serve(day({ state: "site", openJobId: "J-1003", openSince: Date.now() - 65 * 60_000, lastPunchType: "site_in", lastPunchAt: at, jobs: { "J-1003": { ms: 65 * 60_000 } } }));
     render(<TimeClock businessId="biz" jobId="J-1003" workerName="" />);
     expect(await screen.findByText("At J-1003")).toBeTruthy();
@@ -37,7 +37,6 @@ describe("TimeClock", () => {
     expect(screen.getByText(/Today:/)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Leave J-1003/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Clock out for the day/ })).toBeTruthy();
-    expect(screen.getByText(/Last tap: Clocked in at a job · 9:14/)).toBeTruthy();
   });
 
   it("Clock out for the day asks once before ending the day", async () => {

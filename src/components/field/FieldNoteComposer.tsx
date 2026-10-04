@@ -129,20 +129,17 @@ export function FieldNoteComposer({
     : blockedReason ? blockedReason
     : recording ? (tapping ? "Recording… tap to stop" : "Listening… let go to save")
     : audio.status === "transcribing" ? (audio.progress ?? "Saving…")
-    : "Hold to talk — or tap to start";
+    : "Hold to talk, or tap to start";
   const mismatch = !!jobId && !!clockedInJobId && clockedInJobId !== jobId;
 
   return (
     <section aria-label="Send a field note" style={{ display: "grid", gap: 14 }}>
-      {/* WHERE + WHO, before anything is said */}
-      {jobId ? (
-        <div data-testid="note-target" style={{ ...card, background: "#0b1324", border: "1px solid #1e3a5f", color: "#cbd5e1" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7dd3fc" }}>Notes go to</div>
-          <div style={{ fontSize: 17, fontWeight: 800, color: "#f8fafc", marginTop: 2 }}>{jobId}{job?.title ? ` · ${job.title}` : ""}</div>
-          {job?.address && <div style={{ color: "#94a3b8", marginTop: 2 }}>{job.address}</div>}
-          {authorName && <div style={{ color: "#94a3b8", marginTop: 4 }}>Sent as <strong style={{ color: "#e2e8f0" }}>{authorName}</strong></div>}
-        </div>
-      ) : null}
+      {/* WHERE + WHO, in one line right above the button (the job card above already shows the details). */}
+      {jobId && (
+        <p data-testid="note-target" style={{ margin: 0, textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
+          Note goes to <strong style={{ color: "#f8fafc" }}>{jobId}</strong>{authorName ? <> · as <strong style={{ color: "#e2e8f0" }}>{authorName}</strong></> : null}
+        </p>
+      )}
       {mismatch && (
         <div role="alert" data-testid="note-job-mismatch" style={{ ...card, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.5)", color: "#fcd34d", display: "flex", gap: 8 }}>
           <AlertTriangle size={16} style={{ flex: "none", marginTop: 2 }} />
@@ -177,9 +174,7 @@ export function FieldNoteComposer({
           {micLabel}
         </p>
         {ready && !recording && !working && (
-          <p style={{ margin: 0, fontSize: 12, color: "#64748b", textAlign: "center", maxWidth: 320 }}>
-            Say what you used, who worked how long, and anything you found — e.g. &ldquo;12 bundles of shingles, Carlos 8 hours, cracked vent boot.&rdquo;
-          </p>
+          <p style={{ margin: 0, fontSize: 12, color: "#64748b", textAlign: "center" }}>What you used, who worked, what you found.</p>
         )}
       </div>
 

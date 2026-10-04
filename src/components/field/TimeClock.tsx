@@ -190,7 +190,7 @@ export function TimeClock({
       case "site": return { text: `At ${day.openJobId ?? "the job"}`, sub: `${fmtDuration(sinceStart)} · these hours go on the job` };
       case "break_office": return { text: "On lunch", sub: `${fmtDuration(sinceStart)} · not paid` };
       case "site_break": return { text: `On lunch — ${day.openJobId ?? "job"}`, sub: `${fmtDuration(sinceStart)} · not paid` };
-      default: return { text: "Off the clock", sub: jobId ? `Tap "Clock in at ${jobId}" when you get there.` : "Pick your job above, or start at the shop." };
+      default: return { text: "Off the clock", sub: jobId ? `Clock in at ${jobId} and your hours go on it. Shop time is paid, not billed to a job.` : "Pick your job above, or clock in at the shop (paid, not billed to a job)." };
     }
   })();
   const lastTap = day.lastPunchType && day.lastPunchAt && tz ? `Last tap: ${PUNCH_DONE[day.lastPunchType]} · ${fmtTime(day.lastPunchAt, tz)}` : null;
@@ -290,10 +290,9 @@ export function TimeClock({
               </>
             )}
           </div>
-          {day.state === "off" && (
-            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Shop time is paid but not billed to a job. Job time goes on that job&apos;s labor automatically.</p>
-          )}
-          {lastTap && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#94a3b8" }}>{lastTap}</p>}
+          {/* The status line already says where you are and since when; the last tap only matters when it reads
+              oddly (e.g. "between jobs"), so it shows only then. */}
+          {lastTap && day.state === "office" && day.lastPunchType === "site_out" && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#94a3b8" }}>{lastTap}</p>}
         </>
       )}
 

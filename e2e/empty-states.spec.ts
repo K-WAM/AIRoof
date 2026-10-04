@@ -113,7 +113,7 @@ test("every empty screen says what goes there and offers one next step", async (
   await check(page, "team");
 
   await visit(page, "/company/field");
-  const fieldTitle = page.getByTestId("field-empty").getByRole("heading", { name: "No job assigned to you today" }); // T-164 wording
+  const fieldTitle = page.getByTestId("field-empty").getByRole("heading", { name: "No open jobs right now" }); // 2026-10-04 wording (jobs no longer scoped to the crew)
   await expect(fieldTitle).toBeVisible();
   // The field screen is dark: "visible" is not enough, the title must actually be light enough to read.
   const titleColor = await fieldTitle.evaluate((el) => getComputedStyle(el).color);
