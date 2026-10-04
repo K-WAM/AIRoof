@@ -166,6 +166,10 @@ Lessons from T-144 (2026-09-27) — a green run can still hide a broken screen:
   next run: `npm run e2e:seed`, then rerun. A value that changes identity every refresh (an array from the poller) must not
   feed an autosave effect — depend on a stable value (ids joined), or the draft never stops being "unsaved".
 
+- **Any screen change is judged against `docs/ZERO-TRAINING-UX-STANDARD.md`** (owner, 2026-10-04) and its checklist
+  `docs/SCREEN-CLARITY-HEURISTICS.md` (C1–C10): one primary action per context, show less first, plain verbs, long
+  lists bounded, no sign-up friction for field users/contractors. Judge on a 375 px screenshot with ~30 rows.
+
 ## Test expectations
 
 - vitest (from T-000). Unit-test auth boundaries with **negative cases first** (missing/wrong/expired/replayed).

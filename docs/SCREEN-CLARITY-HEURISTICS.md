@@ -1,5 +1,7 @@
 # Screen clarity heuristics — "no training needed" (2026-10-04)
 
+The owner's full standard is `docs/ZERO-TRAINING-UX-STANDARD.md` (2026-10-04); this is its pass/fail checklist.
+
 The 10 rules every screen is judged against, besides Nielsen's 10 (which stay the base: H1–H10 in
 `docs/USABILITY-AUDIT-2026-10-03.md`). Nielsen asks "is it usable?". These ask "is it clear enough that nobody needs
 to be taught?". Pass/fail, not taste. Rules 1–8 of `docs/NO-TRAINING-UX-PLAN.md` §2 still apply; this is the short

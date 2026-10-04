@@ -411,6 +411,10 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 
 ## Screen Clarity Rule (read before touching any company screen)
 
+**Owner's standard (2026-10-04): `docs/ZERO-TRAINING-UX-STANDARD.md`** — a first-time user of any role (admin, office
+staff, inspector, technician, worker, a contractor who will not learn the app) completes their core task without
+training. It overrides taste; the C1–C10 checklist below is its quick reviewer's form.
+
 `docs/SCREEN-CLARITY-HEURISTICS.md` — ten pass/fail rules (one job, one primary action, next step visible, show less first,
 say it once, one way per thing, plain words, status colour = risk only, no dead ends, long lists bounded) plus a 5-minute
 review method. Judge with 30 rows of data on a 375 px screenshot. Open clutter: T-182–T-186 in `TODO.md`.
