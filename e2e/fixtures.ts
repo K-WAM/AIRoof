@@ -72,7 +72,7 @@ export async function overflowingElements(page: Page): Promise<string[]> {
       if (style.position === "fixed" || style.visibility === "hidden") continue;
       // Skip anything inside a horizontally scrollable region (tables, tab strips) — that scroll is intentional.
       let p: Element | null = el.parentElement, scrollable = false;
-      while (p && p !== document.body) { const o = getComputedStyle(p).overflowX; if (o === "auto" || o === "scroll" || o === "hidden") { scrollable = true; break; } p = p.parentElement; }
+      while (p && p !== document.body) { const o = getComputedStyle(p).overflowX; if (o === "auto" || o === "scroll" || o === "hidden" || o === "clip") { scrollable = true; break; } p = p.parentElement; }
       if (!scrollable && r.right > vw + 1) out.push(`${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0, 2).join(".") : ""} (right=${Math.round(r.right)} > ${vw})`);
       if (out.length >= 8) break;
     }
