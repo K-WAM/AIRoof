@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { NumberField } from "@/components/ui/NumberField";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ChevronDown, ChevronRight, ClipboardList, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import type { WorkCatalog, WorkCatalogItem, WorkCatalogLine, WorkSeverity } from "@/types/workCatalog";
@@ -356,17 +357,14 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                       maxLength={300}
                       style={{ flex: "2 1 180px", minWidth: 0, border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, outline: "none" }}
                     />
-                    <input
-                      type="number"
-                      min="1"
-                      step="any"
-                      value={String(l.quantity)}
-                      onChange={(e) => {
+                    <NumberField
+                      label="Quantity"
+                      value={l.quantity}
+                      onCommit={(n) => {
                         const lines = [...(editing.lines ?? [])];
-                        lines[li] = { ...lines[li], quantity: parseFloat(e.target.value) || 0 };
+                        lines[li] = { ...lines[li], quantity: n };
                         setEditing({ ...editing, lines });
                       }}
-                      aria-label="Quantity"
                       placeholder="Qty"
                       style={{ flex: "0 1 70px", minWidth: 0, border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, outline: "none" }}
                     />
@@ -381,17 +379,14 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                       maxLength={40}
                       style={{ flex: "0 1 90px", minWidth: 0, border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, outline: "none" }}
                     />
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={String(l.unitPrice)}
-                      onChange={(e) => {
+                    <NumberField
+                      label="Unit price"
+                      value={l.unitPrice}
+                      onCommit={(n) => {
                         const lines = [...(editing.lines ?? [])];
-                        lines[li] = { ...lines[li], unitPrice: parseFloat(e.target.value) || 0 };
+                        lines[li] = { ...lines[li], unitPrice: n };
                         setEditing({ ...editing, lines });
                       }}
-                      aria-label="Unit price"
                       placeholder="0.00"
                       style={{ flex: "0 1 90px", minWidth: 0, border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 8px", fontSize: 13, outline: "none" }}
                     />

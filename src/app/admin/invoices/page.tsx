@@ -2,6 +2,7 @@
 
 import React, { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import { daysOverdue } from "@/lib/billing/luxorNotices";
+import { NumberField } from "@/components/ui/NumberField";
 import { useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
@@ -550,7 +551,7 @@ function AdminInvoicesPageInner() {
                     <tr>
                       <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
                         Tax (
-                        <input value={taxRate} onChange={e => { setTaxRate(parseFloat(e.target.value) || 0); setDirty(true); }} style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px", background: "transparent" }} className="no-print" />
+                        <NumberField label="Tax rate (%)" value={taxRate} max={100} onCommit={(n) => { setTaxRate(n); setDirty(true); }} style={{ width: 32, border: "none", borderBottom: "1px dashed #cbd5e1", textAlign: "center", fontSize: 13, color: "#1e293b", padding: "0 2px", background: "transparent" }} className="no-print" />
                         <span className="print-only">{taxRate}</span>
                         %)
                       </td>

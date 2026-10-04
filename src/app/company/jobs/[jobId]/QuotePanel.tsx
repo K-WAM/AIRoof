@@ -26,21 +26,10 @@ import type { LibraryLogo } from "@/types/library";
 import type { CatalogState } from "./FindingsPanel";
 import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
 import type { JobPhotoMeta } from "@/types/jobs";
+import { NumberField } from "@/components/ui/NumberField";
 
 const AUTOSAVE_MS = 800;
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
-
-/** Number input that lets you type "0." or clear the box without the value snapping back to 0 mid-keystroke. */
-function NumberField({ value, onCommit, label, width, disabled, min = 0, step = "0.01" }: {
-  value: number; onCommit: (n: number) => void; label: string; width: number; disabled?: boolean; min?: number; step?: string;
-}) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => { if (Number(text) !== value) setText(String(value)); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <input aria-label={label} type="number" min={min} step={step} inputMode="decimal" disabled={disabled} value={text} style={{ width }}
-      onChange={(e) => { setText(e.target.value); const n = Number(e.target.value); if (e.target.value.trim() !== "" && Number.isFinite(n)) onCommit(n); }} />
-  );
-}
 
 export function QuotePanel({ job, businessId, businessConfig, logos, catalog, photos = [], readOnly = false, onStatus, onFindingsChanged, onQuoteChange, onPropertyType }: {
   job: Job;

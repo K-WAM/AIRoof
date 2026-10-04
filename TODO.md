@@ -2822,6 +2822,17 @@ phone screenshot `test-results/screens/phone/audit-<screen>.png`. Mark `[x]` wit
 - [x] **T-195 — Small gaps (owner 2026-10-04).** Job page crew line → Calendar; Whisper duration stored; call summaries fall back to OpenAI when DeepSeek fails; Calendar unscheduled list newest first (cured the flaky drag test).
 - [ ] **T-196 — ElevenLabs Spanish proof (NEEDS-HUMAN).** In ElevenLabs: multilingual model (Flash/Turbo v2.5), Spanish enabled on the agent, a Spanish voice in the client's `voice.es`; one real Spanish test call. The code path (Settings → Phone AI language → `agentLanguage: "es"`) is built but unproven live.
 - [ ] **T-197 — Inspector writes the quote? (owner decision).** Inspectors are a field role today (findings, photos, notes; no prices). The owner's flow "inspector writes findings and a quote" needs either Office staff for inspectors, or a field-side quote builder. Decide before building.
+- [x] **T-198 — Money boxes dropped the decimal point (bug, 2026-10-04).** Typing 12.50 in Library prices saved $1,250 (also labor rates, Common fixes lines, Luxor tax %). One shared `src/components/ui/NumberField.tsx` now everywhere; blank rows aren't saved; duplicate material names flagged; phone "Remove" is a direct button. **Owner: check live Library prices for 100× values typed before this fix.**
+- [ ] **T-199 — Replace Jobba: gaps, in order (owner 2026-10-04, decide scope).**
+  1. Customer approves the quote online (link + typed-name signature, date, IP) — today the office records the answer by hand.
+  2. Customer pays the job invoice online (Stripe card/ACH, already wired for Luxor's own invoices) + customer payment reminders + "Payment received" receipt.
+  3. Money overview: unpaid invoices by age, revenue this month, quoted vs won — one screen.
+  4. QuickBooks Online sync (customers, invoices, payments) — schools pay through accounting.
+  5. Import from Jobba (customers, sites, open jobs) by CSV — the switch-over day.
+  6. Buildings/sites per customer (school districts) + recurring maintenance/inspection visits (annual roof inspections, warranty programs).
+  7. Job costing: material + labor cost vs price per job (profit), materials ordered list for a job.
+  8. Inspection checklist templates (roof inspection form) on the field screen.
+  Not recommended now: aerial measurement (buy EagleView/Hover reports instead), GPS tracking, offline mode (revisit if crews lose signal on roofs).
 
 ## Historical assignments (none active)
 
