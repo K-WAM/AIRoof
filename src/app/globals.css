@@ -3642,3 +3642,11 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .job-title { font-size: 22px; line-height: 1.25; align-items: flex-start !important; }
   .job-title__icon { display: none; }
 }
+/* Superadmin sidebar: a "Menu" button on phones instead of the whole nav above the page (2026-10-04). */
+.admin-menu-toggle { display: none; }
+.admin-menu-body { display: contents; }
+@media (max-width: 768px) {
+  .admin-menu-toggle { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(148,163,184,0.35); background: transparent; color: #e2e8f0; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .admin-sidebar[data-open="false"] .admin-menu-body { display: none; }
+  .admin-sidebar[data-open="true"] .admin-menu-body { display: block; }
+}

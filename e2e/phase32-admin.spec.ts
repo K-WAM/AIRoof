@@ -3,15 +3,33 @@ import { test, expect, settle, shot, expectHealthy } from "./fixtures";
 // Phase 32 Stream D (T-158, T-166, T-167) + Stream I's line contract, checked in the browser by the integrator.
 // Screens: test-results/screens/<desktop|phone>/p32-*.png — read the phone ones by eye.
 
-test("/hub opens Demo Studio inside the one Admin shell (no second Hub nav)", async ({ as }) => {
+test("/hub opens Demo Studio inside the one Admin shell (no second Hub nav)", async ({ as }, testInfo) => {
   const page = await as("superadmin");
   await page.goto("/hub");
   await settle(page);
   expect(new URL(page.url()).pathname).toBe("/hub/demo");
   await expect(page.getByText("Open Hub", { exact: false })).toHaveCount(0);
+  if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Menu" }).click();
   const nav = page.getByRole("navigation", { name: "Admin navigation" });
   await expect(nav).toHaveCount(1);
-  for (const label of ["Demo Studio", "Playbooks"]) await expect(nav.getByRole("link", { name: label }).first()).toBeAttached();
+  for (const label of ["Demo Studio", "Client view", "Field screen", "Playbook"]) await expect(nav.getByRole("link", { name: label }).first()).toBeAttached();
+  // Every demo entry sits under the one "Demo" heading.
+  await expect(nav.locator(".nav-section", { hasText: "Demo" }).getByRole("link")).toHaveCount(3);
+});
+
+test("on a phone the superadmin menu is folded behind one Menu button", async ({ as }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "phone layout");
+  const page = await as("superadmin");
+  await page.goto("/admin/businesses");
+  await settle(page);
+  const nav = page.getByRole("navigation", { name: "Admin navigation" });
+  await expect(nav).toBeHidden();
+  await expect(page.getByRole("heading", { name: /Clients/ }).first()).toBeInViewport();
+  await page.getByRole("button", { name: "Menu" }).click();
+  await expect(nav).toBeVisible();
+  await nav.getByRole("link", { name: "Usage & costs" }).click();
+  await page.waitForURL(/\/admin\/usage/);
+  await expect(nav).toBeHidden();
 });
 
 test("client list defaults to real clients; the demo tenant sits under Demo & test", async ({ as }) => {

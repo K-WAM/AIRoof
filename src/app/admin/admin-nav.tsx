@@ -21,10 +21,13 @@ interface NavLink {
   href: string;
   label: string;
   Icon: typeof Building2;
+  /** The client view opens in a new tab so the superadmin console stays where it was. */
+  newTab?: boolean;
 }
 
 // One Admin shell (T-166, D6/R8): the same nav for /admin/* and /hub/*. Groups
 // are the operator's jobs, not the old Platform/Tools split.
+// Grouped by the superadmin's jobs (owner, 2026-10-04: every demo thing under ONE "Demo" heading).
 const GROUPS: Array<{ label: string; links: NavLink[] }> = [
   {
     label: "Clients",
@@ -34,23 +37,23 @@ const GROUPS: Array<{ label: string; links: NavLink[] }> = [
     ],
   },
   {
-    label: "Operations",
+    label: "Demo",
     links: [
       { href: "/hub/demo", label: "Demo Studio", Icon: Rocket },
-      // Demo entry points kept from the old Hub nav (same destinations).
-      { href: "/company/field?businessId=demo-roofing", label: "Demo: Field screen", Icon: QrCode },
+      { href: "/company/dashboard?preview=demo-roofing", label: "Client view", Icon: ExternalLink, newTab: true },
+      { href: "/company/field?businessId=demo-roofing", label: "Field screen", Icon: QrCode },
     ],
   },
   {
     label: "Billing",
     links: [
-      { href: "/admin/usage", label: "Usage", Icon: BarChart2 },
+      { href: "/admin/usage", label: "Usage & costs", Icon: BarChart2 },
       { href: "/admin/invoices", label: "Invoices", Icon: Receipt },
     ],
   },
   {
-    label: "Resources",
-    links: [{ href: "/hub/guide", label: "Playbooks", Icon: BookOpen }],
+    label: "Help",
+    links: [{ href: "/hub/guide", label: "Playbook", Icon: BookOpen }],
   },
 ];
 
@@ -67,12 +70,13 @@ export function AdminNav() {
       {GROUPS.map((group) => (
         <div className="nav-section" key={group.label}>
           <p className="nav-section-label">{group.label}</p>
-          {group.links.map(({ href, label, Icon }) => (
+          {group.links.map(({ href, label, Icon, newTab }) => (
             <Link
               href={href}
               key={href}
               className="nav-link"
               aria-current={pathname === href ? "page" : undefined}
+              {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
             >
               <Icon size={15} strokeWidth={1.75} className="nav-link-icon" />
               {label}
@@ -80,19 +84,6 @@ export function AdminNav() {
           ))}
         </div>
       ))}
-      <div className="nav-section">
-        <p className="nav-section-label">Demo</p>
-        {/* Kept from the old Hub nav: the client-view preview opens in a new tab. */}
-        <a
-          href="/company/dashboard?preview=demo-roofing"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="nav-link"
-        >
-          <ExternalLink size={15} strokeWidth={1.75} className="nav-link-icon" />
-          Demo: Client view
-        </a>
-      </div>
       <div className="nav-spacer" />
       {showFeedback && (
         <button
