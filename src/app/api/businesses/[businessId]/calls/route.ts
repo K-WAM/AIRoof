@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { guessCallCategory } from "@/lib/calls/category";
 
 // GET /api/businesses/[businessId]/calls?limit=N — full call list, newest
 // first (transcript/messages included, same shape the Calls page already
@@ -41,6 +42,17 @@ export async function GET(
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 100;
 
   const snap = await collection.orderBy("startedAt", "desc").limit(limit).get();
+  // ?slim=1 — the Calls list: no transcript (a doc's bulk; the page fetches one call's transcript when it is opened via
+  // GET /api/calls/[callId]), just the topic badge the list draws from it.
+  if (req.nextUrl.searchParams.get("slim")) {
+    const calls = snap.docs.map((d) => {
+      const { messages, transcript, ...rest } = d.data() as Record<string, unknown>;
+      const spoken = (Array.isArray(messages) ? messages : Array.isArray(transcript) ? transcript : []) as Array<{ role?: string; text?: string }>;
+      const turns = spoken.filter((m) => (m.role === "caller" || m.role === "agent") && Boolean(m.text?.trim())).length;
+      return { callId: d.id, ...rest, category: guessCallCategory(spoken), turns, hasTranscript: turns > 0 };
+    });
+    return NextResponse.json({ calls });
+  }
   const calls = snap.docs.map((d) => ({ callId: d.id, ...d.data() }));
   return NextResponse.json({ calls });
 }

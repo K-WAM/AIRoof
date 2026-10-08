@@ -421,5 +421,5 @@ describe("booking reliability truth table", () => {
         expect(slots.length, `launch hour ${launchHour}, ${preferredDate}`).toBeGreaterThanOrEqual(6);
       }
     }
-  });
+  }, 30_000); // 72 slot builds: ~2 s alone, past the 5 s default when the full suite runs in parallel
 });

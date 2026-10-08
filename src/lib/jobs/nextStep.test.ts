@@ -35,10 +35,15 @@ describe("jobSteps / currentStep", () => {
     expect(currentStep(steps)).toBeNull();
   });
 
-  it("is advice, not a gate: a job that skipped findings still shows later steps done", () => {
+  it("is advice, not a gate: a job that skipped findings moves on and never points backwards", () => {
     const steps = jobSteps(j({ status: "complete" }));
-    expect(steps.find((s) => s.id === "findings")?.state).toBe("current");
+    expect(steps.find((s) => s.id === "findings")?.state).toBe("todo");
     expect(steps.find((s) => s.id === "work")?.state).toBe("done");
+    expect(currentStep(steps)?.id).toBe("report");
+  });
+
+  it("a paid/invoiced small repair with no findings or quote never says Next: Findings", () => {
+    expect(currentStep(jobSteps(j({ status: "invoiced" })))).toBeNull();
   });
 
   it("an invoiced job never asks for the report (it is optional paperwork)", () => {

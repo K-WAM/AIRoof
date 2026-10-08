@@ -1004,7 +1004,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {/* One way to bring someone onto the job (C6): a link they open on their phone — no account, no app. Team
               members with a login already have the Field tab, so the old "Copy field link" (login-only) is gone. */}
-          {!readOnly && <button className="button" type="button" onClick={() => openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
+          {/* A finished (invoiced/paid) job has no crew left to bring on: the button would only invite a mistake. */}
+          {!readOnly && job.status !== "invoiced" && invoiceStatus !== "paid" && <button className="button" type="button" onClick={() => openFieldQr()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }} data-testid="send-field-link">
             <Send size={15} strokeWidth={1.75} /> Send to a worker
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
@@ -1081,7 +1082,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </h2>
             <a className="button" href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
               <ExternalLink size={13} strokeWidth={1.75} />
-              Submit update
+              Add a note
             </a>
           </div>
           <div className="panel-body">
@@ -1089,8 +1090,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <EmptyState
                 compact
                 title="No field notes yet"
-                body={readOnly ? "The crew's notes appear here as they work." : "Send the field link; the crew talks, it fills in here."}
-                secondary={readOnly ? undefined : { label: "Send to a worker", onClick: () => openFieldQr() }}
+                body={readOnly || job.status === "invoiced" || invoiceStatus === "paid" ? "The crew's notes appear here as they work." : "Tap Send to a worker at the top; the crew talks, it fills in here."}
                 testId="job-activity-empty"
               />
             ) : (

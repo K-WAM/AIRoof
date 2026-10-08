@@ -36,7 +36,11 @@ export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "rep
     { id: "invoice", label: "Invoice", tab: "invoice", done: invoiceDone, hint: "Create the invoice and send it." },
   ];
   const raw = opts.billing === false ? all.filter((step) => step.id !== "invoice") : all;
-  const firstOpen = raw.findIndex((step) => !step.done);
+  // Never point backwards: a step the job already moved past (a small repair invoiced with no findings) stays "todo",
+  // and the current step is the first open one AFTER the furthest step that is done.
+  let lastDone = -1;
+  raw.forEach((step, index) => { if (step.done) lastDone = index; });
+  const firstOpen = raw.findIndex((step, index) => !step.done && index > lastDone);
   return raw.map(({ done, ...step }, index) => ({ ...step, state: done ? "done" : index === firstOpen ? "current" : "todo" }));
 }
 

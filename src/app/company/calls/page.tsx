@@ -11,6 +11,7 @@ import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { findCallLinks } from "@/lib/pipeline/callLinks";
 import { displayRequestState } from "@/lib/requests/displayState";
 import { fmtPhone } from "@/lib/format";
+import { guessCallCategory, type CallCategory } from "@/lib/calls/category";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
@@ -42,7 +43,11 @@ interface Call {
   outcome?: "scheduled" | "escalated" | "lead_captured" | "no_action";
   outcomeReason?: string;
   isAfterHours?: boolean;
-  messages: CallMessage[];
+  /** The slim list carries no transcript — see `transcripts` below — only its topic badge. */
+  category?: CallCategory;
+  hasTranscript?: boolean;
+  turns?: number;
+  messages?: CallMessage[];
 }
 
 // Slim shapes of what the leads/appointments list routes return — only the
@@ -85,14 +90,6 @@ function callDuration(call: Call): string {
   return `${Math.floor(secs / 60)}m ${secs % 60}s`;
 }
 
-function guessCategory(messages: CallMessage[]): "Emergency" | "Scheduling" | "Service question" | "General" {
-  const text = messages.filter(m => m.role !== "system").map(m => m.text).join(" ").toLowerCase();
-  if (text.includes("leak") || text.includes("water") || text.includes("flood") || text.includes("emergency")) return "Emergency";
-  if (text.includes("inspect") || text.includes("appointment") || text.includes("book") || text.includes("schedule")) return "Scheduling";
-  if (text.includes("price") || text.includes("cost") || text.includes("quote") || text.includes("how much")) return "Service question";
-  return "General";
-}
-
 const CATEGORY_STATUS: Record<string, string> = {
   Emergency: "emergency",
   Scheduling: "scheduling",
@@ -111,6 +108,8 @@ export default function CompanyCallsPage() {
   const [calls, setCalls] = useState<Call[]>([]);
   const callRows = useNewRowIds<Call>((call) => call.callId);
   const [selected, setSelected] = useState<Call | null>(null);
+  // Transcripts, fetched one call at a time when opened (the list is slim: 100 transcripts were ~150 KB per load).
+  const [transcripts, setTranscripts] = useState<Record<string, CallMessage[]>>({});
   // The card is the one way in (C6). On a phone the detail sits under the list, so bring it into view.
   const openCall = (call: Call) => {
     setSelected(call);
@@ -143,7 +142,7 @@ export default function CompanyCallsPage() {
     // A background refresh reads only the newest calls and merges them in: a call doc carries the whole transcript,
     // and re-reading 100 of them every few seconds was the biggest Firestore cost in the app (free plan: 50k reads/day).
     const firstLoad = !initialLoadDone.current;
-    return fetch(`/api/businesses/${businessId}/calls${firstLoad ? "" : "?limit=15"}`)
+    return fetch(`/api/businesses/${businessId}/calls?slim=1${firstLoad ? "" : "&limit=15"}`)
       .then((r) => {
         if (!r.ok) throw new Error("Calls request failed");
         return r.json();
@@ -196,6 +195,25 @@ export default function CompanyCallsPage() {
     }
   }
 
+  // The open call's transcript. A live call re-reads it whenever the list refreshes (its status/updatedAt changes);
+  // a finished call is read once and kept.
+  const selectedId = selected?.callId;
+  const selectedLive = selected?.status === "in_progress";
+  const selectedStamp = selectedLive ? `${(selected as { updatedAt?: number } | null)?.updatedAt ?? ""}:${calls.length}` : "";
+  const haveSelected = selectedId ? Boolean(transcripts[selectedId]) : false;
+  useEffect(() => {
+    if (!businessId || !selectedId || (haveSelected && !selectedLive)) return;
+    let cancelled = false;
+    fetch(`/api/calls/${encodeURIComponent(selectedId)}?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((doc: { messages?: CallMessage[]; transcript?: CallMessage[] } | null) => {
+        if (cancelled || !doc) return;
+        setTranscripts((prev) => ({ ...prev, [selectedId]: doc.messages ?? doc.transcript ?? [] }));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [businessId, selectedId, selectedLive, selectedStamp, haveSelected]);
+
   // Best-effort fetch of the leads/appointments lists for the call → outcome
   // links. A failure here must never fail the page — the transcript view is
   // the point, and the links simply don't render. Refetched when a new call
@@ -233,7 +251,7 @@ export default function CompanyCallsPage() {
 
   // A tool-call turn is stored as an agent message with no words — showing it drew empty "Receptionist" bubbles.
   const conversationMessages = (call: Call) =>
-    (call.messages ?? []).filter((m) => (m.role === "caller" || m.role === "agent") && Boolean(m.text?.trim()));
+    (call.messages ?? transcripts[call.callId] ?? []).filter((m) => (m.role === "caller" || m.role === "agent") && Boolean(m.text?.trim()));
 
   const filteredCalls = calls.filter((c) => {
     if (dirFilter === "inbound") return c.callType !== "outbound";
@@ -295,8 +313,8 @@ export default function CompanyCallsPage() {
               <div className="call-list">
                 <p style={{ margin: "0 0 4px", fontSize: 12, color: "var(--text-muted)" }}>Tap a call to read it and play the recording.</p>
                 {filteredCalls.slice(0, shownCount).map((call) => {
-                  const msgs = conversationMessages(call);
-                  const category = guessCategory(msgs);
+                  const category = call.category ?? guessCallCategory(call.messages);
+                  const turns = call.turns ?? conversationMessages(call).length;
                   const dur = callDuration(call);
                   const isOutbound = call.callType === "outbound";
                   const displayPhone = isOutbound ? (call.targetPhone ? fmtPhone(call.targetPhone) : "Outbound") : (call.callerPhone ? fmtPhone(call.callerPhone) : "Unknown caller");
@@ -335,7 +353,7 @@ export default function CompanyCallsPage() {
                         </div>
                       </div>
                       <p className="call-subtitle">
-                        {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{msgs.length ? ` · ${msgs.length} turns` : ""}
+                        {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{turns ? ` · ${turns} turns` : ""}
                       </p>
                       <p className="call-subtitle" onClick={(event) => event.stopPropagation()}>
                         {bookedHref ? (
@@ -466,7 +484,9 @@ export default function CompanyCallsPage() {
                   </div>
                 )}
 
-                {conversationMessages(selected).length === 0 ? (
+                {selected.hasTranscript !== false && !selected.messages && !transcripts[selected.callId] ? (
+                  <p style={{ color: "#888", fontSize: 14 }}>Loading the conversation…</p>
+                ) : conversationMessages(selected).length === 0 ? (
                   <p style={{ color: "#888", fontSize: 14 }}>No transcript — call may have dropped or been a test.</p>
                 ) : (
                   <div className="transcript" aria-label="Call transcript">
@@ -490,7 +510,7 @@ export default function CompanyCallsPage() {
         open={!!review}
         onClose={() => setReview(null)}
         request={review?.lead ? { ...review.lead, status: review.lead.status ?? "new" } : review?.appointment ? { ...review.appointment, serviceRequested: review.appointment.serviceType, status: review.appointment.status ?? "requested", assignedCrewName: review.appointment.assignedCrewId ? crewNames[review.appointment.assignedCrewId] : undefined } : null}
-        call={review ? { summary: review.call.summary, recordingUrl: review.call.recordingUrl, transcript: review.call.messages } : undefined}
+        call={review ? { summary: review.call.summary, recordingUrl: review.call.recordingUrl, transcript: review.call.messages ?? transcripts[review.call.callId] } : undefined}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
