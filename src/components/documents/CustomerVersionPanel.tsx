@@ -46,7 +46,9 @@ export function CustomerVersionPanel({ draft, readOnlyRole = false, priceMode = 
         <button type="button" className="button" onClick={() => { setEnteredPrice(null); onChange({ customerSubtotal: lineSubtotal }); }}>Reset to line total</button>
         <label>Internal adjustment note (customer cannot see this)<textarea value={adjustmentNote} maxLength={1000} onChange={(event) => onChange({ adjustmentNote: event.target.value })} /></label>
       </>}
-    </> : <p>{readOnlyRole ? "You can view this customer version but cannot change it with your role." : `This ${project ? "project price" : hideMaterials ? "bundled materials" : "itemized"} version is locked. Create a new quote after talking to the customer.`}</p>}
+    </> : readOnlyRole ? <p>You can view this customer version but cannot change it with your role.</p>
+      // Locked: the document's own status banner already says so (say it once, C5) — here, just which version it is.
+      : <p>{project ? "One project price" : hideMaterials ? "Materials bundled" : "Itemized"} — as sent.</p>}
     <button type="button" className="button" onClick={onPreview}>Preview what the customer gets</button>
   </section>;
 }

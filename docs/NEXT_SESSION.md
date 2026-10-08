@@ -19,6 +19,17 @@
 - **New spec:** `e2e/bilingual-crew-day.spec.ts` (see SMOKE-HARNESS.md). Not provable offline: a real ElevenLabs call in
   Spanish (T-196), inbox placement/DKIM (NH-3), real Whisper/gpt-4o translation of a spoken Spanish note.
 
+## CURRENT STATE 2026-10-08 (night) — load times + desktop clarity pass
+- **Measured on a production build** (new harness mode: `node scripts/e2e/up.mjs --detach --prod`): every company screen is
+  ready in ~0.8–1.2 s locally, no layout shift on load or during live refresh (Team's one jump fixed). Dashboard no longer ships
+  every industry's starter price list (`dashboardTiles.ts` split from `starterKits.ts`); Calls no longer loads its link lists twice.
+- **Customers fixed:** a job created with a typed client name is linked to a customer by the server after it responds
+  (`POST /api/jobs`, `after()`); it used to depend on a second browser call, so jobs could miss Customers.
+- **Say-it-once (C5) on desktop:** paid invoice (one "paid" + "Marked paid on…" instead of "No payments recorded"), locked
+  quote (no greyed editor, no duplicate chip/total — closes the earlier open item), Pipeline card time printed once, Team
+  cards drop the state chip their tab already names; Work log's Edit sits on its panel; panel headers keep actions on the
+  title row; Field picker says "No open jobs right now" / "Show finished jobs (n)"; customer phones formatted.
+
 ## CURRENT STATE 2026-10-08 (later) — production-readiness pass, roofing first
 - **Hardening:** caller-supplied text (name/address/service from a phone call) is now HTML-escaped in the owner's
   booking/escalation emails (`agentTools.ts` dataRow/brandHeader) and in the Luxor invoice email; field notes (typed +

@@ -37,6 +37,8 @@ The AI phone lines: roofing `+15550100`, dental `+15550200`, demo `+15550300`, e
 
 ```powershell
 npm run e2e:up:bg      # starts emulators + app in the background, returns when ready (first time ~3 min while pages compile)
+node scripts/e2e/up.mjs --detach --prod   # same, but a real production build + `next start` (into .next-e2e/):
+                       # use it to MEASURE load times / request counts — dev mode double-runs effects and compiles on demand
 npm run e2e:test       # every browser spec, desktop + phone
 npm run e2e:call       # the whole customer story over the API, no browser (~15 s)
 npm run e2e:booking    # the S1–S8 booking scenarios over the real webhooks (~20 s)

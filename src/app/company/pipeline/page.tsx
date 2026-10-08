@@ -562,7 +562,7 @@ export default function PipelinePage() {
           )}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
           <p className="c1-phone-only appt-detail">{appt.callerPhone ?? "No phone"} · {appt.address ?? "No address"}</p>
-          <div className="c1-desktop-only"><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} /></div>
+          <div className="c1-desktop-only"><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} /></div>
           {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
           <div className="c1-desktop-only"><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></div>
         </div>
@@ -586,7 +586,7 @@ export default function PipelinePage() {
             <div className="c1-more-actions">
               {/* T-182: on a phone the booking details live here too — one disclosure per card, not "Details" + "More". */}
               <div className="c1-phone-only" style={{ display: "grid", gap: 6, paddingBottom: 8, borderBottom: "1px solid var(--border)", marginBottom: 4 }}>
-                <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} />
+                <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} />
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
               {appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}

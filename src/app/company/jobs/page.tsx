@@ -145,19 +145,7 @@ export default function JobsPage() {
       setJustCreatedId(data.job.jobId);
       (e.target as HTMLFormElement).reset();
 
-      // A novel name (no existing customer picked) — find-or-create and
-      // link it in the background. The job is already created and visible
-      // above; this never blocks or can fail the create flow itself.
-      if (!selectedCustomerId && clientName.trim() && businessId) {
-        fetch("/api/company/customers/resolve", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            businessId, jobId: data.job.jobId,
-            name: clientName.trim(), phone: clientPhone.trim() || undefined, address: address.trim() || undefined,
-          }),
-        }).catch(() => {});
-      }
+      // A typed name with no customer picked is linked to a customer by the server (POST /api/jobs, after responding).
 
       setClientName(""); setClientPhone(""); setAddress(""); setSelectedCustomerId(null);
       setTimeout(() => setJustCreatedId(null), 4000);

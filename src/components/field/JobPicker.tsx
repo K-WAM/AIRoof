@@ -102,12 +102,12 @@ export function JobPicker({ jobs, loading, selectedId, onSelect, myCrewId, clock
         </div>
       )}
       <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 16, overflow: "hidden" }}>
-        {rows.length === 0 && <p style={{ margin: 0, padding: "14px 16px", color: "#94a3b8", fontSize: 14 }}>{q ? `Nothing matches “${q}”.` : "No jobs yet."}</p>}
+        {rows.length === 0 && <p style={{ margin: 0, padding: "14px 16px", color: "#94a3b8", fontSize: 14 }}>{q ? `Nothing matches “${q}”.` : hiddenCount > 0 ? "No open jobs right now — finished ones are below." : "No jobs yet."}</p>}
         {rows.map((job, i) => <Row key={job.jobId} job={job} last={i === rows.length - 1} />)}
       </div>
       {hiddenCount > 0 && (
         <button type="button" onClick={() => setShowAll(true)} style={{ marginTop: 8, width: "100%", minHeight: 40, background: "transparent", border: "1px dashed #334155", borderRadius: 12, color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-          Show all {all.length} jobs
+          {rows.length === 0 ? `Show finished jobs (${hiddenCount})` : `Show all ${all.length} jobs`}
         </button>
       )}
       {selected && <button type="button" onClick={() => { setPicking(false); setQuery(""); setShowAll(false); }} style={{ marginTop: 8, width: "100%", minHeight: 40, background: "transparent", border: "none", color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>Keep {selected.jobId}</button>}

@@ -282,13 +282,15 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       ) : <>
         <div className="no-print" style={{ display: "flex", gap: 16, alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div>
-            <StatusChip status={quote.status} label={quote.status.charAt(0).toUpperCase() + quote.status.slice(1)} />
+            {/* Sent/accepted/declined: the banner above says the status — the chip would say it twice (C5). */}
+            {draft && <StatusChip status={quote.status} label={quote.status.charAt(0).toUpperCase() + quote.status.slice(1)} />}
             <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Bill to: {quote.billTo.name || "—"}{quote.billTo.address ? ` · ${quote.billTo.address}` : ""}</div>
           </div>
-          <div style={{ textAlign: "right" }}>
+          {/* While editing, the live total; once locked, the Customer version below shows it (once). */}
+          {draft && <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Estimated total</div>
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
-          </div>
+          </div>}
         </div>
         <CustomerVersionPanel draft={!!draft} readOnlyRole={readOnly} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
           lineSubtotal={lineSubtotal} savedLineSubtotal={projectPriceAnchor} customerSubtotal={quote.customerSubtotal} customerTotal={total}
@@ -310,6 +312,8 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
           {draft && quote.lines.length === 0 && <small style={{ color: "var(--text-muted)" }}>Add at least one priced item to send.</small>}
         </div>
 
+        {/* A locked quote is read from the customer preview below, not from a greyed-out editor (say it once). */}
+        {draft && <>
         <label className="no-print">Valid until <input type="date" disabled={!draft} value={new Date(quote.validUntil).toISOString().slice(0, 10)}
           onChange={(e) => e.target.value && change({ validUntil: new Date(`${e.target.value}T23:59:59`).getTime() })} /></label>
         {quote.validUntil <= Date.now() && draft && <p role="alert" className="no-print" style={{ margin: 0, color: "var(--danger, #b91c1c)" }}>This quote&apos;s valid-until date has passed — pick a new one before sending.</p>}
@@ -386,13 +390,15 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <PropertyTypeToggle jobId={job.jobId} businessId={businessId} value={job.propertyType} disabled={!draft} onChange={(next) => onPropertyType?.(next)} />
           </div>
         </details>
+        </>}
 
         <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3><DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
           billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}
           notices={noticesForDocument({ doc: "quote", total, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} /></div>
-        <label className="no-print">Notes<textarea disabled={!draft} value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>
+        {draft ? <label className="no-print">Notes<textarea value={quote.notes ?? ""} onChange={(e) => change({ notes: e.target.value })} rows={3} style={{ display: "block", width: "100%" }} /></label>
+          : quote.notes?.trim() ? <p className="no-print" style={{ margin: 0, whiteSpace: "pre-wrap" }}><strong>Notes:</strong> {quote.notes}</p> : null}
       </>}
       {error && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: 0 }}>{error}</p>}
     </div>

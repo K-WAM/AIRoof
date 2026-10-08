@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
@@ -161,6 +161,29 @@ export async function POST(req: NextRequest) {
       // already written above.
     });
   }
+  // A typed name with no customer picked: find-or-create the customer and link it on the SERVER, after the response
+  // goes out (so the create stays as fast as before). This used to be a second browser call fired after the create —
+  // a closed tab or a dropped request left the job with no customer, and it never showed in Customers.
+  else if (clientName) {
+    const jobRef = jobs.doc(job.jobId);
+    afterResponse(async () => {
+      const { resolveCustomer, bumpCustomerJobStats } = await import("@/lib/customers/resolve");
+      const { customerId: linked } = await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address });
+      const linkedNow = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(jobRef);
+        if (!snap.exists || snap.data()?.customerId) return false; // never overwrite a link made meanwhile
+        tx.update(jobRef, { customerId: linked });
+        return true;
+      });
+      if (linkedNow) await bumpCustomerJobStats(db, businessId, linked, now);
+    });
+  }
 
   return NextResponse.json({ job, created: true }, { status: 201 });
+}
+
+/** Work that must not delay the response. Outside a request (unit tests) it simply runs now. Never throws. */
+function afterResponse(work: () => Promise<void>): void {
+  const run = () => work().catch((error) => console.warn("job create: customer link skipped", error instanceof Error ? error.message : error));
+  try { after(run); } catch { void run(); }
 }

@@ -31,6 +31,8 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // The smoke harness's `--prod` mode builds into its own folder so it never fights a running `next dev` over `.next`.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // `next dev` only (no effect on a production build): keep compiled pages/routes warm. The defaults (60 s, 5 pages)
   // made the local smoke harness recompile routes all through a long Playwright run, stalling requests 5–15 s and
   // failing specs at random (2026-10-04).

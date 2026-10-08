@@ -29,6 +29,18 @@ describe("isE2EHarness", () => {
     expect(isE2EHarness()).toBe(false);
   });
 
+  it("a local production build needs the extra --prod opt-in, and never on Vercel or a real Firestore", () => {
+    on();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("E2E_HARNESS_PROD", "1");
+    expect(isE2EHarness()).toBe(true);
+    vi.stubEnv("VERCEL", "1");
+    expect(isE2EHarness()).toBe(false);
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("FIRESTORE_EMULATOR_HOST", "firestore.googleapis.com:443");
+    expect(isE2EHarness()).toBe(false);
+  });
+
   it("is off on Vercel", () => {
     on();
     vi.stubEnv("VERCEL", "1");

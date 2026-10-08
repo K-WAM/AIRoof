@@ -183,7 +183,7 @@ export default function TeamPage() {
             return <article className="panel team-member-card" key={member.uid}>
               <div className="team-member-card__identity">
                 <div><strong>{member.displayName || member.email}</strong><div>{member.email}</div></div>
-                <span className={"tag " + (memberState === "Active" ? "success" : memberState === "Disabled" ? "urgent" : "")}>{memberState}</span>
+                {/* The tab above already names the state (Active / Invited / Disabled) — no chip repeating it on every card. */}
               </div>
               <div className="team-member-card__details">
                 <span><strong>Role</strong> {userTypeDef(currentRole).label}</span>
@@ -227,7 +227,8 @@ export default function TeamPage() {
             </article>;
           })}
       </section>
-      <details className="panel team-more">
+      {/* Shown once the list is in, so it doesn't jump down the page when the members arrive. */}
+      {!loading && <details className="panel team-more">
         <summary>More team tools</summary>
         <div className="panel-body">
           <label>Import CSV (email, role — Admin, Office staff, Inspector, Technician or View only)
@@ -241,7 +242,7 @@ export default function TeamPage() {
             }}>Revoke all field QR links</button>
           </div>
         </div>
-      </details>
+      </details>}
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite person">
         <form onSubmit={(event) => void invite(event)} className="team-invite-form">
           <label>Name<input aria-label="Invite name" value={name} onChange={(event) => setName(event.target.value)} /></label>

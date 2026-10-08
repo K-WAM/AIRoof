@@ -131,11 +131,25 @@ const seeded = await seed({ reset: args.has("--reset") });
 say(`Seeded ${seeded.tenants} tenants, ${seeded.accounts} accounts.`);
 
 // 3. the app
-say(`Starting the app on ${APP_URL} (next dev) ...`);
+// --prod: a real production build + `next start` (into .next-e2e, beside any dev build) — for measuring load times and
+// request counts honestly (dev mode double-runs effects under StrictMode and compiles on first visit).
+const prod = args.has("--prod");
 const nextBin = join(ROOT, "node_modules", "next", "dist", "bin", "next");
 const appLog = openSync(join(STATE_DIR, "app.log"), "w");
-const app = spawn(process.execPath, [nextBin, "dev", "-p", String(PORTS.app)], {
-  cwd: ROOT, env: { ...process.env, ...appEnv() }, stdio: ["ignore", appLog, appLog], windowsHide: true,
+const appEnvironment = { ...process.env, ...appEnv(), ...(prod ? { NEXT_DIST_DIR: ".next-e2e", E2E_HARNESS_PROD: "1" } : {}) };
+if (prod) {
+  say("Building the app for production (--prod) ...");
+  const { spawnSync } = await import("node:child_process");
+  // `next build` with a custom distDir rewrites tsconfig.json (adds .next-e2e/types); put the checked-in file back.
+  const tsconfigPath = join(ROOT, "tsconfig.json");
+  const tsconfig = readFileSync(tsconfigPath, "utf8");
+  const built = spawnSync(process.execPath, [nextBin, "build"], { cwd: ROOT, env: appEnvironment, stdio: ["ignore", appLog, appLog] });
+  writeFileSync(tsconfigPath, tsconfig);
+  if (built.status !== 0) { console.error("[e2e] production build failed; see .e2e/app.log"); process.exit(1); }
+}
+say(`Starting the app on ${APP_URL} (${prod ? "next start" : "next dev"}) ...`);
+const app = spawn(process.execPath, [nextBin, prod ? "start" : "dev", "-p", String(PORTS.app)], {
+  cwd: ROOT, env: appEnvironment, stdio: ["ignore", appLog, appLog], windowsHide: true,
 });
 pids.app = app.pid;
 app.on("exit", (code) => { if (code) console.error(`[e2e] app exited (${code}); see .e2e/app.log`); });

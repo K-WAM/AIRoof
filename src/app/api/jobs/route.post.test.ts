@@ -45,4 +45,14 @@ describe("POST /api/jobs", () => {
     expect(await again.json()).toMatchObject({ created: false, job: { jobId: job.jobId } });
     expect(db.__list("businesses/biz/jobs")).toHaveLength(1);
   });
+  it("links a typed client name to a customer on the server (no second browser call needed)", async () => {
+    const res = await POST(request({ businessId: "biz", title: "Leak", clientName: "José Pérez", clientPhone: "+1 305 555 0101" }));
+    const { job } = await res.json();
+    await vi.waitFor(() => expect(db.__peek("businesses/biz/jobs", job.jobId)?.customerId).toBeTruthy());
+    const customerId = db.__peek("businesses/biz/jobs", job.jobId)?.customerId as string;
+    expect(db.__peek("businesses/biz/customers", customerId)).toMatchObject({ name: "José Pérez" });
+    // The same person again is the same customer, not a duplicate.
+    const again = await (await POST(request({ businessId: "biz", title: "Gutter", clientName: "jose perez", clientPhone: "305-555-0101" }))).json();
+    await vi.waitFor(() => expect(db.__peek("businesses/biz/jobs", again.job.jobId)?.customerId).toBe(customerId));
+  });
 });

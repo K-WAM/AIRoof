@@ -224,7 +224,9 @@ export default function CompanyCallsPage() {
   // its "This call produced" box without a reload.
   const linksKey = calls.slice(0, 5).map((c) => `${c.callId}:${c.status ?? ""}`).join("|");
   useEffect(() => {
-    if (!businessId) return;
+    // Wait for the call list: before it arrives linksKey is "" and this would load the three lists twice (and with no
+    // calls there is nothing to link).
+    if (!businessId || !linksKey) return;
     const base = `/api/businesses/${businessId}`;
     Promise.all([fetch(`${base}/leads`), fetch(`${base}/appointments`), fetch(`/api/company/crews?businessId=${businessId}`)])
       .then(async ([leadsRes, apptsRes, crewsRes]) => {

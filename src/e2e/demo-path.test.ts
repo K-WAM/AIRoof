@@ -110,9 +110,12 @@ describe("offline demo-path smoke test", () => {
     expect(jobResponse.status).toBe(201); const { job } = await jobResponse.json() as { job: { jobId: string } };
     expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ clientName: "Mina", clientPhone: "+15550199", address: "12 Palm Ave" });
     const resolveBody = { businessId: BUSINESS_ID, jobId: job.jobId, name: "Mina", phone: "+15550199", email: EMAIL, address: "12 Palm Ave" };
+    // Creating the job links the customer on the server (POST /api/jobs, after responding); resolving the same person
+    // again — twice — finds that one customer instead of making another.
+    await vi.waitFor(() => expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ customerId: "C-1000" }));
     const firstCustomer = await resolveCustomer(json("http://localhost/api/company/customers/resolve", resolveBody));
     const secondCustomer = await resolveCustomer(json("http://localhost/api/company/customers/resolve", resolveBody));
-    expect((await firstCustomer.json()).created).toBe(true);
+    expect(await firstCustomer.json()).toMatchObject({ created: false, customerId: "C-1000" });
     expect(await secondCustomer.json()).toMatchObject({ created: false, customerId: "C-1000" });
     expect(db.__list(`businesses/${BUSINESS_ID}/customers`)).toHaveLength(1);
     expect((await fieldUpdate(json(`http://localhost/api/jobs/${job.jobId}/updates`, { businessId: BUSINESS_ID, rawText: "Carlos usó 12 paquetes de tejas y encontró una bota de ventilación agrietada." }), context(job.jobId))).status).toBe(201);

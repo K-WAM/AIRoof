@@ -509,6 +509,16 @@ a.panel:hover {
   border-bottom: 1px solid var(--border);
 }
 
+/* A panel header that carries its own action(s) puts them on the title's row, right-aligned (they used to wrap under the
+   title on screens that forgot an inline flex style). */
+.panel-header:has(> .button, > a.button, > button, > .no-print) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .panel-title {
   margin: 0;
   font-size: 18px;

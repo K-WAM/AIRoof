@@ -17,17 +17,19 @@ function noteLines(notes?: string) {
   return notes.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
-export function BookingDetails({ booking, inspectorName, timeZone, compact = false, showName = true }: {
+export function BookingDetails({ booking, inspectorName, timeZone, compact = false, showName = true, showTime = true }: {
   booking: BookingDetailsValue;
   inspectorName?: string;
   timeZone?: string;
   compact?: boolean;
   showName?: boolean;
+  /** False where the card already prints the date and time big (Pipeline) — never say it twice. */
+  showTime?: boolean;
 }) {
   const notes = noteLines(booking.notes);
   return (
     <div className="booking-details" style={{ display: "grid", gap: compact ? 5 : 8, fontSize: compact ? 12 : 13, lineHeight: 1.45 }}>
-      {booking.startTime && <div><strong>Time:</strong> {new Date(booking.startTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", ...(timeZone ? { timeZone } : {}) })}</div>}
+      {showTime && booking.startTime && <div><strong>Time:</strong> {new Date(booking.startTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", ...(timeZone ? { timeZone } : {}) })}</div>}
       {showName && <div><strong>Name:</strong> {booking.callerName || "Unknown caller"}</div>}
       {booking.callerPhone && <div><strong>Phone:</strong> <a href={`tel:${booking.callerPhone}`}>{fmtPhone(booking.callerPhone)}</a></div>}
       {booking.address && <div><strong>Address:</strong> <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.address)}`} target="_blank" rel="noreferrer">{booking.address}</a></div>}

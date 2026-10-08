@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { matchesQuery } from "@/lib/customers/search";
-import { fmtDay } from "@/lib/format";
+import { fmtDay, fmtPhone } from "@/lib/format";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -118,7 +118,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
                 <article key={c.customerId} className="c1-customer-card" data-selected={selectedId === c.customerId}>
                   <button type="button" onClick={() => { setSelectedId(c.customerId); setCreating(false); }} className="c1-customer-open">
                     <strong>{c.name}</strong>
-                    <span>{c.phone || "No phone"} · {c.jobCount} {c.jobCount === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}</span>
+                    <span>{c.phone ? fmtPhone(c.phone) : "No phone"} · {c.jobCount} {c.jobCount === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}</span>
                     <span>Open</span>
                   </button>
                   <details><summary>Details</summary><p className="c1-customer-extra">{c.address || "No address"}</p></details>

@@ -134,7 +134,9 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
         {error && <p role="alert" style={{ margin: "0 0 10px", color: "#b91c1c", fontSize: 13 }}>{error}</p>}
         {done && <p role="status" style={{ margin: "0 0 10px", color: "#15803d", fontSize: 13 }}>{done}</p>}
         {payments.length === 0 ? (
-          !open && <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>No payments recorded yet. When the customer pays you, record it here — they get a receipt.</p>
+          !open && <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>{balance > 0
+            ? "No payments recorded yet. When the customer pays you, record it here — they get a receipt."
+            : `Marked paid${invoice.paidAt ? ` on ${fmt.fmtDay(invoice.paidAt)}` : ""}.`}</p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, fontSize: 13 }}>
             {payments.map((p) => (

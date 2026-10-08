@@ -891,8 +891,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     </div>
   );
 
-  const editBar = (
-    <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+  const editButtons = (
+    <>
       {!editing ? (
         <button className="button" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }} onClick={startEdit} disabled={updates.length === 0 && !job?.parsed}>
           <Pencil size={13} strokeWidth={1.75} />
@@ -910,8 +910,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </button>
         </>
       )}
-    </div>
+    </>
   );
+  const editBar = <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>{editButtons}</div>;
 
   const today = fmt.fmtDate(invoiceIssuedAt ?? Date.now());
   const due = fmt.fmtDate(invoiceDueAt ?? invoiceIssuedAt ?? Date.now());
@@ -1113,10 +1114,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         </section>
       )}
 
-      {activeTab === "timeline" && !readOnly && editBar}
+
       {activeTab === "timeline" && (
         <section className="panel" style={{ marginBottom: 16 }}>
-          <div className="panel-header"><h2 className="panel-title">Work log</h2></div>
+          {/* Edit sits on the panel it edits (it used to float above it, belonging to nothing). */}
+          <div className="panel-header"><h2 className="panel-title">Work log</h2>{!readOnly && <div className="no-print" style={{ display: "flex", gap: 8 }}>{editButtons}</div>}</div>
           <div className="panel-body">
             {timeline.length === 0 && !editing ? (
               <EmptyState compact title="Nothing logged yet" body="It fills in from the crew's field notes." />
@@ -1443,10 +1445,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
               {invoiceStatus && invoiceStatus !== "draft" && (
                 <div className="no-print" style={{ marginBottom: 16, padding: "10px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, color: "#15803d" }}>
-                  🔒 {invoiceStatus === "paid"
-                    ? `Paid${invoiceMeta.paidAt ? ` on ${fmt.fmtDayTime(invoiceMeta.paidAt)}` : ""}.`
-                    : `Sent${invoiceMeta.sentTo ? ` to ${invoiceMeta.sentTo}` : ""}${invoiceMeta.sentAt ? ` on ${fmt.fmtDayTime(invoiceMeta.sentAt)}` : ""}.`}
-                  {" "}This invoice is locked: new field updates or edits on the job won&apos;t change it. Create a new quote after talking to the customer.
+                  {/* When paid, the payments panel below carries the date — this line only says it's locked (C5). */}
+                  🔒 {invoiceStatus === "paid" ? "" : `Sent${invoiceMeta.sentTo ? ` to ${invoiceMeta.sentTo}` : ""}${invoiceMeta.sentAt ? ` on ${fmt.fmtDayTime(invoiceMeta.sentAt)}` : ""}. `}
+                  Locked: new field notes or edits on the job won&apos;t change this invoice.
                 </div>
               )}
 

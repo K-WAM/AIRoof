@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import type { Customer, CustomerKind } from "@/types/customer";
 import { buildMatchKey, buildSearchTokens } from "./search";
@@ -35,39 +36,45 @@ export async function resolveCustomer(
   const bizRef = db.collection("businesses").doc(businessId);
   const customersRef = bizRef.collection("customers");
 
+  // Fast path: an existing customer (including ones made before the key markers below existed).
   const existing = await customersRef.where("matchKey", "==", matchKey).limit(1).get();
   if (!existing.empty) {
     return { customerId: existing.docs[0].id, created: false };
   }
 
-  // Same short-ID counter pattern POST /api/jobs uses (businesses/{id}.jobCounter).
-  let counter = 999;
-  await db.runTransaction(async (tx) => {
-    const bizSnap = await tx.get(bizRef);
-    counter = (bizSnap.data()?.customerCounter ?? 999) + 1;
-    tx.update(bizRef, { customerCounter: counter });
-  });
-
-  const customerId = `C-${counter}`;
+  // Create inside ONE transaction guarded by a per-identity marker doc, so two simultaneous creates for the same person
+  // (two tabs, a retry, the job-create and request paths at once) end up with one customer — Firestore retries the
+  // loser, which then reads the winner's marker. The old query-then-create could make two.
+  const keyRef = bizRef.collection("customerKeys").doc(createHash("sha1").update(matchKey).digest("hex"));
   const now = Date.now();
-  const customer: Customer = {
-    customerId,
-    businessId,
-    name,
-    kind: input.kind ?? "residential",
-    ...(input.phone ? { phone: input.phone } : {}),
-    ...(input.email ? { email: input.email } : {}),
-    ...(input.address ? { address: input.address } : {}),
-    jobCount: 0,
-    lastJobAt: now,
-    matchKey,
-    searchTokens: buildSearchTokens({ name, phone: input.phone, address: input.address }),
-    active: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-  await customersRef.doc(customerId).set(customer);
-  return { customerId, created: true };
+  return db.runTransaction(async (tx) => {
+    const [keySnap, bizSnap] = await Promise.all([tx.get(keyRef), tx.get(bizRef)]);
+    const known = keySnap.data()?.customerId;
+    if (typeof known === "string") return { customerId: known, created: false };
+    // Same short-ID counter pattern POST /api/jobs uses (businesses/{id}.jobCounter).
+    const counter = (bizSnap.data()?.customerCounter ?? 999) + 1;
+    const customerId = `C-${counter}`;
+    const customer: Customer = {
+      customerId,
+      businessId,
+      name,
+      kind: input.kind ?? "residential",
+      ...(input.phone ? { phone: input.phone } : {}),
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.address ? { address: input.address } : {}),
+      jobCount: 0,
+      lastJobAt: now,
+      matchKey,
+      searchTokens: buildSearchTokens({ name, phone: input.phone, address: input.address }),
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    tx.set(bizRef, { customerCounter: counter }, { merge: true });
+    tx.set(customersRef.doc(customerId), customer);
+    tx.set(keyRef, { customerId, createdAt: now });
+    return { customerId, created: true };
+  });
 }
 
 /**

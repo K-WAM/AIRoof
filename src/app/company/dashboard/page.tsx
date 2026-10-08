@@ -8,7 +8,7 @@ import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useNewRowIds } from "@/hooks/useNewRowIds";
-import { countDashboardMetrics, tilesFor } from "@/lib/verticals/starterKits";
+import { countDashboardMetrics, tilesFor } from "@/lib/verticals/dashboardTiles";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
