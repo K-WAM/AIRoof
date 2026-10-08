@@ -29,7 +29,8 @@ export function buildRequestDeclineEmail(input: {
       ? "Our current availability cannot accommodate this request at this time."
       : "We’re unable to move forward with this request at this time.";
   const business = escapeHtml(input.brand.businessName);
-  const accent = escapeHtml(input.brand.brandColor || "#0f766e");
+  // A hex colour or the default, like every other email shell: escaping alone still lets "red;background:url(…)" into the style.
+  const accent = /^#[0-9a-f]{6}$/i.test(input.brand.brandColor ?? "") ? input.brand.brandColor! : "#0f766e";
   const contact = [input.brand.contactPhone, input.brand.contactEmail]
     .filter((value): value is string => Boolean(value))
     .map(escapeHtml).join(" &middot; ");

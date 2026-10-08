@@ -78,7 +78,10 @@ export function ClientDetailsEditor({ job, businessId, canEdit, locked, onSaved 
 
   return (
     <details className="job-customer-details">
-      <summary>Customer details{job.clientName ? ` · ${job.clientName}` : ""}</summary>
+      {/* The name is what people look for; "phone, email, address" says what opening it shows (no jargon label). */}
+      <summary>{job.clientName
+        ? <><span style={{ color: "var(--text)" }}>{job.clientName}</span><span style={{ fontWeight: 400 }}>&nbsp;· phone, email, address</span></>
+        : "Customer: phone, email, address"}</summary>
       {job.address && <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>{job.address}</p>}
       <p style={{ fontSize: 13, color: "#94a3b8", margin: 0, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         {job.clientName && <span>{job.clientName}{job.clientPhone ? ` · ${fmtPhone(job.clientPhone)}` : ""}{job.clientEmail ? ` · ${job.clientEmail}` : ""}</span>}

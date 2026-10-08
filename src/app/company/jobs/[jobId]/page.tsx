@@ -1502,9 +1502,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
               )}
 
-              {/* Invoice document — a sent/paid invoice is immutable server-side, so the whole editor is a disabled
-                  fieldset: typing into a locked invoice used to look like it worked and was silently never saved. */}
-              <fieldset disabled={readOnly || invoiceStatus !== "draft"} className={`invoice-editor no-print${invoiceStatus !== "draft" ? " invoice-locked" : ""}`} style={{
+              {/* Invoice editor — draft only. A sent/paid invoice is immutable server-side, so it shows ONLY the customer
+                  preview below (C5, say it once — same as a locked quote): a greyed copy of the editor above the
+                  preview doubled the phone page and made people try to type into it. */}
+              {invoiceStatus === "draft" && <fieldset disabled={readOnly} className="invoice-editor no-print" style={{
                 background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, margin: 0, minWidth: 0,
                 padding: "44px 52px", fontFamily: "system-ui, sans-serif", color: "#1e293b",
                 boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
@@ -1832,9 +1833,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </div>
                   )}
                 </div>
-              </fieldset>
-              <div style={{ marginTop: 24 }} ref={invoicePreviewRef} tabIndex={-1}>
-                <h3 className="no-print">Customer preview</h3>
+              </fieldset>}
+              <div style={{ marginTop: invoiceStatus === "draft" ? 24 : 0 }} ref={invoicePreviewRef} tabIndex={-1}>
+                {invoiceStatus === "draft" && <h3 className="no-print">Customer preview</h3>}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}

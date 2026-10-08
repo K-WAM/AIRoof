@@ -3682,3 +3682,14 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .admin-sidebar[data-open="false"] .admin-menu-body { display: none; }
   .admin-sidebar[data-open="true"] .admin-menu-body { display: block; }
 }
+/* Job page tabs on a phone (2026-10-08): the strip scrolled sideways, so Findings/Quote/Report/Invoice — the steps that
+   get a customer billed — started off-screen and a first-time user never knew they existed. Two rows instead: job
+   details on top, the numbered documents below, every tab visible, no sideways scroll. */
+@media (max-width: 640px) {
+  .job-tabs-grouped { flex-wrap: wrap; overflow-x: visible; row-gap: 6px; column-gap: 4px; }
+  .job-tabs-grouped .job-tab-group-label { display: none; }
+  .job-tabs-grouped .job-tab-group-label:not(:first-child) { display: block; flex: 0 0 100%; height: 0; width: auto; margin: 0; padding: 0; background: none; }
+  .job-tabs-grouped .job-tab { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 12px; text-align: center; white-space: normal; line-height: 1.2; }
+  .job-tabs-grouped .job-tab-workflow { flex-wrap: wrap; justify-content: center; gap: 0 3px; border-radius: 8px; }
+  .job-tabs-grouped .job-tab-workflow small { flex: 0 0 100%; }
+}
