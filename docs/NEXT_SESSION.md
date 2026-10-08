@@ -3,7 +3,8 @@
 ## CURRENT STATE 2026-10-08 — read this first
 - **Products per client** (owner: "toggle which customers have ability to use what based on the contract"): Admin → client →
   **Products** (3 switches, audited, `POST /api/admin/businesses/[id]/products`). Server refuses the rest (403 naming the
-  product); menus, Dashboard, search, Calendar, job page and Settings hide it. Client list shows "Calls · Jobs · Billing".
+  product). Tabs not bought show **greyed with a lock** and open an upgrade page ("Ask Luxor to add it" emails
+  connect@luxordev.com and flags the client: "Asked for it" on Products, "— wants Calls" in the client list).
 - **Billing without Stripe**: clients' customers pay the client directly. Settings → Getting paid; How to pay + Pay button on
   invoices; **Record payment** on the job (partials, receipts); reminders at 1/7/14 days; **Billing** screen.
 - Fixed on the way: the company shell asked for the demo tenant before sign-in finished (401) and briefly treated every module

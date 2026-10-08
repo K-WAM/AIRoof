@@ -8,7 +8,12 @@ import { useState } from "react";
 import { Package } from "lucide-react";
 import { PRODUCTS, productsOf, type ProductId, type ProductSet } from "@/lib/products/products";
 
-export function ProductsPanel({ businessId, stored }: { businessId: string; stored?: Partial<Record<ProductId, boolean>> }) {
+export function ProductsPanel({ businessId, stored, requests }: {
+  businessId: string;
+  stored?: Partial<Record<ProductId, boolean>>;
+  /** The client's "Ask Luxor to add it" taps on locked tabs — a lead to follow up. */
+  requests?: Partial<Record<ProductId, { at: number; by: string }>>;
+}) {
   const [products, setProducts] = useState<ProductSet>(() => productsOf({ products: stored }));
   const [busy, setBusy] = useState<ProductId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +82,11 @@ export function ProductsPanel({ businessId, stored }: { businessId: string; stor
                     <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                       {blocked ? `Needs ${PRODUCTS.find((x) => x.id === p.requires)?.label} first.` : p.includes}
                     </span>
+                    {!products[p.id] && requests?.[p.id] && (
+                      <span className="tag urgent" style={{ display: "inline-block", marginTop: 4 }} data-testid={`product-request-${p.id}`}>
+                        Asked for it {new Date(requests[p.id]!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {requests[p.id]!.by}
+                      </span>
+                    )}
                   </span>
                 </label>
               </li>

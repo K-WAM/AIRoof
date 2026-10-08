@@ -26,6 +26,8 @@ export interface CompanyBootstrap {
   };
   modules: {
     disabled: CompanyModule[];
+    /** The subset of `disabled` the client could buy (shown as locked tabs). Missing on an old cached response. */
+    locked?: CompanyModule[];
     calendarMode: CalendarMode;
     family: VisualFamily | null;
   };

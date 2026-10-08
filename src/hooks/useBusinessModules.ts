@@ -28,6 +28,8 @@ export interface BusinessModules {
   /** True once the business doc has resolved — gate rendering on this to avoid a tab flashing in and out. */
   ready: boolean;
   isEnabled: (module: CompanyModule) => boolean;
+  /** Not bought (a product the client could add) — shown greyed with a lock, opens the upgrade page. */
+  isLocked: (module: CompanyModule) => boolean;
 }
 
 const DEFAULT_VOCAB = VERTICAL_TEMPLATES.roofing.vocab;
@@ -46,6 +48,7 @@ export function useBusinessModules(): BusinessModules {
   const industry = data?.business.industry ?? null;
   // Unknown industry keeps every module — never hide a tab we aren't sure about.
   const template = industry ? getVerticalTemplate(industry) : null;
+  const lockedModules = (data?.modules?.locked ?? []) as CompanyModule[];
   const disabledModules = (data?.modules?.disabled ?? template?.disabledModules ?? []) as CompanyModule[];
 
   return {
@@ -57,5 +60,6 @@ export function useBusinessModules(): BusinessModules {
     disabledModules,
     ready,
     isEnabled: (module) => !disabledModules.includes(module),
+    isLocked: (module) => lockedModules.includes(module),
   };
 }

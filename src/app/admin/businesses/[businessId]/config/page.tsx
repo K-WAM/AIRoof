@@ -73,6 +73,7 @@ interface BizData {
   seatLimit?: number;
   subscriptionStatus?: "active" | "paused" | "trial";
   products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
+  upgradeRequests?: Partial<Record<"calls" | "field" | "billing", { at: number; by: string }>>;
   pausedAt?: number;
   pausedReason?: string;
   billing?: {
@@ -800,7 +801,7 @@ export default function AdminBusinessConfigPage({
           </section>
 
           {/* ─── Products (what the contract includes) ─── */}
-          <ProductsPanel businessId={businessId} stored={biz.products} />
+          <ProductsPanel businessId={businessId} stored={biz.products} requests={biz.upgradeRequests} />
 
           {/* ─── Subscription & Billing ─── */}
           <section className="panel" id="subscription" aria-labelledby="subscription-title">

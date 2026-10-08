@@ -963,6 +963,18 @@ a.panel:hover {
   text-align: left;
 }
 
+/* A product the client hasn't bought: still in its place, greyed, with a lock (opens the upgrade page). */
+.company-nav a.company-nav-locked {
+  opacity: 0.65;
+}
+.company-nav a.company-nav-locked:hover {
+  opacity: 0.85;
+}
+.company-nav-lock {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .company-nav a:hover,
 .company-nav-trigger:hover {
   background: var(--surface-muted);

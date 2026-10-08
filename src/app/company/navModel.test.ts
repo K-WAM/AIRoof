@@ -35,4 +35,15 @@ describe("visibleNavLinks", () => {
       "/company/dashboard", "/company/calendar", ...jobs, ...manage, "/company/team", ...end,
     ]);
   });
+  it("shows a product the client could add as locked tabs in their usual place", () => {
+    const links = visibleNavLinks({ role: "owner", isEnabled: (m) => m !== "calls", isLocked: (m) => m === "calls" });
+    expect(links.filter((l) => l.locked).map((l) => l.path)).toEqual(["/company/calls", "/company/pipeline"]);
+    expect(links.map((l) => l.path).slice(0, 3)).toEqual(["/company/dashboard", "/company/calls", "/company/pipeline"]);
+  });
+  it("never shows a module the industry doesn't use, even locked", () => {
+    expect(visibleNavLinks({ role: "owner", isEnabled: dental, isLocked: () => false }).some((l) => l.path === "/company/jobs")).toBe(false);
+  });
+  it("a crew login never sees locked office tabs", () => {
+    expect(paths({ role: "crew", isEnabled: (m) => m !== "calls", isLocked: (m) => m === "calls" })).toEqual(["/company/field", "feedback"]);
+  });
 });

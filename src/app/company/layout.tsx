@@ -13,6 +13,7 @@ import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { upgradeHref } from "./navModel";
 import { BootstrapProvider } from "@/contexts/BootstrapContext";
 import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
@@ -44,11 +45,12 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { ready: modulesReady, isEnabled, family, subscriptionStatus, disabledModules } = useBusinessModules();
+  const { ready: modulesReady, isEnabled, isLocked, family, subscriptionStatus, disabledModules } = useBusinessModules();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
   );
+  const blockedIsLocked = !!blockedModule && isLocked(blockedModule.module);
   // A Crew login (T-150) is field work only: the Field screen and nothing else. The office APIs refuse it anyway
   // (they list their roles); this keeps the screens from loading into errors.
   const crewOnly = user?.role === "crew" && !user.superadmin;
@@ -68,8 +70,12 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const paused = modulesReady && subscriptionStatus === "paused" && !user?.superadmin;
 
   useEffect(() => {
-    if (blockedModule && !crewOnly) router.replace("/company/dashboard");
-  }, [blockedModule, crewOnly, router]);
+    if (!blockedModule || crewOnly) return;
+    // Not bought → the upgrade page for it (what it adds, one tap to ask); not used by this industry → home.
+    const preview = searchParams?.get("preview");
+    const target = blockedIsLocked ? upgradeHref(blockedModule.module) : "/company/dashboard";
+    router.replace(preview ? `${target}${target.includes("?") ? "&" : "?"}preview=${preview}` : target);
+  }, [blockedModule, blockedIsLocked, crewOnly, router, searchParams]);
 
   // Phase 12/Phase 7 — a trade worker who lands on the generic dashboard (the
   // login page's own fallback, or a bookmark/typed URL) is bounced to their

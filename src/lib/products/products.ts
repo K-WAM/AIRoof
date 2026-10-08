@@ -10,6 +10,11 @@ export type ProductId = "calls" | "field" | "billing";
 export interface ProductDef {
   id: ProductId;
   label: string;
+  /** The company-screen module this product switches (useBusinessModules). */
+  module: "calls" | "jobs" | "billing";
+  /** The locked tab's upgrade page: one line on what it does for the client, then what they get. */
+  pitch: string;
+  gets: string[];
   /** One line for the superadmin toggle: what turning it on gives the client. */
   includes: string;
   /** A product that only makes sense with another one on. */
@@ -17,9 +22,21 @@ export interface ProductDef {
 }
 
 export const PRODUCTS: ProductDef[] = [
-  { id: "calls", label: "AI calls & booking", includes: "The AI phone line, Calls, Pipeline requests and bookings on the Calendar." },
-  { id: "field", label: "Jobs & field input", includes: "Jobs, the Field screen (voice notes, photos, time clock), findings, quotes and reports." },
-  { id: "billing", label: "Billing & payments", includes: "Invoices, recording payments, receipts, reminders and the Billing screen.", requires: "field" },
+  {
+    id: "calls", module: "calls", label: "AI calls & booking", includes: "The AI phone line, Calls, Pipeline requests and bookings on the Calendar.",
+    pitch: "An AI receptionist answers every call, day and night, in English and Spanish — and books the work.",
+    gets: ["Every call answered, recorded and summarized", "Bookings straight onto your Calendar", "Urgent calls sent to your phone"],
+  },
+  {
+    id: "field", module: "jobs", label: "Jobs & field input", includes: "Jobs, the Field screen (voice notes, photos, time clock), findings, quotes and reports.",
+    pitch: "Your crew talks, the job writes itself — materials, hours, photos and the report.",
+    gets: ["Voice notes from the job site, in English or Spanish", "Photos, time clock and findings on every job", "Quotes and reports built from the work"],
+  },
+  {
+    id: "billing", module: "billing", label: "Billing & payments", includes: "Invoices, recording payments, receipts, reminders and the Billing screen.", requires: "field",
+    pitch: "Invoices from the finished job in one tap, and you see who still owes you.",
+    gets: ["Invoices with your logo and how to pay you", "Receipts and late-payment reminders sent for you", "One screen for what you're owed"],
+  },
 ];
 
 export type ProductSet = Record<ProductId, boolean>;
@@ -59,9 +76,15 @@ export function productLabel(id: ProductId): string {
 
 const SHORT: Record<ProductId, string> = { calls: "Calls", field: "Jobs", billing: "Billing" };
 
-/** "Calls · Jobs · Billing" — the client list's one-line summary of what a client has. */
-export function productSummary(config: Parameters<typeof productsOf>[0]): string {
+/** "Calls · Jobs · Billing" — the client list's one-line summary of what a client has, plus what they asked to add. */
+export function productSummary(config: Parameters<typeof productsOf>[0] & { upgradeRequests?: Partial<Record<ProductId, unknown>> }): string {
   const on = productsOf(config);
   const names = PRODUCTS.filter((p) => on[p.id]).map((p) => SHORT[p.id]);
-  return names.length ? names.join(" · ") : "No products";
+  const wants = PRODUCTS.filter((p) => !on[p.id] && config?.upgradeRequests?.[p.id]).map((p) => SHORT[p.id]);
+  return (names.length ? names.join(" · ") : "No products") + (wants.length ? ` — wants ${wants.join(", ")}` : "");
+}
+
+/** The product behind a company-screen module, or null for modules that come from the industry only. */
+export function productForModule(module: string): ProductDef | null {
+  return PRODUCTS.find((p) => p.module === module) ?? null;
 }

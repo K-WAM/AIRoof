@@ -104,6 +104,8 @@ export interface BusinessConfig {
   // What the client bought (src/lib/products/products.ts): missing/true = ON, false = OFF. Set only by the superadmin
   // (POST /api/admin/businesses/[businessId]/products, audited); the API guards enforce it on every request.
   products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
+  // A locked tab's "Ask Luxor to add it" (POST /api/company/upgrade-request): latest ask per product.
+  upgradeRequests?: Partial<Record<"calls" | "field" | "billing", { at: number; by: string }>>;
   // How THIS client's customers pay them (Billing product, no Stripe): printed on every invoice, receipt and reminder.
   // Edited by the client in Settings → Getting paid. See src/lib/billing/paymentPrefs.ts.
   billingPrefs?: {

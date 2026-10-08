@@ -86,7 +86,7 @@ function ClientTab() {
       <Section title="Go-live checklist (about 30 min)">
         <Steps steps={[
           { text: <><b>New client</b>: company, industry, hours, services, owner&apos;s email.</>, see: "the owner gets a set-password email", href: "/hub/onboarding", go: "New client" },
-          { text: <>Client → <b>Products</b>: switch on only what the contract includes — AI calls &amp; booking, Jobs &amp; field input, Billing &amp; payments.</>, see: "the client's menu shows only those; everything else is refused", href: "/admin/businesses", go: "Clients" },
+          { text: <>Client → <b>Products</b>: switch on only what the contract includes — AI calls &amp; booking, Jobs &amp; field input, Billing &amp; payments.</>, see: "what they didn't buy shows locked; tapping it lets them ask you to add it (you get an email, and the client page shows “Asked for it”)", href: "/admin/businesses", go: "Clients" },
           { text: <>Client → <b>Phone provider</b>: ElevenLabs agent ID + number (skip if they didn&apos;t buy AI calls).</>, href: "/admin/businesses", go: "Clients" },
           { text: <>Client → <b>Phone lines</b>: <b>Record test call</b> → <b>Go live…</b></>, see: "the line reads Live" },
           { text: "Call the line once.", see: "the call appears in the client's Calls within seconds" },

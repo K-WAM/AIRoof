@@ -22,6 +22,7 @@ type AccountPurpose = EffectiveAccountPurpose;
 interface AdminBizRow extends BizRow {
   accountPurpose?: string | null;
   products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
+  upgradeRequests?: Partial<Record<"calls" | "field" | "billing", { at: number; by: string }>>;
   voiceProvider?: "vapi" | "elevenlabs" | null;
   phoneNumber?: string;
   contactPhone?: string;

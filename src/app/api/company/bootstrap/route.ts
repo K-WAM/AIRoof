@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
       // Industry first (a dental office has no Jobs), then the plan (src/lib/products/products.ts). Calendar shows
       // whenever calls or jobs are on — it schedules both.
       disabled: disabledModulesFor((template?.disabledModules ?? []) as CompanyModule[], productsOf(d)),
+      locked: lockedModulesFor((template?.disabledModules ?? []) as CompanyModule[], productsOf(d)),
       calendarMode: template?.calendarMode ?? "jobs",
       family: template?.family ?? null,
     },
@@ -76,6 +77,19 @@ export async function GET(req: NextRequest) {
   };
 
   return jsonWithCache(body, "semiStatic");
+}
+
+/**
+ * Off because the client didn't buy it — not because the industry doesn't use it. These still show, greyed with a
+ * lock, so the client sees what they could add (owner, 2026-10-08). A dental office never sees a locked "Jobs".
+ */
+function lockedModulesFor(industryDisabled: CompanyModule[], products: ProductSet): CompanyModule[] {
+  const industryHasJobs = !industryDisabled.includes("jobs");
+  const out: CompanyModule[] = [];
+  if (!products.calls) out.push("calls");
+  if (industryHasJobs && !products.field) out.push("jobs");
+  if (industryHasJobs && !products.billing) out.push("billing");
+  return out;
 }
 
 function disabledModulesFor(industryDisabled: CompanyModule[], products: ProductSet): CompanyModule[] {

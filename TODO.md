@@ -9,6 +9,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 **2026-10-08 — Products per client + Billing without Stripe (T-198/T-199), on branch `ccr-8c0916c7-3r7kkm`.**
 Superadmin → client → **Products**: AI calls & booking · Jobs & field input · Billing & payments (billing needs jobs).
+Not-bought tabs stay visible, locked → upgrade page → "Ask Luxor to add it" (lead shown to the superadmin).
 Missing = ON, so existing clients keep everything. Enforced server-side in the central guards (`enforceProduct` in
 `verifyRole.ts`, path map in `src/lib/products/products.ts`, 30 s per-instance cache); screens follow via bootstrap
 `modules.disabled`. Billing: Settings → Getting paid (`billingPrefs`), How to pay on invoices + emails, Record payment

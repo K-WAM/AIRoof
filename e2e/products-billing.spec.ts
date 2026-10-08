@@ -3,7 +3,8 @@
 //     asking for calls, and the calls API refuses them — then it's turned back on.
 //  2. Billing: the owner sets "Getting paid", sends an invoice (How to pay is in the email), records a partial and a
 //     final payment (receipts captured), and the Billing screen shows the money.
-import { api, must, outbox } from "../scripts/e2e/lib.cjs";
+import { FieldValue } from "firebase-admin/firestore";
+import { api, db, must, outbox } from "../scripts/e2e/lib.cjs";
 import { expect, expectHealthy, settle, shot, test } from "./fixtures";
 
 const EMPTY = "e2e-empty";
@@ -13,6 +14,8 @@ test.afterAll(async () => {
   // Leave the shared tenants exactly as seeded for every other spec.
   const admin = await api("superadmin");
   await admin.post(`/api/admin/businesses/${EMPTY}/products`, { products: { calls: true, field: true, billing: true } }).catch(() => {});
+  // Clear the test's upgrade request so the next run starts clean.
+  await db().collection("businesses").doc(EMPTY).update({ upgradeRequests: FieldValue.delete() }).catch(() => {});
 });
 
 test("superadmin switches a client to field input + billing only, and the client gets exactly that", async ({ as }) => {
@@ -44,19 +47,34 @@ test("superadmin switches a client to field input + billing only, and the client
   await expectHealthy(page);
   if (test.info().project.name === "phone") await page.getByRole("button", { name: /menu/i }).first().click().catch(() => {});
   await expect(page.getByRole("link", { name: "Billing", exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Calls", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Pipeline", exact: true })).toHaveCount(0);
+  // Not bought = still there, greyed with a lock (owner: "so that we can target conversion").
+  const lockedCalls = page.getByRole("link", { name: "Calls — not in your plan" }).first();
+  await expect(lockedCalls).toBeVisible();
+  await expect(page.getByRole("link", { name: "Pipeline — not in your plan" }).first()).toBeVisible();
   await expect(page.getByText("Dashboard data could not be loaded")).toHaveCount(0);
   await shot(page, "dashboard-field-billing-only");
   expect(callRequests, "the dashboard asked for calls data this client doesn't have").toEqual([]);
 
-  // A direct visit to a hidden screen is sent home, not shown an error.
+  // The locked tab opens what it adds and one button that tells Luxor; the ask shows up on the superadmin's panel.
+  await lockedCalls.click();
+  await expect(page).toHaveURL(/\/company\/upgrade\?module=calls/);
+  await expect(page.getByRole("heading", { name: "AI calls & booking" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "connect@luxordev.com" })).toBeVisible();
+  await shot(page, "upgrade-calls");
+  await page.getByTestId("upgrade-ask").click();
+  await expect(page.getByTestId("upgrade-sent")).toBeVisible();
+  await expect.poll(async () => (await outbox({ to: "connect@luxordev.com", subject: "[Upgrade request]" })).length, { timeout: 15_000 }).toBeGreaterThan(0);
+  await adminPage.reload();
+  await settle(adminPage);
+  await expect(adminPage.getByTestId("product-request-calls")).toContainText("owner@empty.e2e.test");
+
+  // A direct visit to a locked screen lands on its upgrade page, not an error.
   await page.goto("/company/pipeline");
   await settle(page, 800);
-  await expect(page).not.toHaveURL(/\/company\/pipeline/);
+  await expect(page).toHaveURL(/\/company\/upgrade\?module=calls/);
 
   // Turning it back on restores everything.
-  await calls.check();
+  await adminPage.getByTestId("product-calls").check();
   await expect(adminPage.getByText("3 of 3 on")).toBeVisible();
   expect((await owner.get(`/api/businesses/${EMPTY}/calls?countOnly=1`)).status).toBe(200);
 });

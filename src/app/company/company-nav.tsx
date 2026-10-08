@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, type LucideIcon } from "lucide-react";
-import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, Lock, type LucideIcon } from "lucide-react";
+import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
-import { visibleNavLinks, type NavGroup } from "./navModel";
+import { upgradeHref, visibleNavLinks, type NavGroup } from "./navModel";
 
 const icons: Record<string, LucideIcon> = {
   "/company/dashboard": LayoutDashboard,
@@ -24,13 +24,19 @@ const icons: Record<string, LucideIcon> = {
   "/company/guide": Compass,
   feedback: MessageSquareText,
 };
+// A locked tab's path → the module whose upgrade page it opens.
+const MODULE_OF: Record<string, CompanyModule> = {
+  "/company/calls": "calls", "/company/pipeline": "calls", "/company/jobs": "jobs", "/company/field": "jobs", "/company/billing": "billing",
+};
 const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 
 export function CompanyNav() {
   const pathname = usePathname();
-  const preview = useSearchParams()?.get("preview");
+  const searchParams = useSearchParams();
+  const preview = searchParams?.get("preview");
+  const currentModule = searchParams?.get("module");
   const suffix = preview ? `?preview=${encodeURIComponent(preview)}` : "";
-  const { isEnabled, vocab } = useBusinessModules();
+  const { isEnabled, isLocked, vocab } = useBusinessModules();
   const { user, loading } = useAuth();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const links = visibleNavLinks({
@@ -38,6 +44,7 @@ export function CompanyNav() {
     superadmin: user?.superadmin,
     preview: !!preview,
     isEnabled,
+    isLocked,
     vocab,
   }).filter((link) => link.path !== "feedback" || (!loading && !!user));
 
@@ -49,8 +56,18 @@ export function CompanyNav() {
         return (
           <div key={group} className={`company-nav-group company-nav-${group.toLowerCase()}`}>
             <p className="company-nav-section-label">{group}</p>
-            {items.map(({ path, label }) => {
+            {items.map(({ path, label, locked }) => {
               const Icon = icons[path];
+              if (locked) {
+                const lockedModule = MODULE_OF[path];
+                return (
+                  <Link href={`${upgradeHref(lockedModule)}${preview ? `&preview=${encodeURIComponent(preview)}` : ""}`} key={path}
+                    className="company-nav-locked" aria-current={pathname === "/company/upgrade" && currentModule === lockedModule ? "page" : undefined}
+                    aria-label={`${label} — not in your plan`} title="Not in your plan — tap to see what it adds">
+                    <Icon size={16} strokeWidth={1.75} />{label}<Lock size={12} strokeWidth={2} className="company-nav-lock" aria-hidden />
+                  </Link>
+                );
+              }
               return path === "feedback" ? (
                 <button key={path} type="button" className="company-nav-trigger" data-state={feedbackOpen ? "open" : undefined}
                   onClick={() => setFeedbackOpen(true)} aria-haspopup="dialog" aria-label="Send feedback">

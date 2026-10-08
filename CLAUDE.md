@@ -420,7 +420,10 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/products/products.ts — the ONE product definition (calls / field / billing; missing = ON; billing needs field) and the
   API path → product map. `enforceProduct()` in src/lib/auth/verifyRole.ts applies it inside every central guard (superadmin
   bypasses); src/lib/products/productCache.ts (30 s). **A new API route under a product's area must match a PATH_RULES entry.**
-- Screens: bootstrap `modules.disabled` adds "calls"/"jobs"/"billing"; read with `useBusinessModules().isEnabled(...)`. Never
+- Screens: bootstrap `modules.disabled` adds "calls"/"jobs"/"billing"; read with `useBusinessModules().isEnabled(...)`.
+  `modules.locked` (= not bought, but the industry uses it) shows those tabs greyed with a lock → `/company/upgrade?module=`
+  ("Ask Luxor to add it" → `POST /api/company/upgrade-request`: emails connect@luxordev.com, stored as
+  `upgradeRequests` and shown on the superadmin's Products panel + client list). An industry-unused module never shows. Never
   fetch a product's API from a shared screen without checking it (the Dashboard, CommandBar, Calendar, field page show how).
 - src/app/api/admin/businesses/[businessId]/products/route.ts + config/ProductsPanel.tsx — superadmin switches (audited).
 - src/lib/billing/customerPayments.ts — balance, payments, overdue/reminder rule, Getting-paid validation, receipt/reminder emails
