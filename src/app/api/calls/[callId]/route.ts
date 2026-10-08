@@ -55,63 +55,8 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ callId: string }> }
-): Promise<NextResponse<{ success: boolean } | { error: string }>> {
-  try {
-    const { callId } = await params;
-    const { searchParams } = new URL(request.url);
-    const businessId = searchParams.get("businessId");
-    const body = await request.json();
-
-    if (!callId || !businessId) {
-      return NextResponse.json(
-        { error: "Missing callId or businessId parameter" },
-        { status: 400 }
-      );
-    }
-
-    const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
-    if ("error" in gate) return gate.error;
-
-    const db = getAdminFirestore();
-    if (!db) {
-      return NextResponse.json(
-        { error: "Firestore not available" },
-        { status: 500 }
-      );
-    }
-
-    // Validate business exists
-    const businessDoc = await db.collection("businesses").doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: `Business ${businessId} not found` },
-        { status: 404 }
-      );
-    }
-
-    // Update call
-    await db
-      .collection("businesses")
-      .doc(businessId)
-      .collection("calls")
-      .doc(callId)
-      .update({
-        ...body,
-        updatedAt: Date.now(),
-      });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("PUT /api/calls/[callId] error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
-  }
-}
+// No PUT: nothing in the app edits a call record, and a generic "merge the body into the call doc" let any staff
+// member rewrite a transcript or outcome (removed 2026-10-08). Calls change only through the webhooks and DELETE (redaction).
 
 export async function DELETE(
   request: NextRequest,

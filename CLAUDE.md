@@ -191,7 +191,7 @@ Run seed script: `node scripts/seed-demo-business.mjs` (plain ESM; the obsolete 
 | GET /api/businesses/:businessId/agent-config | Retrieve business config |
 | POST /api/admin/demo-customize | Customize demo (prospect name/email) |
 | DELETE /api/admin/demo-customize | Reset demo to Apex Roofing defaults |
-| GET/PUT /api/calls/:callId | Call record management |
+| GET /api/calls/:callId | One call record (the Calls page loads a transcript when it is opened) |
 | DELETE /api/calls/:callId | PII redaction (T-042) — removes transcript/recording, retains audit skeleton |
 | POST /api/tools/execute | Execute tools (checkAvailability, bookAppointment, etc.) |
 
