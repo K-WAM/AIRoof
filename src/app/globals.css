@@ -3574,6 +3574,13 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .company-sidebar-footer { padding: 10px 16px; gap: 8px; }
   .company-sidebar-footer .logout-btn { min-height: 32px; }
 }
+/* 720 px laptops (the common 1280x720 window): one more notch so the last link (Send feedback) is still in view with
+   every product tab showing (Billing added a row, 2026-10-08). */
+@media (min-width: 901px) and (max-height: 760px) {
+  .company-nav a, .company-nav-trigger { min-height: 30px; padding-top: 4px; padding-bottom: 4px; }
+  .company-nav-group { gap: 0; }
+  .company-nav-group + .company-nav-group { margin-top: 4px; padding-top: 4px; }
+}
 /* Job page tabs below 1440 px: the two group labels shrink to a divider so the last tab (Invoice) is on screen at
    1280 px instead of scrolled off the right edge (2026-10-03). */
 @media (max-width: 1440px) {

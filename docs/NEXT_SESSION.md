@@ -12,6 +12,9 @@
 - **Roofing UX:** a paid/invoiced job no longer says "Next: Findings" (`nextStep.ts` never points backwards); "Send to a
   worker" is hidden on finished jobs and appears once (header only); "Submit update" → "Add a note"; one teal action
   per job-page document tab and on the field time clock; Library's phone search row lost its 240 px blank gap.
+- **Gates on the final tree:** vitest 237 files / 1846 tests green; tsc clean; eslint 0 errors; `next build` green (job page
+  first load 199 → 183 kB); `e2e:call` 12/12; full Playwright 154/155 — the one failure (Send feedback below the fold at
+  1280x720 since the Billing tab) fixed with a tighter ≤760 px sidebar tier and re-run green alone.
 - **Open, not done:** an accepted quote still shows the greyed editor above the customer preview (say-it-once);
   Jobs list chip "Open" vs filter "Needs quote" wording; `[MOCK-classify]` text is harness-only.
 
