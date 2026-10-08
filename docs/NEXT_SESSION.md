@@ -1,5 +1,20 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-10-08 (later) — production-readiness pass, roofing first
+- **Hardening:** caller-supplied text (name/address/service from a phone call) is now HTML-escaped in the owner's
+  booking/escalation emails (`agentTools.ts` dataRow/brandHeader) and in the Luxor invoice email; field notes (typed +
+  voice, each a paid model call) have a per-IP budget (`FIELD_NOTE_LIMIT`, 30/min); the unused
+  `PUT /api/calls/[callId]` (merged any body into a call record) is gone; production CSP drops `unsafe-eval`, allows
+  `media-src https:` for old Vapi recordings, adds `Permissions-Policy` (camera/mic self only).
+- **Speed:** Calls list is slim (`?slim=1`: no transcripts, server-computed topic badge + turn count; the open call's
+  transcript loads via `GET /api/calls/[id]`) — ~150 KB → a few KB per load. Job page lazy-loads the dnd-kit photo grid
+  and skips the quote summary fetch when the job has no quote.
+- **Roofing UX:** a paid/invoiced job no longer says "Next: Findings" (`nextStep.ts` never points backwards); "Send to a
+  worker" is hidden on finished jobs and appears once (header only); "Submit update" → "Add a note"; one teal action
+  per job-page document tab and on the field time clock; Library's phone search row lost its 240 px blank gap.
+- **Open, not done:** an accepted quote still shows the greyed editor above the customer preview (say-it-once);
+  Jobs list chip "Open" vs filter "Needs quote" wording; `[MOCK-classify]` text is harness-only.
+
 ## CURRENT STATE 2026-10-08 — read this first
 - **Products per client** (owner: "toggle which customers have ability to use what based on the contract"): Admin → client →
   **Products** (3 switches, audited, `POST /api/admin/businesses/[id]/products`). Server refuses the rest (403 naming the
