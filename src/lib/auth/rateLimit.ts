@@ -24,6 +24,9 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
+/** Field notes (typed + voice), shared so one phone can't dodge it by switching between the two. */
+export const FIELD_NOTE_LIMIT: RateLimitConfig = { windowMs: 60_000, max: 30, keyPrefix: "field-note" };
+
 // Opportunistic cleanup so a long-lived warm instance doesn't grow the map
 // forever under many distinct IPs. Cheap: only sweeps when the map is large
 // enough to matter, and only entries that have already expired.

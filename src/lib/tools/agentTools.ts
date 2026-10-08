@@ -15,6 +15,7 @@ import {
 import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from "firebase-admin/firestore";
 import { isCommsConfigured, sendEmail, sendWithLedger, type NotificationDeliveryState } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
+import { escapeHtml } from "@/lib/documents/letterhead";
 import { contactPhone } from "@/lib/format/phone";
 import {
   isOpenAt,
@@ -1303,12 +1304,13 @@ interface BizBranding {
 }
 
 function brandHeader(biz: BizBranding): string {
-  const bg = biz.brandColor ?? "#0f172a";
+  const bg = /^#[0-9a-f]{3,8}$/i.test(biz.brandColor ?? "") ? biz.brandColor : "#0f172a";
+  const name = escapeHtml(biz.businessName ?? "");
   const logo = biz.logoUrl
-    ? `<img src="${biz.logoUrl}" alt="${biz.businessName}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
-    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">${biz.businessName}</p>`;
+    ? `<img src="${escapeHtml(biz.logoUrl)}" alt="${name}" height="44" style="display:block;margin:0 auto 12px;max-width:180px;">`
+    : `<p style="margin:0 0 10px;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">${name}</p>`;
   const contact = [biz.contactPhone, biz.contactEmail]
-    .filter(Boolean).join(" &nbsp;·&nbsp; ");
+    .filter((v): v is string => Boolean(v)).map(escapeHtml).join(" &nbsp;·&nbsp; ");
   return `<td style="background:${bg};padding:28px 32px;text-align:center;">
     ${logo}
     ${contact ? `<p style="margin:0;font-size:12px;color:rgba(255,255,255,0.7);">${contact}</p>` : ""}
@@ -1336,7 +1338,7 @@ function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, ti
   </td></tr>
   <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
     <p style="margin:0;font-size:10px;color:#cbd5e1;">
-      Call ID: ${callId} &nbsp;·&nbsp;
+      Call ID: ${escapeHtml(callId)} &nbsp;·&nbsp;
       <a href="${BASE_URL}/company/dashboard" style="color:#94a3b8;text-decoration:none;">View dashboard</a> &nbsp;·&nbsp;
       <span style="color:#e2e8f0;">Powered by Luxor AI</span>
     </p>
@@ -1347,7 +1349,9 @@ function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, ti
 </body></html>`;
 }
 
+/** `value` is caller-supplied (a phone caller's words, via the model) — always escaped. */
 function dataRow(label: string, value: string): string {
+  value = escapeHtml(String(value ?? ""));
   return `<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:12px;">
 <tr>
   <td style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;vertical-align:top;width:110px;padding-top:2px;">${label}</td>

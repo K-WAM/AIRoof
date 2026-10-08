@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
 import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { recordUsage } from "@/lib/usage/meter";
@@ -38,6 +39,9 @@ const MAX_NOTE_CHARS = 5000;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
+  // Every note is a paid model call, and a reusable field link can leak: a per-IP budget far above any real crew's pace.
+  const limited = checkRateLimit(req, FIELD_NOTE_LIMIT);
+  if (limited) return limited;
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, rawText, language, submittedBy, forceNormal, confirmCorrection } = body;

@@ -2,10 +2,14 @@ import type { NextConfig } from "next";
 
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  // 'unsafe-eval' is only for `next dev` (React's dev tooling); a production build never evals.
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
+  // Call recordings: ElevenLabs audio streams through our own /api route, but older Vapi lines link their storage URL.
+  // Media can't run code, so any https source is acceptable here.
+  "media-src 'self' blob: https:",
   // Firebase Auth (identitytoolkit/securetoken), Firestore, and Installations
   // all live under *.googleapis.com — the client SDK calls these directly
   // from the browser. Without this, connect-src falls back to default-src
@@ -63,6 +67,8 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Content-Security-Policy", value: csp },
+          // The field screens record voice notes and take photos; nothing needs location, payment or USB.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()" },
         ],
       },
     ];
