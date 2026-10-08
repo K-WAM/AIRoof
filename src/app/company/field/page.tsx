@@ -102,7 +102,7 @@ function FieldPageContent() {
       })
       .catch(console.error)
       .finally(() => setLoadingJobs(false));
-  }, [businessId, prefillJobId, user?.crewId]);
+  }, [businessId, prefillJobId]);
   useEffect(() => { loadJobs(); }, [loadJobs]);
 
   const loadMySchedule = useCallback(async () => {
@@ -187,7 +187,7 @@ function FieldPageContent() {
       fieldNotes: selectedJob.fieldNotes || [],
       totalLaborHours: selectedJob.totalLaborHours || 0,
     });
-  }, [selectedJobId, jobs]);
+  }, [selectedJob]);
 
   // A saved note updates this screen's job log only if it was for the job still on screen.
   const [notesVersion, setNotesVersion] = useState(0);

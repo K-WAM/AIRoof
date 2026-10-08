@@ -14,6 +14,8 @@ const config = [
       // Kept visible as warnings rather than errors so lint is usable as a gate
       // today; tighten these to `error` once the payload types are filled in.
       "@typescript-eslint/no-explicit-any": "warn",
+      // A leading underscore marks a parameter kept for its position/type (mock signatures, callbacks).
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
       // firebase/firestore is a ~281KB client chunk. The last client-side
       // Firestore call sites were replaced by server API routes in Phase 1 of
       // the speed/foundation work (see src/lib/firebase/client.ts's header

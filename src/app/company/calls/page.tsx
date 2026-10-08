@@ -328,7 +328,7 @@ export default function CompanyCallsPage() {
                     <article
                       className={`call-row${callRows.newIds.has(call.callId) ? " row-new" : ""}`}
                       key={call.callId}
-                      aria-selected={selected?.callId === call.callId}
+                      aria-current={selected?.callId === call.callId ? "true" : undefined}
                       onClick={() => openCall(call)}
                       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openCall(call); } }}
                       role="button"

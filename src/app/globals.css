@@ -1672,7 +1672,7 @@ a.metric:hover {
   box-shadow: var(--shadow-sm);
 }
 
-.lead-card[aria-selected="true"] {
+.lead-card[aria-current="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
 }
@@ -1780,7 +1780,7 @@ a.metric:hover {
   transform: translateY(-1px);
 }
 
-.call-row[aria-selected="true"] {
+.call-row[aria-current="true"] {
   border-color: var(--accent);
   border-left-color: var(--accent);
   background: #f0fdfa;

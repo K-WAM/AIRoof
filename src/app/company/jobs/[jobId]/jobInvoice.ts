@@ -5,7 +5,7 @@
 
 import { roundCents } from "@/lib/format/money";
 import type { ParsedUpdate } from "@/types/jobs";
-import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
+import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, JobInvoiceDiscount } from "@/types/invoice";
 import type { LibraryPricing } from "@/types/library";
 import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
 import type { BusinessConfig } from "@/types";

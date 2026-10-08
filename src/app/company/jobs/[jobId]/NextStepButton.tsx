@@ -24,8 +24,10 @@ export function NextStepButton({ job, busy = false, activeTab, billing = true, o
   if (!now) return null;
   if (now.id !== "work" && now.tab === activeTab) return null;
   if (now.id === "work") {
+    // On a document tab (Findings, Quote, Report, Invoice) that tab's own button is the one teal action on screen (C2).
+    const onDocumentTab = !!activeTab && ["findings", "quote", "report", "invoice"].includes(activeTab);
     return (
-      <button type="button" className="button primary" title={now.hint} disabled={busy} onClick={onCompleteWork} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <button type="button" className={onDocumentTab ? "button" : "button primary"} title={now.hint} disabled={busy} onClick={onCompleteWork} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <CheckCircle2 size={15} strokeWidth={1.75} />
         {busy ? "Saving…" : "Mark work complete"}
       </button>

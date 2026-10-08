@@ -47,7 +47,12 @@ import { JobCrewLine } from "@/components/jobs/JobCrewLine";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { PhotoEditSheet } from "@/components/field/PhotoEditSheet";
-import { SortablePhotoGrid } from "@/components/photos/SortablePhotoGrid";
+import dynamic from "next/dynamic";
+// dnd-kit is ~40 KB and only the Photos tab uses it: load it when that tab first opens.
+const SortablePhotoGrid = dynamic(() => import("@/components/photos/SortablePhotoGrid").then((m) => m.SortablePhotoGrid), {
+  ssr: false,
+  loading: () => <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading photos…</p>,
+});
 import { useQuickAdd } from "@/contexts/QuickAddContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -278,10 +283,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // their own tab is open, so read a light summary once when the job loads. The full documents still load in their own tabs.
   const summaryJobId = job?.jobId;
   const summaryInvoiceId = job?.invoiceId;
+  const summaryQuoteId = job?.quoteId;
   useEffect(() => {
     if (!businessId || !summaryJobId) return;
     let live = true;
-    fetch(`/api/jobs/${encodeURIComponent(summaryJobId)}/quote?businessId=${encodeURIComponent(businessId)}`)
+    // No quote on the job = nothing to summarise (the route would read the job just to answer null).
+    if (summaryQuoteId) fetch(`/api/jobs/${encodeURIComponent(summaryJobId)}/quote?businessId=${encodeURIComponent(businessId)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { quote?: JobQuote | null } | null) => { if (live && d?.quote) setPageQuote((current) => current ?? d.quote ?? null); })
       .catch(() => {});
@@ -298,7 +305,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         .catch(() => {});
     }
     return () => { live = false; };
-  }, [businessId, summaryJobId, summaryInvoiceId, hasBilling]);
+  }, [businessId, summaryJobId, summaryQuoteId, summaryInvoiceId, hasBilling]);
 
   // Picks up a material price added via the global quick-add (including from
   // this exact page's own "No price on file" prompt) without a full reload.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BusinessConfig } from "@/types";
-import { DEFAULT_RECORDING_DISCLOSURE_EN, DEFAULT_RECORDING_DISCLOSURE_ES } from "@/lib/recordingDisclosure";
+import { DEFAULT_RECORDING_DISCLOSURE_EN } from "@/lib/recordingDisclosure";
 import {
   buildInitiationResponse,
   genericInitiationResponse,

@@ -167,8 +167,9 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
   return (
     <div>
       {/* Search and Add only once there is something to search; an empty catalog is just its empty state (one button). */}
-      {catalog.items.length > 0 && <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", marginBottom: 16 }}>
-        <div style={{ position: "relative", flex: "1 1 240px" }}>
+      {catalog.items.length > 0 && <div className="toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+        {/* Width-only sizing: on a phone .toolbar is a column, where a 240px flex-basis became 240px of empty height. */}
+        <div style={{ position: "relative", flex: "1 1 auto", minWidth: "min(240px, 100%)" }}>
           <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
           <input
             value={query}

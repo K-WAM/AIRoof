@@ -273,7 +273,8 @@ export function TimeClock({
             {day.state === "off" && (
               <>
                 {clockInAtJob(!!jobId)}
-                <button style={jobId ? btnStyle : primaryStyle} disabled={busy} onClick={() => punch("office_in")}>
+                {/* Never the teal one: on a roofer's phone the job list above is the task, the office clock-in the exception. */}
+                <button style={btnStyle} disabled={busy} onClick={() => punch("office_in")}>
                   <Building2 size={16} strokeWidth={1.75} /> Clock in at the office
                 </button>
               </>

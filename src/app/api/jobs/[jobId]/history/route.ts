@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";

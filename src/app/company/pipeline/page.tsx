@@ -688,7 +688,7 @@ export default function PipelinePage() {
                         className={`lead-card${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}
                         key={lead.leadId}
                         id={`lead-${lead.leadId}`}
-                        aria-selected={selectedLead?.leadId === lead.leadId}
+                        aria-current={selectedLead?.leadId === lead.leadId ? "true" : undefined}
                         onClick={() => setSelectedLead(lead)}
                         style={{
                           cursor: "pointer",
