@@ -29,6 +29,9 @@
   quote (no greyed editor, no duplicate chip/total — closes the earlier open item), Pipeline card time printed once, Team
   cards drop the state chip their tab already names; Work log's Edit sits on its panel; panel headers keep actions on the
   title row; Field picker says "No open jobs right now" / "Show finished jobs (n)"; customer phones formatted.
+- **Gates on the final tree (`bbc4ec4`), production build:** vitest 1857 green, tsc + eslint clean, `e2e:call` 12/12, full
+  Playwright **161/161, 0 flaky**. Pipeline shows 3 upcoming before "Show more" (phone page was 4,350 px); the call scenario
+  now retries a taken random slot instead of failing.
 
 ## CURRENT STATE 2026-10-08 (later) — production-readiness pass, roofing first
 - **Hardening:** caller-supplied text (name/address/service from a phone call) is now HTML-escaped in the owner's
