@@ -42,6 +42,12 @@ test("the booked appointment appears in the Pipeline and on the Calendar at its 
   await page.goto("/company/pipeline");
   await settle(page);
   await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
+  // Needs Confirmation is bounded (newest call first, three at a time): page with "Show … more" like the office would.
+  for (let i = 0; i < 20 && !(await page.getByText(callerName).first().isVisible()); i++) {
+    const more = page.getByRole("button", { name: /^Show \d+ more of/ }).first();
+    if (!(await more.isVisible())) break;
+    await more.click();
+  }
   await expect(page.getByText(callerName).first()).toBeVisible({ timeout: 15_000 });
   await shot(page, "booking-pipeline");
   await expectHealthy(page);

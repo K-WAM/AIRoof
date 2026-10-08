@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { allocateJobInvoiceNumber } from "@/lib/billing/jobInvoiceNumber";
-import { buildDraftFromProjection, computeTotals } from "@/app/company/jobs/[jobId]/jobInvoice";
+import { buildDraftFromProjection, computeTotals, invoiceLinesFromQuote } from "@/app/company/jobs/[jobId]/jobInvoice";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
 import type { Job } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
@@ -108,9 +108,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     }
   }
 
-  const { draft, business } = await rebuildDraft(db, businessId, job);
+  const { draft: logged, business } = await rebuildDraft(db, businessId, job);
   const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
   const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
+  const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
+  const draft = nothingLogged && acceptedQuote?.lines?.length ? { ...logged, ...invoiceLinesFromQuote(acceptedQuote.lines) } : logged;
   const priceMode = acceptedQuote?.priceMode ?? "lines";
   const customerSubtotal = priceMode === "project" ? acceptedQuote?.subtotal : undefined;
   const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });

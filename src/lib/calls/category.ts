@@ -4,8 +4,10 @@ export type CallCategory = "Emergency" | "Scheduling" | "Service question" | "Ge
 
 export function guessCallCategory(messages: Array<{ role?: string; text?: string }> | undefined): CallCategory {
   const text = (messages ?? []).filter((m) => m.role !== "system").map((m) => m.text ?? "").join(" ").toLowerCase();
-  if (text.includes("leak") || text.includes("water") || text.includes("flood") || text.includes("emergency")) return "Emergency";
-  if (text.includes("inspect") || text.includes("appointment") || text.includes("book") || text.includes("schedule")) return "Scheduling";
-  if (text.includes("price") || text.includes("cost") || text.includes("quote") || text.includes("how much")) return "Service question";
+  const has = (words: string[]) => words.some((w) => text.includes(w));
+  // English and Spanish — every line is bilingual (src/lib/i18n/bilingual.ts).
+  if (has(["leak", "water", "flood", "emergenc", "gotera", "fuga", "agua", "inunda"])) return "Emergency";
+  if (has(["inspect", "appointment", "book", "schedule", "cita", "agendar", "programar", "reservar"])) return "Scheduling";
+  if (has(["price", "cost", "quote", "how much", "precio", "cotizaci", "presupuesto", "cuánto", "cuanto"])) return "Service question";
   return "General";
 }

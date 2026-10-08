@@ -8,8 +8,8 @@
 
 import type { BusinessConfig } from "@/types";
 import type { InvoicePayment, JobInvoice } from "@/types/invoice";
-import { roundCents } from "@/lib/format/money";
 import { escapeHtml } from "@/lib/documents/letterhead";
+import { fmtMoney, roundCents } from "@/lib/format/money";
 
 export const PAYMENT_METHODS = ["cash", "check", "card", "bank", "zelle", "other"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -93,7 +93,7 @@ export function parsePayment(input: unknown, balance: number, now = Date.now()):
   const raw = input as Record<string, unknown>;
   const amount = roundCents(Number(raw.amount));
   if (!Number.isFinite(amount) || amount <= 0) return { error: "Enter the amount received." };
-  if (amount > roundCents(balance)) return { error: `That's more than the $${balance.toFixed(2)} still owed.` };
+  if (amount > roundCents(balance)) return { error: `That's more than the ${fmtMoney(balance)} still owed.` };
   const method = String(raw.method ?? "other") as PaymentMethod;
   if (!PAYMENT_METHODS.includes(method)) return { error: "Pick how they paid." };
   const receivedAt = raw.receivedAt === undefined ? now : Number(raw.receivedAt);
@@ -135,7 +135,7 @@ export function customerReminderDue(invoice: Pick<JobInvoice, "status" | "dueAt"
 
 export interface PayBusiness { businessName: string; brandColor?: string | null; contactPhone?: string; contactEmail?: string }
 
-const usd = (n: number) => `$${roundCents(n || 0).toFixed(2)}`;
+const usd = (n: number) => fmtMoney(n);
 const accentOf = (c?: string | null) => (/^#[0-9a-f]{6}$/i.test(c ?? "") ? c! : "#0f766e");
 
 /** "How to pay" — printed on the invoice email, reminders and the in-app invoice. Empty when nothing is set. */
@@ -150,7 +150,7 @@ export function howToPayBlock(prefs: Pick<EffectiveBillingPrefs, "payInstruction
 
 function shell(business: PayBusiness, heading: string, body: string): string {
   const contact = [business.contactPhone, business.contactEmail].filter(Boolean).map((v) => escapeHtml(v!)).join(" · ");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:24px 0;background:#f8fafc;font-family:system-ui,sans-serif;color:#1e293b">
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;padding:24px 0;background:#f8fafc;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b">
 <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
 <div style="background:${accentOf(business.brandColor)};padding:20px 28px;color:#fff;font-size:19px;font-weight:800">${escapeHtml(business.businessName)}</div>
 <div style="padding:24px 28px"><h1 style="margin:0 0 12px;font-size:19px;color:#0f172a">${escapeHtml(heading)}</h1>${body}

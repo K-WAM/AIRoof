@@ -6,8 +6,9 @@ import type { RenderedNotice } from "./notices";
 import { photoPages } from "./photoPages";
 import type { JobPhotoMeta } from "@/types/jobs";
 import { fmtPhone } from "@/lib/format/phone";
+import { fmtMoney } from "@/lib/format/money";
 
-const money = (value: number) => `$${value.toFixed(2)}`;
+const money = (value: number) => fmtMoney(value);
 const cell = "padding:9px 12px;border-bottom:1px solid #e2e8f0";
 
 export function letterheadBlock(brand: Letterhead, title: string, meta: [string, string][]): string {
@@ -78,5 +79,7 @@ export function photosBlock(photos: Array<JobPhotoMeta & { fullB64?: string; cid
 }
 
 export function documentShell(content: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body style="margin:0;padding:20px;background:#f8fafc;font-family:system-ui,sans-serif;color:#1e293b"><main style="max-width:680px;margin:auto;padding:32px;background:#fff;border:1px solid #e2e8f0">${content}</main></body></html>`;
+  // Email-client safe card: a centered table (Outlook ignores <main> and max-width on block elements), a web-safe font
+  // fallback after system-ui, lang + viewport so phones render at width, and rounded corners where supported.
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="x-apple-disable-message-reformatting"/></head><body style="margin:0;padding:16px 8px;background:#f8fafc;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b;-webkit-text-size-adjust:100%"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:680px;border-collapse:separate;background:#fff;border:1px solid #e2e8f0;border-radius:12px"><tr><td style="padding:28px 24px">${content}</td></tr></table></td></tr></table></body></html>`;
 }

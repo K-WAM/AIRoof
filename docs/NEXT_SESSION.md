@@ -1,5 +1,24 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## CURRENT STATE 2026-10-08 (end) — end-to-end walk: bilingual calls, crew day, hide breakdown, emails
+- **Bugs fixed:** (1) time clock — "Arrived jobsite" from the office writes `office_out` + `site_in` with the same timestamp
+  and the fold had no tiebreak, so a worker could read "off the clock" right after arriving (lunch then refused).
+  `foldPunches` now orders same-instant punches closes-first (`SAME_INSTANT_ORDER`, test added). (2) A Project-price /
+  accepted-quote job with no field notes produced an empty invoice that could not be sent; the invoice now falls back to the
+  accepted quote's lines when nothing was logged (`invoiceLinesFromQuote`). (3) Customer money read `$1200.00`; every
+  customer document/email/receipt and Luxor invoice now uses `fmtMoney` (`$1,200.00`). (4) Pipeline "Needs Confirmation"
+  was unbounded (42k px phone page with a backlog): newest call first, 3 at a time; Upcoming 5 at a time; a `?appt=` link
+  is always shown. Long caller names no longer squeeze to one letter per line next to chips.
+- **Spanish:** calls stay bilingual (start English, follow the caller). New: the end-of-call writer detects a Spanish caller
+  (`detectCallerLanguage`, caller turns only) and stores `callerLanguage: "es"` on the call and its requests — Calls shows
+  "Spoke Spanish", Pipeline cards a "Spanish" tag; the call topic badge understands Spanish (gotera, cita, presupuesto).
+- **Emails:** document emails are a table-based rounded card with `lang`, viewport and an Arial fallback (Outlook/phones);
+  all notification shells got `lang` + viewport. Plain-text part + reply-to were already sent.
+- **Luxor billing:** Zelle line on Luxor invoices and overdue reminders when `LUXOR_ZELLE_TO` is set (Vercel env — owner
+  to add the address); Stripe Pay link unchanged.
+- **New spec:** `e2e/bilingual-crew-day.spec.ts` (see SMOKE-HARNESS.md). Not provable offline: a real ElevenLabs call in
+  Spanish (T-196), inbox placement/DKIM (NH-3), real Whisper/gpt-4o translation of a spoken Spanish note.
+
 ## CURRENT STATE 2026-10-08 (later) — production-readiness pass, roofing first
 - **Hardening:** caller-supplied text (name/address/service from a phone call) is now HTML-escaped in the owner's
   booking/escalation emails (`agentTools.ts` dataRow/brandHeader) and in the Luxor invoice email; field notes (typed +

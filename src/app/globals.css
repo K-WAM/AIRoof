@@ -1679,8 +1679,9 @@ a.metric:hover {
 
 .lead-title-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px 12px;
 }
 
 .lead-name {
@@ -2039,12 +2040,14 @@ a.metric:hover {
 
 .appt-name-row {
   display: flex;
+  flex-wrap: wrap; /* chips go under a long name instead of squeezing it to one letter per line on a phone */
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   margin-bottom: 4px;
 }
 
 .appt-name {
+  overflow-wrap: anywhere;
   font-size: 18px;
   font-weight: 700;
   color: var(--text);

@@ -30,6 +30,17 @@ function punch(type: PunchType, atOffsetMs: number, opts: Partial<Punch> = {}): 
 }
 
 describe("foldPunches", () => {
+  it("keeps a worker on site when one tap wrote office_out + site_in with the same timestamp, whatever order they load in", () => {
+    for (const order of [["site_in", "office_out"], ["office_out", "site_in"]] as const) {
+      const punches = [punch("office_in", 0), ...order.map((t) => punch(t, HOUR, t === "site_in" ? { jobId: "J-1" } : {}))];
+      const [day] = foldPunches(punches, DAY_START + 2 * HOUR, TZ);
+      expect(day.state).toBe("site");
+      expect(day.openJobId).toBe("J-1");
+      expect(day.officeMs).toBe(HOUR);
+      expect(day.anomalies).toHaveLength(0);
+    }
+  });
+
   it("folds a plain office day", () => {
     const punches = [punch("office_in", 0), punch("office_out", 8 * HOUR)];
     const [day] = foldPunches(punches, DAY_START + 9 * HOUR, TZ);

@@ -4,6 +4,7 @@ import type { JobInvoice } from "@/types/invoice";
 import type { JobQuote } from "@/types/quote";
 import { computeTotals } from "@/app/company/jobs/[jobId]/jobInvoice";
 import { quoteTotal } from "@/lib/billing/jobQuote";
+import { fmtMoney } from "@/lib/format/money";
 
 export interface DocumentRow { item?: string; description: string; detail?: string; quantity?: number; unitPrice?: number; amount: number }
 export interface DocumentGroup { title: "Labor" | "Materials" | "Other" | "Project price"; rows: DocumentRow[]; subtotal: number }
@@ -30,6 +31,6 @@ export function quoteGroups(quote: JobQuote, options?: Partial<DocumentOptions>)
   return (["labor", "material", "other"] as const).map((kind) => {
     const lines = byKind(kind);
     const title = kind === "labor" ? "Labor" : kind === "material" ? "Materials" : "Other";
-    return collapse(title, lines.map((line) => ({ description: line.description, detail: `${line.quantity} ${line.unit ?? ""} × $${line.unitPrice.toFixed(2)}`, amount: Math.round(line.quantity * line.unitPrice * 100) / 100 })), quoteTotal(lines), kind === "labor" ? flags.hideLabor : kind === "material" ? flags.hideMaterials : false);
+    return collapse(title, lines.map((line) => ({ description: line.description, detail: `${line.quantity} ${line.unit ?? ""} × ${fmtMoney(line.unitPrice)}`, amount: Math.round(line.quantity * line.unitPrice * 100) / 100 })), quoteTotal(lines), kind === "labor" ? flags.hideLabor : kind === "material" ? flags.hideMaterials : false);
   }).filter((group) => group.rows.length);
 }

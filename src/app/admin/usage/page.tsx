@@ -11,6 +11,7 @@ import { PageError } from "@/components/ui/PageError";
 import { ProviderStatusStrip } from "@/components/admin/ProviderStatusStrip";
 import { monthKey } from "@/lib/usage/month";
 import { BarChart3 } from "lucide-react";
+import { fmtMoney } from "@/lib/format/money";
 
 interface BizUsage {
   businessId: string;
@@ -26,7 +27,7 @@ interface BizUsage {
   bookingCheck?: { ok: boolean; checkedAt: number; problems: string[] } | null;
 }
 
-const usd = (n: number) => `$${n.toFixed(2)}`;
+const usd = (n: number) => fmtMoney(n);
 const lastMonth = () => { const d = new Date(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return monthKey(d.getTime()); };
 
 export default function AdminUsagePage() {

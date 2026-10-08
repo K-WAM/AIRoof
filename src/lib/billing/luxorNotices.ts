@@ -3,6 +3,7 @@
 // one wording and one rule. Sending happens in the callers through sendEmail() (Resend).
 
 import type { LuxorInvoice } from "@/app/admin/invoices/invoiceFlow";
+import { fmtMoney } from "@/lib/format/money";
 
 /** Reminder emails go out this many days after the due date, each once. */
 export const REMINDER_DAYS = [1, 7, 14] as const;
@@ -27,11 +28,11 @@ export function reminderDue(invoice: Pick<LuxorInvoice, "dueDate" | "status"> & 
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const usd = (n: number) => `$${Number(n || 0).toFixed(2)}`;
+const usd = (n: number) => fmtMoney(n);
 
 function shell(heading: string, body: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:Inter,system-ui,sans-serif;color:#1e293b;background:#f8fafc;margin:0;padding:32px 0;">
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="font-family:Inter,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b;background:#f8fafc;margin:0;padding:32px 0;">
 <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
   <div style="background:#0f172a;padding:24px 32px;color:#fff;font-size:20px;font-weight:800;">Luxor AI</div>
   <div style="padding:28px 32px;">
@@ -40,6 +41,19 @@ function shell(heading: string, body: string): string {
     <p style="margin:28px 0 0;font-size:12px;color:#94a3b8;">Luxor Developments LLC · Questions? Reply to this email.</p>
   </div>
 </div></body></html>`;
+}
+
+/** Luxor's Zelle address (env LUXOR_ZELLE_TO, e.g. an email or US phone). Unset = Zelle is not offered. */
+export function luxorZelleTo(): string | null {
+  const to = (process.env.LUXOR_ZELLE_TO ?? "").trim();
+  return to && to.length <= 120 ? to : null;
+}
+
+/** "Or pay by Zelle" block for Luxor invoices and reminders; "" when Zelle is not configured. */
+export function luxorZelleBlock(invoiceId: string): string {
+  const to = luxorZelleTo();
+  if (!to) return "";
+  return `<div style="margin:16px 0;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;line-height:1.5"><strong>Pay by Zelle:</strong> send to <strong>${esc(to)}</strong> and put <strong>${esc(invoiceId)}</strong> in the memo.</div>`;
 }
 
 export function buildLuxorReceiptEmail(invoice: Pick<LuxorInvoice, "invoiceId" | "clientName" | "total">, paidAt = Date.now()) {
@@ -60,6 +74,7 @@ export function buildLuxorReminderEmail(invoice: Pick<LuxorInvoice, "invoiceId" 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Hi ${esc(invoice.clientName || "there")}, invoice <b>${esc(invoice.invoiceId)}</b> for <b>${usd(invoice.total)}</b> was due on ${esc(invoice.dueDate)}${lateDays > 0 ? ` (${lateDays} day${lateDays === 1 ? "" : "s"} ago)` : ""}.</p>
     ${invoice.stripePaymentUrl ? `<div style="margin:20px 0;"><a href="${esc(invoice.stripePaymentUrl)}" style="display:inline-block;background:#0f766e;color:#fff;padding:12px 26px;border-radius:8px;text-decoration:none;font-weight:700;">Pay ${usd(invoice.total)}</a></div>` : ""}
+    ${luxorZelleBlock(invoice.invoiceId)}
     <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">${firm
       ? "To keep your dashboard open, please pay this week. Your phone line keeps answering either way."
       : "If you've already paid, thank you — please ignore this."}</p>`;

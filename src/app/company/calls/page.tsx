@@ -47,6 +47,8 @@ interface Call {
   category?: CallCategory;
   hasTranscript?: boolean;
   turns?: number;
+  /** "es" when the caller spoke Spanish (set at end of call). */
+  callerLanguage?: string;
   messages?: CallMessage[];
 }
 
@@ -353,7 +355,7 @@ export default function CompanyCallsPage() {
                         </div>
                       </div>
                       <p className="call-subtitle">
-                        {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{turns ? ` · ${turns} turns` : ""}
+                        {callStatusLabel(call.status)}{dur ? ` · ${dur}` : ""}{turns ? ` · ${turns} turns` : ""}{call.callerLanguage === "es" ? " · Spoke Spanish" : ""}
                       </p>
                       <p className="call-subtitle" onClick={(event) => event.stopPropagation()}>
                         {bookedHref ? (

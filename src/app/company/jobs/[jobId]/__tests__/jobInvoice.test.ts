@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDraftFromProjection, computeTotals, canSendInvoice } from "../jobInvoice";
+import { buildDraftFromProjection, computeTotals, canSendInvoice, invoiceLinesFromQuote } from "../jobInvoice";
 import type { ParsedUpdate } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
 import type { BusinessConfig } from "@/types";
@@ -154,5 +154,19 @@ describe("canSendInvoice", () => {
     expect(canSendInvoice(null, false, "a@b.com")).toBe(false);
     expect(canSendInvoice("INV-1000", true, "a@b.com")).toBe(false);
     expect(canSendInvoice("INV-1000", false, "not-an-email")).toBe(false);
+  });
+});
+
+describe("invoiceLinesFromQuote", () => {
+  it("turns accepted quote lines into labor, material and other invoice lines with cent-rounded totals", () => {
+    const out = invoiceLinesFromQuote([
+      { lineId: "a", kind: "labor", description: "Roofer", quantity: 6, unit: "hour", unitPrice: 85 },
+      { lineId: "b", kind: "material", description: "Membrane", quantity: 3, unit: "roll", unitPrice: 99.99 },
+      { lineId: "c", kind: "other", description: "Dumpster", quantity: 1, unitPrice: 350 },
+    ]);
+    expect(out.labor).toMatchObject([{ name: "Roofer", hours: 6, rate: 85, total: 510 }]);
+    expect(out.materials).toMatchObject([{ item: "Membrane", quantity: 3, unit: "roll", unitPrice: 99.99, total: 299.97 }]);
+    expect(out.other).toMatchObject([{ description: "Dumpster", amount: 350 }]);
+    expect(computeTotals({ ...out, taxRate: 0 }).subtotal).toBe(1159.97);
   });
 });

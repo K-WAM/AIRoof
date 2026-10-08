@@ -5,7 +5,8 @@
 
 import { roundCents } from "@/lib/format/money";
 import type { ParsedUpdate } from "@/types/jobs";
-import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, JobInvoiceDiscount } from "@/types/invoice";
+import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
+import type { QuoteLine } from "@/types/quote";
 import type { LibraryPricing } from "@/types/library";
 import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
 import type { BusinessConfig } from "@/types";
@@ -111,6 +112,24 @@ type TotalsInput = Pick<JobInvoice, "labor" | "materials" | "other" | "taxRate">
 type Totals = Pick<JobInvoice, "laborSubtotal" | "materialSubtotal" | "otherSubtotal" | "subtotal" | "taxAmount" | "total">;
 
 /** O(rows), pure — safe to run on every keystroke with no debounce. */
+/**
+ * The accepted quote's lines as invoice lines — used only when no work was logged on the job (no field notes, no punches),
+ * so "quote accepted → work done → invoice" never produces an empty invoice the office cannot send. Logged work always
+ * wins: it is what was actually done.
+ */
+export function invoiceLinesFromQuote(lines: QuoteLine[]): Pick<JobInvoice, "labor" | "materials" | "other"> {
+  const labor: InvoiceLaborLine[] = [];
+  const materials: InvoiceMaterialLine[] = [];
+  const other: InvoiceOtherLine[] = [];
+  for (const line of lines) {
+    const total = roundCents(line.quantity * line.unitPrice);
+    if (line.kind === "labor") labor.push({ lineId: lineId("lab"), name: line.description, hours: line.quantity, rate: line.unitPrice, total, source: "manual" });
+    else if (line.kind === "material") materials.push({ lineId: lineId("mat"), item: line.description, quantity: line.quantity, ...(line.unit ? { unit: line.unit } : {}), unitPrice: line.unitPrice, total, source: "catalog" });
+    else other.push({ lineId: lineId("oth"), description: line.description, amount: total });
+  }
+  return { labor, materials, other };
+}
+
 export function computeTotals(inv: TotalsInput): Totals {
   const laborSubtotal = round2(inv.labor.reduce((s, l) => s + l.total, 0));
   const materialSubtotal = round2(inv.materials.reduce((s, m) => s + m.total, 0));

@@ -53,6 +53,16 @@ function stampDeparture(day: WorkerDay, jobId: string, at: number, tz: string) {
 }
 
 /**
+ * Two punches written in one tap share a timestamp: the punch route stores the implicit close first (Arrived jobsite from
+ * the office writes office_out + site_in; Switch job writes site_out + site_in; Left jobsite from lunch writes break_end +
+ * site_out). Without a tiebreak the sort could put the open before the close, and the fold then ended the day the moment
+ * the worker arrived on site ("Cannot break_start while off the clock"). Closes first, in the order the route writes them.
+ */
+const SAME_INSTANT_ORDER: Record<PunchType, number> = {
+  break_end: 0, site_out: 1, office_out: 2, office_in: 3, site_in: 4, break_start: 5,
+};
+
+/**
  * Fold a ledger of punches (any mix of workers/days) into one WorkerDay per
  * (workerKey, dayKey) actually present. Superseded punches (an admin edit's original) are
  * dropped first — same trick buildProjection uses for corrections: zero mutation, full audit
@@ -61,7 +71,7 @@ function stampDeparture(day: WorkerDay, jobId: string, at: number, tz: string) {
  */
 export function foldPunches(punches: Punch[], nowMs: number, tz: string): WorkerDay[] {
   const superseded = new Set(punches.map((p) => p.supersedes).filter((id): id is string => !!id));
-  const live = punches.filter((p) => !superseded.has(p.punchId)).sort((a, b) => a.at - b.at);
+  const live = punches.filter((p) => !superseded.has(p.punchId)).sort((a, b) => a.at - b.at || SAME_INSTANT_ORDER[a.type] - SAME_INSTANT_ORDER[b.type]);
 
   const today = computeDayKey(nowMs, tz);
   const byWorkerDay = new Map<string, WorkerDay>();

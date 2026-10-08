@@ -73,6 +73,7 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { fmtMoney } from "@/lib/format/money";
 
 const SEVERITY_COLOR: Record<string, string> = {
   high: "#b91c1c",
@@ -1199,7 +1200,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                           <td style={{ padding: "10px 16px" }}>{m.item}</td>
                           <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.quantity ?? "—"}</td>
                           <td style={{ padding: "10px 16px", color: "#64748b" }}>{m.unit ?? "—"}</td>
-                          <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{m.cost != null ? `$${m.cost.toFixed(2)}` : "—"}</td>
+                          <td style={{ padding: "10px 16px", textAlign: "right", color: "#64748b" }}>{m.cost != null ? `${fmtMoney(m.cost)}` : "—"}</td>
                         </>
                       )}
                     </tr>
@@ -1641,7 +1642,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                 $<InlineInput label="Hourly rate" value={row.rate} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, rate: v } : x))} placeholder={defaultLaborRate} align="right" width={48} />
                               </div>
                             </td>
-                            <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${laborTotal(row).toFixed(2)}</td>
+                            <td style={{ ...tdStyle("right"), fontWeight: 600 }}>{fmtMoney(laborTotal(row))}</td>
                             <td style={tdStyle("right")} className="no-print"><button onClick={() => setLaborRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
                         ))}
@@ -1651,7 +1652,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       <Plus size={13} strokeWidth={1.75} />
                       Add technician
                     </button>
-                    <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Labor subtotal: <strong>${laborSubtotal.toFixed(2)}</strong></div>
+                    <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Labor subtotal: <strong>{fmtMoney(laborSubtotal)}</strong></div>
                   </div>
                 )}
 
@@ -1714,7 +1715,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                 $<InlineInput label="Unit price" value={row.unitPrice} onChange={(v) => setMaterialRows(r => r.map((x, j) => j === i ? { ...x, unitPrice: v } : x))} placeholder="0.00" align="right" width={64} />
                               </div>
                             </td>
-                            <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialTotal(row).toFixed(2)}</td>
+                            <td style={{ ...tdStyle("right"), fontWeight: 600 }}>{fmtMoney(materialTotal(row))}</td>
                             <td style={tdStyle("right")} className="no-print"><button onClick={() => setMaterialRows(r => r.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 16, padding: "0 4px" }} title="Remove">×</button></td>
                           </tr>
                           );
@@ -1726,7 +1727,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <Plus size={13} strokeWidth={1.75} />
                     Add material
                   </button>
-                  {materialRows.length > 0 && <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Materials subtotal: <strong>${materialSubtotal.toFixed(2)}</strong></div>}
+                  {materialRows.length > 0 && <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginTop: 4 }}>Materials subtotal: <strong>{fmtMoney(materialSubtotal)}</strong></div>}
                   </div>
                   {/* Collapsed single line — printed/PDF output only, when hiding the breakdown from the customer */}
                   {hideMaterials && materialRows.length > 0 && (
@@ -1734,7 +1735,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                       <tbody>
                         <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
                           <td style={tdStyle()}>Materials &amp; supplies</td>
-                          <td style={{ ...tdStyle("right"), fontWeight: 600 }}>${materialSubtotal.toFixed(2)}</td>
+                          <td style={{ ...tdStyle("right"), fontWeight: 600 }}>{fmtMoney(materialSubtotal)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1771,7 +1772,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         <tbody>
                           <tr>
                             <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>Subtotal</td>
-                            <td style={{ textAlign: "right", fontWeight: 600 }}>${subtotal.toFixed(2)}</td>
+                            <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtMoney(subtotal)}</td>
                           </tr>
                           <tr>
                             <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
@@ -1785,13 +1786,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                               />
                               %)
                             </td>
-                            <td style={{ textAlign: "right", fontWeight: 600 }}>${tax.toFixed(2)}</td>
+                            <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtMoney(tax)}</td>
                           </tr>
                         </tbody>
                       </table>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: `1.5px solid ${invoiceAccent}`, borderRadius: 6, padding: "10px 14px", marginTop: 10 }}>
                         <span style={{ fontWeight: 800, fontSize: 14, color: "#0f172a" }}>Total Due</span>
-                        <span style={{ fontWeight: 800, fontSize: 18, color: invoiceAccent }}>${grandTotal.toFixed(2)}</span>
+                        <span style={{ fontWeight: 800, fontSize: 18, color: invoiceAccent }}>{fmtMoney(grandTotal)}</span>
                       </div>
                     </div>
                   </div>

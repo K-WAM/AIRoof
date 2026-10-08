@@ -177,7 +177,7 @@ function BillingTab() {
     <>
       <Section title="Monthly billing">
         <Steps steps={[
-          { text: <>Invoices → <b>New</b> → pick the client → <b>Send</b>.</>, see: "the client gets the invoice by email, with a Pay link when Stripe is on", href: "/admin/invoices", go: "Invoices" },
+          { text: <>Invoices → <b>New</b> → pick the client → <b>Send</b>.</>, see: "the client gets the invoice by email, with a Pay link when Stripe is on and a Zelle line when LUXOR_ZELLE_TO is set", href: "/admin/invoices", go: "Invoices" },
           { text: <>Or tick <b>Auto-draft a monthly invoice</b> on the client — it is never sent until you press Send.</>, href: "/admin/businesses", go: "Clients" },
           { text: <>Paid? Press <b>Mark paid</b>.</>, see: "the client gets a “Payment received” email automatically" },
         ]} />

@@ -10,8 +10,9 @@ import { NumberField } from "@/components/ui/NumberField";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, invoiceBalance, type PaymentMethod } from "@/lib/billing/customerPayments";
 import type { JobInvoice } from "@/types/invoice";
 import { useFormat } from "@/hooks/useFormat";
+import { fmtMoney } from "@/lib/format/money";
 
-const usd = (n: number) => `$${(Math.round(n * 100) / 100).toFixed(2)}`;
+const usd = (n: number) => fmtMoney(n);
 const todayInput = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid }: {

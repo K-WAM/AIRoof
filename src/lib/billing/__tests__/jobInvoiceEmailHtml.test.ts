@@ -33,7 +33,7 @@ describe("buildJobInvoiceEmailHtml", () => {
     expect(html).toContain("Roof Doctors");
     expect(html).toContain("INV-1001");
     expect(html).toContain("(954) 784-7663");
-    expect(html).toContain("$4956.85"); // fmt() doesn't group thousands (matches the rest of the app's $ formatting)
+    expect(html).toContain("$4,956.85");
   });
 
   it("renders the itemized materials breakdown when hideMaterials is off", () => {
@@ -46,7 +46,7 @@ describe("buildJobInvoiceEmailHtml", () => {
     const html = buildJobInvoiceEmailHtml(invoice({ hideMaterials: true }), { businessName: "Roof Doctors" });
     expect(html).not.toContain("Modified bitumen");
     expect(html).toContain(">Materials</td>");
-    expect(html).toContain("$4244.35");
+    expect(html).toContain("$4,244.35");
   });
 
   it("renders cleanly with every optional business field unset, with no leaked 'undefined'/'null' text", () => {

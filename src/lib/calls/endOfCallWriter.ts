@@ -9,6 +9,7 @@ import { classifyCallOutcome } from "@/lib/ai/deepseekClient";
 import { ensureCallLead } from "@/lib/calls/callLead";
 import type { CallOutcomeOutput } from "@/lib/schemas/ai";
 import type { CallMessage } from "@/types";
+import { detectLanguage } from "@/lib/i18n/detect";
 
 /** Provider transcript turns (Vapi messages / ElevenLabs transcript entries) before normalization. */
 export interface NormalizedProviderTranscriptMessage {
@@ -54,6 +55,12 @@ export interface EndedCallReportInput {
   startedAt?: number;
 }
 
+/** "es" when the caller spoke Spanish (every line is bilingual — src/lib/i18n/bilingual.ts), so the office knows to call
+ *  back in Spanish. The caller's own turns only; the greeting's "También hablamos español." must not count. */
+export function detectCallerLanguage(messages: CallMessage[]): "es" | undefined {
+  return detectLanguage(messages.filter((m) => m.role === "caller").map((m) => m.text).join(" "));
+}
+
 export async function writeEndedCallReport(
   db: Firestore,
   input: EndedCallReportInput
@@ -63,6 +70,8 @@ export async function writeEndedCallReport(
     .doc(input.businessId)
     .collection("calls")
     .doc(input.callId);
+
+  const callerLanguage = detectCallerLanguage(input.messages);
 
   // Classify outcome — non-blocking for the webhook response, non-fatal on failure.
   let outcome: string | null = null;
@@ -110,7 +119,24 @@ export async function writeEndedCallReport(
       messages: input.messages,
       ...(outcome ? { outcome, outcomeReason } : {}),
       ...(input.durationSecs !== undefined ? { durationSecs: input.durationSecs } : {}),
+      ...(callerLanguage ? { callerLanguage } : {}),
     },
     { merge: true }
   );
+
+  // The Pipeline cards for this call say "Spanish" too. Non-fatal: the call itself is already written.
+  if (callerLanguage) {
+    try {
+      const biz = db.collection("businesses").doc(input.businessId);
+      const [appts, leads] = await Promise.all([
+        biz.collection("appointments").where("sourceCallId", "==", input.callId).get(),
+        biz.collection("leads").where("sourceCallId", "==", input.callId).get(),
+      ]);
+      const batch = db.batch();
+      for (const d of [...appts.docs, ...leads.docs]) batch.update(d.ref, { callerLanguage });
+      if (!appts.empty || !leads.empty) await batch.commit();
+    } catch (error) {
+      console.error("writeEndedCallReport: could not tag the call's requests with its language", error);
+    }
+  }
 }

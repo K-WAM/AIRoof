@@ -31,6 +31,7 @@ import {
   type LineItem,
   type LuxorInvoice,
 } from "./invoiceFlow";
+import { fmtMoney } from "@/lib/format/money";
 
 const STATUS_STYLE: Record<string, React.CSSProperties> = {
   draft:  { fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#f1f5f9", color: "#64748b" },
@@ -523,9 +524,9 @@ function AdminInvoicesPageInner() {
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>
                       $<NumberField label="Unit price" value={item.unitPrice} onCommit={(n) => updateItem(i, "unitPrice", String(n))} style={{ ...inlineInput, width: 72, textAlign: "right" }} className="no-print" />
-                      <span className="print-only">${item.unitPrice.toFixed(2)}</span>
+                      <span className="print-only">{fmtMoney(item.unitPrice)}</span>
                     </td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>${item.total.toFixed(2)}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600 }}>{fmtMoney(item.total)}</td>
                     <td className="no-print" style={{ padding: "8px 4px", textAlign: "center" }}>
                       <button onClick={() => removeItem(i)} aria-label="Remove line item" title="Remove line item" style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", lineHeight: 1, padding: 2 }}>
                         <Trash2 size={14} strokeWidth={1.75} />
@@ -547,7 +548,7 @@ function AdminInvoicesPageInner() {
                   <tbody>
                     <tr>
                       <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>Subtotal</td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>${subtotal.toFixed(2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtMoney(subtotal)}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: "4px 16px 4px 0", color: "#64748b" }}>
@@ -556,11 +557,11 @@ function AdminInvoicesPageInner() {
                         <span className="print-only">{taxRate}</span>
                         %)
                       </td>
-                      <td style={{ textAlign: "right", fontWeight: 600 }}>${taxAmount.toFixed(2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600 }}>{fmtMoney(taxAmount)}</td>
                     </tr>
                     <tr style={{ borderTop: "2px solid #0f172a" }}>
                       <td style={{ padding: "10px 16px 4px 0", fontWeight: 800, fontSize: 15 }}>Total Due</td>
-                      <td style={{ textAlign: "right", fontWeight: 800, fontSize: 20, color: "#0f172a", paddingTop: 10 }}>${total.toFixed(2)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 800, fontSize: 20, color: "#0f172a", paddingTop: 10 }}>{fmtMoney(total)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -671,7 +672,7 @@ function AdminInvoicesPageInner() {
                       <div style={{ fontSize: 12, color: "#64748b" }}>{inv.clientName || "—"}</div>
                       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
                         <span style={{ fontSize: 12, color: "#94a3b8" }}>{new Date(inv.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>${Number(inv.total ?? 0).toFixed(2)}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{fmtMoney(Number(inv.total ?? 0))}</span>
                       </div>
                     </div>
                   ))}

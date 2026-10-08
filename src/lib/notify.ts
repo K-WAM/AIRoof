@@ -19,8 +19,8 @@ export interface Branding {
 
 function shell(brand: Branding, heading: string, bodyHtml: string): string {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor : "#0f766e";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head>
-<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif">
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif">
 <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
   <div style="background:${accent};padding:24px 32px;display:flex;align-items:center;gap:12px">
     ${brand.logoUrl ? `<span style="${brand.logoChip ? "background:#fff;padding:6px;border-radius:5px;" : ""}display:inline-block"><img src="${escapeHtml(brand.logoUrl)}" alt="${esc(brand.businessName)}" style="height:36px;max-width:120px;${brand.logoFilter ? `filter:${brand.logoFilter};` : ""}"/></span>` : ""}

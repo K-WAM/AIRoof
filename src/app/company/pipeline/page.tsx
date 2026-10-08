@@ -31,6 +31,8 @@ interface Lead {
   leadId: string;
   callerName?: string;
   callerPhone?: string;
+  /** "es" when the caller spoke Spanish. */
+  callerLanguage?: string;
   callerEmail?: string;
   serviceRequested?: string;
   address?: string;
@@ -84,6 +86,8 @@ interface Appointment {
   assignedCrewId?: string;
   assignedBy?: "ai" | "office";
   callSummary?: string;
+  /** "es" when the caller spoke Spanish — call back in Spanish. */
+  callerLanguage?: string;
   createdAt: number;
   sourceCallId?: string;
   /** Set once a job has been created from this booking — the card then opens it instead of offering "Create Job". */
@@ -136,6 +140,9 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
 
 /** Long lists are bounded (C10): each section shows this many, then "Show more". */
 const PIPELINE_PAGE = 10;
+const NEEDS_PAGE = 3;
+/** Upcoming cards are ≈500 px on a phone; five keeps the Booked tab inside the phone height budget (C10). */
+const UPCOMING_PAGE = 5;
 
 export default function PipelinePage() {
   const businessId = useBusinessId();
@@ -180,7 +187,9 @@ export default function PipelinePage() {
 
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [upcomingShown, setUpcomingShown] = useState(PIPELINE_PAGE);
+  const [upcomingShown, setUpcomingShown] = useState(UPCOMING_PAGE);
+  // Each waiting request is a tall card (≈700 px on a phone): three at a time keeps the screen short (C10).
+  const [needsShown, setNeedsShown] = useState(NEEDS_PAGE);
   const [pastShown, setPastShown] = useState(PIPELINE_PAGE);
   const [leadsShown, setLeadsShown] = useState(PIPELINE_PAGE);
   const appointmentRows = useNewRowIds<Appointment>((appointment) => appointment.appointmentId);
@@ -476,11 +485,14 @@ export default function PipelinePage() {
   // under "Past & Cancelled" — see the Calendar deep-link fix above).
   // Requests whose time already passed go LAST: on 2026-09-27 a two-day-old test booking ("Kareem, Sat 8 AM") sat
   // above the owner's new one ("Kareem, Mon 2 PM") and got confirmed by mistake, which read as "my 2 PM became 8 AM".
-  const nowMs = Date.now();
   const needsConfirmation = appointments.filter(
     (a) => a.pendingConfirmation && a.status !== "confirmed" && a.status !== "cancelled"
-  ).sort((a, b) => Number(a.startTime <= nowMs) - Number(b.startTime <= nowMs) || a.startTime - b.startTime);
+  ).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)); // inbox order: the call that just came in is on top
   const needsConfirmationIds = new Set(needsConfirmation.map((a) => a.appointmentId));
+  // A bounded list still shows the request a link points at (?appt=), even when it is past the first page.
+  const firstPage = <T extends { appointmentId: string }>(list: T[], shown: number): T[] =>
+    list.filter((a, i) => i < shown || a.appointmentId === apptParam);
+  const needsVisible = firstPage(needsConfirmation, needsShown);
   const upcomingAppts = appointments.filter(
     (a) => !needsConfirmationIds.has(a.appointmentId) && a.startTime > Date.now() && a.status !== "cancelled"
   ).sort((a, b) => a.startTime - b.startTime);
@@ -533,6 +545,7 @@ export default function PipelinePage() {
         <div className="appt-body">
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
+            {appt.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
             {isPending
               ? <StatusChip status="requested" label={displayRequestState(appt).label + " · " + displayRequestState(appt).nextAction} />
               : <StatusChip status={appt.status} label={displayRequestState(appt).label} />}
@@ -702,6 +715,7 @@ export default function PipelinePage() {
                           </div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <AttentionChip lead={lead} />
+                            {lead.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
                             {linkedJobId(lead, appointments) && <span className="tag">{vocab.jobNoun} created</span>}
                             {isNewRequest(lead.status) ? <span className="tag">New request</span> : <StatusChip status={lead.status} />}
                           </div>
@@ -880,9 +894,14 @@ export default function PipelinePage() {
               </div>
               <div className="panel-body">
                 <div style={{ display: "grid", gap: 16 }}>
-                  {needsConfirmation.map((appt) => (
+                  {needsVisible.map((appt) => (
                     <AppointmentCard key={appt.appointmentId} appt={appt} isPast={false} />
                   ))}
+                  {needsConfirmation.length > needsVisible.length && (
+                    <button type="button" className="button" onClick={() => setNeedsShown((n) => n + PIPELINE_PAGE)}>
+                      Show {Math.min(PIPELINE_PAGE, needsConfirmation.length - needsVisible.length)} more of {needsConfirmation.length}
+                    </button>
+                  )}
                 </div>
               </div>
             </section>
@@ -904,7 +923,7 @@ export default function PipelinePage() {
                 />
               ) : (
                 <div style={{ display: "grid", gap: 16 }}>
-                  {upcomingAppts.slice(0, upcomingShown).map((appt) => (
+                  {firstPage(upcomingAppts, upcomingShown).map((appt) => (
                     <AppointmentCard key={appt.appointmentId} appt={appt} />
                   ))}
                   {upcomingAppts.length > upcomingShown && (
@@ -928,7 +947,7 @@ export default function PipelinePage() {
               </summary>
               <div className="panel-body">
                 <div style={{ display: "grid", gap: 16 }}>
-                  {pastAppts.slice(0, pastShown).map((appt) => (
+                  {firstPage(pastAppts, pastShown).map((appt) => (
                     <AppointmentCard key={appt.appointmentId} appt={appt} isPast />
                   ))}
                   {pastAppts.length > pastShown && (
