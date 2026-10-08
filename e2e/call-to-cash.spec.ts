@@ -43,6 +43,13 @@ test("the request is in the Pipeline; Review request opens the card; Confirm ema
   await settle(page);
   await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
   const card = page.locator(".appt-card").filter({ hasText: caller.name }).first();
+  // Lists show their first few (C10); after a full suite there are many bookings, so open more until this one shows.
+  for (let i = 0; i < 6 && !(await card.isVisible()); i++) {
+    const more = page.getByRole("button", { name: /^Show \d+ more of/ });
+    if (!(await more.count())) break;
+    for (const button of await more.all()) await button.click().catch(() => {});
+    await settle(page, 300);
+  }
   await expect(card).toBeVisible();
   await expect(card.getByText("New request").filter({ visible: true }).first()).toBeVisible();
   await shot(page, "pipeline-new-request");

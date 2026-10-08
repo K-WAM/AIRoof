@@ -142,7 +142,7 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
 const PIPELINE_PAGE = 10;
 const NEEDS_PAGE = 3;
 /** Upcoming cards are ≈500 px on a phone; five keeps the Booked tab inside the phone height budget (C10). */
-const UPCOMING_PAGE = 5;
+const UPCOMING_PAGE = 3; // same first page as Needs confirmation — the phone page stays under ~3 screen heights (C10)
 
 export default function PipelinePage() {
   const businessId = useBusinessId();
@@ -561,7 +561,7 @@ export default function PipelinePage() {
             </div>
           )}
           <p className="appt-detail">{appt.serviceType ?? "Service not specified"}</p>
-          <p className="c1-phone-only appt-detail">{appt.callerPhone ?? "No phone"} · {appt.address ?? "No address"}</p>
+          <p className="c1-phone-only appt-detail">{appt.callerPhone ? fmtPhone(appt.callerPhone) : "No phone"} · {appt.address ?? "No address"}</p>
           <div className="c1-desktop-only"><BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} /></div>
           {!appt.callerEmail && isPending && <p className="appt-detail" style={{ color: "#b45309" }}>{confirmByCall ? "No email on file — call them yourself" : "No email on file — notify the customer manually"}</p>}
           <div className="c1-desktop-only"><IntakeRows intake={appt.intake} labelFor={intakeLabelFor} /></div>

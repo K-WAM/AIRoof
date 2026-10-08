@@ -32,12 +32,18 @@ async function runCallToCash({ log = console.log, tag = Date.now().toString(36).
   // A different day each run (the calendar is shared and the AI correctly refuses a taken slot), at a random half hour between
   // 14:00 and 19:30 UTC. It used to keep the current time of day: run near midnight, a winter (EST) date put the hour-long slot
   // across midnight and the booking engine rightly refused it, so the suite failed only when run late at night (2026-09-28).
-  const day = new Date(Date.now() + (2 + Math.floor(Math.random() * 300)) * 24 * 3600 * 1000);
-  day.setUTCHours(14 + Math.floor(Math.random() * 6), Math.random() < 0.5 ? 0 : 30, 0, 0);
-  const when = day.getTime();
+  const randomSlot = () => {
+    const day = new Date(Date.now() + (2 + Math.floor(Math.random() * 300)) * 24 * 3600 * 1000);
+    day.setUTCHours(14 + Math.floor(Math.random() * 6), Math.random() < 0.5 ? 0 : 30, 0, 0);
+    return day.getTime();
+  };
 
   try {
     await step("A caller phones the AI line and books an inspection", async () => {
+      // A full suite books many inspections into one shared calendar; if this random slot is already taken the AI rightly
+      // refuses it, so the caller simply picks another time (up to 3 tries) — the refusal itself is not a failure here.
+      for (let attempt = 0; attempt < 3; attempt++) {
+      const when = randomSlot();
       ctx.call = await simulateCall({
         tenant: "roofing", from: caller.phone,
         summary: `${caller.name} has a leaking roof and wants an inspection.`,
@@ -48,7 +54,10 @@ async function runCallToCash({ log = console.log, tag = Date.now().toString(36).
         ],
       });
       const book = ctx.call.toolResults.find((t) => t.tool === "bookAppointment");
-      if (book?.status !== 200 || /not booked|no longer|taken|unavailable|couldn.t|could not/i.test(JSON.stringify(book.result))) throw new Error(`bookAppointment did not book: ${book?.status} ${JSON.stringify(book?.result).slice(0, 200)}`);
+      const refused = book?.status !== 200 || /not booked|no longer|taken|unavailable|couldn.t|could not/i.test(JSON.stringify(book.result));
+      if (!refused) break;
+      if (book?.status !== 200 || attempt === 2) throw new Error(`bookAppointment did not book: ${book?.status} ${JSON.stringify(book?.result).slice(0, 200)}`);
+      }
       return ctx.call.callId;
     });
 
