@@ -1,5 +1,6 @@
 "use client";
 
+import { productSummary } from "@/lib/products/products";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
@@ -20,6 +21,7 @@ type AccountPurpose = EffectiveAccountPurpose;
 
 interface AdminBizRow extends BizRow {
   accountPurpose?: string | null;
+  products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
   voiceProvider?: "vapi" | "elevenlabs" | null;
   phoneNumber?: string;
   contactPhone?: string;
@@ -257,6 +259,7 @@ export default function AdminBusinessesPage() {
                       <td>
                         <p className="business-name">{row.businessName}</p>
                         <p className="business-id">{row.businessId}</p>
+                        <p className="cell-note" data-testid="client-products">{productSummary(row)}</p>
                       </td>
                       <td data-label="Industry" style={{ textTransform: "capitalize" }}>{row.industry}</td>
                       <td data-label="Purpose">

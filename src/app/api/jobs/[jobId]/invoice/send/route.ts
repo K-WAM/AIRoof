@@ -10,6 +10,7 @@ import type { Job, JobStatusChange } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
 // Phase 12/Phase 4 rewrite: reads the SAVED invoice doc instead of trusting rows the client
@@ -83,7 +84,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     timezone: biz.timezone,
   }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
-  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos);
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
+  effectiveBillingPrefs(biz));
 
   const sent = await sendEmail({
     to,

@@ -101,6 +101,17 @@ export interface BusinessConfig {
   subscriptionStatus?: "active" | "paused" | "trial";
   pausedAt?: number;
   pausedReason?: string;
+  // What the client bought (src/lib/products/products.ts): missing/true = ON, false = OFF. Set only by the superadmin
+  // (POST /api/admin/businesses/[businessId]/products, audited); the API guards enforce it on every request.
+  products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
+  // How THIS client's customers pay them (Billing product, no Stripe): printed on every invoice, receipt and reminder.
+  // Edited by the client in Settings → Getting paid. See src/lib/billing/paymentPrefs.ts.
+  billingPrefs?: {
+    payInstructions?: string;   // "Zelle to pay@acme.com · Checks to Acme Roofing, 1 Main St"
+    payLink?: string;           // their own https pay page (Square, PayPal, QuickBooks…) — never ours
+    remindersOn?: boolean;      // overdue reminders to customers at 1/7/14 days (default ON)
+    dueDays?: number;           // payment terms in days for new invoices (default 30)
+  };
   billing?: {
     planName?: string;
     monthlyAmount?: number;       // dollars/month
@@ -377,7 +388,8 @@ export interface AdminAuditEvent {
     | "integration.updated"
     | "test_call.completed"
     | "subscription.paused"
-    | "subscription.resumed";
+    | "subscription.resumed"
+    | "products.updated";
   targetPath: string;
   before?: unknown;
   after?: unknown;

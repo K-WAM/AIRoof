@@ -1,3 +1,4 @@
+import { productsOf, type ProductSet } from "@/lib/products/products";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -65,7 +66,9 @@ export async function GET(req: NextRequest) {
       smsEnabled: isSmsEnabled(d),
     },
     modules: {
-      disabled: (template?.disabledModules ?? []) as CompanyModule[],
+      // Industry first (a dental office has no Jobs), then the plan (src/lib/products/products.ts). Calendar shows
+      // whenever calls or jobs are on — it schedules both.
+      disabled: disabledModulesFor((template?.disabledModules ?? []) as CompanyModule[], productsOf(d)),
       calendarMode: template?.calendarMode ?? "jobs",
       family: template?.family ?? null,
     },
@@ -73,4 +76,12 @@ export async function GET(req: NextRequest) {
   };
 
   return jsonWithCache(body, "semiStatic");
+}
+
+function disabledModulesFor(industryDisabled: CompanyModule[], products: ProductSet): CompanyModule[] {
+  const out = new Set<CompanyModule>(industryDisabled);
+  if (!products.calls) out.add("calls");
+  if (!products.field) out.add("jobs");
+  if (!products.billing || out.has("jobs")) out.add("billing");
+  return [...out];
 }

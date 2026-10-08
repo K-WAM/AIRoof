@@ -27,6 +27,7 @@ import { QUOTE_SHOWABLE_STATUSES, reportQuoteSection } from "@/lib/documents/rep
 import { FindingsPanel } from "./FindingsPanel";
 import { JobHistory } from "./JobHistory";
 import { jobSteps } from "@/lib/jobs/nextStep";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
@@ -36,6 +37,7 @@ import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { ClientDetailsEditor } from "./ClientDetailsEditor";
 import { NextStepButton } from "./NextStepButton";
+import { RecordPayment } from "./RecordPayment";
 import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -120,6 +122,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const { open: openQuickAdd } = useQuickAdd();
   const readOnly = useAuth().user?.role === "viewer";
+  // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
+  const { isEnabled: moduleEnabled, ready: modulesReady } = useBusinessModules();
+  const hasBilling = !modulesReady || moduleEnabled("billing");
+  const hasCalls = !modulesReady || moduleEnabled("calls");
   // Business-timezone formatters ("Sep 25, 8:59 PM") — the same format as Calls and Pipeline, never the browser locale.
   const fmt = useFormat();
   // The Library catalog is loaded once here and shared by the Findings and Quote tabs.
@@ -190,7 +196,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // Bumped when the customer details are edited so the quote panel reloads its (server-updated) bill-to.
   const [clientVersion, setClientVersion] = useState(0);
   const [invoiceMeta, setInvoiceMeta] = useState<Pick<JobInvoice, "sentAt" | "sentTo" | "paidAt">>({});
-  const [markingPaid, setMarkingPaid] = useState(false);
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
   const [invoicePriceMode, setInvoicePriceMode] = useState<"lines" | "project">("lines");
@@ -280,7 +285,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { quote?: JobQuote | null } | null) => { if (live && d?.quote) setPageQuote((current) => current ?? d.quote ?? null); })
       .catch(() => {});
-    if (summaryInvoiceId) {
+    if (summaryInvoiceId && hasBilling) {
       fetch(`/api/jobs/${encodeURIComponent(summaryJobId)}/invoice?businessId=${encodeURIComponent(businessId)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { invoice?: JobInvoice | null } | null) => {
@@ -293,7 +298,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         .catch(() => {});
     }
     return () => { live = false; };
-  }, [businessId, summaryJobId, summaryInvoiceId]);
+  }, [businessId, summaryJobId, summaryInvoiceId, hasBilling]);
 
   // Picks up a material price added via the global quick-add (including from
   // this exact page's own "No price on file" prompt) without a full reload.
@@ -765,23 +770,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     if (!invoiceDirty && !invoiceSaving) void sendInvoiceRef.current();
   }, [sendQueued, invoiceDirty, invoiceSaving, invoiceError]);
 
-  // "Mark paid": the office records the payment (there is no online payment on job invoices).
-  async function markInvoicePaid() {
-    if (!businessId || invoiceStatus !== "sent" || markingPaid) return;
-    setMarkingPaid(true); setInvoiceError(null);
-    try {
-      const res = await fetch(`/api/jobs/${jobId}/invoice`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status: "paid" }) });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setInvoiceError(data.error ?? "Could not mark the invoice paid."); return; }
-      setInvoiceStatus("paid");
-      setInvoiceMeta((m) => ({ ...m, paidAt: (data.invoice as JobInvoice | undefined)?.paidAt ?? Date.now() }));
-    } catch {
-      setInvoiceError("Could not mark the invoice paid. Check the connection and try again.");
-    } finally {
-      setMarkingPaid(false);
-    }
-  }
-
   // Invoice math
   function laborTotal(row: LaborRow) {
     const h = parseFloat(row.hours) || 0;
@@ -875,13 +863,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   ] as const;
   // "Include the quote" on the report needs a quote the customer has actually been sent (or accepted).
   const quoteCanGoOnReport = !!pageQuote && QUOTE_SHOWABLE_STATUSES.includes(pageQuote.status);
-  const steps = job ? jobSteps(job) : [];
+  const steps = job ? jobSteps(job, { billing: hasBilling }) : [];
   const WORKFLOW_TABS = [
     { id: "findings", number: "①", label: "Findings", step: steps.find((step) => step.id === "findings") },
     { id: "quote", number: "②", label: "Quote", step: steps.find((step) => step.id === "quote") },
     { id: "report", number: "③", label: "Report", step: steps.find((step) => step.id === "report") },
     { id: "invoice", number: "④", label: "Invoice", step: steps.find((step) => step.id === "invoice") },
   ] as const;
+  const workflowTabs = WORKFLOW_TABS.filter((tab) => tab.id !== "invoice" || hasBilling);
 
   if (loading) return <PageSkeleton rows={6} />;
   if (!job) return (
@@ -1010,7 +999,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
             onSaved={(client) => { setJob((current) => current ? { ...current, ...client } : current); setClientVersion((v) => v + 1); }} />
           {businessId && <JobCrewLine job={job} businessId={businessId} previewSuffix={previewSuffix} fmtDayTime={fmt.fmtDayTime} canEdit={!readOnly} />}
-          {job.sourceCallId && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
+          {job.sourceCallId && hasCalls && <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>From call · {fmt.fmtDayTime(job.createdAt)} · <a href={`/company/calls${previewSuffix}`} style={{ color: "var(--accent)" }}>View transcript</a></p>}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {/* One way to bring someone onto the job (C6): a link they open on their phone — no account, no app. Team
@@ -1019,7 +1008,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <Send size={15} strokeWidth={1.75} /> Send to a worker
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
-          {!readOnly && <NextStepButton job={job} busy={updatingStatus === "complete"} activeTab={activeTab} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
+          {!readOnly && <NextStepButton job={job} billing={hasBilling} busy={updatingStatus === "complete"} activeTab={activeTab} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
       </header>
 
@@ -1069,7 +1058,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </button>
         ))}
         <span className="job-tab-group-label">Documents</span>
-        {WORKFLOW_TABS.map((tab) => {
+        {workflowTabs.map((tab) => {
           const quoteLabel = tab.id === "quote" && pageQuote && pageQuote.status !== "draft"
             ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
             : null;
@@ -1352,10 +1341,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
 
       {/* ── Invoice ── */}
-      {activeTab === "invoice" && (
+      {activeTab === "invoice" && hasBilling && (
         <div>
           <p className="no-print" style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>
-            Email the invoice to your customer or print it. There is no online payment yet, so press Mark paid once they pay.
+            Email the invoice to your customer or print it. Customers pay you directly; record each payment here and they get a receipt.
           </p>
           {invoiceError && (
             <div role="alert" className="no-print" style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: 12, color: "#b91c1c", fontSize: 13 }}>
@@ -1423,11 +1412,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </details>
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {invoiceStatus === "sent" && !readOnly && (
-                    <button className="button primary" onClick={() => void markInvoicePaid()} disabled={markingPaid} style={{ fontSize: 13 }}>
-                      {markingPaid ? "Saving…" : "Mark paid"}
-                    </button>
-                  )}
                   {invoiceStatus === "draft" && !readOnly && <button className="button primary" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
                     Send to Customer
@@ -1456,6 +1440,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     : `Sent${invoiceMeta.sentTo ? ` to ${invoiceMeta.sentTo}` : ""}${invoiceMeta.sentAt ? ` on ${fmt.fmtDayTime(invoiceMeta.sentAt)}` : ""}.`}
                   {" "}This invoice is locked: new field updates or edits on the job won&apos;t change it. Create a new quote after talking to the customer.
                 </div>
+              )}
+
+              {/* Billing (no Stripe): balance, payments received, Record payment → receipt. */}
+              {invoiceStatus && invoiceStatus !== "draft" && businessId && (
+                <RecordPayment businessId={businessId} jobId={jobId} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
+                  onPaid={(paidAt) => { setInvoiceStatus("paid"); setInvoiceMeta((m) => ({ ...m, paidAt })); }} />
               )}
 
               {/* Library couldn't be reached — every material price below is blank, not because
@@ -1841,6 +1831,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
+                  howToPay={hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>

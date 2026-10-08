@@ -10,6 +10,8 @@ import { PageError } from "@/components/ui/PageError";
 import { Toggle } from "@/components/ui/Toggle";
 import { TeamPanel } from "./TeamPanel";
 import { NoticesPanel } from "./NoticesPanel";
+import { GettingPaidPanel } from "./GettingPaidPanel";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import {
   composeGreetingWithDisclosure,
   defaultRecordingDisclosureText,
@@ -42,16 +44,21 @@ interface Settings {
 }
 
 
-const SECTIONS = [
-  ["company", "Company"], ["hours", "Hours & timezone"], ["phone", "Phone & notifications"],
-  ["documents", "Documents"], ["terms", "Terms & notices"], ["advanced", "Advanced"],
-] as const;
+// `product`: the section only shows when the client has that product (src/lib/products).
+const SECTIONS: ReadonlyArray<readonly [string, string, ("calls" | "billing")?]> = [
+  ["company", "Company"], ["hours", "Hours & timezone"], ["phone", "Phone & notifications", "calls"],
+  ["getting-paid", "Getting paid", "billing"], ["documents", "Documents", "billing"], ["terms", "Terms & notices"], ["advanced", "Advanced"],
+];
 
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
   const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const canManageTeam = user?.role === "owner" || !!user?.superadmin;
+  const { isEnabled } = useBusinessModules();
+  const hasCalls = isEnabled("calls");
+  const hasBilling = isEnabled("billing");
+  const sections = SECTIONS.filter(([, , product]) => !product || isEnabled(product));
 
   const [settings, setSettings] = useState<Settings | null>(null);
   const settingsLoaded = settings !== null;
@@ -249,7 +256,7 @@ export default function CompanySettingsPage() {
       {dirty && <p role="status" className="settings-unsaved">Unsaved changes — save before leaving this page.</p>}
       <div className="settings-phase32-layout">
         <nav className="settings-section-list" aria-label="Settings sections">
-          {SECTIONS.map(([id, label]) => <a key={id} href={"#" + id} aria-current={activeSection === id ? "location" : undefined}
+          {sections.map(([id, label]) => <a key={id} href={"#" + id} aria-current={activeSection === id ? "location" : undefined}
             onClick={(event) => { event.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); setActiveSection(id); }}>{label}</a>)}
         </nav>
         <div className="settings-section-content">
@@ -274,7 +281,7 @@ export default function CompanySettingsPage() {
             </div>
           </section>
 
-          <section id="phone" className="panel">
+          {hasCalls && <section id="phone" className="panel">
             <div className="panel-header"><h2 className="panel-title"><Bell size={16} strokeWidth={1.75} /> Phone &amp; notifications</h2></div>
             <div className="panel-body">
               <div className="field"><label htmlFor="notifEmail">Notification email</label><input id="notifEmail" ref={notificationEmailRef} type="email" required value={settings.notificationEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, notificationEmail: event.target.value } : prev)} /><p>Receives booking and request notifications.</p></div>
@@ -289,9 +296,11 @@ export default function CompanySettingsPage() {
               </div>
               <a href="mailto:connect@luxordev.com">Contact Luxor to change your phone line</a>
             </div>
-          </section>
+          </section>}
 
-          <section id="documents" className="panel">
+          {hasBilling && <GettingPaidPanel businessId={businessId} />}
+
+          {hasBilling && <section id="documents" className="panel">
             <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
             <div className="panel-body">
               <p>Default invoice wording. Each draft invoice can be edited before it is sent.</p>
@@ -301,7 +310,7 @@ export default function CompanySettingsPage() {
               </div>)}
               <p>Use {"{businessName}"}, {"{address}"}, {"{visitDate}"}, and {"{industryNoun}"} for invoice-specific details.</p>
             </div>
-          </section>
+          </section>}
 
           <section id="terms" aria-label="Terms & notices">
             <NoticesPanel businessId={businessId} />
@@ -309,7 +318,7 @@ export default function CompanySettingsPage() {
 
           <section id="advanced" className="settings-advanced">
             <h2>Advanced</h2>
-            {canManageTeam && <section className="panel">
+            {canManageTeam && hasCalls && <section className="panel">
               <div className="panel-header"><h3 className="panel-title"><Mic size={16} strokeWidth={1.75} /> Call recording notice</h3></div>
               <div className="panel-body">
                 <p>The default wording is a draft, not legal advice. Have counsel review it before relying on it.</p>

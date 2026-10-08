@@ -1,3 +1,5 @@
+import { productForApiPath, productLabel } from "@/lib/products/products";
+import { loadProducts } from "@/lib/products/productCache";
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getEnv } from "@/lib/config/env";
@@ -452,6 +454,34 @@ export async function verifyAuthAndRole(
   businessId: string,
   allowedRoles: AllowedRole[]
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  return enforceProduct(req, businessId, await verifyAuthAndRoleInner(req, businessId, allowedRoles));
+}
+
+/**
+ * Products (src/lib/products/products.ts): a path that belongs to a product the client didn't buy is refused here,
+ * for every route that uses the central guards — the screens hiding it is a courtesy, this is the lock. A superadmin
+ * passes (support and previews). Cached 30 s per client, so it adds no read to most requests.
+ */
+async function enforceProduct(
+  req: NextRequest,
+  businessId: string,
+  result: { user: VerifiedUser } | { error: NextResponse<{ error: string }> },
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  if ("error" in result || result.user.superadmin || !businessId) return result;
+  const product = productForApiPath(req.nextUrl.pathname);
+  if (!product) return result;
+  const db = getAdminFirestore();
+  if (!db) return result;
+  const products = await loadProducts(db, businessId);
+  if (products[product]) return result;
+  return { error: NextResponse.json({ error: `${productLabel(product)} isn't part of this account's plan.`, product }, { status: 403 }) };
+}
+
+async function verifyAuthAndRoleInner(
+  req: NextRequest,
+  businessId: string,
+  allowedRoles: AllowedRole[]
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   const sessionCookie = req.cookies.get("__session")?.value;
   if (!sessionCookie) {
     return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
@@ -514,6 +544,14 @@ export async function verifyAuthAndRole(
  * "own business" for a platform admin) rather than silently no-op'ing.
  */
 export async function verifyOwnBusinessRole(
+  req: NextRequest,
+  allowedRoles: AllowedRole[]
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  const result = await verifyOwnBusinessRoleInner(req, allowedRoles);
+  return "error" in result ? result : enforceProduct(req, result.user.businessId ?? "", result);
+}
+
+async function verifyOwnBusinessRoleInner(
   req: NextRequest,
   allowedRoles: AllowedRole[]
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
@@ -580,6 +618,14 @@ export async function verifySuperadmin(
  * call API paths for that job and cannot list the rest of the business's jobs.
  */
 export async function verifyFieldAccess(
+  req: NextRequest,
+  businessId: string,
+  options?: { jobId?: string; allowOfficePunch?: boolean; write?: true },
+): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  return enforceProduct(req, businessId, await verifyFieldAccessInner(req, businessId, options));
+}
+
+async function verifyFieldAccessInner(
   req: NextRequest,
   businessId: string,
   options?: { jobId?: string; allowOfficePunch?: boolean; write?: true },

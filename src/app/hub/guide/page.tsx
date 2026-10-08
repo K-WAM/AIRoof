@@ -86,7 +86,8 @@ function ClientTab() {
       <Section title="Go-live checklist (about 30 min)">
         <Steps steps={[
           { text: <><b>New client</b>: company, industry, hours, services, owner&apos;s email.</>, see: "the owner gets a set-password email", href: "/hub/onboarding", go: "New client" },
-          { text: <>Client → <b>Phone provider</b>: ElevenLabs agent ID + number.</>, href: "/admin/businesses", go: "Clients" },
+          { text: <>Client → <b>Products</b>: switch on only what the contract includes — AI calls &amp; booking, Jobs &amp; field input, Billing &amp; payments.</>, see: "the client's menu shows only those; everything else is refused", href: "/admin/businesses", go: "Clients" },
+          { text: <>Client → <b>Phone provider</b>: ElevenLabs agent ID + number (skip if they didn&apos;t buy AI calls).</>, href: "/admin/businesses", go: "Clients" },
           { text: <>Client → <b>Phone lines</b>: <b>Record test call</b> → <b>Go live…</b></>, see: "the line reads Live" },
           { text: "Call the line once.", see: "the call appears in the client's Calls within seconds" },
           { text: <>Spanish: nothing to set — every line speaks both. New ElevenLabs agent? Run the bilingual script once (AI &amp; costs tab).</> },
@@ -186,6 +187,14 @@ function BillingTab() {
           <li>Reminder emails go out at <b>1, 7 and 14 days</b> overdue. Each is sent once.</li>
           <li>Still unpaid → Invoices shows <b>Overdue</b> → <b>Pause client</b>. Their dashboard locks; <b>the phone keeps answering</b> so their callers are never dropped.</li>
           <li>Paid → <b>Mark paid</b>. A client paused for that invoice turns back on by itself (or <b>Resume</b> on their client page).</li>
+        </ul>
+      </Section>
+      <Section title="Your clients' own invoices (Billing product, no Stripe)">
+        <ul className="pb-list">
+          <li>The client sets <b>Settings → Getting paid</b>: how their customers pay (Zelle, checks…), an optional pay link to their own Square/PayPal page, payment terms.</li>
+          <li>It prints as <b>How to pay</b> on every invoice. Their customer pays them directly — no money passes through Luxor.</li>
+          <li>On the job&apos;s Invoice tab they press <b>Record payment</b> (partial payments add up); the customer gets a receipt. Overdue reminders go out at 1, 7 and 14 days.</li>
+          <li>Their <b>Billing</b> screen shows what&apos;s owed, past due and paid this month.</li>
         </ul>
       </Section>
       <Section title="Know what each client costs you">

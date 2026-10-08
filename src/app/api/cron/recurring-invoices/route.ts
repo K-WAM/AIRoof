@@ -12,6 +12,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { nextLuxorInvoiceNumber } from "@/lib/billing/invoiceNumber";
 import type { LuxorInvoice } from "@/app/admin/invoices/invoiceFlow";
 import { sendEmail } from "@/lib/comms/send";
+import { runCustomerReminders } from "@/lib/billing/customerReminders";
 import { buildLuxorReminderEmail, daysOverdue, reminderDue } from "@/lib/billing/luxorNotices";
 
 const DUE_IN_DAYS = 30;
@@ -138,5 +139,15 @@ export async function GET(request: NextRequest) {
     errors.push(`reminders: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  return NextResponse.json({ ok: true, drafted, skipped, reminded, errors });
+  // The clients' own customers (Billing product): overdue reminders on their job invoices — src/lib/billing/customerReminders.ts.
+  let customerReminded: string[] = [];
+  try {
+    const result = await runCustomerReminders(db, now);
+    customerReminded = result.reminded;
+    errors.push(...result.errors);
+  } catch (error) {
+    errors.push(`customer reminders: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  return NextResponse.json({ ok: true, drafted, skipped, reminded, customerReminded, errors });
 }

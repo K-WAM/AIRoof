@@ -415,6 +415,19 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
   `src/lib/copy/glossary.ts`. A closed `<details>` takes no space (globals.css integration block). Company nav comes from
   `src/app/company/navModel.ts`; request wording from `src/lib/requests/displayState.ts`.
 
+## Products per client + client billing (2026-10-08) Key Files
+
+- src/lib/products/products.ts — the ONE product definition (calls / field / billing; missing = ON; billing needs field) and the
+  API path → product map. `enforceProduct()` in src/lib/auth/verifyRole.ts applies it inside every central guard (superadmin
+  bypasses); src/lib/products/productCache.ts (30 s). **A new API route under a product's area must match a PATH_RULES entry.**
+- Screens: bootstrap `modules.disabled` adds "calls"/"jobs"/"billing"; read with `useBusinessModules().isEnabled(...)`. Never
+  fetch a product's API from a shared screen without checking it (the Dashboard, CommandBar, Calendar, field page show how).
+- src/app/api/admin/businesses/[businessId]/products/route.ts + config/ProductsPanel.tsx — superadmin switches (audited).
+- src/lib/billing/customerPayments.ts — balance, payments, overdue/reminder rule, Getting-paid validation, receipt/reminder emails
+  (pure, tested). Payments route `api/jobs/[jobId]/invoice/payments`, reminders `src/lib/billing/customerReminders.ts`
+  (run by the recurring-invoices cron), Settings `api/company/settings/billing` + GettingPaidPanel, screen `/company/billing`.
+  No Stripe on client invoices; Luxor's own invoices keep their Stripe pay link.
+
 ## Screen Clarity Rule (read before touching any company screen)
 
 **Owner's standard (2026-10-04): `docs/ZERO-TRAINING-UX-STANDARD.md`** — a first-time user of any role (admin, office

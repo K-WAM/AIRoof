@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
+import { ProductsPanel } from "./ProductsPanel";
 import { PhoneLinesPanel } from "./PhoneLinesPanel";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
 import type { VoiceRef } from "@/types";
@@ -71,6 +72,7 @@ interface BizData {
   employeeCount?: number;
   seatLimit?: number;
   subscriptionStatus?: "active" | "paused" | "trial";
+  products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
   pausedAt?: number;
   pausedReason?: string;
   billing?: {
@@ -110,6 +112,7 @@ const CONFIG_SECTIONS: Array<[string, string]> = [
   ["ai-config", "AI rules"],
   ["services-config", "Services"],
   ["login-provision", "Login"],
+  ["products", "Products"],
   ["subscription", "Plan"],
   ["routing", "Routing"],
   ["branding", "Branding"],
@@ -795,6 +798,9 @@ export default function AdminBusinessConfigPage({
               )}
             </div>
           </section>
+
+          {/* ─── Products (what the contract includes) ─── */}
+          <ProductsPanel businessId={businessId} stored={biz.products} />
 
           {/* ─── Subscription & Billing ─── */}
           <section className="panel" id="subscription" aria-labelledby="subscription-title">

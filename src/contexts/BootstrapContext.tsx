@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import type { CompanyBootstrap } from "@/types/bootstrap";
 
@@ -86,8 +87,14 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
+  // Wait for the signed-in user: before the profile loads, useBusinessId() falls back to the demo tenant, and that
+  // request (a 401) used to mark the shell "ready" with nothing loaded — every module then looked switched on, so
+  // screens briefly asked for data this client's products don't include.
+  const { user } = useAuth();
+  const signedIn = !!user;
   useEffect(() => {
-    if (!businessId) return;
+    if (!businessId || !signedIn) return;
+    setReady(false);
     const cached = readCache(businessId);
     if (cached) {
       setData(cached);
@@ -96,7 +103,7 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     load(businessId, false);
-  }, [businessId, load]);
+  }, [businessId, signedIn, load]);
 
   const refresh = useCallback(() => {
     if (businessId) load(businessId, true);

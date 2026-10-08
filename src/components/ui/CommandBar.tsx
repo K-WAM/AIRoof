@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface Result {
@@ -85,6 +86,10 @@ export function CommandBar() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
+  // Products (src/lib/products): only search what this client bought — the server refuses the rest.
+  const { isEnabled } = useBusinessModules();
+  const hasCalls = isEnabled("calls");
+  const hasJobs = isEnabled("jobs");
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -116,30 +121,28 @@ export function CommandBar() {
     if (!businessId || inFlight.current) return;
     inFlight.current = true;
     setStatus("searching");
-    // Same four read endpoints and the same auth as before (T-071) — no extra data.
+    // Same four read endpoints and the same auth as before (T-071) — no extra data. A product the client doesn't
+    // have is simply not searched (an empty list), never a failed search.
+    const skip = Promise.resolve(null);
     Promise.all([
-      fetch(`/api/businesses/${businessId}/leads`),
-      fetch(`/api/jobs?businessId=${businessId}`),
-      fetch(`/api/businesses/${businessId}/appointments?order=desc`),
+      hasCalls ? fetch(`/api/businesses/${businessId}/leads`) : skip,
+      hasJobs ? fetch(`/api/jobs?businessId=${businessId}`) : skip,
+      hasCalls ? fetch(`/api/businesses/${businessId}/appointments?order=desc`) : skip,
       fetch(`/api/company/customers?businessId=${businessId}`),
     ])
       .then(async ([leadsRes, jobsRes, apptsRes, customersRes]) => {
-        if (![leadsRes, jobsRes, apptsRes, customersRes].every((r) => r.ok)) {
+        if (![leadsRes, jobsRes, apptsRes, customersRes].every((r) => !r || r.ok)) {
           throw new Error("Search request failed");
         }
-        const [leadsData, jobsData, apptsData, customersData] = await Promise.all([
-          leadsRes.json().catch(() => ({})),
-          jobsRes.json().catch(() => ({})),
-          apptsRes.json().catch(() => ({})),
-          customersRes.json().catch(() => ({})),
-        ]);
+        const read = (r: Response | null) => (r ? r.json().catch(() => ({})) : Promise.resolve({}));
+        const [leadsData, jobsData, apptsData, customersData] = await Promise.all([leadsRes, jobsRes, apptsRes, customersRes].map(read));
         setAllResults(buildResults(previewSuffix, leadsData, jobsData, apptsData, customersData));
         setFetched(true);
         setStatus("ready");
       })
       .catch(() => setStatus("error"))
       .finally(() => { inFlight.current = false; });
-  }, [businessId, previewSuffix]);
+  }, [businessId, previewSuffix, hasCalls, hasJobs]);
 
   useEffect(() => {
     if (open && !fetched && businessId) fetchData();

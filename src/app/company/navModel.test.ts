@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import { visibleNavLinks } from "./navModel";
 
 const roof = (module: string) => module !== "unused";
-const dental = (module: string) => module !== "jobs" && module !== "pricing";
+// The bootstrap turns Billing off with Jobs (invoices belong to jobs), so a dental office has neither.
+const dental = (module: string) => module !== "jobs" && module !== "pricing" && module !== "billing";
 const paths = (context: Parameters<typeof visibleNavLinks>[0]) => visibleNavLinks(context).map((link) => link.path);
 const common = ["/company/dashboard", "/company/calls", "/company/pipeline", "/company/calendar"];
-const jobs = ["/company/jobs", "/company/field"];
+const jobs = ["/company/jobs", "/company/field", "/company/billing"];
 const manage = ["/company/customers", "/company/library"];
 const end = ["/company/settings", "/company/guide", "feedback"];
 
@@ -26,6 +27,12 @@ describe("visibleNavLinks", () => {
   it("keeps every route including feedback in superadmin preview", () => {
     expect(paths({ role: "viewer", superadmin: true, preview: true, isEnabled: roof })).toEqual([
       ...common, ...jobs, ...manage, "/company/team", ...end,
+    ]);
+  });
+  it("shows only what a client bought: field input + billing, no AI calls", () => {
+    const fieldAndBilling = (module: string) => module !== "calls";
+    expect(paths({ role: "owner", isEnabled: fieldAndBilling })).toEqual([
+      "/company/dashboard", "/company/calendar", ...jobs, ...manage, "/company/team", ...end,
     ]);
   });
 });

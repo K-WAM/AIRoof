@@ -19,7 +19,8 @@ export interface JobStep {
 
 const QUOTE_SENT_OR_LATER: Array<Job["status"]> = ["quoted", "in_progress", "invoiced", "complete"];
 
-export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">): JobStep[] {
+/** `billing: false` = the client didn't buy Billing (src/lib/products): the workflow ends at the report. */
+export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">, opts: { billing?: boolean } = {}): JobStep[] {
   const findingsDone = (job.findings?.length ?? 0) > 0;
   const quoteDone = QUOTE_SENT_OR_LATER.includes(job.status);
   const workDone = job.status === "complete" || job.status === "invoiced";
@@ -27,13 +28,14 @@ export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "rep
   const reportDone = !!job.reportNotes?.trim() || job.status === "invoiced";
   const invoiceDone = job.status === "invoiced";
 
-  const raw: Array<Omit<JobStep, "state"> & { done: boolean }> = [
+  const all: Array<Omit<JobStep, "state"> & { done: boolean }> = [
     { id: "findings", label: "Findings", tab: "findings", done: findingsDone, hint: "Record what was found — pick from the Library." },
     { id: "quote", label: "Quote", tab: "quote", done: quoteDone, hint: job.quoteId ? "Review the draft quote and send it." : "Build the quote from the findings." },
     { id: "work", label: "Work", tab: "timeline", done: workDone, hint: "The crew updates the job from the field; mark it complete when the work is done." },
     { id: "report", label: "Report", tab: "report", done: reportDone, hint: "Review the report and send it to the customer." },
     { id: "invoice", label: "Invoice", tab: "invoice", done: invoiceDone, hint: "Create the invoice and send it." },
   ];
+  const raw = opts.billing === false ? all.filter((step) => step.id !== "invoice") : all;
   const firstOpen = raw.findIndex((step) => !step.done);
   return raw.map(({ done, ...step }, index) => ({ ...step, state: done ? "done" : index === firstOpen ? "current" : "todo" }));
 }

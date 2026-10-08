@@ -37,10 +37,13 @@ export function setupChecklist(
   vocab: Pick<VerticalVocab, "resourceNoun">,
 ): SetupItem[] {
   const resource = vocab.resourceNoun.toLowerCase();
+  // A client without the AI calls product (src/lib/products) has no phone line to check or test-call.
+  const calls = modules.isEnabled("calls");
+  const phone: SetupItem = input.phoneConfigured
+    ? { id: "phone", label: "Check your phone line", done: true, outcome: "Your AI receptionist is configured to answer calls.", href: "/company/settings#phone", cta: "View line" }
+    : { id: "phone", label: "Check your phone line", done: false, outcome: "Luxor connects the line before callers can reach your receptionist.", href: "/company/settings#phone", cta: "View line" };
   const items: SetupItem[] = [
-    input.phoneConfigured
-      ? { id: "phone", label: "Check your phone line", done: true, outcome: "Your AI receptionist is configured to answer calls.", href: "/company/settings#phone", cta: "View line" }
-      : { id: "phone", label: "Check your phone line", done: false, outcome: "Luxor connects the line before callers can reach your receptionist.", href: "/company/settings#phone", cta: "View line" },
+    ...(calls ? [phone] : []),
     {
       id: "hours",
       label: "Set your hours",
@@ -62,7 +65,7 @@ export function setupChecklist(
   if (modules.isEnabled("library")) items.push(
     { id: "logo", label: "Upload your logo", outcome: "Your documents can carry your brand.", done: input.hasLogo, href: "/company/library?section=branding", cta: "Upload logo" },
   );
-  items.push({
+  if (calls) items.push({
       id: "testCall",
       label: "Make a test call",
       outcome: "Hear the receptionist and check that the call appears in Calls.",

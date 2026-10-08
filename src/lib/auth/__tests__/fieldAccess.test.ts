@@ -194,6 +194,21 @@ describe("scoped field access tokens", () => {
     expect(await openFieldJobLink("link1", link)).toMatchObject({ ok: false, error: "Field access revoked" });
   });
 
+  it("a product the client didn't buy is refused at the guard, even with a valid session (products)", async () => {
+    const link = { businessId: BUSINESS_ID, jobId: "J-1", fieldKeyTag: fieldKeyFingerprint(FIELD_KEY), createdAt: NOW.getTime() };
+    const session = await openFieldJobLink("link1", link);
+    const token = session.ok ? session.token : "";
+    mocks.firestore!.documents.set(`businesses/${BUSINESS_ID}`, { fieldKey: FIELD_KEY, products: { field: false } });
+    const { invalidateProducts } = await import("@/lib/products/productCache");
+    invalidateProducts(BUSINESS_ID);
+    const refused = await verifyFieldAccess(request(`/api/jobs/J-1?businessId=${BUSINESS_ID}`, token), BUSINESS_ID, { jobId: "J-1" });
+    expect(statusOf(refused)).toBe(403);
+    expect("error" in refused && (await refused.error.json()).product).toBe("field");
+    mocks.firestore!.documents.set(`businesses/${BUSINESS_ID}`, { fieldKey: FIELD_KEY });
+    invalidateProducts(BUSINESS_ID);
+    expect(statusOf(await verifyFieldAccess(request(`/api/jobs/J-1?businessId=${BUSINESS_ID}`, token), BUSINESS_ID, { jobId: "J-1" }))).toBe(200);
+  });
+
   it("rejects an expired field session", async () => {
     const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY);
     const session = await consumeFieldExchangeToken(grant.token);

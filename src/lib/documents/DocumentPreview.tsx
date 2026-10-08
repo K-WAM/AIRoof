@@ -8,7 +8,7 @@ import { fmtPhone } from "@/lib/format/phone";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "" }: {
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay }: {
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ problem: string; solution: string; note?: string }>; closing?: string; thankYou?: string;
   groups?: DocumentGroup[]; sections?: Array<{ title: string; lines: string[] }>; totalLabel?: string; total?: number; className?: string;
@@ -17,6 +17,8 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   /** QUOTE / INVOICE only: "Terms & notices" — pass what noticesForDocument() approved (nothing until the owner approves the wording). */
   notices?: RenderedNotice[];
   photos?: DocumentPhoto[];
+  /** INVOICE only (Billing product): the business's own payment details, printed under the total. */
+  howToPay?: { instructions: string; link: string } | null;
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
   return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
@@ -50,6 +52,11 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 16, fontWeight: 800 }}><span>Quoted total</span><span>${quoteSection.total.toFixed(2)}</span></div>
     </section>}
     {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>${total.toFixed(2)}</span></div>}
+    {howToPay && (howToPay.instructions || howToPay.link) && <section data-testid="how-to-pay" style={{ marginTop: 16, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", breakInside: "avoid" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748b", marginBottom: 4 }}>How to pay</div>
+      {howToPay.instructions && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{howToPay.instructions}</div>}
+      {howToPay.link && <div style={{ fontSize: 13, marginTop: 4 }}>Pay online: <a href={howToPay.link} style={{ color: accent }}>{howToPay.link}</a></div>}
+    </section>}
     {closing && <p style={{ whiteSpace: "pre-wrap", marginTop: 24 }}>{closing}</p>}
     {thankYou && <p style={{ whiteSpace: "pre-wrap", marginTop: 16 }}>{thankYou}</p>}
     {notices.length > 0 && <section aria-label="Terms and notices" style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", breakInside: "avoid-page" }}>

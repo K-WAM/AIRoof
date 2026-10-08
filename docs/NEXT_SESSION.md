@@ -1,6 +1,15 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-## CURRENT STATE 2026-10-04 (end) — read this first
+## CURRENT STATE 2026-10-08 — read this first
+- **Products per client** (owner: "toggle which customers have ability to use what based on the contract"): Admin → client →
+  **Products** (3 switches, audited, `POST /api/admin/businesses/[id]/products`). Server refuses the rest (403 naming the
+  product); menus, Dashboard, search, Calendar, job page and Settings hide it. Client list shows "Calls · Jobs · Billing".
+- **Billing without Stripe**: clients' customers pay the client directly. Settings → Getting paid; How to pay + Pay button on
+  invoices; **Record payment** on the job (partials, receipts); reminders at 1/7/14 days; **Billing** screen.
+- Fixed on the way: the company shell asked for the demo tenant before sign-in finished (401) and briefly treated every module
+  as on — it now waits for the signed-in user.
+
+## CURRENT STATE 2026-10-04 (end)
 - **Superadmin**: Playbook rewritten as short tabs (`/hub/guide`); **Usage & costs** per client with live provider balances
   (`/admin/usage`, rates in `src/lib/billing/aiCostRates.ts`); **billing automation** — receipt on Mark paid, reminders at
   1/7/14 days overdue, Pause client from Invoices, auto-resume on payment.

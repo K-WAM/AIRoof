@@ -44,4 +44,9 @@ describe("jobSteps / currentStep", () => {
   it("an invoiced job never asks for the report (it is optional paperwork)", () => {
     expect(currentStep(jobSteps(j({ status: "invoiced", findings: [finding] })))).toBeNull();
   });
+  it("ends at the report for a client without Billing", () => {
+    const done = j({ status: "complete", findings: [finding], quoteId: "Q-1", reportNotes: "Repaired the tiles." });
+    expect(jobSteps(done, { billing: false }).map((s) => s.id)).not.toContain("invoice");
+    expect(currentStep(jobSteps(done, { billing: false }))).toBeNull();
+  });
 });

@@ -22,16 +22,18 @@ export function visibleNavLinks({ role, superadmin, preview, isEnabled, vocab }:
     const field: NavLink[] = isEnabled("jobs") ? [{ path: "/company/field", label: "Field", group: "Primary" }] : [];
     return [...field, { path: "feedback", label: "Feedback", group: "Help" }];
   }
-  const links: NavLink[] = [
-    { path: "/company/dashboard", label: "Dashboard", group: "Primary" },
+  const links: NavLink[] = [{ path: "/company/dashboard", label: "Dashboard", group: "Primary" }];
+  // What the client bought decides the rest (products → isEnabled): calls, jobs/field, billing.
+  if (isEnabled("calls")) links.push(
     { path: "/company/calls", label: "Calls", group: "Primary" },
     { path: "/company/pipeline", label: "Pipeline", group: "Primary" },
-    { path: "/company/calendar", label: "Calendar", group: "Primary" },
-  ];
+  );
+  if (isEnabled("calls") || isEnabled("jobs")) links.push({ path: "/company/calendar", label: "Calendar", group: "Primary" });
   if (isEnabled("jobs")) links.push(
     { path: "/company/jobs", label: "Jobs", group: "Primary" },
     { path: "/company/field", label: "Field", group: "Primary" },
   );
+  if (isEnabled("billing")) links.push({ path: "/company/billing", label: "Billing", group: "Primary" });
   if (isEnabled("library")) links.push(
     { path: "/company/customers", label: vocab?.customerNounPlural || "Customers", group: "Manage" },
     { path: "/company/library", label: "Library", group: "Manage" },

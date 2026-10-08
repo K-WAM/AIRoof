@@ -81,12 +81,28 @@ export interface JobInvoice {
   subtotal: number;
   taxAmount: number;
   total: number;
+  /** Sum of `payments` (cents-rounded). Paid in full flips status to "paid". */
   amountPaid?: number;
+  /** Each payment the office recorded (Record payment). No online payment: the customer pays the client directly. */
+  payments?: InvoicePayment[];
+  /** Overdue reminders already emailed to the customer, by days late (1, 7, 14) — each goes once. */
+  remindersSent?: number[];
   createdAt: number;
   updatedAt: number;
   createdBy: string;
   sentAt?: number;
   sentTo?: string;
-  /** Set by the office's "Mark paid" (sent -> paid). There is no online payment on job invoices. */
+  /** When the last payment arrived (paid in full). There is no online payment on job invoices. */
   paidAt?: number;
+}
+
+export interface InvoicePayment {
+  paymentId: string;
+  amount: number;
+  method: "cash" | "check" | "card" | "bank" | "zelle" | "other";
+  /** When the money arrived (may be back-dated, never future). */
+  receivedAt: number;
+  note?: string;
+  recordedBy: string;
+  recordedAt: number;
 }

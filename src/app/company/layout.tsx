@@ -26,6 +26,9 @@ import { userTypeDef, userTypeOf } from "@/lib/team/userTypes";
 const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
   { prefix: "/company/jobs", module: "jobs" },
   { prefix: "/company/field", module: "jobs" },
+  { prefix: "/company/calls", module: "calls" },
+  { prefix: "/company/pipeline", module: "calls" },
+  { prefix: "/company/billing", module: "billing" },
   { prefix: "/company/library", module: "library" },
   { prefix: "/company/customers", module: "library" },
 ];

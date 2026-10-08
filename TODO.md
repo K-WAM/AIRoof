@@ -7,6 +7,15 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot
 
+**2026-10-08 — Products per client + Billing without Stripe (T-198/T-199), on branch `ccr-8c0916c7-3r7kkm`.**
+Superadmin → client → **Products**: AI calls & booking · Jobs & field input · Billing & payments (billing needs jobs).
+Missing = ON, so existing clients keep everything. Enforced server-side in the central guards (`enforceProduct` in
+`verifyRole.ts`, path map in `src/lib/products/products.ts`, 30 s per-instance cache); screens follow via bootstrap
+`modules.disabled`. Billing: Settings → Getting paid (`billingPrefs`), How to pay on invoices + emails, Record payment
+(`POST /api/jobs/[jobId]/invoice/payments`, receipts), customer reminders 1/7/14 days in the `recurring-invoices` cron,
+`/company/billing`. Luxor's own Stripe pay link untouched. Open: a product change can take up to ~30 s to reach other
+server instances; no refunds/void-payment yet; reminders skip demo tenants.
+
 **Phase 33 (roofing hardening + Nielsen audit, 2026-10-03) — on branch `ccr-8c0916c7-3r7kkm`, NOT merged/deployed.**
 Security fixes on the field-QR write paths, the duplicate-job and invoice-Send bugs, ~10x fewer live-refresh reads,
 per-screen declutter. Write-up: `docs/USABILITY-AUDIT-2026-10-03.md`. 2026-10-04: T-172–T-179 done, T-181 field-updates pass done (which job / who / time clock); T-180 planned only; NH-32 open. Clarity guideline: `docs/SCREEN-CLARITY-HEURISTICS.md` (C1–C10); phone audit found Pipeline, Jobs list and Calls still cluttered (T-182–T-184).

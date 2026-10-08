@@ -24,11 +24,11 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("Settings sections and phone status", () => {
-  it("orders the six sections, keeps legal notices, and quietly labels a missing line API", async () => {
+  it("orders the seven sections, keeps legal notices, and quietly labels a missing line API", async () => {
     render(<CompanySettingsPage />);
     expect(await screen.findByText("Line status unavailable")).toBeTruthy();
     expect([...document.querySelectorAll(".settings-section-content > section")].map((section) => section.id))
-      .toEqual(["company", "hours", "phone", "documents", "terms", "advanced"]);
+      .toEqual(["company", "hours", "phone", "getting-paid", "documents", "terms", "advanced"]);
     expect(screen.getByText("Legal notices")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Contact Luxor to change your phone line" }).getAttribute("href")).toBe("mailto:connect@luxordev.com");
   });

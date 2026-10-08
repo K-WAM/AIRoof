@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/hooks/useBusinessId", () => ({
   useBusinessId: mocks.useBusinessId,
 }));
+// The provider waits for a signed-in user before loading (see BootstrapContext).
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "u1", businessId: "biz-1" }, loading: false }) }));
 
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 

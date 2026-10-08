@@ -1,4 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
+import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -54,6 +55,7 @@ export async function GET(req: NextRequest) {
     invoiceCopy: { ...DEFAULT_INVOICE_COPY, ...d.invoiceCopy },
     // The quote/invoice screens decide client-side whether any Terms & notices print (documents/notices.ts: only when approved).
     documentNotices: d.documentNotices ?? null,
+    billingPrefs: effectiveBillingPrefs(d),
   }, "semiStatic");
 }
 

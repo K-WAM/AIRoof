@@ -10,7 +10,9 @@ import {
   type VisualFamily,
 } from "@/lib/verticals/templates";
 
-export type CompanyModule = "jobs" | "pricing" | "library";
+// "jobs"/"pricing"/"library" come from the industry template; "calls"/"billing" (and "jobs" again) from the products
+// the client bought (src/lib/products/products.ts). One list, so every screen asks the same isEnabled().
+export type CompanyModule = "jobs" | "pricing" | "library" | "calls" | "billing";
 
 export interface BusinessModules {
   industry: VerticalId | null;
@@ -44,14 +46,14 @@ export function useBusinessModules(): BusinessModules {
   const industry = data?.business.industry ?? null;
   // Unknown industry keeps every module — never hide a tab we aren't sure about.
   const template = industry ? getVerticalTemplate(industry) : null;
-  const disabledModules = (data?.modules.disabled ?? template?.disabledModules ?? []) as CompanyModule[];
+  const disabledModules = (data?.modules?.disabled ?? template?.disabledModules ?? []) as CompanyModule[];
 
   return {
     industry,
     subscriptionStatus: data?.business.subscriptionStatus ?? null,
     vocab: template?.vocab ?? DEFAULT_VOCAB,
-    calendarMode: data?.modules.calendarMode ?? template?.calendarMode ?? "jobs",
-    family: data?.modules.family ?? template?.family ?? null,
+    calendarMode: data?.modules?.calendarMode ?? template?.calendarMode ?? "jobs",
+    family: data?.modules?.family ?? template?.family ?? null,
     disabledModules,
     ready,
     isEnabled: (module) => !disabledModules.includes(module),

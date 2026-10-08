@@ -184,7 +184,9 @@ export default function CalendarBoard() {
   const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const businessId = useBusinessId();
   const tz = useBusinessTimezone();
-  const { calendarMode, vocab, ready: modulesReady } = useBusinessModules();
+  const { calendarMode, vocab, ready: modulesReady, isEnabled } = useBusinessModules();
+  // Bookings come from the AI phone line (product "calls"); without it the board shows jobs only.
+  const hasCalls = modulesReady && isEnabled("calls");
   const { open: openQuickAdd } = useQuickAdd();
   // Field service drags jobs onto crews; intake drags bookings onto providers/vendors.
   const apptMode = calendarMode === "appointments";
@@ -277,7 +279,8 @@ export default function CalendarBoard() {
   // Pipeline/CommandBar (T-071); this was the last page still paying
   // browser->Firestore connection setup on every week change.
   useEffect(() => {
-    if (!businessId) return;
+    if (!businessId || !modulesReady) return;
+    if (!hasCalls) { setAppts([]); return; }
     const startMs = weekStart.getTime();
     const endMs = addDays(weekStart, 7).getTime();
     let cancelled = false;
@@ -298,7 +301,7 @@ export default function CalendarBoard() {
     return () => {
       cancelled = true;
     };
-  }, [businessId, weekStart]);
+  }, [businessId, weekStart, modulesReady, hasCalls]);
 
   useEffect(() => {
     if (!businessId) return;

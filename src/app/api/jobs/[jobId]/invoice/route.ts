@@ -21,6 +21,7 @@ import { fmtDate } from "@/lib/format";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 import type { JobQuote } from "@/types/quote";
+import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -126,7 +127,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: job.address },
     status: "draft",
     issuedAt: now,
-    dueAt: now,
+    // Settings → Getting paid → payment terms (0 = due on receipt, the old behavior).
+    dueAt: now + effectiveBillingPrefs(business).dueDays * 86_400_000,
     opening: fillInvoiceCopy(copy.opening ?? DEFAULT_INVOICE_COPY.opening, values),
     closing: fillInvoiceCopy(copy.closing ?? DEFAULT_INVOICE_COPY.closing, values),
     thankYou: fillInvoiceCopy(copy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, values),
@@ -224,7 +226,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
       return NextResponse.json({ error: current.status === "paid" ? "This invoice is already marked paid" : "Send the invoice before marking it paid" }, { status: 409 });
     }
     const now = Date.now();
-    const patch = { status: "paid" as const, paidAt: now, updatedAt: now };
+    // Paid in full in one step: amountPaid follows so the Billing screen's balance agrees (Record payment is the
+    // detailed path — partial payments, method, receipt).
+    const patch = { status: "paid" as const, paidAt: now, amountPaid: current.total, updatedAt: now };
     await invRef.update(patch);
     return NextResponse.json({ invoice: { ...current, ...patch } });
   }

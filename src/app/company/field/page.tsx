@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
@@ -47,6 +48,8 @@ function FieldPageContent() {
   const previewParam = searchParams?.get("preview");
   const { user } = useAuth();
   const tz = useBusinessTimezone();
+  const { isEnabled: moduleEnabled, ready: modulesReady } = useBusinessModules();
+  const hasCalls = modulesReady && moduleEnabled("calls");
   // Phase 12/Phase 7 — a real name (set at invite time) reads far better on
   // labor lines, punches, and attribution than an email address ever did.
   // Falls back to email for teammates invited before this field existed.
@@ -115,8 +118,9 @@ function FieldPageContent() {
     if (!row) return;
     const from = Date.now();
     const to = from + 8 * 24 * 60 * 60 * 1000;
+    // Bookings come from the AI phone line (product "calls"); without it "My schedule" is blocked time only.
     const [appointmentsResponse, blocksResponse] = await Promise.all([
-      fetch(`/api/businesses/${businessId}/appointments?from=${from}&to=${to}`),
+      hasCalls ? fetch(`/api/businesses/${businessId}/appointments?from=${from}&to=${to}`) : Promise.resolve(new Response(JSON.stringify({ appointments: [] }))),
       fetch(`/api/company/time-blocks?businessId=${businessId}&crewId=${row.crewId}&from=${from}&to=${to}`),
     ]);
     if (!appointmentsResponse.ok || !blocksResponse.ok) throw new Error("Schedule could not be loaded");
@@ -127,7 +131,7 @@ function FieldPageContent() {
     setScheduleAppointments((appointments ?? []).filter((appointment) => appointment.assignedCrewId === row.crewId && appointment.status !== "cancelled").sort((a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)));
     setScheduleBlocks((blocks ?? []).sort((a, b) => a.startTime - b.startTime));
     setScheduleError(null);
-  }, [businessId, user?.crewId]);
+  }, [businessId, user?.crewId, hasCalls]);
 
   useEffect(() => {
     void loadMySchedule().catch(() => setScheduleError("My schedule could not be loaded."));

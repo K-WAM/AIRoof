@@ -67,6 +67,7 @@ async function api(accountKey) {
     get: (p, h) => call("GET", p, undefined, h),
     post: (p, b, h) => call("POST", p, b ?? {}, h),
     patch: (p, b, h) => call("PATCH", p, b ?? {}, h),
+    put: (p, b, h) => call("PUT", p, b ?? {}, h),
     del: (p, b, h) => call("DELETE", p, b, h),
   };
 }

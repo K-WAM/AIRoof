@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,7 @@ const icons: Record<string, LucideIcon> = {
   "/company/calendar": CalendarDays,
   "/company/jobs": Briefcase,
   "/company/field": Mic,
+  "/company/billing": Wallet,
   "/company/customers": Users,
   "/company/library": BookOpen,
   "/company/team": Users,

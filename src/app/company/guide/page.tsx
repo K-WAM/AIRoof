@@ -211,8 +211,8 @@ const CALENDAR_STEP = {
 
 const TABS: { label: string; path: string; Icon: LucideIcon; body: string; module: CompanyModule | null }[] = [
   { module: null, label: "Dashboard", path: "/company/dashboard", Icon: LayoutDashboard, body: "Your home base — today's urgent leads, appointments, and anything waiting on your approval." },
-  { module: null, label: "Calls", path: "/company/calls", Icon: Phone, body: "Every call the agent answered. Play the recording and read the full transcript." },
-  { module: null, label: "Pipeline", path: "/company/pipeline", Icon: Workflow, body: "Leads and appointments. Call back, mark contacted, or confirm — one tap each." },
+  { module: "calls", label: "Calls", path: "/company/calls", Icon: Phone, body: "Every call the agent answered. Play the recording and read the full transcript." },
+  { module: "calls", label: "Pipeline", path: "/company/pipeline", Icon: Workflow, body: "Leads and appointments. Call back, mark contacted, or confirm — one tap each." },
   { module: "jobs", label: "Jobs", path: "/company/jobs", Icon: Briefcase, body: "Each job's materials, labor, photos, invoice, and report in one place." },
   { module: "jobs", label: "Field", path: "/company/field", Icon: Mic, body: "The on-site screen. Hold the mic and speak your update — AI does the paperwork." },
   { module: null, label: "Settings", path: "/company/settings", Icon: Settings, body: "Your agent's name, business hours, and contact details." },
@@ -220,7 +220,7 @@ const TABS: { label: string; path: string; Icon: LucideIcon; body: string; modul
 
 const HOWTOS: { title: string; Icon: LucideIcon; steps: string[]; module: CompanyModule | null }[] = [
   { module: "jobs", title: "Log a field update by voice", Icon: Mic, steps: ["Open Field and pick the job.", "Hold the mic and speak naturally.", "Release — AI extracts materials, labor, and issues onto the job."] },
-  { module: "jobs", title: "Send an invoice", Icon: FileText, steps: ["Open the job → click Generate Invoice.", "Review the auto-filled line items.", "Click Send to Customer, or Print / Save as PDF."] },
-  { module: null, title: "Call a customer back", Icon: PhoneCall, steps: ["Open Pipeline.", "Find the lead or appointment.", "Click “Call Back” right on the card."] },
-  { module: null, title: "Confirm a new booking", Icon: CalendarCheck, steps: ["Open Dashboard.", "Find “New bookings to confirm.”", "Choose how to tell the customer, then confirm."] },
+  { module: "billing", title: "Send an invoice", Icon: FileText, steps: ["Open the job → click Generate Invoice.", "Review the auto-filled line items.", "Click Send to Customer, or Print / Save as PDF."] },
+  { module: "calls", title: "Call a customer back", Icon: PhoneCall, steps: ["Open Pipeline.", "Find the lead or appointment.", "Click “Call Back” right on the card."] },
+  { module: "calls", title: "Confirm a new booking", Icon: CalendarCheck, steps: ["Open Dashboard.", "Find “New bookings to confirm.”", "Choose how to tell the customer, then confirm."] },
 ];

@@ -61,6 +61,13 @@ describe("setupChecklist", () => {
     expect(setupChecklist(empty, modulesFor(["pricing"]), roofing.vocab).map((item) => item.id)).not.toContain("prices");
   });
 
+  it("skips the phone line and test call for a client without the AI calls product", () => {
+    const ids = setupChecklist(empty, modulesFor(["calls"]), roofing.vocab).map((item) => item.id);
+    expect(ids).not.toContain("phone");
+    expect(ids).not.toContain("testCall");
+    expect(ids).toContain("hours");
+  });
+
   it("skips Library destinations if that module is unavailable", () => {
     const ids = setupChecklist(empty, modulesFor(["library"]), roofing.vocab).map((item) => item.id);
     expect(ids).not.toContain("resource");

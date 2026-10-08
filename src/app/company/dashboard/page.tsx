@@ -92,6 +92,10 @@ export default function CompanyDashboardPage() {
   const tz = useBusinessTimezone();
   const { isEnabled, ready: modulesReady, vocab, industry } = useBusinessModules();
   const hasJobs = modulesReady && isEnabled("jobs");
+  // Products (src/lib/products): a client without "AI calls & booking" has no calls, requests or bookings — the
+  // server refuses those reads, so the page never asks and shows its jobs instead.
+  const hasCalls = modulesReady && isEnabled("calls");
+  const hasBilling = modulesReady && isEnabled("billing");
   const searchParams = useSearchParams();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
 
@@ -148,30 +152,28 @@ export default function CompanyDashboardPage() {
         // The job list (up to 100 docs) and the escalation log (50) are the heavy reads — refresh them once a minute,
         // the small lists (new requests, today's bookings) on every tick.
         const slowDue = firstLoad || now - slowLoadedAt.current >= 60_000;
+        const none = Promise.resolve(null);
         const [callCountRes, leadsRes, apptsRes, pendingRes, bizRes, jobsRes, actionsRes, setupRes] = await Promise.all([
-          fetch(`${base}/calls?countOnly=1`),
-          fetch(`${base}/leads?limit=20`),
-          fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`),
-          fetch(`${base}/appointments?pending=1`),
-          firstLoad ? fetch(`${base}/agent-config`) : Promise.resolve(null),
-          hasJobs && slowDue ? fetch(`/api/jobs?businessId=${businessId}`) : Promise.resolve(null),
-          slowDue ? fetch(`${base}/agent-actions?limit=50`) : Promise.resolve(null),
+          hasCalls ? fetch(`${base}/calls?countOnly=1`) : none,
+          hasCalls ? fetch(`${base}/leads?limit=20`) : none,
+          hasCalls ? fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`) : none,
+          hasCalls ? fetch(`${base}/appointments?pending=1`) : none,
+          hasCalls && firstLoad ? fetch(`${base}/agent-config`) : none,
+          hasJobs && slowDue ? fetch(`/api/jobs?businessId=${businessId}`) : none,
+          hasCalls && slowDue ? fetch(`${base}/agent-actions?limit=50`) : none,
           // Only the owner (or a superadmin previewing) sees the checklist — nobody else pays for its count queries.
           canSeeChecklist && firstLoad ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
         ]);
 
-        if (!callCountRes.ok || !leadsRes.ok || !apptsRes.ok || !pendingRes.ok || (actionsRes && !actionsRes.ok) || (jobsRes && !jobsRes.ok)) {
+        const failed = (res: Response | null) => !!res && !res.ok;
+        if ([callCountRes, leadsRes, apptsRes, pendingRes, actionsRes, jobsRes].some(failed)) {
           throw new Error("Dashboard data request failed");
         }
 
-        const [callCountData, leadsData, apptsData, pendingData, jobsData, actionsData] = await Promise.all([
-          callCountRes.json(),
-          leadsRes.json(),
-          apptsRes.json(),
-          pendingRes.json(),
-          jobsRes ? jobsRes.json() : Promise.resolve(null),
-          actionsRes ? actionsRes.json() : Promise.resolve(null),
-        ]);
+        const json = (res: Response | null) => (res ? res.json() : Promise.resolve(null));
+        const [callCountData, leadsData, apptsData, pendingData, jobsData, actionsData] = await Promise.all(
+          [callCountRes, leadsRes, apptsRes, pendingRes, jobsRes, actionsRes].map(json),
+        );
 
         // Matches the old bizDoc.exists() check — a missing business doc
         // (pathological, but possible) leaves the Agent Setup panel empty
@@ -189,11 +191,11 @@ export default function CompanyDashboardPage() {
           });
         }
 
-        setCallCount(callCountData.count);
+        setCallCount(callCountData ? callCountData.count : null);
         if (setupRes?.ok) setSetup(await setupRes.json() as SetupChecklistInput);
-        const nextLeads = (leadsData.leads ?? []) as LeadSnapshot[];
+        const nextLeads = (leadsData?.leads ?? []) as LeadSnapshot[];
         const nextAppointments = [...new Map(
-          ([...((apptsData.appointments ?? []) as ApptSnapshot[]), ...((pendingData.appointments ?? []) as ApptSnapshot[])])
+          ([...((apptsData?.appointments ?? []) as ApptSnapshot[]), ...((pendingData?.appointments ?? []) as ApptSnapshot[])])
             .map((appt) => [appt.appointmentId, appt] as const)
         ).values()].sort((a, b) => a.startTime - b.startTime);
         if (slowDue) slowLoadedAt.current = now;
@@ -227,6 +229,7 @@ export default function CompanyDashboardPage() {
           )
         );
         initialLoadDone.current = true;
+        setLoadError(false);
         if (firstLoad) staticLoadedFor.current = staticKey;
       } catch {
         // A failed background refresh keeps the dashboard on screen; only a failed first load shows the error state.
@@ -237,7 +240,7 @@ export default function CompanyDashboardPage() {
     }
 
     return load();
-  }, [businessId, modulesReady, hasJobs, canSeeChecklist]);
+  }, [businessId, modulesReady, hasJobs, hasCalls, canSeeChecklist]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
 
@@ -268,7 +271,17 @@ export default function CompanyDashboardPage() {
   // leads / 200 soonest appointments), so a very busy tenant's counts are "of the recent ones" —
   // deliberately not a bigger fetch on the most-visited page. Total calls stays as the fourth tile.
   const totalCallsTile = { label: "Total calls", value: callCount ?? "—", href: `/company/calls${previewSuffix}` };
-  const metrics = configuredTiles
+  // Without the calls product the tiles are about the work: what's open, what the crews said, what's ready to bill.
+  const jobsHref = `/company/jobs${previewSuffix}`;
+  const fieldMetrics = [
+    { label: `Active ${vocab.jobNounPlural.toLowerCase()}`, value: activeJobs.length, href: jobsHref },
+    { label: "Field notes (7 days)", value: jobs.filter((j) => j.lastFieldUpdate && Date.now() - j.lastFieldUpdate.at < 7 * 86_400_000).length, href: jobsHref },
+    { label: "Done", value: jobs.filter((j) => j.status === "complete").length, href: jobsHref },
+    ...(hasBilling ? [{ label: "Invoiced", value: jobs.filter((j) => j.status === "invoiced").length, href: `/company/billing${previewSuffix}` }] : []),
+  ];
+  const metrics = !hasCalls
+    ? fieldMetrics
+    : configuredTiles
     ? [...configuredTiles.map((tile) => ({
         label: tile.label,
         value: counts[tile.metric],
@@ -284,7 +297,7 @@ export default function CompanyDashboardPage() {
   const nextItemId = checklist.find((item) => !item.done)?.id;
   const nextItem = checklist.find((item) => !item.done);
   const showsChecklist = canSeeChecklist && checklist.length > 0 && checklistDone < checklist.length;
-  const neverHadCall = callCount === 0;
+  const neverHadCall = hasCalls && callCount === 0;
   const lineConnected = setup ? setup.phoneConfigured : !!agent?.phoneLineConnected;
 
   const nextUp = pendingAppts.length > 0
@@ -295,6 +308,8 @@ export default function CompanyDashboardPage() {
     ? `${urgentLeads.length} caller${urgentLeads.length === 1 ? "" : "s"} waiting for a call back.`
     : todayAppointments.length > 0
     ? `${todayAppointments.length} visit${todayAppointments.length === 1 ? "" : "s"} on today's schedule.`
+    : !hasCalls && activeJobs.length > 0
+    ? `${activeJobs.length} active ${activeJobs.length === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}.`
     : "Nothing waiting on you right now.";
 
   if (loading) {
@@ -332,9 +347,9 @@ export default function CompanyDashboardPage() {
           )}
           {/* The one place the AI's status shows; tap it to change what the AI says (Settings). The old "Agent Setup"
               panel repeated Settings in technical terms ("5 configured", the escalation number) — removed 2026-09-28. */}
-          <Link className={`status-pill ${isAgentActive ? "status-pill--ok" : "status-pill--off"}`} href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
+          {hasCalls && <Link className={`status-pill ${isAgentActive ? "status-pill--ok" : "status-pill--off"}`} href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
             {isAgentActive ? "AI answering calls" : "AI receptionist off"}
-          </Link>
+          </Link>}
         </div>
       </header>
 
@@ -492,7 +507,16 @@ export default function CompanyDashboardPage() {
           )}
 
           {/* Plan §3.2: a brand-new account never sees "All caught up" — the checklist (owners) or the phone-line prompt is the page's job. */}
-          {allClear && !neverHadCall && (
+          {allClear && !hasCalls && hasJobs && jobs.length === 0 && !showsChecklist && (
+            <EmptyState
+              icon={Wrench}
+              title={`No ${vocab.jobNounPlural.toLowerCase()} yet`}
+              body={`Create your first ${vocab.jobNoun.toLowerCase()}, then send the field link to whoever is on site.`}
+              action={user?.role !== "viewer" ? { label: `Create a ${vocab.jobNoun.toLowerCase()}`, href: jobsHref } : undefined}
+              testId="dashboard-empty-jobs"
+            />
+          )}
+          {allClear && !neverHadCall && (hasCalls || jobs.length > 0) && (
             <div className="feed-empty">All caught up — nothing urgent right now.</div>
           )}
           {allClear && neverHadCall && !showsChecklist && (lineConnected ? (
