@@ -7,6 +7,9 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot
 
+**2026-10-09 (latest) — industry tailoring:** pet care added (14 industries), per-industry `/try` demo + sandbox,
+dental/care-home intake fields. Readiness % + gaps (recurring visits, multi-visit invoice): `docs/INDUSTRY-READINESS.md`.
+
 **2026-10-09 — branch `ccr-8c0916c7-3r7kkm` is the release candidate (pushed, not merged/deployed).** Next: merge to `main`,
 deploy, real-phone checks — see `docs/NEXT_SESSION.md` "START HERE (2026-10-09)". 2026-10-08 night: load-time + desktop
 clarity pass (production-build harness `--prod`, server-side customer linking, race-safe customer resolver, say-it-once fixes),
@@ -84,7 +87,7 @@ gaps it surfaced are tracked as Phase 11 (T-081–086 below), none demo-blocking
 items below); `main` is ahead of `origin/main` with unpushed local work (T-095 base-URL parameterization,
 the Phase 14 TODO entries, and the merged T-098/T-099 verticals — all 2026-09-23, awaiting owner push
 approval); production `/api/health` reports Firestore connected and
-OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 13 industries (see
+OpenAI/DeepSeek/Resend/Vapi/Firebase/cron all configured; the platform templates 14 industries (see
 `src/lib/verticals/templates.ts`).
 
 *Full dated session narratives (what shipped, what was found, what verification ran) live in `HANDOFF.md`

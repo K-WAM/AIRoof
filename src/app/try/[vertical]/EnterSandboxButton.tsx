@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
-export function EnterSandboxButton() {
+/** `vertical` = which industry's demo business to open (each has its own; see api/demo/sandbox-token). */
+export function EnterSandboxButton({ vertical }: { vertical?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +15,7 @@ export function EnterSandboxButton() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/demo/sandbox-token", { method: "POST" });
+      const res = await fetch("/api/demo/sandbox-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ vertical }) });
       const data = (await res.json()) as { token?: string; error?: string };
       if (!res.ok || !data.token) throw new Error(data.error ?? "Could not start the sandbox");
 

@@ -1,4 +1,5 @@
 import { fmtPhone } from "@/lib/format";
+import { useBusinessModules } from "@/hooks/useBusinessModules";
 
 export interface BookingDetailsValue {
   callerName?: string;
@@ -27,6 +28,9 @@ export function BookingDetails({ booking, inspectorName, timeZone, compact = fal
   showTime?: boolean;
 }) {
   const notes = noteLines(booking.notes);
+  // Field trades book an inspection visit; appointment industries (dental, care homes…) book with a provider/director.
+  const { calendarMode, vocab } = useBusinessModules();
+  const assigneeLabel = calendarMode === "appointments" ? vocab.resourceNoun : "Inspector";
   return (
     <div className="booking-details" style={{ display: "grid", gap: compact ? 5 : 8, fontSize: compact ? 12 : 13, lineHeight: 1.45 }}>
       {showTime && booking.startTime && <div><strong>Time:</strong> {new Date(booking.startTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", ...(timeZone ? { timeZone } : {}) })}</div>}
@@ -35,7 +39,7 @@ export function BookingDetails({ booking, inspectorName, timeZone, compact = fal
       {booking.address && <div><strong>Address:</strong> <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.address)}`} target="_blank" rel="noreferrer">{booking.address}</a></div>}
       {booking.callerEmail && <div><strong>Email:</strong> <a href={`mailto:${booking.callerEmail}`}>{booking.callerEmail}</a></div>}
       {booking.textOk === true && <div><span className="tag">OK to text</span></div>}
-      {inspectorName && <div><strong>Inspector:</strong> {inspectorName}{booking.assignedBy === "ai" ? " · assigned by AI" : ""}</div>}
+      {inspectorName && <div><strong>{assigneeLabel}:</strong> {inspectorName}{booking.assignedBy === "ai" ? " · assigned by AI" : ""}</div>}
       {notes.length > 0 && <div style={{ display: "grid", gap: 4 }}>
         <strong>Notes</strong>
         {notes.map((line, index) => {

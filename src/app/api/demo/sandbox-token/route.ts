@@ -24,9 +24,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
+import { ensureSandboxBusiness, isVerticalId, sandboxBusinessId } from "@/lib/verticals/sandboxBusiness";
 
-const SANDBOX_BUSINESS_ID = "demo-roofing";
-const SANDBOX_EMAIL = "sandbox-visitor@luxordev.com";
+// No industry given (older links) = the shared live-line business, as before.
+const LIVE_LINE_BUSINESS_ID = "demo-roofing";
+const LIVE_LINE_EMAIL = "sandbox-visitor@luxordev.com";
 
 export async function POST(request: NextRequest) {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 20, keyPrefix: "demo-sandbox-token" });
@@ -38,9 +40,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sandbox unavailable" }, { status: 503 });
   }
 
-  // Guard: only ever the hardcoded demo business, and only if it's still
-  // actually marked as a demo (the same isDemo marker demo-customize/route.ts
-  // requires before it will touch a business at all).
+  // Which industry's sandbox (2026-10-09). Only an industry id from the code's own template list is accepted, and it
+  // maps to `demo-try-<industry>` — a client can never name a business. Each industry has its own demo business, so a
+  // dog walker's link always opens dog walking, whatever the live demo line was last launched as.
+  const body = (await request.json().catch(() => ({}))) as { vertical?: unknown };
+  const vertical = isVerticalId(body.vertical) ? body.vertical : null;
+  const SANDBOX_BUSINESS_ID = vertical ? sandboxBusinessId(vertical) : LIVE_LINE_BUSINESS_ID;
+  const SANDBOX_EMAIL = vertical ? `sandbox-${vertical}@luxordev.com` : LIVE_LINE_EMAIL;
+
+  if (vertical) {
+    if (!(await ensureSandboxBusiness(db, vertical).catch(() => false))) {
+      return NextResponse.json({ error: "Sandbox unavailable" }, { status: 503 });
+    }
+  }
+  // Guard: only ever a demo business, and only if it's still actually marked as a demo (the same isDemo marker
+  // demo-customize/route.ts requires before it will touch a business at all).
   const bizSnap = await db.collection("businesses").doc(SANDBOX_BUSINESS_ID).get();
   if (!bizSnap.exists || bizSnap.data()?.isDemo !== true) {
     return NextResponse.json({ error: "Sandbox unavailable" }, { status: 503 });

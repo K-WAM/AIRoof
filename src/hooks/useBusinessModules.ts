@@ -30,6 +30,8 @@ export interface BusinessModules {
   isEnabled: (module: CompanyModule) => boolean;
   /** Not bought (a product the client could add) — shown greyed with a lock, opens the upgrade page. */
   isLocked: (module: CompanyModule) => boolean;
+  /** False when this industry books work at a set price (templates.ts `quotes`): jobs skip Findings and Quote. */
+  quotes: boolean;
 }
 
 const DEFAULT_VOCAB = VERTICAL_TEMPLATES.roofing.vocab;
@@ -61,5 +63,6 @@ export function useBusinessModules(): BusinessModules {
     ready,
     isEnabled: (module) => !disabledModules.includes(module),
     isLocked: (module) => lockedModules.includes(module),
+    quotes: template?.quotes !== false,
   };
 }

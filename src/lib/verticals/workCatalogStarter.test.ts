@@ -5,10 +5,10 @@ import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
 describe("work catalog starter", () => {
   const industries = Object.keys(VERTICAL_TEMPLATES) as VerticalId[];
 
-  it("declares a catalog for every vertical — empty exactly when jobs is disabled", () => {
+  it("declares a catalog for every vertical — empty exactly when jobs is disabled or the work is booked at a set price", () => {
     expect(Object.keys(WORK_CATALOG_STARTER).sort()).toEqual([...industries].sort());
     for (const industry of industries) {
-      const jobsDisabled = VERTICAL_TEMPLATES[industry].disabledModules.includes("jobs");
+      const jobsDisabled = VERTICAL_TEMPLATES[industry].disabledModules.includes("jobs") || VERTICAL_TEMPLATES[industry].quotes === false;
       if (jobsDisabled) {
         expect(WORK_CATALOG_STARTER[industry], industry).toEqual([]);
       } else {

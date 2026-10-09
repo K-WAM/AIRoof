@@ -54,6 +54,11 @@ export const STARTER_KITS: Record<VerticalId, StarterKit> = {
     doc("tour-follow-up", "Tour follow-up template", "DAYCARE TOUR FOLLOW-UP — FRONT OFFICE TEMPLATE\nHello [Contact name],\nThank you for your interest in [Center name]. We received your tour request for [Requested date].\nOur office will confirm availability and share general program information.\nContact us at [Office phone/email].\nPlease keep child-specific personal information out of this message."),
     doc("enrollment-checklist", "Enrollment checklist template", "ENROLLMENT CHECKLIST — FRONT OFFICE TEMPLATE\nCenter: [Name]\n[ ] Confirm program and age-range availability\n[ ] Schedule a tour\n[ ] Share published hours and fees\n[ ] Provide the center's official enrollment packet\n[ ] Confirm start-date request with the office\nDo not record a child's health or identifying details on this checklist."),
   ] },
+  // Priced visits print as invoice lines; no estimate document (a walk is booked at a set price).
+  "pet-care": { materials: [material("30-minute walk", "visit", 25), material("60-minute walk", "visit", 40), material("Drop-in visit", "visit", 22), material("Overnight stay", "night", 85)], laborRates: [labor("Walker", 22)], documents: [
+    agreement("PET CARE"),
+    doc("meet-greet", "Meet & greet checklist", "MEET & GREET CHECKLIST — TEMPLATE\nClient: [Name]  Address: [Address]\nPet(s): [Name / breed / age]\n[ ] Walk routine and favourite route\n[ ] Food, treats and allergies\n[ ] Vet name and phone: [Details]\n[ ] Key, lockbox or code: [Details]\n[ ] Emergency contact: [Name / phone]\n[ ] Photos and updates OK: [Yes / No]\nReview with your own adviser before use."),
+  ] },
   "junk-removal": { materials: [material("Small load", "load", 150), material("Medium load", "load", 300), material("Large load", "load", 500)], laborRates: [labor("Removal crew member", 60), labor("Crew lead", 80)], documents: [agreement("JUNK REMOVAL"), estimate("JUNK REMOVAL")] },
 };
 

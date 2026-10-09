@@ -16,7 +16,7 @@ const FORBIDDEN_INTAKE_TERMS =
 
 describe("T-100 intake fields — template completeness", () => {
   it("every vertical declares between 2 and 5 intake fields", () => {
-    expect(Object.keys(VERTICAL_TEMPLATES)).toHaveLength(13);
+    expect(Object.keys(VERTICAL_TEMPLATES)).toHaveLength(14);
     for (const template of ALL_VERTICALS) {
       expect(
         template.intakeFields.length,
@@ -84,9 +84,13 @@ describe("T-100 intake fields — care-homes and daycares hard rule", () => {
 
   it("stays within the allowed front-office set: community type, age RANGE, program, desired start date", () => {
     const careHomes = VERTICAL_TEMPLATES["care-homes"];
+    // 2026-10-09: + who is calling (relationship) and the referral source — front-office sales facts, select-only,
+    // no health or identity data (the same rule; reviewed against T-100).
     expect(careHomes.intakeFields.map((f) => f.key).sort()).toEqual([
+      "calling-for",
       "community-type",
       "desired-start-date",
+      "referral-source",
       "room-preference",
     ]);
     const moveIn = careHomes.intakeFields.find((f) => f.key === "desired-start-date");

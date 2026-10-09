@@ -22,12 +22,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { mintFieldExchangeToken, verifySuperadmin } from "@/lib/auth/verifyRole";
 import { VERTICAL_TEMPLATES, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
-import { mergeWorkStarter, workCatalogStarterFor } from "@/lib/verticals/workCatalogStarter";
-import { WORK_CATALOG_STARTER } from "@/lib/verticals/workCatalogStarter";
-import { mergeStarterKit, starterKitFor } from "@/lib/verticals/starterKits";
-import { ROOFING_WORKED_JOB } from "@/lib/verticals/demoSeedRoofing";
-import { copyCatalogFinding } from "@/lib/jobs/findings";
-import { writeJobProjection } from "@/lib/jobs/writeProjection";
+import { writeDemoSeed } from "@/lib/verticals/writeDemoSeed";
 import { getVoiceProvider } from "@/lib/voice/provider";
 import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
 import { MAX_LOGO_B64_BYTES, totalLogoBytes } from "@/lib/branding/logo";
@@ -35,7 +30,6 @@ import { jsonWithCache } from "@/lib/http/cache";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
 import type { LibraryLogo } from "@/types/library";
-import type { FieldUpdate } from "@/types/jobs";
 
 // The single live demo line. demo-roofing already has the Vapi number + assistant.
 const LIVE_LINE_BUSINESS_ID = "demo-roofing";
@@ -349,125 +343,9 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     }
     for (const doc of conversations.docs) await doc.ref.delete();
 
-    // Use the same pure import helpers as the Library starter endpoints. Start
-    // empty on every launch so an earlier prospect's edits cannot leak.
-    const workItems = workCatalogStarterFor(opts.verticalId);
-    if (workItems) {
-      const { catalog } = mergeWorkStarter({ items: [] }, workItems, now);
-      await base.collection("library").doc("workCatalog").set(catalog);
-    } else {
-      await base.collection("library").doc("workCatalog").set({ items: [], starterKitImported: [] });
-    }
-    const pricingKit = starterKitFor(opts.verticalId);
-    if (pricingKit) {
-      const { library } = mergeStarterKit({ materials: [], laborRates: [], documents: [] }, pricingKit,
-        !t.disabledModules.includes("pricing"), opts.verticalId, now);
-      await base.collection("library").doc("pricing").set(library);
-    } else {
-      await base.collection("library").doc("pricing").set({ materials: [], laborRates: [], documents: [] });
-    }
-
-    const add = db.batch();
-
-    // Resources first — appointments/jobs below reference them by id.
-    const resourceIds = seed.resources.map(() => base.collection("crews").doc());
-    seed.resources.forEach((r, i) => {
-      add.set(resourceIds[i], {
-        ...r, crewId: resourceIds[i].id, businessId: LIVE_LINE_BUSINESS_ID,
-        active: true, createdAt: now,
-      });
-    });
-
-    // Job ids are handed out from the business's jobCounter (see POST /api/jobs), so
-    // seeding fixed ids without advancing it would let the next real job collide
-    // with — and overwrite — a seeded one.
-    const workedJobId = "J-1001";
-    let workedLedger: FieldUpdate[] | undefined;
-    if (opts.verticalId === "roofing") {
-      const catalogById = new Map(WORK_CATALOG_STARTER.roofing.map((item) => [item.itemId, item]));
-      const findings = ROOFING_WORKED_JOB.findingItemIds
-        .map((itemId) => catalogById.get(itemId))
-        .filter((item) => item !== undefined)
-        .map((item) => copyCatalogFinding(item));
-      workedLedger = ROOFING_WORKED_JOB.updates.map((update, index) => ({
-        updateId: `seed-${index + 1}`,
-        rawText: update.rawText,
-        submittedBy: update.submittedBy,
-        createdAt: now - update.minutesAgo * 60_000,
-        language: update.language,
-        ...(update.rawTextEn ? { rawTextEn: update.rawTextEn } : {}),
-        parsed: update.parsed,
-      }));
-      add.set(base.collection("jobs").doc(workedJobId), {
-        jobId: workedJobId,
-        businessId: LIVE_LINE_BUSINESS_ID,
-        title: ROOFING_WORKED_JOB.title,
-        status: "inspection",
-        clientName: ROOFING_WORKED_JOB.clientName,
-        clientPhone: ROOFING_WORKED_JOB.clientPhone,
-        clientEmail: ROOFING_WORKED_JOB.clientEmail,
-        address: ROOFING_WORKED_JOB.address,
-        serviceType: ROOFING_WORKED_JOB.serviceType,
-        notes: ROOFING_WORKED_JOB.notes,
-        findings,
-        createdAt: now - 6 * 60 * 60_000,
-        updatedAt: now,
-      });
-      workedLedger.forEach((update) => {
-        add.set(base.collection("jobs").doc(workedJobId).collection("updates").doc(update.updateId), update);
-      });
-    }
-
-    const firstRegularJobNumber = opts.verticalId === "roofing" ? 1002 : 1001;
-    seed.jobs.forEach((j, i) => {
-      const jobId = `J-${firstRegularJobNumber + i}`;
-      add.set(base.collection("jobs").doc(jobId), {
-        ...j, jobId, businessId: LIVE_LINE_BUSINESS_ID,
-        createdAt: now - (i + 1) * 86_400_000, updatedAt: now,
-      });
-    });
-    const lastSeededJobNumber = firstRegularJobNumber + seed.jobs.length - 1;
-    if (seed.jobs.length > 0 || workedLedger) {
-      add.update(base, { jobCounter: Math.max(1001, lastSeededJobNumber) });
-    }
-    seed.calls.forEach((c, i) => {
-      const createdAt = now - (i + 1) * 3_600_000;
-      // Deterministic transcript: the seed's 3–5 turns become CallMessage[] so the
-      // Calls page renders a real conversation and "This call produced" links work.
-      const messages = c.messages.map((message, index) => ({
-        messageId: `seed-message-${index + 1}`,
-        role: message.role,
-        text: message.text,
-        timestamp: createdAt + index * 5_000,
-      }));
-      add.set(base.collection("calls").doc(c.callId), {
-        ...c, businessId: LIVE_LINE_BUSINESS_ID, status: "completed",
-        startedAt: createdAt, endedAt: createdAt + c.durationSecs * 1000, durationSecs: c.durationSecs,
-        createdAt, updatedAt: now, messages,
-      });
-    });
-    seed.leads.forEach((l, i) => {
-      add.set(base.collection("leads").doc(), {
-        ...l, businessId: LIVE_LINE_BUSINESS_ID, createdAt: now - (i + 1) * 7_200_000, updatedAt: now,
-      });
-    });
-    seed.appointments.forEach((a) => {
-      const { resourceIndex, ...appt } = a;
-      add.set(base.collection("appointments").doc(), {
-        ...appt, businessId: LIVE_LINE_BUSINESS_ID, endTime: a.startTime + 3_600_000,
-        calendarProvider: "mock", createdAt: now, updatedAt: now,
-        // Intake verticals open with a populated board; one booking stays
-        // unassigned on purpose so there's always a card to drag in the demo.
-        ...(resourceIndex !== undefined && resourceIds[resourceIndex]
-          ? { assignedCrewId: resourceIds[resourceIndex].id }
-          : {}),
-      });
-    });
-    await add.commit();
-
-    if (workedLedger) {
-      await writeJobProjection(db, LIVE_LINE_BUSINESS_ID, workedJobId, { ledger: workedLedger });
-    }
+    // Library starters, resources, jobs, calls, leads and bookings — the same writer the public per-industry
+    // sandboxes use (src/lib/verticals/writeDemoSeed.ts), so the two demos can never drift apart.
+    await writeDemoSeed(db, LIVE_LINE_BUSINESS_ID, opts.verticalId, now, seed);
 
     await base.update({ seededAt: now });
 

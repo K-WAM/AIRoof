@@ -190,6 +190,16 @@ class FakeStore {
   seed(path: string, id: string, data: DocData) {
     this.set(path, id, data);
   }
+
+  /** Every document at or under `path` (a collection or document path) — what Firestore's recursiveDelete removes. */
+  deleteTree(path: string) {
+    for (const key of [...this.data.keys()]) {
+      if (key === path || key.startsWith(`${path}/`)) this.data.delete(key);
+    }
+    const parent = path.split("/").slice(0, -1).join("/");
+    const id = path.split("/").at(-1)!;
+    if (parent && path.split("/").length % 2 === 0) this.bucket(parent).delete(id);
+  }
 }
 
 export function makeFakeDb() {
@@ -239,6 +249,9 @@ export function makeFakeDb() {
           ops.forEach((op) => op());
         },
       };
+    },
+    async recursiveDelete(ref: { path: string }) {
+      store.deleteTree(ref.path);
     },
     __seed(collectionPath: string, id: string, data: DocData) {
       store.seed(collectionPath, id, data);

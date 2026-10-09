@@ -66,6 +66,7 @@ const RESOURCES: Record<VerticalId, string[]> = {
   "appliance-repair": ["Sam T.", "Rita K.", "Miguel P.", "Dana W.", "After-hours On-call"],
   childcare: ["Jenna M.", "Priya S.", "Marcus T.", "Weekend Team", "After-hours On-call"],
   daycares: ["Director — Ms. Alvarez", "Enrollment Coordinator", "Infant Room Lead", "Toddler Room Lead", "Pre-K Room Lead"],
+  "pet-care": ["Sam (walker)", "Alex (walker)", "Jordan (walker)", "Weekend Walker", "Pet Sitter — Maria"],
   "junk-removal": ["Truck 1 Crew", "Truck 2 Crew", "Cleanout Crew", "Heavy Haul Team", "Same-Day Crew"],
 };
 
@@ -84,6 +85,10 @@ export interface DemoSeed {
     address: string;
     serviceType: string;
     status: string;
+    /** Set-price industries: a visit already on today's schedule, on resource `resourceIndex`. */
+    scheduledStart?: number;
+    scheduledEnd?: number;
+    resourceIndex?: number;
   }>;
   calls: Array<{
     /** Deterministic id: the call doc id AND what linked leads/appointments store as `sourceCallId`. */
@@ -160,6 +165,12 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
     }, "America/New_York")!;
   });
 
+  const todaysVisit = (i: number) => {
+    const p = zonedParts(now, "America/New_York");
+    const start = zonedDateTimeToUtc({ year: p.year, month: p.month, day: p.day, hour: 9 + i * 2, minute: 0 }, "America/New_York")!;
+    return { scheduledStart: start, scheduledEnd: start + 60 * 60_000, resourceIndex: i % 3 };
+  };
+
   const resources = RESOURCES[verticalId].map((name, i) => ({
     name,
     email: `${name.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.|\.$/g, "")}@example.com`,
@@ -171,7 +182,9 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
   const jobs: DemoSeed["jobs"] = apptMode
     ? []
     : Array.from({ length: 14 }, (_, i) => {
-        const status = JOB_STATUSES[i] ?? "inspection";
+        // Set-price work (a dog walk) is never "inspected" or "quoted": it is booked, then done.
+        const quoted = JOB_STATUSES[i] ?? "inspection";
+        const status = t.quotes === false && (quoted === "inspection" || quoted === "quoted") ? "open" : quoted;
         const caller = CALLERS[i % CALLERS.length];
         const addr = ADDRESSES[i % ADDRESSES.length];
         const svcIdx = i % svc.length;
@@ -182,6 +195,8 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
           address: addr,
           serviceType: s(svcIdx),
           status,
+          // Four of today's visits already on walkers' schedules — the Dashboard's "Today's visits" reads real data.
+          ...(t.quotes === false && i < 4 ? todaysVisit(i) : {}),
         };
       });
 

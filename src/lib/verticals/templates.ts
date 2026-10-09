@@ -13,7 +13,8 @@ export type VerticalId =
   | "appliance-repair"
   | "childcare"
   | "daycares"
-  | "junk-removal";
+  | "junk-removal"
+  | "pet-care";
 
 /**
  * Per-vertical wording for the shared company UI. Every surface that would
@@ -117,6 +118,11 @@ export interface VerticalTemplate {
   disabledModules: Array<"jobs" | "pricing" | "library">;
   /** Extra booking/lead details the phone agent collects as labeled values (T-100). */
   intakeFields: IntakeField[];
+  /**
+   * `false` = this industry's work is booked at a set price (a dog walk, a standard clean): its jobs skip the Findings
+   * and Quote steps — Booked → Working → Done → Invoiced. Missing = the full roofing-style workflow.
+   */
+  quotes?: false;
 }
 
 export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
@@ -569,6 +575,8 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       { key: "patient-status", label: "New or returning patient", type: "select", options: ["New patient", "Returning patient"], appliesTo: "both" },
       { key: "insurance", label: "Insurance", type: "yesno", appliesTo: "both" },
       { key: "insurance-provider", label: "Insurance provider", type: "text", appliesTo: "both" },
+      // What the visit is for decides its length and urgency — the first question AI front desks for dental ask.
+      { key: "visit-reason", label: "Reason for visit", type: "select", options: ["Cleaning and checkup", "Toothache or emergency", "Cosmetic or whitening", "Other"], appliesTo: "both" },
     ],
     // No field jobs. Calendar stays (patients → providers); Library stays for the
     // provider roster + documents, minus the materials catalog (see "pricing").
@@ -668,6 +676,9 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       { key: "community-type", label: "Community type of interest", type: "select", options: ["Independent living community", "Assisted living community", "Memory care community", "Not sure yet"], appliesTo: "both" },
       { key: "room-preference", label: "Room preference", type: "select", options: ["Studio", "One bedroom", "Two bedrooms", "Not sure"], appliesTo: "both" },
       { key: "desired-start-date", label: "Desired move-in date", type: "date", appliesTo: "both" },
+      // Senior-living sales tools track who is calling and where they heard of you (referral sources) — no health data.
+      { key: "calling-for", label: "Calling for", type: "select", options: ["Myself", "A parent", "A spouse or partner", "A hospital, doctor or agency"], appliesTo: "both" },
+      { key: "referral-source", label: "How they heard about us", type: "select", options: ["Online search", "Hospital or doctor", "Friend or family", "Placement agency", "Other"], appliesTo: "both" },
     ],
     disabledModules: ["jobs", "pricing"],
   },
@@ -1256,6 +1267,92 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       { key: "load-size", label: "Load size", type: "select", options: ["A few items", "Half truck", "Full truck", "Multiple trucks"], appliesTo: "both" },
       { key: "item-types", label: "Items to remove", type: "select", options: ["Furniture", "Appliances", "Yard waste", "Construction debris", "Whole-house cleanout"], appliesTo: "both" },
       { key: "access", label: "Stairs or limited access", type: "yesno", appliesTo: "both" },
+    ],
+    disabledModules: [],
+  },
+
+  "pet-care": {
+    verticalId: "pet-care",
+    label: "Dog Walking & Pet Care",
+    description: "Dog walks, drop-in visits, pet sitting and boarding — booked, scheduled, reported and paid.",
+    // A walk is a job like a roofing job, minus the quote: booked → assigned to a walker → visit report → invoice.
+    calendarMode: "jobs",
+    family: "care",
+    quotes: false,
+    vocab: {
+      jobNoun: "Visit",
+      jobNounPlural: "Visits",
+      customerNoun: "Client",
+      customerNounPlural: "Clients",
+      resourceNoun: "Walker",
+      resourceNounPlural: "Walkers",
+      voiceExample: "Walked Bella 30 minutes, she peed and pooped, fresh water, back door locked",
+      jobTitlePlaceholder: "e.g. 30-min walk — Bella",
+      serviceTypePlaceholder: "30-minute walk",
+      resourcePlaceholder: "Sam (walker)",
+      materialPlaceholder: "30-minute walk",
+      documentPlaceholder: "Pet care agreement",
+    },
+    approvedServices: [
+      "Dog walks (30 or 60 minutes)",
+      "Drop-in visits and feeding",
+      "Overnight pet sitting",
+      "Puppy visits",
+      "Cat care visits",
+      "Meet & greet for new clients",
+    ],
+    approvedFaqs: [
+      {
+        question: "How does it start?",
+        answer:
+          "Every new client starts with a free meet & greet at your home so we can meet your pet, see the routine and pick up a key or code.",
+      },
+      {
+        question: "Do you send updates?",
+        answer: "Yes. After every visit you get a short report with photos — how long, potty breaks, food and water, anything we noticed.",
+      },
+      {
+        question: "Are your walkers insured and background-checked?",
+        answer: "Yes. Every walker is background-checked, and we are insured and bonded.",
+      },
+      {
+        question: "How do I pay?",
+        answer: "You get an invoice by email after your visits, with simple ways to pay.",
+      },
+    ],
+    emergencyRules: [
+      "If a caller reports a lost pet, an injured pet or a pet in distress during a visit: escalate to the owner of the business immediately",
+      "If a caller reports a pet bite or aggressive incident: escalate immediately and do not discuss fault",
+      "If a pet seems seriously ill: tell the caller to contact their veterinarian or an emergency animal hospital now",
+    ],
+    bookingRules: [
+      "New clients book a meet & greet first; returning clients can book walks or visits directly",
+      "Collect the pet's name, type and breed, the address, and how to get in (key, lockbox or code)",
+      "Ask whether this is one-time or a regular schedule (which days and times)",
+      "Never promise a specific walker; the team assigns one and confirms",
+    ],
+    disallowedTopics: [
+      "veterinary or medical advice",
+      "medication dosing",
+      "training or behaviour guarantees",
+      "firm prices for overnight or holiday stays without checking",
+    ],
+    agentName: "Penny",
+    agentIdentity: "pet care coordinator",
+    greetingTemplate: "Thanks for calling {businessName}, this is Penny. How can I help you and your pet today?",
+    afterHoursGreetingTemplate:
+      "Thanks for calling {businessName}, this is Penny. We're out walking right now, but I can book a walk or a meet & greet for you.",
+    agentTone: "friendly, upbeat and reassuring",
+    icon: "PawPrint",
+    color: "#b45309",
+    shortLabel: "Pet Care",
+    sampleCallerScript:
+      "Hey [Prospect], you're mid-walk with three leashes and a new client calls about weekday walks. Penny books the meet & greet and puts it on your schedule — you never touch the phone. Want to hear it?",
+    intakeFields: [
+      { key: "pet-type", label: "Pet", type: "select", options: ["Dog", "Cat", "Dog and cat", "Other"], appliesTo: "both" },
+      { key: "pet-names", label: "Pet name(s) and breed", type: "text", appliesTo: "both" },
+      { key: "schedule", label: "How often", type: "select", options: ["One-time", "A few days a week", "Every weekday", "While I'm away"], appliesTo: "both" },
+      { key: "entry", label: "How we get in", type: "select", options: ["Someone will be home", "Key", "Lockbox or code", "Not sure yet"], appliesTo: "appointment" },
     ],
     disabledModules: [],
   },

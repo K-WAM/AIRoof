@@ -129,7 +129,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const { open: openQuickAdd } = useQuickAdd();
   const readOnly = useAuth().user?.role === "viewer";
   // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
-  const { isEnabled: moduleEnabled, ready: modulesReady } = useBusinessModules();
+  const { isEnabled: moduleEnabled, ready: modulesReady, quotes: usesQuotes } = useBusinessModules();
   const hasBilling = !modulesReady || moduleEnabled("billing");
   const hasCalls = !modulesReady || moduleEnabled("calls");
   // Business-timezone formatters ("Sep 25, 8:59 PM") — the same format as Calls and Pipeline, never the browser locale.
@@ -871,15 +871,19 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   ] as const;
   // "Include the quote" on the report needs a quote the customer has actually been sent (or accepted).
   const quoteCanGoOnReport = !!pageQuote && QUOTE_SHOWABLE_STATUSES.includes(pageQuote.status);
-  const steps = job ? jobSteps(job, { billing: hasBilling }) : [];
+  const steps = job ? jobSteps(job, { billing: hasBilling, quotes: usesQuotes }) : [];
   const WORKFLOW_TABS = [
     { id: "findings", number: "①", label: "Findings", step: steps.find((step) => step.id === "findings") },
     { id: "quote", number: "②", label: "Quote", step: steps.find((step) => step.id === "quote") },
     { id: "report", number: "③", label: "Report", step: steps.find((step) => step.id === "report") },
     { id: "invoice", number: "④", label: "Invoice", step: steps.find((step) => step.id === "invoice") },
   ] as const;
-  const workflowTabs = WORKFLOW_TABS.filter((tab) => tab.id !== "invoice" || hasBilling);
+  // Set-price industries (a dog walk) have no Findings/Quote; numbers follow what's shown.
+  const workflowTabs = WORKFLOW_TABS
+    .filter((tab) => (tab.id !== "invoice" || hasBilling) && (usesQuotes || (tab.id !== "findings" && tab.id !== "quote")))
+    .map((tab, i) => ({ ...tab, number: ["①", "②", "③", "④"][i] }));
 
+  const progressSteps = usesQuotes ? JOB_STEPS : SET_PRICE_JOB_STEPS;
   if (loading) return <PageSkeleton rows={6} />;
   if (!job) return (
     <div style={{ padding: 32 }}>
@@ -1018,15 +1022,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <Send size={15} strokeWidth={1.75} /> Send to a worker
           </button>}
           {/* ONE primary action, always the next unfinished step. Report and Invoice are the numbered tabs below. */}
-          {!readOnly && <NextStepButton job={job} billing={hasBilling} busy={updatingStatus === "complete"} activeTab={activeTab} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
+          {!readOnly && <NextStepButton job={job} billing={hasBilling} quotes={usesQuotes} busy={updatingStatus === "complete"} activeTab={activeTab} onGo={(tab) => setActiveTab(tab)} onCompleteWork={() => void updateStatus("complete")} />}
         </div>
       </header>
 
-      {/* Job progress bar — 5 steps, shared by every field-service vertical */}
+      {/* Job progress bar — 5 steps for quoted work, 4 for set-price work (Booked → Working → Done → Invoiced) */}
       <div className="job-progress no-print">
-        {JOB_STEPS.map((step, i) => {
+        {progressSteps.map((step, i) => {
           // A paid invoice closes the job: every step shows done.
-          const currentIdx = invoiceStatus === "paid" ? JOB_STEPS.length : statusToStepIdx(job.status);
+          const currentIdx = invoiceStatus === "paid" ? progressSteps.length : statusToStepIdx(job.status, usesQuotes);
           const done = i < currentIdx;
           const active = i === currentIdx;
           const isUpdating = updatingStatus === step.key;
@@ -1035,7 +1039,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           // is tappable, to move a job back, and that asks first (2026-10-04, error prevention).
           const isClickable = !readOnly && done && invoiceStatus !== "paid" && job.status !== "invoiced" && !updatingStatus;
           return (
-            <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < JOB_STEPS.length - 1 ? "1" : "0" }}>
+            <div key={step.key} style={{ display: "flex", alignItems: "center", flex: i < progressSteps.length - 1 ? "1" : "0" }}>
               <div
                 className="job-progress-step-wrapper"
                 role={isClickable ? "button" : undefined}
@@ -1049,7 +1053,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
                 <span className={`job-progress-label ${done ? "done" : active ? "active" : "pending"}`}>{step.label}</span>
               </div>
-              {i < JOB_STEPS.length - 1 && <div className={`job-progress-line ${done ? "done" : ""}`} />}
+              {i < progressSteps.length - 1 && <div className={`job-progress-line ${done ? "done" : ""}`} />}
             </div>
           );
         })}
@@ -1958,10 +1962,18 @@ const JOB_STEPS = [
   { key: "invoiced",   label: "Invoiced" },
 ] as const;
 
-function statusToStepIdx(status: string): number {
-  const map: Record<string, number> = {
-    open: 0, inspection: 0, quoted: 1, in_progress: 2, complete: 3, invoiced: 4,
-  };
+// Set-price work (templates.ts `quotes: false`): nothing to inspect or quote — booked, done, billed.
+const SET_PRICE_JOB_STEPS = [
+  { key: "open",       label: "Booked" },
+  { key: "in_progress", label: "Working" },
+  { key: "complete",   label: "Done" },
+  { key: "invoiced",   label: "Invoiced" },
+] as const;
+
+function statusToStepIdx(status: string, quotes = true): number {
+  const map: Record<string, number> = quotes
+    ? { open: 0, inspection: 0, quoted: 1, in_progress: 2, complete: 3, invoiced: 4 }
+    : { open: 0, inspection: 0, quoted: 0, in_progress: 1, complete: 2, invoiced: 3 };
   return map[status] ?? 0;
 }
 

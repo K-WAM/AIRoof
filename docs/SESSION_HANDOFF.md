@@ -1,5 +1,9 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-09 latest (Claude) — **Industry tailoring on the same branch:** pet care (14th industry), dental/care-home
+intake fields, per-industry `/try` pitch + `demo-try-<industry>` sandboxes, industry words on Calendar/Pipeline; roofing
+unchanged. Readiness per industry + gaps: `docs/INDUSTRY-READINESS.md`; next steps: `docs/NEXT_SESSION.md`.
+
 Updated: 2026-10-09 later (Claude) — **Pre-production checks done on the final tree `d7b77ce` (branch `ccr-8c0916c7-3r7kkm`,
 still NOT merged/deployed):** security review of the full branch diff (no findings), Firestore rules 12/12 with 3 new tests for
 this branch's server-only data, vitest 1857, tsc/eslint clean, `e2e:call` 12/12, Playwright 161/161 with 0 flaky (production

@@ -350,6 +350,8 @@ export const WORK_CATALOG_STARTER: Record<VerticalId, WorkCatalogItem[]> = {
   "property-management": [],
   childcare: [],
   daycares: [],
+  // A walk has nothing to "find" and quote — pet care skips Findings (templates.ts `quotes: false`).
+  "pet-care": [],
 };
 
 /**

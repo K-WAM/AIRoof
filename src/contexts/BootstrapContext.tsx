@@ -91,7 +91,9 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
   // request (a 401) used to mark the shell "ready" with nothing loaded — every module then looked switched on, so
   // screens briefly asked for data this client's products don't include.
   const { user } = useAuth();
-  const signedIn = !!user;
+  // …and for the user's own business id (or a superadmin, who previews by ?preview=): the profile can land a moment
+  // after sign-in, and until then useBusinessId() still answers the demo fallback.
+  const signedIn = !!user && (!!user.businessId || !!user.superadmin);
   useEffect(() => {
     if (!businessId || !signedIn) return;
     setReady(false);

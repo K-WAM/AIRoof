@@ -20,12 +20,22 @@
 // it may have been switched to demo a different industry in between.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PhoneCall, Workflow, CalendarDays, Mic, Receipt, type LucideIcon } from "lucide-react";
+import { PhoneCall, Workflow, CalendarDays, Mic, Receipt, Wallet, CheckCircle2, type LucideIcon } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
+import { VERTICAL_PITCH, type FlowStep as PitchStep } from "@/lib/verticals/pitch";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
 type RouteParams = { vertical: string };
+
+const FLOW: Record<PitchStep, { icon: LucideIcon; label: string }> = {
+  call: { icon: PhoneCall, label: "Call" },
+  pipeline: { icon: Workflow, label: "Requests" },
+  calendar: { icon: CalendarDays, label: "Calendar" },
+  field: { icon: Mic, label: "Field" },
+  invoice: { icon: Receipt, label: "Invoice" },
+  paid: { icon: Wallet, label: "Paid" },
+};
 
 function isVerticalId(value: string): value is VerticalId {
   return Object.prototype.hasOwnProperty.call(VERTICAL_TEMPLATES, value);
@@ -99,10 +109,10 @@ export default async function TryVerticalPage({
   const phone = DEMO_LINE_PHONE[vertical];
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
 
-  const tryLines = [
-    `"I need a ${t.vocab.serviceTypePlaceholder.toLowerCase()}."`,
-    t.approvedFaqs[0] ? `"${t.approvedFaqs[0].question}"` : null,
-  ].filter((line): line is string => Boolean(line));
+  // Per-industry pitch (src/lib/verticals/pitch.ts): what this industry buys for, in its own words.
+  const pitch = VERTICAL_PITCH[vertical];
+  const tryLines = pitch.trySaying.map((line) => `"${line}"`);
+  const flowLabel = (step: PitchStep) => step === "field" ? (t.vocab.jobNoun === "Visit" ? "Visit report" : "Field") : FLOW[step].label;
 
   return (
     <div
@@ -130,12 +140,16 @@ export default async function TryVerticalPage({
           >
             AI Receptionist · {t.label}
           </p>
-          <h1 style={{ margin: 0, fontSize: "1.7rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}>
-            Hear it. See it. Try it.
+          <h1 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)", lineHeight: 1.25 }}>
+            {pitch.headline}
           </h1>
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
-            No login. No sales call. Just the real thing.
-          </p>
+          <ul style={{ listStyle: "none", margin: "14px auto 0", padding: 0, display: "grid", gap: 6, maxWidth: 440, textAlign: "left" }} data-testid="try-points">
+            {pitch.points.map((point) => (
+              <li key={point} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 14, color: "var(--text)" }}>
+                <CheckCircle2 size={17} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }} />{point}
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Two equal entry points */}
@@ -162,47 +176,35 @@ export default async function TryVerticalPage({
               </>
             ) : (
               <>
-                <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--text-muted)" }}>Coming soon</p>
+                <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--text-muted)" }}>We&apos;ll set up a live call with {agentName}, set up for your business.</p>
                 <a
-                  href="mailto:connect@luxordev.com?subject=Live%20demo%20request"
-                  className="button primary"
+                  href={`mailto:connect@luxordev.com?subject=${encodeURIComponent(`Live ${t.label} AI demo`)}`}
+                  className="button"
                   style={{ fontSize: 14, padding: "11px 18px", textDecoration: "none" }}
                 >
-                  Request a demo
+                  Book a live call
                 </a>
               </>
             )}
           </div>
 
-          {/* Software — only offered where the phone demo is also live, since
-              both read the same shared demo-roofing business/data. */}
-          {phone && (
-            <div className="panel" style={cardStyle}>
-              <p style={labelStyle}>See the Software</p>
-              <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-muted)" }}>
-                Real demo data loaded. No call needed.
-              </p>
-              <EnterSandboxButton />
-            </div>
-          )}
+          {/* Software — every industry has its own read-only demo business (src/lib/verticals/sandboxBusiness.ts). */}
+          <div className="panel" style={cardStyle}>
+            <p style={labelStyle}>See the Software</p>
+            <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-muted)" }}>
+              A demo {t.label.toLowerCase()} business, data loaded. No login.
+            </p>
+            <EnterSandboxButton vertical={vertical} />
+          </div>
         </div>
 
-        {/* How it works — one flow, whether you called or not */}
-        {phone && (
-          <div className="panel" style={{ marginTop: 14, padding: "18px 16px" }}>
-            <p style={{ ...labelStyle, textAlign: "center" }}>How It Works</p>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <FlowStep icon={PhoneCall} label="Call" />
-              <FlowStep icon={Workflow} label="Pipeline" />
-              <FlowStep icon={CalendarDays} label="Calendar" />
-              <FlowStep icon={Mic} label="Field" />
-              <FlowStep icon={Receipt} label="Invoice" />
-            </div>
-            <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--text-muted)", textAlign: "center" }}>
-              Skipped the call? Pipeline already has examples waiting.
-            </p>
+        {/* How it works — this industry's own flow */}
+        <div className="panel" style={{ marginTop: 14, padding: "18px 16px" }}>
+          <p style={{ ...labelStyle, textAlign: "center" }}>How It Works</p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }} data-testid="try-flow">
+            {pitch.flow.map((step) => <FlowStep key={step} icon={FLOW[step].icon} label={flowLabel(step)} />)}
           </div>
-        )}
+        </div>
 
         {/* Try saying */}
         <div className="panel" style={{ marginTop: 14, padding: "18px 20px" }}>

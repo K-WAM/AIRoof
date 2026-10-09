@@ -19,8 +19,11 @@ export interface JobStep {
 
 const QUOTE_SENT_OR_LATER: Array<Job["status"]> = ["quoted", "in_progress", "invoiced", "complete"];
 
-/** `billing: false` = the client didn't buy Billing (src/lib/products): the workflow ends at the report. */
-export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">, opts: { billing?: boolean } = {}): JobStep[] {
+/**
+ * `billing: false` = the client didn't buy Billing (src/lib/products): the workflow ends at the report.
+ * `quotes: false` = the industry books work at a set price (a dog walk): no Findings or Quote steps.
+ */
+export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">, opts: { billing?: boolean; quotes?: boolean } = {}): JobStep[] {
   const findingsDone = (job.findings?.length ?? 0) > 0;
   const quoteDone = QUOTE_SENT_OR_LATER.includes(job.status);
   const workDone = job.status === "complete" || job.status === "invoiced";
@@ -35,7 +38,7 @@ export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "rep
     { id: "report", label: "Report", tab: "report", done: reportDone, hint: "Review the report and send it to the customer." },
     { id: "invoice", label: "Invoice", tab: "invoice", done: invoiceDone, hint: "Create the invoice and send it." },
   ];
-  const raw = opts.billing === false ? all.filter((step) => step.id !== "invoice") : all;
+  const raw = all.filter((step) => (opts.billing !== false || step.id !== "invoice") && (opts.quotes !== false || (step.id !== "findings" && step.id !== "quote")));
   // Never point backwards: a step the job already moved past (a small repair invoiced with no findings) stays "todo",
   // and the current step is the first open one AFTER the furthest step that is done.
   let lastDone = -1;

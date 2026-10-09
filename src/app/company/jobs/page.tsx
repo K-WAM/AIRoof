@@ -29,12 +29,21 @@ const NEXT_STEP: Record<string, string> = {
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "All", inspection: "Needs quote", quoted: "Quote sent", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
 };
+// Set-price industries (templates.ts `quotes: false`, e.g. dog walking): nothing to quote — a job is booked, then done.
+const SET_PRICE_FILTER_LABEL: Partial<Record<StatusFilter, string>> = {
+  all: "All", inspection: "Booked", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
+};
+const SET_PRICE_NEXT_STEP: Record<string, string> = {
+  ...NEXT_STEP, open: "Next: do the visit", inspection: "Next: do the visit", quoted: "Next: do the visit",
+};
 
 export default function JobsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
   const tz = useBusinessTimezone();
-  const { vocab } = useBusinessModules();
+  const { vocab, quotes: usesQuotes } = useBusinessModules();
+  const filterLabels = (usesQuotes ? STATUS_FILTER_LABEL : SET_PRICE_FILTER_LABEL) as Record<StatusFilter, string>;
+  const nextStep = usesQuotes ? NEXT_STEP : SET_PRICE_NEXT_STEP;
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
@@ -298,7 +307,7 @@ export default function JobsPage() {
             />
           </div>
           <div className="segmented-control" aria-label="Filter by status">
-            {(Object.entries(STATUS_FILTER_LABEL) as [StatusFilter, string][]).map(([key, label]) => {
+            {(Object.entries(filterLabels) as [StatusFilter, string][]).map(([key, label]) => {
               const count = key === "all"
                 ? jobs.length
                 : key === "inspection"
@@ -317,7 +326,7 @@ export default function JobsPage() {
               );
             })}
           </div>
-          {statusFilter !== "all" && <div className="c1-active-filter">Filter: {STATUS_FILTER_LABEL[statusFilter]} <button type="button" className="button small" onClick={() => setStatusFilter("all")}>Clear</button></div>}
+          {statusFilter !== "all" && <div className="c1-active-filter">Filter: {filterLabels[statusFilter]} <button type="button" className="button small" onClick={() => setStatusFilter("all")}>Clear</button></div>}
       </div>}
 
       {jobs.length === 0 ? (
@@ -398,7 +407,7 @@ export default function JobsPage() {
                   <StatusChip status={job.status} />
                 </span>
                 <span className="c1-list-card__sub">{[job.clientName, job.address].filter(Boolean).join(" · ") || "No customer yet"}</span>
-                <span className="c1-list-card__next">{NEXT_STEP[job.status] ?? "Open to see where it stands"}</span>
+                <span className="c1-list-card__next">{nextStep[job.status] ?? "Open to see where it stands"}</span>
               </a>)}
               {visibleJobs.length === 0 && <p>No {vocab.jobNounPlural.toLowerCase()} match this filter.</p>}
             </div>

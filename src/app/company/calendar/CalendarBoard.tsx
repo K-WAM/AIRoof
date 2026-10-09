@@ -800,7 +800,7 @@ export default function CalendarBoard() {
         </span>
         {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0 || (inspectors.length > 0 && unassignedAppts.length > 0)) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
-            <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : "Drag bookings onto inspectors and jobs onto crews."}
+            <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : vocab.resourceNoun === "Crew" ? "Drag bookings onto inspectors and jobs onto crews." : `Drag ${vocab.jobNounPlural.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} and a day.`}
           </span>
         )}
       </div>
@@ -937,7 +937,7 @@ export default function CalendarBoard() {
                 <Fragment key={crew.crewId}>
                   {!apptMode && (index === 0 || orderedCrews[index - 1]?.kind !== crew.kind) && (
                     <div style={{ gridColumn: "1 / -1", padding: "8px 16px", background: "var(--surface-muted, #f8fafc)", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                      {crew.kind === "inspector" ? "Inspectors" : "Crews"}
+                      {crew.kind === "inspector" ? "Inspectors" : vocab.resourceNounPlural}
                     </div>
                   )}
                   <CrewRow
@@ -1406,6 +1406,8 @@ function ScheduledTile({
   previewSuffix: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId });
+  // This industry's word for who does the work (Crew, Walker, Tech…).
+  const resourceNoun = useBusinessModules().vocab.resourceNoun;
   const confirmed = !!job.crewConfirmed;
   const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
   return (
@@ -1434,7 +1436,7 @@ function ScheduledTile({
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         {!confirmed ? (
-          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : "✓ Confirm + email crew"}</button>
+          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : `✓ Confirm + email ${resourceNoun.toLowerCase()}`}</button>
         ) : (
           <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
         )}

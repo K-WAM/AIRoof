@@ -914,7 +914,7 @@ export default function PipelinePage() {
             <div className="panel-header">
               <h2 className="panel-title" id="upcoming-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <CalendarDays size={16} strokeWidth={1.75} />
-                Upcoming Inspections
+                {industry === "roofing" ? "Upcoming Inspections" : "Upcoming bookings"}
               </h2>
             </div>
             <div className="panel-body">

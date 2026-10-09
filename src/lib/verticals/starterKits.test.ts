@@ -86,7 +86,7 @@ describe("vertical starter kits", () => {
     );
     expect(counts).toEqual({
       openJobs: 1, awaitingInvoice: 1, todayBookings: 1,
-      pendingConfirmations: 1, tourRequestsThisWeek: 1, urgentLeads: 1,
+      pendingConfirmations: 1, tourRequestsThisWeek: 1, urgentLeads: 1, visitsToday: 0,
     });
   });
 });
