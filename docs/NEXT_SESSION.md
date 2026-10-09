@@ -4,12 +4,18 @@
 - **Everything since Phase 32 lives on this branch:** Phase 33 hardening, field-update redesign, reusable field links, Library/
   customers, Playbook, Usage & costs, Luxor billing automation, always-bilingual calls, **products per client** (locked tabs +
   "Ask Luxor to add it"), **billing without Stripe**, and the 2026-10-08 load-time + desktop clarity pass (entries below).
-- **Last gates (final tree of the clarity pass, `bbc4ec4`, production build):** vitest 1857 green, tsc + eslint clean,
-  `e2e:call` 12/12, full Playwright 161/161, 0 flaky. `4475a20` (job-page ease-of-use) came after — run the changed specs
-  plus `e2e:call` before merging.
+- **Pre-production checks done (2026-10-09, final tree `d7b77ce`, production build):** security review of the whole branch
+  diff (`/security-review`: no findings ≥ 8 — guards, tenancy, product lock, field links, billing, email escaping all checked);
+  Firestore rules 12/12 (new: field links/index, customer keys, usage counters are server-only; an owner can't switch on
+  products or write invoices directly); vitest 1857; tsc + eslint clean; `e2e:call` 12/12; full Playwright **161/161, 0 flaky**.
+  Fixed on the way: Pipeline dropped a booking out of view right after Confirm when it fell past the first page of Upcoming.
+- **Not covered by any test here (needs real services):** real ElevenLabs calls (Spanish), Resend delivery + "From" name,
+  Twilio texting, Firestore indexes/latency in the live project, `after()` customer linking on Vercel, real phones.
 - **Owner's next steps, in order:** (1) merge this branch to `main` and deploy (`vercel ls --prod`, health check);
-  (2) on a real phone: lock one product for a test client and tap the locked tab → Ask; record a payment on a sent invoice;
-  open a job page and Pipeline; (3) the open NEEDS-HUMAN items in `TODO.md` (real Spanish call T-196, NH-32, Twilio T-190).
+  (2) a 20-minute live check on a real phone: call the demo line in English then Spanish, book, field note + photo, send
+  quote + invoice, record a payment (receipt arrives), lock a product for a test client and tap the locked tab → Ask;
+  confirm a new job shows in Customers; (3) turn on error alerts (Sentry or Vercel) and keep the previous deploy ready to
+  roll back; (4) the open NEEDS-HUMAN items in `TODO.md` (real Spanish call T-196, NH-32, Twilio T-190).
 - **Measure speed honestly:** `node scripts/e2e/up.mjs --detach --prod` (production build against the emulators).
 
 ## CURRENT STATE 2026-10-08 (end) — end-to-end walk: bilingual calls, crew day, hide breakdown, emails

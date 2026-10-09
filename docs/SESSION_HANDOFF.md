@@ -1,5 +1,11 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-09 later (Claude) — **Pre-production checks done on the final tree `d7b77ce` (branch `ccr-8c0916c7-3r7kkm`,
+still NOT merged/deployed):** security review of the full branch diff (no findings), Firestore rules 12/12 with 3 new tests for
+this branch's server-only data, vitest 1857, tsc/eslint clean, `e2e:call` 12/12, Playwright 161/161 with 0 flaky (production
+build). One real bug fixed: Pipeline hid a booking right after Confirm. What tests can't cover (real calls, email, texting,
+live Firestore, real phones) and the owner's ordered steps: `docs/NEXT_SESSION.md` → "START HERE (2026-10-09)".
+
 Updated: 2026-10-09 (Claude) — **All work since Phase 32 is on branch `ccr-8c0916c7-3r7kkm`, pushed, NOT merged to `main`
 and NOT deployed.** Covers Phase 33 hardening, the field-update redesign, reusable field links, Library/customers, the Playbook,
 Usage & costs, Luxor billing automation, always-bilingual calls, products per client (superadmin switches, locked tabs, upgrade
