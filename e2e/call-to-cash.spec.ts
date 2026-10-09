@@ -43,13 +43,7 @@ test("the request is in the Pipeline; Review request opens the card; Confirm ema
   await settle(page);
   await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
   const card = page.locator(".appt-card").filter({ hasText: caller.name }).first();
-  // Lists show their first few (C10); after a full suite there are many bookings, so open more until this one shows.
-  for (let i = 0; i < 6 && !(await card.isVisible()); i++) {
-    const more = page.getByRole("button", { name: /^Show \d+ more of/ });
-    if (!(await more.count())) break;
-    for (const button of await more.all()) await button.click().catch(() => {});
-    await settle(page, 300);
-  }
+  await revealInPipeline(page, card);
   await expect(card).toBeVisible();
   await expect(card.getByText("New request").filter({ visible: true }).first()).toBeVisible();
   await shot(page, "pipeline-new-request");
@@ -74,6 +68,7 @@ test("Create Job turns the request into a job that remembers the call", async ({
   await page.goto("/company/pipeline");
   await settle(page);
   await page.getByRole("button", { name: /^Booked/ }).click(); // T-153 renamed "Appointments" to "Booked"
+  await revealInPipeline(page, page.getByText(caller.name).first());
   const card = page.getByText(caller.name).first().locator("xpath=ancestor::*[.//button[normalize-space()='Create Job']][1]");
   await card.getByRole("button", { name: "Create Job" }).click();
   await page.waitForURL(/\/company\/jobs\/J-\d+/, { timeout: 30_000 });
@@ -104,3 +99,13 @@ test("the API scenario finishes the job: field note, photos, quote, report, invo
     if (wide.length) test.info().annotations.push({ type: "known-issue", description: `${tab} tab overflows the screen: ${wide[0]}` });
   }
 });
+
+/** Pipeline lists show their first few (C10); after many runs there are lots of bookings, so open more until `target` shows. */
+async function revealInPipeline(page: import("@playwright/test").Page, target: import("@playwright/test").Locator) {
+  for (let i = 0; i < 8 && !(await target.isVisible()); i++) {
+    const more = page.getByRole("button", { name: /^Show \d+ more of/ });
+    if (!(await more.count())) break;
+    for (const button of await more.all()) await button.click().catch(() => {});
+    await settle(page, 300);
+  }
+}

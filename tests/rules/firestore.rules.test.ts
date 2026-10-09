@@ -89,6 +89,11 @@ async function seed() {
     ["businessUsers/disabled-a", { businessId: "biz-a", role: "staff", active: false }],
     ["businessPhoneNumbers/biz-b-main", { businessId: "biz-b", phoneNumber: "+15555550100" }],
     ["adminAuditEvents/audit-1", { action: "business.created" }],
+    // 2026-10-08 additions — server-only data, never readable from a browser:
+    ["fieldJobLinks/link-a", { businessId: "biz-a", jobId: "j-a" }], // a reusable field link is a credential
+    ["fieldJobLinkIndex/biz-a__j-a", { linkId: "link-a" }],
+    ["businesses/biz-a/customerKeys/k1", { customerId: "C-1000" }],
+    ["businesses/biz-a/usageMonths/2026-10", { voiceNotes: 3 }],
   ];
   for (const [path, data] of docs) expect(await write(path, data, "owner")).toBe(ALLOWED);
 }
@@ -158,5 +163,26 @@ describe("tenant isolation for ordinary members", () => {
   it("an unauthenticated caller reads nothing", async () => {
     expect(await read("businesses/biz-a", null)).toBe(DENIED);
     expect(await read("businessUsers/owner-a", null)).toBe(DENIED);
+  });
+});
+
+describe("server-only data added 2026-10-08 (field links, customer identity keys, usage, products)", () => {
+  it("a field link and its index are never readable or writable from a browser — not even by the job's own owner", async () => {
+    expect(await read("fieldJobLinks/link-a", ownerA)).toBe(DENIED);
+    expect(await read("fieldJobLinkIndex/biz-a__j-a", ownerA)).toBe(DENIED);
+    expect(await write("fieldJobLinks/link-new", { businessId: "biz-a", jobId: "j-a" }, ownerA)).toBe(DENIED);
+    expect(await read("fieldJobLinks/link-a", null)).toBe(DENIED);
+  });
+
+  it("customer identity keys and usage counters stay server-side", async () => {
+    expect(await read("businesses/biz-a/customerKeys/k1", ownerA)).toBe(DENIED);
+    expect(await write("businesses/biz-a/customerKeys/k2", { customerId: "C-1" }, ownerA)).toBe(DENIED);
+    expect(await write("businesses/biz-a/usageMonths/2026-10", { voiceNotes: 0 }, ownerA)).toBe(DENIED);
+  });
+
+  it("an owner cannot switch on products, change payment details or invoices directly — only through the guarded API", async () => {
+    expect(await write("businesses/biz-a", { "products.calls": true }, ownerA)).toBe(DENIED);
+    expect(await write("businesses/biz-a/invoices/inv-a", { status: "paid" }, ownerA)).toBe(DENIED);
+    expect(await write("businesses/biz-a/customers/c-a", { name: "x" }, ownerA)).toBe(DENIED);
   });
 });

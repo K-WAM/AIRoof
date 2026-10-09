@@ -188,6 +188,8 @@ export default function PipelinePage() {
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [upcomingShown, setUpcomingShown] = useState(UPCOMING_PAGE);
+  // Bookings confirmed on this visit stay on screen even past the first page — confirming must never make a card vanish.
+  const [confirmedThisVisit, setConfirmedThisVisit] = useState<Set<string>>(() => new Set());
   // Each waiting request is a tall card (≈700 px on a phone): three at a time keeps the screen short (C10).
   const [needsShown, setNeedsShown] = useState(NEEDS_PAGE);
   const [pastShown, setPastShown] = useState(PIPELINE_PAGE);
@@ -434,6 +436,7 @@ export default function PipelinePage() {
       if (res.ok) {
         const data = await res.json().catch(() => ({} as { notifiedChannels?: ConfirmChannel[]; staffNotified?: number }));
         setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
+        setConfirmedThisVisit((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>
           prev.map((a) => (a.appointmentId === appt.appointmentId ? { ...a, status: "confirmed" } : a))
         );
@@ -491,7 +494,7 @@ export default function PipelinePage() {
   const needsConfirmationIds = new Set(needsConfirmation.map((a) => a.appointmentId));
   // A bounded list still shows the request a link points at (?appt=), even when it is past the first page.
   const firstPage = <T extends { appointmentId: string }>(list: T[], shown: number): T[] =>
-    list.filter((a, i) => i < shown || a.appointmentId === apptParam);
+    list.filter((a, i) => i < shown || a.appointmentId === apptParam || confirmedThisVisit.has(a.appointmentId));
   const needsVisible = firstPage(needsConfirmation, needsShown);
   const upcomingAppts = appointments.filter(
     (a) => !needsConfirmationIds.has(a.appointmentId) && a.startTime > Date.now() && a.status !== "cancelled"
