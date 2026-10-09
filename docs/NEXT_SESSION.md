@@ -1,5 +1,17 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## START HERE (2026-10-09) — branch `ccr-8c0916c7-3r7kkm`, NOT merged to main, NOT deployed
+- **Everything since Phase 32 lives on this branch:** Phase 33 hardening, field-update redesign, reusable field links, Library/
+  customers, Playbook, Usage & costs, Luxor billing automation, always-bilingual calls, **products per client** (locked tabs +
+  "Ask Luxor to add it"), **billing without Stripe**, and the 2026-10-08 load-time + desktop clarity pass (entries below).
+- **Last gates (final tree of the clarity pass, `bbc4ec4`, production build):** vitest 1857 green, tsc + eslint clean,
+  `e2e:call` 12/12, full Playwright 161/161, 0 flaky. `4475a20` (job-page ease-of-use) came after — run the changed specs
+  plus `e2e:call` before merging.
+- **Owner's next steps, in order:** (1) merge this branch to `main` and deploy (`vercel ls --prod`, health check);
+  (2) on a real phone: lock one product for a test client and tap the locked tab → Ask; record a payment on a sent invoice;
+  open a job page and Pipeline; (3) the open NEEDS-HUMAN items in `TODO.md` (real Spanish call T-196, NH-32, Twilio T-190).
+- **Measure speed honestly:** `node scripts/e2e/up.mjs --detach --prod` (production build against the emulators).
+
 ## CURRENT STATE 2026-10-08 (end) — end-to-end walk: bilingual calls, crew day, hide breakdown, emails
 - **Bugs fixed:** (1) time clock — "Arrived jobsite" from the office writes `office_out` + `site_in` with the same timestamp
   and the fold had no tiebreak, so a worker could read "off the clock" right after arriving (lunch then refused).

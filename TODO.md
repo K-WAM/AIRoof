@@ -7,6 +7,11 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 ## Current snapshot
 
+**2026-10-09 — branch `ccr-8c0916c7-3r7kkm` is the release candidate (pushed, not merged/deployed).** Next: merge to `main`,
+deploy, real-phone checks — see `docs/NEXT_SESSION.md` "START HERE (2026-10-09)". 2026-10-08 night: load-time + desktop
+clarity pass (production-build harness `--prod`, server-side customer linking, race-safe customer resolver, say-it-once fixes),
+Playwright 161/161.
+
 **2026-10-08 — Products per client + Billing without Stripe (T-198/T-199), on branch `ccr-8c0916c7-3r7kkm`.**
 Superadmin → client → **Products**: AI calls & booking · Jobs & field input · Billing & payments (billing needs jobs).
 Not-bought tabs stay visible, locked → upgrade page → "Ask Luxor to add it" (lead shown to the superadmin).

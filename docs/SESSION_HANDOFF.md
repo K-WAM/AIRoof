@@ -1,5 +1,12 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-09 (Claude) — **All work since Phase 32 is on branch `ccr-8c0916c7-3r7kkm`, pushed, NOT merged to `main`
+and NOT deployed.** Covers Phase 33 hardening, the field-update redesign, reusable field links, Library/customers, the Playbook,
+Usage & costs, Luxor billing automation, always-bilingual calls, products per client (superadmin switches, locked tabs, upgrade
+requests), client billing without Stripe, and a load-time + desktop clarity pass measured on a production build. Last full gates:
+vitest 1857, tsc/eslint clean, `e2e:call` 12/12, Playwright 161/161 on `bbc4ec4`; `4475a20` landed after. Details and the owner's
+ordered next steps: `docs/NEXT_SESSION.md` → "START HERE (2026-10-09)".
+
 Updated: 2026-09-29 (Claude, integrator) — **Phase 32 (T-157–T-171) built, merged, PUSHED and DEPLOYED (`0b09946`,
 crm.luxordev.com Ready, health ok; `firestore:rules` released; the superadmin audit re-run after deploy is unchanged — the stale
 flag on kwamwad@gmail.com is now inert).** Four file-disjoint streams per `MASTER_PLAN.md` "Phase 32 review …" (P32-R/D/C/S/T): Stream I (Claude:
