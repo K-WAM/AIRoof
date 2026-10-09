@@ -3,7 +3,7 @@
 ## START HERE (2026-10-09, later) — industry tailoring + per-industry demo links (same branch)
 - **New:** Dog Walking & Pet Care (14th industry, set-price visits, no quote step), dental "reason for visit", care-home
   "who's calling" + referral source, a per-industry `/try/<industry>` pitch and its own read-only sandbox business, and
-  industry words on Calendar/Pipeline. Roofing unchanged (`e2e:call` 12/12). Readiness % and gaps per industry:
+  industry words on Calendar/Pipeline. Roofing unchanged. Gates on `7dd6cc2`: vitest 1862, tsc/eslint clean, `e2e:call` 12/12, Playwright 161/161 (9 skipped). Readiness % and gaps per industry:
   `docs/INDUSTRY-READINESS.md`. Demo link for a dog walker: `https://crm.luxordev.com/try/pet-care`.
 - **Owner check after deploy:** open `/try/pet-care` → "See it in the real app" (first visit seeds the sandbox, ~5 s).
 
