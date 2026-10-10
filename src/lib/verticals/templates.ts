@@ -612,6 +612,8 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
       "Visiting-hours and admission-requirements inquiry",
       "Existing-family call routing",
       "Staff call-out and vendor call routing",
+      // Senior-living sales tools track respite/short stays as their own inquiry type — often the first step to a move-in.
+      "Respite or short-term stay inquiry",
     ],
     approvedFaqs: [
       {
@@ -638,6 +640,11 @@ export const VERTICAL_TEMPLATES: Record<VerticalId, VerticalTemplate> = {
         question: "Can you tell me how my family member is doing?",
         answer:
           "I can connect you with the nursing station or administrator. I cannot discuss or confirm any resident's information over the phone.",
+      },
+      {
+        question: "Do you offer respite or short-term stays?",
+        answer:
+          "Short stays depend on room availability. I can note the dates you have in mind and have admissions call you to confirm what's open.",
       },
     ],
     emergencyRules: [

@@ -29,7 +29,7 @@ beforeEach(() => {
   db.__seed("businesses/biz/crews", "c1", { name: "Dominic", kind: "inspector", active: true });
   db.__seed("businessUsers", "insp", { businessId: "biz", role: "crew", crewId: "c1", active: true, email: "dom@apex.test" });
   db.__seed("businesses/biz/appointments", "a1", { startTime: soon, endTime: soon + HOUR, callerName: "Carla Esnaida", callerPhone: "+19548829586",
-    address: "22572 Long York St, Boca Raton, FL 33428", serviceType: "Roof inspection", notes: "Access: gate code 1010\nURGENT: leak", assignedCrewId: "c1", pendingConfirmation: true });
+    address: "22572 Long York St, Boca Raton, FL 33428", serviceType: "Roof inspection", notes: "Access: gate code 4827\nURGENT: leak", assignedCrewId: "c1", pendingConfirmation: true });
   db.__seed("businesses/biz/appointments", "a2", { startTime: soon, callerName: "Someone Else", assignedCrewId: "c2" });
   db.__seed("businesses/biz/appointments", "a3", { startTime: soon, callerName: "Cancelled Person", assignedCrewId: "c1", status: "cancelled" });
   db.__seed("businesses/biz/timeBlocks", "b1", { blockId: "b1", crewId: "c1", startTime: soon + 3 * HOUR, endTime: soon + 4 * HOUR, label: "Materials pickup" });
@@ -52,7 +52,7 @@ describe("phone-calendar feed (T-153 B5)", () => {
     expect(text).toContain("STATUS:TENTATIVE");
     expect(text).toContain("SUMMARY:Blocked — Materials pickup");
     // Never in a bearer link: phone, gate code, urgent notes, other rows, cancelled bookings, the full surname.
-    for (const secret of ["9548829586", "1010", "URGENT", "Someone Else", "Cancelled Person", "Esnaida"]) expect(text).not.toContain(secret);  });
+    for (const secret of ["9548829586", "4827", "URGENT", "Someone Else", "Cancelled Person", "Esnaida"]) expect(text).not.toContain(secret);  });
 
   it("stores only the hash, and a new link replaces the old one", async () => {
     const first = tokenOf((await issue()).url);

@@ -14,7 +14,7 @@ Demo link to send a prospect: `https://crm.luxordev.com/try/<industry>` — e.g.
 | HVAC, electricians, appliance repair, junk removal, general contractors | **80%** | Same job flow, industry words (Tech / Service call…) | ServiceTitan/Jobber: memberships, price books, financing |
 | Cleaning, landscaping | **75%** | Book cleans/estimates, team schedule, invoice + record payment | Recurring schedules (weekly clean, weekly mow) |
 | Dental | **80%** | AI answers every call, books new patients + same-day emergencies; "reason for visit" captured | Dentrix/Open Dental: charts, insurance, recall — we are the front desk add-on, not the practice system |
-| Care homes | **75%** | Tours and admissions calls booked 24/7; who's calling + referral source; never shares resident info | Welcome Home/Sherpa: inquiry stages, follow-up cadence. PointClickCare (clinical) is out of scope |
+| Care homes | **80%** | Tours and admissions calls booked 24/7; who's calling + referral source; never shares resident info | Welcome Home/Sherpa: inquiry stages, follow-up cadence. PointClickCare (clinical) is out of scope |
 | Dog walking & pet care (new) | **75%** | Scheduling + getting paid: AI books walks/meet & greets, walkers on one calendar, visit report, invoice, record payment | Time To Pet/Scout: recurring walks, weekly batch invoice, client portal, GPS walk map |
 | Daycares, childcare, property management | **70%** | AI books tours / consultations / work orders | Waitlists, enrollment, tenant portal |
 
@@ -31,6 +31,20 @@ Demo link to send a prospect: `https://crm.luxordev.com/try/<industry>` — e.g.
   sandbox — before this, every link opened the one shared demo business, whatever industry it was last set to.
 - **Wording fixes:** Calendar ("Drag visits onto a Walker"), the "Confirm + email {walker}" button, Pipeline "Upcoming
   bookings" and "Provider:"/"Coordinator:" instead of roofing's "Inspections"/"Inspector" outside roofing. Roofing text unchanged.
+
+## Care homes + daycares demo pass (2026-10-10)
+
+- **Demo calls in their own words** (`src/lib/verticals/demoSeedTours.ts`): the shared seed's "what's the service address /
+  send someone tonight" calls are replaced with a family booking a tour, a hospital-discharge rush after hours, a Medicaid
+  question the AI won't guarantee, and the call that sells it — someone asking how a resident (or child) is doing, and the AI
+  refusing to confirm anything while putting them through to staff.
+- **Captured intake shows on the Pipeline**: seeded requests carry who is calling / how they heard of you / community type
+  (daycares: age range / program). A test pins every value to a real template option.
+- **Care homes:** + "Respite or short-term stay inquiry" service and FAQ (senior-living CRMs track respite as its own lead
+  type). `/try/care-homes` now suggests trying the privacy question.
+- Roofing and every other industry: seed unchanged (a test asserts the same object comes back).
+- Not built, deliberately: a separate inquiry-stage board (Welcome Home/Sherpa style). The Pipeline's New → Contacted →
+  Booked → Closed/Lost already maps to Inquiry → Follow-up → Tour → Move-in/Lost; a second board would be two ways to do one thing.
 
 ## Known gaps (next, in order of value)
 

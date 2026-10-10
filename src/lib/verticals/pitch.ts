@@ -63,7 +63,7 @@ export const VERTICAL_PITCH: Record<VerticalId, VerticalPitch> = {
     headline: "Every family that calls gets a warm answer and a tour on the calendar.",
     points: ["Books tours and admissions calls 24/7", "Records who is calling and how they heard of you", "Routes urgent and resident calls to live staff — never shares resident details"],
     flow: bookingFlow,
-    trySaying: ["I'm looking at assisted living for my mother.", "Can we tour this Saturday?"],
+    trySaying: ["I'm looking at assisted living for my mother — can we tour Saturday?", "How is my aunt in room 12 doing today?"],
   },
   "property-management": {
     demoName: "Harbor Property Management (Demo)",

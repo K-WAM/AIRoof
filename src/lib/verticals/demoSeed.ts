@@ -11,6 +11,7 @@
 
 import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
 import { zonedDateTimeToUtc, zonedParts } from "@/lib/scheduling/hours";
+import { tailorTourSeed } from "./demoSeedTours";
 
 const CALLERS = [
   { name: "Jordan Blake", phone: "+13055550110" },
@@ -113,6 +114,8 @@ export interface DemoSeed {
     address: string;
     /** The seeded call whose transcript produced this lead (for "This call produced"). */
     sourceCallId?: string;
+    /** What the AI captured (T-100 intake keys) — tour industries only, see demoSeedTours.ts. */
+    intake?: Record<string, string>;
   }>;
   appointments: Array<{
     callerName: string;
@@ -125,6 +128,7 @@ export interface DemoSeed {
     address: string;
     /** The seeded call whose transcript produced this appointment. */
     sourceCallId?: string;
+    intake?: Record<string, string>;
     // Index into `resources`, or undefined to leave it in the Calendar's
     // "Unassigned" rail as the thing you drag during a demo.
     resourceIndex?: number;
@@ -349,11 +353,13 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
     { callerName: CALLERS[3].name, callerPhone: CALLERS[3].phone, callerEmail: "dana.cole@example.com", serviceType: s(1), startTime: appointmentTimes[13], status: "requested", pendingConfirmation: true, address: ADDRESSES[0], resourceIndex: undefined, sourceCallId: "call_demo_4" },
   ];
 
-  return {
+  // Care homes and daycares get calls written in their own words (and captured intake); everyone else, roofing
+  // included, gets this seed exactly as built above.
+  return tailorTourSeed(verticalId, {
     resources,
     jobs,
     calls,
     leads,
     appointments,
-  };
+  });
 }
