@@ -3,6 +3,7 @@
 ## START HERE (2026-10-10) — care homes suite + demo tour (same branch)
 - Care-home demo: `/try/care-homes` → in-app **Demo tour** (Calls → Pipeline → Calendar). What changed and what was fixed:
   `docs/INDUSTRY-READINESS.md` → "Care homes suite pass". Owner check after deploy: open the link on a phone, follow the tour.
+- Gates on `04e86ba`: vitest 1866, tsc/eslint clean, `e2e:call` 12/12, Playwright 161/161 (9 skipped).
 
 ## START HERE (2026-10-09, later) — industry tailoring + per-industry demo links (same branch)
 - **New:** Dog Walking & Pet Care (14th industry, set-price visits, no quote step), dental "reason for visit", care-home
