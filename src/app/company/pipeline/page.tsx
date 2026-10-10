@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -127,14 +127,15 @@ function IntakeRows({ intake, labelFor }: { intake?: Record<string, string>; lab
   const entries = Object.entries(intake);
   if (entries.length === 0) return null;
   return (
-    <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+    // One label column for every row, so the answers line up and scan as a list.
+    <dl style={{ margin: "10px 0 0", display: "grid", gridTemplateColumns: "max-content minmax(0, 1fr)", gap: "4px 10px", fontSize: 13, lineHeight: 1.4 }}>
       {entries.map(([key, value]) => (
-        <div key={key} style={{ display: "flex", gap: 8, fontSize: 13, lineHeight: 1.4 }}>
-          <span style={{ color: "#64748b", minWidth: 130, flexShrink: 0 }}>{labelFor(key)}</span>
-          <span style={{ color: "#0f172a", fontWeight: 600 }}>{value}</span>
-        </div>
+        <Fragment key={key}>
+          <dt style={{ color: "#64748b" }}>{labelFor(key)}</dt>
+          <dd style={{ margin: 0, color: "#0f172a", fontWeight: 600 }}>{value}</dd>
+        </Fragment>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -549,9 +550,8 @@ export default function PipelinePage() {
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
             {appt.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
-            {isPending
-              ? <StatusChip status="requested" label={displayRequestState(appt).label + " · " + displayRequestState(appt).nextAction} />
-              : <StatusChip status={appt.status} label={displayRequestState(appt).label} />}
+            {/* A waiting booking sits under "Needs Confirmation" with a note saying what Confirm does — no chip repeating it (C5). */}
+            {!isPending && <StatusChip status={appt.status} label={displayRequestState(appt).label} />}
           </div>
           {isPending && (
             <div style={{ margin: "8px 0", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 12, color: "#92400e", lineHeight: 1.45, display: "flex", gap: 8, alignItems: "flex-start" }}>

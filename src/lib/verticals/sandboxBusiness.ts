@@ -1,19 +1,23 @@
 // One read-only demo business per industry for the public demo link (/try/<industry> → "See it in the real app").
 // Before 2026-10-09 every industry's link opened the one shared live-line business (demo-roofing), whose industry is
 // whatever Demo Studio last launched — so a dog walker could land in a roofing app. Each industry now has its own
-// `demo-try-<industry>` business, created and filled with that industry's demo data on first visit and refreshed once
-// a day (bookings stay in the future). Visitors are always the read-only "viewer" role (see api/demo/sandbox-token).
+// `demo-try-<industry>` business, created and filled with that industry's demo data on first visit and refreshed each
+// (New York) day (bookings stay in the future). Visitors are always the read-only "viewer" role (see api/demo/sandbox-token).
 import type { Firestore } from "firebase-admin/firestore";
 import { VERTICAL_TEMPLATES, type VerticalId } from "./templates";
 import { VERTICAL_PITCH } from "./pitch";
 import { demoSeedFor } from "./demoSeed";
 import { writeDemoSeed } from "./writeDemoSeed";
 
-const REFRESH_MS = 24 * 60 * 60 * 1000;
 const SEEDING_LOCK_MS = 2 * 60 * 1000;
 /** Bump to reseed every sandbox after the demo data changes shape. */
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 const SUBCOLLECTIONS = ["calls", "leads", "appointments", "crews", "jobs", "customers", "quotes", "invoices", "punches", "agentActions"];
+
+function sameDemoDay(a: number, b: number): boolean {
+  const day = (ms: number) => new Date(ms).toLocaleDateString("en-US", { timeZone: "America/New_York" });
+  return day(a) === day(b);
+}
 
 export function sandboxBusinessId(verticalId: VerticalId): string {
   return `demo-try-${verticalId}`;
@@ -33,7 +37,8 @@ export async function ensureSandboxBusiness(db: Firestore, verticalId: VerticalI
     const snap = await tx.get(ref);
     const data = snap.data();
     if (snap.exists && data?.isDemo !== true) return "refuse" as const;
-    const fresh = snap.exists && data?.seedVersion === SEED_VERSION && typeof data?.seededAt === "number" && now - data.seededAt < REFRESH_MS;
+    // Reseed once per business day: the demo's "later today" bookings must not turn into yesterday's.
+    const fresh = snap.exists && data?.seedVersion === SEED_VERSION && typeof data?.seededAt === "number" && sameDemoDay(data.seededAt, now);
     if (fresh) return "fresh" as const;
     if (typeof data?.seedingAt === "number" && now - data.seedingAt < SEEDING_LOCK_MS) return "busy" as const;
     tx.set(ref, { seedingAt: now }, { merge: true });

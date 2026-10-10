@@ -90,7 +90,7 @@ export default function GuidePage() {
           <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Where things are</h2>
           <p style={{ margin: 0, lineHeight: 1.6 }}>
             Dashboard, Calls, Pipeline and Calendar follow the day&apos;s work{hasJobs ? `, with ${vocab.jobNounPlural} and Field beside them` : ""}.
-            Customers and Library are under Manage; Team and Settings are under Account; this Guide and Feedback are under Help.
+            {vocab.customerNounPlural} and Library hold your records; Settings holds your hours and contact details; this Guide and Feedback are at the bottom.
             On a phone, open Menu to see every page or use + New to create a record.
           </p>
         </div>

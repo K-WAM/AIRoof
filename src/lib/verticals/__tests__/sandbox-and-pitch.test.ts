@@ -4,6 +4,7 @@ import { VERTICAL_TEMPLATES, type VerticalId } from "../templates";
 import { VERTICAL_PITCH } from "../pitch";
 import { ensureSandboxBusiness, isVerticalId, sandboxBusinessId } from "../sandboxBusiness";
 import { jobSteps } from "@/lib/jobs/nextStep";
+import { demoSeedFor } from "../demoSeed";
 
 const industries = Object.keys(VERTICAL_TEMPLATES) as VerticalId[];
 
@@ -44,7 +45,7 @@ describe("per-industry sandbox businesses", () => {
     const db = makeFakeDb();
     const now = Date.UTC(2026, 9, 9, 15);
     expect(await ensureSandboxBusiness(db as never, "pet-care", now)).toBe(true);
-    expect(db.__peek("businesses", "demo-try-pet-care")).toMatchObject({ industry: "pet-care", isDemo: true, businessName: "Happy Tails Dog Walking (Demo)", seedVersion: 2, seedingAt: null });
+    expect(db.__peek("businesses", "demo-try-pet-care")).toMatchObject({ industry: "pet-care", isDemo: true, businessName: "Happy Tails Dog Walking (Demo)", seedVersion: 3, seedingAt: null });
     const walkers = db.__list("businesses/demo-try-pet-care/crews").map((c) => c.data.name);
     expect(walkers).toContain("Sam (walker)");
     const jobs = db.__list("businesses/demo-try-pet-care/jobs").map((j) => j.data);
@@ -63,5 +64,18 @@ describe("per-industry sandbox businesses", () => {
     db.__seed("businesses", "demo-try-dental", { businessName: "A real practice", isDemo: false });
     expect(await ensureSandboxBusiness(db as never, "dental", now)).toBe(false);
     expect(db.__peek("businesses", "demo-try-dental")).toMatchObject({ businessName: "A real practice" });
+  });
+});
+
+describe("booking-industry demo calendar", () => {
+  it("has three confirmed bookings later today, so the Calendar never opens on an empty week", () => {
+    const now = Date.UTC(2026, 9, 10, 15); // a Saturday, 11am in Miami
+    const nyDay = (ms: number) => new Date(ms).toLocaleDateString("en-US", { timeZone: "America/New_York" });
+    for (const id of industries.filter((v) => VERTICAL_TEMPLATES[v].calendarMode === "appointments")) {
+      const later = demoSeedFor(id, now).appointments.filter((a) => a.status === "confirmed" && a.startTime > now && nyDay(a.startTime) === nyDay(now));
+      expect(later.length, id).toBe(3);
+    }
+    // Field trades keep their seed (bookings from the next business day).
+    expect(demoSeedFor("roofing", now).appointments.some((a) => nyDay(a.startTime) === nyDay(now))).toBe(false);
   });
 });

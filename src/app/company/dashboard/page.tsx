@@ -14,10 +14,10 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { setupChecklist, type SetupChecklistInput } from "@/lib/onboarding/setupChecklist";
-import { displayRequestState } from "@/lib/requests/displayState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { fmtPhone } from "@/lib/format";
+import { fmtDayTime } from "@/lib/format/datetime";
 import { AlertTriangle, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Wrench } from "lucide-react";
 
 interface LeadSnapshot {
@@ -336,20 +336,15 @@ export default function CompanyDashboardPage() {
           <p className="page-subtitle">{nextUp}</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
-          {pendingAppts.length > 0 && (
-            <Link
-              href={apptTabHref}
-              className="status-pill"
-              style={{ background: "#fffbeb", color: "#92400e", borderColor: "#fcd34d", textDecoration: "none" }}
-            >
-              {pendingAppts.length} pending approval
-            </Link>
-          )}
+          {/* No "n pending approval" pill: the subtitle, the tile and "New bookings to confirm" already say it (C5). */}
           {/* The one place the AI's status shows; tap it to change what the AI says (Settings). The old "Agent Setup"
               panel repeated Settings in technical terms ("5 configured", the escalation number) — removed 2026-09-28. */}
-          {hasCalls && <Link className={`status-pill ${isAgentActive ? "status-pill--ok" : "status-pill--off"}`} href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
-            {isAgentActive ? "AI answering calls" : "AI receptionist off"}
-          </Link>}
+          {/* A demo has sample calls but no phone line of its own — say that, not a red "off". */}
+          {hasCalls && (user?.isSandboxVisitor
+            ? <Link className="status-pill status-pill--neutral" href={`/company/calls${previewSuffix}`} style={{ textDecoration: "none" }}>Sample calls</Link>
+            : <Link className={`status-pill ${isAgentActive ? "status-pill--ok" : "status-pill--off"}`} href={`/company/settings${previewSuffix}`} style={{ textDecoration: "none" }}>
+                {isAgentActive ? "AI answering calls" : "AI receptionist off"}
+              </Link>)}
         </div>
       </header>
 
@@ -418,9 +413,8 @@ export default function CompanyDashboardPage() {
                   <div className="feed-icon feed-icon--appt" style={{ background: "#fef3c7", color: "#92400e" }}><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
-                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}{appt.bookedAfterHours === true ? " · after hours" : ""}</p>
+                    <p className="feed-sub">{fmtDayTime(appt.startTime, tz)} · {appt.serviceType ?? "Booking"}{appt.bookedAfterHours === true ? " · after hours" : ""}</p>
                   </div>
-                  <StatusChip status="requested" label={displayRequestState(appt).label + " · " + displayRequestState(appt).nextAction} />
                   <span className="feed-chevron">›</span>
                 </Link>
               ))}
@@ -450,7 +444,7 @@ export default function CompanyDashboardPage() {
           {todayAppointments.length > 0 && (
             <div className="feed-section">
               <div className="feed-section-header">
-                <p className="feed-section-title">Today&apos;s Appointments</p>
+                <p className="feed-section-title">Today&apos;s bookings</p>
                 <span className="feed-section-count">{todayAppointments.length}</span>
               </div>
               {todayAppointments.map((appt) => (
@@ -458,7 +452,7 @@ export default function CompanyDashboardPage() {
                   <div className="feed-icon feed-icon--appt"><Clock size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{appt.callerName ?? "Unknown"}</p>
-                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Inspection"}</p>
+                    <p className="feed-sub">{fmtTime(appt.startTime, tz)} · {appt.serviceType ?? "Booking"}</p>
                   </div>
                   <StatusChip status={appt.status} />
                   <span className="feed-chevron">›</span>

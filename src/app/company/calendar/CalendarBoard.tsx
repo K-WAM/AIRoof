@@ -881,7 +881,7 @@ export default function CalendarBoard() {
 
           {/* Crew × day grid */}
           <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff" }}>
-            <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${days.length}, minmax(${DAY_MIN_PX}px, 1fr))`, minWidth: 120 + days.length * DAY_MIN_PX }}>
+            <div style={{ display: "grid", gridTemplateColumns: `136px repeat(${days.length}, minmax(${DAY_MIN_PX}px, 1fr))`, minWidth: 136 + days.length * DAY_MIN_PX }}>
               {/* Header row */}
               <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
@@ -1185,7 +1185,7 @@ function CrewRow({
     <>
       <div style={{ padding: "12px 12px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
         <span style={{ width: 11, height: 11, borderRadius: "50%", background: crew.color, flexShrink: 0, marginTop: 4, boxShadow: `0 0 0 3px ${crew.color}22` }} />
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, minWidth: 0, overflowWrap: "anywhere" }}>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, minWidth: 0, overflowWrap: "break-word", hyphens: "auto" }}>
           {crew.name}
           {memberCount > 0 && (
             <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
@@ -1354,9 +1354,9 @@ function ScheduledApptTile({
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
-        <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />
-        <div style={{ minWidth: 0, flex: 1 }}>
+      {/* No grip icon here: a day cell is ~80 px on a full week, and the icon cut names to "Jordai". The whole top is the handle. */}
+      <div {...listeners} {...attributes} title="Drag to move" style={{ padding: "7px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
             {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
           </div>
@@ -1370,7 +1370,7 @@ function ScheduledApptTile({
           )}
         </div>
       </div>
-      <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
         <details style={{ position: "relative", padding: "5px 7px", fontSize: 11 }}>
           <summary style={{ cursor: "pointer", color: "var(--accent)", fontWeight: 700 }}>Details</summary>
           <div style={{ position: "absolute", zIndex: 12, marginTop: 6, width: 280, maxWidth: "calc(100vw - 32px)", padding: 10, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(15,23,42,.14)" }}><BookingDetails booking={appt} inspectorName={crew.name} timeZone={tz} compact /></div>

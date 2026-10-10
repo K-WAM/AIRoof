@@ -194,10 +194,11 @@ export function CrewsSection({
             const isEditing = editing?.crewId === c.crewId;
             const inactive = c.active === false;
             const previous = orderedCrews[index - 1];
-            const showGroupHeading = index === 0 || (previous?.kind === "inspector" && c.kind !== "inspector");
+            // Group headings only split inspectors from the rest; with one kind the panel title already names them.
+            const showGroupHeading = orderedCrews.some((x) => x.kind === "inspector") && (index === 0 || (previous?.kind === "inspector" && c.kind !== "inspector"));
             return (
               <Fragment key={c.crewId}>
-              {showGroupHeading && <h3 style={{ margin: index === 0 ? "4px 0 0" : "14px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{c.kind === "inspector" ? "Inspectors" : "Crews"}</h3>}
+              {showGroupHeading && <h3 style={{ margin: index === 0 ? "4px 0 0" : "14px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{c.kind === "inspector" ? "Inspectors" : resources}</h3>}
               <div data-testid={`crew-card-${c.crewId}`} style={{ position: "relative", minWidth: 0, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, opacity: inactive && !isEditing ? 0.75 : 1 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <button

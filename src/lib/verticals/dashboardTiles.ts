@@ -12,13 +12,13 @@ const jobTiles: DashboardTile[] = [
 ];
 const bookingTiles: DashboardTile[] = [
   { label: "Today's bookings", metric: "todayBookings", href: "appointments" },
-  { label: "Pending confirmations", metric: "pendingConfirmations", href: "appointments" },
+  { label: "New bookings to confirm", metric: "pendingConfirmations", href: "appointments" },
   { label: "Urgent leads", metric: "urgentLeads", href: "pipeline" },
 ];
 const tourTiles: DashboardTile[] = [
   { label: "Tour requests this week", metric: "tourRequestsThisWeek", href: "pipeline" },
   { label: "Today's bookings", metric: "todayBookings", href: "appointments" },
-  { label: "Pending confirmations", metric: "pendingConfirmations", href: "appointments" },
+  { label: "New bookings to confirm", metric: "pendingConfirmations", href: "appointments" },
 ];
 // Scheduling + getting paid: what a dog-walking business checks first thing.
 const visitTiles: DashboardTile[] = [

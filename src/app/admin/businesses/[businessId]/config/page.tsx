@@ -104,7 +104,7 @@ const readinessChecks = [
 ];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+const PHONE_PATTERN = /^\+?[\d\s\(\)\.\-]{7,20}$/;
 
 const CONFIG_SECTIONS: Array<[string, string]> = [
   ["profile-config", "Profile"],
@@ -885,7 +885,7 @@ export default function AdminBusinessConfigPage({
               <div className="form-grid">
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.phoneNumber ?? ""} />
+                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.phoneNumber ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="calendarProvider">Calendar provider</label>
@@ -897,7 +897,7 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="escalationPhone">Escalation phone</label>
-                  <input id="escalationPhone" name="escalationPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.escalationPhone ?? ""} />
+                  <input id="escalationPhone" name="escalationPhone" type="tel" pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.escalationPhone ?? ""} />
                 </div>
                 <div className="field">
                   <label htmlFor="notificationEmail">Notification email</label>
@@ -923,7 +923,7 @@ export default function AdminBusinessConfigPage({
                 </div>
                 <div className="field">
                   <label htmlFor="contactPhone">Contact phone (public)</label>
-                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" defaultValue={biz.contactPhone ?? ""} />
+                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s\(\)\.\-]{7,20}" defaultValue={biz.contactPhone ?? ""} />
                 </div>
                 <div className="field full">
                   <label htmlFor="logoUrl">Logo URL (HTTPS)</label>

@@ -17,6 +17,8 @@ export interface VerticalPitch {
   flow: FlowStep[];
   /** What to say to the AI on a test call. */
   trySaying: [string, string];
+  /** Optional industry line for a demo-tour step (the in-app banner); the generic line is used otherwise. */
+  tourTip?: Partial<Record<FlowStep, string>>;
 }
 
 const fieldFlow: FlowStep[] = ["call", "calendar", "field", "invoice", "paid"];
@@ -64,6 +66,7 @@ export const VERTICAL_PITCH: Record<VerticalId, VerticalPitch> = {
     points: ["Books tours and admissions calls 24/7", "Records who is calling and how they heard of you", "Routes urgent and resident calls to live staff — never shares resident details"],
     flow: bookingFlow,
     trySaying: ["I'm looking at assisted living for my mother — can we tour Saturday?", "How is my aunt in room 12 doing today?"],
+    tourTip: { call: "Open “Caller about a resident” — the AI confirms nothing and puts them through to staff." },
   },
   "property-management": {
     demoName: "Harbor Property Management (Demo)",
@@ -106,6 +109,7 @@ export const VERTICAL_PITCH: Record<VerticalId, VerticalPitch> = {
     points: ["AI books tours 24/7", "Captures program and start date", "Families get a confirmation right away"],
     flow: bookingFlow,
     trySaying: ["Do you have openings for a toddler?", "Can we tour next Tuesday?"],
+    tourTip: { call: "Open “Caller about a child” — the AI confirms nothing and puts them through to staff." },
   },
   "junk-removal": {
     demoName: "Haul Away Junk Removal (Demo)",

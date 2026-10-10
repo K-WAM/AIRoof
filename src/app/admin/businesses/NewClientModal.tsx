@@ -8,7 +8,7 @@ import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/Hou
 import type { CanonicalBusinessHours } from "@/lib/scheduling/hours";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+const PHONE_PATTERN = /^\+?[\d\s\(\)\.\-]{7,20}$/;
 
 function slugify(name: string): string {
   return name

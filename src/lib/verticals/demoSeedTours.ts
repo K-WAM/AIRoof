@@ -17,7 +17,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Hi, my wife and I are starting to look at independent living. Could we come and see the community?"],
       ["agent", "We'd love to show you around. Who's calling, and is the tour for the two of you?"],
       ["caller", "Jordan Blake. Yes, both of us. We found you online."],
-      ["agent", "Thank you, Jordan. I've booked your tour with our Admissions Director for tomorrow at 9 and sent the confirmation."],
+      ["agent", "Thank you, Jordan. I've booked your tour with our Admissions Director and sent the confirmation."],
     ] },
     call_demo_2: { summary: "Assisted living for a parent — referred by the hospital; admissions to call back about openings and rates.", turns: [
       ["caller", "Hello, the discharge planner at the hospital gave me your number. I'm looking at assisted living for my mother."],
@@ -29,7 +29,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Hi, we're looking at memory care for my father. Can we visit?"],
       ["agent", "Of course. I'll book you with our Memory Care Liaison, who can answer care questions in person. What day suits you?"],
       ["caller", "Marcus Lee. Any weekday morning."],
-      ["agent", "Thank you, Marcus. You're booked for tomorrow at 11, and the confirmation is on its way."],
+      ["agent", "Thank you, Marcus. You're booked, and the confirmation is on its way."],
     ] },
     call_demo_4: { summary: "After-hours tour request — booked, waiting for your confirmation.", outcome: "escalated", turns: [
       ["agent", "Thanks for calling — this is Elena. Admissions is closed, but I can still help."],
@@ -48,7 +48,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Can I come and look around today or tomorrow? I'm thinking about moving in myself."],
       ["agent", "Absolutely. May I have your name?"],
       ["caller", "Tom Becker. A friend of mine lives there and loves it."],
-      ["agent", "That's lovely to hear, Tom. I've booked your tour for tomorrow at 1:30."],
+      ["agent", "That's lovely to hear, Tom. I've booked your tour and texted you the time."],
     ] },
     call_demo_7: { summary: "Asked about Medicaid and costs — admissions consultation requested.", turns: [
       ["caller", "Do you take Medicaid or long-term care insurance?"],
@@ -68,7 +68,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Hi, we just moved here and need daycare for our two-year-old. Can we see the center?"],
       ["agent", "Welcome! I can book a tour with our director. May I have your name?"],
       ["caller", "Jordan Blake. Mornings are best."],
-      ["agent", "Thank you, Jordan. You're booked for tomorrow at 9, and the confirmation is on its way."],
+      ["agent", "Thank you, Jordan. You're booked, and the confirmation is on its way."],
     ] },
     call_demo_2: { summary: "Infant room opening — added to the waitlist; director to call back.", turns: [
       ["caller", "Do you have any openings in the infant room? I go back to work in March."],
@@ -80,7 +80,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Hi, what's your infant program like? Could I visit?"],
       ["agent", "The best way to see it is a tour with our Infant Room Lead. What day works?"],
       ["caller", "Marcus Lee. Any weekday."],
-      ["agent", "Great, Marcus. You're booked for tomorrow at 11."],
+      ["agent", "Great, Marcus. You're booked — the confirmation is on its way."],
     ] },
     call_demo_4: { summary: "After-hours tour request — booked, waiting for your confirmation.", outcome: "escalated", turns: [
       ["agent", "Thanks for calling — this is Wren. The center is closed, but I can still help."],
@@ -99,7 +99,7 @@ const CALLS: Record<TourVertical, Record<string, CallScript>> = {
       ["caller", "Can we tour today or tomorrow? We need something by next month."],
       ["agent", "Sure. Your name, please?"],
       ["caller", "Tom Becker. A neighbor recommended you."],
-      ["agent", "Thank you, Tom. You're booked for tomorrow at 1:30."],
+      ["agent", "Thank you, Tom. You're booked, and I've texted you the time."],
     ] },
     call_demo_7: { summary: "Pre-K and after-school questions — director to call back.", turns: [
       ["caller", "Do you have a Pre-K program, and after-school for next year?"],

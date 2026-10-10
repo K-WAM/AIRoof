@@ -39,11 +39,16 @@ export default function LibraryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialSection = searchParams?.get("section");
-  const [section, setSection] = useState<Section>(
+  const [pickedSection, setSection] = useState<Section>(
     initialSection === "pricing" || initialSection === "crews" || initialSection === "documents" || initialSection === "branding" || initialSection === "work-catalog"
       ? initialSection
       : isEnabled("jobs") ? "work-catalog" : hasPricing ? "pricing" : "crews"
   );
+  // The first pick is made before the industry loads (modules fail open), so it can name a tab this industry hides —
+  // which left dental/care homes on a blank Library. Fall back to the first tab that is actually shown.
+  const visibleSections = (["work-catalog", "pricing", "crews", "branding", "documents"] as Section[])
+    .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")));
+  const section: Section = visibleSections.includes(pickedSection) ? pickedSection : visibleSections[0];
   // An old "Library → Customers" link lands on the Customers page (same list, its own nav item).
   useEffect(() => {
     if (initialSection !== "customers") return;
@@ -210,9 +215,7 @@ export default function LibraryPage() {
 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="segmented-control" aria-label="Library section">
-          {(["work-catalog", "pricing", "crews", "branding", "documents"] as Section[])
-            .filter((s) => (s !== "pricing" || hasPricing) && (s !== "work-catalog" || isEnabled("jobs")))
-            .map((s) => (
+          {visibleSections.map((s) => (
               <button key={s} className="segment" type="button" aria-pressed={section === s} onClick={() => setSection(s)}>
                 {s === "pricing"
                   ? "Prices & rates"

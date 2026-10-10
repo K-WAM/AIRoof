@@ -169,6 +169,11 @@ export function demoSeedFor(verticalId: VerticalId, now: number = Date.now()): D
     }, "America/New_York")!;
   });
 
+  // Booking industries (dental, care homes…) show their Calendar first: three confirmed bookings later today, so the
+  // board is never an empty week on a Friday–Sunday (every other booking starts the next business day).
+  const laterToday = (k: number) => Math.ceil((now + (k + 1) * 60 * 60_000) / (30 * 60_000)) * 30 * 60_000;
+  if (apptMode) for (let k = 0; k < 3; k++) appointmentTimes[k] = laterToday(k);
+
   const todaysVisit = (i: number) => {
     const p = zonedParts(now, "America/New_York");
     const start = zonedDateTimeToUtc({ year: p.year, month: p.month, day: p.day, hour: 9 + i * 2, minute: 0 }, "America/New_York")!;

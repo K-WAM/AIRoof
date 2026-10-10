@@ -11,6 +11,7 @@ import { getFirebaseAuth } from "@/lib/firebase/client";
 import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
+import { DemoTourBanner } from "@/components/demo/DemoTourBanner";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
@@ -235,37 +236,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </Sheet>
 
         <main className="company-main">
-          {user.isSandboxVisitor && (
-            <div
-              role="status"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-                margin: "0 0 16px",
-                padding: "10px 16px",
-                background: "#fffbeb",
-                border: "1px solid #fcd34d",
-                borderRadius: 8,
-                fontSize: 13,
-                color: "#92400e",
-                textAlign: "center",
-              }}
-            >
-              <span>
-                <strong>You&apos;re exploring a live product demo.</strong> Try{" "}
-                <Link href={`/company/field${previewSuffix}`} style={{ color: "#92400e", fontWeight: 700, textDecoration: "underline" }}>
-                  Field
-                </Link>{" "}
-                and log a voice update — it&apos;s real. Booking, sending, and account changes are turned off.
-              </span>
-              <Link href="/try/roofing" style={{ color: "#92400e", fontWeight: 700, textDecoration: "underline" }}>
-                ← Exit demo
-              </Link>
-            </div>
-          )}
+          {user.isSandboxVisitor && <DemoTourBanner previewSuffix={previewSuffix} />}
           {children}
         </main>
       </div>

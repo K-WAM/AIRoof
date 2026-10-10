@@ -45,7 +45,7 @@ const readinessChecks = [
 ];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+const PHONE_PATTERN = /^\+?[\d\s\(\)\.\-]{7,20}$/;
 
 export default function OnboardingPage() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -283,7 +283,7 @@ export default function OnboardingPage() {
                 </div>
                 <div className="field">
                   <label htmlFor="phoneNumber">Main phone</label>
-                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" aria-describedby="phoneNumber-help" />
+                  <input id="phoneNumber" name="phoneNumber" type="tel" required pattern="\+?[\d\s\(\)\.\-]{7,20}" placeholder="+1 (604) 555-1234" aria-describedby="phoneNumber-help" />
                   <p id="phoneNumber-help" className="helper-text" style={{ margin: "4px 0 0" }}>
                     The business&apos;s own number. It is saved as a Draft line — it answers nothing until Luxor connects and tests it.
                     The shared demo numbers can never be used here.
@@ -494,7 +494,7 @@ export default function OnboardingPage() {
                     id="escalationPhone"
                     name="escalationPhone"
                     type="tel"
-                    pattern="\+?[\d\s().-]{7,20}"
+                    pattern="\+?[\d\s\(\)\.\-]{7,20}"
                     placeholder="+1 (604) 555-0000"
                   />
                 </div>
@@ -566,7 +566,7 @@ export default function OnboardingPage() {
                 </div>
                 <div className="field">
                   <label htmlFor="contactPhone">Contact phone (shown in emails)</label>
-                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s().-]{7,20}" placeholder="+1 (604) 555-1234" />
+                  <input id="contactPhone" name="contactPhone" type="tel" pattern="\+?[\d\s\(\)\.\-]{7,20}" placeholder="+1 (604) 555-1234" />
                 </div>
                 <div className="field full">
                   <label htmlFor="logoUrl">Logo URL (HTTPS, optional)</label>

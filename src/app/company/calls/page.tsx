@@ -31,6 +31,7 @@ interface CallMessage {
 
 interface Call {
   callId: string;
+  callerName?: string;
   callerPhone?: string;
   targetPhone?: string;
   callType?: "inbound" | "outbound";
@@ -273,6 +274,10 @@ export default function CompanyCallsPage() {
     ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${selectedLinks.appointmentId}`
     : null;
   const selectedLead = selectedLinks?.leadId ? linkedLeads.find((lead) => lead.leadId === selectedLinks.leadId) : undefined;
+  const selectedNumber = selected?.callType === "outbound" ? (selected.targetPhone ? fmtPhone(selected.targetPhone) : "Outbound") : (selected?.callerPhone ? fmtPhone(selected.callerPhone) : "Unknown caller");
+  const selectedName = selected && selected.callType !== "outbound" ? selected.callerName
+    ?? linkedAppts.find((a) => a.appointmentId === selectedLinks?.appointmentId)?.callerName
+    ?? selectedLead?.callerName : undefined;
 
   return (
     <>
@@ -325,6 +330,10 @@ export default function CompanyCallsPage() {
                   const active = call.status === "in_progress" && Date.now() - call.startedAt < 30 * 60 * 1000;
                   const callLinks = findCallLinks(call.callId, linkedLeads, linkedAppts);
                   const callPhone = call.callType === "outbound" ? call.targetPhone : call.callerPhone;
+                  // Lead with who called (the call record, else the request it produced); the number goes underneath.
+                  const callerName = isOutbound ? undefined : call.callerName
+                    ?? linkedAppts.find((a) => a.appointmentId === callLinks.appointmentId)?.callerName
+                    ?? linkedLeads.find((l) => l.leadId === callLinks.leadId)?.callerName;
                   const bookedHref = callLinks.appointmentId
                     ? `/company/pipeline${preview ? `?preview=${preview}&` : "?"}tab=appointments&appt=${callLinks.appointmentId}`
                     : null;
@@ -337,20 +346,20 @@ export default function CompanyCallsPage() {
                       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openCall(call); } }}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Open call ${displayPhone}`}
+                      aria-label={`Open call ${callerName ?? displayPhone}`}
                       style={{ cursor: "pointer" }}
                     >
                       <div className="call-row-header">
                         <div>
                           <p className="call-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             {isOutbound && <span style={{ fontSize: 11, color: "#0f766e", fontWeight: 700 }}>→ OUT</span>}
-                            {displayPhone}
+                            {callerName ?? displayPhone}
                             {call.recordingUrl && <Headphones size={13} style={{ color: "var(--accent)", flexShrink: 0 }} aria-label="Recording available" />}
                           </p>
-                          <p className="call-subtitle">{formatTime(call.startedAt, tz)}</p>
+                          <p className="call-subtitle">{callerName ? `${displayPhone} · ` : ""}{formatTime(call.startedAt, tz)}</p>
                         </div>
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          {call.outcome && <StatusChip status={call.outcome} label={displayRequestState({ outcome: call.outcome }).label} />}
+                          {call.outcome && <StatusChip status={call.outcome} label={call.outcome === "escalated" ? "Urgent" : displayRequestState({ outcome: call.outcome }).label} />}
                           {call.status === "in_progress" && <span className={active ? "badge-live" : "badge-ended"}>{active ? "Live" : "Ended"}</span>}
                           {call.isAfterHours && <StatusChip status="after_hours" />}
                           {!call.outcome && <StatusChip status={CATEGORY_STATUS[category] ?? "general"} label={category} />}
@@ -401,9 +410,10 @@ export default function CompanyCallsPage() {
                   <div>
                     <p className="call-detail-phone">
                       {selected.callType === "outbound" && <span style={{ fontSize: 12, color: "#0f766e", fontWeight: 700, marginRight: 6 }}>→ OUT</span>}
-                      {selected.callType === "outbound" ? (selected.targetPhone ? fmtPhone(selected.targetPhone) : "Outbound") : (selected.callerPhone ? fmtPhone(selected.callerPhone) : "Unknown caller")}
+                      {selectedName ?? selectedNumber}
                     </p>
                     <p className="call-detail-sub">
+                      {selectedName ? `${selectedNumber} · ` : ""}
                       {formatTime(selected.startedAt, tz)}
                       {callDuration(selected) ? ` · ${callDuration(selected)}` : ""}
                       {selected.endedReason ? ` · ${selected.endedReason}` : ""}
@@ -456,16 +466,17 @@ export default function CompanyCallsPage() {
                   </div>
                 )}
 
-                {selected.outcome && (
+                {/* Booked / not booked is said once, in the banner above; chips only add what it doesn't (urgent, after hours). */}
+                {(selected.outcome === "escalated" || selected.isAfterHours || (selected.outcomeReason && user?.superadmin)) && (
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-                    <StatusChip status={selected.outcome} label={displayRequestState({ outcome: selected.outcome }).label} />
+                    {selected.outcome === "escalated" && <StatusChip status="escalated" label="Urgent" />}
                     {selected.isAfterHours && <StatusChip status="after_hours" />}
                     {/* T-173: the classifier's internal reason is for platform debugging, not the business's staff. */}
                     {selected.outcomeReason && user?.superadmin && <span style={{ fontSize: 12, color: "#64748b" }}>{selected.outcomeReason}</span>}
                   </div>
                 )}
 
-                {selected.isAfterHours && selected.outcome !== "scheduled" && (
+                {selected.isAfterHours && selected.outcome !== "scheduled" && !apptHref && (
                   <div style={{ padding: "10px 14px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, marginBottom: 14, display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <Clock size={18} style={{ flexShrink: 0 }} />
                     <div>

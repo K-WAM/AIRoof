@@ -23,7 +23,7 @@ import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/Hou
 import type { PhoneLineView } from "@/types/phoneLine";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[\d\s().-]{7,20}$/;
+const PHONE_PATTERN = /^\+?[\d\s\(\)\.\-]{7,20}$/;
 
 interface Settings {
   timezone: string;
@@ -264,7 +264,7 @@ export default function CompanySettingsPage() {
             <div className="panel-header"><h2 className="panel-title">Company</h2></div>
             <div className="panel-body form-grid">
               <div className="field full"><label>Business name</label><p>{settings.businessName}</p></div>
-              <div className="field"><label htmlFor="contactPhone">Public contact phone</label><input id="contactPhone" ref={contactPhoneRef} type="tel" required pattern="\+?[\d\s().-]{7,20}" value={settings.contactPhone} onChange={(event) => setSettings((prev) => prev ? { ...prev, contactPhone: event.target.value } : prev)} /></div>
+              <div className="field"><label htmlFor="contactPhone">Public contact phone</label><input id="contactPhone" ref={contactPhoneRef} type="tel" required pattern="\+?[\d\s\(\)\.\-]{7,20}" value={settings.contactPhone} onChange={(event) => setSettings((prev) => prev ? { ...prev, contactPhone: event.target.value } : prev)} /></div>
               <div className="field"><label htmlFor="contactEmail">Public contact email</label><input id="contactEmail" ref={contactEmailRef} type="email" value={settings.contactEmail} onChange={(event) => setSettings((prev) => prev ? { ...prev, contactEmail: event.target.value } : prev)} /></div>
               <div className="field"><label htmlFor="licenseNumber">License number</label><input id="licenseNumber" maxLength={40} value={settings.licenseNumber ?? ""} onChange={(event) => setSettings((prev) => prev ? { ...prev, licenseNumber: event.target.value } : prev)} /></div>
             </div>
