@@ -1,5 +1,9 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-10 (Claude) — **Care homes suite pass on the same branch:** in-app Demo tour for every `/try` sandbox, booking
+demos show tours today, blank-Library and invalid phone-pattern bugs fixed, say-once cleanups. Details:
+`docs/INDUSTRY-READINESS.md`; next steps: `docs/NEXT_SESSION.md`.
+
 Updated: 2026-10-09 latest (Claude) — **Industry tailoring on the same branch:** pet care (14th industry), dental/care-home
 intake fields, per-industry `/try` pitch + `demo-try-<industry>` sandboxes, industry words on Calendar/Pipeline; roofing
 unchanged. Readiness per industry + gaps: `docs/INDUSTRY-READINESS.md`; next steps: `docs/NEXT_SESSION.md`.

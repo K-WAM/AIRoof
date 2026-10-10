@@ -46,6 +46,23 @@ Demo link to send a prospect: `https://crm.luxordev.com/try/<industry>` — e.g.
 - Not built, deliberately: a separate inquiry-stage board (Welcome Home/Sherpa style). The Pipeline's New → Contacted →
   Booked → Closed/Lost already maps to Inquiry → Follow-up → Tour → Move-in/Lost; a second board would be two ways to do one thing.
 
+## Care homes suite pass (2026-10-10, later) — the frictionless demo
+
+**How to demo a care home (send the link, no call needed):** `https://crm.luxordev.com/try/care-homes` → "See it in the real
+app". A **Demo tour** strip on every screen walks them: **1. Calls** ("Open *Caller about a resident* — the AI confirms
+nothing") → **2. Pipeline** (who's calling, how they heard of you, community type) → **3. Calendar** (today's tours, one row
+per coordinator). Read-only; "Exit demo" returns to the pitch page. Built from the industry pitch, so each industry gets
+its own steps (`src/components/demo/DemoTourBanner.tsx`, `tourTip` in `pitch.ts`).
+
+Fixed on the way (visual walk, desktop + 375 px):
+- Library opened **blank** for every industry without Jobs (tab picked before the industry loaded).
+- Phone-number boxes' validation pattern was invalid in current browsers, so it was silently ignored (all forms).
+- Demo Calendar was an empty week Fri–Sun: booking industries now get three tours later today; sandboxes reseed daily.
+- Demo banner sent care homes to a Field tab they don't have; red "AI receptionist off" in the demo → "Sample calls".
+- Said-once: dashboard "pending approval" pill, "Booking · Confirm booking" chips, and a booked after-hours call that also
+  said "Appointment not booked" — removed. Calls lead with the caller's name; escalated reads "Urgent".
+- Calendar names broke mid-word ("Administrat/or"); tiles cut names ("Jordai") on a full week.
+
 ## Known gaps (next, in order of value)
 
 1. Sandboxes have no phone line, so their dashboard honestly says "AI receptionist off"; only the roofing demo number is live.

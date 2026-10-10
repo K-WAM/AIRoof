@@ -438,6 +438,8 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/verticals/sandboxBusiness.ts — one read-only `demo-try-<industry>` business per industry, seeded on first visit and
   refreshed daily (`SEED_VERSION` reseeds all). `/api/demo/sandbox-token` with `{vertical}` opens it; without one = the old
   demo-roofing behaviour. src/lib/verticals/writeDemoSeed.ts is the one seed writer (Demo Studio + sandboxes).
+- src/components/demo/DemoTourBanner.tsx — the sandbox visitor's step guide (from `VERTICAL_PITCH[...].flow`, optional `tourTip`);
+  booking industries' demo seed puts three tours later today (`laterToday` in demoSeed.ts).
 - `VerticalTemplate.quotes: false` (pet care) — set-price work: no Findings/Quote steps, stepper Booked → Working → Done →
   Invoiced, Jobs filters without "Needs quote". Read it as `useBusinessModules().quotes`; roofing is unchanged.
 
