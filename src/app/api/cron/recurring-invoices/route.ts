@@ -14,6 +14,7 @@ import type { LuxorInvoice } from "@/app/admin/invoices/invoiceFlow";
 import { sendEmail } from "@/lib/comms/send";
 import { runCustomerReminders } from "@/lib/billing/customerReminders";
 import { buildLuxorReminderEmail, daysOverdue, reminderDue } from "@/lib/billing/luxorNotices";
+import { loadLuxorZelleTo } from "@/lib/billing/luxorPaySettings";
 
 const DUE_IN_DAYS = 30;
 const ELIGIBLE_QUERY_LIMIT = 50;
@@ -122,11 +123,12 @@ export async function GET(request: NextRequest) {
   const reminded: string[] = [];
   try {
     const sent = await db.collection("luxorInvoices").where("status", "==", "sent").limit(REMINDER_QUERY_LIMIT).get();
+    const zelleTo = sent.empty ? null : await loadLuxorZelleTo(db);
     for (const doc of sent.docs) {
       const invoice = doc.data() as LuxorInvoice & { remindersSent?: number[] };
       const stage = reminderDue(invoice, now);
       if (stage === null || !invoice.clientEmail) continue;
-      const { subject, html } = buildLuxorReminderEmail(invoice, daysOverdue(invoice, now));
+      const { subject, html } = buildLuxorReminderEmail(invoice, daysOverdue(invoice, now), zelleTo);
       const result = await sendEmail({ to: invoice.clientEmail, subject, html, fromName: "Luxor AI" });
       if (result.status !== "delivered") {
         errors.push(`${doc.id}: reminder not sent (${result.status})`);

@@ -7,6 +7,7 @@ import { NumberField } from "@/components/ui/NumberField";
 import { useSearchParams } from "next/navigation";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
+import { PayOptionsPanel } from "./PayOptionsPanel";
 import {
   CircleDollarSign,
   Copy,
@@ -680,6 +681,8 @@ function AdminInvoicesPageInner() {
               )}
             </div>
           </section>
+
+          <PayOptionsPanel />
 
           {/* Templates */}
           {templates.length > 0 && (

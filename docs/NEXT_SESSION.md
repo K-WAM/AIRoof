@@ -3,7 +3,8 @@
 ## START HERE (2026-10-10, end) — MERGED TO MAIN AND DEPLOYED
 - **`ccr-8c0916c7-3r7kkm` is merged** (fast-forward, `ff985b1`) **and live** on crm.luxordev.com, plus one fix on top
   (`d7da5ba`, below). Firestore rules/indexes redeployed (rules unchanged; 3 prod-only indexes kept, never deleted).
-  `LUXOR_ZELLE_TO` is NOT set in Vercel (optional; ask the owner for the Zelle address before adding it).
+  Zelle for Luxor invoices is now a form: Admin → Invoices → "How clients pay you" (`platform/billing.zelleTo`,
+  `/api/admin/billing-settings`; blank = no Zelle line; the `LUXOR_ZELLE_TO` env var is only a fallback). Owner: fill it in once.
 - **Fix `d7da5ba` — findings → quote:** a draft quote copied the job's "In quote" findings once, at creation, so findings
   added later showed on the report (reads the job live) but not the quote. Now a Findings-tab save updates a draft quote in
   the same transaction (newly marked = added with prices, unmarked/deleted = removed; transitions only), Quote-tab Remove
@@ -11,11 +12,13 @@
 - **Verified:** vitest (full suite; 2 unrelated tests time out only under heavy disk load), tsc/eslint clean, rules 12/12,
   `e2e:call` 12/12 with the fix, prod health ok, `/try/*` 200, ElevenLabs webhooks fail closed, logs clean,
   `check-booking-data` for demo-roofing (Mon–Fri 8–5 ET, 5 crews). Roofing demo agent (689 + 778 lines) already has
-  Spanish: multilingual `eleven_v3_conversational`, es preset, mid-call language_detection — its Spanish greeting still
-  says "Carlita Roofing" (tidy in the ElevenLabs dashboard).
+  Spanish: multilingual `eleven_v3_conversational`, es preset, mid-call language_detection. Its Spanish fallback greeting
+  said "Carlita Roofing"; now business-neutral (version `agtvrsn_0901m4ms4qxpejbawxj0z7rfpxag`). Per-call greetings come from
+  the app (`initiationConfig.ts`), so this only plays if a call ever starts in Spanish.
 - **Open — owner's "can't click on job details or documents":** not reproduced in the prod sandbox at 375/930/1440 px (every
   job tab, contact toggle, job rows and customer links work; the "Job details"/"Documents" group labels are hidden). Only
   snag: at ~930 px the Invoice tab sits past the tab strip's scroll edge. Need device + job + screenshot from the owner.
+- **`.claude/settings.local.json` is no longer tracked** (it was gitignored but committed long ago; local permissions only).
 - **Local env notes:** `.e2e/*.cjs` debug scripts are gitignored leftovers that fail `npm run lint` locally (CI is clean);
   the harness stalls when another project's build saturates D: — check disk load before blaming the app.
 - **Worktrees:** `air-wt-call-live` has an untracked `src/__tmp__/`; `air-wt-setup-ux` holds an unmerged docs-only T-145

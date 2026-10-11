@@ -43,15 +43,22 @@ function shell(heading: string, body: string): string {
 </div></body></html>`;
 }
 
-/** Luxor's Zelle address (env LUXOR_ZELLE_TO, e.g. an email or US phone). Unset = Zelle is not offered. */
-export function luxorZelleTo(): string | null {
-  const to = (process.env.LUXOR_ZELLE_TO ?? "").trim();
-  return to && to.length <= 120 ? to : null;
+/** Longest Zelle address accepted (an email or a US phone). */
+export const ZELLE_TO_MAX = 120;
+
+/**
+ * Luxor's Zelle address. The superadmin sets it on the Invoices page (`platform/billing.zelleTo`, see
+ * luxorPaySettings.ts) and the caller passes it in; the LUXOR_ZELLE_TO env var is only the fallback when nothing is saved.
+ * A saved "" means Zelle is switched off. Unset everywhere = Zelle is not offered.
+ */
+export function luxorZelleTo(stored?: string | null): string | null {
+  const to = (stored ?? process.env.LUXOR_ZELLE_TO ?? "").trim();
+  return to && to.length <= ZELLE_TO_MAX ? to : null;
 }
 
 /** "Or pay by Zelle" block for Luxor invoices and reminders; "" when Zelle is not configured. */
-export function luxorZelleBlock(invoiceId: string): string {
-  const to = luxorZelleTo();
+export function luxorZelleBlock(invoiceId: string, stored?: string | null): string {
+  const to = luxorZelleTo(stored);
   if (!to) return "";
   return `<div style="margin:16px 0;padding:12px 16px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;color:#334155;line-height:1.5"><strong>Pay by Zelle:</strong> send to <strong>${esc(to)}</strong> and put <strong>${esc(invoiceId)}</strong> in the memo.</div>`;
 }
@@ -69,12 +76,12 @@ export function buildLuxorReceiptEmail(invoice: Pick<LuxorInvoice, "invoiceId" |
   return { subject: `[Receipt] Payment received — ${invoice.invoiceId}`, html: shell("Payment received", body) };
 }
 
-export function buildLuxorReminderEmail(invoice: Pick<LuxorInvoice, "invoiceId" | "clientName" | "total" | "dueDate" | "stripePaymentUrl">, lateDays: number) {
+export function buildLuxorReminderEmail(invoice: Pick<LuxorInvoice, "invoiceId" | "clientName" | "total" | "dueDate" | "stripePaymentUrl">, lateDays: number, zelleTo?: string | null) {
   const firm = lateDays >= 14;
   const body = `
     <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Hi ${esc(invoice.clientName || "there")}, invoice <b>${esc(invoice.invoiceId)}</b> for <b>${usd(invoice.total)}</b> was due on ${esc(invoice.dueDate)}${lateDays > 0 ? ` (${lateDays} day${lateDays === 1 ? "" : "s"} ago)` : ""}.</p>
     ${invoice.stripePaymentUrl ? `<div style="margin:20px 0;"><a href="${esc(invoice.stripePaymentUrl)}" style="display:inline-block;background:#0f766e;color:#fff;padding:12px 26px;border-radius:8px;text-decoration:none;font-weight:700;">Pay ${usd(invoice.total)}</a></div>` : ""}
-    ${luxorZelleBlock(invoice.invoiceId)}
+    ${luxorZelleBlock(invoice.invoiceId, zelleTo)}
     <p style="margin:0;font-size:14px;line-height:1.6;color:#475569;">${firm
       ? "To keep your dashboard open, please pay this week. Your phone line keeps answering either way."
       : "If you've already paid, thank you — please ignore this."}</p>`;

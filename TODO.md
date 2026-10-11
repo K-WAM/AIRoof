@@ -9,7 +9,7 @@ Integration branch: `main`. Owner reviewed and pushed the 2026-08-23 maintenance
 
 **2026-10-10 (latest) — release deployed:** `ccr-8c0916c7-3r7kkm` merged to `main` and live, plus `d7da5ba` (findings added
 after a quote started now reach the draft quote). Open: owner's "can't click job details/documents" (not reproduced — need
-device/screenshot), real-phone Spanish call T-196, `LUXOR_ZELLE_TO` unset. See `docs/NEXT_SESSION.md` "START HERE (2026-10-10, end)".
+device/screenshot), real-phone Spanish call T-196. Zelle for Luxor invoices is now set in-app (Admin → Invoices → "How clients pay you"). See `docs/NEXT_SESSION.md` "START HERE (2026-10-10, end)".
 
 **2026-10-09 (latest) — industry tailoring:** pet care added (14 industries), per-industry `/try` demo + sandbox,
 dental/care-home intake fields. Readiness % + gaps (recurring visits, multi-visit invoice): `docs/INDUSTRY-READINESS.md`.

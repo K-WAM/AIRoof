@@ -5,6 +5,7 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { escapeHtml } from "@/lib/documents/letterhead";
 import { fmtMoney } from "@/lib/format/money";
 import { luxorZelleBlock } from "@/lib/billing/luxorNotices";
+import { loadLuxorZelleTo } from "@/lib/billing/luxorPaySettings";
 
 const esc = (value: unknown) => escapeHtml(String(value ?? ""));
 
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ inv
   const snap = await db.collection("luxorInvoices").doc(invoiceId).get();
   if (!snap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const invoice = snap.data()!;
+  const zelleTo = await loadLuxorZelleTo(db);
 
   const body = await req.json().catch(() => ({}));
   const toEmail = body.email ?? invoice.clientEmail;
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ inv
     </div>
 
     ${invoice.stripePaymentUrl ? `<div style="margin-top:24px;text-align:center;"><a href="${esc(invoice.stripePaymentUrl)}" style="display:inline-block;background:#0f172a;color:#fff;font-weight:700;font-size:14px;padding:12px 28px;border-radius:8px;text-decoration:none;">Pay now →</a><p style="margin:10px 0 0;font-size:11px;color:#94a3b8;">Card, Apple Pay, or Google Pay — secure checkout via Stripe.</p></div>` : ""}
-    ${luxorZelleBlock(invoiceId)}
+    ${luxorZelleBlock(invoiceId, zelleTo)}
 
     ${invoice.notes ? `<div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;"><div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">Notes & Payment Terms</div><p style="font-size:13px;color:#475569;line-height:1.6;margin:0;">${esc(invoice.notes)}</p></div>` : ""}
   </div>
