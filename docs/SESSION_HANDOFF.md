@@ -1,5 +1,9 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-10 end (Claude) — **Release merged to main and deployed** (`ff985b1`) + fix `d7da5ba` (Findings-tab
+changes now reach a draft quote; "Add them" notice for drifted quotes). Firestore rules/indexes redeployed, prod smoke clean,
+roofing demo agent already bilingual. Open: unreproduced click bug, real-phone Spanish call. Details: `docs/NEXT_SESSION.md`.
+
 Updated: 2026-10-10 (Claude) — **Care homes suite pass on the same branch:** in-app Demo tour for every `/try` sandbox, booking
 demos show tours today, blank-Library and invalid phone-pattern bugs fixed, say-once cleanups. Details:
 `docs/INDUSTRY-READINESS.md`; next steps: `docs/NEXT_SESSION.md`.

@@ -1,5 +1,28 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+## START HERE (2026-10-10, end) — MERGED TO MAIN AND DEPLOYED
+- **`ccr-8c0916c7-3r7kkm` is merged** (fast-forward, `ff985b1`) **and live** on crm.luxordev.com, plus one fix on top
+  (`d7da5ba`, below). Firestore rules/indexes redeployed (rules unchanged; 3 prod-only indexes kept, never deleted).
+  `LUXOR_ZELLE_TO` is NOT set in Vercel (optional; ask the owner for the Zelle address before adding it).
+- **Fix `d7da5ba` — findings → quote:** a draft quote copied the job's "In quote" findings once, at creation, so findings
+  added later showed on the report (reads the job live) but not the quote. Now a Findings-tab save updates a draft quote in
+  the same transaction (newly marked = added with prices, unmarked/deleted = removed; transitions only), Quote-tab Remove
+  unticks the finding, and the Quote tab offers "Add them" for findings a draft is missing. Sent/accepted quotes unchanged.
+- **Verified:** vitest (full suite; 2 unrelated tests time out only under heavy disk load), tsc/eslint clean, rules 12/12,
+  `e2e:call` 12/12 with the fix, prod health ok, `/try/*` 200, ElevenLabs webhooks fail closed, logs clean,
+  `check-booking-data` for demo-roofing (Mon–Fri 8–5 ET, 5 crews). Roofing demo agent (689 + 778 lines) already has
+  Spanish: multilingual `eleven_v3_conversational`, es preset, mid-call language_detection — its Spanish greeting still
+  says "Carlita Roofing" (tidy in the ElevenLabs dashboard).
+- **Open — owner's "can't click on job details or documents":** not reproduced in the prod sandbox at 375/930/1440 px (every
+  job tab, contact toggle, job rows and customer links work; the "Job details"/"Documents" group labels are hidden). Only
+  snag: at ~930 px the Invoice tab sits past the tab strip's scroll edge. Need device + job + screenshot from the owner.
+- **Local env notes:** `.e2e/*.cjs` debug scripts are gitignored leftovers that fail `npm run lint` locally (CI is clean);
+  the harness stalls when another project's build saturates D: — check disk load before blaming the app.
+- **Worktrees:** `air-wt-call-live` has an untracked `src/__tmp__/`; `air-wt-setup-ux` holds an unmerged docs-only T-145
+  commit (audit + 26 screenshots) and a HoursEditor edit already on main; 5 stale non-git `D:Appsair-wt-*` folders.
+- **Owner's next steps:** (1) real-phone run on +1 689-204-2643 in English then Spanish, book, field note, add a finding
+  after the quote exists and see it land on the quote; (2) send details for the click bug; (3) NH items in `TODO.md`.
+
 ## START HERE (2026-10-10) — care homes suite + demo tour (same branch)
 - Care-home demo: `/try/care-homes` → in-app **Demo tour** (Calls → Pipeline → Calendar). What changed and what was fixed:
   `docs/INDUSTRY-READINESS.md` → "Care homes suite pass". Owner check after deploy: open the link on a phone, follow the tour.
