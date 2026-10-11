@@ -29,6 +29,7 @@ const PUBLIC_ROUTES: Record<string, string> = {
   "health/route.ts": "reports configured/not-configured booleans only; no tenant data",
   "calendar/feed/[token]/route.ts": "the unguessable token IS the credential: only its sha256 is stored, unknown/inactive → 404",
   "demo/sandbox-token/route.ts": "rate-limited; hard-coded demo tenant (must carry isDemo) and a read-only viewer identity",
+  "luxor-usage/route.ts": "server-to-server: Bearer LUXOR_USAGE_TOKEN (timing-safe) required; returns only ElevenLabs credit counts, no tenant data",
 };
 
 const HANDLER = /^export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/m;
