@@ -168,4 +168,27 @@ describe("QuotePanel Terms & notices", () => {
     const patch = calls.find((c) => c.method === "PATCH" && /\/api\/jobs\/J-1$/.test(c.url));
     expect(patch?.body).toMatchObject({ businessId: "biz", propertyType: "commercial" });
   });
+
+  // Owner, 2026-10-10: findings added after the quote started never reached it.
+  it("offers to add In-quote findings a draft is missing, and adds them with their prices", async () => {
+    const later = finding({ findingId: "f2", itemId: undefined, problem: "Rusted drip edge", lines: [{ description: "Drip edge", quantity: 1, unitPrice: 80, kind: "labor" }] });
+    serverQuote = draftFrom([finding()]);
+    renderPanel(jobWith([finding(), later]));
+    const notice = await screen.findByTestId("quote-missing-findings");
+    expect(notice.textContent).toContain("Rusted drip edge");
+    fireEvent.click(screen.getByRole("button", { name: "Add it" }));
+    await waitFor(() => expect(screen.queryByTestId("quote-missing-findings")).toBeNull());
+    expect(screen.getByText("$514.00", { selector: "div" })).toBeTruthy();
+  });
+
+  it("Remove also unmarks In quote on the job's finding, so the notice does not bring it back", async () => {
+    const onFindingsChanged = vi.fn();
+    serverQuote = draftFrom([finding()]);
+    renderPanel(jobWith([finding()]), { onFindingsChanged });
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(onFindingsChanged).toHaveBeenCalled());
+    const patch = calls.find((c) => c.method === "PATCH" && /\/api\/jobs\/J-1$/.test(c.url));
+    expect((patch!.body!.findings as JobFinding[])[0]).toMatchObject({ findingId: "f1", includeInQuote: false });
+    expect(onFindingsChanged.mock.calls[0][0][0].includeInQuote).toBe(false);
+  });
 });

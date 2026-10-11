@@ -6,7 +6,7 @@ import type { Job } from "@/types/jobs";
 import type { JobQuote, QuoteLine } from "@/types/quote";
 import type { JobFinding } from "@/types/workCatalog";
 import { quoteTotal, validQuoteLines } from "@/lib/billing/jobQuote";
-import { addFindingToQuote, customFinding, findingFromCatalogItem, groupQuoteItems, removeFindingFromQuote } from "@/lib/billing/quoteItems";
+import { addFindingToQuote, customFinding, findingFromCatalogItem, findingsMissingFromQuote, groupQuoteItems, removeFindingFromQuote, type QuoteContent } from "@/lib/billing/quoteItems";
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 import { quoteGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
@@ -167,6 +167,31 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
     } catch { setError("Added to the quote, but it could not be added to the job's findings (so it won't appear in the report yet)."); }
   }
 
+  /** Removes an item from the quote and unmarks "In quote" on the job's finding, so the two tabs agree. */
+  async function removeItem(findingId: string) {
+    if (!quote) return;
+    const removed = quote.findings.find((finding) => finding.findingId === findingId);
+    change(removeFindingFromQuote(quote, findingId));
+    const current = job.findings ?? [];
+    const matches = (finding: JobFinding) => finding.findingId === findingId || (!!removed?.itemId && finding.itemId === removed.itemId);
+    if (!current.some((finding) => matches(finding) && finding.includeInQuote)) return;
+    const next = current.map((finding) => (matches(finding) ? { ...finding, includeInQuote: false } : finding));
+    try {
+      const res = await fetch(`/api/jobs/${job.jobId}`, { method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, findings: next }) });
+      if (!res.ok) throw new Error();
+      onFindingsChanged(next);
+    } catch { setError("Removed from the quote, but the finding is still marked \"In quote\" on the Findings tab."); }
+  }
+
+  /** Puts the job's "In quote" findings this draft is missing onto it (quotes started before findings synced). */
+  function addMissing(missing: JobFinding[]) {
+    if (!quote) return;
+    let next: QuoteContent = quote;
+    for (const finding of missing) next = addFindingToQuote(next, finding);
+    commit({ ...quote, findings: next.findings, lines: next.lines });
+  }
+
   async function addCustom() {
     const problem = cProblem.trim();
     if (!problem) { setError("Enter what needs doing."); return; }
@@ -211,6 +236,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   }
 
   const groups = useMemo(() => (quote ? groupQuoteItems(quote) : []), [quote]);
+  const missingFindings = useMemo(() => (quote && draft ? findingsMissingFromQuote(quote, job.findings) : []), [quote, draft, job.findings]);
   const addedItemIds = useMemo(() => new Set((quote?.findings ?? []).flatMap((f) => (f.itemId ? [f.itemId] : []))), [quote?.findings]);
   const lineSubtotal = quote ? quoteTotal(quote.lines) : 0;
   const quoteAmounts = quote ? customerTotals({ kind: "quote", lineSubtotal, priceMode: quote.priceMode, customerSubtotal: quote.customerSubtotal }) : null;
@@ -319,6 +345,12 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
         {quote.validUntil <= Date.now() && draft && <p role="alert" className="no-print" style={{ margin: 0, color: "var(--danger, #b91c1c)" }}>This quote&apos;s valid-until date has passed — pick a new one before sending.</p>}
 
         <div className="no-print" style={{ display: "grid", gap: 12 }}>
+          {missingFindings.length > 0 && (
+            <div className="inline-notice" role="status" data-testid="quote-missing-findings">
+              <span>{missingFindings.length === 1 ? "1 finding marked \"In quote\" isn't on this quote yet" : `${missingFindings.length} findings marked "In quote" aren't on this quote yet`}: {missingFindings.map((finding) => finding.problem).join(", ")}.</span>
+              <button className="button small primary" type="button" onClick={() => addMissing(missingFindings)}>{missingFindings.length === 1 ? "Add it" : "Add them"}</button>
+            </div>
+          )}
           {groups.length === 0 && <p style={{ margin: 0 }}>No items yet. Add one from the Library — its work and default price fill in automatically.</p>}
           {groups.map((group) => (
             <div key={group.finding?.findingId ?? "other"} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
@@ -329,7 +361,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
                       <textarea aria-label="Issue" rows={2} disabled={!draft} value={group.finding.problem} style={{ width: "100%", display: "block" }}
                         onChange={(e) => change({ findings: quote.findings.map((f) => (f.findingId === group.finding!.findingId ? { ...f, problem: e.target.value } : f)) })} />
                     </label>
-                    {draft && <button className="button small" type="button" onClick={() => { const next = removeFindingFromQuote(quote, group.finding!.findingId); change(next); }}>Remove</button>}
+                    {draft && <button className="button small" type="button" onClick={() => void removeItem(group.finding!.findingId)}>Remove</button>}
                   </div>
                   <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Work
                     <textarea aria-label="Work" rows={2} disabled={!draft} value={group.finding.solution} style={{ width: "100%", display: "block" }}

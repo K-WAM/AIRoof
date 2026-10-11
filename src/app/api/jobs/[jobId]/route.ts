@@ -8,6 +8,11 @@ import { validFindings } from "@/lib/jobs/findings";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import type { DocumentOptions } from "@/types/documentOptions";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
+import type { JobFinding } from "@/types/workCatalog";
+import type { JobQuote } from "@/types/quote";
+import { syncQuoteWithFindings } from "@/lib/billing/quoteItems";
+import { quoteTotal } from "@/lib/billing/jobQuote";
+import { customerTotals } from "@/lib/billing/jobCustomerTotals";
 
 const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced", "complete"];
 
@@ -113,6 +118,27 @@ export async function PATCH(
     update.totalLaborHours = log.totalLaborHours;
   }
 
-  await db.collection(`businesses/${businessId}/jobs`).doc(jobId).update(update);
+  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
+  if (findings === undefined) {
+    await jobRef.update(update);
+    return NextResponse.json({ ok: true });
+  }
+  // A findings save also updates a still-draft quote (added/unmarked findings), in the same transaction.
+  const found = await db.runTransaction(async (tx) => {
+    const jobSnap = await tx.get(jobRef);
+    if (!jobSnap.exists) return false;
+    const job = jobSnap.data() as Job;
+    const quoteRef = job.quoteId ? db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId) : null;
+    const quote = quoteRef ? (await tx.get(quoteRef)).data() as JobQuote | undefined : undefined;
+    tx.update(jobRef, update);
+    if (!quoteRef || quote?.status !== "draft") return true;
+    const synced = syncQuoteWithFindings(quote, job.findings ?? [], findings as JobFinding[]);
+    if (!synced.changed) return true;
+    const totals = customerTotals({ kind: "quote", lineSubtotal: quoteTotal(synced.lines), priceMode: quote.priceMode ?? "lines", customerSubtotal: quote.customerSubtotal });
+    tx.update(quoteRef, { findings: synced.findings, lines: synced.lines, subtotal: totals.subtotal, total: totals.total,
+      calculatedSubtotal: totals.calculatedSubtotal, updatedAt: update.updatedAt });
+    return true;
+  });
+  if (!found) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

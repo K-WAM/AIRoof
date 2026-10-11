@@ -42,6 +42,39 @@ export function removeFindingFromQuote(quote: QuoteContent, findingId: string): 
   };
 }
 
+const onQuote = (quote: QuoteContent, finding: JobFinding) =>
+  quote.findings.some((existing) => existing.findingId === finding.findingId || (!!finding.itemId && existing.itemId === finding.itemId));
+
+/**
+ * Carries a Findings-tab save onto a draft quote (owner, 2026-10-10: "I added findings, and they didn't show in the
+ * quote"). Only transitions count: a finding newly marked "In quote" (or added already marked) is added with its priced
+ * lines; one newly unmarked or deleted is removed. A finding whose mark did not change is left as the quote has it, so
+ * an item removed or edited on the Quote tab stays that way.
+ */
+export function syncQuoteWithFindings(quote: QuoteContent, before: JobFinding[], after: JobFinding[]): QuoteContent & { changed: boolean } {
+  const wasIn = new Set(before.filter((finding) => finding.includeInQuote).map((finding) => finding.findingId));
+  const isIn = new Set(after.filter((finding) => finding.includeInQuote).map((finding) => finding.findingId));
+  let next: QuoteContent = { findings: quote.findings, lines: quote.lines };
+  let changed = false;
+  for (const findingId of wasIn) {
+    if (isIn.has(findingId) || !next.findings.some((finding) => finding.findingId === findingId)) continue;
+    next = removeFindingFromQuote(next, findingId);
+    changed = true;
+  }
+  for (const finding of after) {
+    if (!finding.includeInQuote || wasIn.has(finding.findingId) || onQuote(next, finding)) continue;
+    const added = addFindingToQuote(next, finding);
+    next = { findings: added.findings, lines: added.lines };
+    changed ||= added.added;
+  }
+  return { ...next, changed };
+}
+
+/** The job's "In quote" findings that this quote does not carry (e.g. added before the sync above existed). */
+export function findingsMissingFromQuote(quote: QuoteContent, jobFindings: JobFinding[] | undefined): JobFinding[] {
+  return (jobFindings ?? []).filter((finding) => finding.includeInQuote && !onQuote(quote, finding));
+}
+
 /** A Library item, snapshotted for a job/quote at the moment it is picked. */
 export function findingFromCatalogItem(item: WorkCatalogItem): JobFinding {
   return copyCatalogFinding(item);
