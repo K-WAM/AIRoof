@@ -69,6 +69,13 @@ describe("buildJobInvoiceEmailHtml", () => {
     const html = buildJobInvoiceEmailHtml(invoice({ billTo: { name: "" } }), { businessName: "Roof Doctors" });
     expect(html).not.toContain("Bill To");
   });
+  it("labels a paid invoice as paid and omits payment instructions", () => {
+    const html = buildJobInvoiceEmailHtml(invoice({ status: "paid", amountPaid: 4956.85 }),
+      { businessName: "Roof Doctors" }, [], [], [], { payInstructions: "Pay by check", payLink: "" });
+    expect(html).toContain("Invoice total — paid in full");
+    expect(html).not.toContain("Total Due");
+    expect(html).not.toContain("Pay by check");
+  });
   it("uses the reference invoice voice, five columns, and the same saved terms and due date", () => {
     const html = buildJobInvoiceEmailHtml(invoice({ terms: "Due upon completion", dueAt: Date.parse("2026-09-11T12:00:00Z"), poNumber: "PO-7", opening: "We visited the service address.", closing: "Debris removed.", thankYou: "Thank you." }), { businessName: "Business", licenseNumber: "ABC123", timezone: "America/New_York" }, [{ problem: "Leak", solution: "Repaired" }]);
     for (const text of ["License #ABC123", "Work order", "PO number", "PO-7", "Due upon completion", "Sep 11, 2026", "Item", "Description", "Qty", "Unit price", "Amount", "Problem:", "Corrective action:", "Debris removed.", "Thank you."]) expect(html).toContain(text);

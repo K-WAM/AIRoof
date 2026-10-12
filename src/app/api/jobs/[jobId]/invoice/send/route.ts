@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // Sending — not drafting — is what bills the customer, so this is the moment the job becomes Invoiced.
   const job = jobSnap.data() as Job;
-  if (job.status !== "invoiced") {
+  if (invoice.status !== "paid" && job.status !== "invoiced") {
     const change: JobStatusChange = { status: "invoiced", at: now, by: gate.user.uid };
     await jobRef.update({ status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), change] });
   }

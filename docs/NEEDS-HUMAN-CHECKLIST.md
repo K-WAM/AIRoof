@@ -151,8 +151,9 @@ Record the outcome in `TODO.md` next to NH-18. **Don't demo or sell these two ve
 ## NH-29 — Register for business texting (30 min of forms, then days to weeks of carrier review) — START NOW
 
 **Why:** US carriers block business texts from an ordinary local number unless the sender is registered ("A2P 10DLC").
-Twilio returns error 30034 and the text never arrives. The app's texting (booking notices, "Confirm & text", inspector
-alerts) is being built switched off (`SMS_ENABLED=false`); once the registration is approved, one Vercel setting turns it on.
+Twilio can reject unregistered traffic. The app's texting code exists but remains off unless production has
+`SMS_ENABLED=true`, Twilio credentials, tenant permission, and a `ready` SMS sender record for the line dialed.
+See `docs/CANADIAN-DEMO-NUMBER.md` for the current US/Canada test sequence.
 
 **What Claude checked in Twilio on 2026-09-28 (read-only):**
 - Account: **upgraded (Full, active)**. NH-21's Upgrade is done.
@@ -212,11 +213,15 @@ Same wizard → **Create campaign** (it also creates a *Messaging Service*; name
 1. **Messaging** → **Services** → "Luxor CRM notifications" → **Sender Pool** → **Add Senders** → Phone Number → **(689) 204-2643**.
 2. Same service → **Integration** → incoming messages: **"Defer to sender's webhook"**. That keeps the number's current
    ElevenLabs text setting unchanged.
-3. Leave +1 (778) 907-9769 (Canada) out. It is not part of US registration and shouldn't text US customers.
+3. Validate +1 (778) 907-9769 (Canada) separately for SMS capability and applicable Canadian/US destination rules.
+   It is not covered by the US 689-number campaign. Do not mark it SMS-ready based on voice calls alone.
 
-### Step 5 — Tell Claude "texting approved"
-Claude then sets `SMS_ENABLED=true` in Vercel, redeploys, sends one test text to your phone, and checks Settings shows
-"Text messages: On". Nothing else is needed. Until then, confirmations go by email or "I'll call them".
+### Step 5 — Enable the approved line and verify delivery
+After carrier approval, configure production Twilio credentials and `SMS_ENABLED=true`; mark the **approved** line's
+registry SMS status `ready` for `booking_received` and `appointment_confirmed`. Confirm the tenant has not disabled
+SMS. Call inbound from your cell, explicitly agree to texts, book a fresh appointment, then check the Twilio Message
+Log and your handset. Confirm it in Pipeline to test the second notification. Repeat per line and destination country.
+Until then, email and office calls remain the usable confirmation paths.
 
 **Toll-free alternative (only if Luxor has no EIN, or the 10DLC campaign keeps being rejected):** Phone Numbers → Buy a
 number → **Toll-free** (about $2/month) → Messaging → Regulatory Compliance → **Toll-Free Verifications** → fill in the same

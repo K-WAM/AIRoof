@@ -20,6 +20,8 @@ interface PickerProps {
   /** Catalog items already on the job/quote: shown as "Added" and not pickable twice. */
   addedItemIds: ReadonlySet<string>;
   onPick: (item: PickerItem) => Promise<void> | void;
+  /** Save a confirmed selection in one state update when the caller owns the whole list. */
+  onPickMany?: (items: PickerItem[]) => Promise<void> | void;
   /**
    * Select-then-confirm: taps only tick items, and a pinned "Add N" button saves them all. The field screens use it
    * (2026-09-28: "there is no save button and I cannot see what I added"); the office quote keeps instant add.
@@ -31,7 +33,7 @@ interface PickerProps {
  * Search-and-tap picker over the Library's work catalog (the Issue -> Work list). Presentational: the office quote
  * and the two field screens each feed it their own items and decide what "pick" does. Shares the Sheet shell.
  */
-export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, loading, error, addedItemIds, onPick, confirm }: PickerProps) {
+export function FindingPickerSheet({ open, onClose, title = "Add from Library", items, loading, error, addedItemIds, onPick, onPickMany, confirm }: PickerProps) {
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pickError, setPickError] = useState("");
@@ -55,10 +57,12 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
     setSaving(true);
     setPickError("");
     try {
-      for (const itemId of selected) {
+      const chosen = selected.flatMap((itemId) => {
         const item = items.find((candidate) => candidate.itemId === itemId);
-        if (item && !addedItemIds.has(itemId)) await onPick(item);
-      }
+        return item && !addedItemIds.has(itemId) ? [item] : [];
+      });
+      if (onPickMany) await onPickMany(chosen);
+      else for (const item of chosen) await onPick(item);
       setSelected([]);
       onClose();
     } catch (e) {

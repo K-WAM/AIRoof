@@ -5,11 +5,15 @@ import Link from "next/link";
 import { DEMO_LINE_PHONE, VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
 import type { PhoneLineView } from "@/types/phoneLine";
 import { DemoRunbook } from "./DemoRunbook";
+import { distinctLines } from "./demoLineDisplay";
 
 interface LineState {
   businessName?: string;
   industry?: string;
   phone?: string;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  configuredNumbers?: string[];
   lineReady?: boolean;
   lineError?: string;
   greetingPreview?: string;
@@ -26,8 +30,7 @@ interface LineState {
 const BUSINESS_ID = "demo-roofing";
 const preview = (path: string) => `/company/${path}?preview=${BUSINESS_ID}`;
 
-// The two demo numbers we own. A number with no registry record still shows — as "not connected in the app yet" —
-// so a line that was bought but never wired up (the Canadian line, 2026-09-29) can't silently disappear.
+// Show both known numbers even when the operator registry has no record for one of them.
 const FALLBACK_DEMO_LINES = [
   { e164: "+16892042643", display: "+1 (689) 204-2643", country: "US" as const },
   { e164: "+17789079769", display: "+1 (778) 907-9769", country: "CA" as const },
@@ -39,7 +42,7 @@ function statusWords(status: PhoneLineView["status"]): string {
     case "test_passed": return "Test passed";
     case "connected": return "Connected — not yet tested";
     case "provisioned": return "Provisioned — awaiting app connection";
-    case "draft": return "Draft — Luxor connects this line";
+    case "draft": return "Draft";
     case "retired": return "Retired";
     default: return "Status unavailable";
   }
@@ -166,6 +169,10 @@ export default function DemoStudioPage() {
   const dial = line.phone || DEMO_LINE_PHONE.roofing || "";
   const missing = line.configured ? Object.entries(line.configured).filter(([, ready]) => !ready).map(([name]) => name) : [];
   const callingReady = Boolean(line.configured) && missing.length === 0;
+  const visibleLines = lines ? distinctLines(lines) : [];
+  const appRouting = (e164: string) => line.configuredNumbers
+    ? line.configuredNumbers.includes(e164) ? "configured for this demo" : "not configured for this demo"
+    : "status unavailable";
 
   return (
     <main className="hub-demo-page" style={{ maxWidth: 940, margin: "0 auto", padding: "var(--sp-4)", overflowWrap: "anywhere" }}>
@@ -198,7 +205,7 @@ export default function DemoStudioPage() {
             <label className="field">Company<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Test Roofing Co" /></label>
             <label className="field">Owner name<input value={contactName} onChange={(e) => setContactName(e.target.value)} /></label>
             <label className="field">Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-            <label className="field">Their business phone <small style={{ color: "var(--text-muted)" }}>(optional — printed on their quotes and invoices; the AI never calls it)</small><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
+            <label className="field">Business contact phone <small style={{ color: "var(--text-muted)" }}>(optional — shown in customer emails, quotes and invoices; this is not the demo line or a text recipient)</small><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
             <label className="field">City / service area<input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} /></label>
             <label className="field">Logo (PNG, JPEG, WebP)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseLogo} />
               {logoDataUrl && <img src={logoDataUrl} alt="Logo preview" style={{ display: "block", maxWidth: 120, maxHeight: 70, objectFit: "contain" }} />}
@@ -207,6 +214,12 @@ export default function DemoStudioPage() {
               <button className="button primary" type="submit" disabled={busy}>{busy ? "Launching…" : "Launch demo"}</button>
             </div>
           </form>
+          {line.businessName && (
+            <p className="demo-line-note" style={{ margin: "var(--sp-3) 0 0" }}>
+              Current email contact for {line.businessName}: {line.contactPhone || "no phone"}
+              {line.contactEmail ? ` · ${line.contactEmail}` : ""}. Launch replaces these contact details.
+            </p>
+          )}
           {!callingReady && line.configured && (
             <p role="status" style={{ margin: "var(--sp-3) 0 0", color: "var(--c-danger-fg)", fontWeight: 700 }}>
               Demo calling isn&apos;t ready — <a href="#demo-advanced">open connection details</a>
@@ -217,7 +230,7 @@ export default function DemoStudioPage() {
             <div style={{ marginTop: "var(--sp-4)" }}>
               <p><strong>Next caller greeting:</strong> {line.greetingPreview}</p>
               <p style={{ margin: "var(--sp-3) 0 var(--sp-1)" }}><strong>Prospects call {dial || "the demo number"}</strong> — you never need their number.</p>
-              <label className="field">Your own cell, to hear it first <small style={{ color: "var(--text-muted)" }}>(Test call rings YOU from the demo line so you can hear the AI answer as this company; remembered on this device)</small><input type="tel" value={testPhone} onChange={(event) => setTestPhone(event.target.value)} placeholder="Your mobile number" /></label>
+              <label className="field">Your cell for a test call <small style={{ color: "var(--text-muted)" }}>(rings your phone; does not set the email contact or request a text. Remembered on this device.)</small><input type="tel" value={testPhone} onChange={(event) => setTestPhone(event.target.value)} placeholder="Your mobile number" /></label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-2)", marginTop: "var(--sp-2)" }}>
                 <button className="button primary" type="button" disabled={busy || testPhone.trim().length < 7} onClick={testCall}>Test call</button>
                 <Link className="button" href={preview("dashboard")}>Open dashboard</Link>
@@ -242,22 +255,23 @@ export default function DemoStudioPage() {
                 </article>
               ))
             : [
-              ...FALLBACK_DEMO_LINES.filter((fallback) => !lines.some((l) => l.e164 === fallback.e164)).map((fallback) => (
+              ...FALLBACK_DEMO_LINES.filter((fallback) => !visibleLines.some(({ line: existing }) => existing.e164 === fallback.e164)).map((fallback) => (
                 <article className="panel demo-line-card" key={fallback.e164}>
                   <p className="demo-line-number">{fallback.display}</p>
-                  <p className="demo-line-meta">{fallback.country} · Not connected in the app yet</p>
-                  <p className="demo-line-note">Add it under Configure → Phone lines for demo-roofing, then record a test call.</p>
+                  <p className="demo-line-meta">{fallback.country} · No phone-line status recorded</p>
+                  <p className="demo-line-note">App routing: {appRouting(fallback.e164)}. Check the provider assignment and record a test call before using this number with a prospect.</p>
                 </article>
               )),
-              ...lines.map((l) => {
-                  const dialable = l.status === "test_passed" || l.status === "live";
+              ...visibleLines.map(({ line: l, records }) => {
+                  const dialable = (l.status === "test_passed" || l.status === "live") && line.configuredNumbers?.includes(l.e164) === true;
                   return (
                     <article className="panel demo-line-card" key={l.lineId}>
                       <p className="demo-line-number">{l.display}</p>
                       <p className="demo-line-meta">{l.country} · {statusWords(l.status)}</p>
+                      <p className="demo-line-note">App routing: {appRouting(l.e164)}</p>
                       <p className="demo-line-note">
                         {l.lastTestAt ? `Last test: ${new Date(l.lastTestAt).toLocaleString()}` : "Not tested yet"}
-                        {l.nextStep ? ` · ${l.nextStep}` : ""}
+                        {records > 1 ? ` · ${records} registry records; review Phone lines` : ""}
                       </p>
                       {dialable && (
                         <div className="demo-line-actions">
@@ -271,7 +285,7 @@ export default function DemoStudioPage() {
             ]}
         </div>
         <p className="demo-line-note" style={{ marginTop: "var(--sp-3)" }}>
-          Dial and Copy appear only once the line is tested or live — never for a number we haven&apos;t verified.
+          Launch updates the shared demo. Each number must route to it and pass its own inbound test before you use it with a prospect. Dial and Copy appear only for tested or live lines.
         </p>
       </section>
 

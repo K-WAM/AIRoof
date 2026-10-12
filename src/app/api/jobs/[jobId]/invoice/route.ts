@@ -231,7 +231,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     // Paid in full in one step: amountPaid follows so the Billing screen's balance agrees (Record payment is the
     // detailed path — partial payments, method, receipt).
     const patch = { status: "paid" as const, paidAt: now, amountPaid: current.total, updatedAt: now };
-    await invRef.update(patch);
+    const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
+    const changed = await db.runTransaction(async (tx) => {
+      const freshJobSnap = await tx.get(jobRef);
+      const freshInvoiceSnap = await tx.get(invRef);
+      const freshJob = freshJobSnap.data() as Job | undefined;
+      const freshInvoice = freshInvoiceSnap.data() as JobInvoice | undefined;
+      if (!freshJob || freshJob.invoiceId !== invoiceId || freshInvoice?.status !== "sent") return false;
+      tx.update(invRef, patch);
+      tx.update(jobRef, { status: "complete", completedAt: freshJob.completedAt ?? now, paymentReceivedAt: now, updatedAt: now,
+        statusHistory: [...(freshJob.statusHistory ?? []), { status: "complete", at: now, by: gate.user.uid }] });
+      return true;
+    });
+    if (!changed) return NextResponse.json({ error: "Invoice changed before it could be marked paid" }, { status: 409 });
     return NextResponse.json({ invoice: { ...current, ...patch } });
   }
 

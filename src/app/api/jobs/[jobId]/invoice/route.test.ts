@@ -13,7 +13,7 @@ const request = (body: Record<string, unknown>) => new NextRequest("http://local
 let db: ReturnType<typeof makeFakeDb>;
 beforeEach(() => {
   db = makeFakeDb();
-  db.__seed("businesses/b/jobs", "j", { invoiceId: "INV-1" });
+  db.__seed("businesses/b/jobs", "j", { invoiceId: "INV-1", status: "invoiced" });
   db.__seed("businesses/b/invoices", "INV-1", { status: "draft", labor: [], materials: [], other: [], taxRate: 0, hideMaterials: false });
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "u" } });
   mocks.firestore.mockReset().mockReturnValue(db);
@@ -29,6 +29,7 @@ describe("Mark paid", () => {
     expect((await PATCH(request({ businessId: "b", status: "void" }), context)).status).toBe(400);
     expect((await PATCH(request({ businessId: "b", status: "paid" }), context)).status).toBe(200);
     expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ status: "paid", paidAt: expect.any(Number), total: 120 });
+    expect(db.__peek("businesses/b/jobs", "j")).toMatchObject({ status: "complete", paymentReceivedAt: expect.any(Number) });
     expect((await PATCH(request({ businessId: "b", status: "paid" }), context)).status).toBe(409);
   });
 });

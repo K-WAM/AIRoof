@@ -23,13 +23,13 @@ const QUOTE_SENT_OR_LATER: Array<Job["status"]> = ["quoted", "in_progress", "inv
  * `billing: false` = the client didn't buy Billing (src/lib/products): the workflow ends at the report.
  * `quotes: false` = the industry books work at a set price (a dog walk): no Findings or Quote steps.
  */
-export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes">, opts: { billing?: boolean; quotes?: boolean } = {}): JobStep[] {
+export function jobSteps(job: Pick<Job, "status" | "findings" | "quoteId" | "reportNotes" | "paymentReceivedAt">, opts: { billing?: boolean; quotes?: boolean } = {}): JobStep[] {
   const findingsDone = (job.findings?.length ?? 0) > 0;
   const quoteDone = QUOTE_SENT_OR_LATER.includes(job.status);
   const workDone = job.status === "complete" || job.status === "invoiced";
   // The report is optional paperwork: once the job is invoiced, never nag "Next: Report" on a finished job.
-  const reportDone = !!job.reportNotes?.trim() || job.status === "invoiced";
-  const invoiceDone = job.status === "invoiced";
+  const reportDone = !!job.reportNotes?.trim() || job.status === "invoiced" || !!job.paymentReceivedAt;
+  const invoiceDone = job.status === "invoiced" || !!job.paymentReceivedAt;
 
   const all: Array<Omit<JobStep, "state"> & { done: boolean }> = [
     { id: "findings", label: "Findings", tab: "findings", done: findingsDone, hint: "Record what was found — pick from the Library." },

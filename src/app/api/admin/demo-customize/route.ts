@@ -27,6 +27,7 @@ import { getVoiceProvider } from "@/lib/voice/provider";
 import { buildInitiationResponse } from "@/lib/voice/elevenlabs/initiationConfig";
 import { MAX_LOGO_B64_BYTES, totalLogoBytes } from "@/lib/branding/logo";
 import { jsonWithCache } from "@/lib/http/cache";
+import { toE164 } from "@/lib/phoneLines/registry";
 import { getAppUrl } from "@/lib/config/appUrl";
 import type { BusinessConfig } from "@/types";
 import type { LibraryLogo } from "@/types/library";
@@ -167,8 +168,14 @@ export async function GET(request: NextRequest) {
   const [business, calls] = await Promise.all([base.get(), base.collection("calls").orderBy("startedAt", "desc").limit(1).get()]);
   if (!business.exists) return jsonWithCache({ error: "Demo tenant missing" }, "noStore", { status: 404 });
   const config = business.data() as BusinessConfig;
+  const configuredNumbers = [config.elevenlabs?.phoneNumber, ...(config.elevenlabs?.extraPhoneNumbers ?? [])]
+    .map(toE164)
+    .filter((number): number is string => number !== null);
   return jsonWithCache({ businessName: config.businessName, industry: config.industry,
     phone: displayPhone(config.elevenlabs?.phoneNumber), ...lineState(config),
+    contactPhone: config.contactPhone ?? null,
+    contactEmail: config.contactEmail ?? null,
+    configuredNumbers: [...new Set(configuredNumbers)],
     seededAt: business.data()?.seededAt ?? null,
     lastCallAt: calls.docs[0]?.data()?.startedAt ?? null,
     configured: { elevenLabsApiKey: !!process.env.ELEVENLABS_API_KEY,

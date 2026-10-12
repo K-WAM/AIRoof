@@ -18,7 +18,7 @@ import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { matchesJobSearch } from "@/lib/jobs/search";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 
-type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete";
+type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete" | "paid";
 // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
 const JOBS_PAGE = 15;
 /** The one next step for a job, in the office's words (shown on each phone card instead of a button). */
@@ -27,11 +27,11 @@ const NEXT_STEP: Record<string, string> = {
   in_progress: "Work under way", complete: "Next: send the invoice", invoiced: "Invoiced — waiting for payment",
 };
 const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
-  all: "All", inspection: "Needs quote", quoted: "Quote sent", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
+  all: "All", inspection: "Needs quote", quoted: "Quote sent", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced", paid: "Payment received",
 };
 // Set-price industries (templates.ts `quotes: false`, e.g. dog walking): nothing to quote — a job is booked, then done.
 const SET_PRICE_FILTER_LABEL: Partial<Record<StatusFilter, string>> = {
-  all: "All", inspection: "Booked", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced",
+  all: "All", inspection: "Booked", in_progress: "In progress", complete: "Ready to invoice", invoiced: "Invoiced", paid: "Payment received",
 };
 const SET_PRICE_NEXT_STEP: Record<string, string> = {
   ...NEXT_STEP, open: "Next: do the visit", inspection: "Next: do the visit", quoted: "Next: do the visit",
@@ -64,7 +64,7 @@ export default function JobsPage() {
   const [allComplete, setAllComplete] = useState(false);
   const [shownCount, setShownCount] = useState(JOBS_PAGE);
   useEffect(() => { setShownCount(JOBS_PAGE); }, [statusFilter, query]);
-  const serverFilter: StatusFilter = allComplete ? "all" : statusFilter;
+  const serverFilter: StatusFilter = allComplete ? "all" : statusFilter === "paid" ? "complete" : statusFilter;
 
   // Prefill from the Pipeline's "Create <jobNoun>" buttons (appointments and
   // leads share this one handshake — see src/lib/pipeline/jobPrefill.ts).
@@ -174,7 +174,10 @@ export default function JobsPage() {
   const visibleJobs = jobs
     .filter((j) =>
       statusFilter === "all" ||
-      (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open") : j.status === statusFilter)
+      (statusFilter === "inspection" ? (j.status === "inspection" || j.status === "open")
+        : statusFilter === "paid" ? Boolean(j.paymentReceivedAt)
+        : statusFilter === "complete" ? j.status === "complete" && !j.paymentReceivedAt
+        : j.status === statusFilter)
     )
     .filter((j) => matchesJobSearch(j, query));
   // Long lists are bounded (C10): the newest PAGE first, "Show more" for the rest. Search still covers every loaded job.
@@ -312,6 +315,8 @@ export default function JobsPage() {
                 ? jobs.length
                 : key === "inspection"
                 ? jobs.filter((j) => j.status === "inspection" || j.status === "open").length
+                : key === "paid" ? jobs.filter((j) => Boolean(j.paymentReceivedAt)).length
+                : key === "complete" ? jobs.filter((j) => j.status === "complete" && !j.paymentReceivedAt).length
                 : jobs.filter((j) => j.status === key).length;
               return (
                 <button
@@ -390,7 +395,7 @@ export default function JobsPage() {
                       {job.clientPhone && <div style={{ fontSize: 12, color: "#64748b" }}>{fmtPhone(job.clientPhone)}</div>}
                     </td>
                     <td data-label="Status" style={{ padding: "12px 16px" }}>
-                      <StatusChip status={job.status} />
+                      <StatusChip status={job.status} label={job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
                     </td>
                     <td data-label="Created" style={{ padding: "12px 16px", color: "#64748b", fontSize: 13 }}>
                       {formatDate(job.createdAt)}
@@ -404,10 +409,10 @@ export default function JobsPage() {
               {shownJobs.map((job) => <a className="c1-list-card c1-list-card--link" key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} data-testid="job-card">
                 <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                   <strong>{job.jobId} · {job.title}</strong>
-                  <StatusChip status={job.status} />
+                  <StatusChip status={job.status} label={job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
                 </span>
                 <span className="c1-list-card__sub">{[job.clientName, job.address].filter(Boolean).join(" · ") || "No customer yet"}</span>
-                <span className="c1-list-card__next">{nextStep[job.status] ?? "Open to see where it stands"}</span>
+                <span className="c1-list-card__next">{job.paymentReceivedAt ? "Payment received in full" : nextStep[job.status] ?? "Open to see where it stands"}</span>
               </a>)}
               {visibleJobs.length === 0 && <p>No {vocab.jobNounPlural.toLowerCase()} match this filter.</p>}
             </div>

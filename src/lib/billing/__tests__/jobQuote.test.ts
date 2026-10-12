@@ -27,13 +27,15 @@ describe("quote", () => {
   });
   it("hides material details and escapes all free text in the customer email", () => {
     expect(visibleQuoteLines(quote).find((l) => l.description === "Tile <bad>")).toBeUndefined();
-    const html = buildQuoteEmailHtml(quote, { businessName: "Biz <x>", logoUrl: 'x" onerror="bad', brandColor: "red;background:url(x)" });
+    const html = buildQuoteEmailHtml(quote, { businessName: "Biz <x>", logoUrl: 'x" onerror="bad', brandColor: "red;background:url(x)" }, [], [], { accept: "https://example.com/?a=1&b=2", decline: "https://example.com/reject" });
     expect(html).toContain(">Materials</td>");
     expect(html).toContain("Leak &lt;img&gt;");
     expect(html).toContain("A &amp; B");
     expect(html).not.toContain("Biz <x>");
     expect(html).not.toContain('src="x" onerror=');
-    expect(html).toContain("cannot be accepted or paid online");
+    expect(html).toContain("Accept quote");
+    expect(html).toContain("Reject quote");
+    expect(html).toContain("a=1&amp;b=2");
     expect(() => buildQuoteEmailHtml(quote, {})).toThrow("Business name required");
   });
 });

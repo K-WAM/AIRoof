@@ -28,6 +28,7 @@ import type { CatalogState } from "./FindingsPanel";
 import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
 import type { JobPhotoMeta } from "@/types/jobs";
 import { NumberField } from "@/components/ui/NumberField";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 
 const AUTOSAVE_MS = 800;
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -77,6 +78,15 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [businessId, job.jobId]);
+
+  // A customer may answer from their email while the office still has this job open.
+  // Only a sent quote is polled, and local edits are never overwritten.
+  useLiveRefresh(async () => {
+    const response = await fetch(`/api/jobs/${job.jobId}/quote?businessId=${encodeURIComponent(businessId)}`);
+    if (!response.ok) return;
+    const data = await response.json() as { quote: JobQuote | null };
+    if (data.quote && data.quote.status !== "sent") setQuote(data.quote);
+  }, { intervalMs: 15_000, enabled: quote?.status === "sent", isDirty: dirty || busy });
 
   // Only the saved/sent state matters to the page, not every keystroke of a draft.
   const reportedStatus = quote ? `${quote.quoteId}:${quote.status}:${quote.answeredAt ?? ""}:${quote.sentAt ?? ""}:${quote.updatedAt}` : "none";
@@ -278,7 +288,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
     <div className="panel-body quote-panel-body" style={{ display: "grid", gap: 16 }}>
       {(!quote || draft) && (
         <p className="no-print" style={{ margin: 0, color: "var(--text-muted)" }}>
-          Send the quote to the customer, then record their answer here. There is no online acceptance yet.
+          Send the quote to the customer. Their email includes Accept and Reject links; you can also record their answer here.
         </p>
       )}
       {/* Once sent, a quote is locked (the server refuses edits). Say so plainly, with the date it happened. */}

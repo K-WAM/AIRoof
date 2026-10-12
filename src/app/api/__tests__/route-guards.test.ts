@@ -28,6 +28,7 @@ const GUARDS = [
 const PUBLIC_ROUTES: Record<string, string> = {
   "health/route.ts": "reports configured/not-configured booleans only; no tenant data",
   "calendar/feed/[token]/route.ts": "the unguessable token IS the credential: only its sha256 is stored, unknown/inactive → 404",
+  "quote-response/route.ts": "a single-use, 256-bit email token is the credential; GET is read-only and POST checks the hash and sent status transactionally",
   "demo/sandbox-token/route.ts": "rate-limited; hard-coded demo tenant (must carry isDemo) and a read-only viewer identity",
 };
 

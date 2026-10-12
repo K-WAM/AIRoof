@@ -106,6 +106,9 @@ test("billing without Stripe: payment details on the invoice, partial + final pa
   await expectHealthy(page);
   await expect(page.getByTestId("invoice-balance")).toHaveText("$500.00");
   await expect(page.getByTestId("how-to-pay")).toBeVisible();
+  await page.getByText("More invoice actions", { exact: true }).click();
+  await page.getByRole("button", { name: "Send again" }).click();
+  await expect(page.locator('input[type="email"]').last()).toHaveValue(email);
   await page.getByTestId("record-payment").click();
   const amount = page.getByRole("textbox", { name: "Amount received" });
   await amount.fill("200");
@@ -119,9 +122,17 @@ test("billing without Stripe: payment details on the invoice, partial + final pa
   await expect(amount).toHaveValue("300");
   await page.getByRole("button", { name: "Save payment" }).click();
   await expect(page.getByText(/Paid in full\./).first()).toBeVisible();
+  const paidJob = must(await owner.get(`/api/jobs/${jobId}?businessId=${B}`), "paid job").job;
+  expect(paidJob).toMatchObject({ status: "complete", paymentReceivedAt: expect.any(Number) });
   await page.getByTestId("invoice-payments").scrollIntoViewIfNeeded();
   await shot(page, "invoice-paid-in-full");
   await expect.poll(async () => (await outbox({ to: email, subject: "[Receipt]" })).length, { timeout: 20_000 }).toBe(2);
+  await page.getByRole("button", { name: "Send Invoice" }).click();
+  await expect(page.getByText("Invoice sent successfully!")).toBeVisible();
+  await expect.poll(async () => (await outbox({ to: email, subject: "[Invoice]" })).length).toBe(2);
+  const paidCopy = (await outbox({ to: email, subject: "[Invoice]" }))[0];
+  expect(String(paidCopy.html)).toContain("Invoice total — paid in full");
+  expect(must(await owner.get(`/api/jobs/${jobId}?businessId=${B}`), "job after paid resend").job.status).toBe("complete");
 
   await page.goto("/company/billing");
   await settle(page, 1000);

@@ -19,7 +19,7 @@ import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPane
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
-import { noticesForDocument } from "@/lib/documents/notices";
+import { noticeApproval, noticesForDocument } from "@/lib/documents/notices";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
 import { normalizeDocumentOptions, type DocumentOptions } from "@/types/documentOptions";
 import { draftReportNotes, reportSections, stripHiddenFacts } from "@/lib/documents/report";
@@ -236,6 +236,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Send invoice state
   const [sendEmail, setSendEmail] = useState("");
+  const suggestedSendEmail = useRef<{ jobId: string; email: string } | null>(null);
+  const sendEmailJobId = job?.jobId;
+  const sendEmailSuggestion = job?.clientEmail?.trim() ?? "";
+  useEffect(() => {
+    if (!sendEmailJobId) return;
+    const previous = suggestedSendEmail.current;
+    setSendEmail((current) => !previous || previous.jobId !== sendEmailJobId || !current.trim() || current === previous.email
+      ? sendEmailSuggestion : current);
+    suggestedSendEmail.current = { jobId: sendEmailJobId, email: sendEmailSuggestion };
+  }, [sendEmailJobId, sendEmailSuggestion]);
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -757,7 +767,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceStatus((s) => (s === "paid" ? s : "sent"));
         setInvoiceMeta((m) => ({ ...m, sentAt: Date.now(), sentTo: to }));
         // The server moved the job to Invoiced on the send; mirror it so the status bar agrees without a reload.
-        setJob((j) => (j ? { ...j, status: "invoiced" } : j));
+        setJob((j) => (j ? { ...j, status: invoiceStatus === "paid" ? "complete" : "invoiced" } : j));
         setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
@@ -1006,7 +1016,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           <h1 className="page-title job-title" style={{ marginBottom: 4, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <Briefcase size={20} strokeWidth={1.75} className="job-title__icon" />
             {job.title}
-            <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" ? "Paid" : undefined} />
+            <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" || job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
           </h1>
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
@@ -1458,7 +1468,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               {/* Billing (no Stripe): balance, payments received, Record payment → receipt. */}
               {invoiceStatus && invoiceStatus !== "draft" && businessId && (
                 <RecordPayment businessId={businessId} jobId={jobId} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
-                  onPaid={(paidAt) => { setInvoiceStatus("paid"); setInvoiceMeta((m) => ({ ...m, paidAt })); }} />
+                  onPaid={(paidAt) => { setInvoiceStatus("paid"); setInvoiceMeta((m) => ({ ...m, paidAt })); setJob((current) => current ? { ...current, status: "complete", paymentReceivedAt: paidAt } : current); }} />
               )}
 
               {/* Library couldn't be reached — every material price below is blank, not because
@@ -1502,7 +1512,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </div>
                   )}
                   {sendError && <p style={{ margin: "8px 0 0", color: "#b91c1c", fontSize: 13 }}>{sendError}</p>}
-                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>Sending locks the invoice and marks the job Invoiced. The customer can reply to your email to discuss it.</p>
+                  <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>
+                    {invoiceStatus === "paid" ? "This sends a paid copy and keeps the job Complete · Payment received." : invoiceStatus === "draft" ? "Sending locks the invoice and marks the job Invoiced." : "This sends another copy of the locked invoice."} The customer can reply to your email to discuss it.
+                  </p>
                 </div>
               )}
 
@@ -1840,12 +1852,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               </fieldset>}
               <div style={{ marginTop: invoiceStatus === "draft" ? 24 : 0 }} ref={invoicePreviewRef} tabIndex={-1}>
                 {invoiceStatus === "draft" && <h3 className="no-print">Customer preview</h3>}
+                {invoiceStatus === "draft" && businessConfig && !noticeApproval(businessConfig.documentNotices).approved && !readOnly && (
+                  <p className="no-print" style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                    Terms and notices are off until reviewed and approved. <a href="/company/settings#terms">Review them in Settings</a> before sending if they apply to this invoice.
+                  </p>
+                )}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
                   billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }))}
-                  groups={invoiceGroups(customerInvoice)} totalLabel="Total Due" total={grandTotal}
-                  howToPay={hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
+                  groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
+                  howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
               </div>

@@ -134,6 +134,8 @@ export interface Job {
   // Append-only trail of status changes (written by the status PATCH and office completion). Older jobs have none.
   statusHistory?: JobStatusChange[];
   completedAt?: number;
+  /** Set when the linked invoice is paid in full; distinguishes a finished job from work ready to invoice. */
+  paymentReceivedAt?: number;
   notes?: string;
   invoiceId?: string;
   quoteId?: string;

@@ -77,6 +77,9 @@ describe("job quote routes", () => {
     expect((await SEND(bodyReq("quote/send", { businessId: "b", to: "client@example.com" }), context)).status).toBe(200);
     expect(state.docs.get("businesses/b/jobs/j")?.status).toBe("quoted");
     expect(mocks.send).toHaveBeenCalledOnce();
+    expect((mocks.send.mock.calls[0][0] as { html: string }).html).toContain("Accept quote");
+    expect((mocks.send.mock.calls[0][0] as { html: string }).html).toContain("Reject quote");
+    expect(state.docs.get("businesses/b/quotes/Q-1000")?.responseTokenHash).toMatch(/^[a-f0-9]{64}$/);
     const beforeAnswer = Date.now();
     expect((await PATCH(bodyReq("quote", { businessId: "b", status: "accepted" }, "PATCH"), context)).status).toBe(200);
     expect(state.docs.get("businesses/b/quotes/Q-1000")?.status).toBe("accepted");

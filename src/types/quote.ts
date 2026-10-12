@@ -33,6 +33,8 @@ export interface JobQuote {
   createdBy: string;
   sentAt?: number;
   sentTo?: string;
+  /** SHA-256 of the single-use customer response link. Never store the raw token. */
+  responseTokenHash?: string;
   /** When the office recorded the customer's answer (Mark accepted / declined / expired). */
   answeredAt?: number;
 }

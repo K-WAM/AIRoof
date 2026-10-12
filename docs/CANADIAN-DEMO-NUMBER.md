@@ -1,61 +1,29 @@
-# CANADIAN-DEMO-NUMBER.md — a second demo line for Canadian prospects (T-130)
+# Canadian demo line and text confirmations
 
-Written 2026-09-26. Goal: a Canadian local number, answered by the same ElevenLabs agent stack, so a Canadian
-prospect calls a number in their own area code instead of the US one. This is additive — the existing US line
-(`+1 (689) 204-2643`, tenant `demo-roofing`) is untouched.
+Checked 2026-10-12. The two known demo numbers are US `+1 689 204 2643` and Canada `+1 778 907 9769`. A read-only ElevenLabs phone-number list showed both imported, inbound capable, and assigned to the same agent. A read-only request to the production conversation-initiation endpoint resolved the US number to `Kareems Roofing` and the Canadian number to the generic `the office` fallback. The agent's stored fallback prompt still names Carlita Roofing. The Canadian line therefore answers, but is **not yet verified for a launched Demo Studio business**. Do not present it as ready to a prospect.
 
-**Everything below marked "verify" is a claim about a third-party console, not yet confirmed by clicking through it
-in this project — verify before relying on it, per `AGENTS.md`'s rule against fabricating provider behavior.**
+## What each phone field does
 
-## Why this is simpler than the original US line move
+- **Demo Studio → Business contact phone** writes `businesses/demo-roofing.contactPhone`. It appears in customer emails, quotes, and invoices. It is not the AI line or the text recipient. An older contact value can explain a `510...` number on an email; inspect the current value in Demo Studio before sending.
+- **Demo Studio → Your cell for a test call** is a browser-local outbound test destination. Entering `825 488 7791` there only rings that cell. It does not enroll it for SMS.
+- **SMS recipient** is the caller/customer phone recorded on a new booking, with an affirmative `textOk` answer. Call the demo line *from* the cell that should receive a text and consent when the AI asks.
 
-The US ElevenLabs migration (`docs/ELEVENLABS-SETUP.md`, `scripts/move-demo-line-to-elevenlabs.mjs`) had to account for
-US **A2P 10DLC** registration, which governs *SMS* throughput/trust scoring on US long codes. This platform never
-sends SMS (see `CLAUDE.md`'s Known Limitations — SMS is post-MVP, no active seam), and a **voice-only** number, US or
-Canadian, does not need A2P/10DLC or CNAM registration at all — that requirement is specific to text messaging.
-*(verify: confirm Twilio's current Canadian-voice-number page doesn't list a new requirement since this was written.)*
+## Make the Canadian voice demo ready
 
-## Steps
+1. In ElevenLabs → Phone Numbers, confirm `+1 778 907 9769` is assigned to the intended agent and accepts inbound calls. Both numbers were assigned to the same agent on 2026-10-12. The provider assignment alone does not set Luxor's tenant routing. [ElevenLabs setup](https://elevenlabs.io/docs/eleven-agents/phone-numbers/twilio-integration/native-integration/).
+2. In Luxor Admin → Client accounts → `demo-roofing` → Configure → Additional phone numbers, inspect the existing US primary and extra numbers. After checking there is no conflicting assignment to another tenant, add `+17789079769` as an extra number on `demo-roofing`. The initiation webhook resolves by the exact number dialed and deliberately uses its generic fallback for an unknown number. Confirm the saved value before testing; adding a registry card alone does not update this routing.
+3. In Admin → Phone lines, make sure there is one Canadian registry record for `demo-roofing`, with the correct E.164 number and provider. The registry is status/permission data; it does not route calls. The app routing and provider assignment must both be correct. Resolve duplicate records for a number before relying on its displayed status.
+4. After routing is set, make a **new inbound call** to the Canadian number from a Canadian or US cell. Confirm the greeting uses the business just launched, not Carlita; verify the call appears in `demo-roofing` Calls with `calledNumber=+17789079769`. Then record this call as a line test and complete the line lifecycle. Repeat separately on the US number. A historical call to the Canadian number cannot pass the line test while it was routed to the generic fallback.
+5. Launch a second business in Demo Studio and repeat one inbound call to each number. This proves both numbers follow the new demo identity. Launch currently updates the one `demo-roofing` tenant; it does not change number-to-tenant routing.
 
-1. **Buy the number (owner, Twilio console).** Console → Phone Numbers → Buy a number → country **Canada** → pick an
-   area code (Toronto 416/647, Vancouver 604, Calgary 403, or whichever the target prospect's region is) → Voice
-   capability only is enough (no SMS needed) → purchase. *(verify: Twilio may require a Canadian regulatory bundle /
-   address for local numbers in some provinces — check the console's own prompts at purchase time; if it asks for an
-   end-user or business address, use Luxor's registered address, not a fabricated one.)*
-2. **Import it into ElevenLabs (owner, ElevenLabs console).** Same "import a Twilio number" flow already used for the
-   US line: ElevenLabs dashboard → Phone Numbers → Import → connect the Twilio number (SID + auth token or Twilio
-   API-key credential, whichever the current ElevenLabs UI asks for) → assign it to an agent. *(verify: exact button
-   labels — the US import was done by hand in the ElevenLabs console; nothing in this repo automates account-level
-   import today. `scripts/setup-elevenlabs-agent.mjs` configures an *existing* agent's tools/webhooks; it does not
-   buy or import a number.)*
-3. **Decide the tenant mapping — pick one:**
-   - **Option A (recommended for a short-lived demo period):** reuse `demo-roofing`'s existing agent, and add the new
-     number as a second entry the initiation webhook can resolve. Today `findBusinessByElevenLabsPhoneNumber` looks
-     up a business by its single `elevenlabs.phoneNumber` field (`src/lib/vapi/businessLookup.ts`) — a second number
-     on the same tenant needs either (a) a small code change to accept an array, or (b) a second Firestore field
-     (`elevenlabsPhoneNumberCa`) and a lookup that checks both. Prefer (a) if a THIRD country/number is ever likely;
-     otherwise (b) is a smaller, safer diff.
-   - **Option B (cleaner isolation):** a dedicated tenant `demo-roofing-ca`, seeded the same way `demo-roofing` is
-     (`scripts/seed-demo-business.mjs` as a template), with its own `elevenlabs.phoneNumber`/`agentId`. Demo Studio's
-     reset/launch logic (`src/app/api/admin/demo-customize/route.ts`) has a hard-coded allowlist for which business
-     ids it's allowed to touch (`LIVE_LINE_BUSINESS_ID` guard) — a second demo tenant needs that allowlist extended
-     deliberately, not worked around.
-   - Either way: **never** let a Canadian caller's config accidentally serve US-only content (pricing in USD, a US
-     phone number in the agent's spoken script, Florida-specific legal notices — this tenant is roofing, not
-     Florida-specific, but double-check any hardcoded region strings before the first real call).
-4. **Point the webhooks.** The initiation/tools/post-call webhook URLs and `ELEVENLABS_TOOL_SECRET`/
-   `ELEVENLABS_WEBHOOK_SECRET` are shared across all numbers/agents on this ElevenLabs account — no per-number secret
-   is needed, only the per-number → per-tenant lookup from step 3.
-5. **Test call.** Call the new number, run the same 5-call script `docs/DEMO-DAY-RUNBOOK.md` uses for the US line
-   (booking, a service question, an off-topic redirect, an emergency escalation), and confirm in the app: no ID read
-   aloud, the call and any resulting request appear under the correct tenant, recording/no-recording matches what
-   `docs/NEEDS-HUMAN-CHECKLIST.md`'s NH-4 decided.
-6. **Update the docs once live:** `HANDOFF.md`'s demo-number line, `docs/DEMO-DAY-RUNBOOK.md`, and
-   `public/guides/onboarding-guide.html` if it will be shown to a Canadian prospect during onboarding.
+The existing phone-line lifecycle requires a successful call *in the tenant* before marking a line tested. If the Canadian number is absent from `extraPhoneNumbers`, an operator must stage the app routing under the normal change process before that test can pass; do not mark the line live just because ElevenLabs answers it. [ElevenLabs initiation webhook behavior](https://elevenlabs.io/docs/eleven-agents/phone-numbers/twilio-integration/customising-calls).
 
-## Owner decisions needed before starting (ask, don't assume)
-- Which area code / city to lead with.
-- Option A vs Option B above (shared tenant + second number field, or a dedicated `demo-roofing-ca` tenant).
-- Whether the Canadian demo should say anything different from the US one (currency, spelling, a Canada-specific
-  service area) — if not, Option A with a straight number swap in Demo Studio's "service area" field may be enough
-  without touching code at all; confirm this before building anything.
+## Enable and verify booking texts
+
+1. In Twilio, confirm each intended **sender** is a Twilio number with SMS capability. Voice capability or ElevenLabs assignment does not establish SMS eligibility. Check the US 10DLC registration/campaign for messages to US recipients and the current Canadian sending requirements/consent guidance before enabling either line. [Twilio US A2P 10DLC](https://www.twilio.com/docs/messaging/compliance/a2p-10dlc), [Twilio Canada SMS guidance](https://www.twilio.com/en-us/guidelines/ca/sms).
+2. In the production deployment, configure `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`, then set `SMS_ENABLED=true` only after carrier readiness. The app leaves SMS off unless all three are present. Verify the demo business does not have `smsEnabled=false`.
+3. In Admin → Phone lines, set each tested line's `sms.status` to `ready` only after approval, with `booking_received` and `appointment_confirmed` in its purposes. The SMS sender is the **exact line the customer dialed**; there is no automatic fallback from the Canadian line to the US line. A manual office booking with no dialed line needs one ready default sender.
+4. Call **inbound** from `825 488 7791` to the specific demo line. Ask the AI to book a new appointment; when asked if it may text this number, say yes. The appointment must retain that caller number, `textOk=true`, and the line dialed. An outbound Test Call from Demo Studio is a voice preview, not this SMS test.
+5. Check the appointment, SMS operation record, Twilio Message Logs, and the handset. A successful Twilio API response means the request was accepted for delivery; use Twilio's message status and the handset to verify actual receipt. Confirm the appointment in Pipeline to test the second confirmation text. Repeat with an eligible US mobile recipient and with the Canadian line once its voice routing and SMS sender status are ready.
+
+Email confirmations can succeed while SMS is disabled, the called line is not SMS-ready, or the caller did not consent. Those are independent channels. Use a fresh booking for each test so the operation dedupe does not reuse an earlier result.

@@ -16,7 +16,7 @@ const sentInvoice = { status: "sent", total: 300, amountPaid: 0, billTo: { name:
 beforeEach(() => {
   db = makeFakeDb();
   db.__seed("businesses", "b", { businessName: "Roof Co" });
-  db.__seed("businesses/b/jobs", "j", { invoiceId: "INV-1" });
+  db.__seed("businesses/b/jobs", "j", { invoiceId: "INV-1", status: "invoiced" });
   db.__seed("businesses/b/invoices", "INV-1", sentInvoice);
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "u" } });
   mocks.firestore.mockReset().mockReturnValue(db);
@@ -30,10 +30,12 @@ describe("Record payment", () => {
     expect(await first.json()).toMatchObject({ balance: 200, receipt: "sent" });
     expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({ to: "ana@example.com", fromName: "Roof Co" }));
     expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ status: "sent", amountPaid: 100 });
+    expect(db.__peek("businesses/b/jobs", "j")?.status).toBe("invoiced");
 
     const last = await POST(request({ businessId: "b", amount: 200, method: "zelle", sendReceipt: false }), context);
     expect(await last.json()).toMatchObject({ balance: 0, receipt: "skipped" });
     expect(db.__peek("businesses/b/invoices", "INV-1")).toMatchObject({ status: "paid", amountPaid: 300, paidAt: expect.any(Number) });
+    expect(db.__peek("businesses/b/jobs", "j")).toMatchObject({ status: "complete", paymentReceivedAt: expect.any(Number), statusHistory: [{ status: "complete", by: "u" }] });
     expect((db.__peek("businesses/b/invoices", "INV-1") as { payments: unknown[] }).payments).toHaveLength(2);
     expect(mocks.send).toHaveBeenCalledTimes(1);
   });

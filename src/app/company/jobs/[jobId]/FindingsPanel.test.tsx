@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "@/types/jobs";
 import type { WorkCatalogItem } from "@/types/workCatalog";
 import { FindingsPanel, type CatalogState } from "./FindingsPanel";
-
-vi.mock("@/components/field/FindingPickerSheet", () => ({ FindingPickerSheet: () => null }));
 
 const item: WorkCatalogItem = { itemId: "starter-roofing-tile", category: "Tile", problem: "Broken or slipped tiles", solution: "Replace the damaged tiles.", severity: "medium", createdAt: 1 };
 const catalog: CatalogState = { items: [item], loading: false, error: false, remember: () => undefined };
@@ -22,6 +20,22 @@ beforeEach(() => { vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("FindingsPanel — Reported by crew", () => {
+  it("adds every selected Library finding in one save", async () => {
+    const items: WorkCatalogItem[] = [item,
+      { ...item, itemId: "flashing", problem: "Failed flashing" },
+      { ...item, itemId: "drain", problem: "Blocked drain" }];
+    const onSaved = vi.fn();
+    render(<FindingsPanel job={job({ parsed: undefined })} businessId="biz" catalog={{ ...catalog, items }} onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole("button", { name: /Add from Library/ }));
+    const dialog = screen.getByRole("dialog", { name: /Add a finding from the Library/ });
+    for (const choice of ["Broken or slipped tiles", "Failed flashing", "Blocked drain"]) {
+      fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(choice) }));
+    }
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add 3 findings" }));
+    expect(screen.getByText("On this job (3)")).toBeTruthy();
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.arrayContaining(items.map((catalogItem) => expect.objectContaining({ itemId: catalogItem.itemId })))), { timeout: 2500 });
+    expect(JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string).findings).toHaveLength(3);
+  });
   it("lists what the crew reported, with a Library match when there is one and a one-off when there isn't", () => {
     render(<FindingsPanel job={job()} businessId="biz" catalog={catalog} onSaved={vi.fn()} />);
     const section = screen.getByRole("region", { name: /Reported by crew/ });

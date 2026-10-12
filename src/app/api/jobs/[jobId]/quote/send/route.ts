@@ -11,6 +11,8 @@ import type { Job } from "@/types/jobs";
 import type { LibraryLogo } from "@/types/library";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { getAppUrl } from "@/lib/config/appUrl";
+import { newQuoteResponseToken, quoteResponseTokenHash, quoteResponseUrl } from "@/lib/billing/quoteResponse";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
@@ -51,10 +53,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const photoIds = quote.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
   const selected = await loadDocumentPhotos(db, businessId, jobId, photoIds, metas);
   if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
+  const responseToken = newQuoteResponseToken();
+  const responseUrl = (decision: "accepted" | "declined") => quoteResponseUrl(getAppUrl(), businessId, jobId, responseToken, decision);
   const html = buildQuoteEmailHtml(quote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
-  }, notices, selected.photos);
+  }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") });
   const sent = await sendEmail({
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
   const now = Date.now();
   const batch = db.batch();
-  batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: to, updatedAt: now });
+  batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: to, responseTokenHash: quoteResponseTokenHash(responseToken), updatedAt: now });
   if (["open", "inspection"].includes(job.status)) batch.update(jobRef, { status: "quoted", updatedAt: now });
   await batch.commit();
   return NextResponse.json({ ok: true });

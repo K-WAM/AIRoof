@@ -4,6 +4,7 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { sendEmail } from "@/lib/comms/send";
 import { applyPayment, buildCustomerReceiptEmail, invoiceBalance, MAX_PAYMENTS_PER_INVOICE, parsePayment } from "@/lib/billing/customerPayments";
 import type { InvoicePayment, JobInvoice } from "@/types/invoice";
+import type { Job, JobStatusChange } from "@/types/jobs";
 
 // POST /api/jobs/[jobId]/invoice/payments  body: { businessId, amount, method, receivedAt?, note?, sendReceipt? }
 // "Record payment" (Billing product, no Stripe): the office logs money the customer paid them directly. Partial
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
+  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
+  const jobSnap = await jobRef.get();
   const invoiceId = jobSnap.data()?.invoiceId;
   if (!invoiceId) return NextResponse.json({ error: "This job has no invoice yet" }, { status: 404 });
   const invRef = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
@@ -33,8 +35,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   let result: { invoice: JobInvoice; payment: InvoicePayment; balance: number };
   try {
     result = await db.runTransaction(async (tx) => {
+      const currentJobSnap = await tx.get(jobRef);
       const snap = await tx.get(invRef);
       if (!snap.exists) throw new HttpError(404, "Invoice not found");
+      const currentJob = currentJobSnap.data() as Job | undefined;
+      if (!currentJob || currentJob.invoiceId !== invoiceId) throw new HttpError(409, "The job's invoice changed. Reload and try again.");
       const invoice = snap.data() as JobInvoice;
       if (invoice.status === "draft") throw new HttpError(409, "Send the invoice before recording a payment.");
       if (invoice.status === "void") throw new HttpError(409, "This invoice was voided.");
@@ -47,6 +52,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const { payments, amountPaid, status, paidAt } = applyPayment(invoice, payment);
       const applied = { payments, amountPaid, status, ...(paidAt ? { paidAt } : {}) };
       tx.update(invRef, { ...applied, updatedAt: now });
+      if (status === "paid") {
+        const change: JobStatusChange = { status: "complete", at: now, by: gate.user.uid };
+        tx.update(jobRef, { status: "complete", completedAt: currentJob.completedAt ?? now, paymentReceivedAt: paidAt ?? now,
+          updatedAt: now, statusHistory: [...(currentJob.statusHistory ?? []), change] });
+      }
       const next = { ...invoice, invoiceId: snap.id, ...applied, updatedAt: now };
       return { invoice: next, payment, balance: invoiceBalance(next) };
     });

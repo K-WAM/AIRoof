@@ -219,6 +219,29 @@ describe("demo-customize route", () => {
     });
   });
 
+  it("shows current email contact and the exact numbers routed to the launched demo", async () => {
+    mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+    const fs = createFirestore();
+    fs.documents.set("businesses/demo-roofing", {
+      businessName: "Kareems Roofing",
+      contactPhone: "5104537871",
+      contactEmail: "owner@example.com",
+      elevenlabs: {
+        phoneNumber: "+16892042643",
+        extraPhoneNumbers: ["+16892042643", "+16045550123"],
+      },
+    });
+    mocks.firestoreInstance = fs;
+    const { GET } = await import("@/app/api/admin/demo-customize/route");
+    const response = await GET(new NextRequest("http://localhost/api/admin/demo-customize"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      contactPhone: "5104537871",
+      contactEmail: "owner@example.com",
+      configuredNumbers: ["+16892042643", "+16045550123"],
+    });
+  });
+
   describe("DELETE confirm field (e)", () => {
     it("returns 400 when confirm field is missing", async () => {
       mocks.verifySuperadmin.mockResolvedValue(superadminUser);

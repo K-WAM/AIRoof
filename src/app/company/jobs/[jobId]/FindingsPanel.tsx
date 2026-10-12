@@ -119,6 +119,17 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
     change([...findings, copyCatalogFinding(item)]);
   };
 
+  const addCatalogItems = (items: Array<{ itemId: string }>) => {
+    const alreadyAdded = new Set(onJobIds);
+    const additions = items.flatMap(({ itemId }) => {
+      const item = catalog.items.find((candidate) => candidate.itemId === itemId);
+      if (!item || alreadyAdded.has(itemId)) return [];
+      alreadyAdded.add(itemId);
+      return [copyCatalogFinding(item)];
+    });
+    if (additions.length) change([...findings, ...additions]);
+  };
+
   async function addOneOff() {
     const problem = newProblem.trim();
     if (!problem) { setError("Enter what was found."); return; }
@@ -261,6 +272,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
         loading={catalog.loading}
         addedItemIds={onJobIds}
         onPick={(item) => { const full = catalog.items.find((c) => c.itemId === item.itemId); if (full) addCatalogItem(full); }}
+        onPickMany={addCatalogItems}
         confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }}
       />
     </section>
