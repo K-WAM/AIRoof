@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -38,10 +38,36 @@ describe("release boundary: provider-key readiness", () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv("OPENAI_API_KEY", "");
+    mocks.verifyFieldAccess.mockResolvedValue({ user: { uid: "field-user" } });
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("denies transcription before checking provider readiness", async () => {
+    mocks.verifyFieldAccess.mockResolvedValueOnce({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
+    const { POST } = await import("@/app/api/transcribe/route");
+
+    const response = await POST(jsonRequest("/api/transcribe", {
+      businessId: "biz-1", audioBase64: "dGVzdA==", mimeType: "audio/webm",
+    }));
+
+    expect(response.status).toBe(403);
+    expect(mocks.openAiConstructor).not.toHaveBeenCalled();
+  });
+
+  it("denies field audio before checking provider readiness", async () => {
+    mocks.verifyFieldAccess.mockResolvedValueOnce({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
+    const { POST } = await import("@/app/api/jobs/[jobId]/field-audio/route");
+
+    const response = await POST(jsonRequest("/api/jobs/job-1/field-audio", {
+      businessId: "biz-1", audioBase64: "dGVzdA==", mimeType: "audio/webm",
+    }), { params: Promise.resolve({ jobId: "job-1" }) });
+
+    expect(response.status).toBe(403);
+    expect(mocks.getAdminFirestore).not.toHaveBeenCalled();
+    expect(mocks.openAiConstructor).not.toHaveBeenCalled();
   });
 
   it("reports transcription unavailable without constructing a provider client", async () => {
@@ -61,17 +87,14 @@ describe("release boundary: provider-key readiness", () => {
     expect(await response.json()).toEqual({
       error: "OpenAI provider not configured — transcription unavailable",
     });
-    expect(mocks.verifyFieldAccess).not.toHaveBeenCalled();
+    expect(mocks.verifyFieldAccess).toHaveBeenCalledOnce();
     expect(mocks.openAiConstructor).not.toHaveBeenCalled();
     expect(mocks.toFile).not.toHaveBeenCalled();
   });
 
   it("reports field audio unavailable without writing or silently mocking", async () => {
-    const collection = vi.fn(() => ({}));
-    mocks.verifyFieldAccess.mockResolvedValue({
-      uid: "field-user",
-      businessId: "biz-1",
-    });
+    const set = vi.fn();
+    const collection = vi.fn(() => ({ doc: () => ({ get: async () => ({ exists: true, data: () => ({}) }), set }) }));
     mocks.getAdminFirestore.mockReturnValue({ collection });
     const { POST } = await import("@/app/api/jobs/[jobId]/field-audio/route");
 
@@ -88,7 +111,8 @@ describe("release boundary: provider-key readiness", () => {
     expect(await response.json()).toEqual({
       error: "OpenAI provider not configured — transcription unavailable",
     });
-    expect(collection).toHaveBeenCalledOnce();
+    expect(collection).toHaveBeenCalledWith("businesses/biz-1/jobs");
+    expect(set).not.toHaveBeenCalled();
     expect(mocks.openAiConstructor).not.toHaveBeenCalled();
     expect(mocks.toFile).not.toHaveBeenCalled();
   });
