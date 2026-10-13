@@ -2969,3 +2969,6 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 
 Pagination/search/virtualization; field-theme unification; toast component unification
 beyond T-040's single banner; offline field queue; operator replay console; SMS; Google Calendar OAuth; Stripe.
+
+### Analytics release (2026-10-12)
+- [x] **T-207 - Scoped PostHog page analytics.** Public project token and US host set in Vercel Production; manual broad pageviews only, with sensitive routes and URL details excluded. Local gates passed and production deployment tracked in the release handoff.

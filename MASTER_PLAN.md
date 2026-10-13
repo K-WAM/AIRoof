@@ -1157,3 +1157,6 @@ Never touched by any worker stream: `src/lib/scheduling/**`, `src/lib/voice/elev
 `src/lib/tools/agentTools.ts` merge order (never concurrent): T-011 → T-030 → T-031 → T-032(createLead) → T-041(email lines).
 `src/app/api/webhooks/vapi/route.ts`: T-010 → T-011 → T-031 → T-042.
 `package.json`: T-000 only; later dep additions go through the integrator.
+
+### T-207 - Scoped PostHog page analytics (owner 2026-10-12)
+Track only broad production page categories in PostHog using the public project token and US ingestion host. Do not send IDs, query strings, customer data, form interactions, or session recordings. Keep existing app behavior and admin usage figures unchanged. Owned files: .env.example, next.config.ts, package.json, package-lock.json, src/app/layout.tsx, src/components/analytics/PostHogPageViews.tsx, src/lib/analytics/pageView.ts, src/lib/analytics/pageView.test.ts. Acceptance: production-only pageviews, route allowlist, type/lint/unit/build and browser release gates; Vercel production variables and deployment verified.
