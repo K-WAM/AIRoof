@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 import { makeFakeDb, type FakeDb } from "@/test-utils/fakeFirestore";
 
 const mocks = vi.hoisted(() => ({ db: null as FakeDb | null }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => mocks.db }));
+vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: async () => ({ user: { uid: "office", role: "staff" } }) }));
 
 import { executeAgentTool, type AgentToolContext } from "@/lib/tools/toolDispatcher";
 import {
@@ -11,6 +13,7 @@ import {
   isScheduleWithinBusinessHours,
 } from "@/lib/tools/agentTools";
 import { demoSeedFor } from "@/lib/verticals/demoSeed";
+import { PATCH as confirmAppointment } from "@/app/api/appointments/[appointmentId]/route";
 
 const BUSINESS_ID = "demo-roofing";
 const TIME_ZONE = "America/New_York";
@@ -222,13 +225,24 @@ describe("booking reliability truth table", () => {
     expect(stored?.data.startTime).toBe(Date.parse("2026-11-03T14:00:00.000Z"));
   });
 
-  it("S11 allows two crews to book Monday 10 AM and gives the third alternatives", async () => {
-    seedRoofing({ crews: 2, includeAppointments: false });
+  it("S11 allows two crews to book and confirm Monday 10 AM and gives the third alternatives", async () => {
+    const { db } = seedRoofing({ crews: 2, includeAppointments: false });
     expect((await book("s11-1", "2026-09-28T10:00", "+15552000111")).error).toBeUndefined();
     expect((await book("s11-2", "2026-09-28T10:00", "+15552000112")).error).toBeUndefined();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const third = await book("s11-3", "2026-09-28T10:00", "+15552000113");
     expect(third.result).toMatch(/^NOT BOOKED: 10:00\s?AM Monday was just taken\..*closest openings:/);
+    const appointments = await db.collection(`businesses/${BUSINESS_ID}/appointments`).get();
+    expect(appointments.docs).toHaveLength(2);
+    for (const appointment of appointments.docs) {
+      const request = new NextRequest(`http://localhost/api/appointments/${appointment.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: BUSINESS_ID, confirm: true, notifyCustomer: false }),
+      });
+      const response = await confirmAppointment(request, { params: Promise.resolve({ appointmentId: appointment.id }) });
+      expect(response.status, JSON.stringify(await response.json())).toBe(200);
+      expect(db.__peek(`businesses/${BUSINESS_ID}/appointments`, appointment.id)?.status).toBe("confirmed");
+    }
   });
 
   it("S12 releases a cancelled capacity unit so the same slot can be booked again", async () => {

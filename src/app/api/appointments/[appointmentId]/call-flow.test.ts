@@ -59,6 +59,47 @@ beforeEach(() => {
   mocks.sendSms.mockReset().mockResolvedValue("delivered");
 });
 
+describe("PATCH /api/appointments — reserved capacity confirmation", () => {
+  it.each([1, undefined])("refuses an overlapping same-unit or unknown legacy reservation (%s)", async (unit) => {
+    seedAppointment({ scheduleCapacityUnit: 1 });
+    db.__seed("businesses/biz/appointments", "other", { appointmentId: "other", startTime: START, endTime: END, status: "confirmed", ...(unit === undefined ? {} : { scheduleCapacityUnit: unit }) });
+    const response = await PATCH(requestFor({ businessId: "biz", confirm: true, notifyCustomer: false }), context);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: "slot_conflict" });
+    expect(db.__peek("businesses/biz/appointments", "appt")?.status).toBe("requested");
+    expect(mocks.runLedgeredEmail).not.toHaveBeenCalled();
+  });
+
+  it("does not reinterpret an unknown legacy appointment as spare capacity", async () => {
+    db.__seed("businesses/biz/appointments", "other", { appointmentId: "other", startTime: START, endTime: END, status: "confirmed", scheduleCapacityUnit: 0 });
+    expect((await PATCH(requestFor({ businessId: "biz", confirm: true, notifyCustomer: false }), context)).status).toBe(409);
+  });
+
+  it("refuses another booking's lock on this capacity unit even when its appointment is missing", async () => {
+    seedAppointment({ scheduleCapacityUnit: 1 });
+    db.__seed("businesses/biz/schedulingLocks", `capacity%3A1:${START}`, { entityId: "other", startTime: START, endTime: END });
+    expect((await PATCH(requestFor({ businessId: "biz", confirm: true, notifyCustomer: false }), context)).status).toBe(409);
+  });
+
+  it("auth denial cannot confirm a reserved appointment", async () => {
+    mocks.verify.mockResolvedValue({ error: new Response("Forbidden", { status: 403 }) });
+    seedAppointment({ scheduleCapacityUnit: 1 });
+    expect((await PATCH(requestFor({ businessId: "biz", confirm: true }), context)).status).toBe(403);
+    expect(db.__peek("businesses/biz/appointments", "appt")?.status).toBe("requested");
+  });
+
+  it("confirms two separately reserved inspections at the same time and retains their locks", async () => {
+    seedAppointment({ scheduleCapacityUnit: 0 });
+    db.__seed("businesses/biz/appointments", "second", { appointmentId: "second", startTime: START, endTime: END, status: "requested", scheduleCapacityUnit: 1 });
+    expect((await PATCH(requestFor({ businessId: "biz", confirm: true, notifyCustomer: false }), context)).status).toBe(200);
+    expect((await PATCH(requestFor({ businessId: "biz", confirm: true, notifyCustomer: false }), { params: Promise.resolve({ appointmentId: "second" }) })).status).toBe(200);
+    expect(db.__peek("businesses/biz/appointments", "appt")).toMatchObject({ status: "confirmed", scheduleCapacityUnit: 0 });
+    expect(db.__peek("businesses/biz/appointments", "second")).toMatchObject({ status: "confirmed", scheduleCapacityUnit: 1 });
+    expect(db.__peek("businesses/biz/schedulingLocks", `capacity%3A0:${START}`)?.entityId).toBe("appt");
+    expect(db.__peek("businesses/biz/schedulingLocks", `capacity%3A1:${START}`)?.entityId).toBe("second");
+  });
+});
+
 describe("PATCH /api/appointments — inspector assignment notifications (T-152)", () => {
   it("assigns and notifies the new inspector row", async () => {
     const response = await PATCH(requestFor({ businessId: "biz", assignedCrewId: "c1" }), context);

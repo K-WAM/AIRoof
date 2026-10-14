@@ -2977,3 +2977,13 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
 | T-208 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | `src/app/try/[vertical]/{page,EnterSandboxButton}.tsx`; `e2e/demo-entry.spec.ts`; `scripts/e2e/config.cjs` (sandbox test identity allowlist); spec/log append | review |
+
+### Roofing demo readiness (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-209 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Demo token and tests; Pipeline/RequestReviewCard; Field; QuotePanel and tests; DemoTourBanner; DemoRunbook and tests; demo-readiness browser spec; spec/log append | implementing |
+
+### Booking confirmation hardening (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-210 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Appointment confirmation route/call-flow tests; booking scenario S11; booking plan S11; spec/log append | review |
