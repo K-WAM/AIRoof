@@ -2972,3 +2972,9 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 ### Analytics release (2026-10-12)
 - [x] **T-207 - Scoped PostHog page analytics.** Public project token and US host set in Vercel Production; manual broad pageviews only, with sensitive routes and URL details excluded. Local gates passed and production deployment tracked in the release handoff.
+
+## Public demo clarity (2026-10-14)
+
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-208 | `fix/roofing-job-flow` / `D:/Apps/AI Receptionist` | `src/app/try/[vertical]/**`; `DemoTourBanner.tsx` wording; `e2e/try-demo.spec.ts`; task planning/evidence | review |

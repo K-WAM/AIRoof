@@ -14,7 +14,7 @@ const STEP: Record<FlowStep, { path: string; module?: CompanyModule; label: (job
   call: { path: "/company/calls", label: () => "Calls", tip: () => "Every call the AI answered. Open one to read what it said." },
   pipeline: { path: "/company/pipeline", label: () => "Pipeline", tip: () => "What the AI captured from each caller — bookings to confirm, people to call back." },
   calendar: { path: "/company/calendar", label: () => "Calendar", tip: () => "Each booking sits with the person taking it." },
-  field: { path: "/company/field", module: "jobs", label: () => "Field", tip: () => "Log a voice note from the job — try it, it's real." },
+  field: { path: "/company/field", module: "jobs", label: () => "Field", tip: () => "Choose a sample job to read its field notes. Saving is turned off in this demo." },
   invoice: { path: "/company/jobs", module: "jobs", label: (jobs) => jobs, tip: (jobs) => `Open a finished one of your ${jobs.toLowerCase()} to see its invoice.` },
   paid: { path: "/company/billing", module: "billing", label: () => "Billing", tip: () => "What's owed and what's been paid." },
 };

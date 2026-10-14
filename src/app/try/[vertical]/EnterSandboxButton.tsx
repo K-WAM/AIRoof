@@ -6,7 +6,11 @@ import { ExternalLink } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 /** `vertical` = which industry's demo business to open (each has its own; see api/demo/sandbox-token). */
-export function EnterSandboxButton({ vertical }: { vertical?: string }) {
+export function EnterSandboxButton({ vertical, destination = "overview", label = "See it in the real app →" }: {
+  vertical?: string;
+  destination?: "overview" | "bookings" | "field";
+  label?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +35,9 @@ export function EnterSandboxButton({ vertical }: { vertical?: string }) {
       // bounce this navigation before AuthContext's real ID token lands
       // (AuthContext overwrites this with the real token within moments).
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
-      router.push("/company/dashboard");
+      router.push(destination === "field"
+        ? `/company/field${vertical === "roofing" || vertical === "pet-care" ? "?jobId=J-1001" : ""}`
+        : destination === "bookings" ? "/company/calendar" : "/company/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the sandbox");
       setLoading(false);
@@ -44,11 +50,11 @@ export function EnterSandboxButton({ vertical }: { vertical?: string }) {
         type="button"
         onClick={enter}
         disabled={loading}
-        className="button primary"
+        className="button"
         style={{ fontSize: 15, padding: "13px 24px", display: "inline-flex", alignItems: "center", gap: 8 }}
       >
         <ExternalLink size={17} strokeWidth={1.75} />
-        {loading ? "Opening…" : "See it in the real app →"}
+        {loading ? "Opening…" : label}
       </button>
       {error && <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--danger)" }}>{error}</p>}
     </div>

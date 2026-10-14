@@ -1,41 +1,15 @@
-// Public, no-login, self-led demo landing page — safe to text/email/QR to a
-// prospect with zero intro from the owner. Fully static (generateStaticParams
-// below pre-renders one page per vertical at build time; nothing here reads
-// live Firestore state), so it's fast and has no auth surface to leak.
-//
-// Deliberately generic per vertical, not per-prospect: one reusable link/QR
-// per industry rather than a unique URL per lead — simpler to hand out, and
-// there's nothing prospect-specific to protect.
-//
-// Copy is deliberately terse (short bullets/labels, no paragraphs) — a
-// tradesperson scanning this on a phone in the field isn't going to read
-// prose. Two equal-weight entry points (call vs. software) rather than a
-// forced "call first" sequence, since not every visitor wants both.
-//
-// Operational note (not shown on the page — this is for whoever sends the
-// link): demo-roofing is the ONE shared live phone line: Vapi.dashboard-demoUrl
-// reconfigures on every Demo Studio launch (see hub/demo/page.tsx). This page's
-// phone number is only accurate while that line is currently launched as this
-// vertical. Re-launch it in Demo Studio before sending this link out again if
-// it may have been switched to demo a different industry in between.
+// Public, static demo entry. Calls use the existing live demo line; the app
+// opens a separate, per-industry sample business with the existing viewer role.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PhoneCall, Workflow, CalendarDays, Mic, Receipt, Wallet, CheckCircle2, type LucideIcon } from "lucide-react";
+import { PhoneCall, ArrowDown } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
-import { VERTICAL_PITCH, type FlowStep as PitchStep } from "@/lib/verticals/pitch";
+import { VERTICAL_PITCH } from "@/lib/verticals/pitch";
+import { ROOFING_WORKED_JOB } from "@/lib/verticals/demoSeedRoofing";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
 type RouteParams = { vertical: string };
-
-const FLOW: Record<PitchStep, { icon: LucideIcon; label: string }> = {
-  call: { icon: PhoneCall, label: "Call" },
-  pipeline: { icon: Workflow, label: "Requests" },
-  calendar: { icon: CalendarDays, label: "Calendar" },
-  field: { icon: Mic, label: "Field" },
-  invoice: { icon: Receipt, label: "Invoice" },
-  paid: { icon: Wallet, label: "Paid" },
-};
 
 function isVerticalId(value: string): value is VerticalId {
   return Object.prototype.hasOwnProperty.call(VERTICAL_TEMPLATES, value);
@@ -45,194 +19,94 @@ export function generateStaticParams(): RouteParams[] {
   return Object.keys(VERTICAL_TEMPLATES).map((vertical) => ({ vertical }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<RouteParams>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<RouteParams> }): Promise<Metadata> {
   const { vertical } = await params;
   if (!isVerticalId(vertical)) return {};
   const t = VERTICAL_TEMPLATES[vertical];
-  const agentName = demoAgentName(vertical);
   const title = `${t.label} AI Receptionist — Live Demo`;
-  const description = `Call and talk to ${agentName}, the AI receptionist for ${t.label.toLowerCase()} businesses. No signup, no login — just call.`;
-  return {
-    title,
-    description,
-    openGraph: { title, description },
-  };
+  const description = VERTICAL_PITCH[vertical].headline;
+  return { title, description, openGraph: { title, description } };
 }
 
-const cardStyle: React.CSSProperties = { textAlign: "center", padding: "22px 20px" };
-const labelStyle: React.CSSProperties = {
-  margin: "0 0 10px",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  color: "var(--text-muted)",
-};
+const muted: React.CSSProperties = { margin: "6px 0 14px", fontSize: 14, color: "var(--text-muted)", lineHeight: 1.5 };
+const stepStyle: React.CSSProperties = { padding: "20px", listStyle: "none" };
+const eyebrow: React.CSSProperties = { margin: "0 0 6px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" };
 
-// Icon + label chip, no connecting arrows — arrows orphan awkwardly once this
-// row wraps on a narrow phone screen (the common case: most visitors get here
-// via a scanned QR code). Reading order alone conveys the sequence.
-function FlowStep({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
-  return (
-    <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "6px 10px 6px 6px",
-        background: "var(--surface-muted)",
-        borderRadius: 20,
-      }}
-    >
-      <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--accent-soft)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-        <Icon size={13} strokeWidth={1.75} style={{ color: "var(--accent)" }} />
-      </div>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>{label}</span>
-    </div>
-  );
+function StepTitle({ number, children }: { number: number; children: React.ReactNode }) {
+  return <h2 style={{ display: "flex", alignItems: "center", gap: 10, margin: 0, fontSize: 17, lineHeight: 1.35, color: "var(--text)" }}>
+    <span aria-hidden="true" style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: "50%", background: "var(--accent-soft)", color: "var(--accent)", flexShrink: 0, fontSize: 14 }}>{number}</span>
+    {children}
+  </h2>;
 }
 
-export default async function TryVerticalPage({
-  params,
-}: {
-  params: Promise<RouteParams>;
-}) {
+export default async function TryVerticalPage({ params }: { params: Promise<RouteParams> }) {
   const { vertical } = await params;
   if (!isVerticalId(vertical)) notFound();
-
   const t = VERTICAL_TEMPLATES[vertical];
+  const pitch = VERTICAL_PITCH[vertical];
   const agentName = demoAgentName(vertical);
   const phone = DEMO_LINE_PHONE[vertical];
-  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
-
-  // Per-industry pitch (src/lib/verticals/pitch.ts): what this industry buys for, in its own words.
-  const pitch = VERTICAL_PITCH[vertical];
-  const tryLines = pitch.trySaying.map((line) => `"${line}"`);
-  const flowLabel = (step: PitchStep) => step === "field" ? (t.vocab.jobNoun === "Visit" ? "Visit report" : "Field") : FLOW[step].label;
+  const hasField = pitch.flow.includes("field") && !t.disabledModules.includes("jobs");
+  const roofingNote = ROOFING_WORKED_JOB.updates[1];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "var(--background)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "48px 20px 36px",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: 600 }}>
-        {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 22 }}>
-          <p
-            style={{
-              margin: "0 0 8px",
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--accent)",
-            }}
-          >
-            AI Receptionist · {t.label}
-          </p>
-          <h1 style={{ margin: 0, fontSize: "1.55rem", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)", lineHeight: 1.25 }}>
-            {pitch.headline}
-          </h1>
-          <ul style={{ listStyle: "none", margin: "14px auto 0", padding: 0, display: "grid", gap: 6, maxWidth: 440, textAlign: "left" }} data-testid="try-points">
-            {pitch.points.map((point) => (
-              <li key={point} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 14, color: "var(--text)" }}>
-                <CheckCircle2 size={17} strokeWidth={1.75} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }} />{point}
-              </li>
-            ))}
-          </ul>
-        </div>
+    <main style={{ minHeight: "100vh", background: "var(--background)", padding: "28px 16px 24px" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <header style={{ marginBottom: 20 }}>
+          <p style={{ ...eyebrow, color: "var(--accent)" }}>AI Receptionist · {t.label}</p>
+          <h1 style={{ margin: "0 0 8px", fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text)" }}>Try the demo</h1>
+          <p style={{ ...muted, margin: 0 }}>Explore a {t.label.toLowerCase()} business in {hasField ? "three" : "two"} steps. No signup.</p>
+        </header>
 
-        {/* Two equal entry points */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-          {/* Call */}
-          <div className="panel" style={cardStyle}>
-            <p style={labelStyle}>Hear the AI</p>
-            {phone && telHref ? (
-              <>
-                <p style={{ margin: "0 0 14px", fontSize: "1.55rem", fontWeight: 800, color: "var(--text)", userSelect: "all" }}>
-                  {phone}
-                </p>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                  <a
-                    href={telHref}
-                    className="button primary"
-                    style={{ fontSize: 14, padding: "11px 18px", display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}
-                  >
-                    <PhoneCall size={15} strokeWidth={1.75} />
-                    Call {agentName}
-                  </a>
-                  <CopyPhoneButton phone={phone} />
-                </div>
-              </>
-            ) : (
-              <>
-                <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--text-muted)" }}>We&apos;ll set up a live call with {agentName}, set up for your business.</p>
-                <a
-                  href={`mailto:connect@luxordev.com?subject=${encodeURIComponent(`Live ${t.label} AI demo`)}`}
-                  className="button"
-                  style={{ fontSize: 14, padding: "11px 18px", textDecoration: "none" }}
-                >
-                  Book a live call
+        <ol aria-label="Demo steps" style={{ display: "grid", gap: 12, margin: 0, padding: 0 }}>
+          <li className="panel" style={stepStyle} data-testid="demo-step-call">
+            <StepTitle number={1}>Call reception and make a booking</StepTitle>
+            <p style={muted}>Ask for a service and a time.</p>
+            <blockquote style={{ margin: "0 0 16px", padding: "10px 12px", borderLeft: "3px solid var(--accent)", background: "var(--surface-muted)", borderRadius: "0 8px 8px 0", fontSize: 14, lineHeight: 1.5, color: "var(--text)" }}>
+              “{pitch.trySaying[0]}”
+            </blockquote>
+            {phone ? <>
+              <p style={{ margin: "0 0 12px", fontSize: 22, fontWeight: 800, color: "var(--text)", userSelect: "all" }}>{phone}</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="button primary" style={{ minHeight: 44, padding: "12px 18px", display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                  <PhoneCall size={17} strokeWidth={1.75} />Call {agentName}
                 </a>
-              </>
-            )}
-          </div>
+                <CopyPhoneButton phone={phone} />
+              </div>
+            </> : <>
+              <p style={muted}>We’ll arrange a live call for your industry.</p>
+              <a href={`mailto:connect@luxordev.com?subject=${encodeURIComponent(`Live ${t.label} AI demo`)}`} className="button primary" style={{ display: "inline-flex", minHeight: 44, padding: "12px 18px", alignItems: "center", textDecoration: "none" }}>Book a live call</a>
+            </>}
+          </li>
 
-          {/* Software — every industry has its own read-only demo business (src/lib/verticals/sandboxBusiness.ts). */}
-          <div className="panel" style={cardStyle}>
-            <p style={labelStyle}>See the Software</p>
-            <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--text-muted)" }}>
-              A demo {t.label.toLowerCase()} business, data loaded. No login.
-            </p>
-            <EnterSandboxButton vertical={vertical} />
-          </div>
-        </div>
+          <li className="panel" style={stepStyle} data-testid="demo-step-app">
+            <StepTitle number={2}>See how bookings appear</StepTitle>
+            <p style={muted}>Open the calendar with sample bookings already loaded.</p>
+            <EnterSandboxButton vertical={vertical} destination="bookings" label="See the app →" />
+            <p style={{ ...muted, margin: "10px 0 0", fontSize: 12 }}>Sample data, separate from your call. Viewing only.</p>
+          </li>
 
-        {/* How it works — this industry's own flow */}
-        <div className="panel" style={{ marginTop: 14, padding: "18px 16px" }}>
-          <p style={{ ...labelStyle, textAlign: "center" }}>How It Works</p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }} data-testid="try-flow">
-            {pitch.flow.map((step) => <FlowStep key={step} icon={FLOW[step].icon} label={flowLabel(step)} />)}
-          </div>
-        </div>
+          {hasField && <li className="panel" style={stepStyle} data-testid="demo-step-field">
+            <StepTitle number={3}>{t.vocab.jobNoun === "Visit" ? "See a visit update" : "See a field update"}</StepTitle>
+            <p style={muted}>A spoken note becomes organized {t.vocab.jobNoun.toLowerCase()} details.</p>
+            <div style={{ background: "var(--surface-muted)", padding: "14px", borderRadius: 10, marginBottom: 14, color: "var(--text)" }} data-testid="field-update-example">
+              <p style={eyebrow}>Crew says</p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>“{vertical === "roofing" ? roofingNote.rawText : t.vocab.voiceExample}”</p>
+              <ArrowDown size={18} aria-hidden="true" style={{ margin: "10px 0", color: "var(--accent)" }} />
+              <p style={eyebrow}>{vertical === "roofing" ? "Office sees · translated to English" : "Office sees"}</p>
+              {vertical === "roofing" ? <ul style={{ paddingLeft: 18, margin: "0", fontSize: 14, lineHeight: 1.55 }}>
+                {roofingNote.parsed.issues.map((issue) => <li key={issue.description}>{issue.description}</li>)}
+              </ul> : <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Work, time and details saved to the {t.vocab.jobNoun.toLowerCase()}.</p>}
+            </div>
+            <EnterSandboxButton vertical={vertical} destination="field" label={t.vocab.jobNoun === "Visit" ? "View visit updates →" : "View field updates →"} />
+            <p style={{ ...muted, margin: "10px 0 0", fontSize: 12 }}>Explore the sample. Saving is turned off.</p>
+          </li>}
+        </ol>
 
-        {/* Try saying */}
-        <div className="panel" style={{ marginTop: 14, padding: "18px 20px" }}>
-          <p style={labelStyle}>Try Saying</p>
-          <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
-            {tryLines.map((line) => (
-              <li
-                key={line}
-                style={{
-                  padding: "9px 12px",
-                  background: "var(--surface-muted)",
-                  borderRadius: 8,
-                  fontSize: 13,
-                  fontStyle: "italic",
-                  color: "var(--text)",
-                }}
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "var(--text-muted)" }}>
-          Questions? <a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>
-          {" · "}Powered by Luxor AI
-        </p>
+        <footer style={{ marginTop: 20, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+          Questions? <a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)", display: "inline-flex", alignItems: "center", minHeight: 44 }}>connect@luxordev.com</a>
+        </footer>
       </div>
-    </div>
+    </main>
   );
 }
