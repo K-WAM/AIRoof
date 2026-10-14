@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 /** `vertical` = which industry's demo business to open (each has its own; see api/demo/sandbox-token). */
-export function EnterSandboxButton({ vertical }: { vertical?: string }) {
+export function EnterSandboxButton({ vertical, label = "See it in the real app →" }: { vertical?: string; label?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export function EnterSandboxButton({ vertical }: { vertical?: string }) {
         style={{ fontSize: 15, padding: "13px 24px", display: "inline-flex", alignItems: "center", gap: 8 }}
       >
         <ExternalLink size={17} strokeWidth={1.75} />
-        {loading ? "Opening…" : "See it in the real app →"}
+        {loading ? "Opening…" : label}
       </button>
       {error && <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--danger)" }}>{error}</p>}
     </div>

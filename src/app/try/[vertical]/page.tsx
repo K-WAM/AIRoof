@@ -109,6 +109,48 @@ export default async function TryVerticalPage({
   const phone = DEMO_LINE_PHONE[vertical];
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
 
+  if (vertical === "roofing") {
+    const stepStyle: React.CSSProperties = { display: "flex", gap: 14, alignItems: "flex-start", padding: 20 };
+    const numberStyle: React.CSSProperties = { width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 700 };
+    const titleStyle: React.CSSProperties = { margin: "2px 0 12px", fontSize: 18, fontWeight: 700, color: "var(--text)" };
+
+    return (
+      <main style={{ minHeight: "100vh", background: "var(--background)", padding: "32px 20px", display: "flex", justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 520 }}>
+          <h1 style={{ margin: "0 0 24px", textAlign: "center", fontSize: "1.75rem", lineHeight: 1.2, color: "var(--text)", fontWeight: 800 }}>Try it for yourself</h1>
+          <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>1</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={titleStyle}>Call the receptionist</h2>
+                <a href={telHref} className="button primary" aria-label={`Call the receptionist at ${phone}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, width: "100%", fontSize: 18, textDecoration: "none" }}>
+                  <PhoneCall size={18} strokeWidth={1.75} aria-hidden="true" />{phone}
+                </a>
+              </div>
+            </li>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>2</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={titleStyle}>Make a booking</h2>
+                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: "var(--text-muted)" }}>&ldquo;Can I book a roof inspection?&rdquo;</p>
+              </div>
+            </li>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>3</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <EnterSandboxButton vertical={vertical} label="See the App" />
+                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>Sample data · View only</p>
+              </div>
+            </li>
+          </ol>
+          <p style={{ margin: "20px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>
+            <a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   // Per-industry pitch (src/lib/verticals/pitch.ts): what this industry buys for, in its own words.
   const pitch = VERTICAL_PITCH[vertical];
   const tryLines = pitch.trySaying.map((line) => `"${line}"`);

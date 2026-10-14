@@ -2972,3 +2972,8 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 ### Analytics release (2026-10-12)
 - [x] **T-207 - Scoped PostHog page analytics.** Public project token and US host set in Vercel Production; manual broad pageviews only, with sensitive routes and URL details excluded. Local gates passed and production deployment tracked in the release handoff.
+
+### Prospect demo entry (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-208 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | `src/app/try/[vertical]/{page,EnterSandboxButton}.tsx`; `e2e/demo-entry.spec.ts`; `scripts/e2e/config.cjs` (sandbox test identity allowlist); spec/log append | review |
