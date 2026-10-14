@@ -29,7 +29,7 @@ export type ReviewCall = {
   transcript?: Array<{ role: string; text: string }>;
 };
 
-export function RequestReviewCard({ request, call, timeZone, smsEnabled = false, intakeLabelFor, jobNoun, canCreateJob, onAccept, onDecline, onCallBack }: {
+export function RequestReviewCard({ request, call, timeZone, smsEnabled = false, intakeLabelFor, jobNoun, canCreateJob, onAccept, onDecline, onCallBack, readOnly = false }: {
   request: ReviewRequest;
   call?: ReviewCall;
   timeZone?: string;
@@ -37,6 +37,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
+  readOnly?: boolean;
   onAccept: () => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;
@@ -54,6 +55,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
   const missing = missingRequestInformation(request);
 
   const act = async (action: "accept" | "decline" | "call") => {
+    if (readOnly) return;
     setBusy(action);
     setError(null);
     try {
@@ -88,7 +90,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
 
       {missing.length > 0 && (
         <div className="request-missing">
-          <strong>Missing information:</strong> {missing.join(", ")}. {onCallBack && (
+          <strong>Missing information:</strong> {missing.join(", ")}. {!readOnly && onCallBack && (
             <button className="button small secondary" onClick={() => act("call")} disabled={busy !== null}>
               {busy === "call" ? "Calling…" : "AI call back to collect it"}
             </button>
@@ -107,7 +109,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
         {transcript && <div className="transcript">{call.transcript.filter((message) => message.text?.trim()).slice(0, 8).map((message, index) => <p key={index}><b>{message.role}:</b> {message.text}</p>)}</div>}
       </>}
 
-      <div className="request-review-actions">
+      {!readOnly && <div className="request-review-actions">
         {isBooking && (
           <p className="request-confirm-channel" style={{ margin: 0, flexBasis: "100%" }}>
             {channels.length > 0
@@ -119,11 +121,11 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
           ? "Confirming…"
           : isBooking && channels.length > 0 ? confirmButtonLabel(channels) : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>
         <button className="button secondary" onClick={() => setDecline(!decline)} disabled={busy !== null}>Decline & notify</button>
-      </div>
+      </div>}
 
       {error && <p role="alert" className="request-missing">{error}</p>}
 
-      {decline && <div className="request-decline">
+      {!readOnly && decline && <div className="request-decline">
         <label>Reason <select value={reason} onChange={(event) => setReason(event.target.value as RequestDeclineReason)}>{REQUEST_DECLINE_REASONS.map((item) => <option key={item}>{item}</option>)}</select></label>
         {reason === "Other" && <textarea maxLength={300} value={custom} onChange={(event) => setCustom(event.target.value)} placeholder="Optional note for the customer" />}
         <p>Preview: We’re unable to move forward with this request at this time.</p>

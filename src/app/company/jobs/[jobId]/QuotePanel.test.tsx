@@ -59,6 +59,13 @@ beforeEach(() => { installFetch(); serverQuote = null; });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("QuotePanel", () => {
+  it("a viewer with findings sees a truthful empty quote and never starts a write", async () => {
+    renderPanel(jobWith([finding()]), { readOnly: true });
+    await screen.findByTestId("job-quote-empty");
+    expect(screen.queryByText(/Starting the quote/)).toBeNull();
+    expect(screen.getByText("The office creates a quote from these findings.")).toBeTruthy();
+    expect(calls.every((call) => call.method === "GET")).toBe(true);
+  });
   it("auto-creates the draft once when the job has quote findings, and shows the exact total", async () => {
     serverQuote = null;
     const created = draftFrom([finding()]);

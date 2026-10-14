@@ -14,6 +14,7 @@ export function RequestReviewDialog(props: {
   intakeLabelFor: (key: string) => string;
   jobNoun: string;
   canCreateJob: boolean;
+  readOnly?: boolean;
   onAccept: () => Promise<void>;
   onDecline: (reason: RequestDeclineReason, customMessage?: string) => Promise<void>;
   onCallBack?: () => Promise<void>;

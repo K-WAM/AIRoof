@@ -679,7 +679,7 @@ export default function CalendarBoard() {
               : `Who works where, and when. Confirm a slot to notify the people on it.`}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", maxWidth: "100%", minWidth: 0 }}>
           {toast && <span role="status" className="status-pill" style={{ background: "#f0fdf4", color: "#15803d", borderColor: "#86efac" }}>{toast}</span>}
           {/* Stays primary unless an empty state below owns the screen's one primary action. */}
           {!apptMode && !readOnly && (

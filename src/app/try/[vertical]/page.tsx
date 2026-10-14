@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { PhoneCall, ArrowDown } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { VERTICAL_PITCH } from "@/lib/verticals/pitch";
-import { ROOFING_WORKED_JOB } from "@/lib/verticals/demoSeedRoofing";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
@@ -46,8 +45,52 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
   const pitch = VERTICAL_PITCH[vertical];
   const agentName = demoAgentName(vertical);
   const phone = DEMO_LINE_PHONE[vertical];
+  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
+  if (vertical === "roofing") {
+    const stepStyle: React.CSSProperties = { display: "flex", gap: 14, alignItems: "flex-start", padding: 20 };
+    const numberStyle: React.CSSProperties = { width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 700 };
+    const titleStyle: React.CSSProperties = { margin: "2px 0 12px", fontSize: 18, fontWeight: 700, color: "var(--text)" };
+
+    return (
+      <main style={{ minHeight: "100vh", background: "var(--background)", padding: "32px 20px", display: "flex", justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 520 }}>
+          <h1 style={{ margin: "0 0 24px", textAlign: "center", fontSize: "1.75rem", lineHeight: 1.2, color: "var(--text)", fontWeight: 800 }}>Try it for yourself</h1>
+          <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>1</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <h2 style={titleStyle}>Call and book</h2>
+                <a href={telHref} className="button primary" aria-label={`Call the receptionist at ${phone}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, width: "100%", fontSize: 18, textDecoration: "none" }}>
+                  <PhoneCall size={18} strokeWidth={1.75} aria-hidden="true" />{phone}
+                </a>
+                <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: 1.5, color: "var(--text-muted)" }}>&ldquo;Can I book a roof inspection?&rdquo;</p>
+              </div>
+            </li>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>2</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <EnterSandboxButton vertical={vertical} label="See the App" destination="bookings" />
+                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>Sample bookings · View only</p>
+              </div>
+            </li>
+            <li className="panel" style={stepStyle}>
+              <span aria-hidden="true" style={numberStyle}>3</span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <EnterSandboxButton vertical={vertical} label="See voice updates" destination="field" />
+                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>English or Spanish. Straight into the job.</p>
+              </div>
+            </li>
+          </ol>
+          <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>Your call appears in the guided demo.</p>
+          <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>
+            <a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   const hasField = pitch.flow.includes("field") && !t.disabledModules.includes("jobs");
-  const roofingNote = ROOFING_WORKED_JOB.updates[1];
 
   return (
     <main style={{ minHeight: "100vh", background: "var(--background)", padding: "28px 16px 24px" }}>
@@ -91,12 +134,10 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
             <p style={muted}>A spoken note becomes organized {t.vocab.jobNoun.toLowerCase()} details.</p>
             <div style={{ background: "var(--surface-muted)", padding: "14px", borderRadius: 10, marginBottom: 14, color: "var(--text)" }} data-testid="field-update-example">
               <p style={eyebrow}>Crew says</p>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>“{vertical === "roofing" ? roofingNote.rawText : t.vocab.voiceExample}”</p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>“{t.vocab.voiceExample}”</p>
               <ArrowDown size={18} aria-hidden="true" style={{ margin: "10px 0", color: "var(--accent)" }} />
-              <p style={eyebrow}>{vertical === "roofing" ? "Office sees · translated to English" : "Office sees"}</p>
-              {vertical === "roofing" ? <ul style={{ paddingLeft: 18, margin: "0", fontSize: 14, lineHeight: 1.55 }}>
-                {roofingNote.parsed.issues.map((issue) => <li key={issue.description}>{issue.description}</li>)}
-              </ul> : <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Work, time and details saved to the {t.vocab.jobNoun.toLowerCase()}.</p>}
+              <p style={eyebrow}>Office sees</p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>Work, time and details saved to the {t.vocab.jobNoun.toLowerCase()}.</p>
             </div>
             <EnterSandboxButton vertical={vertical} destination="field" label={t.vocab.jobNoun === "Visit" ? "View visit updates →" : "View field updates →"} />
             <p style={{ ...muted, margin: "10px 0 0", fontSize: 12 }}>Explore the sample. Saving is turned off.</p>

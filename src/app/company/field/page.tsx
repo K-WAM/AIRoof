@@ -20,6 +20,7 @@ import type { Crew } from "@/types/library";
 import type { TimeBlock } from "@/types/schedule";
 import { BookingDetails, type BookingDetailsValue } from "@/components/appointments/BookingDetails";
 import { CalendarFeedLink } from "@/components/field/CalendarFeedLink";
+import { VoiceUpdateExample } from "@/components/demo/VoiceUpdateExample";
 import {
   ClipboardList,
   RefreshCw,
@@ -48,8 +49,9 @@ function FieldPageContent() {
   const previewParam = searchParams?.get("preview");
   const { user } = useAuth();
   const tz = useBusinessTimezone();
-  const { isEnabled: moduleEnabled, ready: modulesReady } = useBusinessModules();
+  const { isEnabled: moduleEnabled, ready: modulesReady, industry } = useBusinessModules();
   const hasCalls = modulesReady && moduleEnabled("calls");
+  const showVoiceExample = user?.role === "viewer" && user.isSandboxVisitor && industry === "roofing";
   // Phase 12/Phase 7 — a real name (set at invite time) reads far better on
   // labor lines, punches, and attribution than an email address ever did.
   // Falls back to email for teammates invited before this field existed.
@@ -222,6 +224,7 @@ function FieldPageContent() {
     <>
       {/* Keyframe animation injected once */}
       <style>{`
+        .company-field-page[data-voice-demo="true"] { margin-top: 0 !important; }
         @keyframes fieldPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.3; transform: scale(1.4); }
@@ -229,7 +232,7 @@ function FieldPageContent() {
       `}</style>
 
       {/* Dark full-bleed wrapper that overrides company-main padding */}
-      <div className="company-field-page" style={{
+      <div className="company-field-page" data-voice-demo={showVoiceExample ? "true" : undefined} style={{
         margin: "-28px",
         background: "#0f172a",
       }}>
@@ -282,6 +285,8 @@ function FieldPageContent() {
               <RefreshCw size={18} strokeWidth={1.75} />
             </button>
           </header>
+
+          {showVoiceExample && <VoiceUpdateExample />}
 
           {inspectorCrew && (
             <section aria-labelledby="my-schedule-title" style={{ marginBottom: 20, padding: 14, border: "1px solid #334155", borderRadius: 16, background: "#1e293b", color: "#f8fafc" }}>
@@ -337,10 +342,10 @@ function FieldPageContent() {
 
           <WorkScope findings={selectedJob?.findings} businessId={businessId} jobId={selectedJobId || null} canComment={user?.role !== "viewer"} />
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />
+          {user?.role !== "viewer" && <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />}
 
           {selectedJobId && <>
-          <div style={{ marginBottom: 20 }}>
+          {user?.role !== "viewer" && <div style={{ marginBottom: 20 }}>
             <FieldNoteComposer
               businessId={businessId}
               job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : { jobId: selectedJobId }}
@@ -348,13 +353,13 @@ function FieldPageContent() {
               clockedInJobId={clockedInJobId}
               onSaved={handleSaved}
             />
-          </div>
+          </div>}
 
           {/* Photo and Finding side by side — two taps that belong together */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          {user?.role !== "viewer" && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} showList={false} onAdded={() => loadJobs()} />
-          </div>
+          </div>}
 
           {soFar && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#94a3b8" }}>So far on {selectedJobId}: {soFar}</p>}
           <div style={{ marginBottom: 20 }}>

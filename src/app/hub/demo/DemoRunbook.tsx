@@ -12,10 +12,11 @@ const RUN = [
   { time: "0–2", action: "Hand them the number", say: "Call this. It's your receptionist.", plan: "You call on speaker.", href: previewHref("dashboard"), link: "Dashboard" },
   { time: "2–6", action: "Take the call", say: "Ask about tile or insurance, then book an inspection.", plan: "Use a scripted call.", href: previewHref("calls"), link: "Calls" },
   { time: "6–9", action: "Review the request", say: "Here's the transcript and booking. Confirm and create the job.", plan: "Use the seeded request.", href: previewHref("pipeline"), link: "Pipeline" },
-  { time: "9–13", action: "Show a field update", say: "Marco reports cracked tiles and a split pipe boot by voice.", plan: "Open the worked job J-1001.", href: previewHref("jobs/J-1001"), link: "J-1001" },
+  { time: "9–11", action: "Assign the crew", say: "Place the new job on a crew's calendar, pick a time and confirm.", plan: "Show an existing scheduled job.", href: previewHref("calendar"), link: "Calendar" },
+  { time: "11–13", action: "Show a field update", say: "Marco reports cracked tiles and a split pipe boot by voice.", plan: "Open the worked job J-1001.", href: previewHref("jobs/J-1001"), link: "J-1001" },
   { time: "13–16", action: "Build the quote", say: "The findings become priced work from the Library.", plan: "Use print preview.", href: previewHref("jobs/J-1001"), link: "Quote" },
   { time: "16–18", action: "Show report and invoice", say: "The report explains the work; the invoice follows.", plan: "Use J-1001.", href: previewHref("jobs/J-1001"), link: "Job" },
-  { time: "18–20", action: "Wrap up", say: "Keep your number and forward calls to your AI line.", plan: "Share the try page.", href: "/try/roofing", link: "Try page" },
+  { time: "18–20", action: "Share the sample app", say: "This link shows sample records. Your real call is in the guided demo we just used.", plan: "Open the sample app together.", href: "/try/roofing", link: "Try page" },
 ];
 
 export function DemoRunbook() {

@@ -77,6 +77,15 @@ describe("QuickAdd", () => {
     vi.restoreAllMocks();
   });
 
+  it("a viewer has no Add button and a direct context trigger cannot open a write form", () => {
+    mockUser.role = "viewer";
+    render(<QuickAddProvider><QuickAddButton /><OpenDirectly kind="material" /></QuickAddProvider>);
+    expect(screen.queryByRole("button", { name: "Add" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open directly" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("opens the picker with every kind when jobs/pricing are enabled and the user is an owner", () => {
     renderQuickAdd();
     fireEvent.click(screen.getByRole("button", { name: "Add" }));

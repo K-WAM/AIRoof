@@ -84,7 +84,7 @@ function QuickAddPanel({
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
 
-  if (panel === null) return null;
+  if (panel === null || user?.role === "viewer") return null;
 
   // A dental office never sees "+ New Job"; only an owner/superadmin can invite —
   // same gates their home pages already enforce (MODULE_ROUTES, TeamPanel).

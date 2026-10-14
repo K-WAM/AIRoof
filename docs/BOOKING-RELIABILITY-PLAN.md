@@ -85,7 +85,7 @@ Fixed clock: Sunday 2026-09-27 16:59 EDT (Carla's call). Tenant: `demo-roofing` 
 | S8 | Ask "today 9 AM" at 16:59 | Never offers a past time |
 | S9 | Hours typed "8am-5pm"; hours "Mon-Fri 8-5" string; hours missing | First two parse; missing/garbage → explicit "hours not set up" result + lead captured; never "no openings" |
 | S10 | On 2026-10-30 book 2026-11-03 09:00 | Stored as 14:00Z (EST), not 13:00Z |
-| S11 | 2 crews: two bookings Mon 10:00 | Both succeed; the third conflicts with alternatives |
+| S11 | 2 crews: two bookings Mon 10:00, then office confirmation | Both bookings and confirmations succeed on their separate reserved units; the third conflicts with alternatives (T-210) |
 | S12 | Cancel one of them | Slot bookable again |
 | S13 | 1 crew with a job Mon 10:00 | Mon 10:00 not offered and not bookable |
 | S14 | Launch Demo Studio at every hour 0–23 | Next 3 business days each have ≥ 6 free slots 08:00–12:00; no seeded item outside hours |

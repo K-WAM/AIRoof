@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useQuickAdd } from "@/contexts/QuickAddContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * The global "+" — reachable from every company page (sidebar footer on
@@ -12,6 +13,8 @@ import { useQuickAdd } from "@/contexts/QuickAddContext";
  */
 export function QuickAddButton({ variant = "full" }: { variant?: "full" | "icon" }) {
   const { openMenu } = useQuickAdd();
+  const { user } = useAuth();
+  if (user?.role === "viewer") return null;
 
   if (variant === "icon") {
     return (

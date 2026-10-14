@@ -342,7 +342,13 @@ export async function PATCH(
         const candidate = document.data();
         const sameResource = desiredCrewId
           ? candidate.assignedCrewId === desiredCrewId
-          : !candidate.assignedCrewId;
+          : !candidate.assignedCrewId && (
+              // The phone reserves one capacity unit per concurrent inspection. Confirmation keeps that
+              // reservation; another unit is a different resource. Legacy rows without a unit remain blocking.
+              previousCapacityUnit === null ||
+              typeof candidate.scheduleCapacityUnit !== "number" ||
+              candidate.scheduleCapacityUnit === previousCapacityUnit
+            );
         return (
           sameResource &&
           candidate.status !== "cancelled" &&

@@ -37,7 +37,7 @@ export function EnterSandboxButton({ vertical, destination = "overview", label =
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.push(destination === "field"
         ? `/company/field${vertical === "roofing" || vertical === "pet-care" ? "?jobId=J-1001" : ""}`
-        : destination === "bookings" ? "/company/calendar" : "/company/dashboard");
+        : destination === "bookings" ? (vertical === "roofing" ? "/company/pipeline" : "/company/calendar") : "/company/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the sandbox");
       setLoading(false);

@@ -23,6 +23,15 @@ const renderCard = (overrides: Partial<ComponentProps<typeof RequestReviewCard>>
 };
 
 describe("RequestReviewCard", () => {
+  it("viewers can read request details and the transcript without write or callback controls", () => {
+    const callbacks = { onAccept: vi.fn(), onDecline: vi.fn(), onCallBack: vi.fn() };
+    renderCard({ readOnly: true, ...callbacks, call: { transcript: [{ role: "caller", text: "Please inspect the roof." }] } });
+    expect(screen.getByText("Mina")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Confirm|Decline|call back/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show transcript excerpt" }));
+    expect(screen.getByText("Please inspect the roof.")).toBeInTheDocument();
+    for (const callback of Object.values(callbacks)) expect(callback).not.toHaveBeenCalled();
+  });
   // Owner, 2026-09-28: no picker — a booking is confirmed by what the caller gave on the call (email, text, or both).
   const booking = { status: "new", callerName: "Mina", callerPhone: "555-0100", address: "1 Main St", serviceType: "Repair", startTime: Date.UTC(2026, 9, 5, 15) };
 

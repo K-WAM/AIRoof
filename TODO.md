@@ -2965,6 +2965,8 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 | NH-31 | **Production facts found 2026-09-29 (read-only) — decide what to do:** (1) the Canadian demo number +1 (778) 907-9769 is **not in demo-roofing's routing** (`elevenlabs.extraPhoneNumbers`), so T-130's app-side step was never done — calls to it don't reach the demo tenant; add it on Admin → demo-roofing → Configure (it will pass the new conflict check) and make one test call. (2) `SMS_ENABLED` is **not set** in Vercel production, so the app sends no texts there today (the T-156 delivered text was not app-sent). (3) A stale `VAPI_AUTH_BYPASS` variable still exists in production; no code reads it — safe to delete. (4) `scripts/phone-lines.mjs` dry run: the US demo line's old record `demo-roofing-main` needs only its missing fields filled (purpose demo, status live) — approve `--apply`. (5) `scripts/classify-accounts.mjs` suggests: carlita-elevenlabs-test + the five "… Demo" sample tenants → test; coastal-landscaping, premier-hvac → client (confirm they are real) | T-130, T-166, T-169, T-171 | 15 min |
 | NH-32 | **Move Firebase to Blaze before selling** (2026-10-03 audit). Spark caps reads at 50k/day for the whole platform; when it runs out, every tenant's screens and the phone AI's booking tools fail together. Polling was cut ~10x on 2026-10-03, but the hard cap is still a single point of failure. At current volume Blaze costs cents/month; set a budget alert in Google Cloud. | T-180, T-128 | 10 min |
 
+| NH-33 | **US roofing demo live rehearsal (2026-10-13 audit).** Local production-build checks passed: call-to-cash 12/12, booking 7/7, full Playwright 162 passed / 10 intentionally skipped. Still need the owner's real US-line booking + transcript read, real-phone mic/photo, and quote/report/invoice/receipt inbox checks. The read-only booking diagnostic could not run: this checkout lacks `FIREBASE_SERVICE_ACCOUNT_JSON` (the production variable exists). Use the authenticated demo app to inspect routing/hours, or restore approved local diagnostic access; no new key is required for the rehearsal. Public `/try/roofing` opens but its sample quote/invoice/customer/billing story is incomplete; use the guided office demo for documents. | Live demo certification; existing booking gate | Click-by-click rehearsal and visual findings: [2026-10-13 demo audit](C:/Users/karee/.codex/visualizations/2026/10/13/01a1372f-f012-7d40-b65c-22957231f1b6/roofing-demo-audit/READ-ME.md). No app code, live routing, provider settings, sends, resets, pushes or deployments changed. |
+
 ## Deferred (from CIB — do not schedule without owner request)
 
 Pagination/search/virtualization; field-theme unification; toast component unification
@@ -2977,4 +2979,32 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-208 | `fix/roofing-job-flow` / `D:/Apps/AI Receptionist` | `src/app/try/[vertical]/**`; `DemoTourBanner.tsx` wording; `e2e/try-demo.spec.ts`; task planning/evidence | review |
+| T-208B | `fix/roofing-job-flow` / `D:/Apps/AI Receptionist` | `src/app/try/[vertical]/**`; `DemoTourBanner.tsx` wording; `e2e/try-demo.spec.ts`; task planning/evidence | review |
+
+### Prospect demo entry (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-208 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | `src/app/try/[vertical]/{page,EnterSandboxButton}.tsx`; `e2e/demo-entry.spec.ts`; `scripts/e2e/config.cjs` (sandbox test identity allowlist); spec/log append | review |
+
+### Roofing demo readiness (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-209 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Demo token/tests; Calls/Pipeline/review; Calendar header; Field/Quote; Library catalog/tests; shell/Quick add/tests; tour/runbook/tests; demo-readiness browser spec; spec/log append | review |
+
+### Booking confirmation hardening (2026-10-13)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-210 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Appointment confirmation route/call-flow tests; booking scenario S11; booking plan S11; spec/log append | review |
+
+- **T-209/T-210 release checks:** Owner must say approve push before publishing. After deploy, disable the old demo-roofing member sandbox-visitor@luxordev.com if present; new sample entry does not revoke old sessions. Real ElevenLabs agent tests + a phone booking/transcript read and inbox rehearsal remain required. Owner confirmed on 2026-10-14: keep the public sample read-only and show the real call, job creation and crew assignment in the authenticated guided demo. No private writable prospect account or call-to-public-link bridge is needed. Click steps and screenshots: C:\Users\karee\.codex\visualizations\2026\10\13\01a1372f-f012-7d40-b65c-22957231f1b6\roofing-demo-readiness\README.md.
+### Voice update prospect demo (2026-10-14)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-211 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Roofing landing/entry; Field sample example; demo tour/example component; demo-entry browser spec; spec/log append | review |
+
+### Demo release reconciliation (2026-10-14)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-212 | `fix/roofing-job-flow` / `D:/Apps/AI Receptionist` | Combined demo source/tests/docs, release checks, branch recovery/cleanup | in progress |
+
+- **NEEDS-HUMAN — Sandbox Stripe secret rotation:** The required CLI configuration check printed a test-mode secret into this local session on 2026-10-14. Rotate the sandbox secret in Stripe; no live secret was printed and no Stripe resources were changed. Future credential checks must redact values.
