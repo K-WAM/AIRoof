@@ -1,5 +1,7 @@
 # SESSION_HANDOFF.md — Current state
 
+Updated: 2026-10-14 (Codex integrator) — **RoofDoctors demo LIVE**, application merge **341e095**, both demo branches reconciled; only local/remote branch is **main**, active checkout `D:/Apps/AI Receptionist`. Public https://crm.luxordev.com/try/roofing is Call and book → See the App → See voice updates (read-only sample; Spanish → English example). Actual call stays in authenticated demo-roofing. Full browser 182 passed / 10 intentional skips; units 1905 + expected failure, API 12/12, acceptance 18/18, build/type/lint/CI green. Vercel READY and public isolation/legacy guest retirement verified. Owner's real call booked October 15, 10 AM Eastern; provider tool results, stored booking and operator Calls APIs verified. Seven current agent scenarios pass; old missing-ZIP fixture is documented, not weakened. Remaining physical mic/photo/transcription and inbox rehearsal, plus sandbox Stripe secret rotation. **Start with `docs/ROOFDOCTORS-DEMO-HANDOFF.md`**. Old worktrees are parked intact; unique setup documentation retained by recovery tag. Earlier dated entries below are historical.
+
 Updated: 2026-10-10 end (Claude) — **Release merged to main and deployed** (`ff985b1`) + fix `d7da5ba` (Findings-tab
 changes now reach a draft quote; "Add them" notice for drifted quotes). Firestore rules/indexes redeployed, prod smoke clean,
 roofing demo agent already bilingual. Open: unreproduced click bug, real-phone Spanish call. Details: `docs/NEXT_SESSION.md`.
