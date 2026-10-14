@@ -26,10 +26,6 @@ import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
 import { ensureSandboxBusiness, isVerticalId, sandboxBusinessId } from "@/lib/verticals/sandboxBusiness";
 
-// No industry given (older links) = the shared live-line business, as before.
-const LIVE_LINE_BUSINESS_ID = "demo-roofing";
-const LIVE_LINE_EMAIL = "sandbox-visitor@luxordev.com";
-
 export async function POST(request: NextRequest) {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 20, keyPrefix: "demo-sandbox-token" });
   if (limited) return limited;
@@ -43,15 +39,22 @@ export async function POST(request: NextRequest) {
   // Which industry's sandbox (2026-10-09). Only an industry id from the code's own template list is accepted, and it
   // maps to `demo-try-<industry>` — a client can never name a business. Each industry has its own demo business, so a
   // dog walker's link always opens dog walking, whatever the live demo line was last launched as.
-  const body = (await request.json().catch(() => ({}))) as { vertical?: unknown };
-  const vertical = isVerticalId(body.vertical) ? body.vertical : null;
-  const SANDBOX_BUSINESS_ID = vertical ? sandboxBusinessId(vertical) : LIVE_LINE_BUSINESS_ID;
-  const SANDBOX_EMAIL = vertical ? `sandbox-${vertical}@luxordev.com` : LIVE_LINE_EMAIL;
+  const input: unknown = await request.json().catch(() => ({}));
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return NextResponse.json({ error: "Choose a supported demo" }, { status: 400 });
+  }
+  const body = input as { vertical?: unknown };
+  // Older links with no industry still open a sample. Never issue public access to the live-line tenant:
+  // it contains real prospect calls and contact details, which belong in the authenticated operator demo.
+  if (body.vertical !== undefined && !isVerticalId(body.vertical)) {
+    return NextResponse.json({ error: "Choose a supported demo" }, { status: 400 });
+  }
+  const vertical = isVerticalId(body.vertical) ? body.vertical : "roofing";
+  const SANDBOX_BUSINESS_ID = sandboxBusinessId(vertical);
+  const SANDBOX_EMAIL = `sandbox-${vertical}@luxordev.com`;
 
-  if (vertical) {
-    if (!(await ensureSandboxBusiness(db, vertical).catch(() => false))) {
-      return NextResponse.json({ error: "Sandbox unavailable" }, { status: 503 });
-    }
+  if (!(await ensureSandboxBusiness(db, vertical).catch(() => false))) {
+    return NextResponse.json({ error: "Sandbox unavailable" }, { status: 503 });
   }
   // Guard: only ever a demo business, and only if it's still actually marked as a demo (the same isDemo marker
   // demo-customize/route.ts requires before it will touch a business at all).

@@ -61,6 +61,7 @@ class FakeFirestore {
 const mockGetUserByEmail = vi.fn();
 const mockCreateUser = vi.fn();
 const mockCreateCustomToken = vi.fn();
+const mockEnsureSandbox = vi.fn();
 
 function createFakeAuth() {
   return {
@@ -72,8 +73,8 @@ function createFakeAuth() {
 
 let firestore: FakeFirestore;
 
-function postRequest(): NextRequest {
-  return new NextRequest("http://localhost/api/demo/sandbox-token", { method: "POST" });
+function postRequest(body?: unknown): NextRequest {
+  return new NextRequest("http://localhost/api/demo/sandbox-token", { method: "POST", ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 }
 
 describe("/api/demo/sandbox-token", () => {
@@ -83,6 +84,7 @@ describe("/api/demo/sandbox-token", () => {
     mockCreateUser.mockReset();
     mockCreateCustomToken.mockReset();
     mockCreateCustomToken.mockResolvedValue("fake-custom-token");
+    mockEnsureSandbox.mockReset().mockResolvedValue(true);
     _resetRateLimitState();
 
     firestore = new FakeFirestore();
@@ -91,11 +93,30 @@ describe("/api/demo/sandbox-token", () => {
       getAdminFirestore: vi.fn(() => firestore),
     }));
 
-    firestore.seed("businesses/demo-roofing", { isDemo: true, businessName: "Apex Roofing South Florida" });
+    vi.doMock("@/lib/verticals/sandboxBusiness", () => ({
+      ensureSandboxBusiness: mockEnsureSandbox,
+      isVerticalId: (v: unknown) => v === "roofing" || v === "dental",
+      sandboxBusinessId: (v: string) => `demo-try-${v}`,
+    }));
+    firestore.seed("businesses/demo-try-roofing", { isDemo: true, businessName: "Apex Roofing South Florida" });
+  });
+
+  it.each([null, [], { vertical: "demo-roofing" }, { vertical: "real-client" }, { vertical: 7 }])("refuses unsupported public targets: %j", async (body) => {
+    const { POST } = await import("@/app/api/demo/sandbox-token/route");
+    expect((await POST(postRequest(body))).status).toBe(400);
+    expect(mockEnsureSandbox).not.toHaveBeenCalled();
+    expect(mockCreateCustomToken).not.toHaveBeenCalled();
+  });
+
+  it("refuses a failed sample seed rather than falling back to live calls", async () => {
+    mockEnsureSandbox.mockResolvedValue(false);
+    const { POST } = await import("@/app/api/demo/sandbox-token/route");
+    expect((await POST(postRequest())).status).toBe(503);
+    expect(mockCreateCustomToken).not.toHaveBeenCalled();
   });
 
   it("refuses when the target business is missing", async () => {
-    firestore.documents.delete("businesses/demo-roofing");
+    firestore.documents.delete("businesses/demo-try-roofing");
     const { POST } = await import("@/app/api/demo/sandbox-token/route");
     const res = await POST(postRequest());
     expect(res.status).toBe(503);
@@ -103,14 +124,14 @@ describe("/api/demo/sandbox-token", () => {
   });
 
   it("refuses when the target business isn't marked isDemo — this route can never touch a real tenant", async () => {
-    firestore.seed("businesses/demo-roofing", { isDemo: false, businessName: "Apex Roofing South Florida" });
+    firestore.seed("businesses/demo-try-roofing", { isDemo: false, businessName: "Apex Roofing South Florida" });
     const { POST } = await import("@/app/api/demo/sandbox-token/route");
     const res = await POST(postRequest());
     expect(res.status).toBe(503);
     expect(mockCreateCustomToken).not.toHaveBeenCalled();
   });
 
-  it("creates the shared sandbox visitor as a read-only viewer and mints a token", async () => {
+  it("older links create a sample viewer, never an identity on the live line", async () => {
     mockGetUserByEmail.mockRejectedValue(new Error("no such user"));
     mockCreateUser.mockResolvedValue({ uid: "sandbox-uid" });
 
@@ -121,16 +142,24 @@ describe("/api/demo/sandbox-token", () => {
     expect(res.status).toBe(200);
     expect(body.token).toBe("fake-custom-token");
     expect(mockCreateUser).toHaveBeenCalledWith(
-      expect.objectContaining({ email: "sandbox-visitor@luxordev.com" })
+      expect.objectContaining({ email: "sandbox-roofing@luxordev.com" })
     );
     const stored = firestore.documents.get("businessUsers/sandbox-uid");
     expect(stored).toMatchObject({
-      businessId: "demo-roofing",
+      businessId: "demo-try-roofing",
       role: "viewer",
       active: true,
       isSandboxVisitor: true,
     });
     expect(mockCreateCustomToken).toHaveBeenCalledWith("sandbox-uid");
+    expect(mockEnsureSandbox).toHaveBeenCalledWith(firestore, "roofing");
+  });
+
+  it("a supplied business id cannot redirect the default sample into a live tenant", async () => {
+    mockGetUserByEmail.mockResolvedValue({ uid: "sandbox-uid" });
+    const { POST } = await import("@/app/api/demo/sandbox-token/route");
+    expect((await POST(postRequest({ businessId: "demo-roofing" }))).status).toBe(200);
+    expect(firestore.documents.get("businessUsers/sandbox-uid")?.businessId).toBe("demo-try-roofing");
   });
 
   it("reuses the existing sandbox Auth user instead of creating a second one", async () => {

@@ -43,7 +43,7 @@ function blankItem(): WorkCatalogItem {
 export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readOnly = false }: Props) {
   const { vocab } = useBusinessModules();
   const [query, setQuery] = useState("");
-  const [collapsed, setCollapsed] = useState<string[]>([]);
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, boolean>>({});
   const [editing, setEditing] = useState<WorkCatalogItem | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [sheetError, setSheetError] = useState<string | null>(null);
@@ -162,7 +162,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
   }
 
   const toggleCategory = (category: string) =>
-    setCollapsed((c) => (c.includes(category) ? c.filter((x) => x !== category) : [...c, category]));
+    setCategoryOverrides((current) => ({ ...current, [category]: !(current[category] ?? readOnly) }));
 
   return (
     <div>
@@ -172,6 +172,8 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
         <div style={{ position: "relative", flex: "1 1 auto", minWidth: "min(240px, 100%)" }}>
           <Search size={14} strokeWidth={1.75} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
           <input
+            type="search"
+            aria-label="Search common fixes"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search problems, categories, or solutions…"
@@ -223,7 +225,8 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
       ) : (
         categories.map((category) => {
           const groupItems = filtered.filter((i) => i.category === category);
-          const isCollapsed = collapsed.includes(category);
+          // Prospects see the categories first; searching opens matching items immediately.
+          const isCollapsed = !query.trim() && (categoryOverrides[category] ?? readOnly);
           return (
             <section key={category} className="panel" style={{ marginBottom: 14 }}>
               <button
@@ -266,7 +269,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                             </div></details>
                           )}
                         </div>
-                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {!readOnly && <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                           <Tooltip content="Edit">
                             <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.problem}`} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", display: "flex", padding: 4 }}>
                               <Pencil size={14} strokeWidth={1.75} />
@@ -277,7 +280,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                               <Trash2 size={14} strokeWidth={1.75} />
                             </button>
                           </Tooltip>
-                        </div>
+                        </div>}
                       </div>
                     </div>
                   ))}

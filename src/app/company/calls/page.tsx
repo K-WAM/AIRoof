@@ -531,6 +531,7 @@ export default function CompanyCallsPage() {
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={isEnabled("jobs")}
+        readOnly={user?.role === "viewer"}
         onCallBack={review ? async () => callBack(review.lead?.callerPhone ?? review.appointment?.callerPhone, review.lead?.leadId, review.appointment?.appointmentId) : undefined}
         onDecline={async (reason, customMessage) => { await decideReview(review?.lead ? "lost" : "cancelled", reason, customMessage); setReview(null); }}
         onAccept={async () => { if (!review) return; await decideReview(review.lead ? "booked" : "confirmed"); if (isEnabled("jobs")) await createJobFromRequest({ leadId: review.lead?.leadId, appointmentId: review.appointment?.appointmentId }); setReview(null); }}

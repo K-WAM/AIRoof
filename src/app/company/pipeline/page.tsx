@@ -148,6 +148,7 @@ const UPCOMING_PAGE = 3; // same first page as Needs confirmation — the phone 
 export default function PipelinePage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
+  const readOnly = user?.role === "viewer";
   const tz = useBusinessTimezone();
   const { vocab, isEnabled, ready: modulesReady, industry } = useBusinessModules();
   const searchParams = useSearchParams();
@@ -574,13 +575,13 @@ export default function PipelinePage() {
           {isNewRequest(appt.status) && <span className="tag">New request</span>}
           {appt.jobId && showJobActions ? (
             <Link className="button primary" href={`/company/jobs/${appt.jobId}${previewSuffix}`}>Open {vocab.jobNoun} {appt.jobId}</Link>
-          ) : !isPast && appt.status !== "cancelled" && isPending && !timePassed ? (
+          ) : !readOnly && !isPast && appt.status !== "cancelled" && isPending && !timePassed ? (
             <button className="button primary" disabled={busy || apptCalling === appt.appointmentId} onClick={() => void sendConfirmation(appt)}>
               {busy ? "Confirming…" : confirmErrors[appt.appointmentId] ? "Retry confirmation" : confirmButtonLabel(channelsFor(appt))}
             </button>
           ) : !isPast && appt.status !== "cancelled" && !isConfirmed ? (
             <button className="button primary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>
-          ) : showJobActions && isConfirmed && !appt.jobId ? (
+          ) : !readOnly && showJobActions && isConfirmed && !appt.jobId ? (
             <button className="button primary" disabled={busy} onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })}>Create {vocab.jobNoun}</button>
           ) : null}
           {confirmErrors[appt.appointmentId] && <p role="alert" className="c1-inline-error">{confirmErrors[appt.appointmentId]}</p>}
@@ -592,10 +593,10 @@ export default function PipelinePage() {
                 <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} />
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
-              {appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
+              {!readOnly && appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
               {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
-              {!isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
-              {!isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
+              {!readOnly && !isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
+              {!readOnly && !isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
             </div>
           </details>
         </div>
@@ -746,7 +747,7 @@ export default function PipelinePage() {
                               Open {vocab.jobNoun} {linkedJobId(lead, appointments)}
                             </Link>
                           )}
-                          {contactPhone(lead) && (
+                          {!readOnly && contactPhone(lead) && (
                             <button
                               className="button small"
                               type="button"
@@ -759,7 +760,7 @@ export default function PipelinePage() {
                               {leadCalling === lead.leadId ? "Calling…" : "Call Back"}
                             </button>
                           )}
-                          {lead.status !== "contacted" && (
+                          {!readOnly && lead.status !== "contacted" && (
                             <button
                               className="button small secondary"
                               type="button"
@@ -833,7 +834,7 @@ export default function PipelinePage() {
                       {isNewRequest(selectedLead.status) && (
                         <button className="button primary" type="button" onClick={() => setReviewLead(selectedLead)}>Review request</button>
                       )}
-                      <button
+                      {!readOnly && <button
                         className="button secondary"
                         type="button"
                         disabled={selectedLead.status === "contacted" || leadUpdating}
@@ -842,8 +843,8 @@ export default function PipelinePage() {
                       >
                         <Check size={14} strokeWidth={1.75} />
                         {selectedLead.status === "contacted" ? "Contacted" : "Mark contacted"}
-                      </button>
-                      {contactPhone(selectedLead) && (
+                      </button>}
+                      {!readOnly && contactPhone(selectedLead) && (
                         <button
                           className="button"
                           type="button"
@@ -864,7 +865,7 @@ export default function PipelinePage() {
                         >
                           Open {vocab.jobNoun} {linkedJobId(selectedLead, appointments)}
                         </Link>
-                      ) : showJobActions && !isNewRequest(selectedLead.status) && selectedLead.status !== "lost" && (
+                      ) : !readOnly && showJobActions && !isNewRequest(selectedLead.status) && selectedLead.status !== "lost" && (
                         <button
                           className="button primary"
                           type="button"
@@ -984,6 +985,7 @@ export default function PipelinePage() {
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
+        readOnly={readOnly}
         onCallBack={reviewLead?.callerPhone ? async () => { await callBackLead(reviewLead); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewLead) return; await decideLead(reviewLead, "lost", reason, customMessage); setReviewLead(null); }}
         onAccept={async () => { if (!reviewLead) return; await decideLead(reviewLead, "booked"); if (showJobActions) await createJobFromRequest({ leadId: reviewLead.leadId }); setReviewLead(null); }}
@@ -997,6 +999,7 @@ export default function PipelinePage() {
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
+        readOnly={readOnly}
         onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
         onAccept={async () => { if (!reviewAppt) return; if (!await sendConfirmation(reviewAppt)) return; if (showJobActions && !reviewAppt.jobId) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}

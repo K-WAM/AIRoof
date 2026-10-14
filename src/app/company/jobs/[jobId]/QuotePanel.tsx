@@ -310,7 +310,9 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
       {!quote ? (
         <>
-          {(job.findings ?? []).length === 0
+          {readOnly
+            ? <EmptyState compact title="No quote yet" body="The office creates a quote from these findings." testId="job-quote-empty" />
+            : (job.findings ?? []).length === 0
             ? <EmptyState compact title="No quote yet" body="Add an item below; the quote starts itself." testId="job-quote-empty" />
             : <p style={{ margin: 0 }}>Starting the quote from this job&apos;s findings…</p>}
           {pickerAndCustom}

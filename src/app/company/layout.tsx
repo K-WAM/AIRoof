@@ -37,6 +37,8 @@ const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
 
 function MobileNewButton() {
   const { openMenu } = useQuickAdd();
+  const { user } = useAuth();
+  if (user?.role === "viewer") return null;
   return <button type="button" className="mobile-menu-btn mobile-new-btn" onClick={openMenu}><Plus size={16} /> New</button>;
 }
 

@@ -2981,9 +2981,11 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 ### Roofing demo readiness (2026-10-13)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-209 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Demo token and tests; Pipeline/RequestReviewCard; Field; QuotePanel and tests; DemoTourBanner; DemoRunbook and tests; demo-readiness browser spec; spec/log append | implementing |
+| T-209 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Demo token/tests; Calls/Pipeline/review; Calendar header; Field/Quote; Library catalog/tests; shell/Quick add/tests; tour/runbook/tests; demo-readiness browser spec; spec/log append | review |
 
 ### Booking confirmation hardening (2026-10-13)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
 | T-210 | `codex/roofing-demo-entry` · `C:\Users\karee\.codex\worktrees\roofing-demo-entry\AI Receptionist` | Appointment confirmation route/call-flow tests; booking scenario S11; booking plan S11; spec/log append | review |
+
+- **T-209/T-210 release checks:** Owner must say approve push before publishing. After deploy, disable the old demo-roofing member sandbox-visitor@luxordev.com if present; new sample entry does not revoke old sessions. Real ElevenLabs agent tests + a phone booking/transcript read and inbox rehearsal remain required. Owner confirmed on 2026-10-14: keep the public sample read-only and show the real call, job creation and crew assignment in the authenticated guided demo. No private writable prospect account or call-to-public-link bridge is needed. Click steps and screenshots: C:\Users\karee\.codex\visualizations\2026\10\13\01a1372f-f012-7d40-b65c-22957231f1b6\roofing-demo-readiness\README.md.

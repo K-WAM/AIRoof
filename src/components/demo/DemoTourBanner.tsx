@@ -11,10 +11,10 @@ import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModul
 import { VERTICAL_PITCH, type FlowStep } from "@/lib/verticals/pitch";
 
 const STEP: Record<FlowStep, { path: string; module?: CompanyModule; label: (jobs: string) => string; tip: (jobs: string) => string }> = {
-  call: { path: "/company/calls", label: () => "Calls", tip: () => "Every call the AI answered. Open one to read what it said." },
+  call: { path: "/company/calls", label: () => "Calls", tip: () => "Sample calls. Open one to read the conversation." },
   pipeline: { path: "/company/pipeline", label: () => "Pipeline", tip: () => "What the AI captured from each caller — bookings to confirm, people to call back." },
-  calendar: { path: "/company/calendar", label: () => "Calendar", tip: () => "Each booking sits with the person taking it." },
-  field: { path: "/company/field", module: "jobs", label: () => "Field", tip: () => "Log a voice note from the job — try it, it's real." },
+  calendar: { path: "/company/calendar", label: () => "Calendar", tip: () => "View the schedule. The office assigns inspectors and crews here." },
+  field: { path: "/company/field", module: "jobs", label: () => "Field", tip: () => "Choose a sample job to see its work scope and crew notes." },
   invoice: { path: "/company/jobs", module: "jobs", label: (jobs) => jobs, tip: (jobs) => `Open a finished one of your ${jobs.toLowerCase()} to see its invoice.` },
   paid: { path: "/company/billing", module: "billing", label: () => "Billing", tip: () => "What's owed and what's been paid." },
 };
@@ -53,7 +53,7 @@ export function DemoTourBanner({ previewSuffix }: { previewSuffix: string }) {
         <Link href={`/try/${industry ?? "roofing"}`} style={{ ...linkStyle, marginLeft: "auto" }}>Exit demo</Link>
       </div>
       <div>
-        {at >= 0 ? (industry && VERTICAL_PITCH[industry].tourTip?.[flow[at]]) || STEP[flow[at]].tip(jobs) : "Sample data — sending and changes are turned off."}{" "}
+        {at >= 0 ? (industry && VERTICAL_PITCH[industry].tourTip?.[flow[at]]) || STEP[flow[at]].tip(jobs) : "Sample records. Your live call appears in the guided demo."}{" "}
         {at < 0 ? <Link href={`${STEP[flow[0]].path}${previewSuffix}`} style={linkStyle}>Start: {STEP[flow[0]].label(jobs)} →</Link>
           : next ? <Link href={`${STEP[next].path}${previewSuffix}`} style={linkStyle}>Next: {STEP[next].label(jobs)} →</Link>
           : <span>That&apos;s the tour — explore any tab.</span>}

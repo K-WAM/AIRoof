@@ -337,10 +337,10 @@ function FieldPageContent() {
 
           <WorkScope findings={selectedJob?.findings} businessId={businessId} jobId={selectedJobId || null} canComment={user?.role !== "viewer"} />
 
-          <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />
+          {user?.role !== "viewer" && <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerDisplayName} onDayChange={handleDay} />}
 
           {selectedJobId && <>
-          <div style={{ marginBottom: 20 }}>
+          {user?.role !== "viewer" && <div style={{ marginBottom: 20 }}>
             <FieldNoteComposer
               businessId={businessId}
               job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : { jobId: selectedJobId }}
@@ -348,13 +348,13 @@ function FieldPageContent() {
               clockedInJobId={clockedInJobId}
               onSaved={handleSaved}
             />
-          </div>
+          </div>}
 
           {/* Photo and Finding side by side — two taps that belong together */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          {user?.role !== "viewer" && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
             <PhotoCapture jobId={selectedJobId || null} businessId={businessId} submittedBy={workerDisplayName || undefined} />
             <FieldFindingsButton jobId={selectedJobId || null} businessId={businessId} showList={false} onAdded={() => loadJobs()} />
-          </div>
+          </div>}
 
           {soFar && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#94a3b8" }}>So far on {selectedJobId}: {soFar}</p>}
           <div style={{ marginBottom: 20 }}>
