@@ -27,6 +27,9 @@ const PASSWORD = "E2e-Passw0rd!";
 // Public demo entry signs in with this read-only identity, created by the real sandbox-token route.
 // Listed here so browser checks use an explicitly allowed local demo account.
 const SANDBOX_ACCOUNTS = { roofing: "sandbox-roofing@luxordev.com" };
+// Private-demo tests may sign into identities minted by the local trial endpoint only.
+// The browser harness remains loopback/emulator-only; no production trial is a test account.
+const PRIVATE_TRIAL_UID_PREFIX = "demo-trial-";
 const SECRETS = { tool: "e2e-tool-secret", webhook: "e2e-webhook-secret", cron: "e2e-cron-secret" };
 
 const TENANTS = {
@@ -90,4 +93,4 @@ function emulatorEnv() {
   return { FIRESTORE_EMULATOR_HOST: FIRESTORE_HOST, FIREBASE_AUTH_EMULATOR_HOST: AUTH_HOST, GCLOUD_PROJECT: PROJECT_ID };
 }
 
-module.exports = { ROOT, STATE_DIR, STATE_FILE, PROJECT_ID, PORT_OFFSET, PORTS, APP_URL, FIRESTORE_HOST, AUTH_HOST, PASSWORD, SECRETS, TENANTS, ACCOUNTS, SANDBOX_ACCOUNTS, appEnv, emulatorEnv };
+module.exports = { ROOT, STATE_DIR, STATE_FILE, PROJECT_ID, PORT_OFFSET, PORTS, APP_URL, FIRESTORE_HOST, AUTH_HOST, PASSWORD, SECRETS, TENANTS, ACCOUNTS, SANDBOX_ACCOUNTS, PRIVATE_TRIAL_UID_PREFIX, appEnv, emulatorEnv };

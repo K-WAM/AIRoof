@@ -1317,12 +1317,12 @@ function brandHeader(biz: BizBranding): string {
   </td>`;
 }
 
-function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, title: string, subtitle: string, cardRows: string, callId: string): string {
+function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, title: string, subtitle: string, cardRows: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
 <tr><td align="center">
-<table width="540" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
   <tr>${brandHeader(biz)}</tr>
   <tr><td style="padding:20px 32px 8px;">
     <span style="display:inline-block;background:${badgeColor};color:#fff;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px;">${badgeLabel}</span>
@@ -1337,10 +1337,9 @@ function emailShell(biz: BizBranding, badgeLabel: string, badgeColor: string, ti
     </table>
   </td></tr>
   <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 32px;">
-    <p style="margin:0;font-size:10px;color:#cbd5e1;">
-      Call ID: ${escapeHtml(callId)} &nbsp;·&nbsp;
-      <a href="${BASE_URL}/company/dashboard" style="color:#94a3b8;text-decoration:none;">View dashboard</a> &nbsp;·&nbsp;
-      <span style="color:#e2e8f0;">Powered by Luxor AI</span>
+    <p style="margin:0;font-size:12px;color:#64748b;">
+      <a href="${BASE_URL}/company/dashboard" style="color:#475569;text-decoration:none;">Open the app</a> &nbsp;·&nbsp;
+      <span>Luxor</span>
     </p>
   </td></tr>
 </table>
@@ -1372,9 +1371,9 @@ function bookingEmailHtml(
   ].join("");
   return emailShell(
     biz, "New Request", "#22c55e",
-    "New Appointment Request",
-    `Your AI receptionist captured this requested time. Review and confirm it with the customer.`,
-    rows, p.callId
+    "New Appointment Request for Your Office",
+    `Your receptionist reserved this time. This is an office notification, not the customer's confirmation. Open Pipeline and choose Confirm &amp; email to send their confirmation.`,
+    rows
   );
 }
 
@@ -1392,7 +1391,7 @@ function escalationEmailHtml(
     biz, "Urgent Escalation", "#dc2626",
     "Urgent: Call Escalation",
     `Your AI receptionist flagged this call as urgent. Respond immediately.`,
-    rows, p.callId
+    rows
   );
 }
 

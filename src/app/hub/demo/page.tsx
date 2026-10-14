@@ -13,6 +13,8 @@ interface LineState {
   phone?: string;
   contactPhone?: string | null;
   contactEmail?: string | null;
+  notificationEmail?: string | null;
+  currentGreeting?: string;
   configuredNumbers?: string[];
   lineReady?: boolean;
   lineError?: string;
@@ -83,12 +85,34 @@ export default function DemoStudioPage() {
   const [fieldUrl, setFieldUrl] = useState("");
   const [testPhone, setTestPhone] = useState("");
   const [testCallStatus, setTestCallStatus] = useState("");
+  const [editIdentity, setEditIdentity] = useState(false);
+  const [identityName, setIdentityName] = useState("");
+  const [identityEmail, setIdentityEmail] = useState("");
+  const [identityStatus, setIdentityStatus] = useState("");
+  const [prospects, setProspects] = useState<Array<{ id: string; name: string; companyName: string; email: string | null }> | null>(null);
+  const [prospectError, setProspectError] = useState("");
   // null until the phone-lines API answers; never invent Ready/Live from this.
   const [lines, setLines] = useState<PhoneLineView[] | null>(null);
 
   async function refresh() {
     const response = await fetch("/api/admin/demo-customize");
     setLine(await response.json() as LineState);
+  }
+
+  async function saveIdentity(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true); setIdentityStatus("");
+    try {
+      const response = await fetch("/api/admin/demo-customize", { method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: identityName, email: identityEmail }) });
+      const result = await response.json() as LineState;
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not update the greeting");
+      setLine((old) => ({ ...old, ...result }));
+      setEditIdentity(false);
+      setIdentityStatus("Updated for the next call. Existing bookings and jobs are kept.");
+    } catch (error) {
+      setIdentityStatus(error instanceof Error ? error.message : "Could not update the greeting");
+    } finally { setBusy(false); }
   }
 
   useEffect(() => { void refresh().catch(() => setLine({ error: "Could not load demo line" })); }, []);
@@ -186,6 +210,26 @@ export default function DemoStudioPage() {
         </div>
       </header>
 
+      {line.businessName && <section className="panel" aria-labelledby="current-demo-title" style={{ marginBottom: "var(--sp-4)" }}>
+        <div className="panel-body">
+          <h2 id="current-demo-title" className="panel-title">Currently Answering as {line.businessName}</h2>
+          {line.currentGreeting && <p style={{ lineHeight: 1.5 }}>{line.currentGreeting}</p>}
+          <p>Office alerts go to <strong>{line.notificationEmail || "no office email set"}</strong>. Customer confirmations use the email the caller gives, after the office confirms.</p>
+          {!editIdentity ? <button type="button" className="button" disabled={busy} onClick={() => {
+            setIdentityName(line.businessName || ""); setIdentityEmail(line.notificationEmail || ""); setIdentityStatus(""); setEditIdentity(true);
+          }}>Change Name &amp; Office Email</button> : <form onSubmit={saveIdentity} style={{ display: "grid", gap: 12 }}>
+            <label className="field">Business name callers hear<input value={identityName} onChange={(event) => setIdentityName(event.target.value)} maxLength={80} required /></label>
+            <label className="field">Office notification email<input type="email" value={identityEmail} onChange={(event) => setIdentityEmail(event.target.value)} required /></label>
+            <p style={{ margin: 0, color: "var(--text-muted)" }}>Updates the next call and email branding. Keeps existing demo data.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="button primary" type="submit" disabled={busy}>{busy ? "Saving…" : "Save Demo Details"}</button>
+              <button className="button" type="button" disabled={busy} onClick={() => setEditIdentity(false)}>Cancel</button>
+            </div>
+          </form>}
+          {identityStatus && <p role="status">{identityStatus}</p>}
+        </div>
+      </section>}
+
       <section className="panel" aria-labelledby="run-demo-title">
         <div className="panel-header"><h2 className="panel-title" id="run-demo-title">Run a demo</h2></div>
         <div className="panel-body">
@@ -204,13 +248,14 @@ export default function DemoStudioPage() {
           <form onSubmit={launch} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: "var(--sp-3)" }}>
             <label className="field">Company<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Test Roofing Co" /></label>
             <label className="field">Owner name<input value={contactName} onChange={(e) => setContactName(e.target.value)} /></label>
-            <label className="field">Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label className="field">Office notification email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             <label className="field">Business contact phone <small style={{ color: "var(--text-muted)" }}>(optional — shown in customer emails, quotes and invoices; this is not the demo line or a text recipient)</small><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
             <label className="field">City / service area<input value={serviceArea} onChange={(e) => setServiceArea(e.target.value)} /></label>
             <label className="field">Logo (PNG, JPEG, WebP)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseLogo} />
               {logoDataUrl && <img src={logoDataUrl} alt="Logo preview" style={{ display: "block", maxWidth: 120, maxHeight: 70, objectFit: "contain" }} />}
             </label>
             <div style={{ gridColumn: "1 / -1" }}>
+              <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Launch refreshes the demo data. To keep existing bookings, use Change Name &amp; Office Email above.</p>
               <button className="button primary" type="submit" disabled={busy}>{busy ? "Launching…" : "Launch demo"}</button>
             </div>
           </form>
@@ -240,6 +285,20 @@ export default function DemoStudioPage() {
               {testCallStatus && <p role="status">{testCallStatus}</p>}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="panel" style={{ marginTop: "var(--sp-4)" }} aria-labelledby="demo-prospects-title">
+        <div className="panel-body">
+          <h2 id="demo-prospects-title" className="panel-title">Demo Enquiries</h2>
+          <p>Names and optional emails entered in the self-guided roofing demo. These are enquiries, not marketing subscriptions.</p>
+          <button className="button" type="button" onClick={async () => {
+            setProspectError("");
+            try { const response = await fetch("/api/admin/demo-prospects"); if (!response.ok) throw new Error(); setProspects((await response.json()).prospects); }
+            catch { setProspectError("Could not load enquiries. Try again."); }
+          }}>Show Recent Enquiries</button>
+          {prospectError && <p role="alert">{prospectError}</p>}
+          {prospects && (prospects.length ? <ul style={{ paddingLeft: 20, overflowWrap: "anywhere", maxHeight: 320, overflowY: "auto" }}>{prospects.map((person) => <li key={person.id} style={{ marginTop: 12 }}><strong>{person.companyName}</strong> · {person.name}{person.email ? ` · ${person.email}` : " · No email supplied"}</li>)}</ul> : <p>No demo enquiries yet.</p>)}
         </div>
       </section>
 

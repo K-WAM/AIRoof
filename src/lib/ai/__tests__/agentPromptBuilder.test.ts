@@ -75,7 +75,20 @@ describe("buildAgentPrompt — escalation and phone read-back", () => {
   it("confirms all four last digits and reads the whole number back when asked", () => {
     const prompt = buildAgentPrompt(config(), { runtime: { callerPhone: "+18254887791" } });
     expect(prompt).toContain("ending in 7-7-9-1");
+    expect(prompt).toContain("ending in seven, seven, nine, one");
+    expect(prompt).toContain("the business contact number is NOT their number");
     expect(prompt).toContain("If the caller asks to hear the whole number, read all of it back");
+  });
+
+  it("preserves leading zeroes and repeated digits in the spoken suffix", () => {
+    const prompt = buildAgentPrompt(config(), { runtime: { callerPhone: "+13055550007" } });
+    expect(prompt).toContain("ending in zero, zero, zero, seven");
+  });
+
+  it("reads house numbers as identifiers without changing stored numeric addresses", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain('317 is "three one seven"');
+    expect(prompt).toContain("Keep the original numeric address in tool arguments");
   });
 });
 

@@ -25,6 +25,8 @@ interface AuthUser {
    * prospect exploring /try/[vertical] — never true for a real teammate, even
    * one with role "viewer". Drives the sandbox banner in company/layout.tsx. */
   isSandboxVisitor?: boolean;
+  isDemoTrial?: boolean;
+  demoTrialExpiresAt?: number;
 }
 
 interface AuthContextValue {

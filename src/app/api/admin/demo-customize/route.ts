@@ -175,6 +175,8 @@ export async function GET(request: NextRequest) {
     phone: displayPhone(config.elevenlabs?.phoneNumber), ...lineState(config),
     contactPhone: config.contactPhone ?? null,
     contactEmail: config.contactEmail ?? null,
+    notificationEmail: config.notificationEmail ?? null,
+    currentGreeting: buildInitiationResponse(config, undefined).conversation_config_override.agent?.first_message || config.greeting || "",
     configuredNumbers: [...new Set(configuredNumbers)],
     seededAt: business.data()?.seededAt ?? null,
     lastCallAt: calls.docs[0]?.data()?.startedAt ?? null,
@@ -182,6 +184,57 @@ export async function GET(request: NextRequest) {
       elevenLabsToolSecret: !!process.env.ELEVENLABS_TOOL_SECRET,
       elevenLabsWebhookSecret: !!process.env.ELEVENLABS_WEBHOOK_SECRET },
   }, "volatile");
+}
+
+// Update the next call's identity without launching/reseeding the shared demo.
+export async function PATCH(request: NextRequest) {
+  const gate = await verifySuperadmin(request);
+  if ("error" in gate) return gate.error;
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  if (!body || Array.isArray(body) || typeof body !== "object" || Object.keys(body).some((key) => !["companyName", "email"].includes(key))) {
+    return NextResponse.json({ error: "Only the demo name and office email can be updated here" }, { status: 400 });
+  }
+  const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim() : undefined;
+  if (!companyName || companyName.length > 80 || /[\u0000-\u001f\u007f]/.test(companyName) ||
+      (body.email !== undefined && (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) {
+    return NextResponse.json({ error: "Enter a business name and a valid office email" }, { status: 400 });
+  }
+  const db = getAdminFirestore();
+  if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
+  if (!isAllowedDemoBusiness(LIVE_LINE_BUSINESS_ID)) {
+    return NextResponse.json({ error: "This is not an allowed demo business" }, { status: 403 });
+  }
+  const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
+  const result = await db.runTransaction(async (tx) => {
+    const [business, lock] = await Promise.all([tx.get(base), tx.get(base.collection("backups").doc("lock"))]);
+    const config = business.data() as BusinessConfig | undefined;
+    if (!config || config.isDemo !== true) return { error: "Business is not a demo business", status: 403 };
+    if (config.voiceProvider !== "elevenlabs") return { error: "Use Launch for a legacy voice demo", status: 409 };
+    if (lock.data()?.locked && Date.now() - Number(lock.data()?.startedAt) < LOCK_TTL_MS) {
+      return { error: "A demo launch is in progress. Try again when it finishes.", status: 409 };
+    }
+    const agentName = config.agentName || demoAgentName(resolveVerticalId(config.industry));
+    const patch = {
+      businessName: companyName,
+      greeting: `Thanks for calling ${companyName}, this is ${agentName}. How can I help?`,
+      afterHoursGreeting: `Thanks for calling ${companyName}, this is ${agentName}. We're outside our normal hours right now, but I can still get you booked — the team will confirm first thing.`,
+      ...(email ? { notificationEmail: email, contactEmail: email } : {}),
+      updatedAt: Date.now(),
+      demoIdentityUpdatedBy: gate.user.uid,
+    };
+    tx.update(base, patch);
+    const updated = { ...config, ...patch };
+    return { ok: true, businessName: companyName, contactEmail: updated.contactEmail ?? null,
+      notificationEmail: updated.notificationEmail ?? null,
+      currentGreeting: buildInitiationResponse(updated, undefined).conversation_config_override.agent?.first_message || updated.greeting };
+  });
+  return NextResponse.json(result, { status: "error" in result ? result.status : 200 });
 }
 
 export async function DELETE(request: NextRequest) {

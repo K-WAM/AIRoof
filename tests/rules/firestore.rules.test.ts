@@ -39,6 +39,7 @@ function headers(auth: Auth): Record<string, string> {
 }
 
 function encode(value: unknown): Record<string, unknown> {
+  if (value instanceof Date) return { timestampValue: value.toISOString() };
   if (value === null) return { nullValue: null };
   if (typeof value === "boolean") return { booleanValue: value };
   if (typeof value === "number") return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
@@ -87,6 +88,10 @@ async function seed() {
     ["businessUsers/stale-flag", { businessId: "biz-a", role: "owner", active: true, superadmin: true }],
     ["businessUsers/doc-only-admin", { businessId: "demo-roofing", role: "superadmin", superadmin: true }],
     ["businessUsers/disabled-a", { businessId: "biz-a", role: "staff", active: false }],
+    ["businessUsers/trial-expired", { businessId: "biz-a", role: "viewer", active: true, isDemoTrial: true, demoTrialExpiry: new Date(Date.now() - 60000) }],
+    ["businessUsers/trial-active", { businessId: "biz-a", role: "viewer", active: true, isDemoTrial: true, demoTrialExpiry: new Date(Date.now() + 3600000) }],
+    ["demoTrials/private-a", { secretHash: "never-public" }],
+    ["demoProspects/private-a", { email: "private@example.test" }],
     ["businessPhoneNumbers/biz-b-main", { businessId: "biz-b", phoneNumber: "+15555550100" }],
     ["adminAuditEvents/audit-1", { action: "business.created" }],
     // 2026-10-08 additions — server-only data, never readable from a browser:
@@ -185,4 +190,15 @@ describe("server-only data added 2026-10-08 (field links, customer identity keys
     expect(await write("businesses/biz-a/invoices/inv-a", { status: "paid" }, ownerA)).toBe(DENIED);
     expect(await write("businesses/biz-a/customers/c-a", { name: "x" }, ownerA)).toBe(DENIED);
   });
+});
+
+it("expires private-demo access and keeps prospect/session records server-only", async () => {
+  expect(await read("businesses/biz-a/jobs/j-a", { uid: "trial-expired" })).toBe(DENIED);
+  expect(await read("businesses/biz-a/jobs/j-a", { uid: "trial-active" })).toBe(ALLOWED);
+  expect(await read("businesses/biz-b/jobs/j-b", { uid: "trial-active" })).toBe(DENIED);
+  expect(await write("businesses/biz-a/jobs/j-a", { title: "Denied trial write" }, { uid: "trial-active" })).toBe(DENIED);
+  for (const path of ["demoTrials/private-a", "demoProspects/private-a"]) {
+    expect(await read(path, { uid: "trial-active" })).toBe(DENIED);
+    expect(await read(path, null)).toBe(DENIED);
+  }
 });

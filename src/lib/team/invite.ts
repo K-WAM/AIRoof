@@ -17,6 +17,8 @@ export function generateTempPassword(): string {
 }
 
 export interface TeamMemberDoc {
+  isDemoTrial?: boolean;
+  demoTrialExpiresAt?: number;
   uid: string;
   businessId: string;
   email: string;

@@ -3008,3 +3008,10 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | T-212 | `main` / `D:/Apps/AI Receptionist` | Combined demo source/tests/docs, release checks, branch recovery/cleanup | released |
 
 - **NEEDS-HUMAN — Sandbox Stripe secret rotation:** The required CLI configuration check printed a test-mode secret into this local session on 2026-10-14. Rotate the sandbox secret in Stripe; no live secret was printed and no Stripe resources were changed. Future credential checks must redact values.
+
+### Demo rehearsal follow-up (2026-10-14)
+| Task | Branch / worktree | Owned scope | Status |
+|---|---|---|---|
+| T-213 | `main` / `D:/Apps/AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | in progress |
+| T-214 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | in progress; personal booking/voice access clarification pending |
+| T-215 | `main` / `D:/Apps/AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | in progress; owner chose browser call |

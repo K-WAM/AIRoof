@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
     if (snap.exists) {
       Object.assign(profile, snap.data());
       if (snap.data()?.active === false) profile.locked = true;
+      if (snap.data()?.isDemoTrial === true && !(Number(snap.data()?.demoTrialExpiresAt) > Date.now())) profile.locked = true;
     }
   }
 

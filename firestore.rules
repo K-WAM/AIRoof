@@ -22,7 +22,9 @@ service cloud.firestore {
       return signedIn()
         && exists(/databases/$(database)/documents/businessUsers/$(request.auth.uid))
         && membershipDoc().data.businessId == businessId
-        && membershipDoc().data.get('active', true) != false;
+        && membershipDoc().data.get('active', true) != false
+        && (membershipDoc().data.get('isDemoTrial', false) != true
+          || request.time < membershipDoc().data.get('demoTrialExpiry', request.time));
     }
 
     function isBusinessOwnerOrStaff(businessId) {

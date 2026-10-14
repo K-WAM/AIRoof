@@ -9,6 +9,7 @@ import { JobPicker } from "@/components/field/JobPicker";
 import { WorkScope } from "@/components/field/WorkScope";
 import { FieldNoteComposer } from "@/components/field/FieldNoteComposer";
 import { RecentNotes } from "@/components/field/RecentNotes";
+import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import type { WorkerDay } from "@/types/timeclock";
 import { InstallPrompt } from "@/components/field/InstallPrompt";
 import type { Job } from "@/types/jobs";
@@ -42,6 +43,7 @@ function FieldApp() {
   const prefillJobId = searchParams?.get("jobId") ?? "";
 
   const [businessId, setBusinessId] = useState(urlBusinessId ?? "");
+  const privateDemo = businessId.startsWith("demo-trial-roofing-");
   const [bootstrapComplete, setBootstrapComplete] = useState(false);
   // The businessId/jobId a job-scoped QR grant resolves to now arrive via the
   // HttpOnly field-session cookie instead of URL query params (so the address
@@ -214,6 +216,7 @@ function FieldApp() {
         {!accessDenied && <InstallPrompt />}
 
         <div className="field-public-content" style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          {privateDemo && <PrivateDemoNav />}
 
           {/* Access denied — expired/missing key */}
           {accessDenied && (
@@ -260,7 +263,7 @@ function FieldApp() {
           <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
 
           {/* 3. Hours */}
-          {bootstrapComplete && businessId && hasWorkerName && (
+          {!privateDemo && bootstrapComplete && businessId && hasWorkerName && (
             <TimeClock businessId={businessId} jobId={selectedJobId || null} workerName={workerName} onDayChange={handleDay} />
           )}
 
@@ -273,10 +276,11 @@ function FieldApp() {
             blockedReason={!hasWorkerName ? "Type your name above first" : null}
             clockedInJobId={clockedInJobId}
             onSaved={() => setNotesVersion((v) => v + 1)}
+            maxRecordingSeconds={privateDemo ? 30 : undefined}
           />
 
           {/* Photo and Finding side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {!privateDemo && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <PhotoCapture
               jobId={selectedJobId || null}
               businessId={businessId}
@@ -291,7 +295,7 @@ function FieldApp() {
               showList={false}
               onAdded={(problem) => { flashSaved(`Finding added to ${selectedJobId}: ${problem}`); setJobsVersion((v) => v + 1); }}
             />
-          </div>
+          </div>}
 
           {savedNote && (
             <div role="status" style={{ padding: "10px 14px", background: "#0f2d1a", border: "1px solid #166534", borderRadius: 10, fontSize: 13, color: "#86efac", fontWeight: 600 }}>

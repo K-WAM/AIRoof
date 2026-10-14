@@ -26,8 +26,7 @@ test("pet care uses visit wording and its own note", async ({ page }) => {
 // Exercise the real sign-in/navigation with ONLY the configured local viewer,
 // replacing the public token endpoint so no separate sandbox account is made.
 for (const entry of [
-  { button: "See the App", target: /\/company\/pipeline$/ },
-  { button: "See voice updates", target: /\/company\/field\?jobId=J-1001$/ },
+  { button: "Open Sample App", target: /\/company\/pipeline$/ },
 ]) {
   test(`${entry.button} opens the intended app screen`, async ({ page }) => {
     const token = await adminApp.auth().createCustomToken(ACCOUNTS.viewer.uid);
@@ -36,6 +35,7 @@ for (const entry of [
       await route.fulfill({ json: { token } });
     });
     await page.goto("/try/roofing");
+    await page.getByText("Guided Phone Demo", { exact: true }).click();
     await page.getByRole("button", { name: entry.button }).click();
     await expect(page).toHaveURL(entry.target);
     await expect(page.getByText(/Failed to load this page|Application error/)).toHaveCount(0);
@@ -46,8 +46,9 @@ for (const entry of [
 test("unavailable demo stays on the page with a clear error", async ({ page }) => {
   await page.route("**/api/demo/sandbox-token", (route) => route.fulfill({ status: 503, json: { error: "Sandbox unavailable" } }));
   await page.goto("/try/roofing");
-  await page.getByRole("button", { name: "See voice updates" }).click();
+  await page.getByText("Guided Phone Demo", { exact: true }).click();
+  await page.getByRole("button", { name: "Open Sample App" }).click();
   await expect(page.getByText("Sandbox unavailable")).toBeVisible();
   await expect(page).toHaveURL(/\/try\/roofing$/);
-  await expect(page.getByRole("button", { name: "See voice updates" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Open Sample App" })).toBeEnabled();
 });

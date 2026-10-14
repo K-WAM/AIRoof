@@ -331,6 +331,30 @@ describe("bookAppointment transaction", () => {
     vi.mocked(getAdminFirestore).mockReset();
   });
 
+  it("sends a clear office alert without leaking the internal call ID or substituting the caller email", async () => {
+    resendMocks.send.mockReset();
+    resendMocks.send.mockResolvedValue({ data: { id: "email-office" }, error: null });
+    const firestore = new FakeFirestore();
+    firestore.documents.set("businesses/biz-1", {
+      businessName: "Example Co", notificationEmail: "office@example.com",
+      timezone: "America/New_York", businessHours: weekdayHours,
+    });
+    vi.mocked(getAdminFirestore).mockReturnValue(firestore as never);
+    const startTime = Date.parse("2030-07-23T14:00:00.000Z");
+    const appointment = await bookAppointment({ businessId: "biz-1", callerName: "Taylor", callerPhone: "+15555550123",
+      callerEmail: "customer@example.com", sourceCallId: "call-private-provider-reference", address: "317 Palm Way 33432",
+      startTime, endTime: startTime + 3600000 });
+    expect(resendMocks.send).toHaveBeenCalledOnce();
+    const email = resendMocks.send.mock.calls[0][0];
+    expect(email.to).toBe("office@example.com");
+    expect(email.html).not.toContain("call-private-provider-reference");
+    expect(email.html).not.toContain("Call ID:");
+    expect(email.html).toContain("office notification, not the customer's confirmation");
+    expect(email.html).toContain("Confirm &amp; email");
+    expect(firestore.documents.get(`businesses/biz-1/appointments/${appointment.appointmentId}`)?.callerEmail).toBe("customer@example.com");
+    expect(appointment.sourceCallId).toBe("call-private-provider-reference");
+  });
+
   it("allows exactly one concurrent request for one slot", async () => {
     const firestore = new FakeFirestore();
     firestore.documents.set("businesses/biz-1", {

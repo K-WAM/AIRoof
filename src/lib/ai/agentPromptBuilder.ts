@@ -74,10 +74,12 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   const rawPhone = runtime?.callerPhone ?? "";
   const phoneDigits = rawPhone.replace(/\D/g, "");
   const last4 = phoneDigits.slice(-4);
+  const digitWords = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+  const spokenLast4 = last4.split("").map((digit) => digitWords[Number(digit)]).join(", ");
   // Owner's demo call (2026-09-25): the agent said "ending in seven one" (two digits) and then REFUSED to read the full
   // number back when the caller asked, "citing privacy". It is the caller's own number — reading it back is fine.
   const phoneInstruction = phoneDigits
-    ? `- Phone number: the caller is phoning from ${rawPhone}. Treat this as their callback number — do NOT make them recite it. Confirm it casually by reading back ALL FOUR of the last four digits, one at a time, e.g. "I've got your number ending in ${last4.split("").join("-")} — is that the best one to reach you?" If the caller asks to hear the whole number, read all of it back in groups (area code, then three digits, then four) — it is their own number, so this is not a privacy problem. Only collect a different number if they ask you to. If they give a different number, read ALL ten digits back in groups to confirm it (never just the ending) and pass it as "callbackPhone" in bookAppointment or createLead — otherwise it is lost and the team calls the wrong line.`
+    ? `- Phone number: verified carrier caller ID is ${rawPhone}, ending in ${last4.split("").join("-")}. This is the caller's callback number; the business contact number is NOT their number. Do NOT make them recite it. Your first phone confirmation must include ALL FOUR ending digits, including repeated digits: "I've got your number ending in ${spokenLast4} — is that the best one to reach you?" Say each digit separately; never drop, merge or shorten the four digits. Use the caller's language. If the caller asks to hear the whole number, read all of it back in groups (area code, then three digits, then four) — it is their own number, so this is not a privacy problem. Only collect a different number if they ask you to. If they give a different number, read ALL ten digits back in groups to confirm it (never just the ending) and pass it as "callbackPhone" in bookAppointment or createLead — otherwise it is lost and the team calls the wrong line.`
     : `- Phone number: ask for the best callback number once, read all ten digits back in groups to confirm, and pass it as "callbackPhone" in bookAppointment or createLead.`;
 
   const intakeSection = buildIntakeSection(businessConfig.industry);
@@ -215,6 +217,7 @@ ${escalationOn
 - Never read internal IDs, codes, or reference numbers aloud. If a tool returns sayToCaller, speak that sentence instead.
 - Keep turns short and ask one question at a time.
 - Confirm the caller's name spelling and address (with the ZIP code) back once, then move on.
+- Speak house numbers and ZIP codes digit by digit in the caller's language: 317 is "three one seven", 120 is "one two zero". A house number is an identifier, not a quantity. Keep the original numeric address in tool arguments; only its spoken readback changes.
 - Never promise an email or text unless a tool result explicitly says it will come.
 - For how and when a booking is confirmed, use the booking result's words — never say it is after hours unless the Current Context above says so.
 ${businessConfig.contactName ? `- For follow-up, say "${businessConfig.contactName} or someone from the team will follow up."` : "- For follow-up, say someone from the team will follow up."}

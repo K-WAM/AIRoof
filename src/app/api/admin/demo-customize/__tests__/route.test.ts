@@ -198,7 +198,7 @@ function createFirestore() {
   return new FakeFirestore();
 }
 
-function makeRequest(method: "POST" | "DELETE", body?: Record<string, unknown>): NextRequest {
+function makeRequest(method: "POST" | "DELETE" | "PATCH", body?: Record<string, unknown>): NextRequest {
   return new NextRequest("http://localhost/api/admin/demo-customize", {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
@@ -239,6 +239,72 @@ describe("demo-customize route", () => {
       contactPhone: "5104537871",
       contactEmail: "owner@example.com",
       configuredNumbers: ["+16892042643", "+16045550123"],
+    });
+  });
+
+  describe("PATCH demo identity without reseeding", () => {
+    function identityFirestore() {
+      const fs = createFirestore();
+      fs.documents.set("businesses/demo-roofing", {
+        isDemo: true, voiceProvider: "elevenlabs", industry: "roofing", businessName: "Previous Demo",
+        agentName: "Alice", greeting: "Old greeting", notificationEmail: "office@example.com", contactEmail: "office@example.com",
+        contactPhone: "+15105550171", businessHours: { Monday: "08:00 - 17:00" }, timezone: "America/New_York",
+        approvedServices: [], approvedFaqs: [], emergencyRules: [], bookingRules: [], disallowedTopics: [], serviceArea: [],
+        elevenlabs: { agentId: "existing-agent", phoneNumber: "+16892042643" }, fieldKey: "existing-field-key",
+      });
+      fs.documents.set("businesses/demo-roofing/calls/existing", { status: "ended" });
+      fs.documents.set("businesses/demo-roofing/appointments/existing", { status: "requested", scheduleCapacityUnit: 0 });
+      fs.documents.set("businesses/demo-roofing/jobs/J-1001", { title: "Existing job" });
+      mocks.firestoreInstance = fs;
+      return fs;
+    }
+
+    it("refuses unauthorized edits before any data access", async () => {
+      mocks.verifySuperadmin.mockResolvedValue({ error: new Response("Forbidden", { status: 403 }) });
+      mocks.firestoreInstance = null;
+      const { PATCH } = await import("@/app/api/admin/demo-customize/route");
+      expect((await PATCH(makeRequest("PATCH", { companyName: "New Demo" }))).status).toBe(403);
+    });
+
+    it.each([{ companyName: "" }, { companyName: "A\nB" }, { companyName: "A".repeat(81) },
+      { companyName: "Demo", email: "bad" }, { companyName: "Demo", businessId: "real-client" },
+      { companyName: "Demo", greeting: "Injected greeting" }])("rejects invalid or additional fields: %j", async (body) => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = identityFirestore();
+      const before = [...fs.documents.entries()];
+      const { PATCH } = await import("@/app/api/admin/demo-customize/route");
+      expect((await PATCH(makeRequest("PATCH", body))).status).toBe(400);
+      expect([...fs.documents.entries()]).toEqual(before);
+    });
+
+    it("refuses a missing demo marker and a concurrent launch", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = identityFirestore();
+      const { PATCH } = await import("@/app/api/admin/demo-customize/route");
+      fs.documents.get("businesses/demo-roofing")!.isDemo = false;
+      expect((await PATCH(makeRequest("PATCH", { companyName: "New Demo" }))).status).toBe(403);
+      fs.documents.get("businesses/demo-roofing")!.isDemo = true;
+      fs.documents.set("businesses/demo-roofing/backups/lock", { locked: true, startedAt: Date.now() });
+      expect((await PATCH(makeRequest("PATCH", { companyName: "New Demo" }))).status).toBe(409);
+      expect(fs.documents.get("businesses/demo-roofing")!.businessName).toBe("Previous Demo");
+    });
+
+    it("updates the next greeting and office inbox while preserving bookings, jobs and line settings", async () => {
+      mocks.verifySuperadmin.mockResolvedValue(superadminUser);
+      const fs = identityFirestore();
+      const previous = structuredClone(fs.documents.get("businesses/demo-roofing")!);
+      const children = [...fs.documents.entries()].filter(([path]) => path !== "businesses/demo-roofing");
+      const { PATCH } = await import("@/app/api/admin/demo-customize/route");
+      const response = await PATCH(makeRequest("PATCH", { companyName: "RoofDoctors South Florida", email: "demo@example.com" }));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ ok: true, businessName: "RoofDoctors South Florida", notificationEmail: "demo@example.com" });
+      const updated = fs.documents.get("businesses/demo-roofing")!;
+      expect(updated.greeting).toContain("RoofDoctors South Florida, this is Alice");
+      expect(updated.afterHoursGreeting).toContain("RoofDoctors South Florida");
+      for (const key of ["businessHours", "timezone", "elevenlabs", "fieldKey", "contactPhone"]) expect(updated[key]).toEqual(previous[key]);
+      expect([...fs.documents.entries()].filter(([path]) => path !== "businesses/demo-roofing")).toEqual(children);
+      expect(mocks.updateAssistantPersona).not.toHaveBeenCalled();
+      expect(mocks.mintFieldExchangeToken).not.toHaveBeenCalled();
     });
   });
 

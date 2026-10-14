@@ -1,4 +1,5 @@
 import { recordUsage } from "@/lib/usage/meter";
+import { consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
 import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
@@ -92,6 +93,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const audioCheck = validateAudioInput(audioBase64, mimeType);
   if (audioCheck.error) return NextResponse.json({ error: audioCheck.error }, { status: 400 });
+  if (businessId.startsWith(TRIAL_PREFIX) && audioBase64.length > 700_000) return NextResponse.json({ error: "Keep a demo voice note under 30 seconds." }, { status: 400 });
+  const demoLimit = await consumeTrialBudget(businessId, "notes");
+  if (demoLimit) return demoLimit;
 
   const openaiReady = isProviderReady("openai");
   if (!openaiReady) {

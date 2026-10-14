@@ -12,6 +12,7 @@ import { CompanyNav } from "./company-nav";
 import { CommandBar } from "@/components/ui/CommandBar";
 import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { DemoTourBanner } from "@/components/demo/DemoTourBanner";
+import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
@@ -239,6 +240,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
         <main className="company-main">
           {user.isSandboxVisitor && <DemoTourBanner previewSuffix={previewSuffix} />}
+          {user.isDemoTrial && <PrivateDemoNav />}
           {children}
         </main>
       </div>

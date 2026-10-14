@@ -33,6 +33,7 @@ import { resolveSmsSender } from "@/lib/phoneLines/sender";
 import { bookingReceived } from "@/lib/comms/smsTemplates";
 import { isEscalationEnabled } from "@/lib/ai/escalation";
 import { runAfterResponse } from "@/lib/http/afterResponse";
+import { finishTrialBooking } from "@/lib/demo/trialBooking";
 
 export type ToolProvider = "vapi" | "elevenlabs";
 
@@ -103,6 +104,14 @@ export async function executeAgentTool(
         await logAction(businessId, callId, "bookAppointment", params, stored, "success");
         const tz = businessTimezone ?? inputTimezone;
         const whenStr = new Date(appt.startTime).toLocaleString("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });
+        const demo = await finishTrialBooking(businessId, callId, appt.appointmentId);
+        if (demo) {
+          const emailSentence = demo.email === "delivered" ? "Your demo confirmation has been sent to the email you entered."
+            : demo.email === "not_requested" ? "You can see it in your private demo app."
+              : "Your demo booking is saved in the app, but the confirmation email could not be sent.";
+          const sayToCaller = `Your demo inspection is booked for ${whenStr}. ${emailSentence} This is a demonstration, so no real visit will take place.`;
+          return { result: `BOOKED: ${sayToCaller}`, sayToCaller };
+        }
         // Every AI booking waits for the office's OK. Say how and when the office confirms — "after hours" only when it
         // really is (2026-09-28: an 11:28 AM Monday booking was told "since we're currently after hours").
         const textTo = contactPhone(appt);

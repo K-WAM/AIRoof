@@ -1,0 +1,143 @@
+import { createHmac } from "crypto";
+import { test, expect, expectHealthy, shot } from "./fixtures";
+import { db, outbox, readDoc } from "../scripts/e2e/lib.cjs";
+import { PRIVATE_TRIAL_UID_PREFIX, SECRETS } from "../scripts/e2e/config.cjs";
+import type { Page } from "@playwright/test";
+
+test.beforeAll(async () => {
+  // Only the loopback emulator configured by scripts/e2e/config.cjs; each project gets a fresh daily test budget.
+  const budget = await db().collection("demoTrialBudgets").get();
+  for (const doc of budget.docs) await doc.ref.delete();
+});
+let nextTestIp = 0;
+async function createFromLanding(page: Page, name: string, email = "") {
+  const testIp = `198.51.100.${++nextTestIp}`;
+  await page.route("**/api/demo/roofing-trial", (route) => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": testIp } }));
+  await page.goto("/try/roofing");
+  await page.getByRole("button", { name: "See Your Booking in the App", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Make It Your Demo" });
+  await dialog.getByLabel("Your Name", { exact: true }).fill(name);
+  await dialog.getByLabel("Business Name", { exact: true }).fill(`${name} Roofing`);
+  await dialog.getByLabel("Confirmation Email (Optional)", { exact: true }).fill(email);
+  await shot(page, "private-demo-setup");
+  await dialog.getByRole("button", { name: "Start My Demo" }).click();
+  await expect(page).toHaveURL(/\/company\/pipeline$/);
+  await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
+  const profile = (await (await page.request.get("/api/auth/profile")).json()).profile;
+  expect(profile.uid).toMatch(new RegExp(`^${PRIVATE_TRIAL_UID_PREFIX}`));
+  expect(profile).toMatchObject({ role: "viewer", isDemoTrial: true });
+  return profile;
+}
+
+test("three centered actions explain the product and open a private app without microphone permission", async ({ as }) => {
+  const page = await as("viewer");
+  await page.goto("/try/roofing");
+  await expect(page.getByRole("heading", { name: "24-Hour English & Spanish Support for Your Customers" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Try the demo" }).getByRole("listitem")).toHaveCount(3);
+  await expect(page.getByText("So simple, you won't need training.")).toBeVisible();
+  await expect(page.getByText(/View only|Sample bookings/)).toHaveCount(0);
+  for (const name of ["Call and Book", "See Your Booking in the App", "Add a Voice Update"]) {
+    const button = page.getByRole("button", { name, exact: true });
+    await expect(button).toBeInViewport();
+    const box = await button.boundingBox();
+    const width = page.viewportSize()!.width;
+    expect(Math.abs(box!.x + box!.width / 2 - width / 2)).toBeLessThan(3);
+  }
+  await expect(page.locator(".button.primary")).toHaveCount(1);
+  await expectHealthy(page);
+  await shot(page, "private-demo-landing");
+  const profile = await createFromLanding(page, `Prospect ${Date.now()}`);
+  await expect(page.getByTestId("private-demo-nav")).toBeVisible();
+  expect((await page.request.get("/api/businesses/demo-roofing/calls")).status()).toBe(403);
+  expect((await page.request.post("/api/jobs", { data: { businessId: profile.businessId, title: "Denied office write" } })).status()).toBe(403);
+  expect((await page.request.post("/api/admin/demo-customize", { data: { companyName: "Denied" } })).status()).toBe(403);
+  await expectHealthy(page);
+});
+
+test("a real local booking emails only the entered address and field updates reach that same private job", async ({ as }) => {
+  test.setTimeout(120_000);
+  const page = await as("viewer");
+  const name = `Private Caller ${Date.now()}`, email = `trial-${Date.now()}@example.test`;
+  const profile = await createFromLanding(page, name, email);
+  const started = await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } });
+  expect(started.status()).toBe(200);
+  const call = await started.json();
+  expect(call.firstMessage).toContain(`${name} Roofing`);
+  const headers = { "x-luxor-tool-secret": SECRETS.tool, "x-luxor-conversation-id": call.conversationId };
+  const booked = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
+    businessId: "demo-roofing", callerName: name, callerEmail: "wrong@example.test", email: "also-wrong@example.test",
+    callbackPhone: "+13055550191", serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432",
+    startTime: "2030-07-23T10:00:00-04:00", endTime: "2030-07-23T11:00:00-04:00",
+  } });
+  expect((await booked.json()).result).toContain("BOOKED:");
+  const job = await readDoc(`businesses/${profile.businessId}/jobs/J-1001`);
+  expect(job).toMatchObject({ clientName: name, clientEmail: email, sourceCallId: `call_elevenlabs_${call.conversationId}` });
+  const appointment = await readDoc(`businesses/${profile.businessId}/appointments/${job!.sourceAppointmentId}`);
+  expect(appointment).toMatchObject({ status: "confirmed", pendingConfirmation: false, jobId: "J-1001", callerEmail: email });
+  const messages = await outbox({ to: email });
+  expect(messages).toHaveLength(1);
+  expect(messages[0].html).toContain(`${name} Roofing`);
+  expect(messages[0].html).not.toContain("Call ID");
+  expect(messages[0].subject).toContain("[Demo]");
+  const now = Math.floor(Date.now() / 1000);
+  const raw = JSON.stringify({ type: "post_call_transcription", event_timestamp: now, data: { conversation_id: call.conversationId,
+    transcript: [{ role: "user", message: "Please book my demo inspection.", time_in_call_secs: 0 }], metadata: { start_time_unix_secs: now - 30, call_duration_secs: 30 }, analysis: { transcript_summary: "Private demo inspection booked." } } });
+  const signature = createHmac("sha256", SECRETS.webhook).update(`${now}.${raw}`).digest("hex");
+  expect((await page.request.post("/api/webhooks/elevenlabs/post-call", { headers: { "content-type": "application/json", "elevenlabs-signature": `t=${now},v0=${signature}` }, data: raw })).status()).toBe(200);
+  await page.reload();
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  await shot(page, "private-demo-booking");
+  await page.getByTestId("private-demo-nav").getByRole("button", { name: "3. Add a Voice Update", exact: true }).click();
+  await expect(page).toHaveURL(/\/field\?businessId=demo-trial-roofing-/);
+  const composer = page.getByRole("region", { name: "Send a field note" });
+  await expect(composer).toBeVisible();
+  await expect(page.getByLabel("Your name", { exact: true })).toHaveValue(name);
+  await composer.getByRole("button", { name: /Type/i }).click();
+  await composer.getByRole("textbox").fill("Used 12 bundles of shingles. Carlos worked 8 hours. Found a cracked vent boot.");
+  await composer.getByTestId("note-save").click();
+  await expect(composer).toContainText(/Saved to J-1001/);
+  await shot(page, "private-demo-field-saved");
+  const updated = await readDoc(`businesses/${profile.businessId}/jobs/J-1001`);
+  expect(updated!.materials).toEqual(expect.arrayContaining([expect.objectContaining({ quantity: 12 })]));
+  expect(updated!.sourceAppointmentId).toBe(job!.sourceAppointmentId);
+  await page.getByRole("link", { name: "See Updated Job", exact: true }).click();
+  await expect(page).toHaveURL(/\/company\/jobs\/J-1001/);
+  await expectHealthy(page);
+  await shot(page, "private-demo-job");
+  const other = await as("viewer");
+  const otherProfile = await createFromLanding(other, `Other Prospect ${Date.now()}`);
+  expect(otherProfile.businessId).not.toBe(profile.businessId);
+  expect((await other.request.get(`/api/jobs/J-1001?businessId=${profile.businessId}`)).status()).toBe(403);
+  expect((await other.request.get(`/api/businesses/${profile.businessId}/calls`)).status()).toBe(403);
+  expect((await other.request.get("/api/admin/demo-prospects")).status()).toBe(403);
+});
+
+test("missing, foreign and expired sessions fail closed; paid calls and notes stop at their limits", async ({ as }) => {
+  const page = await as("viewer");
+  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(401);
+  expect((await page.request.post("/api/demo/roofing-trial", { headers: { origin: "https://evil.example" }, data: { action: "create", name: "Caller", companyName: "Roofing" } })).status()).toBe(403);
+  const profile = await createFromLanding(page, `Limits ${Date.now()}`);
+  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "field", businessId: "demo-roofing" } })).status()).toBe(400);
+  for (let i = 0; i < 2; i++) expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(200);
+  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(429);
+  const grant = await (await page.request.post("/api/demo/roofing-trial", { data: { action: "field" } })).json();
+  await page.goto(grant.url);
+  for (let i = 0; i < 3; i++) expect((await page.request.post("/api/jobs/J-1001/updates", { data: { businessId: profile.businessId, rawText: "Inspected the roof.", submittedBy: profile.displayName } })).status()).toBe(201);
+  expect((await page.request.post("/api/jobs/J-1001/updates", { data: { businessId: profile.businessId, rawText: "One more note", submittedBy: profile.displayName } })).status()).toBe(429);
+  const id = profile.businessId.replace("demo-trial-roofing-", "");
+  await db().collection("demoTrials").doc(id).update({ expiresAt: 0 });
+  await db().collection("businesses").doc(profile.businessId).update({ demoTrialExpiresAt: 0 });
+  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "field" } })).status()).toBe(401);
+  // Drop the office login, retaining only the already-issued job-scoped field cookie.
+  const cookies = (await page.context().cookies()).filter((cookie) => cookie.name !== "__session");
+  await page.context().clearCookies(); await page.context().addCookies(cookies);
+  expect((await page.request.get(`/api/jobs/J-1001/updates?businessId=${profile.businessId}`)).status()).toBe(403);
+});
+
+test("the demo-only CSP permits its audio worklets without altering other pages", async ({ page }) => {
+  const demo = await page.request.get("/try/roofing"), ordinary = await page.request.get("/try/dental");
+  expect(demo.headers()["content-security-policy"]).toContain("wss://api.elevenlabs.io");
+  expect(demo.headers()["content-security-policy"]).toContain("'wasm-unsafe-eval'");
+  expect(ordinary.headers()["content-security-policy"]).not.toContain("'wasm-unsafe-eval'");
+  for (const file of ["rawAudioProcessor.js", "audioConcatProcessor.js", "libsamplerate.worklet.js"]) expect((await page.request.get(`/voice-worklets/${file}`)).status()).toBe(200);
+});

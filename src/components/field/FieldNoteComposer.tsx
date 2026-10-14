@@ -33,6 +33,7 @@ export function FieldNoteComposer({
   blockedReason,
   clockedInJobId,
   onSaved,
+  maxRecordingSeconds,
 }: {
   businessId: string | null;
   job: ComposerJob | null;
@@ -43,6 +44,7 @@ export function FieldNoteComposer({
   /** The job this person is clocked in at, if any — a different selected job gets a warning. */
   clockedInJobId?: string | null;
   onSaved?: (receipt: SavedReceipt) => void;
+  maxRecordingSeconds?: number;
 }) {
   const jobId = job?.jobId ?? null;
   const [receipt, setReceipt] = useState<SavedReceipt | null>(null);
@@ -66,6 +68,13 @@ export function FieldNoteComposer({
 
   const audio = useFieldAudio(blockedReason ? null : jobId, { businessId, submittedBy: authorName || undefined, onSuccess: onVoiceSuccess });
   const recording = audio.status === "recording";
+  const stopVoice = useRef(audio.stopRecording);
+  useEffect(() => { stopVoice.current = audio.stopRecording; }, [audio.stopRecording]);
+  useEffect(() => {
+    if (!recording || !maxRecordingSeconds) return;
+    const timer = setTimeout(() => void stopVoice.current(), maxRecordingSeconds * 1000);
+    return () => clearTimeout(timer);
+  }, [recording, maxRecordingSeconds]);
   const working = audio.status === "transcribing" || savingText;
   const ready = !!jobId && !blockedReason;
   useEffect(() => { if (!recording && tapMode.current && audio.status !== null) setTap(false); }, [recording, audio.status]);

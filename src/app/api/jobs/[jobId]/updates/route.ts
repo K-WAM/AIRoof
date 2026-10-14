@@ -3,6 +3,7 @@ import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
 import { authorFields, englishRendering, isValidCorrection, ledgerId, resolveAuthor, storedJobContext, withCrewName, summarizeParsed } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { recordUsage } from "@/lib/usage/meter";
+import { consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 import { verifyFieldAccess } from "@/lib/auth/verifyRole";
 import { parseFieldUpdate } from "@/lib/ai/deepseekClient";
 import { detectLanguage } from "@/lib/i18n/detect";
@@ -97,6 +98,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!rawText?.trim()) {
     return NextResponse.json({ error: "rawText required" }, { status: 400 });
   }
+  if (businessId.startsWith(TRIAL_PREFIX) && rawText.length > 1500) return NextResponse.json({ error: "Keep a demo note under 1,500 characters." }, { status: 400 });
+  const demoLimit = await consumeTrialBudget(businessId, "notes");
+  if (demoLimit) return demoLimit;
 
   // ── Parse + correction detection — industry-aware (multi-vertical platform) ──
   const biz = (await db.collection("businesses").doc(businessId).get()).data();

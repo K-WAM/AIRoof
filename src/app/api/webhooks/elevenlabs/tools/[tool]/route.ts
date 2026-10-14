@@ -27,6 +27,7 @@ import {
 } from "@/lib/voice/elevenlabs/toolSchemas";
 import { getElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import { executeAgentTool } from "@/lib/tools/toolDispatcher";
+import { activeTrialForBusiness, consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 
 const UNVERIFIED_CALL_RESPONSE =
   "I couldn't verify this call — the office will call you back to help.";
@@ -77,6 +78,18 @@ export async function POST(
   }
 
   try {
+    if (stored.businessId.startsWith(TRIAL_PREFIX)) {
+      const trial = await activeTrialForBusiness(stored.businessId);
+      if (!trial || !trial.conversationIds.includes(conversationId)) return NextResponse.json({ result: "NOT BOOKED: this private demo has expired or could not be verified." });
+      if (!["checkAvailability", "bookAppointment", "createLead", "getCurrentDate", "addBookingNote"].includes(tool)) {
+        return NextResponse.json({ result: "NOT AVAILABLE: this demo supports booking and field notes only. No outbound calls or emergency dispatch." });
+      }
+      if (await consumeTrialBudget(stored.businessId, "tools")) return NextResponse.json({ result: "NOT BOOKED: this demo has reached its request limit." });
+      if (tool === "bookAppointment" || tool === "createLead") {
+        delete toolParams.email; delete toolParams.customerEmail; delete toolParams.callerEmail;
+        if (trial.email) toolParams.callerEmail = trial.email;
+      }
+    }
     const result = await executeAgentTool(tool, toolParams, {
       businessId: stored.businessId,
       callId: `call_elevenlabs_${conversationId}`,

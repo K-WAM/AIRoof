@@ -222,6 +222,9 @@ async function loadCurrentFieldKey(
   const db = getAdminFirestore();
   if (!db) return { ok: false, status: 503, error: "Database unavailable" };
   const snap = await db.collection("businesses").doc(businessId).get();
+  if (snap.data()?.isDemoTrial === true && !(Number(snap.data()?.demoTrialExpiresAt) > Date.now())) {
+    return { ok: false, status: 403, error: "This demo has expired" };
+  }
   const current = snap.data()?.fieldKey;
   if (typeof current !== "string" || current.length < 16) {
     return { ok: false, status: 401, error: "Field access revoked" };
@@ -513,7 +516,7 @@ async function verifyAuthAndRoleInner(
   // field existed have no such property at all, and treating that as "not
   // active" 403s legitimate legacy members — a real behavior fix, not just
   // a perf one. invite.ts already uses this same convention.
-  if (!member || member.active === false || !businessId || member.businessId !== businessId) {
+  if (!member || member.active === false || (member.isDemoTrial === true && !(Number(member.demoTrialExpiresAt) > Date.now())) || !businessId || member.businessId !== businessId) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
@@ -574,7 +577,7 @@ async function verifyOwnBusinessRoleInner(
   }
 
   const member = await loadCachedMember(db, decoded.uid, allowedRoles.includes("owner"));
-  if (!member || member.active === false || (member.role as string) === "superadmin" || !allowedRoles.includes(member.role)) {
+  if (!member || member.active === false || (member.isDemoTrial === true && !(Number(member.demoTrialExpiresAt) > Date.now())) || (member.role as string) === "superadmin" || !allowedRoles.includes(member.role)) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 

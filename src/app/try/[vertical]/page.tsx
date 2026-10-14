@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { PhoneCall, ArrowDown } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { VERTICAL_PITCH } from "@/lib/verticals/pitch";
+import { RoofingTrial } from "@/components/demo/RoofingTrial";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
@@ -22,6 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<RouteParams
   const { vertical } = await params;
   if (!isVerticalId(vertical)) return {};
   const t = VERTICAL_TEMPLATES[vertical];
+  if (vertical === "roofing") return { title: "Roofing Demo | Luxor", description: "24-hour English and Spanish reception, bookings in the app, and voice updates straight to the job." };
   const title = `${t.label} AI Receptionist — Live Demo`;
   const description = VERTICAL_PITCH[vertical].headline;
   return { title, description, openGraph: { title, description } };
@@ -47,49 +49,24 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
   const phone = DEMO_LINE_PHONE[vertical];
   const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
   if (vertical === "roofing") {
-    const stepStyle: React.CSSProperties = { display: "flex", gap: 14, alignItems: "flex-start", padding: 20 };
-    const numberStyle: React.CSSProperties = { width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 700 };
-    const titleStyle: React.CSSProperties = { margin: "2px 0 12px", fontSize: 18, fontWeight: 700, color: "var(--text)" };
-
-    return (
-      <main style={{ minHeight: "100vh", background: "var(--background)", padding: "32px 20px", display: "flex", justifyContent: "center" }}>
-        <div style={{ width: "100%", maxWidth: 520 }}>
-          <h1 style={{ margin: "0 0 24px", textAlign: "center", fontSize: "1.75rem", lineHeight: 1.2, color: "var(--text)", fontWeight: 800 }}>Try it for yourself</h1>
-          <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
-            <li className="panel" style={stepStyle}>
-              <span aria-hidden="true" style={numberStyle}>1</span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 style={titleStyle}>Call and book</h2>
-                <a href={telHref} className="button primary" aria-label={`Call the receptionist at ${phone}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, width: "100%", fontSize: 18, textDecoration: "none" }}>
-                  <PhoneCall size={18} strokeWidth={1.75} aria-hidden="true" />{phone}
-                </a>
-                <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: 1.5, color: "var(--text-muted)" }}>&ldquo;Can I book a roof inspection?&rdquo;</p>
-              </div>
-            </li>
-            <li className="panel" style={stepStyle}>
-              <span aria-hidden="true" style={numberStyle}>2</span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <EnterSandboxButton vertical={vertical} label="See the App" destination="bookings" />
-                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>Sample bookings · View only</p>
-              </div>
-            </li>
-            <li className="panel" style={stepStyle}>
-              <span aria-hidden="true" style={numberStyle}>3</span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <EnterSandboxButton vertical={vertical} label="See voice updates" destination="field" />
-                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>English or Spanish. Straight into the job.</p>
-              </div>
-            </li>
-          </ol>
-          <p style={{ margin: "16px 0 0", textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>Your call appears in the guided demo.</p>
-          <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>
-            <a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor
-          </p>
-        </div>
-      </main>
-    );
+    return <main style={{ minHeight: "100vh", background: "var(--background)", padding: "28px 20px", display: "flex", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 560 }}>
+        <header style={{ textAlign: "center", marginBottom: 22 }}>
+          <h1 style={{ margin: "0 0 12px", fontSize: "1.65rem", lineHeight: 1.25, color: "var(--text)", fontWeight: 800 }}>24-Hour English &amp; Spanish Support for Your Customers</h1>
+          <p style={{ margin: "0 0 10px", fontSize: 15, lineHeight: 1.5 }}>Automated leads, scheduling, reporting and invoicing for your office.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 14, lineHeight: 1.5, color: "var(--text-muted)" }}>Crews speak their findings and materials into a phone. Updates go straight to the right job for you to see. No computer needed.</p>
+          <p style={{ margin: 0, fontSize: 14 }}>So simple, you won&apos;t need training.</p>
+        </header>
+        <RoofingTrial />
+        <details style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>
+          <summary style={{ cursor: "pointer", minHeight: 44 }}>Guided Phone Demo</summary>
+          <p>Call <a href={telHref}>{phone}</a> during a guided demo. This shared line uses the business name set in Demo Studio; its bookings appear in the guided account.</p>
+          <EnterSandboxButton vertical="roofing" destination="bookings" label="Open Sample App" />
+        </details>
+        <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}><a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor</p>
+      </div>
+    </main>;
   }
-
   const hasField = pitch.flow.includes("field") && !t.disabledModules.includes("jobs");
 
   return (
