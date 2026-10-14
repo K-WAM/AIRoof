@@ -13,6 +13,8 @@ test("roofing has three simple steps and opens the read-only app without a call"
   const app = page.getByRole("button", { name: "See the App", exact: true });
   await expect(app).toBeInViewport();
   await expect(app).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Call and book", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "See voice updates", exact: true })).toBeInViewport();
   await expect(page.getByText("Sample data · View only", { exact: true })).toBeVisible();
   await expect(page.getByText(/AI Receptionist ·|Every leak|See the Software|data loaded|Try Saying|How It Works/i)).toHaveCount(0);
   await expectHealthy(page);
@@ -30,6 +32,46 @@ test("roofing has three simple steps and opens the read-only app without a call"
   expect(write.status()).toBe(403);
   await expectHealthy(page);
   await shot(page, "roofing-demo-entry-app");
+  await page.getByRole("link", { name: "3. See voice updates", exact: true }).click();
+  await expect(page.getByTestId("voice-update-example")).toBeVisible();
+  await expectHealthy(page);
+});
+
+test("voice updates opens the read-only Field example directly and never records or saves", async ({ as }) => {
+  const page = await as("viewer");
+  const mutations: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() !== "GET" && /\/api\/.*(?:updates|field-audio)/.test(request.url())) mutations.push(request.url());
+  });
+  await page.goto("/try/roofing");
+  await page.getByRole("button", { name: "See voice updates", exact: true }).click();
+  await expect(page).toHaveURL(/\/company\/field$/);
+  await expect(page.getByRole("heading", { name: "Field Log", exact: true })).toBeVisible();
+  const example = page.getByTestId("voice-update-example");
+  await expect(example.getByRole("heading", { name: "Speak once. Update the job." })).toBeInViewport();
+  await expect(example).toContainText("Example · No recording");
+  await expect(example).toContainText("12 bundles of shingles");
+  await expect(example).toContainText("Carlos · 8 hours");
+  await expect(example).toContainText("Cracked vent boot");
+  await expect(page.getByRole("region", { name: "Send a field note" })).toHaveCount(0);
+  await expect(page.getByTestId("demo-tour").getByRole("listitem")).toHaveCount(3);
+  const tourBox = await page.getByTestId("demo-tour").boundingBox();
+  const fieldBox = await page.locator(".company-field-page").boundingBox();
+  expect(tourBox && fieldBox && tourBox.y + tourBox.height <= fieldBox.y, "the dark Field page must not cover the tour").toBe(true);
+  const profile = await page.request.get("/api/auth/profile");
+  expect((await profile.json()).profile).toMatchObject({ businessId: "demo-try-roofing", role: "viewer" });
+  expect(mutations).toEqual([]);
+  expect((await page.request.get("/api/businesses/demo-roofing/calls")).status()).toBe(403);
+  const write = await page.request.post("/api/jobs/J-1001/updates", { data: { businessId: "demo-try-roofing", rawText: "Denied visitor field update" } });
+  expect(write.status()).toBe(403);
+  await expectHealthy(page);
+  await shot(page, "roofing-demo-voice-example");
+
+  const office = await as("owner");
+  await office.goto("/company/field?jobId=J-1000");
+  await expect(office.getByRole("region", { name: "Send a field note" })).toBeVisible();
+  await expect(office.getByTestId("voice-update-example")).toHaveCount(0);
+  await expectHealthy(office);
 });
 
 test("a failed app entry leaves an immediate retry and other industries keep their entry", async ({ as }) => {

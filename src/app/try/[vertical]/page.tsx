@@ -122,24 +122,25 @@ export default async function TryVerticalPage({
             <li className="panel" style={stepStyle}>
               <span aria-hidden="true" style={numberStyle}>1</span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 style={titleStyle}>Call the receptionist</h2>
+                <h2 style={titleStyle}>Call and book</h2>
                 <a href={telHref} className="button primary" aria-label={`Call the receptionist at ${phone}`} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, width: "100%", fontSize: 18, textDecoration: "none" }}>
                   <PhoneCall size={18} strokeWidth={1.75} aria-hidden="true" />{phone}
                 </a>
+                <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: 1.5, color: "var(--text-muted)" }}>&ldquo;Can I book a roof inspection?&rdquo;</p>
               </div>
             </li>
             <li className="panel" style={stepStyle}>
               <span aria-hidden="true" style={numberStyle}>2</span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <h2 style={titleStyle}>Make a booking</h2>
-                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: "var(--text-muted)" }}>&ldquo;Can I book a roof inspection?&rdquo;</p>
+                <EnterSandboxButton vertical={vertical} label="See the App" />
+                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>Sample data · View only</p>
               </div>
             </li>
             <li className="panel" style={stepStyle}>
               <span aria-hidden="true" style={numberStyle}>3</span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <EnterSandboxButton vertical={vertical} label="See the App" />
-                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>Sample data · View only</p>
+                <EnterSandboxButton vertical={vertical} label="See voice updates" destination="field" />
+                <p style={{ margin: "10px 0 0", fontSize: 13, lineHeight: 1.5, color: "var(--text-muted)" }}>A quick example from the roof to the office.</p>
               </div>
             </li>
           </ol>

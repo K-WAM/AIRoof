@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
 /** `vertical` = which industry's demo business to open (each has its own; see api/demo/sandbox-token). */
-export function EnterSandboxButton({ vertical, label = "See it in the real app →" }: { vertical?: string; label?: string }) {
+export function EnterSandboxButton({ vertical, label = "See it in the real app →", destination = "dashboard" }: { vertical?: string; label?: string; destination?: "dashboard" | "field" }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export function EnterSandboxButton({ vertical, label = "See it in the real app �
       // bounce this navigation before AuthContext's real ID token lands
       // (AuthContext overwrites this with the real token within moments).
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
-      router.push("/company/dashboard");
+      router.push(destination === "field" ? "/company/field" : "/company/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the sandbox");
       setLoading(false);
