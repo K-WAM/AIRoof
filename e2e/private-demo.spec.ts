@@ -63,13 +63,14 @@ test("a real local booking emails only the entered address and field updates rea
   expect(started.status()).toBe(200);
   const call = await started.json();
   expect(call.firstMessage).toContain(`${name} Roofing`);
+  expect(call.prompt).toContain("No phone number is required for this browser demo");
   const headers = { "x-luxor-tool-secret": SECRETS.tool, "x-luxor-conversation-id": call.conversationId };
   const booked = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
     businessId: "demo-roofing", callerName: name, callerEmail: "wrong@example.test", email: "also-wrong@example.test",
-    callbackPhone: "+13055550191", serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432",
+    serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432",
     startTime: "2030-07-23T10:00:00-04:00", endTime: "2030-07-23T11:00:00-04:00",
   } });
-  expect((await booked.json()).result).toContain("BOOKED:");
+  expect((await booked.json()).result).toMatch(/^BOOKED:/);
   const job = await readDoc(`businesses/${profile.businessId}/jobs/J-1001`);
   expect(job).toMatchObject({ clientName: name, clientEmail: email, sourceCallId: `call_elevenlabs_${call.conversationId}` });
   const appointment = await readDoc(`businesses/${profile.businessId}/appointments/${job!.sourceAppointmentId}`);
@@ -102,6 +103,10 @@ test("a real local booking emails only the entered address and field updates rea
   expect(updated!.sourceAppointmentId).toBe(job!.sourceAppointmentId);
   await page.getByRole("link", { name: "See Updated Job", exact: true }).click();
   await expect(page).toHaveURL(/\/company\/jobs\/J-1001/);
+  await expect(page.getByRole("heading", { name: /^Your Demo Roof Inspection/ })).toBeVisible();
+  await expect(page.getByText(/Used 12 bundles of shingles/).first()).toBeVisible();
+  await expect(page.getByText("Loading history…", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Add a note", exact: true })).toHaveCount(0);
   await expectHealthy(page);
   await shot(page, "private-demo-job");
   const other = await as("viewer");
@@ -122,8 +127,13 @@ test("missing, foreign and expired sessions fail closed; paid calls and notes st
   expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(429);
   const grant = await (await page.request.post("/api/demo/roofing-trial", { data: { action: "field" } })).json();
   await page.goto(grant.url);
+  expect((await page.request.post("/api/jobs/J-1001/photos", { data: { businessId: profile.businessId, label: "Denied demo upload", thumbB64: "AAAA", fullB64: "AAAA" } })).status()).toBe(403);
+  expect((await page.request.post("/api/timeclock/punch", { data: { businessId: profile.businessId, type: "site_in", jobId: "J-1001", workerName: profile.displayName } })).status()).toBe(403);
   for (let i = 0; i < 3; i++) expect((await page.request.post("/api/jobs/J-1001/updates", { data: { businessId: profile.businessId, rawText: "Inspected the roof.", submittedBy: profile.displayName } })).status()).toBe(201);
   expect((await page.request.post("/api/jobs/J-1001/updates", { data: { businessId: profile.businessId, rawText: "One more note", submittedBy: profile.displayName } })).status()).toBe(429);
+  const correction = { businessId: profile.businessId, submittedBy: profile.displayName, confirmCorrection: { targetUpdateId: "demo-fixture", item: "shingles", field: "materials", newValue: 2 } };
+  for (let i = 0; i < 6; i++) expect((await page.request.post("/api/jobs/J-1001/updates", { data: correction })).status()).toBe(201);
+  expect((await page.request.post("/api/jobs/J-1001/updates", { data: correction })).status()).toBe(429);
   const id = profile.businessId.replace("demo-trial-roofing-", "");
   await db().collection("demoTrials").doc(id).update({ expiresAt: 0 });
   await db().collection("businesses").doc(profile.businessId).update({ demoTrialExpiresAt: 0 });
@@ -140,4 +150,51 @@ test("the demo-only CSP permits its audio worklets without altering other pages"
   expect(demo.headers()["content-security-policy"]).toContain("'wasm-unsafe-eval'");
   expect(ordinary.headers()["content-security-policy"]).not.toContain("'wasm-unsafe-eval'");
   for (const file of ["rawAudioProcessor.js", "audioConcatProcessor.js", "libsamplerate.worklet.js"]) expect((await page.request.get(`/voice-worklets/${file}`)).status()).toBe(200);
+});
+
+test("browser calling loads real SDK audio worklets and disconnects cleanly with a mocked provider", async ({ as }) => {
+  const page = await as("viewer");
+  await createFromLanding(page, `Browser Audio ${Date.now()}`);
+  await page.addInitScript(() => {
+    const NativeAudioContext = window.AudioContext;
+    const loadedModules: string[] = [];
+    (window as unknown as { trialAudioModules: string[] }).trialAudioModules = loadedModules;
+    const addModule = AudioWorklet.prototype.addModule;
+    AudioWorklet.prototype.addModule = async function (url, options) { await addModule.call(this, url, options); loadedModules.push(String(url)); };
+    // Force sample-rate conversion so this verifies the self-hosted WASM resampler under the real page CSP.
+    window.AudioContext = class extends NativeAudioContext { constructor() { super({ sampleRate: 44100 }); } };
+    const constraints = navigator.mediaDevices.getSupportedConstraints();
+    navigator.mediaDevices.getSupportedConstraints = () => ({ ...constraints, sampleRate: false });
+    navigator.mediaDevices.getUserMedia = async () => {
+      const context = new NativeAudioContext();
+      const oscillator = context.createOscillator(), destination = context.createMediaStreamDestination();
+      oscillator.connect(destination); oscillator.start();
+      return destination.stream;
+    };
+  });
+
+  let textOnly: unknown;
+
+  await page.routeWebSocket("wss://api.elevenlabs.io/**", (socket) => {
+    socket.onMessage((raw) => {
+      const message = JSON.parse(String(raw));
+      if (message.type !== "conversation_initiation_client_data") return;
+      textOnly = message.conversation_config_override?.conversation?.text_only;
+      const conversationId = new URL(socket.url()).searchParams.get("conversation_id");
+      socket.send(JSON.stringify({ type: "conversation_initiation_metadata", conversation_initiation_metadata_event: {
+        conversation_id: conversationId, agent_output_audio_format: "pcm_24000", user_input_audio_format: "pcm_16000",
+      } }));
+    });
+  });
+  await page.goto("/try/roofing");
+  await page.getByRole("button", { name: "Call and Book", exact: true }).click();
+  await expect(page.getByText(/You're speaking with Browser Audio/)).toBeVisible({ timeout: 30000 });
+  await expect(page.getByRole("button", { name: "End Call", exact: true })).toBeEnabled();
+  expect(textOnly).toBe(false);
+  const loaded = await page.evaluate(() => (window as unknown as { trialAudioModules: string[] }).trialAudioModules);
+  for (const file of ["libsamplerate.worklet.js", "rawAudioProcessor.js", "audioConcatProcessor.js"]) expect(loaded).toContain(`/voice-worklets/${file}`);
+  await shot(page, "private-demo-browser-call");
+  await page.getByRole("button", { name: "End Call", exact: true }).click();
+  await expect(page.getByText("Call ended. Continue in the app.")).toBeVisible();
+  await expectHealthy(page);
 });

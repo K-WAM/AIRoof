@@ -13,11 +13,11 @@ import type { BusinessConfig } from "@/types";
 export const TRIAL_COOKIE = "luxor_roofing_demo";
 export const TRIAL_PREFIX = "demo-trial-roofing-";
 export const TRIAL_TTL_MS = 60 * 60_000;
-export const TRIAL_LIMITS = { calls: 2, notes: 3, tools: 24 } as const;
+export const TRIAL_LIMITS = { calls: 2, notes: 3, tools: 24, corrections: 6 } as const;
 export type TrialCounter = keyof typeof TRIAL_LIMITS;
 export interface RoofingTrial {
   id: string; uid: string; businessId: string; secretHash: string; name: string; companyName: string;
-  email: string | null; createdAt: number; expiresAt: number; calls: number; notes: number; tools: number;
+  email: string | null; createdAt: number; expiresAt: number; calls: number; notes: number; tools: number; corrections: number;
   conversationIds: string[]; confirmationAppointmentId?: string;
 }
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -92,7 +92,7 @@ export async function createTrial(request: NextRequest, details: NonNullable<Ret
   if (!allowed) return null;
   const id = randomBytes(16).toString("hex"), secret = randomBytes(32).toString("hex");
   const trial: RoofingTrial = { ...details, id, uid: `demo-trial-${id}`, businessId: `${TRIAL_PREFIX}${id}`, secretHash: hash(secret),
-    createdAt: now, expiresAt: now + TRIAL_TTL_MS, calls: 0, notes: 0, tools: 0, conversationIds: [] };
+    createdAt: now, expiresAt: now + TRIAL_TTL_MS, calls: 0, notes: 0, tools: 0, corrections: 0, conversationIds: [] };
   await auth.createUser({ uid: trial.uid, displayName: trial.name });
   try {
     const batch = db.batch(), base = db.collection("businesses").doc(trial.businessId);
@@ -119,8 +119,10 @@ export async function startTrialCall(trial: RoofingTrial) {
   if (limited) return limited;
   let signedUrl: string, conversationId: string;
   if (isE2EHarness()) {
-    conversationId = `e2e-trial-${randomBytes(8).toString("hex")}`;
-    signedUrl = `wss://localhost/never-a-production-fallback/${conversationId}`;
+    conversationId = `conv_e2e_${randomBytes(8).toString("hex")}`;
+    // Browser specs intercept this exact invalid agent/signature at the WebSocket boundary.
+    // The complete harness guard above prevents this fixture from running on Vercel.
+    signedUrl = `wss://api.elevenlabs.io/v1/convai/conversation?agent_id=e2e-never-live&conversation_signature=e2e-fixture&conversation_id=${conversationId}`;
   } else {
     const agentId = process.env.DEMO_TRIAL_AGENT_ID, key = process.env.ELEVENLABS_API_KEY;
     if (!agentId || !key) return NextResponse.json({ error: "Browser calling is not ready. Contact connect@luxordev.com." }, { status: 503 });
@@ -135,7 +137,7 @@ export async function startTrialCall(trial: RoofingTrial) {
   const db = getAdminFirestore()!;
   const config = (await db.collection("businesses").doc(trial.businessId).get()).data() as BusinessConfig;
   const initiation = buildInitiationResponse(config, undefined);
-  const prompt = `${initiation.conversation_config_override.agent?.prompt?.prompt || ""}\n## Private browser demo\nThis is a private demonstration, not a real service order. The visitor's name is ${JSON.stringify(trial.name)}; their demo confirmation email is ${JSON.stringify(trial.email)}. Do not ask again for those supplied details. Use a fictional inspection address. There is no carrier caller ID in this browser call: never invent a phone number. If needed, ask for their preferred callback number once. Book through the real tools and use their exact result. No emergency dispatch or outbound calls are available in this demo.`;
+  const prompt = `${initiation.conversation_config_override.agent?.prompt?.prompt || ""}\n## Private browser demo\nThis is a private demonstration, not a real service order. The visitor's name is ${JSON.stringify(trial.name)}; their demo confirmation email is ${JSON.stringify(trial.email)}. Do not ask again for those supplied details. Use a fictional inspection address. There is no carrier caller ID in this browser call: never invent a phone number. No phone number is required for this browser demo: do not ask for one, and omit callbackPhone unless the visitor volunteers a number. This replaces the general callback-number collection instruction for this private demo only. Book through the real tools and use their exact result. No emergency dispatch or outbound calls are available in this demo.`;
   await persistElevenLabsConversation({ businessId: trial.businessId, conversationId, agentId: process.env.DEMO_TRIAL_AGENT_ID,
     expiresAt: Math.min(trial.expiresAt, Date.now() + 10 * 60_000) });
   const trialRef = db.collection("demoTrials").doc(trial.id);

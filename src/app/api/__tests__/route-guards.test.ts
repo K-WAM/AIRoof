@@ -26,6 +26,7 @@ const GUARDS = [
 
 // Route path (relative to src/app/api, forward slashes) → why it is safe without a guard.
 const PUBLIC_ROUTES: Record<string, string> = {
+  "demo/roofing-trial/route.ts": "bounded public signup creates an isolated, expiring viewer tenant; resume/call/field require its 256-bit HttpOnly session secret, same-origin POST and persistent usage budgets",
   "health/route.ts": "reports configured/not-configured booleans only; no tenant data",
   "calendar/feed/[token]/route.ts": "the unguessable token IS the credential: only its sha256 is stored, unknown/inactive → 404",
   "quote-response/route.ts": "a single-use, 256-bit email token is the credential; GET is read-only and POST checks the hash and sent status transactionally",

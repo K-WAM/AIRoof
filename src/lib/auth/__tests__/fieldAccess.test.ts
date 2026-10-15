@@ -131,6 +131,21 @@ describe("scoped field access tokens", () => {
     ))).toBe(401);
   });
 
+  it("limits private-demo grants to their note endpoints, even with valid job credentials", async () => {
+    const trial = `demo-trial-roofing-${"a".repeat(32)}`;
+    mocks.firestore!.documents.set(`businesses/${trial}`, { fieldKey: FIELD_KEY, isDemoTrial: true, demoTrialExpiresAt: NOW.getTime() + 60000 });
+    const grant = mintFieldExchangeToken(trial, FIELD_KEY, "J-1001");
+    const session = await consumeFieldExchangeToken(grant.token);
+    expect(session.ok).toBe(true);
+    const token = session.ok ? session.token : "";
+    for (const path of ["/api/jobs/J-1001/photos", "/api/jobs/J-1001/findings", "/api/timeclock/punch", "/api/transcribe", "/api/jobs/J-1002/updates"]) {
+      expect(statusOf(await verifyFieldAccess(request(path, token), trial, { write: true, jobId: "J-1001" }))).toBe(403);
+    }
+    for (const path of ["/api/jobs/J-1001/updates", "/api/jobs/J-1001/field-audio"]) {
+      expect(statusOf(await verifyFieldAccess(request(path, token), trial, { write: true, jobId: "J-1001" }))).toBe(200);
+    }
+  });
+
   it("rejects tampered and expired exchange grants", async () => {
     const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY);
     const tampered = `${grant.token.slice(0, -1)}${grant.token.endsWith("a") ? "b" : "a"}`;

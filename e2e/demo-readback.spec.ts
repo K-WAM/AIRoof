@@ -29,6 +29,12 @@ test("Demo Studio changes the next greeting and office inbox without removing a 
 });
 
 test("office request email has no call ID and identifies the confirmation action", async ({ page }, testInfo) => {
+  // Rehearsals leave their bookings behind; cancel only this spec's own fixtures through the real API.
+  const owner = await api("owner");
+  const previous = must(await owner.get("/api/businesses/e2e-roofing/appointments"), "email fixtures").appointments;
+  for (const appointment of previous.filter((item: { callerName?: string }) => item.callerName?.startsWith("Email review "))) {
+    must(await owner.patch(`/api/appointments/${appointment.appointmentId ?? appointment.id}`, { businessId: "e2e-roofing", declineReason: "Other" }), "cancel old email fixture");
+  }
   const stamp = Date.now();
   const caller = `Email review ${stamp}`;
   const day = testInfo.project.name === "phone" ? "24" : "23";
@@ -36,7 +42,7 @@ test("office request email has no call ID and identifies the confirmation action
     callerName: caller, callerEmail: "demo-customer@example.test", serviceType: "Roof inspection",
     address: "317 Palm Way, Boca Raton, 33432", startTime: `2030-07-${day}T10:00:00-04:00`, endTime: `2030-07-${day}T11:00:00-04:00`,
   }]] });
-  expect(call.toolResults[0].result.result).toContain("BOOKED:");
+  expect(call.toolResults[0].result.result).toMatch(/^BOOKED:/);
   const messages = await outbox({ subject: caller });
   const office = messages.find((message) => String(message.html || "").includes("New Appointment Request for Your Office"));
   expect(office).toBeTruthy();

@@ -10,9 +10,10 @@ export async function finishTrialBooking(businessId: string, callId: string, app
   const trialRef = db.collection("demoTrials").doc(businessId.slice(TRIAL_PREFIX.length));
   const ref = db.collection("businesses").doc(businessId).collection("appointments").doc(appointmentId);
   const result = await db.runTransaction(async (tx) => {
-    const [trialSnap, apptSnap] = await Promise.all([tx.get(trialRef), tx.get(ref)]);
+    const [trialSnap, apptSnap, businessSnap] = await Promise.all([tx.get(trialRef), tx.get(ref), tx.get(db.collection("businesses").doc(businessId))]);
     const trial = trialSnap.data() as RoofingTrial | undefined, appointment = apptSnap.data();
-    if (!trial || trial.businessId !== businessId || trial.expiresAt <= Date.now() || !trial.conversationIds.some((id) => callId === `call_elevenlabs_${id}`) || !appointment || appointment.sourceCallId !== callId) return null;
+    const business = businessSnap.data();
+    if (!trial || trial.businessId !== businessId || trial.expiresAt <= Date.now() || !trial.conversationIds.some((id) => callId === `call_elevenlabs_${id}`) || !appointment || appointment.sourceCallId !== callId || business?.isDemoTrial !== true || business.isDemo !== true || !(business.demoTrialExpiresAt > Date.now())) return null;
     tx.update(ref, { status: "confirmed", pendingConfirmation: false, jobId: "J-1001", callerEmail: trial.email, updatedAt: Date.now() });
     tx.update(db.collection("businesses").doc(businessId).collection("jobs").doc("J-1001"), {
       title: "Your Demo Roof Inspection", clientName: appointment.callerName, clientPhone: appointment.callerPhone,

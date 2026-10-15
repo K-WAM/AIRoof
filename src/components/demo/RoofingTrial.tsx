@@ -23,6 +23,7 @@ export async function openPrivateFieldDemo() {
 export function RoofingTrial() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [intent, setIntent] = useState<Intent | null>(null);
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -36,7 +37,8 @@ export function RoofingTrial() {
   const mounted = useRef(true);
   useEffect(() => {
     let cancelled = false; mounted.current = true;
-    fetch("/api/demo/roofing-trial").then((r) => r.json()).then((data) => { if (!cancelled && data.token) setSession(data); }).catch(() => {});
+    fetch("/api/demo/roofing-trial", { signal: AbortSignal.timeout(8000) }).then((r) => r.json()).then((data) => { if (!cancelled && data.token) setSession(data); }).catch(() => {})
+      .finally(() => { if (!cancelled) setSessionReady(true); });
     return () => { cancelled = true; mounted.current = false; if (timer.current) clearTimeout(timer.current); void conversation.current?.endSession(); };
   }, []);
 
@@ -109,20 +111,20 @@ export function RoofingTrial() {
     <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
       <li className="panel" style={card}>
         <span aria-hidden="true" style={number}>1</span>
-        <button className="button primary" style={button} disabled={busy || inCall} onClick={() => choose("call")}><Mic size={18} aria-hidden="true" />{callState === "connecting" ? "Connecting…" : "Call and Book"}</button>
+        <button className="button primary" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("call")}><Mic size={18} aria-hidden="true" />{callState === "connecting" ? "Connecting…" : "Call and Book"}</button>
         <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Ask Alice for a roof inspection. English or Spanish.</p>
         {inCall && <div role="status" style={{ marginTop: 12 }}>
           <p>{callState === "connected" ? `You're speaking with ${session?.companyName || "Alice"}.` : "Opening your microphone…"}</p>
           {lastMessage && <p style={{ fontSize: 13 }}>{lastMessage}</p>}
           <button className="button" style={button} onClick={() => void conversation.current?.endSession()} disabled={!conversation.current}><PhoneOff size={16} />End Call</button>
         </div>}
-        {callState === "ended" && <p role="status" style={{ fontSize: 13 }}>Call ended. Open the app to see your booking.</p>}
+        {callState === "ended" && <p role="status" style={{ fontSize: 13 }}>Call ended. Continue in the app.</p>}
       </li>
       <li className="panel" style={card}><span aria-hidden="true" style={number}>2</span>
-        <button className="button" style={button} disabled={busy || inCall} onClick={() => choose("bookings")}><CalendarDays size={18} aria-hidden="true" />See Your Booking in the App</button>
+        <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("bookings")}><CalendarDays size={18} aria-hidden="true" />See Your Booking in the App</button>
       </li>
       <li className="panel" style={card}><span aria-hidden="true" style={number}>3</span>
-        <button className="button" style={button} disabled={busy || inCall} onClick={() => choose("field")}><Mic size={18} aria-hidden="true" />Add a Voice Update</button>
+        <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("field")}><Mic size={18} aria-hidden="true" />Add a Voice Update</button>
         <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Speak your findings. See them saved to your demo job.</p>
       </li>
     </ol>

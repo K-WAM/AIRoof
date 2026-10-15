@@ -3012,6 +3012,6 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 ### Demo rehearsal follow-up (2026-10-14)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-213 | `main` / `D:/Apps/AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | in progress |
-| T-214 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | in progress; personal booking/voice access clarification pending |
-| T-215 | `main` / `D:/Apps/AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | in progress; owner chose browser call |
+| T-213 | `main` / `D:/Apps/AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | review; readback/model, editor/email and API tests pass |
+| T-214 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | review; owner chose private browser call, centered three-step flow implemented |
+| T-215 | `main` / `D:/Apps/AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | review; isolated booking/email/field journey and SDK audio pass; final broad browser/live gates running |

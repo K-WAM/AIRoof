@@ -57,12 +57,13 @@ function FieldApp() {
   const [accessDenied, setAccessDenied] = useState(searchParams?.get("access") === "denied");
   const [selectedJobId, setSelectedJobId] = useState(prefillJobId);
   // Remembered per-device so a returning crew member never has to retype it — this is the
-  // anonymous QR path (no login), so a name field with no memory at all meant everyone typed
-  // their name fresh on every single visit. Hydrated lazily (not in an effect) so it's already
-  // correct on the very first paint, before the mic button is even usable.
-  const [workerName, setWorkerName] = useState(() => {
-    try { return localStorage.getItem(WORKER_NAME_STORE) ?? ""; } catch { return ""; }
-  });
+  // anonymous QR path (no login), so returning workers should not retype it. Restore only
+  // after hydration: the server cannot read localStorage, and differing initial names made
+  // the whole field screen regenerate on the client.
+  const [workerName, setWorkerName] = useState("");
+  useEffect(() => {
+    try { setWorkerName(localStorage.getItem(WORKER_NAME_STORE) ?? ""); } catch { /* optional remembered name */ }
+  }, []);
   const [savedNote, setSavedNote] = useState<string | null>(null);
   const [notesVersion, setNotesVersion] = useState(0);
   const [jobsVersion, setJobsVersion] = useState(0);

@@ -74,6 +74,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const now = Date.now();
 
   if (confirmCorrection) {
+    const correctionLimit = await consumeTrialBudget(businessId, "corrections");
+    if (correctionLimit) return correctionLimit;
     const corrId = ledgerId("cor", now);
     await updatesCol.doc(corrId).set({
       updateId: corrId,

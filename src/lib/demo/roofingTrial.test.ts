@@ -13,7 +13,7 @@ describe("private roofing trial boundaries", () => {
   const request = (cookie?: string) => new NextRequest("https://example.test/api/demo/roofing-trial", { headers: cookie ? { cookie: `${TRIAL_COOKIE}=${cookie}` } : {} });
   function seed(overrides = {}) {
     db.__seed("demoTrials", id, { id, businessId, secretHash: createHash("sha256").update(secret).digest("hex"),
-      expiresAt: Date.now() + 60000, calls: 0, notes: 0, tools: 0, ...overrides });
+      expiresAt: Date.now() + 60000, calls: 0, notes: 0, tools: 0, corrections: 0, ...overrides });
   }
   it("denies absent, wrong, malformed and expired credentials", async () => {
     seed();
@@ -55,6 +55,13 @@ describe("private roofing trial boundaries", () => {
     expect(isTrialBusiness("demo-roofing")).toBe(false);
     expect(isTrialBusiness(`${TRIAL_PREFIX}../client`)).toBe(false);
     expect(validTrialDetails({ name: " Caller ", companyName: " RoofDoctors ", email: "ME@EXAMPLE.COM" })).toEqual({ name: "Caller", companyName: "RoofDoctors", email: "me@example.com" });
+  });
+  it("bounds explicit correction writes separately from the three paid notes", async () => {
+    seed({ notes: 3 });
+    const attempts = await Promise.all(Array.from({ length: 9 }, () => consumeTrialBudget(businessId, "corrections")));
+    expect(attempts.filter((r) => r === null)).toHaveLength(6);
+    expect(db.__peek("demoTrials", id)?.notes).toBe(3);
+    expect(await consumeTrialBudget("real-client", "corrections")).toBeNull();
   });
   it("uses only explicit demo configuration, not shared phone routing or office recipients", () => {
     const config = trialConfig({ businessId, companyName: "RoofDoctors", name: "Caller", expiresAt: Date.now() + 60000 }, "private-field-key");

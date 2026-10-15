@@ -1103,10 +1103,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               <ClipboardList size={16} strokeWidth={1.75} />
               Field updates ({updates.length})
             </h2>
-            <a className="button" href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
+            {!readOnly && <a className="button" href={`/company/field?jobId=${jobId}${preview ? `&preview=${preview}` : ""}`} style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 5 }}>
               <ExternalLink size={13} strokeWidth={1.75} />
               Add a note
-            </a>
+            </a>}
           </div>
           <div className="panel-body">
             {updates.length === 0 ? (

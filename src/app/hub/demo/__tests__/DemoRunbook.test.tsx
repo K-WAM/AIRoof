@@ -7,11 +7,11 @@ import { DemoRunbook, previewHref } from "../DemoRunbook";
 describe("DemoRunbook", () => {
   afterEach(cleanup);
 
-  it("includes crew scheduling and distinguishes the sample link from live calls", () => {
+  it("includes guided crew scheduling and the private browser follow-up", () => {
     render(<DemoRunbook />);
     expect(screen.getAllByRole("listitem")).toHaveLength(8);
     expect(screen.getByText(/Hand them the number/)).toBeInTheDocument();
-    expect(screen.getByText(/Your real call is in the guided demo/)).toBeInTheDocument();
+    expect(screen.getByText(/call Alice in the browser, then see your booking and add a field note in your own demo/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("href", previewHref("calendar"));
     expect(screen.getByRole("link", { name: "J-1001" })).toHaveAttribute("href", previewHref("jobs/J-1001"));
     expect(screen.getByRole("link", { name: "Calls" })).toHaveAttribute("href", previewHref("calls"));

@@ -77,6 +77,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   // ── Confirm step: write the correction event the user approved ──
   if (confirmCorrection) {
+    const correctionLimit = await consumeTrialBudget(businessId, "corrections");
+    if (correctionLimit) return correctionLimit;
     const corrId = ledgerId("cor", now);
     const corrEntry: FieldUpdate = {
       updateId: corrId,

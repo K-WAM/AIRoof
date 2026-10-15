@@ -625,6 +625,11 @@ export async function verifyFieldAccess(
   businessId: string,
   options?: { jobId?: string; allowOfficePunch?: boolean; write?: true },
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
+  // Public private-demo grants demonstrate notes only. Hiding upload/clock controls is not authorization.
+  if (options?.write && typeof businessId === "string" && businessId.startsWith("demo-trial-roofing-") &&
+      !/^\/api\/jobs\/J-1001\/(updates|field-audio)$/.test(req.nextUrl.pathname)) {
+    return { error: NextResponse.json({ error: "This demo supports field notes only." }, { status: 403 }) };
+  }
   return enforceProduct(req, businessId, await verifyFieldAccessInner(req, businessId, options));
 }
 
