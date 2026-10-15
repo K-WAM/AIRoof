@@ -7,7 +7,7 @@ export const maxDuration = 30;
 function noStore(response: NextResponse) { response.headers.set("Cache-Control", "no-store"); response.headers.set("Referrer-Policy", "no-referrer"); return response; }
 async function sessionResponse(trial: RoofingTrial) {
   const token = await getAdminAuth()!.createCustomToken(trial.uid);
-  return noStore(NextResponse.json({ token, name: trial.name, companyName: trial.companyName, businessId: trial.businessId,
+  return noStore(NextResponse.json({ token, name: trial.name, companyName: trial.companyName, email: trial.email, businessId: trial.businessId,
     expiresAt: trial.expiresAt, callsLeft: Math.max(0, 2 - trial.calls), notesLeft: Math.max(0, 3 - trial.notes) }));
 }
 export async function GET(request: NextRequest) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (body.action !== "create" || Object.keys(body).some((key) => !["action", "name", "companyName", "email"].includes(key))) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
     const details = validTrialDetails(body);
     if (!details) return noStore(NextResponse.json({ error: "Enter your name, business name and a valid optional email." }, { status: 400 }));
-    if (trial) return sessionResponse(trial);
+    if (trial && trial.name === details.name && trial.companyName === details.companyName && trial.email === details.email) return sessionResponse(trial);
     const created = await createTrial(request, details);
     if (!created) return noStore(NextResponse.json({ error: "Today's demo limit has been reached. Contact connect@luxordev.com for a guided demo." }, { status: 429 }));
     const response = await sessionResponse(created.trial);

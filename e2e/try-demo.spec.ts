@@ -35,7 +35,7 @@ for (const entry of [
       await route.fulfill({ json: { token } });
     });
     await page.goto("/try/roofing");
-    await page.getByText("Guided Phone Demo", { exact: true }).click();
+    await page.getByText("Try the Shared Phone Line", { exact: true }).click();
     await page.getByRole("button", { name: entry.button }).click();
     await expect(page).toHaveURL(entry.target);
     await expect(page.getByText(/Failed to load this page|Application error/)).toHaveCount(0);
@@ -46,7 +46,7 @@ for (const entry of [
 test("unavailable demo stays on the page with a clear error", async ({ page }) => {
   await page.route("**/api/demo/sandbox-token", (route) => route.fulfill({ status: 503, json: { error: "Sandbox unavailable" } }));
   await page.goto("/try/roofing");
-  await page.getByText("Guided Phone Demo", { exact: true }).click();
+  await page.getByText("Try the Shared Phone Line", { exact: true }).click();
   await page.getByRole("button", { name: "Open Sample App" }).click();
   await expect(page.getByText("Sandbox unavailable")).toBeVisible();
   await expect(page).toHaveURL(/\/try\/roofing$/);

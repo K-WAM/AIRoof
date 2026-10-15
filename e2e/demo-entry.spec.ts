@@ -7,8 +7,9 @@ test("roofing has three simple steps and opens the read-only app without a call"
   await settle(page, 300);
   await expect(page.getByRole("heading", { name: "24-Hour English & Spanish Support for Your Customers" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Try the demo" }).getByRole("listitem")).toHaveCount(3);
-  await page.getByText("Guided Phone Demo", { exact: true }).click();
-  const call = page.getByRole("link", { name: "+1 (689) 204-2643", exact: true });
+  await expect(page.getByRole("link", { name: "Schedule a Live Demo", exact: true })).toHaveAttribute("href", "https://luxordev.com/demo?source=airoof");
+  await page.getByText("Try the Shared Phone Line", { exact: true }).click();
+  const call = page.getByRole("link", { name: "Call +1 (689) 204-2643", exact: true });
   await expect(call).toHaveAttribute("href", "tel:+16892042643");
   const app = page.getByRole("button", { name: "Open Sample App", exact: true });
   await expect(app).toBeEnabled();
@@ -43,7 +44,7 @@ test("voice updates opens the read-only Field example directly and never records
     if (request.method() !== "GET" && /\/api\/.*(?:updates|field-audio)/.test(request.url())) mutations.push(request.url());
   });
   await page.goto("/try/roofing");
-  await page.getByText("Guided Phone Demo", { exact: true }).click();
+  await page.getByText("Try the Shared Phone Line", { exact: true }).click();
   await page.getByRole("button", { name: "Open Sample App", exact: true }).click();
   await page.getByRole("link", { name: "3. See voice updates", exact: true }).click();
   await expect(page).toHaveURL(/\/company\/field\?jobId=J-1001$/);
@@ -85,7 +86,7 @@ test("a failed app entry leaves an immediate retry and other industries keep the
   const page = await as("viewer");
   await page.route("**/api/demo/sandbox-token", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Demo unavailable. Please try again." }) }));
   await page.goto("/try/roofing");
-  await page.getByText("Guided Phone Demo", { exact: true }).click();
+  await page.getByText("Try the Shared Phone Line", { exact: true }).click();
   const app = page.getByRole("button", { name: "Open Sample App", exact: true });
   await app.click();
   await expect(page.getByText("Demo unavailable. Please try again.", { exact: true })).toBeVisible();

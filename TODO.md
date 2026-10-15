@@ -2967,6 +2967,8 @@ path were both traced end-to-end and confirmed connected/correct this session (s
 
 | NH-33 | **RoofDoctors remaining physical checks (2026-10-14 final follow-up).** Private browser call and field microphone received real audio; owner saved a booking and notes. No setup email was entered, so customer inbox delivery remains untested. Final shared-phone call October 14 9:45 PM Pacific through cf6ff5f PASSED: correct outside-hours explanation, verified Friday October 16 8 AM alternative, one successful appointment, no repeated intake; provider tools/results and stored booking read. Automatic ended transcript has 15 turns (84 seconds). Prior rehearsal separately verified suffix/address pronunciation. Provider retries require owner workspace access (restricted PATCH 401; browser sign-in required). This IP used today's three starts; no budget reset/bypass. | Actual customer inbox, Spanish field speech, provider retry setting | [Exact steps and review](docs/ROOFDOCTORS-DEMO-HANDOFF.md). Post-deploy real-phone booking/transcript gate complete; temporary review credentials/raw exports removed. |
 
+| NH-34 | **Private-demo SMS and Calendly setup (T-221, owner 2026-10-14).** Production still has no SMS_ENABLED flag, and private browser tenants have no registered Ready sender. A carrier-ready, explicit platform-demo sender design is needed before offering phone confirmation; never borrow a different tenant's line or claim a text was sent. No Calendly account/event is connected; the new live-demo button uses the verified https://luxordev.com/demo day/time request picker. To switch to instant Calendly booking, connect the owner's calendar and supply its public event link as LIVE_DEMO_BOOKING_URL, then rebuild. | Registered SMS sender/carrier readiness; connected Calendly event link | Existing calendar request picker is usable now. |
+
 ## Deferred (from CIB — do not schedule without owner request)
 
 Pagination/search/virtualization; field-theme unification; toast component unification
@@ -3030,3 +3032,13 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | T-219 | Codex integrator | main | released; final browser and visual checks pass | Final visual review: static readable viewer Findings; hide office editors and block viewer autosave, API guards unchanged. |
 
 | T-220 | Codex integrator | main | released; CI, 18 agent checks, full browser and physical booking/transcript gate pass | Direct availability answers, one-time intake and server-protected appointment changes. Final 84-second real call: one Friday October 16 8 AM booking, no repeated intake; automatic ended transcript 15 turns. Separate adversarial failed-cancellation model fixture remains documented; server denies duplicate writes. |
+
+## Demo personalization and hub facts (2026-10-14)
+
+| Task | Role | Branch / checkout | Status | Owned scope |
+|---|---|---|---|---|
+| T-221 | Codex integrator | codex/demo-personalization-status / D:/Apps/AI Receptionist | review; full local release gates pass, publication next | Resumed trial identity, guided/scheduled entry, scoped tests and evidence; see MASTER_PLAN. SMS/Calendly prerequisites remain NH-34. |
+| T-222 | Codex integrator | codex/demo-personalization-status / D:/Apps/AI Receptionist | review; full local release gates pass, live JSON verification next | Public fact sheet/route/tests, build metadata and maintenance rule; see MASTER_PLAN |
+
+- NEEDS-HUMAN (T-221): SMS_ENABLED is absent in Production; private browser trials have no registered ready SMS sender. Do not enable or borrow another tenant's number. SMS requires carrier-ready registration and an explicit supported sender configuration.
+- Calendly: no connected account/event link supplied. The owner's existing https://luxordev.com/demo calendar is available as a truthful day/time request flow; an instant-confirmation Calendly link can replace it once connected to the owner's calendar.

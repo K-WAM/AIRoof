@@ -1,11 +1,12 @@
-// Public, static demo entry. Calls use the existing live demo line; the app
-// opens a separate, per-industry sample business with the existing viewer role.
+// Public demo entry. Roofing offers a private personalized browser demo;
+// the separate shared phone line and per-industry viewer samples remain available.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PhoneCall, ArrowDown } from "lucide-react";
+import { PhoneCall, ArrowDown, CalendarDays } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { VERTICAL_PITCH } from "@/lib/verticals/pitch";
 import { RoofingTrial } from "@/components/demo/RoofingTrial";
+import { liveDemoUrl } from "@/lib/demo/liveDemoUrl";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
@@ -58,9 +59,15 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
           <p style={{ margin: 0, fontSize: 14 }}>So simple, you won&apos;t need training.</p>
         </header>
         <RoofingTrial />
-        <details style={{ marginTop: 16, textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}>
-          <summary style={{ cursor: "pointer", minHeight: 44 }}>Guided Phone Demo</summary>
-          <p>Call <a href={telHref}>{phone}</a> during a guided demo. This shared line uses the business name set in Demo Studio; its bookings appear in the guided account.</p>
+        <section aria-label="Meet with Luxor" style={{ textAlign: "center", marginTop: 20 }}>
+          <a className="button" href={liveDemoUrl()} style={{ minHeight: 48, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 18px", textDecoration: "none" }}><CalendarDays size={18} aria-hidden="true" />Schedule a Live Demo</a>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-muted)" }}>Choose a day and time to meet with Luxor.</p>
+        </section>
+        <details style={{ marginTop: 16, textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>
+          <summary style={{ cursor: "pointer", minHeight: 44, padding: "12px 8px", border: "1px solid var(--border)", borderRadius: 10 }}>Try the Shared Phone Line</summary>
+          <p style={{ lineHeight: 1.5 }}>This separate phone demo uses a shared business name. Use Call and Book above to hear your own business name.</p>
+          <a className="button" href={telHref} style={{ minHeight: 48, display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", textDecoration: "none" }}><PhoneCall size={18} aria-hidden="true" />Call {phone}</a>
+          <p>Explore a separate sample app with example bookings:</p>
           <EnterSandboxButton vertical="roofing" destination="bookings" label="Open Sample App" />
         </details>
         <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}><a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor</p>

@@ -54,6 +54,28 @@ test("three centered actions explain the product and open a private app without 
   expect((await page.request.post("/api/jobs", { data: { businessId: profile.businessId, title: "Denied office write" } })).status()).toBe(403);
   expect((await page.request.post("/api/admin/demo-customize", { data: { companyName: "Denied" } })).status()).toBe(403);
   await expectHealthy(page);
+
+  // A resumed cookie must never silently override newly entered business/contact details.
+  await page.goto("/try/roofing");
+  await expect(page.getByText(`Your demo: ${profile.businessName}`)).toBeVisible();
+  await page.getByRole("button", { name: "Change Demo Details", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Make It Your Demo" });
+  await edit.getByLabel("Business Name", { exact: true }).fill("New Prospect Roofing");
+  await edit.getByLabel("Confirmation Email (Optional)", { exact: true }).fill("new-prospect@example.test");
+  await shot(page, "private-demo-change-details");
+  await edit.getByRole("button", { name: "Save and Open My Demo", exact: true }).click();
+  await expect(page).toHaveURL(/\/company\/pipeline$/);
+  await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
+  const changed = (await (await page.request.get("/api/auth/profile")).json()).profile;
+  expect(changed.businessId).not.toBe(profile.businessId);
+  expect(changed.businessName).toBe("New Prospect Roofing");
+  const newCall = await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } });
+  expect(newCall.status()).toBe(200);
+  const greeting = await newCall.json();
+  expect(greeting.firstMessage).toContain("New Prospect Roofing");
+  expect(greeting.firstMessage).not.toContain(profile.businessName);
+  expect(greeting.prompt).toContain('"confirmationEmail":"new-prospect@example.test"');
+  expect((await page.request.get(`/api/businesses/${profile.businessId}/calls`)).status()).toBe(403);
 });
 
 test("a real local booking emails only the entered address and field updates reach that same private job", async ({ as }) => {

@@ -8,7 +8,7 @@ import { getFirebaseAuth } from "@/lib/firebase/client";
 import { Modal } from "@/components/ui/Modal";
 
 type Intent = "call" | "bookings" | "field";
-interface Session { token: string; name: string; companyName: string; businessId: string; expiresAt: number; callsLeft: number; notesLeft: number }
+interface Session { token: string; name: string; companyName: string; email: string | null; businessId: string; expiresAt: number; callsLeft: number; notesLeft: number }
 async function action(body: Record<string, unknown>) {
   const response = await fetch("/api/demo/roofing-trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await response.json();
@@ -108,11 +108,17 @@ export function RoofingTrial() {
   const button: React.CSSProperties = { minHeight: 48, padding: "12px 18px", display: "inline-flex", gap: 8, alignItems: "center", justifyContent: "center", maxWidth: "100%", whiteSpace: "normal", lineHeight: 1.4 };
   const inCall = callState === "connected" || callState === "connecting";
   return <>
+    {session && session.expiresAt > Date.now() && <div className="panel" style={{ padding: 12, marginBottom: 12, textAlign: "center" }}>
+      <p style={{ margin: "0 0 4px", fontSize: 14 }}>Your demo: <strong>{session.companyName}</strong></p>
+      <button className="button ghost" style={{ minHeight: 44 }} disabled={busy || inCall} onClick={() => {
+        setName(session.name); setCompanyName(session.companyName); setEmail(session.email || ""); setError(""); setIntent("bookings");
+      }}>Change Demo Details</button>
+    </div>}
     <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
       <li className="panel" style={card}>
         <span aria-hidden="true" style={number}>1</span>
         <button className="button primary" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("call")}><Mic size={18} aria-hidden="true" />{callState === "connecting" ? "Connecting…" : "Call and Book"}</button>
-        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Ask Alice for a roof inspection. English or Spanish.</p>
+        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Talk in your browser. Alice answers for your business.</p>
         {inCall && <div role="status" style={{ marginTop: 12 }}>
           <p>{callState === "connected" ? `You're speaking with ${session?.companyName || "Alice"}.` : "Opening your microphone…"}</p>
           {lastMessage && <p style={{ fontSize: 13 }}>{lastMessage}</p>}
@@ -135,8 +141,9 @@ export function RoofingTrial() {
         <label className="field">Your Name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="name" required /></label>
         <label className="field">Business Name<input value={companyName} onChange={(e) => setCompanyName(e.target.value)} maxLength={80} autoComplete="organization" required /></label>
         <label className="field">Confirmation Email (Optional)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} autoComplete="email" /></label>
-        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>Alice answers with your business name. Add an email to receive your demo booking confirmation. We keep these details as a demo enquiry.</p>
-        <button className="button primary" style={button} disabled={busy}>{busy ? "Opening…" : "Start My Demo"}</button>
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>Alice answers with your business name. Booking confirmations go only to the email you enter here. We keep these details as a demo enquiry.</p>
+        {session && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>Changing these details opens a fresh private demo.</p>}
+        <button className="button primary" style={button} disabled={busy}>{busy ? "Opening…" : session ? "Save and Open My Demo" : "Start My Demo"}</button>
         {error && <p role="alert" style={{ color: "var(--danger)" }}>{error}</p>}
       </form>
     </Modal>
