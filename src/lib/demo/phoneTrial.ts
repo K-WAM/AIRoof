@@ -10,7 +10,7 @@ export const PHONE_CODE_TTL_MS = 5 * 60_000;
 const MAX_CODES = 3;
 const MAX_ATTEMPTS = 5;
 export const PHONE_DEMO_BUSINESS = "demo-roofing";
-const REFUSAL = { result: "NOT CONNECTED: That demo code could not be verified. Check the eight digits on the page or get a new code. No private demo has been opened." };
+const REFUSAL = { result: "NOT CONNECTED: That demo code could not be verified. Check the four digits on the page or get a new code. No private demo has been opened." };
 
 function codeHash(code: string): string {
   const key = process.env.ELEVENLABS_TOOL_SECRET;
@@ -18,9 +18,9 @@ function codeHash(code: string): string {
   return createHmac("sha256", key).update(`private-phone-demo:${code}`).digest("hex");
 }
 function normalizeCode(value: unknown): string | null {
-  if (typeof value !== "string" || !/^[\d -]{8,20}$/.test(value)) return null;
+  if (typeof value !== "string" || !/^[\d -]{4,12}$/.test(value)) return null;
   const digits = value.replace(/[ -]/g, "");
-  return /^\d{8}$/.test(digits) ? digits : null;
+  return /^\d{4}$/.test(digits) ? digits : null;
 }
 function activeTrial(trial: RoofingTrial | undefined, config: Record<string, unknown> | undefined, now: number): trial is RoofingTrial {
   return Boolean(trial && isTrialBusiness(trial.businessId) && trial.businessId === `${TRIAL_PREFIX}${trial.id}` &&
@@ -33,7 +33,7 @@ export async function issuePhoneCode(trial: RoofingTrial, now = Date.now()) {
   const db = getAdminFirestore()!;
   const trialRef = db.collection("demoTrials").doc(trial.id);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const code = String(randomInt(100_000_000)).padStart(8, "0"), digest = codeHash(code);
+    const code = String(randomInt(10_000)).padStart(4, "0"), digest = codeHash(code);
     const codeRef = db.collection("demoTrialBudgets").doc(`phone-code-${digest}`);
     const outcome = await db.runTransaction(async (tx) => {
       const [snapshot, business, collision] = await Promise.all([tx.get(trialRef), tx.get(db.collection("businesses").doc(trial.businessId)), tx.get(codeRef)]);
@@ -41,9 +41,10 @@ export async function issuePhoneCode(trial: RoofingTrial, now = Date.now()) {
       if (!activeTrial(latest, business.data(), now) || latest.businessId !== trial.businessId) return { error: "This demo has expired. Start a new demo." };
       const issued = latest.phoneCodesIssued ?? 0;
       if (!Number.isInteger(issued) || issued < 0 || issued >= MAX_CODES || !Number.isInteger(latest.calls) || latest.calls < 0 || latest.calls >= TRIAL_LIMITS.calls) return { error: "This demo has reached its phone-code or call limit. Use your existing demo or contact Luxor." };
-      if (collision.exists) return null;
+      // Four digits (owner, 2026-10-15): one use, five-minute life, five tries per call. An expired code's slot is free again.
+      if (collision.exists && Number(collision.data()?.expiresAtMs) > now) return null;
       const expiresAt = Math.min(now + PHONE_CODE_TTL_MS, latest.expiresAt);
-      tx.create(codeRef, { kind: "phone-demo-code", trialId: trial.id, businessId: trial.businessId, createdAt: now, expiresAtMs: expiresAt, expiresAt: Timestamp.fromMillis(expiresAt) });
+      tx.set(codeRef, { kind: "phone-demo-code", trialId: trial.id, businessId: trial.businessId, createdAt: now, expiresAtMs: expiresAt, expiresAt: Timestamp.fromMillis(expiresAt) });
       tx.update(trialRef, { phoneCodeHash: digest, phoneCodesIssued: issued + 1 });
       return { code, expiresAt };
     });

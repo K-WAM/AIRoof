@@ -8,7 +8,7 @@ Copy-paste prompts for workers and reviewers. Keep them short — all real instr
 ## T-223-RESUME — Finish live private-phone certification
 
 ```text
-Continue as the integrator in D:\Apps\AI Receptionist on main.
+Continue as the integrator in D:\Apps\6 - AI Receptionist on main.
 Read AGENTS.md, MASTER_PLAN.md T-223, TODO.md T-223/NH-34/NH-35,
 then the top of docs/SESSION_HANDOFF.md. The implementation is already
 pushed and live; cf71786 was publicly verified, with tested app source

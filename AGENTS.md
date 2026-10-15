@@ -25,7 +25,7 @@ after the commit recorded in SESSION_HANDOFF.
 
 ## Working-directory discipline (recurring failure — read before your first edit)
 
-A worker has more than once edited files in the **main repo** (`D:\Apps\AI Receptionist`, branch `main`)
+A worker has more than once edited files in the **main repo** (`D:\Apps\6 - AI Receptionist`, branch `main`)
 instead of its assigned worktree, because its edit tool resolved an absolute path against the wrong root
 (often the main repo, since that path appears far more often in surrounding context than the worktree path).
 Editing `main` directly is not a scoping slip — it bypasses the entire worktree-isolation safety model this

@@ -2983,42 +2983,42 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-208B | `main` / `D:/Apps/AI Receptionist` | `src/app/try/[vertical]/**`; `DemoTourBanner.tsx` wording; `e2e/try-demo.spec.ts`; task planning/evidence | released |
+| T-208B | `main` / `D:/Apps/6 - AI Receptionist` | `src/app/try/[vertical]/**`; `DemoTourBanner.tsx` wording; `e2e/try-demo.spec.ts`; task planning/evidence | released |
 
 ### Prospect demo entry (2026-10-13)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-208 | `main` / `D:/Apps/AI Receptionist` | `src/app/try/[vertical]/{page,EnterSandboxButton}.tsx`; `e2e/demo-entry.spec.ts`; `scripts/e2e/config.cjs` (sandbox test identity allowlist); spec/log append | released |
+| T-208 | `main` / `D:/Apps/6 - AI Receptionist` | `src/app/try/[vertical]/{page,EnterSandboxButton}.tsx`; `e2e/demo-entry.spec.ts`; `scripts/e2e/config.cjs` (sandbox test identity allowlist); spec/log append | released |
 
 ### Roofing demo readiness (2026-10-13)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-209 | `main` / `D:/Apps/AI Receptionist` | Demo token/tests; Calls/Pipeline/review; Calendar header; Field/Quote; Library catalog/tests; shell/Quick add/tests; tour/runbook/tests; demo-readiness browser spec; spec/log append | released |
+| T-209 | `main` / `D:/Apps/6 - AI Receptionist` | Demo token/tests; Calls/Pipeline/review; Calendar header; Field/Quote; Library catalog/tests; shell/Quick add/tests; tour/runbook/tests; demo-readiness browser spec; spec/log append | released |
 
 ### Booking confirmation hardening (2026-10-13)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-210 | `main` / `D:/Apps/AI Receptionist` | Appointment confirmation route/call-flow tests; booking scenario S11; booking plan S11; spec/log append | released |
+| T-210 | `main` / `D:/Apps/6 - AI Receptionist` | Appointment confirmation route/call-flow tests; booking scenario S11; booking plan S11; spec/log append | released |
 
 - **T-209/T-210 release checks (2026-10-14):** Owner explicitly authorized publication. Application 341e095 is live; full browser/build/unit/API gates and GitHub CI passed. Legacy live-tenant guest retired through Team API (inactive + Auth disabled + tokens revoked). Seven current ElevenLabs checks pass; the owner's real call booked October 15, 10 AM Eastern and its provider tool results, stored appointment and operator Calls APIs were verified. Public remains read-only; real calls/jobs/crew assignment use authenticated demo-roofing. Physical field mic/photo, real transcription and inbox rehearsal remain NH-33. See docs/ROOFDOCTORS-DEMO-HANDOFF.md for exact steps and receipts.
 ### Voice update prospect demo (2026-10-14)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-211 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/entry; Field sample example; demo tour/example component; demo-entry browser spec; spec/log append | released |
+| T-211 | `main` / `D:/Apps/6 - AI Receptionist` | Roofing landing/entry; Field sample example; demo tour/example component; demo-entry browser spec; spec/log append | released |
 
 ### Demo release reconciliation (2026-10-14)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-212 | `main` / `D:/Apps/AI Receptionist` | Combined demo source/tests/docs, release checks, branch recovery/cleanup | released |
+| T-212 | `main` / `D:/Apps/6 - AI Receptionist` | Combined demo source/tests/docs, release checks, branch recovery/cleanup | released |
 
 - **NEEDS-HUMAN — Sandbox Stripe secret rotation:** The required CLI configuration check printed a test-mode secret into this local session on 2026-10-14. Rotate the sandbox secret in Stripe; no live secret was printed and no Stripe resources were changed. Future credential checks must redact values.
 
 ### Demo rehearsal follow-up (2026-10-14)
 | Task | Branch / worktree | Owned scope | Status |
 |---|---|---|---|
-| T-213 | `main` / `D:/Apps/AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | review; readback/model, editor/email and API tests pass |
-| T-214 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | review; owner chose private browser call, centered three-step flow implemented |
-| T-215 | `main` / `D:/Apps/AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | review; released on 7dc0b8c; isolated booking/email/field/SDK audio and full browser 194 pass; actual microphone exercised, inbox pending |
+| T-213 | `main` / `D:/Apps/6 - AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | review; readback/model, editor/email and API tests pass |
+| T-214 | `main` / `D:/Apps/6 - AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | review; owner chose private browser call, centered three-step flow implemented |
+| T-215 | `main` / `D:/Apps/6 - AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | review; released on 7dc0b8c; isolated booking/email/field/SDK audio and full browser 194 pass; actual microphone exercised, inbox pending |
 
 ### Demo follow-up — T-216 (2026-10-14)
 | Task | Owner | Branch | Status | Owned scope / evidence |
@@ -3039,8 +3039,8 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-221 | Codex integrator | main / D:/Apps/AI Receptionist | released; full gates and live landing verified | def1c08: resumed trial identity, guided/scheduled entry, scoped tests and evidence; see MASTER_PLAN. SMS/Calendly prerequisites remain NH-34. |
-| T-222 | Codex integrator | main / D:/Apps/AI Receptionist | released; live public JSON/build SHA and CI verified | 09c718f: https://crm.luxordev.com/api/app-status, id airoof, production; source cache 300 s, observed live edge HIT. |
+| T-221 | Codex integrator | main / D:/Apps/6 - AI Receptionist | released; full gates and live landing verified | def1c08: resumed trial identity, guided/scheduled entry, scoped tests and evidence; see MASTER_PLAN. SMS/Calendly prerequisites remain NH-34. |
+| T-222 | Codex integrator | main / D:/Apps/6 - AI Receptionist | released; live public JSON/build SHA and CI verified | 09c718f: https://crm.luxordev.com/api/app-status, id airoof, production; source cache 300 s, observed live edge HIT. |
 
 - NEEDS-HUMAN (T-221): SMS_ENABLED is absent in Production; private browser trials have no registered ready SMS sender. Do not enable or borrow another tenant's number. SMS requires carrier-ready registration and an explicit supported sender configuration.
 - Calendly: no connected account/event link supplied. The owner's existing https://luxordev.com/demo calendar is available as a truthful day/time request flow; an instant-confirmation Calendly link can replace it once connected to the owner's calendar.
@@ -3048,4 +3048,4 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 ## Unified browser and dial-in demo (2026-10-15)
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-223 | Codex integrator | main / D:/Apps/AI Receptionist | live; carrier certification pending NH-35 | 6ecf057, ab42560, e98c846 pushed; Vercel READY and CI success. Full units/build/browser and four deployed-model tests pass. Automated carrier rehearsal blocked before dialing by network daily budget 3/3; no bypass. One setup, browser/dial actions, expiring code and private identity; see MASTER_PLAN. |
+| T-223 | Codex integrator | main / D:/Apps/6 - AI Receptionist | live; carrier certification pending NH-35 | 6ecf057, ab42560, e98c846 pushed; Vercel READY and CI success. Full units/build/browser and four deployed-model tests pass. Automated carrier rehearsal blocked before dialing by network daily budget 3/3; no bypass. One setup, browser/dial actions, expiring code and private identity; see MASTER_PLAN. |

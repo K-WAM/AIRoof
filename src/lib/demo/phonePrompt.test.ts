@@ -7,7 +7,7 @@ const config = trialConfig(trial, "unit-field-key");
 describe("demo phone prompt states", () => {
   it("asks for the code once and preserves the ordinary no-code booking path", () => {
     const init = phoneDemoInitiation(config, "+15555550111");
-    expect(init.conversation_config_override.agent?.first_message).toContain("eight digits");
+    expect(init.conversation_config_override.agent?.first_message).toContain("four digits");
     const prompt = init.conversation_config_override.agent?.prompt?.prompt || "";
     expect(prompt).toContain("preserving leading zeroes");
     expect(prompt).toContain("call connectDemoSession immediately");

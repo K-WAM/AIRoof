@@ -131,7 +131,7 @@ export function RoofingTrial() {
           <a className="button" style={{ ...button, textDecoration: "none" }} href="tel:+16892042643"><PhoneCall size={18} aria-hidden="true" />Dial (689) 204-2643</a>
           <div role="status" data-testid="phone-demo-code" style={{ marginTop: 12 }}>
             <p style={{ margin: "0 0 4px", fontSize: 13 }}>Tell Alice your demo code:</p>
-            <strong style={{ display: "block", fontSize: 26, letterSpacing: "0.12em" }}>{phoneCode.code.slice(0, 4)} {phoneCode.code.slice(4)}</strong>
+            <strong style={{ display: "block", fontSize: 26, letterSpacing: "0.12em" }}>{phoneCode.code}</strong>
             <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>One use. Valid for up to five minutes.</p>
           </div>
         </> : <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("phone")}><PhoneCall size={18} aria-hidden="true" />Dial (689) 204-2643</button>}

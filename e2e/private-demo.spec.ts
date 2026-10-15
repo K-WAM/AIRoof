@@ -279,7 +279,7 @@ test("dialing uses the same private setup and booking without desktop audio", as
   const codePanel = page.getByTestId("phone-demo-code");
   await expect(codePanel).toBeVisible();
   const code = (await codePanel.locator("strong").innerText()).replace(/\s/g, "");
-  expect(code).toMatch(/^\d{8}$/);
+  expect(code).toMatch(/^\d{4}$/);
   await expect(page.getByRole("link", { name: "Dial (689) 204-2643", exact: true })).toHaveAttribute("href", "tel:+16892042643");
   await codePanel.scrollIntoViewIfNeeded();
   await expect(codePanel).toBeInViewport();
@@ -292,7 +292,7 @@ test("dialing uses the same private setup and booking without desktop audio", as
     call_sid: `CA_${conversationId}`, conversation_id: conversationId,
   } });
   expect(initiation.status()).toBe(200);
-  expect((await initiation.json()).conversation_config_override.agent.first_message).toContain("eight digits");
+  expect((await initiation.json()).conversation_config_override.agent.first_message).toContain("four digits");
   const join = await page.request.post("/api/webhooks/elevenlabs/tools/connectDemoSession", { headers, data: { demoCode: code, businessId: "demo-roofing" } });
   const joined = await join.json(); expect(joined.result).toMatch(/^CONNECTED:/);
   expect(joined.sayToCaller).toContain(`${name} Roofing`);

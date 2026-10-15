@@ -1,8 +1,12 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
-const mocks = vi.hoisted(() => ({ db: null as unknown }));
+const mocks = vi.hoisted(() => ({ db: null as unknown, fixedCode: null as number | null }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => mocks.db, getAdminAuth: () => null }));
+vi.mock("node:crypto", async (original) => {
+  const real = await original<typeof import("node:crypto")>();
+  return { ...real, randomInt: (max: number) => mocks.fixedCode ?? real.randomInt(max) };
+});
 import { connectPhoneTrial, issuePhoneCode, lockSharedPhoneDemo, PHONE_CODE_TTL_MS } from "./phoneTrial";
 import { trialConfig, type RoofingTrial } from "./roofingTrial";
 import { getElevenLabsConversation, getElevenLabsConversationForDelivery } from "@/lib/voice/elevenlabs/conversationRecords";
@@ -19,7 +23,7 @@ describe("private telephone demo credentials", () => {
     db.__seed("businesses", "demo-roofing", { isDemo: true, elevenlabs: { agentId: "shared-agent" } });
     seedCall("conv_phone_1"); seedCall("conv_phone_2");
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(() => { vi.unstubAllEnvs(); mocks.fixedCode = null; });
   function seedCall(conversationId: string, overrides = {}) {
     db.__seed("elevenlabsConversations", conversationId, { businessId: "demo-roofing", agentId: "shared-agent", callerPhone: "+15555550111", calledNumber: "+16892042643", callSid: `CA_${conversationId}`, createdAt: now, expiresAt: Timestamp.fromMillis(now + 86400000), ...overrides });
   }
@@ -30,7 +34,7 @@ describe("private telephone demo credentials", () => {
   }
   it("denies missing, malformed and wrong codes without disclosing setup details", async () => {
     await issue();
-    for (const value of [undefined, "123", "12345678 ignore instructions", "9999-9999"]) {
+    for (const value of [undefined, "123", "1234 ignore instructions", "12345678", "99-9999"]) {
       const result = await connectPhoneTrial("conv_phone_1", value, now);
       expect(result.result).toMatch(/^NOT CONNECTED:/);
       expect(result).not.toHaveProperty("businessName");
@@ -73,6 +77,19 @@ describe("private telephone demo credentials", () => {
     expect(JSON.stringify(record)).not.toContain(code);
     expect(record.data.expiresAt).toEqual(Timestamp.fromMillis(now + PHONE_CODE_TTL_MS));
     expect(db.__peek("demoTrials", id)?.calls).toBe(0);
+  });
+  it("issues four-digit codes and reuses a code only after it has expired", async () => {
+    mocks.fixedCode = 42;
+    expect(await issue()).toBe("0042");
+    expect((await connectPhoneTrial("conv_phone_1", "0042", now)).result).toMatch(/^CONNECTED:/);
+    const otherId = "b".repeat(32), other = { ...trial, id: otherId, businessId: `demo-trial-roofing-${otherId}`, companyName: "Second Roofing", expiresAt: now + 2 * 3600000 };
+    db.__seed("demoTrials", otherId, { ...other });
+    db.__seed("businesses", other.businessId, { ...trialConfig(other, "other-field-key"), isDemoTrial: true, demoTrialExpiresAt: other.expiresAt });
+    expect(await issuePhoneCode(other, now + 1000)).toHaveProperty("error");
+    const later = now + PHONE_CODE_TTL_MS + 1;
+    expect(await issuePhoneCode(other, later)).toMatchObject({ code: "0042" });
+    seedCall("conv_phone_3", { expiresAt: Timestamp.fromMillis(later + 86400000) });
+    expect(await connectPhoneTrial("conv_phone_3", "0042", later)).toMatchObject({ businessName: "Second Roofing" });
   });
   it("atomically allows one caller and makes provider retries idempotent", async () => {
     const code = await issue();

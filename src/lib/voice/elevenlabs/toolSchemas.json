@@ -1,12 +1,12 @@
 [
   {
     "name": "connectDemoSession",
-    "description": "Connect a caller on the public demo phone line to their private demo ONLY when they supply the eight-digit code shown on the demo page. Call this before taking any inspection or contact details. A CONNECTED result supplies authoritative private business/name/optional email and private intake instructions; shared intake no longer applies. A NOT CONNECTED result is failure: never guess a code, expose private details or claim a match. This does not book anything.",
+    "description": "Connect a caller on the public demo phone line to their private demo ONLY when they supply the four-digit code shown on the demo page. Call this before taking any inspection or contact details. A CONNECTED result supplies authoritative private business/name/optional email and private intake instructions; shared intake no longer applies. A NOT CONNECTED result is failure: never guess a code, expose private details or claim a match. This does not book anything.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/connectDemoSession",
     "parameters": {
       "type": "object",
-      "properties": { "demoCode": { "type": "string", "description": "The eight digits supplied by the caller, preserving leading zeroes. Never infer or invent a code." } },
+      "properties": { "demoCode": { "type": "string", "description": "The four digits supplied by the caller, preserving leading zeroes. Never infer or invent a code." } },
       "required": ["demoCode"]
     }
   },
