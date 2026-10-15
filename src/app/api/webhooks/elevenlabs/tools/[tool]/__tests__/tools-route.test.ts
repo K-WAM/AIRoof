@@ -61,6 +61,25 @@ describe("POST /api/webhooks/elevenlabs/tools/[tool]", () => {
     _resetRateLimitState();
   });
 
+  it("denies an expired private trial before dispatching tools", async () => {
+    const id = "a".repeat(32), businessId = `demo-trial-roofing-${id}`;
+    db.__seed("elevenlabsConversations", "conv_1", { businessId, expiresAt: now + 60000 });
+    db.__seed("demoTrials", id, { businessId, name: "Synthetic Caller", expiresAt: 0, conversationIds: ["conv_1"] });
+    const response = await POST(requestFor("bookAppointment", { secret: "expected-secret", conversationId: "conv_1" }), { params: Promise.resolve({ tool: "bookAppointment" }) });
+    expect(await response.json()).toMatchObject({ result: expect.stringContaining("NOT BOOKED") });
+    expect(mocks.executeAgentTool).not.toHaveBeenCalled();
+  });
+
+  it("uses private setup contact details even when model aliases conflict", async () => {
+    const id = "a".repeat(32), businessId = `demo-trial-roofing-${id}`;
+    db.__seed("elevenlabsConversations", "conv_1", { businessId, expiresAt: now + 60000 });
+    db.__seed("demoTrials", id, { businessId, name: "Synthetic Caller", email: "synthetic@example.test", expiresAt: now + 60000, conversationIds: ["conv_1"], tools: 0 });
+    await POST(requestFor("bookAppointment", { secret: "expected-secret", conversationId: "conv_1", body: { name: "Wrong alias", callerName: "Wrong name", email: "wrong@example.test", callerEmail: "wrong@example.test", textOk: true, okToText: true } }), { params: Promise.resolve({ tool: "bookAppointment" }) });
+    expect(mocks.executeAgentTool).toHaveBeenCalledWith("bookAppointment", expect.objectContaining({ callerName: "Synthetic Caller", callerEmail: "synthetic@example.test", textOk: false }), expect.anything());
+    const params = mocks.executeAgentTool.mock.calls[0][1];
+    expect(params).not.toHaveProperty("name"); expect(params).not.toHaveProperty("email"); expect(params).not.toHaveProperty("okToText");
+  });
+
   it("returns 401 with no detail for a missing or wrong secret", async () => {
     for (const secret of [undefined, "wrong-secret"]) {
       const response = await POST(

@@ -87,6 +87,10 @@ export async function POST(
       if (await consumeTrialBudget(stored.businessId, "tools")) return NextResponse.json({ result: "NOT BOOKED: this demo has reached its request limit." });
       if (tool === "bookAppointment" || tool === "createLead") {
         delete toolParams.email; delete toolParams.customerEmail; delete toolParams.callerEmail;
+        delete toolParams.name;
+        toolParams.callerName = trial.name;
+        delete toolParams.okToText;
+        toolParams.textOk = false;
         if (trial.email) toolParams.callerEmail = trial.email;
       }
     }

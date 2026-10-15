@@ -88,7 +88,10 @@ describe("offline demo-path smoke test", () => {
 
   it("walks the demo story through real route handlers", async () => {
     vi.stubEnv("ELEVENLABS_TOOL_SECRET", "e2e-tool-secret"); vi.stubEnv("ELEVENLABS_WEBHOOK_SECRET", "e2e-webhook-secret");
-    const future = Date.now() + 2 * 24 * 60 * 60 * 1000;
+    // Keep the one-hour fixture inside a single business day, even when this suite runs near midnight Eastern.
+    const futureDay = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    futureDay.setUTCHours(16, 0, 0, 0);
+    const future = futureDay.getTime();
     const initiation = await initiate(new NextRequest("http://localhost/api/webhooks/elevenlabs/initiation", { method: "POST", headers: { "content-type": "application/json", "x-luxor-tool-secret": "e2e-tool-secret" }, body: JSON.stringify({ caller_id: "+15550199", called_number: "+17542837658", agent_id: "agent-e2e", conversation_id: "conv-e2e" }) }));
     expect(initiation.status).toBe(200); expect(db.__peek("elevenlabsConversations", "conv-e2e")?.businessId).toBe(BUSINESS_ID);
     for (const [name, body] of [["checkAvailability", { service: "Roof repair" }], ["bookAppointment", { name: "Mina", email: EMAIL, service: "Roof repair", address: "12 Palm Ave", preferredTime: future }]] as const) {

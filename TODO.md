@@ -3024,3 +3024,5 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | T-217 | Codex integrator | main | in progress | Prominent next private demo action and same-job document previews after owner rehearsal; see MASTER_PLAN. |
 
 - T-216 NEEDS-HUMAN: existing ElevenLabs workspace webhook `58931c4aa1524a748090759bc79cf7d6` (Luxor post-call) has retry_enabled=false. Scoped PATCH preserving name/enabled state returned HTTP 401 with the available restricted key; no configuration changed. Owner asked to enable retries in Developers → Webhooks. Destination/signature/events must stay unchanged.
+
+| T-218 | Codex integrator | main | in progress | Dedicated private browser intake prompt after actual transcript showed repeated contact collection; shared phone unchanged. |

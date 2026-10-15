@@ -1,3 +1,4 @@
+import { buildTrialPrompt } from "./trialPrompt";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
@@ -137,7 +138,7 @@ export async function startTrialCall(trial: RoofingTrial) {
   const db = getAdminFirestore()!;
   const config = (await db.collection("businesses").doc(trial.businessId).get()).data() as BusinessConfig;
   const initiation = buildInitiationResponse(config, undefined);
-  const prompt = `${initiation.conversation_config_override.agent?.prompt?.prompt || ""}\n## Private browser demo\nThis is a private demonstration, not a real service order. The visitor's name is ${JSON.stringify(trial.name)}; their demo confirmation email is ${JSON.stringify(trial.email)}. Do not ask again for those supplied details. The setup email is authoritative: never collect or change it during this call; if it is null, skip email collection. Use a fictional inspection address. There is no carrier caller ID in this browser call: never invent a phone number. No phone number is required for this browser demo: do not ask for one, and omit callbackPhone unless the visitor volunteers a number. This replaces the general callback-number collection instruction for this private demo only. Book through the real tools and use their exact result. No emergency dispatch or outbound calls are available in this demo.`;
+  const prompt = buildTrialPrompt(config, trial);
   await persistElevenLabsConversation({ businessId: trial.businessId, conversationId, agentId: process.env.DEMO_TRIAL_AGENT_ID,
     expiresAt: Math.min(trial.expiresAt, Date.now() + 10 * 60_000) });
   const trialRef = db.collection("demoTrials").doc(trial.id);
