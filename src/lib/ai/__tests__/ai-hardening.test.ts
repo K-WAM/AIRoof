@@ -284,6 +284,24 @@ describe("deepseekClient — adversarial hardening", () => {
   });
 
   describe("classifyCallOutcome", () => {
+    it("bounds both provider attempts and disables automatic retries", async () => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "sk-test-deepseek");
+      vi.stubEnv("OPENAI_API_KEY", "sk-test-openai");
+      const create = vi.fn(async (_params: unknown, options: { timeout: number; maxRetries: number; signal: AbortSignal }) => {
+        expect(options).toMatchObject({ timeout: 10_000, maxRetries: 0 });
+        expect(options.signal).toBeInstanceOf(AbortSignal);
+        throw new Error("provider timeout");
+      });
+      vi.doMock("openai", () => ({ default: class { chat = { completions: { create } }; } }));
+      const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      try {
+        const { classifyCallOutcome } = await import("@/lib/ai/deepseekClient");
+        await expect(classifyCallOutcome({ transcript: [{ role: "caller", text: "Inspection" }], businessName: "Test" })).rejects.toThrow("provider timeout");
+        expect(create).toHaveBeenCalledTimes(2);
+        expect(create.mock.calls[0][1].signal).not.toBe(create.mock.calls[1][1].signal);
+      } finally { warning.mockRestore(); }
+    });
+
     it("retries a DeepSeek credit failure once on OpenAI", async () => {
       vi.stubEnv("DEEPSEEK_API_KEY", "sk-test-deepseek");
       vi.stubEnv("OPENAI_API_KEY", "sk-test-openai");

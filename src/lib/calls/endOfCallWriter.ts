@@ -73,7 +73,29 @@ export async function writeEndedCallReport(
 
   const callerLanguage = detectCallerLanguage(input.messages);
 
-  // Classify outcome — non-blocking for the webhook response, non-fatal on failure.
+  // Save the transcript before optional AI work; a stalled provider must not leave an ended call in progress.
+  await callRef.set(
+    {
+      callId: input.callId,
+      businessId: input.businessId,
+      callerPhone: input.callerPhone,
+      status: "ended",
+      endedAt: Date.now(),
+      updatedAt: Date.now(),
+      ...(input.startedAt !== undefined ? { startedAt: input.startedAt, createdAt: input.startedAt } : {}),
+      ...(input.providerFields ?? {}),
+      summary: input.summary,
+      endedReason: input.endedReason ?? null,
+      recordingUrl: input.recordingUrl ?? null,
+      cost: input.cost ?? null,
+      messages: input.messages,
+      ...(input.durationSecs !== undefined ? { durationSecs: input.durationSecs } : {}),
+      ...(callerLanguage ? { callerLanguage } : {}),
+    },
+    { merge: true }
+  );
+
+  // Optional, bounded enrichment must never delay saving the provider facts.
   let outcome: string | null = null;
   let outcomeReason: string | null = null;
   let classification: CallOutcomeOutput | null = null;
@@ -93,7 +115,7 @@ export async function writeEndedCallReport(
   }
 
   // Safety net: a call that produced a request but no linked lead/appointment still reaches the Pipeline. It runs
-  // BEFORE the ended call is written, so by the time the call shows as ended its lead already exists.
+  // AFTER the raw ended call is durable, so AI latency cannot lose the transcript.
   if (classification) {
     try {
       await ensureCallLead(db, { businessId: input.businessId, callId: input.callId, callerPhone: input.callerPhone, summary: input.summary, classification });
@@ -102,27 +124,9 @@ export async function writeEndedCallReport(
     }
   }
 
-  await callRef.set(
-    {
-      callId: input.callId,
-      businessId: input.businessId,
-      callerPhone: input.callerPhone,
-      status: "ended",
-      endedAt: Date.now(),
-      updatedAt: Date.now(),
-      ...(input.startedAt !== undefined ? { startedAt: input.startedAt, createdAt: input.startedAt } : {}),
-      ...(input.providerFields ?? {}),
-      summary: input.summary,
-      endedReason: input.endedReason ?? null,
-      recordingUrl: input.recordingUrl ?? null,
-      cost: input.cost ?? null,
-      messages: input.messages,
-      ...(outcome ? { outcome, outcomeReason } : {}),
-      ...(input.durationSecs !== undefined ? { durationSecs: input.durationSecs } : {}),
-      ...(callerLanguage ? { callerLanguage } : {}),
-    },
-    { merge: true }
-  );
+  if (outcome) {
+    await callRef.set({ outcome, outcomeReason }, { merge: true });
+  }
 
   // The Pipeline cards for this call say "Spanish" too. Non-fatal: the call itself is already written.
   if (callerLanguage) {

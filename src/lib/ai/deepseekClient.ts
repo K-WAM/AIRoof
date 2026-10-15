@@ -308,14 +308,21 @@ export async function classifyCallOutcome(
   let res;
   try {
     if (!primary.client) throw new Error("DeepSeek provider not configured");
-    res = await primary.client.chat.completions.create({ ...request, model: primary.selection.model });
+    res = await primary.client.chat.completions.create(
+      { ...request, model: primary.selection.model },
+      // The SDK default is ten minutes plus retries. Abort also bounds reading the response body.
+      { timeout: 10_000, maxRetries: 0, signal: AbortSignal.timeout(10_000) },
+    );
   } catch (err) {
     if (!fallback.client) {
       throw new Error(`classifyCallOutcome: AI provider error — ${err instanceof Error ? err.message : String(err)}`);
     }
     console.warn("classify fell back to OpenAI");
     try {
-      res = await fallback.client.chat.completions.create({ ...request, model: fallback.selection.model });
+      res = await fallback.client.chat.completions.create(
+        { ...request, model: fallback.selection.model },
+        { timeout: 10_000, maxRetries: 0, signal: AbortSignal.timeout(10_000) },
+      );
     } catch (fallbackError) {
       throw new Error(`classifyCallOutcome: AI provider error — ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
     }

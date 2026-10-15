@@ -3015,3 +3015,12 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | T-213 | `main` / `D:/Apps/AI Receptionist` | Call readback prompt/tests, office notification renderer/tests, guarded demo identity editor/tests/browser, task docs | review; readback/model, editor/email and API tests pass |
 | T-214 | `main` / `D:/Apps/AI Receptionist` | Roofing landing/action presentation, demo components, entry specs, task docs | review; owner chose private browser call, centered three-step flow implemented |
 | T-215 | `main` / `D:/Apps/AI Receptionist` | Private browser-call demo, isolated viewer/field grants, prospect capture, persistent budgets/expiry, tests and handoff | review; isolated booking/email/field journey and SDK audio pass; final broad browser/live gates running |
+
+### Demo follow-up — T-216 (2026-10-14)
+| Task | Owner | Branch | Status | Owned scope / evidence |
+|---|---|---|---|---|
+| T-216 | Codex integrator | main | in progress | Ended-call durability, bounded classification and existing provider retry configuration; see MASTER_PLAN. Actual production webhook timed out after 300 seconds; private booking/crew/field speech succeeded. |
+
+| T-217 | Codex integrator | main | in progress | Prominent next private demo action and same-job document previews after owner rehearsal; see MASTER_PLAN. |
+
+- T-216 NEEDS-HUMAN: existing ElevenLabs workspace webhook `58931c4aa1524a748090759bc79cf7d6` (Luxor post-call) has retry_enabled=false. Scoped PATCH preserving name/enabled state returned HTTP 401 with the available restricted key; no configuration changed. Owner asked to enable retries in Developers → Webhooks. Destination/signature/events must stay unchanged.
