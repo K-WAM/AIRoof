@@ -154,7 +154,9 @@ test("the demo-only CSP permits its audio worklets without altering other pages"
 
 test("browser calling loads real SDK audio worklets and disconnects cleanly with a mocked provider", async ({ as }) => {
   const page = await as("viewer");
-  await createFromLanding(page, `Browser Audio ${Date.now()}`);
+  const name = `Browser Audio ${Date.now()}`;
+  const testIp = `198.51.100.${++nextTestIp}`;
+  await page.route("**/api/demo/roofing-trial", (route) => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": testIp } }));
   await page.addInitScript(() => {
     const NativeAudioContext = window.AudioContext;
     const loadedModules: string[] = [];
@@ -188,6 +190,10 @@ test("browser calling loads real SDK audio worklets and disconnects cleanly with
   });
   await page.goto("/try/roofing");
   await page.getByRole("button", { name: "Call and Book", exact: true }).click();
+  const setup = page.getByRole("dialog", { name: "Make It Your Demo" });
+  await setup.getByLabel("Your Name", { exact: true }).fill(name);
+  await setup.getByLabel("Business Name", { exact: true }).fill(`${name} Roofing`);
+  await setup.getByRole("button", { name: "Start My Demo", exact: true }).click();
   await expect(page.getByText(/You're speaking with Browser Audio/)).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole("button", { name: "End Call", exact: true })).toBeEnabled();
   expect(textOnly).toBe(false);
