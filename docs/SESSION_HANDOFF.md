@@ -1,5 +1,25 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — four-digit demo code, one folder (2026-10-15, Claude)
+
+- **One checkout:** `D:/Apps/6 - AI Receptionist` on `main` is the only working copy. The `D:/Apps/AI Receptionist` worktree and
+  the merged `air-wt-*` / Codex worktrees were removed (`git worktree list` shows one). Kept for reference, gitignored:
+  `.e2e/archived-worktrees/` (the other folder's `.env.local`, the setup-ux uncommitted HoursEditor patch — its commit is tag
+  `archive/task-setup-ux-2026-10-14`) and `.e2e/from-AI-Receptionist-folder/` (release receipts). Leftovers needing a manual
+  delete: the empty `D:/Apps/AI Receptionist` (locked by an open window), five `D:/Apps/air-wt-*` folders that hold only a
+  `node_modules` **junction to this repo's node_modules** (delete the junction itself — never recurse into it), and
+  `D:/Apps/air-wt-ux-declutter` (broken git link, pre-merge copy).
+- **Shipped `898f850`, live:** the private dial-in demo code is **four digits** (owner decision — one use, 5 minutes, 5 tries
+  per call; an expired code's slot can be reissued). Page, Alice's greeting/rules and the live ElevenLabs `connectDemoSession`
+  tool (`tool_5401m50d69szegar2r9mvrasvw82`, wording only, readback verified) all say four. CI green; Vercel Ready on
+  crm.luxordev.com + ai-roof.vercel.app; health ok. Gates: vitest 1985 + 1 expected fail, tsc, lint, `private-demo.spec`
+  12/12 desktop + phone (phone screenshot read). Full e2e and `e2e:call` not rerun — the call→invoice flow is untouched.
+- **"Schedule a Live Demo"** on /try/roofing opens https://luxordev.com/demo?source=airoof ("Book a Consultation or Demo",
+  live, 200). Set `LIVE_DEMO_BOOKING_URL` (calendly.com or luxordev.com only) to swap it.
+- **Owner's test next:** /try/roofing → Dial → enter details → say the four digits to Alice → book → See Your Booking →
+  Add a Voice Update (try Spanish). Still unproven live: dial-in-with-code on a real phone (NH-35), Spanish field speech,
+  confirmation email inbox placement. Private demos are capped at 3 per network per day.
+
 ## Resume here — main, pushed and live (2026-10-15)
 
 Checkout: **D:/Apps/6 - AI Receptionist**, branch **main**, role **Codex integrator**. No worktree switch or merge is needed. Main and origin/main matched **cf7178674a060075a482b0682162f1aa62645733** at the final live verification; later handoff-only commits preserve tested app source **e98c846**. Vercel **dpl_12rzkLDTAmvuzcZZRLBJPokGdEEL READY**. Unauthenticated curl on both public domains returned HTTP 200 application/json with **schema 1 / airoof / cf71786 / production**. Final receipt: .e2e/phone-final-release-receipt.json. Demo: https://crm.luxordev.com/try/roofing. Public hub: https://crm.luxordev.com/api/app-status.
