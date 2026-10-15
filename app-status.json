@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "id": "airoof",
+  "app": {
+    "name": "AIRoof",
+    "title": "AI receptionist and CRM for roofing companies",
+    "descriptor": "Answers calls, books jobs, and runs the job file.",
+    "purpose": "Bilingual call intake, inspection booking, job tracking, crew updates, quotes, reports, and invoices for roofing companies.",
+    "url": "https://crm.luxordev.com",
+    "liveUrl": "https://crm.luxordev.com",
+    "demoUrl": "https://crm.luxordev.com/try/roofing",
+    "stack": "Next.js (15), React (19), TypeScript",
+    "hosting": "Vercel (Next.js)",
+    "db": "Firebase (Cloud Firestore; business-expense-trackin-ef659)",
+    "auth": "Firebase (Authentication)",
+    "email": "Resend (transactional email)",
+    "payments": "Stripe (integration present; production unconfigured)",
+    "ai": "ElevenLabs (voice), OpenAI (speech and parsing), DeepSeek (classification), Vapi (legacy voice)",
+    "tiers": [
+      { "id": "standard", "name": "Standard", "price": "" },
+      { "id": "subscriber", "name": "Subscriber", "price": "" }
+    ],
+    "backendConnected": true,
+    "apiConnected": true,
+    "hasDemoUrl": true,
+    "stripeConnected": false,
+    "realStripeConnected": false,
+    "readiness": {
+      "domain": true,
+      "deploy": true,
+      "data": true,
+      "payments": false,
+      "email": true,
+      "monitoring": true,
+      "tests": true,
+      "admin": true
+    }
+  },
+  "alerts": []
+}

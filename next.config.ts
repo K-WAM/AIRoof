@@ -1,4 +1,12 @@
 import type { NextConfig } from "next";
+import { execFileSync } from "node:child_process";
+
+// Resolve once at build/config load, never from the public status request.
+function buildCommit(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
+  try { return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
+  catch { return ""; }
+}
 
 const csp = [
   "default-src 'self'",
@@ -31,6 +39,10 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  env: {
+    APP_STATUS_BUILD_COMMIT: buildCommit(),
+    APP_STATUS_DEPLOY_ENV: process.env.VERCEL_ENV === "production" ? "production" : "preview",
+  },
   // The smoke harness's `--prod` mode builds into its own folder so it never fights a running `next dev` over `.next`.
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // `next dev` only (no effect on a production build): keep compiled pages/routes warm. The defaults (60 s, 5 pages)

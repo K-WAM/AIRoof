@@ -1,5 +1,7 @@
 # AI Receptionist Platform — CLAUDE.md
 
+app-status.json is this app's public fact sheet for the Luxor My Apps hub. In the same commit that changes pricing, providers/stack, hosting, readiness, or adds a deadline (model retirement, trial end, renewal), update it. Keep it accurate; don't touch it otherwise. Never put secrets in it.
+
 **Release plan is canonical (2026-07-20)**: `MASTER_PLAN.md` (task specs) · `AGENTS.md` (execution rules) · `TODO.md` (live queue + NEEDS-HUMAN) · `docs/SESSION_HANDOFF.md` (state). For release work, those override anything stale below. Source audit: `consolidated_implementation_brief.md`.
 
 **Phase 12 (2026-09-16) — all 7 sub-phases shipped and pushed to `origin/main`.** A separate owner-added initiative (Customers, time clock, Spanish, invoice persistence, trade roles, a general speed pass) with its own canonical spec: `docs/PLATFORM-EXPANSION-PLAN.md`. Tracked as T-088+ in `TODO.md`. Foundation/speed/the field-URL fix; Customers; Time clock (T-090); Photos (T-091); Invoice persistence + hide-materials everywhere it's promised + a letterhead redesign + the logo library (T-092, Phase 4 — only the two-pane live-preview redesign is deliberately not built); Spanish (T-093 — field-update auto-detect+translate and the phone AI's language toggle are real; voice selection is a documented **NEEDS-HUMAN** follow-up, see `TODO.md`); Trade roles (T-094). See the plan doc's per-phase "Shipped" notes for exact deviations/deferrals — every phase has honest ones, nothing is oversold as 100% complete.

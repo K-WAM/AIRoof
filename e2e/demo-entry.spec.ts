@@ -1,6 +1,18 @@
 import { expect, expectHealthy, settle, shot, test } from "./fixtures";
 import { SANDBOX_ACCOUNTS } from "../scripts/e2e/config.cjs";
 
+test("hub facts are public JSON and reject write methods", async ({ request }) => {
+  const response = await request.get("/api/app-status");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("application/json");
+  expect(response.headers()["cache-control"]).toBe("public, s-maxage=300");
+  const body = await response.json();
+  expect(body).toMatchObject({ schema: 1, id: "airoof", app: { name: "AIRoof" }, deploy: { env: "preview" } });
+  expect(body.deploy.commit).toMatch(/^[a-f0-9]{7}$/);
+  expect(Number.isFinite(Date.parse(body.generatedAt))).toBe(true);
+  expect((await request.post("/api/app-status", { data: {} })).status()).toBe(405);
+});
+
 test("roofing has three simple steps and opens the read-only app without a call", async ({ as }) => {
   const page = await as("viewer");
   await page.goto("/try/roofing");

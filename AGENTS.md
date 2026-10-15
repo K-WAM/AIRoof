@@ -1,5 +1,7 @@
 # AGENTS.md — Permanent execution and review rules
 
+app-status.json is this app's public fact sheet for the Luxor My Apps hub. In the same commit that changes pricing, providers/stack, hosting, readiness, or adds a deadline (model retirement, trial end, renewal), update it. Keep it accurate; don't touch it otherwise. Never put secrets in it.
+
 Applies to every agent (worker, reviewer, integrator) in this repository. Task specs live **only** in
 `MASTER_PLAN.md`. Live state lives **only** in `TODO.md`. Prompts live in `docs/EXECUTION_PROMPTS.md`.
 
