@@ -78,7 +78,7 @@ describe("private telephone demo credentials", () => {
     const code = await issue();
     const results = await Promise.all(["conv_phone_1", "conv_phone_2"].map((conversation) => connectPhoneTrial(conversation, code, now)));
     expect(results.filter((result) => result.result.startsWith("CONNECTED:"))).toHaveLength(1);
-    expect(results[0]).toMatchObject({ businessName: "Entered Roofing", callerName: "Entered Caller", confirmationEmail: "entered@example.test" });
+    expect(results[0]).toMatchObject({ sayToCaller: expect.stringContaining("Entered Roofing"), businessName: "Entered Roofing", callerName: "Entered Caller", confirmationEmail: "entered@example.test" });
     expect(db.__peek("demoTrials", id)).toMatchObject({ calls: 1, conversationIds: ["conv_phone_1"] });
     expect((await connectPhoneTrial("conv_phone_1", code, now + 1000)).result).toMatch(/^CONNECTED:/);
     expect(db.__peek("demoTrials", id)?.calls).toBe(1);

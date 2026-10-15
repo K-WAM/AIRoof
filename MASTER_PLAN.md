@@ -1223,3 +1223,5 @@ T-223 scope clarification: include ElevenLabs conversationRecords and signed pos
 T-223 provisioning scope: exclude connectDemoSession from generic client provisioning in scripts/setup-elevenlabs-agent.mjs; only the targeted setup-demo-phone script attaches it to the marked demo agent.
 
 T-223 post-deploy finding: no-code model response restarted the shared greeting and re-asked an already stated inspection request. Tighten only that demo prompt state to acknowledge known intent and ask one missing intake detail; repeat focused model verification and final release gates before the follow-up publication.
+
+T-223 final voice-name finding: the real model sometimes omitted the verified business from its connection reply. Return an explicit sayToCaller name confirmation from connectDemoSession, require it once in the shared/private phone instructions, and remove the conflicting phone-only assumption that the private business had already been introduced. Browser greeting remains byte-identical. Recheck current-shape model fixtures before release.

@@ -295,6 +295,7 @@ test("dialing uses the same private setup and booking without desktop audio", as
   expect((await initiation.json()).conversation_config_override.agent.first_message).toContain("eight digits");
   const join = await page.request.post("/api/webhooks/elevenlabs/tools/connectDemoSession", { headers, data: { demoCode: code, businessId: "demo-roofing" } });
   const joined = await join.json(); expect(joined.result).toMatch(/^CONNECTED:/);
+  expect(joined.sayToCaller).toContain(`${name} Roofing`);
   expect(joined).toMatchObject({ businessName: `${name} Roofing`, callerName: name, confirmationEmail: email });
   const booked = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
     businessId: "demo-roofing", callerName: "Wrong Alias", email: "wrong@example.test", callbackPhone: "+15555559999", textOk: true,

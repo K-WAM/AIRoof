@@ -99,6 +99,7 @@ export async function connectPhoneTrial(conversationId: string, input: unknown, 
   if (!connected) return REFUSAL;
   return {
     result: "CONNECTED: The caller's private roofing demo is now active. Use only the trusted setup details below for the rest of this call. The shared intake checklist no longer applies.",
+    sayToCaller: `You\u2019re connected to ${connected.trial.companyName} for your private demo.`,
     businessName: connected.trial.companyName, callerName: connected.trial.name, confirmationEmail: connected.trial.email,
     instructions: buildTrialPrompt(connected.config, connected.trial, new Date(now), "phone"),
   };

@@ -15,10 +15,13 @@ describe("demo phone prompt states", () => {
     expect(prompt).toContain("NEVER restart a greeting");
     expect(prompt).toContain("shared instructions below NO LONGER APPLY");
     expect(prompt).toContain("Never collect another email or promise SMS");
+    expect(prompt).toContain("sayToCaller sentence EXACTLY ONCE");
   });
   it("uses the verified setup after connecting without collecting carrier contact again", () => {
     const prompt = buildTrialPrompt(config, trial, new Date(), "phone");
     expect(prompt).toContain("private phone demo");
+    expect(prompt).toContain("business-name confirmation is required");
+    expect(prompt).not.toContain("The greeting already introduced you");
     expect(prompt).toContain("NEVER ask for a phone number");
     expect(prompt).toContain('"confirmationEmail":"entered@example.test"');
     expect(prompt).toContain("callbackPhone");

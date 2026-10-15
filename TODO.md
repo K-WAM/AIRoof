@@ -3046,4 +3046,4 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 ## Unified browser and dial-in demo (2026-10-15)
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-223 | Codex integrator | codex/phone-demo-intake-fix / D:/Apps/AI Receptionist | review; corrected prompt, 1984 units and 198 browser passes; live carrier check next | One setup, browser/dial actions, expiring spoken code, server-bound private telephone session, demo-only provider tool/config and release proof; see MASTER_PLAN |
+| T-223 | Codex integrator | codex/phone-demo-name-confirmation / D:/Apps/AI Receptionist | review; explicit name confirmation passes models, units, build and final browser gate; live carrier next | One setup, browser/dial actions, expiring spoken code, server-bound private telephone session, demo-only provider tool/config and release proof; see MASTER_PLAN |
