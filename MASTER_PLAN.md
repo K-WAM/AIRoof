@@ -1221,3 +1221,5 @@ Owned scope: new src/lib/demo/phoneTrial.ts and tests; roofingTrial type and pub
 T-223 scope clarification: include ElevenLabs conversationRecords and signed post-call handling/tests so delayed private phone transcripts retain their tenant after the short tool lease expires. The public shared demo must not be used as an agent-ID fallback once its private conversation identity is gone.
 
 T-223 provisioning scope: exclude connectDemoSession from generic client provisioning in scripts/setup-elevenlabs-agent.mjs; only the targeted setup-demo-phone script attaches it to the marked demo agent.
+
+T-223 post-deploy finding: no-code model response restarted the shared greeting and re-asked an already stated inspection request. Tighten only that demo prompt state to acknowledge known intent and ask one missing intake detail; repeat focused model verification and final release gates before the follow-up publication.

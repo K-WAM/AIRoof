@@ -304,15 +304,19 @@ test("dialing uses the same private setup and booking without desktop audio", as
   expect(await readDoc(`businesses/${profile.businessId}/jobs/J-1001`)).toBeTruthy();
   const emails = (await outbox()).filter((m: { to?: string[] | string }) => Array.isArray(m.to) ? m.to.includes(email) : m.to === email);
   expect(emails).toHaveLength(1);
-  expect((await readDoc(`businesses/${profile.businessId}/appointments/${(await readDoc(`businesses/${profile.businessId}/jobs/J-1001`))!.sourceAppointmentId}`))!.callerPhone).not.toBe("+15555559999");
+  const phoneAppointment = await readDoc(`businesses/${profile.businessId}/appointments/${(await readDoc(`businesses/${profile.businessId}/jobs/J-1001`))!.sourceAppointmentId}`);
+  expect(phoneAppointment).toMatchObject({ callerName: name, callerEmail: email, callerPhone: "+13055550123" });
+  expect(phoneAppointment!.callbackPhone).toBeUndefined();
   const trialId = profile.businessId.replace("demo-trial-roofing-", "");
   expect((await readDoc(`demoTrials/${trialId}`))!.calls).toBe(1);
   const now = Math.floor(Date.now() / 1000), raw = JSON.stringify({ type: "post_call_transcription", event_timestamp: now,
     data: { agent_id: TENANTS.demo.agentId, conversation_id: conversationId, status: "done", transcript: [{ role: "user", message: "Private phone demo booked.", time_in_call_secs: 0 }], metadata: { start_time_unix_secs: now - 30, call_duration_secs: 30 }, analysis: { transcript_summary: "Private phone demo booked." } } });
   const signature = createHmac("sha256", SECRETS.webhook).update(`${now}.${raw}`).digest("hex");
   expect((await page.request.post("/api/webhooks/elevenlabs/post-call", { headers: { "content-type": "application/json", "elevenlabs-signature": `t=${now},v0=${signature}` }, data: raw })).status()).toBe(200);
-  expect((await readDoc(`businesses/${profile.businessId}/calls/call_elevenlabs_${conversationId}`))!.status).toBe("ended");
-  expect((await readDoc(`businesses/demo-roofing/calls/call_elevenlabs_${conversationId}`))!.transcript).toBeUndefined();
+  const privateCall = await readDoc(`businesses/${profile.businessId}/calls/call_elevenlabs_${conversationId}`);
+  expect(privateCall!.status).toBe("ended");
+  expect(privateCall!.messages).toEqual(expect.arrayContaining([expect.objectContaining({ text: "Private phone demo booked." })]));
+  expect((await readDoc(`businesses/demo-roofing/calls/call_elevenlabs_${conversationId}`))!.messages).toBeUndefined();
   await page.getByRole("button", { name: "See Your Booking in the App", exact: true }).click();
   await expect(page).toHaveURL(/\/company\/pipeline$/);
   await expect(page.getByText(name, { exact: true }).first()).toBeVisible();

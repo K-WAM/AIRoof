@@ -12,6 +12,7 @@ describe("demo phone prompt states", () => {
     expect(prompt).toContain("preserving leading zeroes");
     expect(prompt).toContain("call connectDemoSession immediately");
     expect(prompt).toContain("simply starts a regular inspection request");
+    expect(prompt).toContain("NEVER restart a greeting");
     expect(prompt).toContain("shared instructions below NO LONGER APPLY");
     expect(prompt).toContain("Never collect another email or promise SMS");
   });
