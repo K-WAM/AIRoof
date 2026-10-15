@@ -26,7 +26,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
   businessId: string;
   catalog: CatalogState;
   onSaved: (findings: JobFinding[]) => void;
-  /** Viewer: the empty state explains, but offers no button that would 403. */
+  /** Viewer: readable findings only; no office editing or autosave. */
   readOnly?: boolean;
 }) {
   const [findings, setFindings] = useState<JobFinding[]>(job.findings ?? []);
@@ -49,6 +49,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
   }, [job.findings]);
 
   const change = (next: JobFinding[]) => {
+    if (readOnly) return;
     version.current += 1;
     setFindings(next);
     setDirty(true);
@@ -57,6 +58,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
   };
 
   async function save(): Promise<void> {
+    if (readOnly) return;
     if (findings.length > 60) { setError("A job can have at most 60 findings."); setStatus("error"); return; }
     const saving = version.current;
     setStatus("saving");
@@ -76,11 +78,11 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
 
   // Autosave shortly after the last change — there is no Save button to forget.
   useEffect(() => {
-    if (!dirty || status === "error") return;
+    if (readOnly || !dirty || status === "error") return;
     const timer = window.setTimeout(() => { void save(); }, AUTOSAVE_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [findings, dirty]);
+  }, [findings, dirty, readOnly]);
 
   const onJobIds = useMemo(() => new Set(findings.flatMap((f) => (f.itemId ? [f.itemId] : []))), [findings]);
 
@@ -157,6 +159,27 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
   }
 
   const patch = (findingId: string, next: Partial<JobFinding>) => change(findings.map((f) => (f.findingId === findingId ? { ...f, ...next } : f)));
+
+  if (readOnly) return <section className="panel no-print" data-testid="viewer-findings">
+    <div className="panel-header"><h2 className="panel-title">Findings</h2></div>
+    <div className="panel-body" style={{ display: "grid", gap: 16 }}>
+      {crewIssues.length > 0 && <section aria-labelledby="viewer-crew-issues-title">
+        <h3 id="viewer-crew-issues-title" style={{ margin: "0 0 12px", fontSize: 14 }}>Reported by crew ({crewIssues.length})</h3>
+        {crewIssues.map((issue, i) => <article key={i} className="finding-card" style={{ padding: 12, marginBottom: 10, overflowWrap: "anywhere" }}>
+          <span className={issue.severity === "high" ? "tag urgent" : "tag"} style={{ textTransform: "capitalize" }}>{issue.severity}</span>
+          <p style={{ margin: "8px 0 0" }}>{issue.description}</p>
+          {issue.resolution && <p style={{ margin: "8px 0 0", color: "var(--text-muted)" }}>{issue.resolution}</p>}
+        </article>)}
+      </section>}
+      {(job.findings ?? []).map((finding) => <article key={finding.findingId} className="finding-card" style={{ padding: 12, overflowWrap: "anywhere" }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: 14 }}>{finding.problem}</h3>
+        <p style={{ margin: 0 }}>{finding.solution}</p>
+        {finding.note && <p style={{ margin: "8px 0 0", color: "var(--text-muted)" }}>{finding.note}</p>}
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--text-muted)" }}>Report: {finding.includeInReport ? "Included" : "Not included"} · Quote: {finding.includeInQuote ? "Included" : "Not included"}</p>
+      </article>)}
+      {crewIssues.length === 0 && !(job.findings?.length) && <EmptyState compact title="No findings yet" body="Findings recorded for this job will appear here." testId="job-findings-empty" />}
+    </div>
+  </section>;
 
   return (
     <section className="panel no-print">

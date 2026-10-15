@@ -20,6 +20,21 @@ beforeEach(() => { vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("FindingsPanel — Reported by crew", () => {
+  it("shows viewer findings and crew resolutions without office editors or writes", () => {
+    const onSaved = vi.fn();
+    render(<FindingsPanel readOnly job={job({ findings: [{ findingId: "f1", category: "Roof", problem: "Saved issue", solution: "Saved repair", note: "North slope", includeInQuote: true, includeInReport: true, addedAt: 1 }] })} businessId="biz" catalog={catalog} onSaved={onSaved} />);
+    expect(screen.getByText("Re-hang the gutter.")).toBeTruthy();
+    expect(screen.getByText("Saved issue")).toBeTruthy();
+    expect(screen.getByText("Saved repair")).toBeTruthy();
+    expect(screen.getByText("North slope")).toBeTruthy();
+    expect(screen.getByText("high")).toBeTruthy();
+    expect(screen.getByText("Report: Included · Quote: Included")).toBeTruthy();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(fetch).not.toHaveBeenCalled(); expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it("adds every selected Library finding in one save", async () => {
     const items: WorkCatalogItem[] = [item,
       { ...item, itemId: "flashing", problem: "Failed flashing" },

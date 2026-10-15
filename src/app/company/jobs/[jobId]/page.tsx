@@ -1090,7 +1090,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             ? { sent: "Sent", accepted: "Accepted", declined: "Declined", expired: "Expired" }[pageQuote.status] ?? null
             : null;
           return <button role="tab" aria-selected={activeTab === tab.id} className={`job-tab job-tab-workflow ${activeTab === tab.id ? "active" : ""} ${tab.step?.state === "current" ? "current" : ""}`} key={tab.id} data-testid={`job-tab-${tab.id}`} onClick={() => setActiveTab(tab.id)}>
-            <span>{tab.number} {tab.label}</span>{tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
+            <span>{tab.number} {tab.label}</span>{!privateDemo && tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
       </div>
