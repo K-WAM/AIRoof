@@ -48,6 +48,8 @@ test("three centered actions explain the product and open a private app without 
   await shot(page, "private-demo-landing");
   const profile = await createFromLanding(page, `Prospect ${Date.now()}`);
   await expect(page.getByTestId("private-demo-nav")).toBeVisible();
+  await expect(page.getByTestId("private-demo-nav").getByRole("button", { name: "3. Add a Voice Update", exact: true })).toBeInViewport();
+  await expect(page.getByTestId("private-demo-nav").locator(".button.primary")).toHaveCount(1);
   expect((await page.request.get("/api/businesses/demo-roofing/calls")).status()).toBe(403);
   expect((await page.request.post("/api/jobs", { data: { businessId: profile.businessId, title: "Denied office write" } })).status()).toBe(403);
   expect((await page.request.post("/api/admin/demo-customize", { data: { companyName: "Denied" } })).status()).toBe(403);
@@ -66,7 +68,7 @@ test("a real local booking emails only the entered address and field updates rea
   expect(call.prompt).toContain("No phone number is required for this browser demo");
   const headers = { "x-luxor-tool-secret": SECRETS.tool, "x-luxor-conversation-id": call.conversationId };
   const booked = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
-    businessId: "demo-roofing", callerName: name, callerEmail: "wrong@example.test", email: "also-wrong@example.test",
+    businessId: "demo-roofing", name: "Wrong model alias", callerName: "Wrong model name", callerEmail: "wrong@example.test", email: "also-wrong@example.test",
     serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432",
     startTime: "2030-07-23T10:00:00-04:00", endTime: "2030-07-23T11:00:00-04:00",
   } });
@@ -92,6 +94,7 @@ test("a real local booking emails only the entered address and field updates rea
   await expect(page).toHaveURL(/\/field\?businessId=demo-trial-roofing-/);
   const composer = page.getByRole("region", { name: "Send a field note" });
   await expect(composer).toBeVisible();
+  await expect(composer.getByRole("button", { name: "Record a voice note", exact: true })).toBeInViewport();
   await expect(page.getByLabel("Your name", { exact: true })).toHaveValue(name);
   await composer.getByRole("button", { name: /Type/i }).click();
   await composer.getByRole("textbox").fill("Used 12 bundles of shingles. Carlos worked 8 hours. Found a cracked vent boot.");
@@ -109,6 +112,23 @@ test("a real local booking emails only the entered address and field updates rea
   await expect(page.getByRole("link", { name: "Add a note", exact: true })).toHaveCount(0);
   await expectHealthy(page);
   await shot(page, "private-demo-job");
+  await page.getByTestId("job-tab-findings").click();
+  await expect(page.getByText(/cracked vent boot/i).first()).toBeVisible();
+  await shot(page, "private-demo-findings");
+  for (const kind of ["quote", "report", "invoice"]) {
+    await page.getByTestId(`job-tab-${kind}`).click();
+    const preview = page.getByTestId(`private-demo-${kind}`);
+    await expect(preview).toContainText("Demo preview — not sent");
+    await expect(preview).toContainText(/cracked vent boot/i);
+    await expect(preview).toContainText(/12.*shingles/i);
+    await expect(preview).toContainText(/Carlos.*8 hours/i);
+    await expect(preview.locator("article")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^(?:Send|Generate) (?:Quote|Report|Invoice)$/i })).toHaveCount(0);
+    await expect(page.getByTestId(`job-tab-${kind}`)).toHaveAttribute("aria-selected", "true");
+    await expectHealthy(page);
+    await shot(page, `private-demo-${kind}`);
+  }
+
   const other = await as("viewer");
   const otherProfile = await createFromLanding(other, `Other Prospect ${Date.now()}`);
   expect(otherProfile.businessId).not.toBe(profile.businessId);

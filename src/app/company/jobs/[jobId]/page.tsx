@@ -1,5 +1,6 @@
 "use client";
 
+import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
 import { fmtPhone } from "@/lib/format/phone";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { use, useEffect, useRef, useState, useCallback } from "react";
@@ -127,7 +128,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const preview = searchParams?.get("preview");
   const previewSuffix = preview ? `?preview=${preview}` : "";
   const { open: openQuickAdd } = useQuickAdd();
-  const readOnly = useAuth().user?.role === "viewer";
+  const { user } = useAuth();
+  const readOnly = user?.role === "viewer";
+  const privateDemo = user?.isDemoTrial === true;
   // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
   const { isEnabled: moduleEnabled, ready: modulesReady, quotes: usesQuotes } = useBusinessModules();
   const hasBilling = !modulesReady || moduleEnabled("billing");
@@ -1037,7 +1040,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       </header>
 
       {/* Job progress bar — 5 steps for quoted work, 4 for set-price work (Booked → Working → Done → Invoiced) */}
-      <div className="job-progress no-print">
+      {!privateDemo && <div className="job-progress no-print">
         {progressSteps.map((step, i) => {
           // A paid invoice closes the job: every step shows done.
           const currentIdx = invoiceStatus === "paid" ? progressSteps.length : statusToStepIdx(job.status, usesQuotes);
@@ -1067,7 +1070,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </div>
           );
         })}
-      </div>
+      </div>}
 
       {statusError && (
         <p role="alert" className="no-print" style={{ margin: "-8px 0 12px", color: "#b91c1c", fontSize: 13 }}>{statusError}</p>
@@ -1091,6 +1094,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
           </button>;
         })}
       </div>
+
+      {privateDemo && (activeTab === "quote" || activeTab === "report" || activeTab === "invoice") && <PrivateDemoDocuments job={job} business={businessConfig} kind={activeTab} />}
 
       {/* Edit / Save / Cancel — Materials and Labor (on Activity it sits right above the work log instead) */}
       {["materials", "labor"].includes(activeTab) && !readOnly && editBar}
@@ -1358,14 +1363,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       {activeTab === "findings" && <LockNote quote={pageQuote} invoice={{ invoiceId: job.invoiceId, status: invoiceStatus, ...invoiceMeta }} />}
       {activeTab === "findings" && <FindingsPanel job={job} businessId={businessId!} catalog={catalog} readOnly={readOnly} onSaved={(findings) => setJob((current) => current ? { ...current, findings } : current)} />}
 
-      {activeTab === "quote" && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
+      {activeTab === "quote" && !privateDemo && <QuotePanel key={`quote-${clientVersion}`} job={job} businessId={businessId!} businessConfig={businessConfig} logos={logos} catalog={catalog}
         photos={photos} readOnly={readOnly}
         onStatus={(status) => setJob((current) => current ? { ...current, status } : current)}
         onFindingsChanged={(findings) => setJob((current) => current ? { ...current, findings } : current)} onQuoteChange={setPageQuote}
         onPropertyType={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />}
 
       {/* ── Invoice ── */}
-      {activeTab === "invoice" && hasBilling && (
+      {activeTab === "invoice" && hasBilling && !privateDemo && (
         <div>
           <p className="no-print" style={{ color: "var(--text-muted)", fontSize: 13, margin: "0 0 12px" }}>
             Email the invoice to your customer or print it. Customers pay you directly; record each payment here and they get a receipt.
@@ -1872,7 +1877,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* ── Report ── */}
-      {activeTab === "report" && (
+      {activeTab === "report" && !privateDemo && (
         <div>
           {!report ? (
             <section className="panel">

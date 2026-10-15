@@ -214,7 +214,7 @@ function FieldApp() {
           <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em", color: "#f8fafc" }}>Luxor Field</span>
         </div>
 
-        {!accessDenied && <InstallPrompt />}
+        {!accessDenied && !privateDemo && <InstallPrompt />}
 
         <div className="field-public-content" style={{ flex: 1, padding: "20px 20px 16px", maxWidth: 480, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
           {privateDemo && <PrivateDemoNav />}
