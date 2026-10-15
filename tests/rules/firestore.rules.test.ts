@@ -91,6 +91,7 @@ async function seed() {
     ["businessUsers/trial-expired", { businessId: "biz-a", role: "viewer", active: true, isDemoTrial: true, demoTrialExpiry: new Date(Date.now() - 60000) }],
     ["businessUsers/trial-active", { businessId: "biz-a", role: "viewer", active: true, isDemoTrial: true, demoTrialExpiry: new Date(Date.now() + 3600000) }],
     ["demoTrials/private-a", { secretHash: "never-public" }],
+    ["demoTrialBudgets/phone-code-private", { trialId: "private-a" }],
     ["demoProspects/private-a", { email: "private@example.test" }],
     ["businessPhoneNumbers/biz-b-main", { businessId: "biz-b", phoneNumber: "+15555550100" }],
     ["adminAuditEvents/audit-1", { action: "business.created" }],
@@ -198,7 +199,7 @@ it("expires private-demo access and keeps prospect/session records server-only",
   expect(await read("businesses/biz-a/jobs/j-a", { uid: "trial-active" })).toBe(ALLOWED);
   expect(await read("businesses/biz-b/jobs/j-b", { uid: "trial-active" })).toBe(DENIED);
   expect(await write("businesses/biz-a/jobs/j-a", { title: "Denied trial write" }, { uid: "trial-active" })).toBe(DENIED);
-  for (const path of ["demoTrials/private-a", "demoProspects/private-a"]) {
+  for (const path of ["demoTrials/private-a", "demoProspects/private-a", "demoTrialBudgets/phone-code-private"]) {
     expect(await read(path, { uid: "trial-active" })).toBe(DENIED);
     expect(await read(path, null)).toBe(DENIED);
   }

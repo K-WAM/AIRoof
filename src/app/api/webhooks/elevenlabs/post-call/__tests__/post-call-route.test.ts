@@ -288,6 +288,26 @@ describe("POST /api/webhooks/elevenlabs/post-call", () => {
     expect(db.__peek("businesses/biz_1/calls", "call_elevenlabs_conv_1")).toBeUndefined();
   });
 
+  it("keeps a delayed private phone transcript in its stored tenant after tool authority expires", async () => {
+    const privateId = "demo-trial-roofing-" + "a".repeat(32);
+    db.__seed("elevenlabsConversations", "conv_1", { businessId: privateId, toolExpiresAt: now - 1, expiresAt: now + 86400000 });
+    db.__seed("businesses", privateId, { businessName: "Private Roofing", isDemo: true, isDemoTrial: true });
+    mocks.findBusinessByElevenLabsAgentId.mockResolvedValue("demo-roofing");
+    const payload = transcriptionPayload();
+    expect((await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)))).status).toBe(200);
+    expect(db.__peek(`businesses/${privateId}/calls`, "call_elevenlabs_conv_1")?.status).toBe("ended");
+    expect(db.__peek("businesses/demo-roofing/calls", "call_elevenlabs_conv_1")).toBeUndefined();
+    expect(mocks.findBusinessByElevenLabsAgentId).not.toHaveBeenCalled();
+  });
+
+  it("never falls back to the shared demo for an expired private conversation identity", async () => {
+    db.__seed("elevenlabsConversations", "conv_1", { businessId: "demo-trial-roofing-" + "a".repeat(32), expiresAt: now - 1 });
+    mocks.findBusinessByElevenLabsAgentId.mockResolvedValue("demo-roofing");
+    const payload = transcriptionPayload();
+    expect((await POST(requestFor(payload, sign(JSON.stringify(payload), nowSecs)))).status).toBe(200);
+    expect(db.__peek("businesses/demo-roofing/calls", "call_elevenlabs_conv_1")).toBeUndefined();
+    expect(mocks.classifyCallOutcome).not.toHaveBeenCalled();
+  });
   it("acks unknown event types", async () => {
     const payload = { type: "voice_removed", event_timestamp: nowSecs, data: {} };
     const response = await POST(

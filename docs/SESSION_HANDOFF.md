@@ -1,5 +1,12 @@
 # SESSION_HANDOFF.md — Current state
 
+## 2026-10-15 — T-223 unified browser/phone demo release candidate
+
+Owner approved an expiring spoken code for telephone callers. The roofing landing now offers Call in Browser or Dial (689) 204-2643 from one name/business/optional-email setup. One-use eight-digit codes expire in five minutes, bind only a trusted marked-demo carrier call to its private tenant and share the existing two-call allowance. Setup contact values remain authoritative, delayed transcripts keep private tenant identity, and ordinary client initiation remains unchanged. Generic client provisioning excludes the demo handoff tool.
+
+Local release gates pass: TypeScript/changed-app ESLint, full Vitest 257 files / 1,982 passes plus one expected failure, later phone API additions 9/9, booking scenarios, Firestore rules 14/14, production Next build, API call-to-cash 12/12, full production-mode browser suite 198 passed / 10 intentional skips / no retries (14.0 min), screen audits and inspected desktop/375px screenshots. Three real-model code/private-intake/no-code tests pass, including actual generated tool-call inspection. Targeted public demo agent setup succeeded with nine webhook tools and 180-second duration; readback retained all existing webhook/system tools, built-in settings, voice and platform settings. Both public demo numbers were verified owned in Twilio. Publication and the mandatory post-deploy model/carrier transcript check follow; do not treat physical transport as verified until the closing entry. NH-34 SMS and connected Calendly prerequisites remain unchanged. app-status facts are unchanged because this feature changes no tracked provider/pricing/readiness fact.
+
+
 ## 2026-10-15 — AIRoof personalization and public hub facts released
 
 Implementation commits def1c08 (T-221) and 09c718f (T-222) fast-forwarded to main and pushed under the owner's explicit publication request. Application 09c718f is live on crm.luxordev.com; Vercel dpl_GgGi5wc8ePzbo4J6YFYHShCZvXbo READY, GitHub CI 38699321728 success. The closing handoff commit changes documentation only; subsequent live metadata can therefore name that newer build without changing the tested app source.

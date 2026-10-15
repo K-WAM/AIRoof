@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ read: vi.fn(), create: vi.fn(), customToken: vi.fn() }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), create: vi.fn(), customToken: vi.fn(), phone: vi.fn() }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminAuth: () => ({ createCustomToken: mocks.customToken }), getAdminFirestore: () => null }));
 vi.mock("@/lib/auth/rateLimit", () => ({ checkRateLimit: () => null }));
 vi.mock("@/lib/demo/roofingTrial", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/demo/roofingTrial")>(), readTrial: mocks.read, createTrial: mocks.create,
 }));
+vi.mock("@/lib/demo/phoneTrial", () => ({ issuePhoneCode: mocks.phone }));
 import { POST } from "./route";
 
 const existing = { uid: "old-demo", name: "Original Caller", companyName: "Original Roofing", email: "original@example.test", businessId: "old-business", expiresAt: Date.now() + 60000, calls: 0, notes: 0 };
@@ -49,4 +50,20 @@ describe("resumed private demo identity", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("Set-Cookie")).toBeNull();
   });
-});
+  it("requires the private session and rejects model-selected identity for phone codes", async () => {
+    mocks.read.mockResolvedValue(null);
+    expect((await POST(request({ action: "phone" }))).status).toBe(401);
+    mocks.read.mockResolvedValue(existing);
+    expect((await POST(request({ action: "phone", businessId: "demo-roofing" }))).status).toBe(400);
+    expect(mocks.phone).not.toHaveBeenCalled();
+  });
+  it("issues codes only for its stored session and never caches the credential", async () => {
+    mocks.phone.mockResolvedValue({ code: "01234567", expiresAt: existing.expiresAt });
+    const response = await POST(request({ action: "phone" }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ code: "01234567", expiresAt: existing.expiresAt });
+    expect(mocks.phone).toHaveBeenCalledWith(existing);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    mocks.phone.mockResolvedValue({ error: "Phone limit reached" });
+    expect((await POST(request({ action: "phone" }))).status).toBe(429);
+  });});

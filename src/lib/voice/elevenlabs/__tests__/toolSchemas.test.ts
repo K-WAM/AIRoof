@@ -11,10 +11,10 @@ import {
 const PRIVILEGED_PARAMS = ["businessId", "callId", "verifiedCallerPhone"];
 
 describe("elevenLabsToolDefinitions (single source of truth)", () => {
-  it("defines exactly the 8 tools the dispatcher supports", () => {
+  it("defines the nine supported ElevenLabs webhook tools", () => {
     const names = elevenLabsToolDefinitions().map((tool) => tool.name);
     expect(names.sort()).toEqual([...ELEVENLABS_TOOL_NAMES].sort());
-    expect(names).toHaveLength(8);
+    expect(names).toHaveLength(9);
   });
 
   it("addBookingNote takes one required note; bookAppointment accepts textOk as a boolean", () => {

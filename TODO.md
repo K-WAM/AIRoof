@@ -3042,3 +3042,8 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 - NEEDS-HUMAN (T-221): SMS_ENABLED is absent in Production; private browser trials have no registered ready SMS sender. Do not enable or borrow another tenant's number. SMS requires carrier-ready registration and an explicit supported sender configuration.
 - Calendly: no connected account/event link supplied. The owner's existing https://luxordev.com/demo calendar is available as a truthful day/time request flow; an instant-confirmation Calendly link can replace it once connected to the owner's calendar.
+
+## Unified browser and dial-in demo (2026-10-15)
+| Task | Role | Branch / checkout | Status | Owned scope |
+|---|---|---|---|---|
+| T-223 | Codex integrator | codex/phone-demo-handoff / D:/Apps/AI Receptionist | review; release gates pass, live verification next | One setup, browser/dial actions, expiring spoken code, server-bound private telephone session, demo-only provider tool/config and release proof; see MASTER_PLAN |

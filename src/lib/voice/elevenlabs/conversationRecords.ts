@@ -22,6 +22,7 @@ export interface ElevenLabsConversationRecord {
   callSid?: string;
   createdAt: number;
   expiresAt: number;
+  toolExpiresAt?: number;
 }
 
 /** Firestore-safe doc id for a conversation id or call SID. */
@@ -58,6 +59,15 @@ export async function getElevenLabsConversation(
   id: string,
   now = Date.now()
 ): Promise<ElevenLabsConversationRecord | null> {
+  const record = await getElevenLabsConversationForDelivery(id, now);
+  return record && (record.toolExpiresAt === undefined || record.toolExpiresAt > now) ? record : null;
+}
+
+/** Signed end-of-call delivery may persist facts after tool authority expires; never use this to authorize tools. */
+export async function getElevenLabsConversationForDelivery(
+  id: string,
+  now = Date.now()
+): Promise<ElevenLabsConversationRecord | null> {
   const db = getAdminFirestore();
   if (!db) return null;
 
@@ -84,6 +94,7 @@ export async function getElevenLabsConversation(
       callSid: typeof data.callSid === "string" ? data.callSid : undefined,
       createdAt: typeof data.createdAt === "number" ? data.createdAt : now,
       expiresAt,
+      ...(data.toolExpiresAt !== undefined ? { toolExpiresAt: typeof data.toolExpiresAt === "number" && Number.isFinite(data.toolExpiresAt) ? data.toolExpiresAt : 0 } : {}),
     };
   } catch (error) {
     console.error("getElevenLabsConversation error:", error);

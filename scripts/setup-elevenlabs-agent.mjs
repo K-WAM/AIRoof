@@ -263,7 +263,8 @@ async function main() {
   const toolSecret = env.ELEVENLABS_TOOL_SECRET?.trim();
   const baseUrl = env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
 
-  const schemas = JSON.parse(readFileSync(SCHEMAS_PATH, "utf8"));
+  // Private phone handoff is provisioned only by setup-demo-phone.mjs for the marked public demo.
+  const schemas = JSON.parse(readFileSync(SCHEMAS_PATH, "utf8")).filter((schema) => schema.name !== "connectDemoSession");
 
   console.log(apply ? "=== ElevenLabs provisioning (APPLY) ===" : "=== ElevenLabs provisioning (DRY RUN — no writes) ===");
   console.log(`App base URL : ${baseUrl}`);

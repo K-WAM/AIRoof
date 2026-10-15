@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import { test, expect, expectHealthy, shot } from "./fixtures";
 import { db, outbox, readDoc } from "../scripts/e2e/lib.cjs";
-import { PRIVATE_TRIAL_UID_PREFIX, SECRETS } from "../scripts/e2e/config.cjs";
+import { PRIVATE_TRIAL_UID_PREFIX, SECRETS, TENANTS } from "../scripts/e2e/config.cjs";
 import type { Page } from "@playwright/test";
 
 test.beforeAll(async () => {
@@ -36,8 +36,9 @@ test("three centered actions explain the product and open a private app without 
   await expect(page.getByRole("list", { name: "Try the demo" }).getByRole("listitem")).toHaveCount(3);
   await expect(page.getByText("So simple, you won't need training.")).toBeVisible();
   await expect(page.getByText(/View only|Sample bookings/)).toHaveCount(0);
-  for (const name of ["Call and Book", "See Your Booking in the App", "Add a Voice Update"]) {
+  for (const name of ["Call in Browser", "See Your Booking in the App", "Add a Voice Update"]) {
     const button = page.getByRole("button", { name, exact: true });
+    if (name !== "Call in Browser") await button.scrollIntoViewIfNeeded();
     await expect(button).toBeInViewport();
     const box = await button.boundingBox();
     const width = page.viewportSize()!.width;
@@ -45,6 +46,8 @@ test("three centered actions explain the product and open a private app without 
   }
   await expect(page.locator(".button.primary")).toHaveCount(1);
   await expectHealthy(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.getByRole("button", { name: "Dial (689) 204-2643", exact: true })).toBeInViewport();
   await shot(page, "private-demo-landing");
   const profile = await createFromLanding(page, `Prospect ${Date.now()}`);
   await expect(page.getByTestId("private-demo-nav")).toBeVisible();
@@ -245,7 +248,7 @@ test("browser calling loads real SDK audio worklets and disconnects cleanly with
     });
   });
   await page.goto("/try/roofing");
-  await page.getByRole("button", { name: "Call and Book", exact: true }).click();
+  await page.getByRole("button", { name: "Call in Browser", exact: true }).click();
   const setup = page.getByRole("dialog", { name: "Make It Your Demo" });
   await setup.getByLabel("Your Name", { exact: true }).fill(name);
   await setup.getByLabel("Business Name", { exact: true }).fill(`${name} Roofing`);
@@ -259,4 +262,59 @@ test("browser calling loads real SDK audio worklets and disconnects cleanly with
   await page.getByRole("button", { name: "End Call", exact: true }).click();
   await expect(page.getByText("Call ended. Continue in the app.")).toBeVisible();
   await expectHealthy(page);
+});
+
+test("dialing uses the same private setup and booking without desktop audio", async ({ as }) => {
+  const page = await as("viewer");
+  const name = `Phone Prospect ${Date.now()}`, email = `phone-${Date.now()}@example.test`;
+  await page.route("**/api/demo/roofing-trial", route => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": `198.51.100.${++nextTestIp}` } }));
+  await page.addInitScript(() => { navigator.mediaDevices.getUserMedia = async () => { throw new Error("Phone path must never request microphone permission"); }; });
+  await page.goto("/try/roofing");
+  await page.getByRole("button", { name: "Dial (689) 204-2643", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Make It Your Demo" });
+  await dialog.getByLabel("Your Name", { exact: true }).fill(name);
+  await dialog.getByLabel("Business Name", { exact: true }).fill(`${name} Roofing`);
+  await dialog.getByLabel("Confirmation Email (Optional)", { exact: true }).fill(email);
+  await dialog.getByRole("button", { name: "Show My Demo Code", exact: true }).click();
+  const codePanel = page.getByTestId("phone-demo-code");
+  await expect(codePanel).toBeVisible();
+  const code = (await codePanel.locator("strong").innerText()).replace(/\s/g, "");
+  expect(code).toMatch(/^\d{8}$/);
+  await expect(page.getByRole("link", { name: "Dial (689) 204-2643", exact: true })).toHaveAttribute("href", "tel:+16892042643");
+  await codePanel.scrollIntoViewIfNeeded();
+  await expect(codePanel).toBeInViewport();
+  await expectHealthy(page); await shot(page, "private-demo-phone-code");
+  const profile = (await (await page.request.get("/api/auth/profile")).json()).profile;
+  const conversationId = `conv_phone_${Date.now()}`;
+  const headers = { "x-luxor-tool-secret": SECRETS.tool, "x-luxor-conversation-id": conversationId };
+  const initiation = await page.request.post("/api/webhooks/elevenlabs/initiation", { headers, data: {
+    caller_id: "+13055550123", called_number: TENANTS.demo.phone, agent_id: TENANTS.demo.agentId,
+    call_sid: `CA_${conversationId}`, conversation_id: conversationId,
+  } });
+  expect(initiation.status()).toBe(200);
+  expect((await initiation.json()).conversation_config_override.agent.first_message).toContain("eight digits");
+  const join = await page.request.post("/api/webhooks/elevenlabs/tools/connectDemoSession", { headers, data: { demoCode: code, businessId: "demo-roofing" } });
+  const joined = await join.json(); expect(joined.result).toMatch(/^CONNECTED:/);
+  expect(joined).toMatchObject({ businessName: `${name} Roofing`, callerName: name, confirmationEmail: email });
+  const booked = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
+    businessId: "demo-roofing", callerName: "Wrong Alias", email: "wrong@example.test", callbackPhone: "+15555559999", textOk: true,
+    serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432", startTime: "2030-07-23T10:00:00-04:00", endTime: "2030-07-23T11:00:00-04:00",
+  } });
+  expect((await booked.json()).result).toMatch(/^BOOKED:/);
+  expect(await readDoc(`businesses/${profile.businessId}/jobs/J-1001`)).toBeTruthy();
+  const emails = (await outbox()).filter((m: { to?: string[] | string }) => Array.isArray(m.to) ? m.to.includes(email) : m.to === email);
+  expect(emails).toHaveLength(1);
+  expect((await readDoc(`businesses/${profile.businessId}/appointments/${(await readDoc(`businesses/${profile.businessId}/jobs/J-1001`))!.sourceAppointmentId}`))!.callerPhone).not.toBe("+15555559999");
+  const trialId = profile.businessId.replace("demo-trial-roofing-", "");
+  expect((await readDoc(`demoTrials/${trialId}`))!.calls).toBe(1);
+  const now = Math.floor(Date.now() / 1000), raw = JSON.stringify({ type: "post_call_transcription", event_timestamp: now,
+    data: { agent_id: TENANTS.demo.agentId, conversation_id: conversationId, status: "done", transcript: [{ role: "user", message: "Private phone demo booked.", time_in_call_secs: 0 }], metadata: { start_time_unix_secs: now - 30, call_duration_secs: 30 }, analysis: { transcript_summary: "Private phone demo booked." } } });
+  const signature = createHmac("sha256", SECRETS.webhook).update(`${now}.${raw}`).digest("hex");
+  expect((await page.request.post("/api/webhooks/elevenlabs/post-call", { headers: { "content-type": "application/json", "elevenlabs-signature": `t=${now},v0=${signature}` }, data: raw })).status()).toBe(200);
+  expect((await readDoc(`businesses/${profile.businessId}/calls/call_elevenlabs_${conversationId}`))!.status).toBe("ended");
+  expect((await readDoc(`businesses/demo-roofing/calls/call_elevenlabs_${conversationId}`))!.transcript).toBeUndefined();
+  await page.getByRole("button", { name: "See Your Booking in the App", exact: true }).click();
+  await expect(page).toHaveURL(/\/company\/pipeline$/);
+  await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+  await expectHealthy(page); await shot(page, "private-demo-phone-booking");
 });

@@ -1,5 +1,16 @@
 [
   {
+    "name": "connectDemoSession",
+    "description": "Connect a caller on the public demo phone line to their private demo ONLY when they supply the eight-digit code shown on the demo page. Call this before taking any inspection or contact details. A CONNECTED result supplies authoritative private business/name/optional email and private intake instructions; shared intake no longer applies. A NOT CONNECTED result is failure: never guess a code, expose private details or claim a match. This does not book anything.",
+    "method": "POST",
+    "path": "/api/webhooks/elevenlabs/tools/connectDemoSession",
+    "parameters": {
+      "type": "object",
+      "properties": { "demoCode": { "type": "string", "description": "The eight digits supplied by the caller, preserving leading zeroes. Never infer or invent a code." } },
+      "required": ["demoCode"]
+    }
+  },
+  {
     "name": "bookAppointment",
     "description": "Book the exact date and time the caller chose after checkAvailability confirms it is open. Before calling it, have their name, the address with ZIP code, what is going on, any access notes (gate code, pets, parking), and ask once for an email and whether it's OK to text them. If a conflict is returned, read the closest openings to the caller instead of asking them to guess. Only say the appointment is booked after this tool succeeds, using its sayToCaller sentence. Returns an internal reference that must never be read aloud.",
     "method": "POST",

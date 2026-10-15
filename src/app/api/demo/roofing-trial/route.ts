@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
 import { createTrial, readTrial, startTrialCall, trialFieldGrant, TRIAL_COOKIE, TRIAL_TTL_MS, validTrialDetails, type RoofingTrial } from "@/lib/demo/roofingTrial";
+import { issuePhoneCode } from "@/lib/demo/phoneTrial";
 
 export const maxDuration = 30;
 function noStore(response: NextResponse) { response.headers.set("Cache-Control", "no-store"); response.headers.set("Referrer-Policy", "no-referrer"); return response; }
@@ -28,9 +29,13 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== "object" || Array.isArray(body) || JSON.stringify(body).length > 2048) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
   try {
     const trial = await readTrial(request);
-    if (body.action === "call" || body.action === "field") {
+    if (body.action === "call" || body.action === "field" || body.action === "phone") {
       if (Object.keys(body).some((key) => key !== "action")) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
       if (!trial) return noStore(NextResponse.json({ error: "Start your private demo first, or start again if it expired." }, { status: 401 }));
+      if (body.action === "phone") {
+        const result = await issuePhoneCode(trial);
+        return noStore(NextResponse.json(result, { status: "error" in result ? 429 : 200 }));
+      }
       return noStore(body.action === "call" ? await startTrialCall(trial) : await trialFieldGrant(trial));
     }
     if (body.action !== "create" || Object.keys(body).some((key) => !["action", "name", "companyName", "email"].includes(key))) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));

@@ -123,6 +123,14 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(db.__peek("elevenlabsConversations", "conv_1")).toBeUndefined();
   });
 
+  it("offers code handoff only on the marked shared demo phone line", async () => {
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("demo-roofing");
+    db.__seed("businesses", "demo-roofing", { ...businessConfig({ businessId: "demo-roofing" }), isDemo: true });
+    const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
+    const body = await response.json();
+    expect(body.conversation_config_override.agent.first_message).toContain("eight digits");
+    expect(body.conversation_config_override.agent.prompt.prompt).toContain("connectDemoSession");
+  });
   it("resolves the tenant by called number and returns the per-call overrides", async () => {
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");
     db.__seed("businesses", "biz_1", { ...businessConfig() });

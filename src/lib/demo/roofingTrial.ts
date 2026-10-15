@@ -19,7 +19,7 @@ export type TrialCounter = keyof typeof TRIAL_LIMITS;
 export interface RoofingTrial {
   id: string; uid: string; businessId: string; secretHash: string; name: string; companyName: string;
   email: string | null; createdAt: number; expiresAt: number; calls: number; notes: number; tools: number; corrections: number;
-  conversationIds: string[]; confirmationAppointmentId?: string;
+  conversationIds: string[]; confirmationAppointmentId?: string; phoneCodeHash?: string; phoneCodesIssued?: number;
 }
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export function isTrialBusiness(id: string): boolean { return /^demo-trial-roofing-[a-f0-9]{32}$/.test(id); }

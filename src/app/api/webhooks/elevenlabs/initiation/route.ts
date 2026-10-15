@@ -32,6 +32,7 @@ import {
 } from "@/lib/voice/elevenlabs/initiationConfig";
 import { persistElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import type { BusinessConfig } from "@/types";
+import { phoneDemoInitiation } from "@/lib/demo/phonePrompt";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 300, keyPrefix: "elevenlabs-webhook" });
@@ -133,7 +134,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json(buildInitiationResponse(config, callerId, new Date()));
+  return NextResponse.json(businessId === "demo-roofing" && config.isDemo === true && calledNumber
+    ? phoneDemoInitiation(config, callerId)
+    : buildInitiationResponse(config, callerId, new Date()));
 }
 
 async function readBusinessConfig(businessId: string): Promise<BusinessConfig | null> {

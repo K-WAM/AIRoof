@@ -29,7 +29,7 @@ import {
   verifyElevenLabsPostCallSignature,
 } from "@/lib/voice/elevenlabs/webhookAuth";
 import { findBusinessByElevenLabsAgentId } from "@/lib/vapi/businessLookup";
-import { getElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
+import { getElevenLabsConversationForDelivery } from "@/lib/voice/elevenlabs/conversationRecords";
 import {
   normalizeProviderTranscriptMessages,
   writeEndedCallReport,
@@ -138,11 +138,13 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
   // Tenant + caller phone from the stored conversation record (the initiation
   // webhook persisted it for inbound calls). Outbound calls fall back to the
   // agent id; the caller phone is then unknown (null).
-  const stored = await getElevenLabsConversation(conversationId);
+  const stored = await getElevenLabsConversationForDelivery(conversationId);
   let businessId = stored?.businessId ?? null;
   const callerPhone = stored?.callerPhone ?? null;
   if (!businessId && agentId) {
     businessId = await findBusinessByElevenLabsAgentId(agentId);
+    // This shared agent can hand off into private tenants. Missing/expired mapping must never expose their transcript in the shared demo.
+    if (businessId === "demo-roofing") businessId = null;
   }
   if (!businessId) {
     console.error("elevenlabs post-call: could not resolve business", {
@@ -243,9 +245,10 @@ async function handleCallInitiationFailure(data: Record<string, unknown>): Promi
   if (!conversationId) return;
 
   // Outbound calls have no initiation-webhook record; fall back to the agent id.
-  const stored = await getElevenLabsConversation(conversationId);
-  const businessId =
+  const stored = await getElevenLabsConversationForDelivery(conversationId);
+  let businessId =
     stored?.businessId ?? (agentId ? await findBusinessByElevenLabsAgentId(agentId) : null);
+  if (!stored && businessId === "demo-roofing") businessId = null;
   if (!businessId) {
     console.error("elevenlabs post-call: call_initiation_failure — could not resolve business", {
       agentId,

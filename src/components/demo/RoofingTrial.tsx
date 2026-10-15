@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, CalendarDays, PhoneOff } from "lucide-react";
+import { Mic, CalendarDays, PhoneOff, PhoneCall } from "lucide-react";
 import type { VoiceConversation } from "@elevenlabs/client";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { Modal } from "@/components/ui/Modal";
 
-type Intent = "call" | "bookings" | "field";
+type Intent = "call" | "phone" | "bookings" | "field";
 interface Session { token: string; name: string; companyName: string; email: string | null; businessId: string; expiresAt: number; callsLeft: number; notesLeft: number }
 async function action(body: Record<string, unknown>) {
   const response = await fetch("/api/demo/roofing-trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -28,6 +28,7 @@ export function RoofingTrial() {
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
+  const [phoneCode, setPhoneCode] = useState<{ code: string; expiresAt: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [callState, setCallState] = useState<"idle" | "connecting" | "connected" | "ended">("idle");
@@ -41,6 +42,11 @@ export function RoofingTrial() {
       .finally(() => { if (!cancelled) setSessionReady(true); });
     return () => { cancelled = true; mounted.current = false; if (timer.current) clearTimeout(timer.current); void conversation.current?.endSession(); };
   }, []);
+  useEffect(() => {
+    if (!phoneCode) return;
+    const expiry = setTimeout(() => setPhoneCode(null), Math.max(0, phoneCode.expiresAt - Date.now()));
+    return () => clearTimeout(expiry);
+  }, [phoneCode]);
 
   async function signIn(data: Session) {
     const auth = await getFirebaseAuth();
@@ -75,7 +81,7 @@ export function RoofingTrial() {
     } catch (err) {
       setCallState("idle");
       throw new Error(err instanceof Error && /permission|denied|notallowed|microphone/i.test(err.message)
-        ? "Allow microphone access in your browser, then tap Call and Book again."
+        ? "Allow microphone access and try Call in Browser again, or use the dial-in option below."
         : err instanceof Error ? err.message : "Could not start the call. Please try again.");
     }
   }
@@ -84,6 +90,7 @@ export function RoofingTrial() {
     try {
       await signIn(data);
       if (target === "call") await startCall();
+      else if (target === "phone") setPhoneCode(await action({ action: "phone" }));
       else if (target === "field") await openPrivateFieldDemo();
       else router.push("/company/pipeline");
     } catch (err) { setError(err instanceof Error ? err.message : "Please try again."); }
@@ -98,6 +105,7 @@ export function RoofingTrial() {
     event.preventDefault(); setBusy(true); setError("");
     try {
       const data: Session = await action({ action: "create", name, companyName, email });
+      if (data.businessId !== session?.businessId) setPhoneCode(null);
       setSession(data); const target = intent; setIntent(null);
       if (target) await proceed(target, data);
     } catch (err) { setError(err instanceof Error ? err.message : "Please try again."); }
@@ -117,8 +125,17 @@ export function RoofingTrial() {
     <ol aria-label="Try the demo" style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
       <li className="panel" style={card}>
         <span aria-hidden="true" style={number}>1</span>
-        <button className="button primary" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("call")}><Mic size={18} aria-hidden="true" />{callState === "connecting" ? "Connecting…" : "Call and Book"}</button>
-        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Talk in your browser. Alice answers for your business.</p>
+        <button className="button primary" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("call")}><Mic size={18} aria-hidden="true" />{callState === "connecting" ? "Connecting…" : "Call in Browser"}</button>
+        <p style={{ margin: "10px 0", fontSize: 13, color: "var(--text-muted)" }}>or</p>
+        {phoneCode && !inCall ? <>
+          <a className="button" style={{ ...button, textDecoration: "none" }} href="tel:+16892042643"><PhoneCall size={18} aria-hidden="true" />Dial (689) 204-2643</a>
+          <div role="status" data-testid="phone-demo-code" style={{ marginTop: 12 }}>
+            <p style={{ margin: "0 0 4px", fontSize: 13 }}>Tell Alice your demo code:</p>
+            <strong style={{ display: "block", fontSize: 26, letterSpacing: "0.12em" }}>{phoneCode.code.slice(0, 4)} {phoneCode.code.slice(4)}</strong>
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>One use. Valid for up to five minutes.</p>
+          </div>
+        </> : <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("phone")}><PhoneCall size={18} aria-hidden="true" />Dial (689) 204-2643</button>}
+        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>One setup. Both ways use your business name and booking.</p>
         {inCall && <div role="status" style={{ marginTop: 12 }}>
           <p>{callState === "connected" ? `You're speaking with ${session?.companyName || "Alice"}.` : "Opening your microphone…"}</p>
           {lastMessage && <p style={{ fontSize: 13 }}>{lastMessage}</p>}
@@ -143,7 +160,7 @@ export function RoofingTrial() {
         <label className="field">Confirmation Email (Optional)<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} maxLength={254} autoComplete="email" /></label>
         <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13 }}>Alice answers with your business name. Booking confirmations go only to the email you enter here. We keep these details as a demo enquiry.</p>
         {session && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>Changing these details opens a fresh private demo.</p>}
-        <button className="button primary" style={button} disabled={busy}>{busy ? "Opening…" : session ? "Save and Open My Demo" : "Start My Demo"}</button>
+        <button className="button primary" style={button} disabled={busy}>{busy ? "Opening…" : intent === "phone" ? "Show My Demo Code" : session ? "Save and Open My Demo" : "Start My Demo"}</button>
         {error && <p role="alert" style={{ color: "var(--danger)" }}>{error}</p>}
       </form>
     </Modal>

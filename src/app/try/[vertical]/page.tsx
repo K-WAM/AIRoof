@@ -48,7 +48,6 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
   const pitch = VERTICAL_PITCH[vertical];
   const agentName = demoAgentName(vertical);
   const phone = DEMO_LINE_PHONE[vertical];
-  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : undefined;
   if (vertical === "roofing") {
     return <main style={{ minHeight: "100vh", background: "var(--background)", padding: "28px 20px", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 560 }}>
@@ -64,9 +63,7 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
           <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-muted)" }}>Choose a day and time to meet with Luxor.</p>
         </section>
         <details style={{ marginTop: 16, textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>
-          <summary style={{ cursor: "pointer", minHeight: 44, padding: "12px 8px", border: "1px solid var(--border)", borderRadius: 10 }}>Try the Shared Phone Line</summary>
-          <p style={{ lineHeight: 1.5 }}>This separate phone demo uses a shared business name. Use Call and Book above to hear your own business name.</p>
-          <a className="button" href={telHref} style={{ minHeight: 48, display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", textDecoration: "none" }}><PhoneCall size={18} aria-hidden="true" />Call {phone}</a>
+          <summary style={{ cursor: "pointer", minHeight: 44, padding: "12px 8px", border: "1px solid var(--border)", borderRadius: 10 }}>Explore the Sample App</summary>
           <p>Explore a separate sample app with example bookings:</p>
           <EnterSandboxButton vertical="roofing" destination="bookings" label="Open Sample App" />
         </details>

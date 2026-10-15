@@ -28,6 +28,7 @@ import {
 import { getElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import { executeAgentTool } from "@/lib/tools/toolDispatcher";
 import { activeTrialForBusiness, consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
+import { connectPhoneTrial, lockSharedPhoneDemo, PHONE_DEMO_BUSINESS } from "@/lib/demo/phoneTrial";
 
 const UNVERIFIED_CALL_RESPONSE =
   "I couldn't verify this call — the office will call you back to help.";
@@ -78,6 +79,10 @@ export async function POST(
   }
 
   try {
+    if (tool === "connectDemoSession") return NextResponse.json(await connectPhoneTrial(conversationId, toolParams.demoCode));
+    if (stored.businessId === PHONE_DEMO_BUSINESS && !["getCurrentDate", "checkAvailability"].includes(tool) && !await lockSharedPhoneDemo(conversationId)) {
+      return NextResponse.json({ result: "NOT SAVED: The call context changed. Please try the requested action again in the connected demo." });
+    }
     if (stored.businessId.startsWith(TRIAL_PREFIX)) {
       const trial = await activeTrialForBusiness(stored.businessId);
       if (!trial || !trial.conversationIds.includes(conversationId)) return NextResponse.json({ result: "NOT BOOKED: this private demo has expired or could not be verified." });
@@ -88,6 +93,7 @@ export async function POST(
       if (tool === "bookAppointment" || tool === "createLead") {
         delete toolParams.email; delete toolParams.customerEmail; delete toolParams.callerEmail;
         delete toolParams.name;
+        delete toolParams.callbackPhone;
         toolParams.callerName = trial.name;
         delete toolParams.okToText;
         toolParams.textOk = false;
