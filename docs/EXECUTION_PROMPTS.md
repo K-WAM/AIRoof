@@ -5,6 +5,30 @@ Copy-paste prompts for workers and reviewers. Keep them short — all real instr
 
 ---
 
+## T-223-RESUME — Finish live private-phone certification
+
+```text
+Continue as the integrator in D:\Apps\AI Receptionist on main.
+Read AGENTS.md, MASTER_PLAN.md T-223, TODO.md T-223/NH-34/NH-35,
+then the top of docs/SESSION_HANDOFF.md. The implementation is already
+pushed and live; cf71786 was publicly verified, with tested app source
+e98c846. Later documentation commits may be ahead. Do not rebuild or
+repeat green gates on unchanged application code.
+
+Finish NH-35: after the UTC daily demo budget reset (October 15 at
+5 PM Pacific), run the prepared bounded automated owned-line private
+phone rehearsal and read the real provider transcript, tool results,
+private appointment/job and saved messages. Do not reset counters,
+switch identities to evade limits, or ask me to make another call.
+Diagnose any failure from its actual transcript before retrying.
+Record exact proof in TODO and the handoff; do not call the physical
+gate complete until it passes. Existing publication authorization for
+this continuing demo work applies. NH-34 SMS sender registration and a
+connected Calendly event remain prerequisites; the live scheduling
+button currently opens the Luxor day/time request picker. Use the saved
+CLI/context instructions; never print credentials or invent delivery.
+```
+
 ## W-FIRST — Worker, first use (new session, full context)
 
 ```

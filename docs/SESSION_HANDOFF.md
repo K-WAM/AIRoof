@@ -1,5 +1,11 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — main, pushed and live (2026-10-15)
+
+Checkout: **D:/Apps/AI Receptionist**, branch **main**, role **Codex integrator**. No worktree switch or merge is needed. Main and origin/main matched **cf7178674a060075a482b0682162f1aa62645733** at the final live verification; later handoff-only commits preserve tested app source **e98c846**. Vercel **dpl_12rzkLDTAmvuzcZZRLBJPokGdEEL READY**. Unauthenticated curl on both public domains returned HTTP 200 application/json with **schema 1 / airoof / cf71786 / production**. Final receipt: .e2e/phone-final-release-receipt.json. Demo: https://crm.luxordev.com/try/roofing. Public hub: https://crm.luxordev.com/api/app-status.
+
+Next-session prompt is **T-223-RESUME** in docs/EXECUTION_PROMPTS.md. Read AGENTS.md, MASTER_PLAN.md T-223, TODO.md (T-223/NH-34/NH-35), then this handoff. Start at NH-35; do not redo green source gates or rebuild graphify unless code changes justify it. The .e2e helpers/receipts are gitignored and present on this machine; they are not portable source files. No harness remains running. No actual carrier call was placed during the blocked rehearsal. Remaining SMS/Calendly prerequisites and carrier-reset instructions are detailed immediately below.
+
 ## 2026-10-15 — T-223 live; final carrier proof blocked by daily demo budget
 
 Application **e98c84636a78060f08676e92d9b55dfe902cef19** is pushed to main and LIVE, including 6ecf057 and ab42560. Vercel **dpl_EczczmqtdomA7yaGGNRodmUqBGhT READY**; GitHub CI **38798001992 success**. Unauthenticated curl on both crm.luxordev.com and ai-roof.vercel.app returned JSON schema 1, id airoof, deploy.commit e98c846, production. Documentation-only closing commits retain this tested app source.
