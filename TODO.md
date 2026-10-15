@@ -3037,8 +3037,8 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 
 | Task | Role | Branch / checkout | Status | Owned scope |
 |---|---|---|---|---|
-| T-221 | Codex integrator | codex/demo-personalization-status / D:/Apps/AI Receptionist | review; full local release gates pass, publication next | Resumed trial identity, guided/scheduled entry, scoped tests and evidence; see MASTER_PLAN. SMS/Calendly prerequisites remain NH-34. |
-| T-222 | Codex integrator | codex/demo-personalization-status / D:/Apps/AI Receptionist | review; full local release gates pass, live JSON verification next | Public fact sheet/route/tests, build metadata and maintenance rule; see MASTER_PLAN |
+| T-221 | Codex integrator | main / D:/Apps/AI Receptionist | released; full gates and live landing verified | def1c08: resumed trial identity, guided/scheduled entry, scoped tests and evidence; see MASTER_PLAN. SMS/Calendly prerequisites remain NH-34. |
+| T-222 | Codex integrator | main / D:/Apps/AI Receptionist | released; live public JSON/build SHA and CI verified | 09c718f: https://crm.luxordev.com/api/app-status, id airoof, production; source cache 300 s, observed live edge HIT. |
 
 - NEEDS-HUMAN (T-221): SMS_ENABLED is absent in Production; private browser trials have no registered ready SMS sender. Do not enable or borrow another tenant's number. SMS requires carrier-ready registration and an explicit supported sender configuration.
 - Calendly: no connected account/event link supplied. The owner's existing https://luxordev.com/demo calendar is available as a truthful day/time request flow; an instant-confirmation Calendly link can replace it once connected to the owner's calendar.
