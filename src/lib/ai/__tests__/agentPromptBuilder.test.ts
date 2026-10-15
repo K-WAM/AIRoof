@@ -96,7 +96,8 @@ describe("buildAgentPrompt — moving an appointment", () => {
   it("checks the new time before cancelling and never leaves the caller with nothing", () => {
     const prompt = buildAgentPrompt(config());
     expect(prompt).toContain("To move an appointment to a new time");
-    expect(prompt.indexOf("call checkAvailability for that time first")).toBeLessThan(prompt.indexOf("call cancelAppointment and then bookAppointment"));
+    expect(prompt.indexOf("call checkAvailability for that time first")).toBeLessThan(prompt.indexOf("call cancelAppointment with the appointmentNumber"));
+    expect(prompt.indexOf("call cancelAppointment with the appointmentNumber")).toBeLessThan(prompt.indexOf("Only after cancellation succeeds, call bookAppointment"));
     expect(prompt).toContain("never leave them with no appointment and no follow-up");
   });
 });
@@ -142,7 +143,7 @@ describe("buildAgentPrompt — How you speak", () => {
     expect(prompt).toContain("a gate code, pets, parking?");
     expect(prompt).toContain("\"Access: …\"");
     expect(prompt).toContain("Is it OK to text you about this appointment at this number?");
-    expect(prompt).toContain("still ask 5, 6 and 7 before you book");
+    expect(prompt).toContain("ask any unanswered items 5, 6 and 7 before you book");
     expect(prompt).toContain("save each one with addBookingNote");
     expect(prompt).toContain("Do NOT end an answer with \"Is there anything else I can help you with?\"");
     expect(prompt).toContain("end the call (end_call)");
@@ -270,5 +271,24 @@ describe("buildAgentPrompt — Call Recording section (T-102)", () => {
     const prompt = buildAgentPrompt(config());
     expect(prompt.indexOf("## Call Recording")).toBeGreaterThan(prompt.indexOf("## Your Role"));
     expect(prompt.indexOf("## Call Recording")).toBeLessThan(prompt.indexOf("## Scope"));
+  });
+});
+
+describe("owner phone rehearsal — exact availability and one-time intake", () => {
+  it("forbids treating an incomplete shortlist as an unavailable exact time", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain('does NOT prove Friday 11 is unavailable');
+    expect(prompt).toContain('preferredTime="11:00" before answering');
+    expect(prompt).toContain("lead with " + JSON.stringify("11 AM on Friday isn't available"));
+    expect(prompt).toContain('An unspecified weekday is NOT Monday');
+  });
+  it("keeps verified details and requires the existing verified cancellation sequence for a switch", () => {
+    const prompt = buildAgentPrompt(config());
+    expect(prompt).toContain('never ask it again just because the time changed');
+    expect(prompt).toContain('NEVER call bookAppointment again for a switch while the original remains active');
+    expect(prompt).toContain('appointmentNumber returned by lookupAppointment and confirmCancellation=true');
+    expect(prompt).toContain('Only after cancellation succeeds, call bookAppointment');
+    expect(prompt).toContain('do not retry cancellation automatically and do not call bookAppointment');
+    expect(prompt).toContain('never "I have you for"');
   });
 });

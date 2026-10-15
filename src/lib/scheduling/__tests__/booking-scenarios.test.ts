@@ -436,4 +436,52 @@ describe("booking reliability truth table", () => {
       }
     }
   }, 30_000); // 72 slot builds: ~2 s alone, past the 5 s default when the full suite runs in parallel
+  it("S18 refuses a second active booking from the same call, including legacy records without a guard", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    const first = await book("s18-call", "2026-09-28T10:00", "+15552000181");
+    expect(first.result).toMatch(/^BOOKED:/);
+    const second = await book("s18-call", "2026-09-29T11:00", "+15552000181");
+    expect(second.result).toMatch(/^NOT BOOKED:/);
+    expect(second.sayToCaller).toContain("has not been cancelled");
+    expect(db.__list("businesses/demo-roofing/appointments")).toHaveLength(1);
+    // The same check also protects appointments created before the guard existed.
+    db.__seed("businesses/demo-roofing/appointments", "legacy", { sourceCallId: "s18-legacy", status: "requested", startTime: Date.parse("2026-09-29T14:00Z"), endTime: Date.parse("2026-09-29T15:00Z") });
+    expect((await book("s18-legacy", "2026-09-30T11:00")).result).toMatch(/^NOT BOOKED:/);
+    expect(db.__list("businesses/demo-roofing/appointments")).toHaveLength(2);
+  });
+
+  it("S19 blocks replacement after an unconfirmed cancellation lookup and permits it after verified cancellation", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    const phone = "+15552000191";
+    await book("s19-original", "2026-09-28T10:00", phone);
+    await executeAgentTool("lookupAppointment", {}, context("s19-change", phone));
+    const denied = await executeAgentTool("cancelAppointment", { confirmCancellation: false }, context("s19-change", phone));
+    expect(denied.error).toBeTruthy();
+    expect((await book("s19-change", "2026-09-29T11:00", phone)).result).toMatch(/^NOT BOOKED:/);
+    expect(db.__list("businesses/demo-roofing/appointments")).toHaveLength(1);
+    expect((await executeAgentTool("cancelAppointment", { confirmCancellation: true, appointmentNumber: 1 }, context("s19-change", phone))).sayToCaller).toContain("has been cancelled");
+    expect((await book("s19-change", "2026-09-29T11:00", phone)).result).toMatch(/^BOOKED:/);
+    expect(db.__list("businesses/demo-roofing/appointments").filter(d => d.data.status !== "cancelled")).toHaveLength(1);
+  });
+
+  it("S20 serializes concurrent different-time bookings from one call but does not block another tenant", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    const results = await Promise.all([book("s20-call", "2026-09-28T10:00"), book("s20-call", "2026-09-29T11:00")]);
+    expect(results.filter(r => r.result?.startsWith("BOOKED:"))).toHaveLength(1);
+    expect(results.filter(r => r.result?.startsWith("NOT BOOKED:"))).toHaveLength(1);
+    db.__seed("businesses", "other-roofing", { businessHours: DEMO_HOURS, timezone: TIME_ZONE });
+    const other = await executeAgentTool("bookAppointment", { name: "Other caller", startTime: "2026-09-28T10:00" }, { ...context("s20-call"), businessId: "other-roofing" });
+    expect(other.result).toMatch(/^BOOKED:/);
+  });
+
+  it("S21 preserves different visits on the same call", async () => {
+    const { db } = seedRoofing({ includeAppointments: false });
+    const ctx = context("s21-call");
+    const details = { callerName: "Family caller", serviceType: "Roof inspection", address: "317 Palm Way, 33432" };
+    expect((await executeAgentTool("bookAppointment", { ...details, startTime: "2026-09-28T10:00" }, ctx)).result).toMatch(/^BOOKED:/);
+    expect((await executeAgentTool("bookAppointment", { ...details, address: "420 Ocean Way, 33432", startTime: "2026-09-29T11:00" }, ctx)).result).toMatch(/^BOOKED:/);
+    expect((await executeAgentTool("bookAppointment", { ...details, serviceType: "Gutter cleaning", startTime: "2026-09-30T11:00" }, ctx)).result).toMatch(/^BOOKED:/);
+    expect(db.__list("businesses/demo-roofing/appointments")).toHaveLength(3);
+  });
+
 });

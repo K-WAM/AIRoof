@@ -433,6 +433,12 @@ export async function executeAgentTool(
     }
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
+    if (name === "bookAppointment" && (err as { code?: unknown })?.code === "active_call_booking") {
+      const sayToCaller = "I couldn't add a replacement because the existing appointment has not been cancelled. We can keep it, or have the office help with the change.";
+      const result = "NOT BOOKED: no new appointment was created. An existing appointment or incomplete cancellation blocks this change. Do not retry bookAppointment. Use the verified lookup and explicit cancellation process, or offer office follow-up with createLead.";
+      await logAction(businessId, callId, name, params, { error: "active_call_booking" }, "failed");
+      return { result, sayToCaller };
+    }
     if (name === "bookAppointment" && err instanceof Error &&
       ((err as { code?: unknown }).code === "slot_conflict" || (err as { code?: unknown }).code === "outside_business_hours")) {
       const tz = await getBusinessTimezone(businessId);

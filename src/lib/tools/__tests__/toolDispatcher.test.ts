@@ -132,4 +132,13 @@ describe("ElevenLabs tool caller identity", () => {
     expect(result.result).toContain("hours are not set up");
     expect(result.result).not.toContain("No openings");
   });
+  it("refuses duplicate-booking errors without suggesting another time or claiming success", async () => {
+    mocks.bookAppointment.mockRejectedValueOnce(Object.assign(new Error("Existing appointment"), { code: "active_call_booking" }));
+    const result = await executeAgentTool("bookAppointment", { startTime: Date.UTC(2026, 8, 30, 14) }, context);
+    expect(result.result).toMatch(/^NOT BOOKED:/);
+    expect(result.sayToCaller).toContain("has not been cancelled");
+    expect(result.sayToCaller).not.toMatch(/you.re booked|confirmed|reference/i);
+    expect(mocks.checkAvailability).not.toHaveBeenCalled();
+  });
+
 });

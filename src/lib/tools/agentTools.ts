@@ -689,6 +689,9 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   const businessRef = db.collection("businesses").doc(input.businessId);
   const appointmentRef = businessRef.collection("appointments").doc();
   const appointmentId = appointmentRef.id;
+  // A model can choose the wrong tool during a reschedule. Serialize each trusted source call
+  // and refuse another active booking for the same visit independently of prompt adherence. No caller-supplied tenant or ID.
+  const callGuardRef = input.sourceCallId ? businessRef.collection("phoneBookingGuards").doc(encodeURIComponent(input.sourceCallId)) : null;
   const now = Date.now();
   if (!Number.isFinite(input.startTime) || !Number.isFinite(input.endTime) || input.endTime <= input.startTime) {
     throw new SchedulingConflictError(
@@ -710,6 +713,27 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const businessDoc = await transaction.get(businessRef);
     if (!businessDoc.exists) throw new Error(`Business ${input.businessId} not found`);
     businessData = businessDoc.data() ?? {};
+    if (callGuardRef && input.sourceCallId) {
+      const checks = await Promise.all([
+        transaction.get(callGuardRef), // read + write below serializes even initially empty query results
+        transaction.get(businessRef.collection("appointments").where("sourceCallId", "==", input.sourceCallId)),
+        transaction.get(businessRef.collection("vapiAppointmentConfirmations").doc(encodeURIComponent(input.sourceCallId))),
+      ]);
+      const sameCall = checks[1];
+      const cancellation = checks[2].data();
+      const visitKey = (value: unknown) => typeof value === "string" ? value.toLowerCase().replace(/[\s,.-]/g, "") : "";
+      const hasActiveBooking = sameCall.docs.some((document) => {
+        const data = document.data();
+        const sameService = !data.serviceType || !input.serviceType || visitKey(data.serviceType) === visitKey(input.serviceType);
+        const sameSiteOrCaller = data.address && input.address
+          ? visitKey(data.address) === visitKey(input.address)
+          : !data.callerName || visitKey(data.callerName) === visitKey(input.callerName);
+        return sameService && sameSiteOrCaller && (data.status === "requested" || data.status === "confirmed") && Number(data.endTime) > now;
+      });
+      if (hasActiveBooking || cancellation?.status === "pending") {
+        throw Object.assign(new Error("An existing appointment must be cancelled through the verified lookup before adding its replacement."), { code: "active_call_booking" });
+      }
+    }
     const timeZone =
       typeof businessData.timezone === "string" ? businessData.timezone : DEFAULT_TZ;
     if (
@@ -856,6 +880,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       else transaction.create(lockRef, lock);
     }
     transaction.create(appointmentRef, appointment);
+    if (callGuardRef) transaction.set(callGuardRef, { appointmentId, updatedAt: now });
     return appointment;
   });
 

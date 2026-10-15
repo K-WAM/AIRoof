@@ -90,6 +90,12 @@ Fixed clock: Sunday 2026-09-27 16:59 EDT (Carla's call). Tenant: `demo-roofing` 
 | S13 | 1 crew with a job Mon 10:00 | Mon 10:00 not offered and not bookable |
 | S14 | Launch Demo Studio at every hour 0–23 | Next 3 business days each have ≥ 6 free slots 08:00–12:00; no seeded item outside hours |
 
+| S18 | Same source call attempts another active booking for the same visit, including legacy records | Refused; original remains, no second appointment or email |
+| S19 | Failed/unconfirmed cancellation then replacement; verified cancel then replacement | First refused; second succeeds after consent and real cancellation |
+| S20 | Concurrent different-time tools on one call; same call ID in another tenant | One booking for that visit; other tenant unaffected |
+
+| S21 | Same call books distinct sites/services/callers | Distinct visits still succeed; no blanket one-booking-per-call limit |
+
 ## 5. How we make sure it stays working ("can we guarantee it?")
 
 No software can promise zero bugs. What we can guarantee is that **a broken booking is caught before a caller hits it**:

@@ -98,6 +98,7 @@ async function seed() {
     ["fieldJobLinks/link-a", { businessId: "biz-a", jobId: "j-a" }], // a reusable field link is a credential
     ["fieldJobLinkIndex/biz-a__j-a", { linkId: "link-a" }],
     ["businesses/biz-a/customerKeys/k1", { customerId: "C-1000" }],
+    ["businesses/biz-a/phoneBookingGuards/call-a", { appointmentId: "original" }],
     ["businesses/biz-a/usageMonths/2026-10", { voiceNotes: 3 }],
   ];
   for (const [path, data] of docs) expect(await write(path, data, "owner")).toBe(ALLOWED);
@@ -200,5 +201,15 @@ it("expires private-demo access and keeps prospect/session records server-only",
   for (const path of ["demoTrials/private-a", "demoProspects/private-a"]) {
     expect(await read(path, { uid: "trial-active" })).toBe(DENIED);
     expect(await read(path, null)).toBe(DENIED);
+  }
+});
+
+
+it("keeps transactional phone booking guards server-only", async () => {
+  for (const auth of [null, ownerA, realAdmin, { uid: "trial-active" }]) {
+    const path = "businesses/biz-a/phoneBookingGuards/call-a";
+    expect(await read(path, auth)).toBe(DENIED);
+    expect(await write(path, { appointmentId: "new" }, auth)).toBe(DENIED);
+    expect(await remove(path, auth)).toBe(DENIED);
   }
 });

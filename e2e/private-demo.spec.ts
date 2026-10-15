@@ -73,6 +73,13 @@ test("a real local booking emails only the entered address and field updates rea
     startTime: "2030-07-23T10:00:00-04:00", endTime: "2030-07-23T11:00:00-04:00",
   } });
   expect((await booked.json()).result).toMatch(/^BOOKED:/);
+  // A repeated/change tool request from this same trusted call must not save a second appointment or email.
+  const duplicate = await page.request.post("/api/webhooks/elevenlabs/tools/bookAppointment", { headers, data: {
+    callerName: name, serviceType: "Roof inspection", address: "317 Palm Way, Boca Raton, 33432",
+    startTime: "2030-07-24T11:00:00-04:00", endTime: "2030-07-24T12:00:00-04:00",
+  } });
+  expect((await duplicate.json()).result).toMatch(/^NOT BOOKED:/);
+  expect((await db().collection(`businesses/${profile.businessId}/appointments`).get()).size).toBe(1);
   const job = await readDoc(`businesses/${profile.businessId}/jobs/J-1001`);
   expect(job).toMatchObject({ clientName: name, clientEmail: email, sourceCallId: `call_elevenlabs_${call.conversationId}` });
   const appointment = await readDoc(`businesses/${profile.businessId}/appointments/${job!.sourceAppointmentId}`);
@@ -113,6 +120,10 @@ test("a real local booking emails only the entered address and field updates rea
   await expectHealthy(page);
   await shot(page, "private-demo-job");
   await page.getByTestId("job-tab-findings").click();
+  await expect(page.getByTestId("viewer-findings")).toContainText(/cracked vent boot/i);
+  await expect(page.getByTestId("viewer-findings").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("viewer-findings").getByRole("textbox")).toHaveCount(0);
+  expect((await page.request.patch("/api/jobs/J-1001", { data: { businessId: profile.businessId, findings: [] } })).status()).toBe(403);
   await expect(page.getByText(/cracked vent boot/i).first()).toBeVisible();
   await shot(page, "private-demo-findings");
   for (const kind of ["quote", "report", "invoice"]) {
@@ -125,6 +136,7 @@ test("a real local booking emails only the entered address and field updates rea
     await expect(preview.locator("article")).toBeVisible();
     await expect(page.getByRole("button", { name: /^(?:Send|Generate) (?:Quote|Report|Invoice)$/i })).toHaveCount(0);
     await expect(page.getByTestId(`job-tab-${kind}`)).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId(`job-tab-${kind}`).getByLabel("Complete")).toHaveCount(0);
     await expectHealthy(page);
     await shot(page, `private-demo-${kind}`);
   }
@@ -139,13 +151,15 @@ test("a real local booking emails only the entered address and field updates rea
 
 test("missing, foreign and expired sessions fail closed; paid calls and notes stop at their limits", async ({ as }) => {
   const page = await as("viewer");
-  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(401);
-  expect((await page.request.post("/api/demo/roofing-trial", { headers: { origin: "https://evil.example" }, data: { action: "create", name: "Caller", companyName: "Roofing" } })).status()).toBe(403);
+  const requestHeaders = { "x-forwarded-for": `198.51.100.${100 + ++nextTestIp}` };
+  const trialPost = (options: { data: unknown; headers?: Record<string, string> }) => page.request.post("/api/demo/roofing-trial", { ...options, headers: { ...requestHeaders, ...options.headers } });
+  expect((await trialPost({ data: { action: "call" } })).status()).toBe(401);
+  expect((await trialPost({ headers: { origin: "https://evil.example" }, data: { action: "create", name: "Caller", companyName: "Roofing" } })).status()).toBe(403);
   const profile = await createFromLanding(page, `Limits ${Date.now()}`);
-  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "field", businessId: "demo-roofing" } })).status()).toBe(400);
-  for (let i = 0; i < 2; i++) expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(200);
-  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "call" } })).status()).toBe(429);
-  const grant = await (await page.request.post("/api/demo/roofing-trial", { data: { action: "field" } })).json();
+  expect((await trialPost({ data: { action: "field", businessId: "demo-roofing" } })).status()).toBe(400);
+  for (let i = 0; i < 2; i++) expect((await trialPost({ data: { action: "call" } })).status()).toBe(200);
+  expect((await trialPost({ data: { action: "call" } })).status()).toBe(429);
+  const grant = await (await trialPost({ data: { action: "field" } })).json();
   await page.goto(grant.url);
   expect((await page.request.post("/api/jobs/J-1001/photos", { data: { businessId: profile.businessId, label: "Denied demo upload", thumbB64: "AAAA", fullB64: "AAAA" } })).status()).toBe(403);
   expect((await page.request.post("/api/timeclock/punch", { data: { businessId: profile.businessId, type: "site_in", jobId: "J-1001", workerName: profile.displayName } })).status()).toBe(403);
@@ -157,7 +171,7 @@ test("missing, foreign and expired sessions fail closed; paid calls and notes st
   const id = profile.businessId.replace("demo-trial-roofing-", "");
   await db().collection("demoTrials").doc(id).update({ expiresAt: 0 });
   await db().collection("businesses").doc(profile.businessId).update({ demoTrialExpiresAt: 0 });
-  expect((await page.request.post("/api/demo/roofing-trial", { data: { action: "field" } })).status()).toBe(401);
+  expect((await trialPost({ data: { action: "field" } })).status()).toBe(401);
   // Drop the office login, retaining only the already-issued job-scoped field cookie.
   const cookies = (await page.context().cookies()).filter((cookie) => cookie.name !== "__session");
   await page.context().clearCookies(); await page.context().addCookies(cookies);
