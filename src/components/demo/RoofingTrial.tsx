@@ -135,7 +135,6 @@ export function RoofingTrial() {
             <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--text-muted)" }}>One use. Valid for up to five minutes.</p>
           </div>
         </> : <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("phone")}><PhoneCall size={18} aria-hidden="true" />Dial (689) 204-2643</button>}
-        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>One setup. Both ways use your business name and booking.</p>
         {inCall && <div role="status" style={{ marginTop: 12 }}>
           <p>{callState === "connected" ? `You're speaking with ${session?.companyName || "Alice"}.` : "Opening your microphone…"}</p>
           {lastMessage && <p style={{ fontSize: 13 }}>{lastMessage}</p>}
@@ -148,11 +147,11 @@ export function RoofingTrial() {
       </li>
       <li className="panel" style={card}><span aria-hidden="true" style={number}>3</span>
         <button className="button" style={button} disabled={busy || inCall || !sessionReady} onClick={() => choose("field")}><Mic size={18} aria-hidden="true" />Add a Voice Update</button>
-        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Speak your findings. See them saved to your demo job.</p>
+        <p style={{ margin: "10px 0 0", color: "var(--text-muted)", fontSize: 13 }}>Save a voice note and watch it get automatically added to your job details.</p>
       </li>
     </ol>
     {error && <p role="alert" style={{ color: "var(--danger)", textAlign: "center", lineHeight: 1.5 }}>{error}</p>}
-    <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Your private demo lasts one hour: two short calls and three field notes.</p>
+    <p style={{ textAlign: "center", fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Private demo resets after use.</p>
     <Modal open={intent !== null} onClose={() => { if (!busy) setIntent(null); }} title="Make It Your Demo">
       <form onSubmit={create} style={{ display: "grid", gap: 14 }}>
         <label className="field">Your Name<input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} autoComplete="name" required /></label>
