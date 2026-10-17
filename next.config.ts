@@ -89,7 +89,7 @@ const nextConfig: NextConfig = {
         // Only this page runs the browser receptionist. Audio worklets are self-hosted;
         // WASM resampling is allowed here without permitting JavaScript eval in production.
         // All other pages keep the existing CSP above.
-        source: "/try/roofing",
+        source: "/demo",
         headers: [{ key: "Content-Security-Policy", value: csp
           .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
           .replace("connect-src 'self'", "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io") }],

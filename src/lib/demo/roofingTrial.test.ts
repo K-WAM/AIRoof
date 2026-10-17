@@ -54,7 +54,9 @@ describe("private roofing trial boundaries", () => {
     expect(validTrialDetails({ name: "Name", companyName: "Demo", email: "x@example.test\nbcc:evil@example.test" })).toBeNull();
     expect(isTrialBusiness("demo-roofing")).toBe(false);
     expect(isTrialBusiness(`${TRIAL_PREFIX}../client`)).toBe(false);
-    expect(validTrialDetails({ name: " Caller ", companyName: " RoofDoctors ", email: "ME@EXAMPLE.COM" })).toEqual({ name: "Caller", companyName: "RoofDoctors", email: "me@example.com" });
+    expect(validTrialDetails({ name: " Caller ", companyName: " RoofDoctors ", email: "ME@EXAMPLE.COM" })).toEqual({ name: "Caller", companyName: "RoofDoctors", email: "me@example.com", phone: null });
+    expect(validTrialDetails({ companyName: "Only Name", phone: "(305) 555-0142" })).toEqual({ name: "", companyName: "Only Name", email: null, phone: "3055550142" });
+    expect(validTrialDetails({ companyName: "Only Name", phone: "call me" })).toBeNull();
   });
   it("bounds explicit correction writes separately from the three paid notes", async () => {
     seed({ notes: 3 });

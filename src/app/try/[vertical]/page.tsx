@@ -1,13 +1,10 @@
 // Public demo entry. Roofing offers a private personalized browser demo;
 // the separate shared phone line and per-industry viewer samples remain available.
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { PhoneCall, ArrowDown, CalendarDays } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { PhoneCall, ArrowDown } from "lucide-react";
 import { VERTICAL_TEMPLATES, DEMO_LINE_PHONE, demoAgentName, type VerticalId } from "@/lib/verticals/templates";
 import { VERTICAL_PITCH } from "@/lib/verticals/pitch";
-import { RoofingTrial } from "@/components/demo/RoofingTrial";
-import { DemoHero } from "@/components/demo/DemoHero";
-import { liveDemoUrl } from "@/lib/demo/liveDemoUrl";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { EnterSandboxButton } from "./EnterSandboxButton";
 
@@ -49,28 +46,8 @@ export default async function TryVerticalPage({ params }: { params: Promise<Rout
   const pitch = VERTICAL_PITCH[vertical];
   const agentName = demoAgentName(vertical);
   const phone = DEMO_LINE_PHONE[vertical];
-  if (vertical === "roofing") {
-    return <main style={{ minHeight: "100vh", background: "var(--background)", padding: "28px 20px", display: "flex", justifyContent: "center" }}>
-      <div style={{ width: "100%", maxWidth: 560 }}>
-        <DemoHero />
-        <header style={{ textAlign: "center", marginBottom: 22 }}>
-          <h1 style={{ margin: "0 0 12px", fontSize: "1.65rem", lineHeight: 1.25, color: "var(--text)", fontWeight: 800 }}>24-Hour English &amp; Spanish Support for Your Customers</h1>
-          <p style={{ margin: "0 0 10px", fontSize: 15, lineHeight: 1.5 }}>Automated leads, scheduling, reporting and invoicing for your office.</p>
-          <p style={{ margin: "0 0 10px", fontSize: 14, lineHeight: 1.5, color: "var(--text-muted)" }}>Crews can update their job details (labor, materials) from the field, instantly, without having to be in the office.</p>
-          <p style={{ margin: 0, fontSize: 14 }}>So simple, you won&apos;t need training.</p>
-        </header>
-        <RoofingTrial />
-        <section aria-label="Meet with Luxor" style={{ textAlign: "center", marginTop: 20 }}>
-          <a className="button" href={liveDemoUrl()} style={{ minHeight: 48, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 18px", textDecoration: "none" }}><CalendarDays size={18} aria-hidden="true" />Schedule a Live Demo</a>        </section>
-        <details style={{ marginTop: 16, textAlign: "center", fontSize: 13, color: "var(--text-muted)" }}>
-          <summary style={{ cursor: "pointer", minHeight: 44, padding: "12px 8px", border: "1px solid var(--border)", borderRadius: 10 }}>Explore the Sample App</summary>
-          <p>Explore a separate sample app with example bookings:</p>
-          <EnterSandboxButton vertical="roofing" destination="bookings" label="Open Sample App" />
-        </details>
-        <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "var(--text-muted)" }}><a href="mailto:connect@luxordev.com" style={{ color: "var(--accent)" }}>connect@luxordev.com</a>{" · "}Luxor</p>
-      </div>
-    </main>;
-  }
+  // Roofing's live demo moved to the generic, shareable /demo (owner, 2026-10-16). Old links keep working.
+  if (vertical === "roofing") redirect("/demo");
   const hasField = pitch.flow.includes("field") && !t.disabledModules.includes("jobs");
 
   return (

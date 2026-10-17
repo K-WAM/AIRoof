@@ -94,7 +94,8 @@ export async function POST(
         delete toolParams.email; delete toolParams.customerEmail; delete toolParams.callerEmail;
         delete toolParams.name;
         delete toolParams.callbackPhone;
-        toolParams.callerName = trial.name;
+        // A setup name is authoritative; without one (self-led demo) the caller's spoken name is used.
+        if (trial.name) toolParams.callerName = trial.name;
         delete toolParams.okToText;
         toolParams.textOk = false;
         if (trial.email) toolParams.callerEmail = trial.email;

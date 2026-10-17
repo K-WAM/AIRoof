@@ -15,11 +15,21 @@ export const TRIAL_COOKIE = "luxor_roofing_demo";
 export const TRIAL_PREFIX = "demo-trial-roofing-";
 export const TRIAL_TTL_MS = 60 * 60_000;
 export const TRIAL_LIMITS = { calls: 2, notes: 3, tools: 24, corrections: 6 } as const;
+export const DEMO_DAILY_LIMIT = 20;
+export const DEMO_MONTHLY_LIMIT = 300;
 export type TrialCounter = keyof typeof TRIAL_LIMITS;
 export interface RoofingTrial {
   id: string; uid: string; businessId: string; secretHash: string; name: string; companyName: string;
   email: string | null; createdAt: number; expiresAt: number; calls: number; notes: number; tools: number; corrections: number;
   conversationIds: string[]; confirmationAppointmentId?: string; phoneCodeHash?: string; phoneCodesIssued?: number;
+  /** Optional phone given at setup (lead contact only — never used for calls or texts). */
+  phone?: string | null;
+  /** While in the future, a call to the shared demo line joins this trial (no code). Set by the page's heartbeat. */
+  phoneArmedUntil?: number;
+  /** A visitor who asked to be reached keeps their demo data this long (owner, 2026-10-16: 7 days). */
+  keepUntil?: number;
+  /** When a shared-line phone call joined this trial (no code). */
+  phoneCallAt?: number;
 }
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 export function isTrialBusiness(id: string): boolean { return /^demo-trial-roofing-[a-f0-9]{32}$/.test(id); }
@@ -33,12 +43,23 @@ export function signedCallIdentity(signedUrl: unknown, agentId: string): { signe
   } catch { return null; }
 }
 export function validTrialDetails(body: Record<string, unknown>) {
+  // Owner (2026-10-16): business name is the only required field; the caller gives their name to Alice on the call.
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  if (!name || !companyName || name.length > 80 || companyName.length > 80 || /[\u0000-\u001f\u007f]/.test(name + companyName) ||
-      (body.email !== undefined && typeof body.email !== "string") || (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))) return null;
-  return { name, companyName, email: email || null };
+  const phone = typeof body.phone === "string" ? normalizeDemoPhone(body.phone) : null;
+  if (!companyName || name.length > 80 || companyName.length > 80 || /[\u0000-\u001f\u007f]/.test(name + companyName) ||
+      (body.name !== undefined && typeof body.name !== "string") ||
+      (body.email !== undefined && typeof body.email !== "string") || (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) ||
+      (body.phone !== undefined && body.phone !== "" && !phone)) return null;
+  return { name, companyName, email: email || null, phone };
+}
+/** Digits with an optional leading +, 7–15 digits; anything else is not a phone number. */
+export function normalizeDemoPhone(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 30 || !/^[+\d\s().-]+$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 ? (trimmed.startsWith("+") ? `+${digits}` : digits) : null;
 }
 export function trialConfig(trial: Pick<RoofingTrial, "businessId" | "companyName" | "name" | "expiresAt">, fieldKey: string): BusinessConfig {
   const t = VERTICAL_TEMPLATES.roofing;
@@ -81,27 +102,31 @@ export async function createTrial(request: NextRequest, details: NonNullable<Ret
   if (!db || !auth) throw new Error("Demo unavailable");
   const now = Date.now(), day = new Date(now).toISOString().slice(0, 10);
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || request.headers.get("x-real-ip") || "unknown";
-  const limits = [{ key: `${day}-global`, max: 20 }, { key: `${day}-ip-${hash(ip)}`, max: 3 },
-    ...(details.email ? [{ key: `${day}-email-${hash(details.email)}`, max: 2 }] : [])];
+  // Cost guard (owner, 2026-10-16): each demo is at most 2 calls × 3 min (≈ $0.60 of ElevenLabs at $0.10/min), so
+  // 20/day caps the worst day near $12 and 300/month near $180. The monthly key outlives the daily cleanup.
+  const month = day.slice(0, 7);
+  const limits = [{ key: `${day}-global`, max: DEMO_DAILY_LIMIT, ttl: 2 }, { key: `${month}-global-month`, max: DEMO_MONTHLY_LIMIT, ttl: 40 },
+    { key: `${day}-ip-${hash(ip)}`, max: 3, ttl: 2 },
+    ...(details.email ? [{ key: `${day}-email-${hash(details.email)}`, max: 2, ttl: 2 }] : [])];
   const allowed = await db.runTransaction(async (tx) => {
     const refs = limits.map((limit) => db.collection("demoTrialBudgets").doc(limit.key));
     const snapshots = await Promise.all(refs.map((ref) => tx.get(ref)));
     if (snapshots.some((snap, i) => { const count = Number(snap.data()?.count ?? 0); return !Number.isFinite(count) || count < 0 || count >= limits[i].max; })) return false;
-    refs.forEach((ref, i) => tx.set(ref, { count: Number(snapshots[i].data()?.count || 0) + 1, expiresAt: Timestamp.fromMillis(now + 2 * 86400_000) }));
+    refs.forEach((ref, i) => tx.set(ref, { count: Number(snapshots[i].data()?.count || 0) + 1, expiresAt: Timestamp.fromMillis(now + limits[i].ttl * 86400_000) }));
     return true;
   });
   if (!allowed) return null;
   const id = randomBytes(16).toString("hex"), secret = randomBytes(32).toString("hex");
   const trial: RoofingTrial = { ...details, id, uid: `demo-trial-${id}`, businessId: `${TRIAL_PREFIX}${id}`, secretHash: hash(secret),
     createdAt: now, expiresAt: now + TRIAL_TTL_MS, calls: 0, notes: 0, tools: 0, corrections: 0, conversationIds: [] };
-  await auth.createUser({ uid: trial.uid, displayName: trial.name });
+  await auth.createUser({ uid: trial.uid, displayName: trial.name || trial.companyName });
   try {
     const batch = db.batch(), base = db.collection("businesses").doc(trial.businessId);
     batch.create(db.collection("demoTrials").doc(id), trial);
     batch.create(base, { ...trialConfig(trial, randomBytes(24).toString("hex")), isDemoTrial: true, demoTrialExpiresAt: trial.expiresAt,
       active: true, subscriptionStatus: "active", accountPurpose: "test", createdAt: now, jobCounter: 1001 });
     batch.create(db.collection("businessUsers").doc(trial.uid), { uid: trial.uid, businessId: trial.businessId, businessName: trial.companyName,
-      email: trial.email || "", displayName: trial.name, role: "viewer", active: true, isDemoTrial: true,
+      email: trial.email || "", displayName: trial.name || trial.companyName, role: "viewer", active: true, isDemoTrial: true,
       demoTrialExpiresAt: trial.expiresAt, demoTrialExpiry: Timestamp.fromMillis(trial.expiresAt), createdAt: now });
     batch.create(base.collection("jobs").doc("J-1001"), { businessId: trial.businessId, jobId: "J-1001", title: "Your Demo Roof Inspection",
       status: "inspection", clientName: trial.name, clientEmail: trial.email, address: "Book an inspection to add its address", findings: [], createdAt: now, updatedAt: now });
@@ -110,7 +135,7 @@ export async function createTrial(request: NextRequest, details: NonNullable<Ret
     batch.create(base.collection("library").doc("pricing"), kit ? mergeStarterKit({ materials: [], laborRates: [], documents: [] }, kit, true, "roofing", now).library : { materials: [], laborRates: [], documents: [] });
     batch.create(base.collection("library").doc("workCatalog"), { items: [] });
     batch.create(db.collection("demoProspects").doc(id), { name: trial.name, companyName: trial.companyName, email: trial.email,
-      source: "roofing-self-guided-demo", businessId: trial.businessId, createdAt: now, status: "new", marketingConsent: false });
+      phone: trial.phone ?? null, source: "self-led-demo", businessId: trial.businessId, createdAt: now, status: "new", marketingConsent: false });
     await batch.commit();
   } catch (error) { await auth.deleteUser(trial.uid); throw error; }
   return { trial, cookie: `${id}.${secret}` };
@@ -164,4 +189,63 @@ export async function trialFieldGrant(trial: RoofingTrial) {
   if (data?.isDemoTrial !== true || data.demoTrialExpiresAt <= Date.now()) return NextResponse.json({ error: "Demo expired" }, { status: 403 });
   const grant = mintFieldExchangeToken(trial.businessId, data.fieldKey, "J-1001");
   return NextResponse.json({ url: `/api/field/exchange?grant=${encodeURIComponent(grant.token)}` });
+}
+
+// ── Self-led demo (docs/SELF-LED-DEMO-PLAN.md) ────────────────────────────────────────────────────────────────────
+/** A page on the Call step re-arms every 15 s; tapping "Or dial" arms longer because the phone app hides the page. */
+export const PHONE_ARM_MS = 45_000;
+export const PHONE_DIAL_ARM_MS = 120_000;
+
+/** Lets the next call to the shared demo line join this trial without a code (owner decision D3, 2026-10-16). */
+export async function armTrialPhone(trial: RoofingTrial, dial: boolean, now = Date.now()): Promise<boolean> {
+  const db = getAdminFirestore()!;
+  const ref = db.collection("demoTrials").doc(trial.id);
+  const until = Math.min(trial.expiresAt, now + (dial ? PHONE_DIAL_ARM_MS : PHONE_ARM_MS));
+  return db.runTransaction(async (tx) => {
+    const latest = (await tx.get(ref)).data() as RoofingTrial | undefined;
+    if (!latest || latest.expiresAt <= now || !(latest.calls < TRIAL_LIMITS.calls)) return false;
+    if ((latest.phoneArmedUntil ?? 0) < until) tx.update(ref, { phoneArmedUntil: until });
+    return true;
+  });
+}
+
+/** What the demo page shows live: the booking the call made (if any) and whether a phone call joined. */
+export async function trialLiveState(trial: RoofingTrial) {
+  const base = getAdminFirestore()!.collection("businesses").doc(trial.businessId);
+  const job = (await base.collection("jobs").doc("J-1001").get()).data();
+  const appointmentId = typeof job?.sourceAppointmentId === "string" ? job.sourceAppointmentId : null;
+  const appointment = appointmentId ? (await base.collection("appointments").doc(appointmentId).get()).data() : undefined;
+  return {
+    booked: Boolean(appointment),
+    callerName: typeof appointment?.callerName === "string" ? appointment.callerName : null,
+    startTime: typeof appointment?.startTime === "string" || typeof appointment?.startTime === "number" ? appointment.startTime : null,
+    address: typeof appointment?.address === "string" ? appointment.address : null,
+    serviceType: typeof appointment?.serviceType === "string" ? appointment.serviceType : null,
+    phoneCallAt: typeof trial.phoneCallAt === "number" ? trial.phoneCallAt : null,
+  };
+}
+
+export const REACH_KEEP_MS = 7 * 86400_000;
+const LUXOR_INBOX = "connect@luxordev.com";
+
+/** "Have us reach you": stores the contact, keeps the demo 7 days and emails Luxor at once. */
+export async function requestTrialReach(trial: RoofingTrial, raw: unknown, now = Date.now()) {
+  const text = typeof raw === "string" ? raw.trim() : "";
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text) && text.length <= 254 ? text.toLowerCase() : null;
+  const contact = email ?? normalizeDemoPhone(text);
+  if (!contact) return null;
+  const db = getAdminFirestore()!;
+  const live = await trialLiveState(trial);
+  await db.collection("demoProspects").doc(trial.id).set({ reachContact: contact, reachRequestedAt: now, status: "wants-contact" }, { merge: true });
+  await db.collection("demoTrials").doc(trial.id).update({ keepUntil: now + REACH_KEEP_MS });
+  const { escapeHtml } = await import("@/lib/documents/letterhead");
+  const { sendWithLedger } = await import("@/lib/comms/send");
+  const rows = [["Business", trial.companyName], ["Reach them at", contact], ["Setup email", trial.email ?? "—"], ["Setup phone", trial.phone ?? "—"],
+    ["Caller on the demo", live.callerName ?? "—"], ["Booked", live.booked ? `${live.serviceType ?? "Visit"} · ${live.startTime ?? ""} · ${live.address ?? ""}` : "No booking"]];
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px"><p><strong>A demo visitor wants to be reached.</strong> Their demo is kept for 7 days.</p><table>${
+    rows.map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#5f6f85">${escapeHtml(k)}</td><td style="padding:4px 0">${escapeHtml(String(v))}</td></tr>`).join("")
+  }</table><p style="color:#5f6f85">Hub → Demo → Demo Enquiries lists every demo.</p></div>`;
+  const delivered = await sendWithLedger({ firestore: db, businessId: trial.businessId, to: LUXOR_INBOX, subject: `Demo lead: ${trial.companyName} wants to be reached`,
+    html, messageType: "demo-reach-request", entityId: trial.id, entityRef: { collection: "demoProspects", id: trial.id } });
+  return { delivered };
 }

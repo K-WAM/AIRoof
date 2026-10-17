@@ -15,7 +15,7 @@ export function PrivateDemoNav() {
     {field ? <Link href="/company/jobs/J-1001" className="button" style={{ display: "flex", justifyContent: "center", minHeight: 44 }}><ArrowRight size={17} aria-hidden="true" />See Updated Job</Link>
       : <button type="button" className="button primary" style={{ width: "100%", minHeight: 44, justifyContent: "center" }} disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await openPrivateFieldDemo(); } catch (e) { setError(e instanceof Error ? e.message : "Please try again."); setBusy(false); } }}><Mic size={17} aria-hidden="true" />{busy ? "Opening…" : "3. Add a Voice Update"}</button>}
     {!field && <div style={{ display: "flex", gap: "0 16px", flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-      <Link href="/try/roofing" style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>Call Again</Link>
+      <Link href="/demo" style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>Call Again</Link>
       <Link href="/company/pipeline" style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>Your Booking</Link>
       {!field && <Link href="/company/jobs/J-1001" style={{ minHeight: 44, display: "inline-flex", alignItems: "center" }}>Your Job</Link>}
     </div>}

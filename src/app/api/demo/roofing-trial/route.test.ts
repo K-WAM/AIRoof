@@ -1,13 +1,12 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ read: vi.fn(), create: vi.fn(), customToken: vi.fn(), phone: vi.fn() }));
+const mocks = vi.hoisted(() => ({ read: vi.fn(), create: vi.fn(), customToken: vi.fn(), arm: vi.fn(), reach: vi.fn() }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminAuth: () => ({ createCustomToken: mocks.customToken }), getAdminFirestore: () => null }));
 vi.mock("@/lib/auth/rateLimit", () => ({ checkRateLimit: () => null }));
 vi.mock("@/lib/demo/roofingTrial", async (importOriginal) => ({
-  ...await importOriginal<typeof import("@/lib/demo/roofingTrial")>(), readTrial: mocks.read, createTrial: mocks.create,
+  ...await importOriginal<typeof import("@/lib/demo/roofingTrial")>(), readTrial: mocks.read, createTrial: mocks.create, armTrialPhone: mocks.arm, requestTrialReach: mocks.reach,
 }));
-vi.mock("@/lib/demo/phoneTrial", () => ({ issuePhoneCode: mocks.phone }));
 import { POST } from "./route";
 
 const existing = { uid: "old-demo", name: "Original Caller", companyName: "Original Roofing", email: "original@example.test", businessId: "old-business", expiresAt: Date.now() + 60000, calls: 0, notes: 0 };
@@ -36,12 +35,12 @@ describe("resumed private demo identity", () => {
   it.each([
     { companyName: "New Roofing" }, { name: "New Caller" }, { email: "new@example.test" }, { email: "" },
   ])("creates an isolated, budgeted session when setup details change: %j", async (change) => {
-    const input = { ...details, ...change }, normalized = { ...input, email: input.email || null };
+    const input = { ...details, ...change }, normalized = { ...input, email: input.email || null, phone: null };
     mocks.create.mockResolvedValue({ trial: { ...existing, ...normalized, uid: "new-demo", businessId: "new-business" }, cookie: "new-private-session" });
     const response = await POST(request({ action: "create", ...input }));
     expect(response.status).toBe(200);
     expect(mocks.create).toHaveBeenCalledWith(expect.any(NextRequest), normalized);
-    expect(await response.json()).toMatchObject({ ...normalized, businessId: "new-business" });
+    expect(await response.json()).toMatchObject({ name: normalized.name, companyName: normalized.companyName, email: normalized.email, businessId: "new-business" });
     expect(response.headers.get("Set-Cookie")).toContain("luxor_roofing_demo=new-private-session");
   });
   it("does not bypass creation budgets when changing an active demo", async () => {
@@ -50,20 +49,21 @@ describe("resumed private demo identity", () => {
     expect(response.status).toBe(429);
     expect(response.headers.get("Set-Cookie")).toBeNull();
   });
-  it("requires the private session and rejects model-selected identity for phone codes", async () => {
+  it("arms the shared phone line and takes reach requests only for its own stored session", async () => {
     mocks.read.mockResolvedValue(null);
-    expect((await POST(request({ action: "phone" }))).status).toBe(401);
+    expect((await POST(request({ action: "arm" }))).status).toBe(401);
+    expect((await POST(request({ action: "reach", contact: "me@example.test" }))).status).toBe(401);
     mocks.read.mockResolvedValue(existing);
-    expect((await POST(request({ action: "phone", businessId: "demo-roofing" }))).status).toBe(400);
-    expect(mocks.phone).not.toHaveBeenCalled();
+    expect((await POST(request({ action: "arm", businessId: "demo-roofing" }))).status).toBe(400);
+    mocks.arm.mockResolvedValue(true);
+    const armed = await POST(request({ action: "arm", dial: true }));
+    expect(await armed.json()).toEqual({ armed: true });
+    expect(mocks.arm).toHaveBeenCalledWith(existing, true);
+    expect(armed.headers.get("Cache-Control")).toBe("no-store");
+    mocks.reach.mockResolvedValue(null);
+    expect((await POST(request({ action: "reach", contact: "nope" }))).status).toBe(400);
+    mocks.reach.mockResolvedValue({ delivered: "sent" });
+    expect((await POST(request({ action: "reach", contact: "me@example.test" }))).status).toBe(200);
+    expect(mocks.reach).toHaveBeenLastCalledWith(existing, "me@example.test");
   });
-  it("issues codes only for its stored session and never caches the credential", async () => {
-    mocks.phone.mockResolvedValue({ code: "01234567", expiresAt: existing.expiresAt });
-    const response = await POST(request({ action: "phone" }));
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ code: "01234567", expiresAt: existing.expiresAt });
-    expect(mocks.phone).toHaveBeenCalledWith(existing);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    mocks.phone.mockResolvedValue({ error: "Phone limit reached" });
-    expect((await POST(request({ action: "phone" }))).status).toBe(429);
-  });});
+});

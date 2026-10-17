@@ -1983,3 +1983,14 @@ The user-authorized automated owned-line rehearsal stopped BEFORE dialing: priva
 ## 2026-10-15 — T-223 next-session entry point
 
 Owner requested the exact branch/live state and a continuation prompt. Added Resume here to SESSION_HANDOFF: main in D:/Apps/AI Receptionist, cf71786 publicly verified on READY deployment dpl_12rzkLDTAmvuzcZZRLBJPokGdEEL, unchanged tested app e98c846, local receipt paths, and remaining NH-35/NH-34. Added T-223-RESUME to EXECUTION_PROMPTS with the bounded real-carrier verification steps, UTC reset, no budget bypass and no repeated green source gates. Documentation only; no application/fact-sheet changes or removals. Validation: git diff --check and unchanged application-source diff.
+## T-224 — Self-led demo at /demo (2026-10-16, Claude)
+Owner-approved plan `docs/SELF-LED-DEMO-PLAN.md` (v1 scope in its STATUS block). New public page /demo: business name (required) + optional
+phone/email, Talk to Alice (real browser call, live captions for both speakers), Or dial with no code (the page arms the shared line; the
+initiation webhook joins the newest waiting trial via `claimArmedTrial` and greets with its business name), Just watch (scripted captions).
+The booking is read live from the trial (`GET /api/demo/roofing-trial?live=1`); the office autopilot stage shows job, calendar drag, field
+update ("from the job site to the office"), inspector's quote, report and invoice (hide-breakdown switch) with example starter prices; every
+menu item is explorable and Jobs → J-1001 opens every tab. End card: Book a call / Have us reach you (emails connect@luxordev.com, keeps the
+demo 7 days) / Explore the app. Prompt: asks the caller's name when setup has none; ZIP optional; sample address allowed. Caps: 20/day,
+300/month, 3/network/day, 2 calls × 3 min. /try/roofing redirects to /demo; the code UI and `phone` action are removed.
+Evidence: vitest 257/1986 (+1 expected fail); next build; e2e:call 12/12; demo browser specs 32/32 on desktop + 375 px with screenshots read.
+Not yet proven: a real call through the changed prompt/initiation (NH-36).

@@ -123,13 +123,28 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(db.__peek("elevenlabsConversations", "conv_1")).toBeUndefined();
   });
 
-  it("offers code handoff only on the marked shared demo phone line", async () => {
+  it("answers the shared demo line normally, with no code, when no demo page is waiting", async () => {
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("demo-roofing");
     db.__seed("businesses", "demo-roofing", { ...businessConfig({ businessId: "demo-roofing" }), isDemo: true });
     const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
     const body = await response.json();
-    expect(body.conversation_config_override.agent.first_message).toContain("four digits");
-    expect(body.conversation_config_override.agent.prompt.prompt).toContain("connectDemoSession");
+    expect(body.conversation_config_override.agent.first_message).not.toMatch(/digits|code/i);
+    expect(body.conversation_config_override.agent.prompt.prompt).not.toContain("connectDemoSession");
+  });
+  it("joins the demo page waiting on its Call step and greets with that business name (no code)", async () => {
+    const id = "a".repeat(32), trialBusiness = `demo-trial-roofing-${id}`, later = Date.now() + 60_000;
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("demo-roofing");
+    db.__seed("businesses", "demo-roofing", { ...businessConfig({ businessId: "demo-roofing" }), isDemo: true });
+    db.__seed("businesses", trialBusiness, { ...businessConfig({ businessId: trialBusiness, businessName: "Waiting Roofing", greeting: "Thanks for calling Waiting Roofing, this is Alice." }),
+      isDemo: true, isDemoTrial: true, demoTrialExpiresAt: later });
+    db.__seed("demoTrials", id, { id, businessId: trialBusiness, name: "", companyName: "Waiting Roofing", email: null, expiresAt: later,
+      calls: 0, notes: 0, tools: 0, corrections: 0, conversationIds: [], phoneArmedUntil: later });
+    const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
+    const body = await response.json();
+    expect(body.conversation_config_override.agent.first_message).toContain("Waiting Roofing");
+    expect(body.conversation_config_override.agent.prompt.prompt).toContain("private phone demo");
+    const trial = db.__peek("demoTrials", id) as { calls: number; phoneArmedUntil: number };
+    expect(trial).toMatchObject({ calls: 1, phoneArmedUntil: 0 });
   });
   it("resolves the tenant by called number and returns the per-call overrides", async () => {
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");

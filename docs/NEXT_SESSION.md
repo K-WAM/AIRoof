@@ -1,5 +1,8 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+**2026-10-16 (latest):** the public demo is now the self-led one at https://crm.luxordev.com/demo (T-224). Start at the top of
+`docs/SESSION_HANDOFF.md`; owner checks are NH-36 in `TODO.md`.
+
 **2026-10-15 (latest):** work only in `D:/Apps/6 - AI Receptionist` (the single checkout, `main`). The private dial-in demo code
 is now four digits and live (`898f850`). Details, cleanup leftovers and the owner's test steps: top of `docs/SESSION_HANDOFF.md`.
 

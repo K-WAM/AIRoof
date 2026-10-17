@@ -32,7 +32,8 @@ import {
 } from "@/lib/voice/elevenlabs/initiationConfig";
 import { persistElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import type { BusinessConfig } from "@/types";
-import { phoneDemoInitiation } from "@/lib/demo/phonePrompt";
+import { trialPhoneInitiation } from "@/lib/demo/phonePrompt";
+import { claimArmedTrial, PHONE_DEMO_BUSINESS } from "@/lib/demo/phoneTrial";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 300, keyPrefix: "elevenlabs-webhook" });
@@ -106,18 +107,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Self-led demo: a call to the shared demo line joins the demo page waiting on its Call step — no code
+  // (docs/SELF-LED-DEMO-PLAN.md §6.4). No waiting page = the ordinary shared demo.
+  let joined: Awaited<ReturnType<typeof claimArmedTrial>> = null;
+  if (businessId === PHONE_DEMO_BUSINESS && config.isDemo === true && calledNumber && conversationId) {
+    try {
+      joined = await claimArmedTrial(conversationId, callerId);
+    } catch (error) {
+      console.error("elevenlabs initiation: demo join failed", error);
+    }
+  }
+  const rowBusinessId = joined ? joined.trial.businessId : businessId;
+
   if (conversationId) {
     try {
       const db = getAdminFirestore();
       const now = Date.now();
       await db
         ?.collection("businesses")
-        .doc(businessId)
+        .doc(rowBusinessId)
         .collection("calls")
         .doc(`call_elevenlabs_${conversationId}`)
         .set({
           callId: `call_elevenlabs_${conversationId}`,
-          businessId,
+          businessId: rowBusinessId,
+          ...(joined ? { demoPhone: true } : {}),
           callerPhone: callerId ?? null,
           // T-171/T-169: the line the caller dialed — proves which line a test call arrived on, and is the line a
           // confirmation text must come from.
@@ -134,8 +148,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json(businessId === "demo-roofing" && config.isDemo === true && calledNumber
-    ? phoneDemoInitiation(config, callerId)
+  return NextResponse.json(joined
+    ? trialPhoneInitiation(joined.config, joined.trial, callerId)
     : buildInitiationResponse(config, callerId, new Date()));
 }
 

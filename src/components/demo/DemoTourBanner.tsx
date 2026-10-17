@@ -40,7 +40,7 @@ export function DemoTourBanner({ previewSuffix }: { previewSuffix: string }) {
       <div role="status" data-testid="demo-tour" style={{ margin: "0 0 16px", padding: "10px 16px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 13, color: "#92400e", display: "grid", gap: 8 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <strong>Demo tour · read-only</strong>
-          <Link href="/try/roofing" style={{ ...linkStyle, marginLeft: "auto" }}>Exit demo</Link>
+          <Link href="/demo" style={{ ...linkStyle, marginLeft: "auto" }}>Exit demo</Link>
         </div>
         <ol aria-label="Try the demo" style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", margin: 0, padding: 0, listStyle: "none" }}>
           <li><a href={`tel:${DEMO_LINE_PHONE.roofing?.replace(/[^\d+]/g, "")}`} style={linkStyle}>1. Call and book</a></li>

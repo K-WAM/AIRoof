@@ -8,7 +8,7 @@
     "purpose": "Bilingual call intake, inspection booking, job tracking, crew updates, quotes, reports, and invoices for roofing companies.",
     "url": "https://crm.luxordev.com",
     "liveUrl": "https://crm.luxordev.com",
-    "demoUrl": "https://crm.luxordev.com/try/roofing",
+    "demoUrl": "https://crm.luxordev.com/demo",
     "stack": "Next.js (15), React (19), TypeScript",
     "hosting": "Vercel (Next.js)",
     "db": "Firebase (Cloud Firestore; business-expense-trackin-ef659)",

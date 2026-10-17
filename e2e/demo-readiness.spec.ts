@@ -1,11 +1,11 @@
 import { test, expect, settle, shot, expectHealthy } from "./fixtures";
+import { openSampleFallback } from "./demoFallback";
 import { api, must, readCollection, readDoc, simulateCall } from "../scripts/e2e/lib.cjs";
 
 test("public sample pages load, show readable records and offer no office or field writes", async ({ as }) => {
   test.setTimeout(180_000);
   const page = await as("viewer");
-  await page.goto("/try/roofing");
-  await page.getByText("Explore the Sample App", { exact: true }).click();
+  await openSampleFallback(page);
   await page.getByRole("button", { name: "Open Sample App", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Pipeline", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /^(Add|New|Quick add)$/ })).toHaveCount(0);

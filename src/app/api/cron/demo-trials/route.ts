@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   let removed = 0;
   for (const document of expired.docs) {
     const trial = document.data();
+    // A visitor who asked to be reached keeps their demo for 7 days (keepUntil), then it is removed as usual.
+    if (typeof trial.keepUntil === "number" && trial.keepUntil > Date.now()) continue;
     if (!/^[a-f0-9]{32}$/.test(document.id) || trial.businessId !== `${TRIAL_PREFIX}${document.id}` || !isTrialBusiness(trial.businessId) || trial.uid !== `demo-trial-${document.id}`) continue;
     const base = db.collection("businesses").doc(trial.businessId);
     const config = (await base.get()).data();

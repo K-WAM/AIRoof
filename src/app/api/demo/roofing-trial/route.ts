@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
-import { createTrial, readTrial, startTrialCall, trialFieldGrant, TRIAL_COOKIE, TRIAL_TTL_MS, validTrialDetails, type RoofingTrial } from "@/lib/demo/roofingTrial";
-import { issuePhoneCode } from "@/lib/demo/phoneTrial";
+import { armTrialPhone, createTrial, readTrial, requestTrialReach, startTrialCall, trialFieldGrant, trialLiveState, TRIAL_COOKIE, TRIAL_TTL_MS, validTrialDetails, type RoofingTrial } from "@/lib/demo/roofingTrial";
 
 export const maxDuration = 30;
 function noStore(response: NextResponse) { response.headers.set("Cache-Control", "no-store"); response.headers.set("Referrer-Policy", "no-referrer"); return response; }
@@ -15,6 +14,8 @@ export async function GET(request: NextRequest) {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 20, keyPrefix: "roofing-trial-status" });
   if (limited) return noStore(limited);
   const trial = await readTrial(request);
+  // ?live=1 — the self-led demo page's 2.5 s poll: only this trial's own booking, never anything else.
+  if (trial && request.nextUrl.searchParams.get("live") === "1") return noStore(NextResponse.json(await trialLiveState(trial)));
   return trial ? sessionResponse(trial) : noStore(NextResponse.json({ trial: null }));
 }
 export async function POST(request: NextRequest) {
@@ -29,19 +30,23 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== "object" || Array.isArray(body) || JSON.stringify(body).length > 2048) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
   try {
     const trial = await readTrial(request);
-    if (body.action === "call" || body.action === "field" || body.action === "phone") {
+    if (body.action === "arm" || body.action === "reach") {
+      const allowed = body.action === "arm" ? ["action", "dial"] : ["action", "contact"];
+      if (Object.keys(body).some((key) => !allowed.includes(key))) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
+      if (!trial) return noStore(NextResponse.json({ error: "Start your demo first, or start again if it expired." }, { status: 401 }));
+      if (body.action === "arm") return noStore(NextResponse.json({ armed: await armTrialPhone(trial, body.dial === true) }));
+      const reached = await requestTrialReach(trial, body.contact);
+      return noStore(reached ? NextResponse.json(reached) : NextResponse.json({ error: "Enter a phone number or an email." }, { status: 400 }));
+    }
+    if (body.action === "call" || body.action === "field") {
       if (Object.keys(body).some((key) => key !== "action")) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
       if (!trial) return noStore(NextResponse.json({ error: "Start your private demo first, or start again if it expired." }, { status: 401 }));
-      if (body.action === "phone") {
-        const result = await issuePhoneCode(trial);
-        return noStore(NextResponse.json(result, { status: "error" in result ? 429 : 200 }));
-      }
       return noStore(body.action === "call" ? await startTrialCall(trial) : await trialFieldGrant(trial));
     }
-    if (body.action !== "create" || Object.keys(body).some((key) => !["action", "name", "companyName", "email"].includes(key))) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
+    if (body.action !== "create" || Object.keys(body).some((key) => !["action", "name", "companyName", "email", "phone"].includes(key))) return noStore(NextResponse.json({ error: "Invalid request" }, { status: 400 }));
     const details = validTrialDetails(body);
-    if (!details) return noStore(NextResponse.json({ error: "Enter your name, business name and a valid optional email." }, { status: 400 }));
-    if (trial && trial.name === details.name && trial.companyName === details.companyName && trial.email === details.email) return sessionResponse(trial);
+    if (!details) return noStore(NextResponse.json({ error: "Enter your business name. Phone and email are optional." }, { status: 400 }));
+    if (trial && trial.name === details.name && trial.companyName === details.companyName && trial.email === details.email && (trial.phone ?? null) === details.phone) return sessionResponse(trial);
     const created = await createTrial(request, details);
     if (!created) return noStore(NextResponse.json({ error: "Today's demo limit has been reached. Contact connect@luxordev.com for a guided demo." }, { status: 429 }));
     const response = await sessionResponse(created.trial);

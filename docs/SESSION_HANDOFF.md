@@ -1,5 +1,17 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — self-led demo at /demo (2026-10-16, Claude, T-224)
+
+- **Shareable demo link:** https://crm.luxordev.com/demo. Old /try/roofing redirects there. Spec + v1 status:
+  `docs/SELF-LED-DEMO-PLAN.md` (STATUS block at the top). Code: `src/app/demo/page.tsx`, `src/components/demo/SelfLedDemo.tsx`
+  + `DemoStage.tsx`; server: `src/lib/demo/roofingTrial.ts` (optional name/phone, arm, live state, reach email, 20/day + 300/month caps),
+  `claimArmedTrial` in `src/lib/demo/phoneTrial.ts` (no-code dial-in, used by the initiation webhook), `trialPrompt.ts` (asks the caller's
+  name, ZIP optional). The four-digit code UI is gone; `issuePhoneCode`/`connectPhoneTrial` remain dormant (the live agent still lists the
+  `connectDemoSession` tool — remove it with `setup-elevenlabs-agent.mjs --update-tools` after NH-36 passes).
+- **Gates on the final tree:** full vitest 257 files / 1986 + 1 expected fail; next build ok; `e2e:call` 12/12; demo specs 32/32 (desktop + 375 px,
+  screenshots read); full Playwright run result in the T-224 commit message. **Not proven live:** a real browser call and a real phone call
+  through the changed prompt/initiation (Booking-change gate) — owner steps are NH-36.
+
 ## Resume here — four-digit demo code, one folder (2026-10-15, Claude)
 
 - **One checkout:** `D:/Apps/6 - AI Receptionist` on `main` is the only working copy. The `D:/Apps/AI Receptionist` worktree and

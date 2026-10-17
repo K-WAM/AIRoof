@@ -117,3 +117,32 @@ export async function lockSharedPhoneDemo(conversationId: string): Promise<boole
     return true;
   });
 }
+
+/**
+ * No-code phone join (owner decision D3, 2026-10-16): a call to the shared demo line joins the demo page that is open
+ * on its Call step (newest arm wins; tapping "Or dial" arms longest). Runs in the initiation webhook, before the
+ * greeting, so Alice answers with that business name. Bounded by the short arm window, one join per arm and the
+ * trial's two-call cap. Returns null when no page is waiting — the caller gets the ordinary shared demo.
+ */
+export async function claimArmedTrial(conversationId: string, callerPhone: string | undefined, now = Date.now()) {
+  const db = getAdminFirestore()!;
+  const candidates = await db.collection("demoTrials").where("phoneArmedUntil", ">", now).orderBy("phoneArmedUntil", "desc").limit(3).get();
+  const conversationRef = db.collection(ELEVENLABS_CONVERSATIONS_COLLECTION).doc(elevenLabsConversationDocId(conversationId));
+  for (const candidate of candidates.docs) {
+    const claimed = await db.runTransaction(async (tx) => {
+      const trialRef = candidate.ref;
+      const trial = (await tx.get(trialRef)).data() as RoofingTrial | undefined;
+      const config = trial && isTrialBusiness(trial.businessId) ? (await tx.get(db.collection("businesses").doc(trial.businessId))).data() : undefined;
+      const conversation = (await tx.get(conversationRef)).data();
+      if (!activeTrial(trial, config, now) || !(Number(trial.phoneArmedUntil) > now) || !Number.isInteger(trial.calls) || trial.calls >= TRIAL_LIMITS.calls ||
+          !Array.isArray(trial.conversationIds) || conversation?.businessId !== PHONE_DEMO_BUSINESS) return null;
+      tx.update(trialRef, { calls: trial.calls + 1, conversationIds: [...new Set([...trial.conversationIds, conversationId])], phoneArmedUntil: 0, phoneCallAt: now });
+      tx.update(conversationRef, { businessId: trial.businessId, phoneDemoSourceBusinessId: PHONE_DEMO_BUSINESS, phoneDemoJoinedAt: now,
+        toolExpiresAt: Math.min(trial.expiresAt, now + 10 * 60_000), expiresAt: Timestamp.fromMillis(now + ELEVENLABS_CONVERSATION_TTL_MS) });
+      if (callerPhone) tx.set(db.collection("demoProspects").doc(trial.id), { callerPhone }, { merge: true });
+      return { trial: { ...trial, calls: trial.calls + 1, conversationIds: [...trial.conversationIds, conversationId] }, config: config as unknown as BusinessConfig };
+    });
+    if (claimed) return claimed;
+  }
+  return null;
+}

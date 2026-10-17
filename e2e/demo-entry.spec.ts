@@ -1,4 +1,5 @@
-import { expect, expectHealthy, settle, shot, test } from "./fixtures";
+import { expect, expectHealthy, shot, test } from "./fixtures";
+import { openSampleFallback } from "./demoFallback";
 import { SANDBOX_ACCOUNTS } from "../scripts/e2e/config.cjs";
 
 test("hub facts are public JSON and reject write methods", async ({ request }) => {
@@ -13,24 +14,18 @@ test("hub facts are public JSON and reject write methods", async ({ request }) =
   expect((await request.post("/api/app-status", { data: {} })).status()).toBe(405);
 });
 
-test("roofing has three simple steps and opens the read-only app without a call", async ({ as }) => {
+test("the old roofing link opens the one-field self-led demo; the sample app is the over-limit fallback", async ({ as }) => {
   const page = await as("viewer");
   await page.goto("/try/roofing");
-  await settle(page, 300);
+  await expect(page).toHaveURL(/\/demo$/);
   await expect(page.getByRole("heading", { name: "24-Hour English & Spanish Support for Your Customers" })).toBeVisible();
-  await expect(page.getByRole("list", { name: "Try the demo" }).getByRole("listitem")).toHaveCount(3);
-  await expect(page.getByRole("link", { name: "Schedule a Live Demo", exact: true })).toHaveAttribute("href", "https://luxordev.com/demo?source=airoof");
-  await page.getByText("Explore the Sample App", { exact: true }).click();
-  const call = page.getByRole("button", { name: "Dial (689) 204-2643", exact: true });
-  await expect(call).toBeEnabled();
-  const app = page.getByRole("button", { name: "Open Sample App", exact: true });
-  await expect(app).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Call in Browser", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Add a Voice Update", exact: true })).toBeVisible();
-  await expect(page.getByText("View only", { exact: false })).toHaveCount(0);
-  await expect(page.getByText(/AI Receptionist ·|Every leak|See the Software|data loaded|Try Saying|How It Works/i)).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(2);
+  await expect(page.locator(".button.primary")).toHaveCount(1);
   await expectHealthy(page);
   await shot(page, "roofing-demo-entry");
+  await openSampleFallback(page);
+  const app = page.getByRole("button", { name: "Open Sample App", exact: true });
+  await expect(app).toBeEnabled();
 
   await app.click();
   await expect(page).toHaveURL(/\/company\/pipeline/);
@@ -55,8 +50,7 @@ test("voice updates opens the read-only Field example directly and never records
   page.on("request", (request) => {
     if (request.method() !== "GET" && /\/api\/.*(?:updates|field-audio)/.test(request.url())) mutations.push(request.url());
   });
-  await page.goto("/try/roofing");
-  await page.getByText("Explore the Sample App", { exact: true }).click();
+  await openSampleFallback(page);
   await page.getByRole("button", { name: "Open Sample App", exact: true }).click();
   await page.getByRole("link", { name: "3. See voice updates", exact: true }).click();
   await expect(page).toHaveURL(/\/company\/field\?jobId=J-1001$/);
@@ -97,13 +91,12 @@ test("voice updates opens the read-only Field example directly and never records
 test("a failed app entry leaves an immediate retry and other industries keep their entry", async ({ as }) => {
   const page = await as("viewer");
   await page.route("**/api/demo/sandbox-token", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Demo unavailable. Please try again." }) }));
-  await page.goto("/try/roofing");
-  await page.getByText("Explore the Sample App", { exact: true }).click();
+  await openSampleFallback(page);
   const app = page.getByRole("button", { name: "Open Sample App", exact: true });
   await app.click();
   await expect(page.getByText("Demo unavailable. Please try again.", { exact: true })).toBeVisible();
   await expect(app).toBeEnabled();
-  await expect(page.getByRole("button", { name: "Call in Browser", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Talk to Alice", exact: true })).toBeVisible();
   await shot(page, "roofing-demo-entry-retry");
   await page.goto("/try/dental");
   await expect(page.getByRole("heading", { name: "Try the demo", exact: true })).toBeVisible();

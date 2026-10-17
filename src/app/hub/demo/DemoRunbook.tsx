@@ -16,7 +16,7 @@ const RUN = [
   { time: "11–13", action: "Show a field update", say: "Marco reports cracked tiles and a split pipe boot by voice.", plan: "Open the worked job J-1001.", href: previewHref("jobs/J-1001"), link: "J-1001" },
   { time: "13–16", action: "Build the quote", say: "The findings become priced work from the Library.", plan: "Use print preview.", href: previewHref("jobs/J-1001"), link: "Quote" },
   { time: "16–18", action: "Show report and invoice", say: "The report explains the work; the invoice follows.", plan: "Use J-1001.", href: previewHref("jobs/J-1001"), link: "Job" },
-  { time: "18–20", action: "Share the private browser demo", say: "Enter your business name, call Alice in the browser, then see your booking and add a field note in your own demo.", plan: "Open the link in a separate browser window.", href: "/try/roofing", link: "Try page" },
+  { time: "18–20", action: "Share the private browser demo", say: "Enter your business name, call Alice in the browser, then see your booking and add a field note in your own demo.", plan: "Open the link in a separate browser window.", href: "/demo", link: "Demo page" },
 ];
 
 export function DemoRunbook() {

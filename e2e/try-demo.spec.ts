@@ -1,4 +1,5 @@
 import { test, expect, expectHealthy, shot } from "./fixtures";
+import { openSampleFallback } from "./demoFallback";
 import { ACCOUNTS } from "../scripts/e2e/config.cjs";
 import { adminApp } from "../scripts/e2e/seed.cjs";
 
@@ -34,8 +35,7 @@ for (const entry of [
       expect(route.request().postDataJSON()).toEqual({ vertical: "roofing" });
       await route.fulfill({ json: { token } });
     });
-    await page.goto("/try/roofing");
-    await page.getByText("Explore the Sample App", { exact: true }).click();
+    await openSampleFallback(page);
     await page.getByRole("button", { name: entry.button }).click();
     await expect(page).toHaveURL(entry.target);
     await expect(page.getByText(/Failed to load this page|Application error/)).toHaveCount(0);
@@ -45,10 +45,9 @@ for (const entry of [
 
 test("unavailable demo stays on the page with a clear error", async ({ page }) => {
   await page.route("**/api/demo/sandbox-token", (route) => route.fulfill({ status: 503, json: { error: "Sandbox unavailable" } }));
-  await page.goto("/try/roofing");
-  await page.getByText("Explore the Sample App", { exact: true }).click();
+  await openSampleFallback(page);
   await page.getByRole("button", { name: "Open Sample App" }).click();
   await expect(page.getByText("Sandbox unavailable")).toBeVisible();
-  await expect(page).toHaveURL(/\/try\/roofing$/);
+  await expect(page).toHaveURL(/\/demo$/);
   await expect(page.getByRole("button", { name: "Open Sample App" })).toBeEnabled();
 });
