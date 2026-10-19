@@ -29,12 +29,19 @@ const DEMO_LINE = DEMO_LINE_PHONE.roofing ?? "the demo line";
 
 interface Step { text: ReactNode; see?: string; href?: string; go?: string; time?: string }
 
-function Steps({ steps }: { steps: Step[] }) {
+// `tick` (the onboarding checklist) turns each number into a tick-off button; the ticks live in this browser only.
+interface Tick { id: string; done: Record<string, boolean>; toggle: (key: string) => void }
+
+function Steps({ steps, tick }: { steps: Step[]; tick?: Tick }) {
   return (
     <ol className="pb-steps">
       {steps.map((s, i) => (
-        <li key={i}>
-          <span className="pb-num" aria-hidden>{i + 1}</span>
+        <li key={i} className={tick?.done[`${tick.id}-${i}`] ? "pb-done" : undefined}>
+          {tick ? (
+            <button type="button" className="pb-num pb-check" aria-pressed={!!tick.done[`${tick.id}-${i}`]} aria-label={`Step ${i + 1} done`} onClick={() => tick.toggle(`${tick.id}-${i}`)}>
+              {tick.done[`${tick.id}-${i}`] ? "✓" : i + 1}
+            </button>
+          ) : <span className="pb-num" aria-hidden>{i + 1}</span>}
           <div className="pb-body">
             <div className="pb-text">{s.time && <span className="pb-time">{s.time}</span>}{s.text}</div>
             {s.see && <div className="pb-see">You should see: {s.see}</div>}
@@ -80,27 +87,85 @@ function DemoTab() {
   );
 }
 
+// Onboarding playbook (2026-10-18, owner: "easy, simple, compact … to onboard"). Five stages in order, one line per step,
+// tick each off as you go. One ElevenLabs agent per client (owner decision) — never share an agent between clients.
+const TICK_KEY = "onboardTicks";
+const CLIENTS = "/admin/businesses";
+
 function ClientTab() {
+  const [done, setDone] = useState<Record<string, boolean>>({});
+  useEffect(() => { try { setDone(JSON.parse(localStorage.getItem(TICK_KEY) ?? "{}")); } catch { /* private mode */ } }, []);
+  const save = (next: Record<string, boolean>) => { setDone(next); try { localStorage.setItem(TICK_KEY, JSON.stringify(next)); } catch { /* private mode */ } };
+  const tick = (id: string): Tick => ({ id, done, toggle: (key) => save({ ...done, [key]: !done[key] }) });
+  const count = Object.values(done).filter(Boolean).length;
+
   return (
     <>
-      <Section title="Go-live checklist (about 30 min)">
-        <Steps steps={[
-          { text: <><b>New client</b>: company, industry, hours, services, owner&apos;s email.</>, see: "the owner gets a set-password email", href: "/hub/onboarding", go: "New client" },
-          { text: <>Client → <b>Products</b>: switch on only what the contract includes — AI calls &amp; booking, Jobs &amp; field input, Billing &amp; payments.</>, see: "what they didn't buy shows locked; tapping it lets them ask you to add it (you get an email, and the client page shows “Asked for it”)", href: "/admin/businesses", go: "Clients" },
-          { text: <>Client → <b>Phone provider</b>: ElevenLabs agent ID + number (skip if they didn&apos;t buy AI calls).</>, href: "/admin/businesses", go: "Clients" },
-          { text: <>Client → <b>Phone lines</b>: <b>Record test call</b> → <b>Go live…</b></>, see: "the line reads Live" },
-          { text: "Call the line once.", see: "the call appears in the client's Calls within seconds" },
-          { text: <>Spanish: nothing to set — every line speaks both. New ElevenLabs agent? Run the bilingual script once (AI &amp; costs tab).</> },
-          { text: <>Billing: <b>Invoices</b> → first invoice (or turn on monthly auto-draft on the client).</>, href: "/admin/invoices", go: "Invoices" },
-        ]} />
-      </Section>
-      <Section title="The client does the rest (no superadmin needed)">
+      <Section title="Get from the client first" note="Missing any of these is what stalls a launch.">
         <ul className="pb-list">
-          <li><b>Team</b> — their Admin invites people, picks a type (Office staff, Inspector, Technician, View only), locks or removes them.</li>
-          <li><b>Library</b> — Load starter kit, then their logo, crews and prices.</li>
-          <li><b>Customers</b> — added automatically from calls; schools and businesses get a contact person.</li>
+          <li>Company, industry, owner&apos;s name + email, main phone, service area, timezone, hours per day.</li>
+          <li>Services they sell, their top 5–10 FAQs with answers, what counts as an emergency + who to call.</li>
+          <li>Number: <b>new</b>, <b>forward</b> theirs, or <b>port</b> it (slowest). Receptionist name + greeting.</li>
+          <li>Logo (PNG), brand color, public phone/email, prices, labor + tax rate, staff list with roles.</li>
+          <li>What they bought, the monthly price, how many logins.</li>
         </ul>
       </Section>
+
+      <Section title="1 · Create the client (10 min)">
+        <Steps tick={tick("create")} steps={[
+          { text: <><b>New client</b> → fill all 7 steps. Edit the services + FAQs now — there&apos;s no editor for them later.</>, href: "/hub/onboarding", go: "New client" },
+          { text: <>Copy the owner&apos;s <b>temporary password</b> (shown once) and send it privately.</>, see: "lost it? Client → Client Login → Provision Login" },
+          { text: <>Client → <b>Products</b>: turn <b>off</b> what they didn&apos;t buy (all start on).</>, href: CLIENTS, go: "Clients" },
+          { text: <>Client → <b>Subscription &amp; Billing</b>: seat limit, plan name, monthly amount, billing day.</> },
+        ]} />
+      </Section>
+
+      <Section title="2 · Their own agent + phone number (20 min)" note="Skip this stage if they didn't buy AI calls & booking.">
+        <Steps tick={tick("phone")} steps={[
+          { text: <>Twilio: buy a local number (account must be paid, not Trial).</> },
+          { text: <>ElevenLabs: <b>duplicate the base agent</b> and name it after the client — one agent per client, never shared. Set a max call length.</> },
+          { text: <>At the PC: <code>node scripts/setup-elevenlabs-agent.mjs --agent-id …</code>, then again with <code>--apply</code>.</>, see: "the 7 booking tools + start-of-call webhook attached" },
+          { text: <>Same for Spanish: <code>node scripts/elevenlabs-bilingual.mjs --agent-id …</code>, then <code>--apply</code>.</> },
+          { text: <>ElevenLabs → Phone Numbers: import the Twilio number, assign it to the client&apos;s agent.</> },
+          { text: <>Client → <b>Phone provider</b>: ElevenLabs, agent ID, phone number ID, number as <code>+1…</code> → <b>Save config</b>.</>, href: CLIENTS, go: "Clients" },
+          { text: <>Client → <b>Phone lines</b> → <b>Add a line</b> → <b>Mark connected (ElevenLabs)</b>.</> },
+          { text: <>Call it, book a test visit → copy the call ID from their <b>Calls</b> → <b>Record test call</b> → <b>Go live…</b></>, see: "the line reads Live" },
+        ]} />
+      </Section>
+
+      <Section title="3 · Agent words, brand, Library (10 min)">
+        <Steps tick={tick("setup")} steps={[
+          { text: <>Client → <b>AI Model and Voice</b>: name, greeting, after-hours greeting. <b>Services and Rules</b>: emergency + booking rules. <b>Routing</b>: escalation phone, notification email.</>, href: CLIENTS, go: "Clients" },
+          { text: <>Client → <b>Branding</b>: color, public phone/email, website. <b>Job Pricing</b>: labor rate, tax rate.</> },
+          { text: <><b>Preview ↗</b> → Library → <b>Branding</b>: upload the logo, set it as default.</> },
+          { text: <>Library → <b>Load starter kit</b> → swap every “Starter — review price” for their real price → add <b>Crews</b>.</> },
+          { text: <>Settings → <b>Advanced</b>: recording notice on or off (draft wording — confirm with the client).</> },
+        ]} />
+      </Section>
+
+      <Section title="4 · Prove it works (15 min)">
+        <Steps tick={tick("test")} steps={[
+          { text: "Test calls: book in hours · ask an FAQ · ask about stocks · say an emergency · switch to Spanish · call after hours.", see: "each in their Calls; the booking in Pipeline + Calendar; urgent call rings the escalation phone" },
+          { text: <>One full job in Preview: request → <b>Create job</b> → <b>Send to a worker</b> → voice note → Quote → Report → Invoice.</>, see: "their logo on all three; no prices on the report" },
+          { text: <>Cancel the test bookings and close the test job.</> },
+          { text: <>Client → <b>Launch Readiness</b>: tick all six → <b>Save config</b>.</>, href: CLIENTS, go: "Clients" },
+        ]} />
+      </Section>
+
+      <Section title="5 · Hand over + bill (30 min)">
+        <Steps tick={tick("handover")} steps={[
+          { text: <>Call the owner: their Dashboard checklist, Team → <b>Invite person</b>, crews, Settings → <b>Getting paid</b>.</> },
+          { text: <>Tell them: the AI never creates jobs — they review each request in Pipeline. Changes to services/FAQs go to you.</> },
+          { text: <>Send crews the field guide (Printable tab).</> },
+          { text: <><b>Invoices</b> → first invoice, or tick <b>Auto-draft a monthly invoice</b> on the client.</>, href: "/admin/invoices", go: "Invoices" },
+          { text: <>Week 1: read two of their call transcripts a day; check <b>Usage</b> on day 7.</>, href: "/admin/usage", go: "Usage" },
+        ]} />
+      </Section>
+
+      <div className="button-row" style={{ marginTop: 0 }}>
+        <span className="pb-note">{count} step{count === 1 ? "" : "s"} ticked</span>
+        {count > 0 && <button type="button" className="button small" onClick={() => { if (window.confirm("Clear all ticks for the next client?")) save({}); }}>Start next client</button>}
+      </div>
     </>
   );
 }

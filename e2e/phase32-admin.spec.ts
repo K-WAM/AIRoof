@@ -71,6 +71,25 @@ test("Playbook opens on Run a demo with one tab per superadmin job", async ({ as
   await shot(page, "p32-playbooks");
 });
 
+test("Set up a client is a tick-off onboarding checklist that survives a reload", async ({ as }) => {
+  const page = await as("superadmin");
+  await page.goto("/hub/guide");
+  await settle(page);
+  await page.getByRole("tab", { name: "Set up a client" }).click();
+  for (const stage of ["1 · Create the client", "2 · Their own agent", "3 · Agent words", "4 · Prove it works", "5 · Hand over"]) {
+    await expect(page.getByRole("heading", { name: new RegExp(stage) })).toBeVisible();
+  }
+  await expect(page.getByText(/duplicate the base agent/)).toBeVisible();
+  const first = page.getByRole("button", { name: "Step 1 done" }).first();
+  await first.click();
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await settle(page);
+  await expect(page.getByRole("button", { name: "Step 1 done" }).first()).toHaveAttribute("aria-pressed", "true");
+  await expectHealthy(page);
+  await shot(page, "p32-onboarding-playbook");
+});
+
 test("Admin Usage fits the phone without sideways scrolling", async ({ as }, testInfo) => {
   const page = await as("superadmin");
   await page.goto("/admin/usage");
