@@ -10,7 +10,7 @@ vi.mock("@/lib/tools/agentTools", () => ({
   ...mocks, getCurrentDate: vi.fn(),
 }));
 
-import { executeAgentTool } from "@/lib/tools/toolDispatcher";
+import { executeAgentTool, normalizeSpokenEmail } from "@/lib/tools/toolDispatcher";
 
 describe("ElevenLabs tool caller identity", () => {
   beforeEach(() => {
@@ -141,4 +141,16 @@ describe("ElevenLabs tool caller identity", () => {
     expect(mocks.checkAvailability).not.toHaveBeenCalled();
   });
 
+});
+
+describe("normalizeSpokenEmail", () => {
+  it("joins a letter-by-letter spelling the model passes with dashes (2026-10-19 call)", () => {
+    expect(normalizeSpokenEmail("K-W-A-M-W-A-D@gmail.com")).toBe("kwamwad@gmail.com");
+    expect(normalizeSpokenEmail("k w a m w a d at gmail dot com")).toBe("kwamwad@gmail.com");
+  });
+  it("keeps real dashes and dots in an address", () => {
+    expect(normalizeSpokenEmail("mary-jo@roof-co.com")).toBe("mary-jo@roof-co.com");
+    expect(normalizeSpokenEmail("j.s@gmail.com")).toBe("j.s@gmail.com");
+    expect(normalizeSpokenEmail("not an email")).toBeUndefined();
+  });
 });

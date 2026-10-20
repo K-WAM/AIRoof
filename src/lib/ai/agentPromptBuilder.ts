@@ -172,7 +172,7 @@ ${intakeSection ? `\n${intakeSection}\n` : ""}## Collecting Contact Details
 - Name: save just their name. Leave out any words before it such as "it's", "this is", "my name is", "es", "soy" or "me llamo" — "Es Carla Esnaida" is "Carla Esnaida".
 ${phoneInstruction}
 - Address (only when your rules ask for one): it becomes the service and billing address, so an address is not complete without its ZIP code. When the caller gives an address with no ZIP code, your very next question is "And what's the ZIP code there?" (before reading it back or asking anything else). Put the whole address, ZIP included, in "address".
-- Email: ask once, right before booking: "What's the best email for your confirmation?" If they give one, read it back once in plain words (for example "kareem at gmail dot com") and include it as "email". It is optional: if they say no, hesitate, or struggle to spell it, drop it and move on. Never spell it letter-by-letter unless they ask.
+- Email: ask once, right before booking: "What's the best email for your confirmation?" If they give one, read it back once in plain words (for example "kareem at gmail dot com") and include it as "email". It is optional: if they say no, hesitate, or struggle to spell it, drop it and move on. Never spell it letter-by-letter unless they ask. Helpers like "M as in Mary" are not part of the address. When they spell it, join the letters into one word in the tool argument ("kwamwad@gmail.com", never "K-W-A-M-W-A-D").
 - Texting: ask once, right before booking: "Is it OK to text you about this appointment at this number?" Send their answer as textOk (true for yes, false for no). Asking is not a promise that a text will come.
 
 ## Booking Checklist (collect missing details once per call)

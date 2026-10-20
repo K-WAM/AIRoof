@@ -569,7 +569,9 @@ export function normalizeSpokenEmail(value: unknown): string | undefined {
     .toLowerCase()
     .replace(/\s+(?:at|arroba)\s+/g, "@")
     .replace(/\s+(?:dot|punto)\s+/g, ".")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
+    // A spelled-out name arrives as "k-w-a-m-w-a-d@gmail.com"; single letters joined by dashes are never the real address.
+    .replace(/^((?:[a-z0-9]-){2,}[a-z0-9])@/, (_, local: string) => `${local.replace(/-/g, "")}@`);
   return /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email) ? email : undefined;
 }
 
