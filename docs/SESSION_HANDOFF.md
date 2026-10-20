@@ -1,5 +1,35 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — phone AI sharpening, demo-booking time zones, model deadline (2026-10-19/20, Claude)
+
+- **Owner's two test calls on the shared line (2026-10-19, ~7:56 and 8:07 PM ET, `conv_4501m5b9gw2qf428qcbf72hmgz25`,
+  `conv_5201m5ba4p4te2vbgqzxvp3ev7p5`).** Call 1: twice gpt-4o-mini said "one moment" and ended its turn WITHOUT calling the tool
+  (11 s silences → "are you still there?"), and it stated 10 AM unavailable without ever calling checkAvailability. The booking
+  itself worked: the owner's "hello?" made ElevenLabs abandon waiting, but the server had saved the 11 AM visit, so the retry was
+  correctly refused as a duplicate. Call 2: no long pause; email stored as `k-w-a-m-w-a-d@gmail.com`; no customer email by design
+  (after-hours → office Confirm & email). Text never sent: SMS is off in production (NH-29).
+- **Shipped `0398054` (live, health ok):** `normalizeSpokenEmail()` joins dashed single-letter spellings; prompt line says spelling
+  helpers ("M as in Mary") are not part of the address. Gates: tsc, changed-file lint, dispatcher + prompt tests, `e2e:call` 12/12
+  (first attempt 11/12 = harness server hung, restarted, rerun clean). Full Playwright not run (no screen changed).
+- **ElevenLabs config changed (live, readback verified):** `bookAppointment` (shared by both demo agents) `interruption_mode:
+  disable_during_tool`; both demo agents got a 3 s LLM-generated soft-timeout filler in the caller's language (max 2,
+  suppressed until the caller speaks). NOT done: forced pre-tool speech — known to break gpt-4o-mini (see the comment in
+  `scripts/setup-elevenlabs-agent.mjs`). Spanish config intact (es preset, eleven_v3_conversational, language_detection).
+- **Model bake-off:** test-only branches `baseline-4o-mini-2026-10-19` and `model-bakeoff-2026-10-19` (no traffic) carry the real
+  live prompt. Suites `suite_4001m5bfam9gfqt8m35c4d3zx11m` (4o-mini) vs `suite_9701m5bfb41pe639xf5fsn8sfy9z` (gpt-4.1-mini, 43/60):
+  4.1-mini failed three booking scenarios 4o-mini passes → model unchanged. Four new tests added; the two "must call
+  checkAvailability after address" ones are too strict (the agent legitimately reads back the address first) — fix or delete.
+  "G1 v2 Monday 8 AM" fails on both models because its expected date is stale.
+- **Model deadline → T-225:** OpenAI shuts down gpt-4o / gpt-4o-mini / gpt-4.1 / gpt-4.1-mini on **2027-01-14**. Affects the phone
+  agents, field-note reading, the summary fallback and plan presets. Added to `app-status.json` alerts.
+- **luxordev.com/demo booking (Luxor Website repo, `6cecfc7` + another session's `4ae8836`, live):** slots, receipt and the
+  reply-to-confirm draft show the visitor's own time zone (detected, changeable); the team email leads with Vancouver time and
+  shows theirs beside it. Vancouver math is fixed UTC-7 (BC no longer falls back). Verified on the live site in New York and LA.
+  Carla Snyder's request (Tue Oct 20) = 11:00 AM Vancouver = 2:00 PM Eastern; owner to confirm which she meant.
+- **Owner's open items:** one real English + one real Spanish call to judge the filler (then read transcripts); **Reset demo**
+  before Carla (test bookings exist for Oct 20 at 9 and 11 AM); close every `/demo` tab during a led demo (a waiting `/demo` page
+  can claim a call to the shared line); NH-29 texting registration (needs the luxordev.com privacy/terms SMS wording first).
+
 ## Resume here — self-led demo at /demo (2026-10-16, Claude, T-224)
 
 - **Shareable demo link:** https://crm.luxordev.com/demo. Old /try/roofing redirects there. Spec + v1 status:

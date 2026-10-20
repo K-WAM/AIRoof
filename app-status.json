@@ -36,5 +36,7 @@
       "admin": true
     }
   },
-  "alerts": []
+  "alerts": [
+    { "level": "warning", "due": "2027-01-14", "text": "OpenAI shuts down gpt-4o, gpt-4o-mini and gpt-4.1 in its API; move the phone agent, field-note reading and call-summary fallback to a replacement model first." }
+  ]
 }
