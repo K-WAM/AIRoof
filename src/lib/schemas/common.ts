@@ -73,16 +73,14 @@ function genericIssueMessage(issue: ZodIssue): string {
   switch (issue.code) {
     case "invalid_type":
       return "Value has the wrong type";
-    case "invalid_enum_value":
+    case "invalid_value":
       return "Value is not an allowed option";
     case "too_small":
       return "Value is missing or below the allowed minimum";
     case "too_big":
       return "Value exceeds the allowed maximum";
-    case "invalid_string":
+    case "invalid_format":
       return "String format is invalid";
-    case "not_finite":
-      return "Number must be finite";
     case "custom":
       return "Value failed a safety or consistency check";
     default:
@@ -123,7 +121,7 @@ function logFailure(boundary: string, input: unknown, issues: SchemaIssue[]) {
 }
 
 export function parseSchema<T>(
-  schema: ZodType<T, z.ZodTypeDef, unknown>,
+  schema: ZodType<T, unknown>,
   input: unknown,
   boundary: string
 ): SchemaParseResult<T> {

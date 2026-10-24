@@ -14,9 +14,8 @@ function isVerticalId(value: string): value is VerticalId {
   return Object.prototype.hasOwnProperty.call(VERTICAL_TEMPLATES, value);
 }
 
-export function generateStaticParams(): RouteParams[] {
-  return Object.keys(VERTICAL_TEMPLATES).map((vertical) => ({ vertical }));
-}
+// No generateStaticParams: a prerendered page can't carry the per-request CSP nonce (src/lib/http/csp.ts), so this
+// renders per request like every other page; an unknown industry still 404s below.
 
 export async function generateMetadata({ params }: { params: Promise<RouteParams> }): Promise<Metadata> {
   const { vertical } = await params;

@@ -1,5 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — security review + hardening, committed NOT pushed (2026-10-23, Claude, T-226)
+
+- **Owner asked:** verify nothing leaks (ours or one client's to another); fix all five findings; commit only, don't push
+  (demos are live). **Verdict:** no cross-tenant or outsider path found — Firestore rules default-deny and tenant-scoped, every
+  API route runs a central guard (`route-guards`/`tenant-isolation` tests 40/40), no secrets in repo or git history,
+  production probed unauthenticated (401/400 only), PostHog sends page names only. **No payments are live**: no
+  `STRIPE_SECRET_KEY` in production, health says `stripe: not_configured`.
+- **Fixed (one commit, details in TODO.md T-226):** Next 15.5.28; legacy raw field-key access off by default; per-request CSP
+  nonce on every page (`src/lib/http/csp.ts` + middleware; root layout force-dynamic; `/try/[vertical]` no longer
+  prerendered); zod 4 / openai 6 / firebase 12 + postcss and grpc-js overrides (audit 27 → 9, 0 critical; the 9 are all
+  firebase-admin 12 → T-062, still blocked by jwks-rsa/jose ESM).
+- **Correction to the first report:** the Twilio SID/token are NOT unused — texting needs them. Only `VAPI_AUTH_BYPASS` and
+  `TWILIO_PHONE_NUMBER` are; removing them was blocked (secret-store write) → owner, NH-37.
+- **Gates (final tree, harness `--prod`):** tsc, lint, vitest 1986 pass, build, `e2e:call` 12/12, full Playwright 214 passed /
+  10 skipped / 0 failed, new `e2e/csp.spec.ts` 14/14; phone screenshots of job detail + dashboard read.
+- **After push:** watch that pages render (a CSP mistake shows as a blank page / console "Refused to execute"), then one
+  real field note (openai v6 path). Rollback = revert the T-226 commit.
+
 ## Resume here — phone AI sharpening, demo-booking time zones, model deadline (2026-10-19/20, Claude)
 
 - **Owner's two test calls on the shared line (2026-10-19, ~7:56 and 8:07 PM ET, `conv_4501m5b9gw2qf428qcbf72hmgz25`,

@@ -3,6 +3,10 @@ import { Inter } from "next/font/google";
 import { PostHogPageViews } from "@/components/analytics/PostHogPageViews";
 import "./globals.css";
 
+// Every page renders per request so Next can stamp the middleware's CSP nonce on its scripts (src/lib/http/csp.ts).
+// A prerendered page would carry no nonce and the browser would block its scripts.
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",

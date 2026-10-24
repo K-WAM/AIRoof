@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { execFileSync } from "node:child_process";
+import { buildCsp } from "./src/lib/http/csp";
 
 // Resolve once at build/config load, never from the public status request.
 function buildCommit(): string {
@@ -8,35 +9,8 @@ function buildCommit(): string {
   catch { return ""; }
 }
 
-const csp = [
-  "default-src 'self'",
-  // 'unsafe-eval' is only for `next dev` (React's dev tooling); a production build never evals.
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  // Call recordings: ElevenLabs audio streams through our own /api route, but older Vapi lines link their storage URL.
-  // Media can't run code, so any https source is acceptable here.
-  "media-src 'self' blob: https:",
-  // Firebase Auth (identitytoolkit/securetoken), Firestore, and Installations
-  // all live under *.googleapis.com — the client SDK calls these directly
-  // from the browser. Without this, connect-src falls back to default-src
-  // 'self' and every fetch/XHR to them is silently blocked (this was a live
-  // incident: "Firebase: Error (auth/network-request-failed)" on /login).
-  `connect-src 'self' https://*.googleapis.com${process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? " https://us.i.posthog.com" : ""}${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL ? ` ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL}` : ""}`,
-  // Firebase Auth's redirect-sign-in flow (signInWithRedirect/getRedirectResult)
-  // relays its result back to the app through a hidden iframe it embeds from the
-  // project's authDomain (business-expense-trackin-ef659.firebaseapp.com). With no
-  // frame-src directive this fell back to default-src 'self' and silently blocked
-  // that iframe, so Google sign-in failed with the same opaque "auth/internal-error"
-  // the popup->redirect fix (7aa1f855) was meant to resolve — email/password sign-in
-  // was unaffected since it never loads that iframe.
-  "frame-src 'self' https://business-expense-trackin-ef659.firebaseapp.com",
-  "frame-ancestors 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+// Static files and API JSON only. Every page gets the nonce policy from src/middleware.ts (same builder).
+const csp = buildCsp();
 
 const nextConfig: NextConfig = {
   env: {
@@ -84,15 +58,6 @@ const nextConfig: NextConfig = {
           // The field screens record voice notes and take photos; nothing needs location, payment or USB.
           { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()" },
         ],
-      },
-      {
-        // Only this page runs the browser receptionist. Audio worklets are self-hosted;
-        // WASM resampling is allowed here without permitting JavaScript eval in production.
-        // All other pages keep the existing CSP above.
-        source: "/demo",
-        headers: [{ key: "Content-Security-Policy", value: csp
-          .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
-          .replace("connect-src 'self'", "connect-src 'self' https://api.elevenlabs.io wss://api.elevenlabs.io") }],
       },
     ];
   },

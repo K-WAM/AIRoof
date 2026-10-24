@@ -325,6 +325,10 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/lib/format/ — shared fmtDay/fmtTime/dayKey/normalizeName (memoized Intl.DateTimeFormat); src/hooks/useFormat.ts binds tz from bootstrap
 - src/lib/data/store.ts + src/hooks/useQuery.ts — hand-rolled cache/tag-invalidation layer (chosen over SWR — generalizes the existing quickAdd event bus); wired additively into useQuickAddRefresh, not yet adopted by any page
 - src/lib/http/cache.ts — the Cache-Control tiers (see the rule above) — jsonWithCache(data, policy)
+- src/lib/http/csp.ts — the ONE Content-Security-Policy builder (T-226): src/middleware.ts gives every page a per-request
+  script nonce (no 'unsafe-inline'); next.config.ts uses the static form for API/public files. The root layout is
+  force-dynamic because a prerendered page has no nonce and its scripts would be blocked — never add generateStaticParams
+  or force-static to a page. `e2e/csp.spec.ts` guards it
 - src/app/f/[grant]/route.ts + src/app/api/field/session/route.ts — the short opaque field-QR alias + session-cookie-based businessId/jobId lookup (replaces the old ?businessId=&jobId= URL params)
 - src/types/customer.ts + src/lib/customers/search.ts + src/lib/customers/resolve.ts — Customer type, buildSearchTokens/matchesQuery/tokenForQuery, resolveCustomer/bumpCustomerJobStats (see the Customer Entity & Search rule above)
 - src/app/api/company/customers/route.ts + [customerId]/route.ts + resolve/route.ts — Customer list/create, get+propagate-patch, and the job-create form's non-blocking find-or-create
@@ -484,7 +488,8 @@ Before asking the user to verify anything, use CLI/curl first:
 3. **Owner sign-off items** — `docs/NEEDS-HUMAN-CHECKLIST.md`: Vapi console audit (NH-1), Resend domain (NH-3), recording-notice wording (NH-4),
    real-device tests (NH-8), `crm.luxordev.com` (NH-17), Care Homes/Daycares live-call safety tests (NH-18), ElevenLabs keys/number/privacy
    (NH-20..22), and pressing **Apply** on Admin -> Clients -> "Sync live phone assistants" so the recording notice reaches live lines.
-4. **Major dependency upgrades** — Firebase Admin 14 (T-062, blocked upstream), Next.js 16, Firebase 12: separate, deliberate tasks.
+4. **Major dependency upgrades** — Firebase Admin 14 (T-062, still blocked upstream: jwks-rsa 4.1.0 → ESM-only jose 6; re-checked
+   2026-10-23) and Next.js 16: separate, deliberate tasks. Firebase 12, zod 4 and openai 6 landed in T-226 (2026-10-23).
 5. **Post-MVP** — Google Calendar OAuth, Stripe billing, SMS, in-app Vapi/ElevenLabs provisioning (T-054/T-112).
 
 ## Implementation Phases

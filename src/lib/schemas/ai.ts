@@ -58,7 +58,7 @@ const correctionSchema = z.object({
   targetHint: optionalModelText(500),
 });
 
-export const parsedUpdateSchema: z.ZodType<ParsedUpdate, z.ZodTypeDef, unknown> = z
+export const parsedUpdateSchema: z.ZodType<ParsedUpdate, unknown> = z
   .object({
     timeline: z.array(timelineEntrySchema).max(500),
     materials: z.array(materialSchema).max(500),
@@ -86,7 +86,7 @@ export interface SummaryOutput {
   actionItems: string[];
 }
 
-const summaryOutputSchema: z.ZodType<SummaryOutput, z.ZodTypeDef, unknown> = z.object({
+const summaryOutputSchema: z.ZodType<SummaryOutput, unknown> = z.object({
   summary: modelText(4_000),
   actionItems: z.array(modelText(1_000)).max(100),
 });
@@ -102,7 +102,6 @@ export interface CallOutcomeOutput {
 
 const callOutcomeOutputSchema: z.ZodType<
   CallOutcomeOutput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   outcome: z.enum(["scheduled", "escalated", "lead_captured", "no_action"]),
@@ -114,7 +113,6 @@ const callOutcomeOutputSchema: z.ZodType<
 
 const scopeClassificationSchema: z.ZodType<
   ScopeClassification,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   category: z.enum([
@@ -143,7 +141,6 @@ export interface FaqSuggestionsOutput {
 
 const faqSuggestionsOutputSchema: z.ZodType<
   FaqSuggestionsOutput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   suggestions: z
@@ -161,7 +158,7 @@ export interface TranscriptMessage {
   text: string;
 }
 
-const transcriptSchema: z.ZodType<TranscriptMessage[], z.ZodTypeDef, unknown> = z
+const transcriptSchema: z.ZodType<TranscriptMessage[], unknown> = z
   .array(
     z.object({
       role: boundedText(50),

@@ -212,8 +212,10 @@ export function peekFieldSessionClaims(req: NextRequest): { businessId: string; 
 }
 
 function legacyFieldKeyFallbackEnabled(): boolean {
-  // Temporary one-deploy compatibility gate. T-051 removes this entire path.
-  return getEnv("ENABLE_LEGACY_FIELD_KEY_FALLBACK")?.trim().toLowerCase() !== "false";
+  // Off unless explicitly turned on (2026-10-23 security review). Every member can read the business doc that holds
+  // fieldKey, so while this path was on by default a View-only teammate could use the raw key to write field notes.
+  // Current links are signed grants and never need it; set "true" only to rescue a pre-migration QR, then unset.
+  return getEnv("ENABLE_LEGACY_FIELD_KEY_FALLBACK")?.trim().toLowerCase() === "true";
 }
 
 async function loadCurrentFieldKey(

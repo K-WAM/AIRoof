@@ -379,4 +379,13 @@ describe("scoped field access tokens", () => {
     process.env.ENABLE_LEGACY_FIELD_KEY_FALLBACK = "true";
     expect((await exchangeLegacyFieldKey(BUSINESS_ID, FIELD_KEY)).ok).toBe(true);
   });
+
+  it("leaves legacy keys off when the flag is not set (a member can read the raw fieldKey)", async () => {
+    delete process.env.ENABLE_LEGACY_FIELD_KEY_FALLBACK;
+    expect(await exchangeLegacyFieldKey(BUSINESS_ID, FIELD_KEY)).toMatchObject({ ok: false, status: 401 });
+    expect(statusOf(await verifyFieldAccess(
+      request(`/api/jobs?businessId=${BUSINESS_ID}&key=${FIELD_KEY}`),
+      BUSINESS_ID,
+    ))).toBe(401);
+  });
 });

@@ -17,7 +17,7 @@ const optionalModelText = (maxLength: number) => modelText(maxLength).optional()
 const optionalEmail = z.string().trim().email().max(254).optional();
 const nonNegativeNumber = finiteNumber.pipe(z.number().nonnegative());
 
-const appointmentRecordSchema: z.ZodType<Appointment, z.ZodTypeDef, unknown> = z
+const appointmentRecordSchema: z.ZodType<Appointment, unknown> = z
   .object({
     appointmentId: identifier,
     businessId: identifier,
@@ -43,7 +43,7 @@ const appointmentRecordSchema: z.ZodType<Appointment, z.ZodTypeDef, unknown> = z
     message: "End time must follow start time",
   });
 
-const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object({
+const leadRecordSchema: z.ZodType<Lead, unknown> = z.object({
   leadId: identifier,
   businessId: identifier,
   callerName: optionalModelText(200),
@@ -66,7 +66,6 @@ const leadRecordSchema: z.ZodType<Lead, z.ZodTypeDef, unknown> = z.object({
 
 const fieldUpdateRecordSchema: z.ZodType<
   FieldUpdate,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   updateId: identifier,

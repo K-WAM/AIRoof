@@ -25,7 +25,6 @@ const optionalEmail = z.string().trim().email().max(254).optional();
 
 const checkAvailabilityInputSchema: z.ZodType<
   CheckAvailabilityInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   businessId: identifier,
@@ -37,7 +36,6 @@ const checkAvailabilityInputSchema: z.ZodType<
 
 const bookAppointmentInputSchema: z.ZodType<
   BookAppointmentInput,
-  z.ZodTypeDef,
   unknown
 > = z
   .object({
@@ -59,7 +57,6 @@ const bookAppointmentInputSchema: z.ZodType<
 
 const createLeadInputSchema: z.ZodType<
   CreateLeadInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   businessId: identifier,
@@ -75,7 +72,6 @@ const createLeadInputSchema: z.ZodType<
 
 const escalateCallInputSchema: z.ZodType<
   EscalateCallInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   businessId: identifier,
@@ -87,7 +83,6 @@ const escalateCallInputSchema: z.ZodType<
 
 const lookupAppointmentInputSchema: z.ZodType<
   LookupAppointmentInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   businessId: identifier,
@@ -100,7 +95,6 @@ const lookupAppointmentInputSchema: z.ZodType<
 
 const cancelAppointmentInputSchema: z.ZodType<
   CancelAppointmentInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({
   businessId: identifier,
@@ -113,7 +107,6 @@ const cancelAppointmentInputSchema: z.ZodType<
 
 const getCurrentDateInputSchema: z.ZodType<
   GetCurrentDateInput,
-  z.ZodTypeDef,
   unknown
 > = z.object({ businessId: identifier });
 
