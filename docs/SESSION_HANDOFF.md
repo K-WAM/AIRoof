@@ -1,6 +1,13 @@
 # SESSION_HANDOFF.md — Current state
 
-## Resume here — security review + hardening, committed NOT pushed (2026-10-23, Claude, T-226)
+## Resume here — security review + hardening, LIVE (2026-10-23, pushed 2026-10-30, Claude, T-226)
+
+- **2026-10-30:** owner approved; `VAPI_AUTH_BYPASS` (prod) and `TWILIO_PHONE_NUMBER` (prod + preview) removed from Vercel;
+  `2117d3a` pushed (origin had not moved), Vercel Ready, `/api/app-status` reports commit `2117d3a`, health ok. Before push:
+  CI's type-check, release suite 18/18 and critical-audit gate re-run clean (local `npm run lint` errors are only in the
+  untracked `.e2e/` and `.next-e2e/` folders). Live: every page's script-src is `'self' 'nonce-…'`, every script stamped;
+  real browser on `/demo`, `/login`, `/try/hvac` and the signed-in sample Calendar — 0 console errors/warnings. Left for the
+  owner (NH-37): `/hub/demo` signed in, and one real field voice note (openai v6).
 
 - **Owner asked:** verify nothing leaks (ours or one client's to another); fix all five findings; commit only, don't push
   (demos are live). **Verdict:** no cross-tenant or outsider path found — Firestore rules default-deny and tenant-scoped, every

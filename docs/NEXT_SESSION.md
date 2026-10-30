@@ -1,7 +1,7 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-**2026-10-23 (latest):** security review + hardening (T-226) is committed on `main` but **not pushed** — owner pushes when no
-demo is running. Then do NH-37 in `TODO.md`. Summary at the top of `docs/SESSION_HANDOFF.md`.
+**2026-10-30 (latest):** security review + hardening (T-226, `2117d3a`) is **live** and verified in a real browser. Owner's two
+remaining checks are NH-37 in `TODO.md`. Summary at the top of `docs/SESSION_HANDOFF.md`.
 
 **2026-10-16 (latest):** the public demo is now the self-led one at https://crm.luxordev.com/demo (T-224). Start at the top of
 `docs/SESSION_HANDOFF.md`; owner checks are NH-36 in `TODO.md`.
