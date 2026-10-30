@@ -61,7 +61,7 @@ describe("report email with and without the quote", () => {
     const html = emailFor({ includeQuote: true });
     expect(html).toContain("Quote Q-1000 · Accepted Sep 25, 2026");
     expect(html).toContain("Architectural shingles");
-    expect(html).toContain("Quoted total: $960.00");
+    expect(html).toContain('Quoted total: <span style="white-space:nowrap">$960.00</span>');
   });
 
   it("with Hide materials it shows one Materials row and never the item names or their unit prices", () => {

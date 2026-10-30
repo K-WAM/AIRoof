@@ -76,7 +76,8 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
       <div className="request-review-heading">
         <div>
           <h2>{request.callerName || "Unknown caller"}</h2>
-          <p>{contactPhone(request) ? fmtPhone(contactPhone(request)) : "No phone"}{tidyEmail(request.callerEmail) ? ` · ${tidyEmail(request.callerEmail)}` : ""}</p>
+          {/* A booking's Phone and Email rows are right below — say them once. */}
+          {!request.startTime && <p>{contactPhone(request) ? fmtPhone(contactPhone(request)) : "No phone"}{tidyEmail(request.callerEmail) ? ` · ${tidyEmail(request.callerEmail)}` : ""}</p>}
         </div>
         {/* Only what needs attention gets a chip — "normal" said nothing and read like a status. */}
         {request.escalated

@@ -1,5 +1,28 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — Tuesday roofing demo readiness (2026-10-30, Claude, T-227)
+
+- **Owner asked:** demo Tuesday (2026-11-03) in top shape: fluid bilingual phone AI, fast app, clear screens, voice notes,
+  photos/logos, a 1-page guide per role with "Ask a question", texting, and "what happens when OpenAI credits run out".
+- **Critical bug found:** owner's Oct 20 call (`conv_6801m5d74rx9ejns2n9987b533h1`) — Alice said "I have you booked" and never
+  called bookAppointment (only the post-call "call them back" lead caught it). Bake-off (66 runs/model, incl. replay tests
+  `test_0701m675qh7bf6t90hygx5bn7443` + `test_9101m675qhx1fz2rtysh1gsnt4nj`): owner approved **gemini-2.5-flash, thinking 0**
+  on the live demo agent (version `agtvrsn_1501m677htxee9a82wbtcv3aaet5`; rollback `agtvrsn_3501m5bfgcx3f6wr0y7nat0jpvbz`).
+  Claude Haiku silently fails over to gemini on this workspace — see memory/project_phone_agent_model_tests.
+- **Commit `39292a7` (local, NOT pushed — owner approves pushes):** server ZIP rule for field-service bookings; no
+  "OK to text?" while SMS is off (owner: keep texting off); spelled emails joined everywhere; booking card shows the
+  callback number first; voice notes keep the words when reading fails and show a next step when transcription fails;
+  new role Guide (`src/app/company/guide/`) + "Ask a question" (FeedbackForm mode="question"); crew logins can open the Guide.
+- **Gates:** tsc, changed-file lint, targeted vitest, `e2e:call` 12/12. Full Playwright (dev harness): 201 passed / 1 flaky /
+  10 skipped; 16 fails = 14 CSP checks (need `--prod`; 18/18 green on the prod build) + demo-readiness (a ZIP-less
+  fixture the new rule rightly refused; fixed, 4/4). Follow-up `--prod` run of call-to-cash, doc-photos, roofing-job-flow,
+  products-billing, screen-audit, guide: 21 passed (every screen ready in ~0.2–0.3 s). Phone screenshots read.
+- **Second commit (declutter):** review card no longer repeats phone/email; sent/paid invoices drop the duplicate
+  Customer-version panel; document totals never wrap ("$520.0 / 0" on phones).
+- **Owner, before Tuesday:** approve the push; then one English + one Spanish booking call on (689) 204-2643 (Booking-change
+  gate — read the transcript after); top up OpenAI (voice notes) + check ElevenLabs credits; reset/relaunch the demo data;
+  open the app and click every tab ~5 min before the demo (cold starts 1–1.7 s, warm ~0.25 s).
+
 ## Resume here — security review + hardening, LIVE (2026-10-23, pushed 2026-10-30, Claude, T-226)
 
 - **2026-10-30:** owner approved; `VAPI_AUTH_BYPASS` (prod) and `TWILIO_PHONE_NUMBER` (prod + preview) removed from Vercel;

@@ -52,7 +52,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       </div>)}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 16, fontWeight: 800 }}><span>Quoted total</span><span>{fmtMoney(quoteSection.total)}</span></div>
     </section>}
-    {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span>{fmtMoney(total)}</span></div>}
+    {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span style={{ whiteSpace: "nowrap" }}>{fmtMoney(total)}</span></div>}
     {howToPay && (howToPay.instructions || howToPay.link) && <section data-testid="how-to-pay" style={{ marginTop: 16, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", breakInside: "avoid" }}>
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748b", marginBottom: 4 }}>How to pay</div>
       {howToPay.instructions && <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.6 }}>{howToPay.instructions}</div>}

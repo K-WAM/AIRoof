@@ -76,7 +76,7 @@ test("a demo-line call reaches the operator app, becomes a job and shows its cre
   });
   const peerName = `RoofDoctors parallel ${tag}`;
   const peerCall = await simulateCall({ tenant: "demo", from: "+15558880102", summary: `${peerName} wants a roof inspection.`,
-    tools: [["bookAppointment", { name: peerName, email: `${tag}.peer@customer.e2e.test`, service: "Roof inspection", address: "2 Practice St, Miami, FL", preferredTime: day.getTime() }]],
+    tools: [["bookAppointment", { name: peerName, email: `${tag}.peer@customer.e2e.test`, service: "Roof inspection", address: "2 Practice St, Miami, FL 33131", preferredTime: day.getTime() }]],
   });
   const appointments = await readCollection(`businesses/${B}/appointments`) as Array<{ id: string; appointmentId?: string; callerName?: string }>;
   const appointment = appointments.find((a) => a.callerName === caller);

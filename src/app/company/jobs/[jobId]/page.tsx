@@ -1402,7 +1402,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
-              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
+              {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
+                  the panel would just repeat its total (say it once, C5). */}
+              {invoiceStatus === "draft" && !readOnly && <CustomerVersionPanel draft priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
                 adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
                 onChange={(patch) => {
@@ -1412,7 +1414,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   if (patch.customerSubtotal !== undefined) { setInvoiceCustomerSubtotal(patch.customerSubtotal); setInvoiceCalculatedSubtotal(calculatedSubtotal); }
                   if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
                 }}
-                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
+                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />}
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>

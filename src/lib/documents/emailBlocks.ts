@@ -65,7 +65,7 @@ export function sectionsBlock(sections: Array<{ title: string; lines: string[] }
 
 export function totalBlock(label: string, amount: number, accent?: string | null): string {
   const color = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent : "#0f766e";
-  return `<div style="border:2px solid ${color};border-radius:6px;padding:12px 16px;text-align:right;font-size:17px;font-weight:800">${escapeHtml(label)}: ${money(amount)}</div>`;
+  return `<div style="border:2px solid ${color};border-radius:6px;padding:12px 16px;text-align:right;font-size:17px;font-weight:800">${escapeHtml(label)}: <span style="white-space:nowrap">${money(amount)}</span></div>`;
 }
 
 export function footerBlock(brand: Letterhead): string {
