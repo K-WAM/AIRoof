@@ -29,7 +29,10 @@ vi.mock("@/lib/auth/verifyRole", () => ({
     return { user: { uid: "e2e-owner", role: "owner" } };
   },
 }));
-vi.mock("@/lib/ai/deepseekClient", () => ({ parseFieldUpdate: mocks.parseFieldUpdate }));
+vi.mock("@/lib/ai/deepseekClient", () => ({
+  parseFieldUpdate: mocks.parseFieldUpdate,
+  ParseFieldUpdateError: class ParseFieldUpdateError extends Error { needsConfirmation = false; },
+}));
 vi.mock("@/lib/ai/registry", () => ({ isProviderReady: () => true }));
 vi.mock("openai/uploads", () => ({ toFile: vi.fn(async () => new Blob(["fake audio"])) }));
 vi.mock("openai", () => ({
@@ -151,10 +154,27 @@ describe("field-audio smoke path", () => {
 
     const response = await fieldAudio(request(), context());
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toMatchObject({ error: "Transcription failed" });
+    expect(response.status).toBe(502);
+    // A next step for the worker — never the provider's own message (an empty OpenAI balance reads "insufficient_quota").
+    const body = await response.json();
+    expect(body.error).toBe("Couldn't turn that into text right now. Try again in a minute, or type the note instead.");
+    expect(JSON.stringify(body)).not.toContain("Whisper unavailable");
     expect(mocks.parseFieldUpdate).not.toHaveBeenCalled();
     expect(db.__list(ledgerPath())).toHaveLength(0);
+  });
+
+  it("keeps the transcribed words when reading the note fails (2026-10-30)", async () => {
+    mocks.parseFieldUpdate.mockRejectedValue(Object.assign(new Error("429 You exceeded your current quota"), { status: 429, code: "insufficient_quota" }));
+
+    const response = await fieldAudio(request(), context());
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toMatchObject({ success: true, needsConfirmation: true, confirmationReason: "The details could not be read automatically." });
+    expect(JSON.stringify(body)).not.toContain("quota");
+    const saved = db.__list(ledgerPath());
+    expect(saved).toHaveLength(1);
+    expect(saved[0].data).toMatchObject({ rawText: expect.any(String), parseError: expect.any(String) });
   });
 
   it("rejects a session from another tenant before transcription or a ledger write", async () => {

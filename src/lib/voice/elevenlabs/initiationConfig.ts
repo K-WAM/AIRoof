@@ -22,6 +22,7 @@
 
 import type { BusinessConfig } from "@/types";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
+import { isSmsEnabled } from "@/lib/comms/sms";
 import {
   composeGreetingWithDisclosure,
   resolveRecordingDisclosure,
@@ -124,6 +125,8 @@ export function buildInitiationResponse(
         timezone: runtime.timezone,
         afterHoursNote: runtime.afterHoursContext,
         callerPhone: runtime.callerPhone,
+        // Texting off (owner, 2026-10-30): the agent skips "OK to text?" instead of asking for a text that never comes.
+        texting: isSmsEnabled(config),
       },
     });
     const baseGreeting =

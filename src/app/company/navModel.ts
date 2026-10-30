@@ -27,9 +27,10 @@ interface NavContext {
 /** The route list shared by the desktop sidebar and phone menu. */
 export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked = () => false, vocab }: NavContext): NavLink[] {
   if (role === "crew" && !superadmin) {
-    // A Crew login works only on the Field screen, but keeps Feedback (T-156: every signed-in user can send it).
+    // A Crew login works only on the Field screen, but keeps the Guide (its Foreman page) and Feedback (T-156: every
+    // signed-in user can send it).
     const field: NavLink[] = isEnabled("jobs") ? [{ path: "/company/field", label: "Field", group: "Primary" }] : [];
-    return [...field, { path: "feedback", label: "Feedback", group: "Help" }];
+    return [...field, { path: "/company/guide", label: "Guide", group: "Help" }, { path: "feedback", label: "Feedback", group: "Help" }];
   }
   const links: NavLink[] = [{ path: "/company/dashboard", label: "Dashboard", group: "Primary" }];
   // What the client bought decides the rest (products → isEnabled): calls, jobs/field, billing. A product they could

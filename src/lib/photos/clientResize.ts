@@ -9,7 +9,14 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read image")); };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      // Desktop browsers can't decode iPhone HEIC files (a phone's own camera/library picker converts them itself).
+      const heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+      reject(new Error(heic
+        ? "This browser can't open iPhone HEIC photos. Add it from the phone, or use a JPG or PNG."
+        : "Couldn't open that picture. Try a JPG or PNG."));
+    };
     img.src = url;
   });
 }

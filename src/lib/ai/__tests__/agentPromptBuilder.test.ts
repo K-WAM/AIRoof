@@ -292,3 +292,25 @@ describe("owner phone rehearsal — exact availability and one-time intake", () 
     expect(prompt).toContain('never "I have you for"');
   });
 });
+
+describe("buildAgentPrompt — texting question follows the line (2026-10-30)", () => {
+  it("asks OK-to-text only when the line can text", () => {
+    const withTexting = buildAgentPrompt(config(), { runtime: { currentDate: "Friday, October 30, 2026", texting: true } });
+    expect(withTexting).toContain("Is it OK to text you about this appointment at this number?");
+    expect(withTexting).toContain("7. OK to text (ask once).");
+    expect(withTexting).toContain("ask any unanswered items 5, 6 and 7 before you book");
+  });
+
+  it("never asks, offers or promises a text when texting is off", () => {
+    const prompt = buildAgentPrompt(config(), { runtime: { currentDate: "Friday, October 30, 2026", texting: false } });
+    expect(prompt).not.toContain("Is it OK to text you");
+    expect(prompt).not.toContain("OK to text (ask once)");
+    expect(prompt).not.toContain(", OK to text)");
+    expect(prompt).toContain("this line does not send texts. Never ask about texting");
+    expect(prompt).toContain("ask any unanswered items 5 and 6 before you book");
+  });
+
+  it("keeps asking when the caller does not say (older Vapi path)", () => {
+    expect(buildAgentPrompt(config())).toContain("Is it OK to text you about this appointment at this number?");
+  });
+});

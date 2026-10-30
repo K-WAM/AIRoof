@@ -9,7 +9,7 @@ import { expect, expectHealthy, overflowingElements, settle, shot, test } from "
 test.describe.configure({ mode: "serial" });
 
 const tag = Date.now().toString(36).slice(-5);
-const caller = { name: `Rita Roof ${tag}`, phone: `+1555${String(Math.floor(2000000 + Math.random() * 7000000))}`, email: `rita.${tag}@customer.e2e.test`, address: "77 Shingle Ln, Miami, FL" };
+const caller = { name: `Rita Roof ${tag}`, phone: `+1555${String(Math.floor(2000000 + Math.random() * 7000000))}`, email: `rita.${tag}@customer.e2e.test`, address: "77 Shingle Ln, Miami, FL 33130" };
 let createdJobId = "";
 
 /** A random half hour between 14:00 and 19:30 UTC, n days out — never a slot that crosses midnight (see call-to-cash.cjs). */

@@ -59,7 +59,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   // (they list their roles); this keeps the screens from loading into errors.
   const crewOnly = user?.role === "crew" && !user.superadmin;
   const crewWithoutField = crewOnly && modulesReady && !isEnabled("jobs");
-  const crewOffField = crewOnly && !crewWithoutField && !pathname?.startsWith("/company/field");
+  // The Guide is the one other page a Crew login may open — its Foreman page is written for them (2026-10-30).
+  const crewOffField = crewOnly && !crewWithoutField && !pathname?.startsWith("/company/field") && !pathname?.startsWith("/company/guide");
 
   useEffect(() => {
     if (!crewOffField) return;

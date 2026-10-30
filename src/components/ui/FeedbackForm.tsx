@@ -20,6 +20,8 @@ const CATEGORIES = [
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** "question" = the Guide's "Ask a question": same delivery, no category picker, filed as "Question". */
+  mode?: "feedback" | "question";
 }
 
 /**
@@ -27,7 +29,8 @@ interface Props {
  * they were on. The navs decide who sees the button (company-nav: every user, and a superadmin while previewing a
  * client). Uses the shared Modal shell so spacing/backdrop/close/focus behavior matches every other dialog.
  */
-export function FeedbackForm({ open, onClose }: Props) {
+export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
+  const isQuestion = mode === "question";
   const { user } = useAuth();
   const businessId = useBusinessId();
   const [message, setMessage] = useState("");
@@ -72,7 +75,7 @@ export function FeedbackForm({ open, onClose }: Props) {
         body: JSON.stringify({
           businessId,
           message: trimmed,
-          category: category || undefined,
+          category: isQuestion ? "Question" : category || undefined,
           // Which screen they were on — the first question every bug report needs answered.
           page: typeof window !== "undefined" ? window.location.pathname : undefined,
         }),
@@ -94,14 +97,16 @@ export function FeedbackForm({ open, onClose }: Props) {
   const canSubmit = message.trim().length > 0 && status !== "sending" && status !== "sent";
 
   return (
-    <Modal open={open} onClose={handleClose} title="Send feedback to Luxor">
+    <Modal open={open} onClose={handleClose} title={isQuestion ? "Ask a question" : "Send feedback to Luxor"}>
       {status === "sent" ? (
         <div style={{ textAlign: "center", padding: "0.5rem 0" }}>
           <p style={{ margin: "0 0 0.5rem", fontWeight: 600, color: "var(--accent)", fontSize: "0.95rem" }}>
-            Thanks — we read every message
+            {isQuestion ? "Question sent" : "Thanks — we read every message"}
           </p>
           <p style={{ margin: "0 0 16px", fontSize: "0.83rem", color: "var(--text-muted)" }}>
-            The Luxor team will reply to {userEmail} if a response is needed.
+            {isQuestion
+              ? `The Luxor team will answer by email at ${userEmail}.`
+              : `The Luxor team will reply to ${userEmail} if a response is needed.`}
           </p>
           <button type="button" className="button primary small" onClick={handleClose}>
             Done
@@ -110,7 +115,9 @@ export function FeedbackForm({ open, onClose }: Props) {
       ) : (
         <>
           <p style={{ margin: "0 0 14px", fontSize: "0.83rem", color: "var(--text-muted)" }}>
-            This message goes to the Luxor team — not to your own company.
+            {isQuestion
+              ? "Stuck on something? Ask the Luxor team — the people who make this app."
+              : "This message goes to the Luxor team — not to your own company."}
           </p>
 
           <div style={{ marginBottom: 12 }}>
@@ -118,7 +125,7 @@ export function FeedbackForm({ open, onClose }: Props) {
             <div style={readOnlyStyle}>{userEmail}</div>
           </div>
 
-          <div style={{ marginBottom: 12 }}>
+          {!isQuestion && <div style={{ marginBottom: 12 }}>
             <label style={labelStyle} htmlFor="feedback-category">
               Category <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>(optional)</span>
             </label>
@@ -133,17 +140,17 @@ export function FeedbackForm({ open, onClose }: Props) {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div>
+          </div>}
 
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle} htmlFor="feedback-message">
-              Message
+              {isQuestion ? "Your question" : "Message"}
             </label>
             <textarea
               id="feedback-message"
               value={message}
               onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
-              placeholder="What's on your mind?"
+              placeholder={isQuestion ? "What do you need help with?" : "What's on your mind?"}
               rows={5}
               maxLength={MAX_MESSAGE_LENGTH}
               disabled={status === "sending"}

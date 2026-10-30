@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/comms/send";
 import { getAppUrl } from "@/lib/config/appUrl";
 import { resolveLetterhead, escapeHtml } from "@/lib/documents/letterhead";
 import type { LibraryLogo } from "@/types/library";
+import { tidyEmail } from "@/lib/format/email";
 
 const BASE_URL = getAppUrl();
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
   const appt = apptDoc.data()!;
   const biz = bizDoc.data()!;
   const notificationEmail = biz.notificationEmail as string | undefined;
-  const customerEmail = (appt.callerEmail as string | undefined) || undefined;
+  const customerEmail = tidyEmail(appt.callerEmail);
   const tz = (biz.timezone as string | undefined) ?? "America/New_York";
 
   const apptDate = new Date(appt.startTime as number).toLocaleString("en-US", {

@@ -72,7 +72,7 @@ test("a demo-line call reaches the operator app, becomes a job and shows its cre
   day.setUTCHours(16, 0, 0, 0);
   const call = await simulateCall({ tenant: "demo", from: "+15558880101", summary,
     transcript: [["agent", "How can I help?"], ["user", `${caller}. Please book a roof inspection.`]],
-    tools: [["bookAppointment", { name: caller, email: `${tag}@customer.e2e.test`, service: "Roof inspection", address: "1 Practice St, Miami, FL", preferredTime: day.getTime() }]],
+    tools: [["bookAppointment", { name: caller, email: `${tag}@customer.e2e.test`, service: "Roof inspection", address: "1 Practice St, Miami, FL 33131", preferredTime: day.getTime() }]],
   });
   const peerName = `RoofDoctors parallel ${tag}`;
   const peerCall = await simulateCall({ tenant: "demo", from: "+15558880102", summary: `${peerName} wants a roof inspection.`,

@@ -19,6 +19,11 @@ export interface PromptOptions {
     afterHoursNote?: string;
     /** Caller's number from caller ID — confirm it instead of asking them to recite it. */
     callerPhone?: string;
+    /**
+     * False when this line cannot send texts (SMS off): the agent then never asks "OK to text?" — one question fewer,
+     * and no caller is left expecting a text that cannot come. Omitted = ask (older callers keep their behaviour).
+     */
+    texting?: boolean;
   };
 }
 
@@ -84,6 +89,10 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
 
   const intakeSection = buildIntakeSection(businessConfig.industry);
   const escalationOn = isEscalationEnabled(businessConfig);
+  const texting = runtime?.texting !== false;
+  const textingInstruction = texting
+    ? `- Texting: ask once, right before booking: "Is it OK to text you about this appointment at this number?" Send their answer as textOk (true for yes, false for no). Asking is not a promise that a text will come.`
+    : `- Texting: this line does not send texts. Never ask about texting, never offer or promise a text, and leave textOk out.`;
 
   // Plan §1 A (2026-09-28): the caller said "yes, it's leaking", the agent escalated, said "anything else?" and only booked
   // because Carla insisted. With escalation off (field trades by default) an urgent problem is BOOKED into the soonest
@@ -106,7 +115,7 @@ This business does NOT hand calls to a person. Wherever a rule above says "escal
 - Never use escalateCall for this business. An urgent problem gets the SOONEST opening, in this order:
   1. In the SAME reply where you hear it is urgent, say you'll find the soonest visit and call checkAvailability with no preferred time. Do not ask anything first.
   2. Offer the first opening it returns.
-  3. Ask the checklist questions you still need (name, address with ZIP, access, email, OK to text) — quickly, one at a time.
+  3. Ask the checklist questions you still need (name, address with ZIP, access, email${texting ? ", OK to text" : ""}) — quickly, one at a time.
   4. Book it with notes starting "URGENT: " and what is happening, e.g. "URGENT: water coming through the kitchen ceiling".
 - Never guess a time for an urgent call — only book a time checkAvailability returned.
 - Tell them it's marked urgent so the office sees it first. Do not promise that anyone will call or arrive sooner than the booked time.
@@ -173,7 +182,7 @@ ${intakeSection ? `\n${intakeSection}\n` : ""}## Collecting Contact Details
 ${phoneInstruction}
 - Address (only when your rules ask for one): it becomes the service and billing address, so an address is not complete without its ZIP code. When the caller gives an address with no ZIP code, your very next question is "And what's the ZIP code there?" (before reading it back or asking anything else). Put the whole address, ZIP included, in "address".
 - Email: ask once, right before booking: "What's the best email for your confirmation?" If they give one, read it back once in plain words (for example "kareem at gmail dot com") and include it as "email". It is optional: if they say no, hesitate, or struggle to spell it, drop it and move on. Never spell it letter-by-letter unless they ask. Helpers like "M as in Mary" are not part of the address. When they spell it, join the letters into one word in the tool argument ("kwamwad@gmail.com", never "K-W-A-M-W-A-D").
-- Texting: ask once, right before booking: "Is it OK to text you about this appointment at this number?" Send their answer as textOk (true for yes, false for no). Asking is not a promise that a text will come.
+${textingInstruction}
 
 ## Booking Checklist (collect missing details once per call)
 Keep track of answers and confirmations throughout the call. Ask ONE question at a time. Skip anything already supplied or confirmed, including a refusal of email or texts. When only the appointment time changes, reuse their name, verified callback number, address, access notes and consent; do not restart this checklist.
@@ -183,9 +192,8 @@ Collect only the missing items:
 3. The address with ZIP code (when your rules ask for one).
 4. What is going on, and whether it's urgent right now.
 5. Access: "Is there anything we should know to get in — a gate code, pets, parking?" Put the answer in notes as "Access: …" (skip if there's nothing).
-6. Email (ask once, optional).
-7. OK to text (ask once).
-Then agree the time and book. Every step is one short question — if the caller is in a hurry, keep going quickly, but ask any unanswered items 5, 6 and 7 before you book. A previous answer or refusal counts; never ask it again just because the time changed.
+6. Email (ask once, optional).${texting ? "\n7. OK to text (ask once)." : ""}
+Then agree the time and book. Every step is one short question — if the caller is in a hurry, keep going quickly, but ask any unanswered items ${texting ? "5, 6 and 7" : "5 and 6"} before you book. A previous answer or refusal counts; never ask it again just because the time changed.
 
 ${escalationSection}
 

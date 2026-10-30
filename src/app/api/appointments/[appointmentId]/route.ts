@@ -7,6 +7,7 @@ import { isSmsEnabled, sendSms } from "@/lib/comms/sms";
 import { bookingConfirmed } from "@/lib/comms/smsTemplates";
 import { notifyInspector } from "@/lib/crews/inspectorNotify";
 import { contactPhone } from "@/lib/format/phone";
+import { tidyEmail } from "@/lib/format/email";
 import { confirmChannels, type ConfirmChannel } from "@/lib/comms/confirmChannels";
 import { buildRequestDeclineEmail, REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
 import {
@@ -154,7 +155,7 @@ export async function PATCH(
       });
       staffNotified = notified.emailed + notified.texted;
     }
-    const email = typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
+    const email = tidyEmail(appointment.callerEmail) ?? null;
     if (!email) return NextResponse.json({ ok: true, notifiedCustomer: false, noEmail: true, staffNotified });
     const message = buildRequestDeclineEmail({
       brand: {
@@ -489,8 +490,8 @@ export async function PATCH(
     const { appointment, business, startTime } = committed;
     // The number the caller said on the call wins over caller ID.
     const callerPhone = contactPhone(appointment) ?? null;
-    const callerEmail =
-      typeof appointment.callerEmail === "string" ? appointment.callerEmail : null;
+    // An address saved letter-by-letter before the dispatcher joined them is fixed here, so a confirmation never bounces.
+    const callerEmail = tidyEmail(appointment.callerEmail) ?? null;
     const timeZone =
       typeof business.timezone === "string" ? business.timezone : "America/New_York";
     const when = new Date(startTime).toLocaleString("en-US", {

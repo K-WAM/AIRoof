@@ -4,8 +4,10 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { resolveCustomer, bumpCustomerJobStats } from "@/lib/customers/resolve";
 import { nextJobIdInTransaction } from "@/lib/jobs/createJob";
 import type { Job } from "@/types/jobs";
+import { contactPhone } from "@/lib/format/phone";
+import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 
-type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
+type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
@@ -27,13 +29,18 @@ export async function POST(req: NextRequest) {
   const serviceType = data.serviceType ?? data.serviceRequested ?? "Service request";
   const address = data.address ?? "Address to be confirmed";
   const now = Date.now();
-  const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone: data.callerPhone, email: data.callerEmail, address: data.address }) : null;
+  // The job reaches the customer on the number they asked for (not just caller ID) and an address that was spelled out
+  // letter by letter is joined, so the quote/invoice emails go to the real inbox.
+  const phone = contactPhone(data);
+  const email = tidyEmail(data.callerEmail);
+  const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address }) : null;
   const call = data.sourceCallId ? await db.collection(`businesses/${businessId}/calls`).doc(data.sourceCallId).get() : null;
+  const callSummary = call?.data()?.summary;
   const jobBase: Omit<Job, "jobId"> = {
     businessId, title: `${serviceType} — ${address}`, status: "open", address: data.address,
-    clientName: data.callerName, clientPhone: data.callerPhone, clientEmail: data.callerEmail,
+    clientName: data.callerName, clientPhone: phone, clientEmail: email,
     serviceType, notes: data.notes, ...(appointmentId ? { appointmentId } : { leadId }),
-    ...(data.sourceCallId ? { sourceCallId: data.sourceCallId, callSummary: call?.data()?.summary } : {}),
+    ...(data.sourceCallId ? { sourceCallId: data.sourceCallId, callSummary: typeof callSummary === "string" ? joinSpelledEmails(callSummary) : callSummary } : {}),
     ...(customer ? { customerId: customer.customerId } : {}), createdAt: now, updatedAt: now,
     // The time the caller booked (T-149): shown on the Unscheduled tile and preselected when it's dropped on a crew.
     // NOT scheduledStart — the booking already counts against the phone AI's capacity, so copying it there would

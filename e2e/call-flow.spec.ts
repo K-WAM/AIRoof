@@ -69,7 +69,7 @@ test("call → booked → inspector schedule follows the real workflow", async (
     from: `+1555${String(Date.now()).slice(-7)}`,
     summary: "Caller needs a roof inspection and shared the front gate code.",
     transcript: [["user", "Please book an inspection. The front gate code is 1010."]],
-    tools: [["bookAppointment", { name: firstName, phone: "+15550101999", email: "carla@example.com", textOk: true, address: "101 Palm Ave, Miami, FL", serviceType: "Roof inspection", notes: "Access: gate 1010\nURGENT: active leak", startTime: first.local }]],
+    tools: [["bookAppointment", { name: firstName, phone: "+15550101999", email: "carla@example.com", textOk: true, address: "101 Palm Ave, Miami, FL 33130", serviceType: "Roof inspection", notes: "Access: gate 1010\nURGENT: active leak", startTime: first.local }]],
   });
 
   if (testInfo.project.name === "phone") {
@@ -110,7 +110,7 @@ test("call → booked → inspector schedule follows the real workflow", async (
     from: `+1556${String(Date.now()).slice(-7)}`,
     summary: "Caller booked a routine inspection.",
     transcript: [["user", "Book the next inspection for me."]],
-    tools: [["bookAppointment", { name: secondName, phone: "+15550101888", email: "noah@example.com", textOk: true, address: "202 Bay Rd, Miami, FL", serviceType: "Roof inspection", notes: "Access: side gate", startTime: second.local }]],
+    tools: [["bookAppointment", { name: secondName, phone: "+15550101888", email: "noah@example.com", textOk: true, address: "202 Bay Rd, Miami, FL 33131", serviceType: "Roof inspection", notes: "Access: side gate", startTime: second.local }]],
   });
 
   const block = await api(owner, "POST", "/api/company/time-blocks", { businessId: BUSINESS_ID, crewId: inspectorId, label: "Materials pickup", startTime: first.ms + 2 * 3600000, endTime: first.ms + 3 * 3600000 });

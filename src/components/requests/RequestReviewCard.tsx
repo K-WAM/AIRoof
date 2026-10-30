@@ -6,6 +6,7 @@ import { REQUEST_DECLINE_REASONS, type RequestDeclineReason } from "@/lib/comms/
 import { BookingDetails } from "@/components/appointments/BookingDetails";
 import { confirmButtonLabel, confirmChannels } from "@/lib/comms/confirmChannels";
 import { contactPhone, fmtPhone } from "@/lib/format/phone";
+import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 
 export type ReviewRequest = RequestReviewEntity & {
   callerName?: string;
@@ -75,7 +76,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
       <div className="request-review-heading">
         <div>
           <h2>{request.callerName || "Unknown caller"}</h2>
-          <p>{request.callerPhone || "No phone"}{request.callerEmail ? ` · ${request.callerEmail}` : ""}</p>
+          <p>{contactPhone(request) ? fmtPhone(contactPhone(request)) : "No phone"}{tidyEmail(request.callerEmail) ? ` · ${tidyEmail(request.callerEmail)}` : ""}</p>
         </div>
         {/* Only what needs attention gets a chip — "normal" said nothing and read like a status. */}
         {request.escalated
@@ -102,7 +103,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
         <div key={key}><dt>{intakeLabelFor(key)}</dt><dd>{value}</dd></div>
       ))}</dl>}
       {!request.startTime && request.notes && <p>{request.notes}</p>}
-      {!request.startTime && call?.summary && <div className="summary-block"><b>From the call</b><p>{call.summary}</p></div>}
+      {!request.startTime && call?.summary && <div className="summary-block"><b>From the call</b><p>{joinSpelledEmails(call.summary)}</p></div>}
       {call?.recordingUrl && <audio controls src={call.recordingUrl} style={{ width: "100%" }} />}
       {call?.transcript?.length && <>
         <button className="button small secondary" onClick={() => setTranscript(!transcript)}>{transcript ? "Hide transcript" : "Show transcript excerpt"}</button>

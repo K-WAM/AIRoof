@@ -16,8 +16,8 @@ describe("visibleNavLinks", () => {
       ...common, ...jobs, ...manage, ...(role === "owner" ? ["/company/team"] : []), ...end,
     ]);
   });
-  it("keeps a crew on Field only", () => {
-    expect(paths({ role: "crew", isEnabled: roof })).toEqual(["/company/field", "feedback"]);
+  it("keeps a crew on Field (plus its Guide page) only", () => {
+    expect(paths({ role: "crew", isEnabled: roof })).toEqual(["/company/field", "/company/guide", "feedback"]);
   });
   it("uses the dental modules and customer word", () => {
     const links = visibleNavLinks({ role: "owner", isEnabled: dental, vocab: { customerNounPlural: "Patients" } });
@@ -44,6 +44,6 @@ describe("visibleNavLinks", () => {
     expect(visibleNavLinks({ role: "owner", isEnabled: dental, isLocked: () => false }).some((l) => l.path === "/company/jobs")).toBe(false);
   });
   it("a crew login never sees locked office tabs", () => {
-    expect(paths({ role: "crew", isEnabled: (m) => m !== "calls", isLocked: (m) => m === "calls" })).toEqual(["/company/field", "feedback"]);
+    expect(paths({ role: "crew", isEnabled: (m) => m !== "calls", isLocked: (m) => m === "calls" })).toEqual(["/company/field", "/company/guide", "feedback"]);
   });
 });

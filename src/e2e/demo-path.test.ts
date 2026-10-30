@@ -94,12 +94,12 @@ describe("offline demo-path smoke test", () => {
     const future = futureDay.getTime();
     const initiation = await initiate(new NextRequest("http://localhost/api/webhooks/elevenlabs/initiation", { method: "POST", headers: { "content-type": "application/json", "x-luxor-tool-secret": "e2e-tool-secret" }, body: JSON.stringify({ caller_id: "+15550199", called_number: "+17542837658", agent_id: "agent-e2e", conversation_id: "conv-e2e" }) }));
     expect(initiation.status).toBe(200); expect(db.__peek("elevenlabsConversations", "conv-e2e")?.businessId).toBe(BUSINESS_ID);
-    for (const [name, body] of [["checkAvailability", { service: "Roof repair" }], ["bookAppointment", { name: "Mina", email: EMAIL, service: "Roof repair", address: "12 Palm Ave", preferredTime: future }]] as const) {
+    for (const [name, body] of [["checkAvailability", { service: "Roof repair" }], ["bookAppointment", { name: "Mina", email: EMAIL, service: "Roof repair", address: "12 Palm Ave, 33101", preferredTime: future }]] as const) {
       const response = await tool(new NextRequest(`http://localhost/api/webhooks/elevenlabs/tools/${name}`, { method: "POST", headers: { "content-type": "application/json", "x-luxor-tool-secret": "e2e-tool-secret", "x-luxor-conversation-id": "conv-e2e" }, body: JSON.stringify(body) }), { params: Promise.resolve({ tool: name }) });
       expect(response.status).toBe(200);
     }
     const appointment = db.__list(`businesses/${BUSINESS_ID}/appointments`)[0];
-    expect(appointment.data).toMatchObject({ status: "requested", pendingConfirmation: true, callerName: "Mina", callerPhone: "+15550199", address: "12 Palm Ave", serviceType: "Roof repair" });
+    expect(appointment.data).toMatchObject({ status: "requested", pendingConfirmation: true, callerName: "Mina", callerPhone: "+15550199", address: "12 Palm Ave, 33101", serviceType: "Roof repair" });
     const postCallResponse = await postCall(signedPostCall({ type: "post_call_transcription", event_timestamp: Math.floor(Date.now() / 1000), data: { agent_id: "agent-e2e", conversation_id: "conv-e2e", transcript: [{ role: "agent", message: "Welcome", time_in_call_secs: 0 }, { role: "user", message: "Please repair my roof", time_in_call_secs: 1 }], metadata: { start_time_unix_secs: Math.floor(Date.now() / 1000), call_duration_secs: 35 }, analysis: { transcript_summary: "Roof repair request" } } }));
     expect(postCallResponse.status).toBe(200); expect(db.__peek(`businesses/${BUSINESS_ID}/calls`, "call_elevenlabs_conv-e2e")).toMatchObject({ startedAt: expect.any(Number), outcome: "scheduled" });
     expect((await callsList(new NextRequest(`http://localhost/api/businesses/${BUSINESS_ID}/calls`, { headers: auth }), { params: Promise.resolve({ businessId: BUSINESS_ID }) })).status).toBe(200);
@@ -109,10 +109,10 @@ describe("offline demo-path smoke test", () => {
     db.__seed(`businesses/${BUSINESS_ID}/appointments`, "decline-e2e", { ...appointment.data, appointmentId: "decline-e2e", callerEmail: EMAIL });
     expect((await appointmentPatch(json("http://localhost/api/appointments/decline-e2e", { businessId: BUSINESS_ID, declineReason: "Fully booked" }, "PATCH"), { params: Promise.resolve({ appointmentId: "decline-e2e" }) })).status).toBe(200);
     expect((await appointmentPatch(json("http://localhost/api/appointments/decline-e2e", { businessId: BUSINESS_ID, declineReason: "Fully booked" }, "PATCH"), { params: Promise.resolve({ appointmentId: "decline-e2e" }) })).status).toBe(200);
-    const jobResponse = await createJob(json("http://localhost/api/jobs", { businessId: BUSINESS_ID, title: "Roof repair", address: "12 Palm Ave", clientName: "Mina", clientPhone: "+15550199", appointmentId: appointment.id }));
+    const jobResponse = await createJob(json("http://localhost/api/jobs", { businessId: BUSINESS_ID, title: "Roof repair", address: "12 Palm Ave, 33101", clientName: "Mina", clientPhone: "+15550199", appointmentId: appointment.id }));
     expect(jobResponse.status).toBe(201); const { job } = await jobResponse.json() as { job: { jobId: string } };
-    expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ clientName: "Mina", clientPhone: "+15550199", address: "12 Palm Ave" });
-    const resolveBody = { businessId: BUSINESS_ID, jobId: job.jobId, name: "Mina", phone: "+15550199", email: EMAIL, address: "12 Palm Ave" };
+    expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ clientName: "Mina", clientPhone: "+15550199", address: "12 Palm Ave, 33101" });
+    const resolveBody = { businessId: BUSINESS_ID, jobId: job.jobId, name: "Mina", phone: "+15550199", email: EMAIL, address: "12 Palm Ave, 33101" };
     // Creating the job links the customer on the server (POST /api/jobs, after responding); resolving the same person
     // again — twice — finds that one customer instead of making another.
     await vi.waitFor(() => expect(db.__peek(`businesses/${BUSINESS_ID}/jobs`, job.jobId)).toMatchObject({ customerId: "C-1000" }));

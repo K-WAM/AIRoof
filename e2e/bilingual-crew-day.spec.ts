@@ -31,12 +31,12 @@ test("English and Spanish calls: both reach the Pipeline, the Spanish caller is 
   const en = await simulateCall({
     tenant: "roofing", from: english.phone, summary: `${english.name} wants a roof inspection.`,
     transcript: [["agent", "Thanks for calling E2E Roofing Co. También hablamos español."], ["user", "Hi, my roof is leaking near the chimney."], ["agent", "I can book an inspection."], ["user", `${english.name}, 12 Palm Ave, Miami.`]],
-    tools: [["bookAppointment", { name: english.name, service: "Roof inspection", address: "12 Palm Ave, Miami, FL", preferredTime: slot() }]],
+    tools: [["bookAppointment", { name: english.name, service: "Roof inspection", address: "12 Palm Ave, Miami, FL 33130", preferredTime: slot() }]],
   });
   const es = await simulateCall({
     tenant: "roofing", from: spanish.phone, summary: `${spanish.name} reports a leak and wants an inspection.`,
     transcript: [["agent", "Thanks for calling E2E Roofing Co. También hablamos español."], ["user", "Hola, tengo una gotera en el techo de la cocina."], ["agent", "Claro, con gusto. ¿Cuál es su nombre y dirección?"], ["user", `${spanish.name}, 40 Calle Ocho, Miami.`]],
-    tools: [["bookAppointment", { name: spanish.name, service: "Inspección de techo", address: "40 Calle Ocho, Miami, FL", preferredTime: slot() }]],
+    tools: [["bookAppointment", { name: spanish.name, service: "Inspección de techo", address: "40 Calle Ocho, Miami, FL 33135", preferredTime: slot() }]],
   });
   for (const call of [en, es]) {
     const booked = call.toolResults.find((r: { tool: string }) => r.tool === "bookAppointment");

@@ -155,9 +155,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     detectedLanguage = normalizeLang(transcription.language);
     audioSeconds = typeof (transcription as { duration?: number }).duration === "number" ? (transcription as { duration?: number }).duration! : 0;
   } catch (err) {
+    // The reason stays in the server log (an empty OpenAI balance shows here as 429 insufficient_quota); the worker gets
+    // a next step, never a provider message.
+    const providerError = err as { status?: number; code?: string; name?: string };
+    console.error("field-audio: transcription failed", { status: providerError.status, code: providerError.code, name: providerError.name });
     return NextResponse.json(
-      { error: "Transcription failed", details: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
+      { error: "Couldn't turn that into text right now. Try again in a minute, or type the note instead." },
+      { status: 502 },
     );
   }
 
@@ -183,31 +187,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     });
     if (detectedLanguage) parsed.sourceLanguage = detectedLanguage;
   } catch (err) {
-    if (err instanceof ParseFieldUpdateError && err.needsConfirmation) {
-      const updateId = ledgerId("upd", now);
-      await updatesCol.doc(updateId).set({
-        updateId,
-        kind: "normal",
-        rawText: transcript,
-        language: detectedLanguage ?? "en",
-        ...authorFields(author),
-        createdAt: now,
-        parseError: err.message,
-      } as FieldUpdate);
-
-      return NextResponse.json({
-        success: true,
-        transcript,
-        needsConfirmation: true,
-        confirmationReason: err.message,
-        changesSummary: "Extraction needs review — raw transcript saved",
-      });
+    // The words are already transcribed (and paid for) — never throw them away. Like a typed note
+    // (updates/route.ts), the raw transcript is saved for the office to review whatever went wrong reading it.
+    const needsReview = err instanceof ParseFieldUpdateError && err.needsConfirmation;
+    if (!needsReview) {
+      const providerError = err as { status?: number; code?: string; name?: string };
+      console.error("field-audio: reading the note failed — raw transcript saved", { status: providerError.status, code: providerError.code, name: providerError.name });
     }
+    const updateId = ledgerId("upd", now);
+    await updatesCol.doc(updateId).set({
+      updateId,
+      kind: "normal",
+      rawText: transcript,
+      language: detectedLanguage ?? "en",
+      ...authorFields(author),
+      createdAt: now,
+      parseError: err instanceof Error ? err.message : "Parse failed",
+    } as FieldUpdate);
 
-    return NextResponse.json(
-      { error: "Field update parsing failed", details: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      success: true,
+      transcript,
+      needsConfirmation: true,
+      confirmationReason: needsReview && err instanceof Error ? err.message : "The details could not be read automatically.",
+      changesSummary: "Your words are saved on the job. The office will check the details.",
+    });
   }
 
   if (parsed.correction && !forceNormal) {

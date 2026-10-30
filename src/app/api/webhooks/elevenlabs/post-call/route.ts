@@ -35,6 +35,7 @@ import {
   writeEndedCallReport,
 } from "@/lib/calls/endOfCallWriter";
 import { notifyInspector } from "@/lib/crews/inspectorNotify";
+import { joinSpelledEmails } from "@/lib/format/email";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const limited = checkRateLimit(request, { windowMs: 60_000, max: 300, keyPrefix: "elevenlabs-webhook" });
@@ -183,8 +184,10 @@ async function handlePostCallTranscription(data: Record<string, unknown>): Promi
   );
 
   const analysis = asRecord(data.analysis);
+  // A spelled-out email ("K-W-A-M-W-A-D@gmail.com") is joined here so every screen and email that quotes the summary
+  // shows the real address.
   const summary =
-    typeof analysis.transcript_summary === "string" ? analysis.transcript_summary : null;
+    typeof analysis.transcript_summary === "string" ? joinSpelledEmails(analysis.transcript_summary) : null;
   const durationSecs =
     typeof metadata.call_duration_secs === "number" ? metadata.call_duration_secs : undefined;
   const callId = `call_elevenlabs_${conversationId}`;

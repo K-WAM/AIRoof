@@ -1,4 +1,5 @@
 import { buildTrialPrompt } from "./trialPrompt";
+import { isTrialBusiness } from "./trialId";
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
@@ -32,7 +33,7 @@ export interface RoofingTrial {
   phoneCallAt?: number;
 }
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-export function isTrialBusiness(id: string): boolean { return /^demo-trial-roofing-[a-f0-9]{32}$/.test(id); }
+export { isTrialBusiness } from "./trialId";
 export function signedCallIdentity(signedUrl: unknown, agentId: string): { signedUrl: string; conversationId: string } | null {
   if (typeof signedUrl !== "string") return null;
   try {

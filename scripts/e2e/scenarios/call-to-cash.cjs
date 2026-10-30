@@ -27,7 +27,7 @@ async function runCallToCash({ log = console.log, tag = Date.now().toString(36).
 
   const owner = await api("owner");
   const crew = await api("crew");
-  const caller = { name: `Mina Test ${tag}`, phone: `+1555${String(Math.floor(1000000 + Math.random() * 8999999))}`, email: `mina.${tag}@customer.e2e.test`, address: "12 Palm Ave, Miami, FL" };
+  const caller = { name: `Mina Test ${tag}`, phone: `+1555${String(Math.floor(1000000 + Math.random() * 8999999))}`, email: `mina.${tag}@customer.e2e.test`, address: "12 Palm Ave, Miami, FL 33130" };
   ctx.caller = caller;
   // A different day each run (the calendar is shared and the AI correctly refuses a taken slot), at a random half hour between
   // 14:00 and 19:30 UTC. It used to keep the current time of day: run near midnight, a winter (EST) date put the hour-long slot

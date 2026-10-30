@@ -34,6 +34,9 @@ import { bookingReceived } from "@/lib/comms/smsTemplates";
 import { isEscalationEnabled } from "@/lib/ai/escalation";
 import { runAfterResponse } from "@/lib/http/afterResponse";
 import { finishTrialBooking } from "@/lib/demo/trialBooking";
+import { isTrialBusiness } from "@/lib/demo/trialId";
+import { VERTICAL_TEMPLATES, type VerticalId } from "@/lib/verticals/templates";
+import { addressHasPostalCode, MISSING_ZIP_RESULT } from "./postalCode";
 
 export type ToolProvider = "vapi" | "elevenlabs";
 
@@ -75,6 +78,17 @@ export async function executeAgentTool(
   try {
     switch (name) {
       case "bookAppointment": {
+        // ZIP rule (owner, 2026-10-30): a field-service visit's address must carry its ZIP — refused once, before
+        // anything is written, so the agent asks. Private browser demos keep ZIP optional; an unreadable business
+        // doc fails open (books as before).
+        const requestedAddress = optionalStr(params.address);
+        if (requestedAddress && !addressHasPostalCode(requestedAddress) && !isTrialBusiness(businessId)) {
+          const industry = (await getBusinessData(businessId))?.industry;
+          if (typeof industry === "string" && VERTICAL_TEMPLATES[industry as VerticalId]?.calendarMode === "jobs") {
+            await logAction(businessId, callId, "bookAppointment", params, { refused: "missing_zip" }, "failed");
+            return { result: MISSING_ZIP_RESULT };
+          }
+        }
         const rawStart = params.startTime ?? params.preferredTime;
         const rawEnd = params.endTime;
         // Numeric timestamps need no preliminary business-doc read. If the model

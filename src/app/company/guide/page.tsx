@@ -1,226 +1,130 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings,
-  PhoneCall, ClipboardList, FileText, CalendarCheck, Sparkles, type LucideIcon,
-} from "lucide-react";
+import { HelpCircle, Printer } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
+import { FeedbackForm } from "@/components/ui/FeedbackForm";
+import { defaultLandingPath } from "@/lib/team/landing";
+import type { TeamRole, TradeTitle } from "@/types/team";
+import { GUIDE_ROLES, guideFor, type GuideRole } from "./guideContent";
 
+/**
+ * The quick guide (owner, 2026-10-30): one short, printable page per role — Owner, Admin, Office staff, Foreman — in
+ * the client's own branding, with an "Ask a question" button that reaches the Luxor team. Steps come from
+ * guideContent.ts, which reads this industry's words and products, so a tab or button named here always exists.
+ */
 export default function GuidePage() {
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
   const sfx = preview ? `?preview=${preview}` : "";
-  const { isEnabled, vocab, calendarMode } = useBusinessModules();
+  const { user } = useAuth();
+  const business = useBootstrap().data?.business;
+  const { isEnabled, vocab, calendarMode, disabledModules, quotes } = useBusinessModules();
+  const [asking, setAsking] = useState(false);
 
-  // The Guide must describe the tabs this industry actually has — a dental
-  // office should never read about logging materials on a job site.
-  const show = (m: CompanyModule | null) => !m || isEnabled(m);
-  const hasJobs = isEnabled("jobs");
-  const apptMode = calendarMode === "appointments";
-
-  const workflow = [...WORKFLOW.filter((s) => show(s.module)), CALENDAR_STEP[calendarMode]];
-
-  // Calendar + Library exist for everyone, but describe themselves per industry.
-  const tabs = [
-    ...TABS.filter((t) => show(t.module)),
-    {
-      label: "Calendar",
-      path: "/company/calendar",
-      Icon: CalendarDays,
-      body: apptMode
-        ? `Drag a booking onto a ${vocab.resourceNoun.toLowerCase()} and day. Confirm to email the ${vocab.customerNoun.toLowerCase()}.`
-        : `Drag ${vocab.jobNounPlural.toLowerCase()} onto a crew and day. Confirm to email the crew and lock the schedule.`,
-    },
-    ...(isEnabled("library")
-      ? [{
-          label: "Library",
-          path: "/company/library",
-          Icon: BookOpen,
-          body: isEnabled("pricing")
-            ? `Your pricing, ${vocab.resourceNounPlural.toLowerCase()}, and documents. Invoices auto-fill prices from here.`
-            : `Your ${vocab.resourceNounPlural.toLowerCase()} and documents. ${vocab.resourceNounPlural} become the rows on your Calendar.`,
-        }]
-      : []),
-  ];
-
-  const howtos = [
-    {
-      title: `Add a ${vocab.resourceNoun.toLowerCase()}`,
-      Icon: ClipboardList,
-      steps: [
-        `Go to Library → ${vocab.resourceNounPlural} tab.`,
-        "Enter the name + email.",
-        `Click “Add ${vocab.resourceNoun.toLowerCase()}.”`,
-        "They now appear as a row on the Calendar.",
-      ],
-    },
-    {
-      title: apptMode ? "Assign a booking" : `Schedule a ${vocab.jobNoun.toLowerCase()}`,
-      Icon: CalendarCheck,
-      steps: apptMode
-        ? [
-            "Open Calendar.",
-            `Drag a booking from “Unassigned” onto a ${vocab.resourceNoun.toLowerCase()} + day.`,
-            "Click “Confirm + email” to lock it in and notify them.",
-          ]
-        : [
-            "Open Calendar.",
-            `Drag a ${vocab.jobNoun.toLowerCase()} from “Unscheduled” onto a crew + day.`,
-            "Click “Confirm + email crew” to lock it in and notify them.",
-          ],
-    },
-    ...HOWTOS.filter((h) => show(h.module)),
-  ];
+  const roles = GUIDE_ROLES.filter((role) => role !== "foreman" || isEnabled("jobs"));
+  const [picked, setPicked] = useState<GuideRole | null>(null);
+  const role = picked && roles.includes(picked) ? picked : defaultRole(user, disabledModules, roles);
+  const guide = guideFor(role, { isEnabled, vocab, calendarMode, quotes });
+  const businessName = business?.businessName ?? "Your business";
+  const href = (path: string) => `${path}${path.includes("?") ? sfx.replace("?", "&") : sfx}`;
 
   return (
-    <>
-      <header className="page-header">
+    <div className="guide-page">
+      <style>{PRINT_CSS}</style>
+      <header className="guide-brand">
+        {business?.logoUrl
+          // eslint-disable-next-line @next/next/no-img-element -- a tenant data: URL or remote logo, not a build asset
+          ? <img src={business.logoUrl} alt={`${businessName} logo`} className="guide-logo" />
+          : <span className="guide-initial" aria-hidden="true" style={business?.brandColor ? { background: business.brandColor } : undefined}>{businessName.charAt(0)}</span>}
         <div>
-          <h1 className="page-title">How this works</h1>
-          <p className="page-subtitle">
-            A 2-minute tour. Your AI receptionist answers the phone 24/7 — everything else you manage from the tabs on the left.
-          </p>
+          <h1 className="page-title" style={{ margin: 0 }}>{businessName}</h1>
+          <p className="page-subtitle" style={{ margin: 0 }}>Quick guide · one page for each role</p>
+        </div>
+        <div className="guide-actions no-print">
+          <button type="button" className="button secondary small" onClick={() => window.print()}><Printer size={14} /> Print</button>
+          <button type="button" className="button primary small" onClick={() => setAsking(true)}><HelpCircle size={14} /> Ask a question</button>
         </div>
       </header>
 
-      <section className="panel" style={{ marginBottom: 20 }}>
-        <div className="panel-body">
-          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Where things are</h2>
-          <p style={{ margin: 0, lineHeight: 1.6 }}>
-            Dashboard, Calls, Pipeline and Calendar follow the day&apos;s work{hasJobs ? `, with ${vocab.jobNounPlural} and Field beside them` : ""}.
-            {vocab.customerNounPlural} and Library hold your records; Settings holds your hours and contact details; this Guide and Feedback are at the bottom.
-            On a phone, open Menu to see every page or use + New to create a record.
-          </p>
-        </div>
-      </section>
+      <div className="segmented-control no-print" role="tablist" aria-label="Guide for" style={{ marginBottom: 14 }}>
+        {roles.map((r) => (
+          <button key={r} type="button" role="tab" className="segment" aria-selected={r === role} onClick={() => setPicked(r)}>
+            {ROLE_LABEL[r]}
+          </button>
+        ))}
+      </div>
 
-      {/* ── The big idea ───────────────────────────────────────── */}
-      <section className="panel" style={{ marginBottom: 20, borderColor: "var(--accent)", borderWidth: 1 }}>
-        <div className="panel-body" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Sparkles size={22} style={{ color: "var(--accent)" }} />
-          </div>
-          <div>
-            <h2 style={{ margin: "0 0 6px", fontSize: 18 }}>
-              {hasJobs ? "Talk, don't type." : "Your phone is never unanswered."}
-            </h2>
-            {hasJobs ? (
-              <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 760 }}>
-                The agent answers calls, books appointments, and captures leads on its own. Out in the field, you just
-                <strong style={{ color: "var(--text)" }}> hold the mic and speak</strong> — &ldquo;{vocab.voiceExample}&rdquo; — and the app turns it into clean materials, labor, and issues on the {vocab.jobNoun.toLowerCase()}. No forms, no typing.
-              </p>
-            ) : (
-              <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.6, maxWidth: 760 }}>
-                The agent picks up <strong style={{ color: "var(--text)" }}>every call, 24/7</strong> — including nights and weekends.
-                It answers your common questions, books the appointment, and flags anything urgent for you.
-                You review it all here in the morning: nothing gets missed, and no one sits on hold.
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ── The workflow ───────────────────────────────────────── */}
-      <SectionTitle>Your workflow, start to finish</SectionTitle>
-      <section className="panel" style={{ marginBottom: 24 }}>
+      <section className="panel guide-card" aria-label={`${ROLE_LABEL[role]} guide`}>
         <div className="panel-body">
-          <ol style={{ display: "grid", gap: 14, margin: 0, padding: 0, listStyle: "none" }}>
-            {workflow.map((s, i) => (
-              <li key={i} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                <span style={{ minWidth: 28, height: 28, borderRadius: 999, background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+          <p className="guide-eyebrow">{ROLE_LABEL[role]}</p>
+          <h2 className="guide-title">{guide.title}</h2>
+          <ol className="guide-steps">
+            {guide.steps.map((step, index) => (
+              <li key={step.action}>
+                <span className="guide-number" aria-hidden="true">{index + 1}</span>
                 <div>
-                  <p style={{ margin: "3px 0 2px", fontWeight: 700, fontSize: 14 }}>{s.title}</p>
-                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13.5, lineHeight: 1.5 }}>{s.body}</p>
+                  <strong>{step.action}</strong>
+                  <p>{step.detail}</p>
                 </div>
+                {step.path && <Link href={href(step.path)} className="button ghost small no-print">Open</Link>}
               </li>
             ))}
           </ol>
+          <div className="guide-tips">
+            <strong>Good to know</strong>
+            <ul>{guide.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul>
+          </div>
+          <p className="guide-footer">Powered by Luxor CRM</p>
         </div>
       </section>
 
-      {/* ── What each tab does ─────────────────────────────────── */}
-      <SectionTitle>What each tab does</SectionTitle>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, marginBottom: 24 }}>
-        {tabs.map((t) => (
-          <Link key={t.label} href={`${t.path}${sfx}`} className="panel" style={{ textDecoration: "none", color: "inherit", display: "block", transition: "box-shadow 0.12s, transform 0.1s" }}>
-            <div className="panel-body" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <t.Icon size={18} style={{ color: "var(--accent)" }} />
-              </div>
-              <div>
-                <p style={{ margin: "2px 0 3px", fontWeight: 700, fontSize: 14 }}>{t.label}</p>
-                <p style={{ margin: 0, color: "var(--text-muted)", fontSize: 13, lineHeight: 1.45 }}>{t.body}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </section>
-
-      {/* ── Common how-tos ─────────────────────────────────────── */}
-      <SectionTitle>Quick how-tos</SectionTitle>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-        {howtos.map((h) => (
-          <article key={h.title} className="panel">
-            <div className="panel-body">
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <h.Icon size={16} style={{ color: "var(--accent)" }} />
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>{h.title}</h3>
-              </div>
-              <ol style={{ margin: 0, paddingLeft: 18, color: "var(--text-muted)", fontSize: 13, lineHeight: 1.7 }}>
-                {h.steps.map((step, i) => <li key={i}>{step}</li>)}
-              </ol>
-            </div>
-          </article>
-        ))}
-      </section>
-
-      <p style={{ marginTop: 24, color: "var(--text-muted)", fontSize: 13 }}>
-        Stuck on something? Everything is reversible — explore freely, nothing destructive happens without a confirmation.
-      </p>
-    </>
+      <FeedbackForm open={asking} onClose={() => setAsking(false)} mode="question" />
+    </div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", margin: "0 0 10px" }}>
-      {children}
-    </p>
-  );
+const ROLE_LABEL: Record<GuideRole, string> = { owner: "Owner", admin: "Admin", staff: "Office staff", foreman: "Foreman" };
+
+/** Open the page on the reader's own role: field people on Foreman, office logins on Office staff, Admins on Owner. */
+function defaultRole(
+  user: { role?: string; trade?: string; superadmin?: boolean } | null | undefined,
+  disabledModules: CompanyModule[],
+  roles: GuideRole[],
+): GuideRole {
+  if (!user || user.superadmin) return "owner";
+  const lands = defaultLandingPath({ role: user.role as TeamRole, trade: user.trade as TradeTitle | undefined }, disabledModules);
+  if (lands === "/company/field" && roles.includes("foreman")) return "foreman";
+  if (user.role === "owner") return "owner";
+  return "staff";
 }
 
-// `module: null` = every industry sees it. Anything tagged with a module is
-// filtered out for industries that don't use it (see useBusinessModules).
-const WORKFLOW: { title: string; body: string; module: CompanyModule | null }[] = [
-  { module: null, title: "The agent answers the phone", body: "Day or night, your AI receptionist greets callers, answers questions, books appointments, and captures leads — even after hours." },
-  { module: null, title: "Review in Pipeline", body: "New leads and appointments land in Pipeline. Call a lead back or confirm an appointment in one tap right from the list." },
-  { module: null, title: "Confirm new bookings", body: "New bookings show on the Dashboard. After-hours bookings are labeled only when the call was outside your hours." },
-  { module: "jobs", title: "Turn it into a Job", body: "From an appointment, click Create Job. The job tracks everything: timeline, materials, labor, photos, invoice, and report." },
-  { module: "jobs", title: "Log work from the field — by voice", body: "On site, open Field, hold the mic, and say what happened. AI fills in materials, hours, and issues. Say “make that 15, not 12” and it fixes the number." },
-  { module: "jobs", title: "Generate the invoice or report", body: "Open the job and click Generate Invoice or Generate Report. Prices auto-fill from your Library. Review, then send or save as PDF." },
-];
-
-// Calendar exists for every industry, but the board means different things:
-// field service schedules crews onto jobs; intake assigns bookings to people.
-const CALENDAR_STEP = {
-  jobs: { title: "Schedule the crew", body: "On the Calendar, drag the job onto a crew and a day, then Confirm — it emails the crew their assignment and locks it in." },
-  appointments: { title: "Assign it on the Calendar", body: "Drag the booking onto whoever's taking it and the right day, then Confirm — it emails the customer their confirmed time." },
-} as const;
-
-const TABS: { label: string; path: string; Icon: LucideIcon; body: string; module: CompanyModule | null }[] = [
-  { module: null, label: "Dashboard", path: "/company/dashboard", Icon: LayoutDashboard, body: "Your home base — today's urgent leads, appointments, and anything waiting on your approval." },
-  { module: "calls", label: "Calls", path: "/company/calls", Icon: Phone, body: "Every call the agent answered. Play the recording and read the full transcript." },
-  { module: "calls", label: "Pipeline", path: "/company/pipeline", Icon: Workflow, body: "Leads and appointments. Call back, mark contacted, or confirm — one tap each." },
-  { module: "jobs", label: "Jobs", path: "/company/jobs", Icon: Briefcase, body: "Each job's materials, labor, photos, invoice, and report in one place." },
-  { module: "jobs", label: "Field", path: "/company/field", Icon: Mic, body: "The on-site screen. Hold the mic and speak your update — AI does the paperwork." },
-  { module: null, label: "Settings", path: "/company/settings", Icon: Settings, body: "Your agent's name, business hours, and contact details." },
-];
-
-const HOWTOS: { title: string; Icon: LucideIcon; steps: string[]; module: CompanyModule | null }[] = [
-  { module: "jobs", title: "Log a field update by voice", Icon: Mic, steps: ["Open Field and pick the job.", "Hold the mic and speak naturally.", "Release — AI extracts materials, labor, and issues onto the job."] },
-  { module: "billing", title: "Send an invoice", Icon: FileText, steps: ["Open the job → click Generate Invoice.", "Review the auto-filled line items.", "Click Send to Customer, or Print / Save as PDF."] },
-  { module: "calls", title: "Call a customer back", Icon: PhoneCall, steps: ["Open Pipeline.", "Find the lead or appointment.", "Click “Call Back” right on the card."] },
-  { module: "calls", title: "Confirm a new booking", Icon: CalendarCheck, steps: ["Open Dashboard.", "Find “New bookings to confirm.”", "Choose how to tell the customer, then confirm."] },
-];
+// One printed page: the guide card only, no app chrome, no buttons.
+const PRINT_CSS = `
+.guide-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.guide-logo { height: 52px; max-width: 180px; object-fit: contain; }
+.guide-initial { width: 52px; height: 52px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 24px; background: var(--accent); }
+.guide-actions { margin-left: auto; display: flex; gap: 8px; }
+.guide-card { max-width: 760px; }
+.guide-eyebrow { margin: 0 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.guide-title { margin: 0 0 14px; font-size: 20px; }
+.guide-steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 12px; }
+.guide-steps li { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: start; }
+.guide-steps p { margin: 2px 0 0; color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+.guide-number { width: 28px; height: 28px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+.guide-tips { padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+.guide-tips ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.55; }
+.guide-footer { margin: 14px 0 0; font-size: 12px; color: var(--text-muted); }
+@media print {
+  .no-print, .company-topbar, .company-sidebar, .company-nav { display: none !important; }
+  .company-shell { grid-template-columns: 1fr !important; }
+  .company-main { padding: 0 !important; background: #fff !important; }
+  body { background: #fff !important; }
+  .guide-card { box-shadow: none; border: none; max-width: none; }
+  .guide-page { padding: 24px; }
+}
+`;
