@@ -75,7 +75,7 @@ function DemoTab() {
         <Steps steps={[
           { time: "0–4", text: <>Prospect calls <b>{DEMO_LINE}</b> and asks for a roof inspection.</>, see: "the AI answers as their company and books a time" },
           { time: "4–8", text: <>Pipeline → open the new request → <b>Create job</b>.</>, see: "the transcript and the caller's details on the job", href: "/company/pipeline?preview=demo-roofing", go: "Pipeline" },
-          { time: "8–13", text: <>On the job: <b>Send to a worker</b> → your phone → open the text → type a name → hold the mic: &ldquo;six cracked tiles, pipe boot split&rdquo;.</>, see: "materials, labor and issues fill in on the office screen" },
+          { time: "8–13", text: <>On the job: <b>Send to a worker</b> → your email (texting is off for now) → open it on your phone → type a name → hold the mic: &ldquo;six cracked tiles, pipe boot split&rdquo;.</>, see: "materials, labor and issues fill in on the office screen" },
           { time: "13–16", text: <><b>Findings</b> → tick the fixes → <b>Quote</b> → send it to the prospect&apos;s email.</>, see: "a branded quote with before/after photos in their inbox" },
           { time: "16–20", text: <><b>Mark work complete</b> → <b>Report</b> → <b>Invoice</b> → send.</>, see: "report (no prices) and invoice, same letterhead" },
         ]} />

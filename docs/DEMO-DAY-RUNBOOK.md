@@ -1,10 +1,10 @@
 # Demo-day runbook — the 20-minute roofing demo, click by click
 
-Every label below was checked against the code on 2026-09-26 (Phase 25: job page, field screen, Team page, documents). Site: **https://crm.luxordev.com**. Demo line: **+1 (689) 204-2643**.
+Every label below was checked against the code on 2026-09-26 (Phase 25: job page, field screen, Team page, documents); refreshed 2026-10-30 (worker link, Spanish, Twilio). Site: **https://crm.luxordev.com**. Demo line: **+1 (689) 204-2643**.
 
 ## A. One-time setup (do once, about 10 minutes)
 
-1. **Upgrade Twilio** (console.twilio.com → the "Upgrade" banner → add a card). Until you do, every caller hears a trial message first.
+1. ~~Upgrade Twilio~~ — done 2026-09-27 (no trial message).
 2. **Set the emergency number.** Log in (see B1) → left menu **Clients** → the **demo-roofing** row → **Edit** → field **Escalation phone** → type your cell → **Save**. (Right now it is a placeholder; an emergency call emails the team an alert that names this number.)
 3. **Dry run once, alone**, before any prospect (all of section C–E). Send the quote, report and invoice to **your own** email and check they land in the inbox, not spam.
 
@@ -43,10 +43,10 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 **9–13 min — the field**
 
 **Screen 5 — the job page** (Jobs → the job). The tab bar has plain record tabs on the left — **Activity, Photos, Materials, Labor** — and numbered workflow tabs on the right — **① Findings ② Quote ③ Report ④ Invoice** (the old **Issues** tab is merged into **Findings**). The header's primary action is a **Next:** button; on the Work step it reads **Mark work complete**.
-- Click **Field QR** → a code appears (valid **10 minutes**, works once; if it expires press **New code**).
+- Click **Send to a worker** → type **your own email** → **Send**. (Texting is off until carrier approval, so a phone number only gives you a message to text yourself — email is the reliable path in a demo.) The job has one reusable link; each open is a 12-hour session; **Stop link** turns it off.
 
 **Screen 6 — the technician's phone**
-- Scan the code with the phone camera → tap the link. First time: allow the microphone. Header reads **Luxor Field**.
+- On the phone, open that email → tap the link. First time: allow the microphone. Header reads **Luxor Field**.
 - Type a name in **Your name (required)** ("Marco"). The job is already selected. (The name is required before the time clock, mic, photo and finding buttons unlock.)
 - Tap **Arrived at job**.
 - Hold the big **mic**, speak, release: "This is Marco. Six cracked tiles on the south slope, and the pipe boot over the kitchen is split." Status text goes Uploading → Transcribing → Updating the job (5–10 s), then "✓ Logged".
@@ -77,7 +77,7 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 
 ## D. Extras if there is time
 - **Emergency:** call and say "water is coming through my ceiling" → the AI escalates; an alert email arrives at the email you launched with.
-- **Spanish:** call and speak Spanish — it switches by itself.
+- **Spanish:** make a call that **starts** in Spanish — it stays in Spanish (5/5 in tests). Do **not** demo switching language mid-call: on the current model it often keeps the first language (known limitation, fix planned after the demo).
 - **Customers** (left menu) → the caller is already there. **Calendar** → drag the job onto a crew.
 - **Team** (owner-only, bottom of the left nav) → show the **Invited / Active / Locked** status, **Lock**/**Unlock**, and **Revoke all field QR links**. **Settings → Terms & notices** ships **DRAFT** and OFF until the owner ticks **I have had these reviewed** (attorney review is still outstanding — describe it as a draft, never as legal advice).
 
@@ -91,10 +91,9 @@ Every label below was checked against the code on 2026-09-26 (Phase 25: job page
 - **Wrong or missing address/ZIP/email from the call?** On the job, **Edit customer details** fixes the job, the customer record and any draft quote/invoice in one save (locked once the invoice is sent). The AI now asks for the ZIP code.
 - **Relaunch after every code deploy that touches the demo**, and always before a prospect: until you do, the line keeps the previous launch's company, hours and test bookings (on 2026-09-27 two "Kareem" bookings from different days sat side by side and the wrong one got confirmed).
 - **Confirming with no email on file** = **Confirm & call customer**: the AI phones the customer to confirm. Texting needs US carrier registration first (see TODO.md NEEDS-HUMAN).
-- **Twilio trial** = a trial message before the AI answers. Fix in A1.
 - If ElevenLabs ever can't reach the app, the line falls back to the agent's own greeting ("Carlita Roofing") — if you hear that name, check https://crm.luxordev.com/api/health.
 - Voice takes 5–10 s to appear in the job. Say "it's processing" — don't tap again.
 - Emails come from **Luxor CRM <crm@luxordev.com>** under the business name, replies go to the business email. Not yet verified for spam placement (NH-25) — always test to your own inbox first.
 - The crew screen has **no "Work complete"** — the office completes the job (the status bar, or **Mark work complete**). A sent invoice and an answered quote are locked by design; the job moves to **Invoiced** the moment the invoice is sent.
 - The self-led "**See it in the real app**" sandbox is a **read-only viewer**: it can browse every page but cannot log a field update, move Calendar cards, or generate/send anything.
-- Nothing has been run end-to-end on a real phone by anyone yet. Your dry run in A3 is the first.
+- Booking has been tested on real calls, but the last deploy was 2026-10-31 — do the A3 dry run after it, from your own phone, before the prospect.
