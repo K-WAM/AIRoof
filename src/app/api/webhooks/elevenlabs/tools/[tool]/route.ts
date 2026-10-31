@@ -29,6 +29,7 @@ import { getElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRe
 import { executeAgentTool } from "@/lib/tools/toolDispatcher";
 import { activeTrialForBusiness, consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
 import { connectPhoneTrial, lockSharedPhoneDemo, PHONE_DEMO_BUSINESS } from "@/lib/demo/phoneTrial";
+import { withLanguageReminder } from "@/lib/voice/elevenlabs/languageReminder";
 
 const UNVERIFIED_CALL_RESPONSE =
   "I couldn't verify this call — the office will call you back to help.";
@@ -110,7 +111,7 @@ export async function POST(
       provider: "elevenlabs",
       providerIds: { elevenLabsConversationId: conversationId },
     });
-    return NextResponse.json(result);
+    return NextResponse.json(withLanguageReminder(result));
   } catch (error) {
     console.error(`elevenlabs tools: ${tool} failed`, error);
     return NextResponse.json({ error: "Tool execution failed" }, { status: 500 });

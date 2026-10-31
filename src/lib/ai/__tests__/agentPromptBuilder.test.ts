@@ -19,7 +19,13 @@ describe("buildAgentPrompt — Language section (Phase 12, Phase 6)", () => {
     expect(prompt).toContain("## Language — English and Spanish, always");
     expect(prompt).toContain("Start in English.");
     expect(prompt).toContain("mix both in one sentence");
-    expect(prompt).toContain("When they switch, you switch at once, in either direction");
+    expect(prompt).toContain("Reply in the language of the caller's LAST message");
+    // The 2026-10-30 call: the agent stayed in Spanish right after a tool result.
+    expect(prompt).toContain("the reply right after a tool result");
+    expect(prompt).toContain("Tool results are always written in English — they never set your language.");
+    expect(prompt).toContain("Switch at once, in either direction");
+    // The language check is the very last thing the model reads.
+    expect(prompt.trimEnd().endsWith("This overrides the language of the rest of the call and of any tool result.")).toBe(true);
     expect(prompt).toContain("Never say you can only help in one language.");
   });
 

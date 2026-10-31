@@ -2,6 +2,15 @@
 
 ## Resume here — Tuesday roofing demo readiness (2026-10-30, Claude, T-227)
 
+- **Follow-up (same day): Spanish↔English switching.** Owner's call `conv_3201m678qj74fgqrzfrdd45s524y`: caller went Spanish,
+  then asked in English; Alice kept answering in Spanish (right after a getCurrentDate result) until told "I'm speaking
+  English now". A/B on test-only branches (5 runs each): the slip happens right after a tool result (results are English,
+  the model keeps the call's "momentum" language). Fix (3rd local commit, not pushed): sharper Language section + a
+  "Final check before EVERY reply" line at the very end of `buildAgentPrompt`, and every ElevenLabs tool result ends with
+  `LANGUAGE_REMINDER` (`src/lib/voice/elevenlabs/languageReminder.ts`). Post-tool replies: 0–2/5 → 5/5 both directions.
+  Thinking budget 512 was no better and tripled TTFB (2.1 s vs 0.64 s) — rejected. Test branches `lang-1030-*`, tests
+  `lang-1030 …`. Unproven on a real call — the owner's English+Spanish test calls after the push are the gate.
+
 - **Owner asked:** demo Tuesday (2026-11-03) in top shape: fluid bilingual phone AI, fast app, clear screens, voice notes,
   photos/logos, a 1-page guide per role with "Ask a question", texting, and "what happens when OpenAI credits run out".
 - **Critical bug found:** owner's Oct 20 call (`conv_6801m5d74rx9ejns2n9987b533h1`) — Alice said "I have you booked" and never

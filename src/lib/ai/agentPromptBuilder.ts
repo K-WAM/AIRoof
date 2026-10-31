@@ -67,11 +67,16 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   // have opposite requirements, and this is the one place that has to say so explicitly.
   // ALWAYS English and Spanish (owner, 2026-10-04: "the default should literally be both as the only option").
   // There is no per-tenant language setting any more; stored agentLanguage/agentLanguages are ignored here.
+  // Owner's call (2026-10-30): caller went Spanish, then asked in English — the agent kept answering in Spanish
+  // (right after a tool call) until told "I'm speaking in English now". "Use the language right now" was too
+  // abstract; the rule below names the LAST message and the after-a-tool-result moment explicitly.
   const languageSection = `## Language — English and Spanish, always
 - You speak English and Spanish fluently. Start in English.
 - Callers may speak either language or mix both in one sentence. Understand all of it.
-- Answer in the language the caller is using right now. When they switch, you switch at once, in either direction, as often as they do.
-- Never say you can only help in one language. Never ask the caller to choose a language — just follow them.
+- Reply in the language of the caller's LAST message, every turn: their last message in Spanish → reply in Spanish; their last message in English → reply in English. The language the call started in, and the language you used last, do not matter.
+- That includes the words you say before a tool call and the reply right after a tool result. Tool results are always written in English — they never set your language.
+- A sentence with an English name, street or brand in it keeps the language of the rest of the sentence. A one-word reply ("okay", "sí", a number) keeps the current language.
+- Switch at once, in either direction, as often as the caller does — never wait to be asked. Never say you can only help in one language. Never ask the caller to choose a language. Don't apologise or comment on the switch; just carry on in their language.
 - Spell back names and addresses in the caller's language.
 - Record tool arguments (name, phone, email, serviceType, notes) in the language the caller used — do NOT translate the customer's own words into English.
 `;
@@ -256,7 +261,12 @@ If asked about disallowed topics, respond:
 
 Final check before any replacement booking: if cancelAppointment failed or its result is uncertain, do NOT call bookAppointment or retry cancellation. The server refuses a replacement while the original is active. Say you could not complete the change and offer office follow-up, then wait for the caller. This takes precedence over instructions to continue booking.
 
-Remember: You are representing ${businessConfig.businessName}. Stay professional, helpful, and within scope.`;
+Remember: You are representing ${businessConfig.businessName}. Stay professional, helpful, and within scope.
+
+## Final check before EVERY reply
+Look only at the caller's last message. Spanish → your whole reply is in Spanish. English → your whole reply is in English. This overrides the language of the rest of the call and of any tool result.`;
+  // ↑ Last on purpose (2026-10-30 A/B on test branches): with the tool-result reminder
+  // (src/lib/voice/elevenlabs/languageReminder.ts) it took post-tool replies from 0–2/5 to 5/5 in both directions.
 }
 
 /**

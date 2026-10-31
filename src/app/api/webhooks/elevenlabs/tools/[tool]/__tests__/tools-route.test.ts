@@ -16,6 +16,7 @@ vi.mock("@/lib/tools/toolDispatcher", () => ({
 }));
 
 import { POST } from "@/app/api/webhooks/elevenlabs/tools/[tool]/route";
+import { LANGUAGE_REMINDER } from "@/lib/voice/elevenlabs/languageReminder";
 
 const UNVERIFIED =
   "I couldn't verify this call — the office will call you back to help.";
@@ -145,7 +146,8 @@ describe("POST /api/webhooks/elevenlabs/tools/[tool]", () => {
       { params: Promise.resolve({ tool: "createLead" }) }
     );
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ result: "done" });
+    // Every real tool result ends with the reply-language nudge (owner's 2026-10-30 bilingual call).
+    expect(await response.json()).toEqual({ result: `done\n${LANGUAGE_REMINDER}` });
     expect(mocks.executeAgentTool).toHaveBeenCalledWith(
       "createLead",
       { callerName: "Pat" },
