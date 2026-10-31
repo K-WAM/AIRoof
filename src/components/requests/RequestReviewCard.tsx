@@ -7,6 +7,7 @@ import { BookingDetails } from "@/components/appointments/BookingDetails";
 import { confirmButtonLabel, confirmChannels } from "@/lib/comms/confirmChannels";
 import { contactPhone, fmtPhone } from "@/lib/format/phone";
 import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
+import { displayLine } from "@/lib/calls/voiceTags";
 
 export type ReviewRequest = RequestReviewEntity & {
   callerName?: string;
@@ -108,7 +109,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
       {call?.recordingUrl && <audio controls src={call.recordingUrl} style={{ width: "100%" }} />}
       {call?.transcript?.length && <>
         <button className="button small secondary" onClick={() => setTranscript(!transcript)}>{transcript ? "Hide transcript" : "Show transcript excerpt"}</button>
-        {transcript && <div className="transcript">{call.transcript.filter((message) => message.text?.trim()).slice(0, 8).map((message, index) => <p key={index}><b>{message.role}:</b> {message.text}</p>)}</div>}
+        {transcript && <div className="transcript">{call.transcript.filter((message) => message.text?.trim()).slice(0, 8).map((message, index) => <p key={index}><b>{message.role}:</b> {displayLine(message.role, message.text)}</p>)}</div>}
       </>}
 
       {!readOnly && <div className="request-review-actions">

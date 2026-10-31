@@ -63,6 +63,17 @@ export function sectionsBlock(sections: Array<{ title: string; lines: string[] }
   return sections.map((section) => `<section style="margin:20px 0"><h3 style="font-size:13px;color:#334155">${escapeHtml(section.title)}</h3><table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${section.lines.map((line) => `<tr><td style="${cell}">${escapeHtml(line)}</td></tr>`).join("")}</tbody></table></section>`).join("");
 }
 
+/** Subtotal / discount / tax rows between the line groups and the boxed total, so the page adds up.
+ *  Nothing when there is neither a discount nor tax (the group subtotals already sum to the total). */
+export function adjustmentsBlock(opts: { lineSum: number; subtotal: number; taxRate: number; taxAmount: number }): string {
+  const discount = Math.round((opts.lineSum - opts.subtotal) * 100) / 100;
+  if (discount <= 0 && opts.taxAmount <= 0) return "";
+  const rows: [string, string][] = [["Subtotal", money(opts.lineSum)]];
+  if (discount > 0) rows.push(["Discount", `−${money(discount)}`]);
+  if (opts.taxAmount > 0) rows.push([`Tax (${opts.taxRate}%)`, money(opts.taxAmount)]);
+  return `<table style="width:100%;margin:0 0 10px;font-size:13px"><tbody>${rows.map(([label, value]) => `<tr><td style="padding:3px 12px;text-align:right;color:#475569">${escapeHtml(label)}</td><td style="padding:3px 12px;text-align:right;width:120px;white-space:nowrap">${value}</td></tr>`).join("")}</tbody></table>`;
+}
+
 export function totalBlock(label: string, amount: number, accent?: string | null): string {
   const color = /^#[0-9a-f]{6}$/i.test(accent ?? "") ? accent : "#0f766e";
   return `<div style="border:2px solid ${color};border-radius:6px;padding:12px 16px;text-align:right;font-size:17px;font-weight:800">${escapeHtml(label)}: <span style="white-space:nowrap">${money(amount)}</span></div>`;

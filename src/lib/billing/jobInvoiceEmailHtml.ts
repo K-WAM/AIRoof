@@ -1,6 +1,6 @@
 import type { JobInvoice } from "@/types/invoice";
 import { invoiceGroups } from "@/lib/documents/groups";
-import { billToBlock, documentShell, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
+import { adjustmentsBlock, billToBlock, documentShell, footerBlock, invoiceGroupsBlock, letterheadBlock, narrativeBlock, noticesBlock, notesBlock, photosBlock, totalBlock } from "@/lib/documents/emailBlocks";
 import type { JobPhotoMeta } from "@/types/jobs";
 import type { RenderedNotice } from "@/lib/documents/notices";
 import { resolveLetterhead, type LetterheadBusiness } from "@/lib/documents/letterhead";
@@ -28,5 +28,9 @@ export function buildJobInvoiceEmailHtml(invoice: JobInvoice, business: InvoiceE
   const closing = invoice.closing ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.closing, values);
   const thankYou = invoice.thankYou ?? fillInvoiceCopy(DEFAULT_INVOICE_COPY.thankYou, values);
   const findingLines = findings.length ? `<section style="padding:18px 0"><h3>Findings and corrective action</h3>${findings.map((finding) => `<p><strong>Problem:</strong> ${escapeHtml(finding.problem)}<br/><strong>Corrective action:</strong> ${escapeHtml(finding.solution)}${finding.note?.trim() ? `<br/><em style="color:#475569">Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em>` : ""}</p>`).join("")}</section>` : "";
-  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(invoiceGroups(invoice)) + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, brand.brandColor) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), brand.brandColor) : "") + notesBlock(closing) + notesBlock(thankYou) + notesBlock(invoice.notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand));
+  const groups = invoiceGroups(invoice);
+  // Tax/discount rows so the line subtotals visibly add up to Total Due; one Notes block, not three.
+  const adjustments = adjustmentsBlock({ lineSum: groups.reduce((sum, group) => sum + group.subtotal, 0), subtotal: invoice.subtotal, taxRate: invoice.taxRate, taxAmount: invoice.taxAmount });
+  const notes = [closing, thankYou, invoice.notes].map((text) => text?.trim()).filter(Boolean).join("\n\n");
+  return documentShell(letterheadBlock(brand, "Invoice", meta) + billToBlock(invoice.billTo) + narrativeBlock(opening) + findingLines + narrativeBlock(invoice.narrative) + invoiceGroupsBlock(groups) + adjustments + totalBlock(invoice.status === "paid" ? "Invoice total — paid in full" : "Total Due", invoice.total, brand.brandColor) + (pay && invoice.status !== "paid" ? howToPayBlock(pay, invoiceBalance({ ...invoice, status: "sent" }), brand.brandColor) : "") + notesBlock(notes) + photosBlock(photos) + noticesBlock(notices) + footerBlock(brand));
 }

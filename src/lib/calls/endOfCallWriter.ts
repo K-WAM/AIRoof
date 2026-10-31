@@ -10,6 +10,7 @@ import { ensureCallLead } from "@/lib/calls/callLead";
 import type { CallOutcomeOutput } from "@/lib/schemas/ai";
 import type { CallMessage } from "@/types";
 import { detectLanguage } from "@/lib/i18n/detect";
+import { displayLine } from "@/lib/calls/voiceTags";
 
 /** Provider transcript turns (Vapi messages / ElevenLabs transcript entries) before normalization. */
 export interface NormalizedProviderTranscriptMessage {
@@ -28,12 +29,15 @@ export interface NormalizedProviderTranscriptMessage {
 export function normalizeProviderTranscriptMessages(
   messages: NormalizedProviderTranscriptMessage[]
 ): CallMessage[] {
-  return (messages ?? []).map((m, i) => ({
-    messageId: `m_${i}`,
-    role: m.role === "user" ? "caller" : (m.role === "assistant" || m.role === "bot" || m.role === "agent") ? "agent" : "system",
-    text: m.message ?? m.content ?? "",
-    timestamp: m.time ?? Date.now(),
-  }));
+  return (messages ?? []).map((m, i) => {
+    const role = m.role === "user" ? "caller" : (m.role === "assistant" || m.role === "bot" || m.role === "agent") ? "agent" : "system";
+    return {
+      messageId: `m_${i}`,
+      role,
+      text: displayLine(role, m.message ?? m.content ?? ""),
+      timestamp: m.time ?? Date.now(),
+    };
+  });
 }
 
 export interface EndedCallReportInput {

@@ -21,6 +21,7 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { displayLine } from "@/lib/calls/voiceTags";
 import { ArrowRight, Clock, Headphones, History, PhoneCall } from "lucide-react";
 
 interface CallMessage {
@@ -511,7 +512,7 @@ export default function CompanyCallsPage() {
                         key={i}
                       >
                         <p className="message-role">{msg.role === "agent" ? "Receptionist" : "Caller"}</p>
-                        <p className="message-text">{msg.text}</p>
+                        <p className="message-text">{displayLine(msg.role, msg.text)}</p>
                       </article>
                     ))}
                   </div>

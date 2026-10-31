@@ -81,4 +81,28 @@ describe("buildJobInvoiceEmailHtml", () => {
     for (const text of ["License #ABC123", "Work order", "PO number", "PO-7", "Due upon completion", "Sep 11, 2026", "Item", "Description", "Qty", "Unit price", "Amount", "Problem:", "Corrective action:", "Debris removed.", "Thank you."]) expect(html).toContain(text);
     expect(html).not.toContain("Due Sep");
   });
+  // Demo review 2026-10-30: $570 + $450 subtotals under a $1,091.40 total with no tax line, two "Notes"
+  // headings, and "your Job needs".
+  it("shows the tax line so the subtotals add up to Total Due", () => {
+    const html = buildJobInvoiceEmailHtml(invoice({ taxRate: 7, subtotal: 4956.85, taxAmount: 346.98, total: 5303.83 }), { businessName: "Roof Doctors" });
+    expect(html).toContain("Tax (7%)");
+    expect(html).toContain("$346.98");
+    expect(html).toContain("$5,303.83");
+  });
+  it("shows the discount and pre-discount subtotal when there is one", () => {
+    const html = buildJobInvoiceEmailHtml(invoice({ discount: { kind: "amount", value: 100 }, subtotal: 4856.85, taxAmount: 0, total: 4856.85 }), { businessName: "Roof Doctors" });
+    expect(html).toContain("Subtotal");
+    expect(html).toContain("−$100.00");
+  });
+  it("adds no subtotal rows when there is no tax or discount", () => {
+    const html = buildJobInvoiceEmailHtml(invoice(), { businessName: "Roof Doctors" });
+    expect(html).not.toContain("Tax (");
+    expect(html).not.toContain(">Subtotal<");
+  });
+  it("prints one Notes block with the default wording, lower-case job noun, and no photo claim", () => {
+    const html = buildJobInvoiceEmailHtml(invoice(), { businessName: "Roof Doctors", industry: "roofing" });
+    expect(html.match(/<strong>Notes<\/strong>/g)).toHaveLength(1);
+    expect(html).not.toMatch(/your [A-Z]\w* needs/);
+    expect(html).not.toContain("enclosed photos");
+  });
 });
