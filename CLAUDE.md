@@ -449,6 +449,17 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - `VerticalTemplate.quotes: false` (pet care) — set-price work: no Findings/Quote steps, stepper Booked → Working → Done →
   Invoiced, Jobs filters without "Needs quote". Read it as `useBusinessModules().quotes`; roofing is unchanged.
 
+## Legal pages + acceptance (2026-10-31) Key Files
+
+- `src/app/legal/{terms,privacy,sms}/page.tsx` — Luxor ↔ client-business Terms, Privacy Policy, Text Message Terms (public,
+  no sign-in; the A2P 10DLC campaign points carriers here). Owner's choices: Florida LLC, AAA arbitration + class/jury waiver,
+  3-month fee cap, Palm Beach County. Drafted, not yet attorney-reviewed (NH-38). Not the same as
+  `src/lib/documents/legalNotices.ts` (a contractor's notices to ITS customers).
+- `src/lib/legal/version.ts` — `LEGAL_VERSION`: bump it on any substantive edit; each sign-in records acceptance of the current version.
+- `src/components/legal/LegalConsent.tsx` — the one-line "By signing in, you agree…" (no checkbox, owner: frictionless like modern
+  apps) on /login and /demo; `POST /api/auth/terms` writes `legalAcceptances/{uid}_{version}` (write-once). Invite/welcome
+  emails say "By accepting this invite…". The privacy policy's provider list must match the outside services the code calls.
+
 ## Screen Clarity Rule (read before touching any company screen)
 
 **Owner's standard (2026-10-04): `docs/ZERO-TRAINING-UX-STANDARD.md`** — a first-time user of any role (admin, office

@@ -1,36 +1,43 @@
 # SESSION_HANDOFF.md — Current state
 
-## Resume here — Tuesday roofing demo readiness (2026-10-30, Claude, T-227)
+## Resume here — Tuesday roofing demo (2026-11-03) readiness + legal pages (2026-10-30/31, Claude, T-227/T-228)
 
-- **Follow-up (same day): Spanish↔English switching.** Owner's call `conv_3201m678qj74fgqrzfrdd45s524y`: caller went Spanish,
-  then asked in English; Alice kept answering in Spanish (right after a getCurrentDate result) until told "I'm speaking
-  English now". A/B on test-only branches (5 runs each): the slip happens right after a tool result (results are English,
-  the model keeps the call's "momentum" language). Fix (3rd local commit, not pushed): sharper Language section + a
-  "Final check before EVERY reply" line at the very end of `buildAgentPrompt`, and every ElevenLabs tool result ends with
-  `LANGUAGE_REMINDER` (`src/lib/voice/elevenlabs/languageReminder.ts`). Post-tool replies: 0–2/5 → 5/5 both directions.
-  Thinking budget 512 was no better and tripled TTFB (2.1 s vs 0.64 s) — rejected. Test branches `lang-1030-*`, tests
-  `lang-1030 …`. Unproven on a real call — the owner's English+Spanish test calls after the push are the gate.
+**State:** everything below is committed and pushed in one batch on 2026-10-31 (see the deploy receipt at the end of this
+section). Demo line +1 (689) 204-2643 → ElevenLabs agent `agent_0101m3a5z9qxenybnpjsragg7dvt`, gemini-2.5-flash, thinking 0
+(version `agtvrsn_1501m677htxee9a82wbtcv3aaet5`; rollback to gpt-4o-mini: `agtvrsn_3501m5bfgcx3f6wr0y7nat0jpvbz`).
 
-- **Owner asked:** demo Tuesday (2026-11-03) in top shape: fluid bilingual phone AI, fast app, clear screens, voice notes,
-  photos/logos, a 1-page guide per role with "Ask a question", texting, and "what happens when OpenAI credits run out".
-- **Critical bug found:** owner's Oct 20 call (`conv_6801m5d74rx9ejns2n9987b533h1`) — Alice said "I have you booked" and never
-  called bookAppointment (only the post-call "call them back" lead caught it). Bake-off (66 runs/model, incl. replay tests
-  `test_0701m675qh7bf6t90hygx5bn7443` + `test_9101m675qhx1fz2rtysh1gsnt4nj`): owner approved **gemini-2.5-flash, thinking 0**
-  on the live demo agent (version `agtvrsn_1501m677htxee9a82wbtcv3aaet5`; rollback `agtvrsn_3501m5bfgcx3f6wr0y7nat0jpvbz`).
-  Claude Haiku silently fails over to gemini on this workspace — see memory/project_phone_agent_model_tests.
-- **Commit `39292a7` (local, NOT pushed — owner approves pushes):** server ZIP rule for field-service bookings; no
-  "OK to text?" while SMS is off (owner: keep texting off); spelled emails joined everywhere; booking card shows the
-  callback number first; voice notes keep the words when reading fails and show a next step when transcription fails;
-  new role Guide (`src/app/company/guide/`) + "Ask a question" (FeedbackForm mode="question"); crew logins can open the Guide.
-- **Gates:** tsc, changed-file lint, targeted vitest, `e2e:call` 12/12. Full Playwright (dev harness): 201 passed / 1 flaky /
-  10 skipped; 16 fails = 14 CSP checks (need `--prod`; 18/18 green on the prod build) + demo-readiness (a ZIP-less
-  fixture the new rule rightly refused; fixed, 4/4). Follow-up `--prod` run of call-to-cash, doc-photos, roofing-job-flow,
-  products-billing, screen-audit, guide: 21 passed (every screen ready in ~0.2–0.3 s). Phone screenshots read.
-- **Second commit (declutter):** review card no longer repeats phone/email; sent/paid invoices drop the duplicate
-  Customer-version panel; document totals never wrap ("$520.0 / 0" on phones).
-- **Owner, before Tuesday:** approve the push; then one English + one Spanish booking call on (689) 204-2643 (Booking-change
-  gate — read the transcript after); top up OpenAI (voice notes) + check ElevenLabs credits; reset/relaunch the demo data;
-  open the app and click every tab ~5 min before the demo (cold starts 1–1.7 s, warm ~0.25 s).
+**Owner, before Tuesday:** (1) one English booking call and one call that STARTS in Spanish on (689) 204-2643 — Booking-change
+gate, Claude reads the transcripts; (2) Reset/relaunch the demo data afterwards; (3) top up OpenAI (voice notes) and check
+ElevenLabs credits (not verifiable from here); (4) NH-25 Gmail header check; (5) ~5 min before the demo, close any /demo tabs
+and click through every screen (cold start 1–1.7 s, warm ~0.25 s). Texting stays off until NH-29 carrier approval.
+
+**What shipped (T-227, demo readiness):**
+- Live model gpt-4o-mini → gemini-2.5-flash after a 66-run bake-off (the Oct 20 call claimed a booking it never saved).
+  Server ZIP rule for field-service bookings; no "OK to text?" while SMS is off; spelled emails joined; booking card leads
+  with the callback number; voice notes keep the words when reading fails; role Guide + "Ask a question"; declutter (review
+  card, duplicate customer panel, totals never wrap).
+- Language: a reply-language reminder on every ElevenLabs tool result + a last-message rule. Measured: fixes the slip right
+  after a tool result. **Not fixable by prompt on this model:** a mid-call switch with no tool call (owner's
+  `conv_2501m67rdsehezh99yb1x7b7zzkp`: "¿hablas español?" then English → Alice stayed Spanish; replay failed 15/15 across
+  three prompt rewrites on test branches `lang-1030-*` / `lang-1031-*`). Calls that START in Spanish stay Spanish 5/5. Real
+  fix = a per-turn language hint (custom-LLM proxy) or another model — post-demo.
+- Invoice email: tax/discount rows so subtotals add up to Total Due (`adjustmentsBlock`), one Notes block, default closing
+  no longer claims "enclosed photos", `{industryNoun}` lower-cased.
+- ElevenLabs voice tags ("[Efficient]") stripped from agent transcript lines (`src/lib/calls/voiceTags.ts`), on save and on
+  the Calls / request-review screens (old calls too).
+
+**What shipped (T-228, legal):** public `/legal/terms`, `/legal/privacy`, `/legal/sms` (Florida LLC, AAA arbitration +
+class/jury waiver, 3-month fee cap, Palm Beach County; no shortened claim deadline — Fla. Stat. § 95.03 voids it). One-line
+acceptance, no checkbox: "By signing in / starting the demo, you agree to our Terms and Privacy Policy and confirm you're
+18+" (`LegalConsent`), "By accepting this invite…" in welcome/invite emails; every sign-in writes
+`legalAcceptances/{uid}_{LEGAL_VERSION}` (`POST /api/auth/terms`, write-once). Spoken texting consent adds rates + STOP
+(only when SMS is on). NH-29 points carriers at the in-app URLs. Open: NH-38 (attorney review; move tenant mail to
+`notify.luxordev.com` — the company's Zoho inbox shares luxordev.com).
+
+**Gates on the final tree:** tsc clean; changed-file lint (0 errors, 1 pre-existing warning); full vitest 2021 passed + 1
+expected fail, 3 timeouts under load that pass alone (registry, send, demo-customize — 82/82); production build (harness
+`--prod`); `e2e:call` 12/12; full Playwright on the prod build **226 passed / 10 skipped / 0 failed / 0 flaky (14.8 min)**,
+incl. CSP, screen audit and the new legal-page checks; phone screenshots of login, /demo, terms and invoice email read.
 
 ## Resume here — security review + hardening, LIVE (2026-10-23, pushed 2026-10-30, Claude, T-226)
 

@@ -18,7 +18,7 @@ Vercel project: `ai-roof` (prj_Z7wLkNHfQUm8JsnDAWrfuOHPOmy2). Firebase project: 
 
 | # | Item | Time | Why |
 |---|---|---|---|
-| 1 | **NH-29 texting registration** (privacy-policy SMS clause first) | 30 min + 1–3 weeks carrier review | Nothing can be texted until carriers approve — start the clock |
+| 1 | **NH-29 texting registration** (legal pages are live in the app — start at step 1) | 30 min + 1–3 weeks carrier review | Nothing can be texted until carriers approve — start the clock |
 | 2 | **Relaunch Demo Studio (Roofing)** right after Claude's push | 2 min | Drops the 24-hour rule, loads the new FAQs, clears old test data |
 | 3 | **Real test call** on +1 (689) 204-2643: an urgent leak, give the gate code after it books, ask "who's coming?", say bye | 5 min | The booking-change gate: Claude reads the transcript before calling it done |
 | 4 | **NH-24 rotate the Firebase service-account key** | 10 min | It was printed into a session transcript on 2026-09-25 |
@@ -169,12 +169,10 @@ See `docs/CANADIAN-DEMO-NUMBER.md` for the current US/Canada test sequence.
 called, and replies go to the same line. Every client's own local number will need this same registration later, so this is
 the route to learn once. Choose toll-free instead only if Luxor has no EIN (see the end of this section).
 
-### Step 0 — Add a texting section to the privacy policy on luxordev.com (10 min, before step 3)
-Add this under the Privacy Policy (`/english-privacy-policy`), and the same opt-out lines to Terms:
-> **Text messages (SMS).** When you give a business that uses Luxor CRM permission to text you, we send only messages about
-> your appointment or service request (for example a booking notice or a confirmation). Message frequency varies. Message and
-> data rates may apply. Reply STOP to stop receiving texts, or HELP for help. **We do not sell or share mobile phone numbers or
-> text-message consent with third parties or affiliates for marketing or promotional purposes.**
+### Step 0 — Done in the app (2026-10-31)
+The Terms, Privacy Policy (with the required texting section) and Text Message Terms now live in the app, so nothing has to
+change on luxordev.com: https://crm.luxordev.com/legal/terms · /legal/privacy · /legal/sms. Use those URLs in step 3.
+Have a Florida attorney review them before relying on them.
 
 ### Step 1 — Business profile (Twilio Trust Hub, 10 min)
 1. **console.twilio.com** → left menu **Trust Hub** → **Customer Profiles** → **Create** a **Business** profile (not Individual).
@@ -205,7 +203,7 @@ Same wizard → **Create campaign** (it also creates a *Messaging Service*; name
 - **Opt-out keywords:** STOP (Twilio handles STOP/HELP automatically). **Help message:** "Luxor CRM appointment texts.
   Call the business's number or email connect@luxordev.com. Reply STOP to opt out."
 - Embedded links: **No**. Phone numbers in messages: **Yes**. Age-gated / lending content: **No**.
-- **Privacy policy URL:** `https://www.luxordev.com/english-privacy-policy` · **Terms URL:** `https://www.luxordev.com/english-terms-conditions`
+- **Privacy policy URL:** `https://crm.luxordev.com/legal/privacy` · **Terms URL:** `https://crm.luxordev.com/legal/terms` · **SMS terms (opt-in proof / message flow):** `https://crm.luxordev.com/legal/sms`
 - Submit. One-time review fee plus a small monthly campaign fee, shown before you pay. **Review typically takes 1–3 weeks.**
   If rejected, the email says why. Send it to Claude; it's usually a wording fix.
 

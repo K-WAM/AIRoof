@@ -1,6 +1,6 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-**2026-10-30 (latest):** Tuesday roofing demo prep (T-227) — phone line on gemini-2.5-flash, commit `39292a7` waiting for the owner's push approval. Summary + owner's checklist at the top of `docs/SESSION_HANDOFF.md`.
+**2026-10-31 (latest):** Tuesday roofing demo (T-227) + Terms/Privacy/SMS pages (T-228) — pushed and live. Owner checklist for Tuesday and the deploy receipt: top of `docs/SESSION_HANDOFF.md`.
 
 **2026-10-30 (latest):** security review + hardening (T-226, `2117d3a`) is **live** and verified in a real browser. Owner's two
 remaining checks are NH-37 in `TODO.md`. Summary at the top of `docs/SESSION_HANDOFF.md`.
