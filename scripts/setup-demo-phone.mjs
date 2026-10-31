@@ -38,7 +38,7 @@ try {
   } while (!existing && cursor);
  }
  if (existing && (existing.tool_config.api_schema?.url !== tool.api_schema.url || JSON.stringify(existing.tool_config.api_schema?.request_headers) !== JSON.stringify(tool.api_schema.request_headers))) throw Error("Existing phone tool differs; inspect it before applying");
- const plan = { agentId, addTool: !existing, existingToolsPreserved: ids.length, toolUrl: tool.api_schema.url, maxSeconds: { before: agent.conversation_config.conversation.max_duration_seconds, after: 180 }, secrets: "reuse existing references", voiceAndPhoneBindings: "unchanged" };
+ const plan = { agentId, addTool: !existing, existingToolsPreserved: ids.length, toolUrl: tool.api_schema.url, maxSeconds: { before: agent.conversation_config.conversation.max_duration_seconds, after: 600 }, secrets: "reuse existing references", voiceAndPhoneBindings: "unchanged" };
  console.log(JSON.stringify(plan));
  if (process.argv.includes("--apply")) {
    if (!existing) {
@@ -49,14 +49,14 @@ try {
    if (existing && !ids.includes(existing.id)) ids.push(existing.id);
    // PATCH only the requested fields. Preserve the provider's explicit built-in system-tool map.
    const prompt = { tool_ids: ids, built_in_tools: agent.conversation_config.agent.prompt.built_in_tools };
-   await api(`agents/${agentId}`, { conversation_config: { conversation: { max_duration_seconds: 180 }, agent: { prompt } } }, "PATCH");
+   await api(`agents/${agentId}`, { conversation_config: { conversation: { max_duration_seconds: 600 }, agent: { prompt } } }, "PATCH");
    const after = await api(`agents/${agentId}`);
-   if (after.conversation_config.conversation.max_duration_seconds !== 180 || after.conversation_config.agent.prompt.tool_ids.length !== ids.length) throw Error("Provider readback mismatch");
+   if (after.conversation_config.conversation.max_duration_seconds !== 600 || after.conversation_config.agent.prompt.tool_ids.length !== ids.length) throw Error("Provider readback mismatch");
 
    const oldNames = agent.conversation_config.agent.prompt.tools.map(t => t.name);
    const newNames = new Set(after.conversation_config.agent.prompt.tools.map(t => t.name));
    if (!oldNames.every(name => newNames.has(name)) || !newNames.has("connectDemoSession") || JSON.stringify(after.conversation_config.agent.prompt.built_in_tools) !== JSON.stringify(agent.conversation_config.agent.prompt.built_in_tools) || JSON.stringify(after.conversation_config.tts) !== JSON.stringify(agent.conversation_config.tts) || JSON.stringify(after.platform_settings) !== JSON.stringify(agent.platform_settings)) throw Error("Agent readback differs outside the intended change; inspect provider settings");
-   console.log(JSON.stringify({ agentId, maxSeconds: 180, toolCount: ids.length, at: new Date().toISOString() }));
+   console.log(JSON.stringify({ agentId, maxSeconds: 600, toolCount: ids.length, at: new Date().toISOString() }));
    console.log("Public demo agent configuration verified.");
  }
 } finally { await deleteApp(app); }

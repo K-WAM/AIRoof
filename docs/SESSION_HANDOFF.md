@@ -1,5 +1,15 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — phone AI pass before Tuesday (2026-10-31, Claude, T-230)
+
+- **Live on the agent now:** call cap 180 → 600 s (a full booking was about to be cut off; public trial calls keep 180 s via a
+  per-call override, now allowed on the agent); `getCurrentDate` is fallback-only (Alice stopped spending ~2 s on "tomorrow").
+- **In code (needs deploy):** returning-caller recognition — the caller-ID number's upcoming visit and customer record go into
+  the prompt at call start (800 ms cap, nothing during the call). Alice uses it only after the caller says a matching name.
+- **Owner check after deploy:** from the same phone, book a visit, hang up, call back and say "Hi, it's <your name>" — she
+  should greet you by name and mention the visit. Then a call that STARTS in Spanish. Details + evidence: T-230 in
+  `docs/IMPLEMENTATION_LOG.md`. Mid-call language flips are still a known limit (see T-227 below) — keep EN and ES on separate calls.
+
 ## Resume here — Tuesday roofing demo (2026-11-03) readiness + legal pages (2026-10-30/31, Claude, T-227/T-228)
 
 **State:** everything below is committed and pushed in one batch on 2026-10-31 (see the deploy receipt at the end of this

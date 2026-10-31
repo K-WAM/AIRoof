@@ -1994,3 +1994,26 @@ demo 7 days) / Explore the app. Prompt: asks the caller's name when setup has no
 300/month, 3/network/day, 2 calls × 3 min. /try/roofing redirects to /demo; the code UI and `phone` action are removed.
 Evidence: vitest 257/1986 (+1 expected fail); next build; e2e:call 12/12; demo browser specs 32/32 on desktop + 375 px with screenshots read.
 Not yet proven: a real call through the changed prompt/initiation (NH-36).
+
+## T-230 — Phone AI before the Tuesday demo: call cap, date tool, returning callers (2026-10-31, Claude)
+Assessment (real calls `conv_2501m67rdsehezh99yb1x7b7zzkp`, `conv_3201m678qj74fgqrzfrdd45s524y`, live config): replies start
+1.0–1.7 s after the caller stops; checkAvailability round trip ~0.8 s; LLM soft-timeout filler at 3 s in the caller's language.
+Problems found: agent-wide `max_duration_seconds` 180 (set by T-223's `setup-demo-phone.mjs` for the public demo) while real
+booking calls ran 158–176 s; `getCurrentDate` called for "tomorrow" (~2 s + a filler) because its description said "use this
+before any date math"; no returning-caller recognition; gate codes already asked once (checklist item 5 + addBookingNote).
+Live ElevenLabs changes (agent_0101m3a5z9qxenybnpjsragg7dvt, US API host): cap 600 s (`agtvrsn_5901m69qn70ve4b9jnw5zkxc6cm7`);
+per-call `conversation.max_duration_seconds` override allowed (`agtvrsn_4601m69r5wt7e51b82a33fzfe1kw`) so public trial calls
+keep 180 s (`TRIAL_PHONE_MAX_SECONDS`, `src/lib/demo/phonePrompt.ts`); `getCurrentDate` description = fallback only
+(`setup-elevenlabs-agent.mjs --update-tools --apply`, re-diff 0 changes). Rollback: PATCH max_duration_seconds 180 +
+override flag false; restore the old description in toolSchemas.json and re-run --update-tools --apply.
+Code: `src/lib/voice/returningCaller.ts` (exact last-10 caller-ID match on appointments.callerPhone ==, customers searchTokens
+last-7 then full-number check; 800 ms `withinBudget`; office-only customer notes excluded, only access-like lines kept);
+initiation route starts it in parallel with its writes; `buildAgentPrompt` adds the "Returning Caller" section (name-gated,
+never reads the gate code aloud).
+Evidence: vitest targeted 435/435 (returningCaller 9, initiation route +3 cases incl. trial 180 s and no override for real
+calls; booking scenarios included); tsc + changed-file eslint clean; `e2e:call` 12/12; full vitest 2035 + 1 expected fail (one phone-line registry test timed out under load on the first pass, green on rerun); full Playwright (dev harness) 212 passed / 10 skipped / 14 failed — all 14 are `e2e/csp.spec.ts`, which fails by design under `next dev` (the Dev Tools script has no nonce); re-run on the production build (`up.mjs --prod`, so `next build` passed too) 14/14. ElevenLabs suite
+`suite_2701m69r2m5wf6yafg69m48ab1ea` on test branch lang-1030-final-check, x2: 16/22, gemini-2.5-flash every turn, zero
+getCurrentDate calls. Failures: 4 = two G1 v2 fixtures that hard-code 2026-09-28 against the branch's Oct 30 date (agent sent the
+correct 2026-11-02 / tomorrow 2026-10-31); 2 = known gemini variance (ES asked phone confirmation before booking; EN said
+"available" without the next question) — safe, no false booking.
+Not yet proven: a real call through the returning-caller prompt (owner: call twice from the same phone).

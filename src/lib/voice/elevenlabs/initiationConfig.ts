@@ -30,6 +30,7 @@ import {
 import { voiceForLanguage } from "@/lib/vapi/voices";
 import { CALL_START_LANGUAGE, withSpanishInvite } from "@/lib/i18n/bilingual";
 import { isOpenAt, nextOpeningLabel } from "@/lib/scheduling/hours";
+import type { ReturningCaller } from "@/lib/voice/returningCaller";
 
 export const DEFAULT_ELEVENLABS_TIMEZONE = "America/New_York";
 
@@ -42,6 +43,8 @@ export interface ElevenLabsInitiationResponse {
       language?: string;
     };
     tts?: { voice_id: string };
+    /** Per-call length cap (the agent allows this override since 2026-10-31); omitted = the agent's 600 s. */
+    conversation?: { max_duration_seconds: number };
   };
   dynamic_variables: Record<string, string>;
 }
@@ -111,7 +114,9 @@ export function buildInitiationRuntimeContext(
 export function buildInitiationResponse(
   config: BusinessConfig,
   callerPhone: string | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
+  /** Looked up by the route while the phone rings; null = new caller (or lookup skipped/too slow). */
+  returningCaller: ReturningCaller | null = null
 ): ElevenLabsInitiationResponse {
   const runtime = buildInitiationRuntimeContext(config, callerPhone, now);
 
@@ -127,6 +132,7 @@ export function buildInitiationResponse(
         callerPhone: runtime.callerPhone,
         // Texting off (owner, 2026-10-30): the agent skips "OK to text?" instead of asking for a text that never comes.
         texting: isSmsEnabled(config),
+        returningCaller,
       },
     });
     const baseGreeting =

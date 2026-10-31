@@ -358,6 +358,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 ## Phase 13–20 Key Files
 
 - src/lib/voice/types.ts + provider.ts + elevenlabs/ — the voice-provider seam: `voiceProviderOf(config)` (missing => "vapi"), `getVoiceProvider()`, `pushPersona`, `startOutboundCall`. **Only the phone call is provider-specific** — field notes (Whisper + gpt-4o), invoices, reports and the 7 booking tools never touch Vapi/ElevenLabs.
+- src/lib/voice/returningCaller.ts — returning-caller recognition (T-230): the ElevenLabs initiation webhook looks up the
+  caller-ID number's upcoming visit + customer record while the phone rings (exact last-10-digit match, 800 ms budget, null on
+  timeout) and adds a "Returning Caller" prompt section the agent may use only after the caller gives a matching name
 - src/lib/recordingDisclosure.ts — the call-recording notice (missing config = default ON, spoken first; draft wording, not legal advice)
 - src/lib/vapi/syncPersonas.ts + src/app/api/admin/sync-personas/route.ts — one-time push of every tenant's greeting/prompt to its live assistant (dry-run by default; skips shared assistants like the demo line)
 - src/types/workCatalog.ts, quote.ts, documentOptions.ts — shared contracts for the work catalog, quotes, and hide-materials/labor options

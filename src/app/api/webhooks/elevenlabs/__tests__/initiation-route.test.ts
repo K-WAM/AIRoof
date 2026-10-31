@@ -145,6 +145,8 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     expect(body.conversation_config_override.agent.prompt.prompt).toContain("private phone demo");
     const trial = db.__peek("demoTrials", id) as { calls: number; phoneArmedUntil: number };
     expect(trial).toMatchObject({ calls: 1, phoneArmedUntil: 0 });
+    // Public trial calls keep their 3-minute cap; real calls use the agent's 600 s (no override sent).
+    expect(body.conversation_config_override.conversation).toEqual({ max_duration_seconds: 180 });
   });
   it("resolves the tenant by called number and returns the per-call overrides", async () => {
     mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");
@@ -163,6 +165,7 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
       "Thanks for calling Apex Roofing."
     );
     expect(body.conversation_config_override.agent.language).toBe("en");
+    expect(body.conversation_config_override.conversation).toBeUndefined();
     expect(body.dynamic_variables.callerPhone).toBe("+1 (305) 555-0100");
   });
 
@@ -288,6 +291,35 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
     const response = await POST(requestFor(INITIATION_BODY, "expected-secret"));
     expect(response.status).toBe(200);
     expect(callWrite).toBe(true);
+  });
+
+  it("hands a returning caller's upcoming visit to the agent, gated on their name", async () => {
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");
+    db.__seed("businesses", "biz_1", { ...businessConfig() });
+    db.__seed("businesses/biz_1/appointments", "appt_1", {
+      callerPhone: INITIATION_BODY.caller_id, callerName: "John Smith", serviceType: "Roof inspection",
+      status: "requested", pendingConfirmation: true, startTime: Date.now() + 2 * 24 * 60 * 60 * 1000,
+      address: "317 West Riverbend Drive, Miami, FL 33185", notes: "Access: gate code 1010",
+    });
+
+    const body = await (await POST(requestFor(INITIATION_BODY, "expected-secret"))).json();
+    const prompt: string = body.conversation_config_override.agent.prompt.prompt;
+    expect(prompt).toContain("## Returning Caller");
+    expect(prompt).toContain("on file for John Smith");
+    expect(prompt).toContain("Is this for 317 West Riverbend Drive, Miami, FL 33185 again?");
+    // The greeting itself never names them — only a matching name unlocks it.
+    expect(body.conversation_config_override.agent.first_message).not.toContain("John");
+  });
+
+  it("adds no returning-caller section for a new number", async () => {
+    mocks.findBusinessByElevenLabsPhoneNumber.mockResolvedValue("biz_1");
+    db.__seed("businesses", "biz_1", { ...businessConfig() });
+    db.__seed("businesses/biz_1/appointments", "appt_1", {
+      callerPhone: "+1 (305) 555-0199", callerName: "Someone Else", status: "requested", startTime: Date.now() + 60_000,
+    });
+    const body = await (await POST(requestFor(INITIATION_BODY, "expected-secret"))).json();
+    expect(body.conversation_config_override.agent.prompt.prompt).not.toContain("Returning Caller");
+    expect(body.conversation_config_override.agent.prompt.prompt).not.toContain("Someone Else");
   });
 
   it("returns the generic response when the business doc is missing", async () => {

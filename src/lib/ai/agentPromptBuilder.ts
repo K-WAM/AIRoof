@@ -3,6 +3,7 @@ import type { BusinessConfig } from "@/types";
 import { VERTICAL_TEMPLATES, type IntakeField, type VerticalId } from "@/lib/verticals/templates";
 import { resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { isEscalationEnabled } from "@/lib/ai/escalation";
+import { returningCallerSection, type ReturningCaller } from "@/lib/voice/returningCaller";
 
 export interface PromptOptions {
   /** True when there are already prior turns in the conversation. Suppresses the greeting instruction so the agent doesn't re-introduce itself. */
@@ -24,6 +25,11 @@ export interface PromptOptions {
      * and no caller is left expecting a text that cannot come. Omitted = ask (older callers keep their behaviour).
      */
     texting?: boolean;
+    /**
+     * What this tenant already knows about the caller-ID number (looked up while the phone rings). The agent may use it
+     * only after the caller gives a matching name — see returningCallerSection. Omitted = a new caller, as before.
+     */
+    returningCaller?: ReturningCaller | null;
   };
 }
 
@@ -137,7 +143,9 @@ Calls may be recorded and transcribed.${resolveRecordingDisclosure(businessConfi
   return `You are ${agentName}, the ${agentIdentity} for ${businessConfig.businessName}, a ${businessConfig.industry} business.
 
 ${conversationContext}
-${runtimeContext}
+${runtimeContext}${runtime?.returningCaller ? `
+${returningCallerSection(runtime.returningCaller)}
+` : ""}
 
 ## Your Role
 Answer inbound calls, qualify leads, schedule appointments, ${escalationOn ? "escalate urgent cases" : "book urgent problems into the soonest opening"}, and take messages.

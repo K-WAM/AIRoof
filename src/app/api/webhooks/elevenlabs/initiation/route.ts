@@ -28,8 +28,10 @@ import {
 } from "@/lib/vapi/businessLookup";
 import {
   buildInitiationResponse,
+  DEFAULT_ELEVENLABS_TIMEZONE,
   genericInitiationResponse,
 } from "@/lib/voice/elevenlabs/initiationConfig";
+import { findReturningCaller, withinBudget } from "@/lib/voice/returningCaller";
 import { persistElevenLabsConversation } from "@/lib/voice/elevenlabs/conversationRecords";
 import type { BusinessConfig } from "@/types";
 import { trialPhoneInitiation } from "@/lib/demo/phonePrompt";
@@ -89,6 +91,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(genericInitiationResponse());
   }
 
+  // Returning caller: started now so it runs alongside the writes below, and capped (withinBudget) so a slow read can
+  // never delay the answer — on timeout or error the call simply proceeds as a new caller.
+  const db = getAdminFirestore();
+  const returningCallerLookup = db && callerId
+    ? withinBudget(findReturningCaller(db, businessId, callerId, config.timezone || DEFAULT_ELEVENLABS_TIMEZONE))
+    : Promise.resolve(null);
+
   // Record the conversation for the tools/post-call routes BEFORE responding —
   // the tools may be called seconds later. Best-effort: a write failure must
   // not block the call answer.
@@ -121,7 +130,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (conversationId) {
     try {
-      const db = getAdminFirestore();
       const now = Date.now();
       await db
         ?.collection("businesses")
@@ -148,9 +156,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json(joined
-    ? trialPhoneInitiation(joined.config, joined.trial, callerId)
-    : buildInitiationResponse(config, callerId, new Date()));
+  if (joined) return NextResponse.json(trialPhoneInitiation(joined.config, joined.trial, callerId));
+  const returningCaller = await returningCallerLookup;
+  return NextResponse.json(buildInitiationResponse(config, callerId, new Date(), returningCaller));
 }
 
 async function readBusinessConfig(businessId: string): Promise<BusinessConfig | null> {

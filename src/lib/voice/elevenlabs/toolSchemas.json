@@ -205,7 +205,7 @@
   },
   {
     "name": "getCurrentDate",
-    "description": "Get today's real date and day of week in the business's time zone. Use this before any date math — when a caller says \"tomorrow\" or \"next Tuesday\", compute the actual date from what this returns.",
+    "description": "Fallback only. Today's date and time are already in your instructions (Current Context) — use those for \"tomorrow\", \"next Tuesday\" and any other date math, without calling a tool. Call this ONLY if your instructions contain no date at all.",
     "method": "POST",
     "path": "/api/webhooks/elevenlabs/tools/getCurrentDate",
     "parameters": {
