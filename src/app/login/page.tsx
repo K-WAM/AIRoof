@@ -4,6 +4,17 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getFirebaseAuth } from "@/lib/firebase/client";
+import { LegalConsent } from "@/components/legal/LegalConsent";
+
+// Records that this person accepted the current Terms by signing in (the consent line under the button). Fire and forget:
+// keepalive lets it finish while the page navigates away, and a failure never blocks signing in.
+async function recordTermsAcceptance(user: { getIdToken: () => Promise<string> } | null | undefined) {
+  if (!user) return;
+  try {
+    const token = await user.getIdToken();
+    void fetch("/api/auth/terms", { method: "POST", headers: { Authorization: `Bearer ${token}` }, keepalive: true }).catch(() => {});
+  } catch { /* never block sign-in */ }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,6 +50,7 @@ export default function LoginPage() {
         const result = await getRedirectResult(auth);
         if (cancelled) return;
         if (result) {
+          await recordTermsAcceptance(result.user);
           document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
           router.replace(postLoginDest());
         }
@@ -82,7 +94,8 @@ export default function LoginPage() {
         import("firebase/auth"),
       ]);
       if (!auth) { setError("Firebase not configured."); return; }
-      await signInWithEmailAndPassword(auth, email, password);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await recordTermsAcceptance(credential.user);
       document.cookie = "__session=1; path=/; max-age=86400; SameSite=Strict";
       router.replace(postLoginDest());
     } catch (err: unknown) {
@@ -163,6 +176,8 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
+
+          <LegalConsent action="signing in" />
 
           <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)", margin: 0 }}>
             Access is provisioned by your administrator.

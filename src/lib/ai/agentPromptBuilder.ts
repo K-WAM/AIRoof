@@ -96,7 +96,7 @@ When the caller says "tomorrow", "next Tuesday", etc., calculate the actual date
   const escalationOn = isEscalationEnabled(businessConfig);
   const texting = runtime?.texting !== false;
   const textingInstruction = texting
-    ? `- Texting: ask once, right before booking: "Is it OK to text you about this appointment at this number?" Send their answer as textOk (true for yes, false for no). Asking is not a promise that a text will come.`
+    ? `- Texting: ask once, right before booking: "Is it OK to text you about this appointment at this number? Message and data rates may apply, and you can reply STOP anytime." (carriers require that consent wording — keep it, in the caller's language). Send their answer as textOk (true for yes, false for no). Asking is not a promise that a text will come.`
     : `- Texting: this line does not send texts. Never ask about texting, never offer or promise a text, and leave textOk out.`;
 
   // Plan §1 A (2026-09-28): the caller said "yes, it's leaking", the agent escalated, said "anything else?" and only booked

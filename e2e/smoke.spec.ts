@@ -38,6 +38,27 @@ for (const { role, label, paths } of SWEEP) {
   });
 }
 
+// Public legal pages (no sign-in): carriers and prospects must be able to read them, and /login + /demo link to them.
+test.describe("legal pages", () => {
+  for (const path of ["/legal/terms", "/legal/privacy", "/legal/sms"]) {
+    test(`${path} loads without signing in`, async ({ page }) => {
+      await page.goto(path);
+      await settle(page);
+      expect(new URL(page.url()).pathname).toBe(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.getByText("Luxor Developments LLC").first()).toBeVisible();
+      await shot(page, `public${path.replace(/\//g, "_")}`);
+      await expectHealthy(page);
+    });
+  }
+  test("/login shows the sign-in consent line with working links", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByText("By signing in, you agree to our")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Terms", exact: true })).toHaveAttribute("href", "/legal/terms");
+    await expect(page.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/legal/privacy");
+  });
+});
+
 test.describe("industry gating", () => {
   test("roofing shows Jobs, dental does not", async ({ as }, testInfo) => {
     // On a phone the routes live in the Menu (T-159), not in header shortcuts.

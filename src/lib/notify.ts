@@ -2,6 +2,8 @@ import { sendEmail } from "@/lib/comms/send";
 import type { CommSendResult } from "@/lib/comms/send";
 import { escapeHtml } from "@/lib/documents/letterhead";
 import { TEAM_ROLE_LABEL, type TeamRole } from "@/types/team";
+import { getAppUrl } from "@/lib/config/appUrl";
+import { LEGAL_PATHS } from "@/lib/legal/version";
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -15,6 +17,12 @@ export interface Branding {
   logoChip?: boolean;
   contactPhone?: string | null;
   contactEmail?: string | null;
+}
+
+// New users read this before their first sign-in; signing in is the acceptance (src/components/legal/LegalConsent.tsx).
+function termsNoticeHtml(): string {
+  const base = getAppUrl();
+  return `<p style="margin:16px 0 0;font-size:12px;color:#94a3b8;line-height:1.5">By accepting this invite, you agree to our <a href="${base}${LEGAL_PATHS.terms}" style="color:#64748b">Terms</a> and <a href="${base}${LEGAL_PATHS.privacy}" style="color:#64748b">Privacy Policy</a> and confirm you’re 18+.</p>`;
 }
 
 function shell(brand: Branding, heading: string, bodyHtml: string): string {
@@ -188,7 +196,8 @@ export function buildBusinessWelcomeEmail(opts: {
     <div style="margin:20px 0">
       <a href="${esc(opts.resetLink)}" style="display:inline-block;background:${accent};color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Set your password</a>
     </div>
-    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you didn\u2019t request this, you can safely ignore this email.</p>`;
+    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you didn\u2019t request this, you can safely ignore this email.</p>
+    ${termsNoticeHtml()}`;
 
   return {
     subject: `[Luxor AI] Your ${opts.brandName} account is ready`,
@@ -232,7 +241,8 @@ export function buildTeamInviteEmail(opts: {
     <div style="margin:20px 0">
       <a href="${esc(opts.resetLink)}" style="display:inline-block;background:${opts.brand.brandColor || "#1e3a5f"};color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px">Set your password</a>
     </div>
-    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren’t expecting this, you can safely ignore this email.</p>`;
+    <p style="margin:0;font-size:13px;color:#94a3b8">This link expires in 1 hour. If you weren’t expecting this, you can safely ignore this email.</p>
+    ${termsNoticeHtml()}`;
 
   return {
     subject: `[Luxor AI] You've been added to ${opts.brand.businessName}`,

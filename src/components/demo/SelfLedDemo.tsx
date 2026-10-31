@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type { VoiceConversation } from "@elevenlabs/client";
 import { DemoStage, type StageScreen, type JobTab } from "./DemoStage";
 import { EnterSandboxButton } from "@/app/try/[vertical]/EnterSandboxButton";
+import { LegalConsent } from "@/components/legal/LegalConsent";
 
 export interface DemoLine { label: string; kind: "material" | "labor" | "other"; amount: number }
 type Phase = "start" | "choose" | "calling" | "auto" | "end";
@@ -263,6 +264,7 @@ export function SelfLedDemo({ lines, bookCallUrl }: { lines: DemoLine[]; bookCal
         <button className="button primary sld-big" disabled={busy}>{busy ? "Opening…" : "Start my demo"}</button>
         {error && <p role="alert" className="sld-error">{error}</p>}
         <p className="sld-small">Free · no signup</p>
+        <LegalConsent action="starting the demo" contact />
       </form>
     </div>}
 
@@ -329,6 +331,7 @@ export function SelfLedDemo({ lines, bookCallUrl }: { lines: DemoLine[]; bookCal
               <input aria-label="Your phone or email" placeholder="Your phone or email" value={contact} onChange={(e) => setContact(e.target.value)} maxLength={254} />
               <button type="button" className="button primary" onClick={sendReach}>Send</button>
             </div>}
+            {reach === "open" && <LegalConsent action="sending" contact />}
             {reach === "sent" && <p className="sld-done">Done. We&apos;ll reach out {new Date().getHours() < 17 ? "today" : "tomorrow"}.</p>}
             {reachError && <p role="alert" className="sld-error">{reachError}</p>}
             <div className="sld-end-links">
