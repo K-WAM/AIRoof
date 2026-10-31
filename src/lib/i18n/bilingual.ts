@@ -14,6 +14,23 @@ export function withSpanishInvite(greeting: string): string {
   return `${g} ${SPANISH_INVITE}`;
 }
 
+const DEFAULT_OPENING_QUESTION = "How can I help you today?";
+
+/**
+ * The phone greeting, built so the caller knows when to talk (owner, 2026-10-31: "I'm unclear at what point I'm
+ * supposed to start talking"): hello → recording notice → one Spanish line → the question, ALWAYS last. A greeting
+ * that already ends with a question keeps its own; one that doesn't gets "How can I help you today?".
+ */
+export function phoneGreeting(hello: string, notice?: string | null): string {
+  const sentences = hello.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
+  if (sentences.length === 0) return "";
+  const question = /\?$/.test(sentences[sentences.length - 1]) ? sentences.pop()! : DEFAULT_OPENING_QUESTION;
+  const parts = [...sentences, notice?.trim() || ""];
+  if (!/español|espanol/i.test(hello)) parts.push(SPANISH_INVITE);
+  parts.push(question);
+  return parts.filter(Boolean).join(" ");
+}
+
 // ElevenLabs voice models that can only speak English → the multilingual model of the same family. A line set to an
 // English-only model can never answer in Spanish, whatever the prompt says.
 const ENGLISH_ONLY_MODELS: Record<string, string> = {

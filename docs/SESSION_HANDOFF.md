@@ -1,5 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — Alice hang-ups/repeats fixed (2026-10-31 evening, Claude, T-231)
+
+- **What went wrong:** the owner switched the live agent to `gpt-6-luna` and turned on parallel tool calls. Luna then called
+  `end_call` mid-booking ("reason: continue collecting details" — 2 of 3 calls hung up), asked a question and answered it
+  itself, and spoke one sentence twice. The greeting ran ~17 s (notice + after-hours speech + Spanish line) and never ended
+  on a question, so callers didn't know when to talk.
+- **Live agent now (`agtvrsn_2401m6a4ask4f7x802t51d7mcpqc`):** gpt-4o (owner preference; same-prompt tests: natural calls 12/12,
+  booking rules 39/46 vs gemini 37/44, p50 first token 0.53 s vs 0.67 s), parallel tool calls OFF,
+  `end_call` description = only after the caller says goodbye; voice: expressive mode off, no audio tags, speed 0.92,
+  stability 0.6; filler at 2.5 s in English unless the caller's own last words were Spanish.
+- **Code (T-231):** greeting = hello → "This call may be recorded and transcribed." → "También hablamos español." → the
+  question LAST (`phoneGreeting()` in `src/lib/i18n/bilingual.ts`); no after-hours speech in the greeting; prompt gains
+  "How a natural call goes" (one thing per turn, never repeat, ≤2 times offered, ask phone/access/email before booking,
+  never hang up mid-booking). Evidence: simulated callers 12/12 on gemini (`suite_0001m6a441v3e7yv4jeczx8fh6hf`) and 12/12 on
+  gpt-4o (`suite_5601m6a46r3yf4er94kvd3hfwye0`). Rollback: gemini-2.5-flash, thinking 0 (`agtvrsn_4901m6a3k7pqftza9hjgr11t8yrh`).
+- **Rule:** don't switch the live LLM or turn on parallel tool calls without running the "Natural 1031" simulation tests
+  on the test branch `agtbrch_9601m67n0mr3eawv3n43yn4cjpvt` first.
+
 ## Resume here — phone AI pass before Tuesday (2026-10-31, Claude, T-230)
 
 - **Live on the agent now:** call cap 180 → 600 s (a full booking was about to be cut off; public trial calls keep 180 s via a

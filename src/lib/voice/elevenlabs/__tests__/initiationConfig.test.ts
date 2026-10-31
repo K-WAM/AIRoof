@@ -78,41 +78,62 @@ describe("buildInitiationResponse", () => {
     expect(response.dynamic_variables.callerPhone).toBe("+1 (305) 555-0100");
   });
 
-  it("composes the T-102 recording disclosure into the first message (default ON)", () => {
+  it("greets, gives the recording notice and the Spanish line, then ends on the question (caller's cue to talk)", () => {
     const response = buildInitiationResponse(config(), undefined, WEDNESDAY_10AM_ET);
-    const firstMessage = response.conversation_config_override.agent?.first_message ?? "";
-    expect(firstMessage.startsWith(DEFAULT_RECORDING_DISCLOSURE_EN)).toBe(true);
-    expect(firstMessage).toContain("Thanks for calling Apex Roofing.");
+    expect(response.conversation_config_override.agent?.first_message).toBe(
+      `Thanks for calling Apex Roofing. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help you today?`
+    );
   });
 
-  it("uses the after-hours greeting and after-hours context when the call is outside hours", () => {
+  it("keeps the tenant's own closing question last", () => {
     const response = buildInitiationResponse(
-      config({ afterHoursGreeting: "You've reached Apex after hours." }),
+      config({ greeting: "Thanks for calling Apex Roofing, this is Alice. How can I help?" }),
+      undefined,
+      WEDNESDAY_10AM_ET
+    );
+    expect(response.conversation_config_override.agent?.first_message).toBe(
+      `Thanks for calling Apex Roofing, this is Alice. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help?`
+    );
+  });
+
+  it("after hours: the short normal greeting (no after-hours speech), after-hours context in the prompt", () => {
+    const response = buildInitiationResponse(
+      config({ afterHoursGreeting: "You've reached Apex after hours. We'll confirm first thing." }),
       undefined,
       WEDNESDAY_7PM_ET
     );
-    expect(response.conversation_config_override.agent?.first_message).toContain(
-      "You've reached Apex after hours."
-    );
+    const first = response.conversation_config_override.agent?.first_message ?? "";
+    expect(first).toContain("Thanks for calling Apex Roofing.");
+    expect(first).not.toContain("after hours");
+    expect(first).toMatch(/\?$/);
     expect(response.dynamic_variables.afterHoursContext).toContain("after business hours");
     expect(response.conversation_config_override.agent?.prompt?.prompt).toContain("after business hours");
+  });
+
+  it("falls back to the after-hours greeting only when there is no normal greeting", () => {
+    const response = buildInitiationResponse(
+      config({ greeting: "", afterHoursGreeting: "You've reached Apex." }),
+      undefined,
+      WEDNESDAY_7PM_ET
+    );
+    expect(response.conversation_config_override.agent?.first_message).toContain("You've reached Apex.");
   });
 
   it("every call starts in English with one Spanish line, whatever language was stored before", () => {
     const response = buildInitiationResponse(config({ agentLanguage: "es" }), undefined, WEDNESDAY_10AM_ET);
     expect(response.conversation_config_override.agent?.language).toBe("en");
-    expect(response.conversation_config_override.agent?.first_message).toMatch(/También hablamos español\.$/);
+    expect(response.conversation_config_override.agent?.first_message?.match(/También hablamos español\./g)).toHaveLength(1);
     expect(response.conversation_config_override.agent?.prompt?.prompt).toContain("English and Spanish, always");
   });
 
-  it("keeps a custom greeting untouched when the disclosure is disabled", () => {
+  it("leaves the notice out when the disclosure is disabled", () => {
     const response = buildInitiationResponse(
       config({ recordingDisclosure: { enabled: false, text: "" } }),
       undefined,
       WEDNESDAY_10AM_ET
     );
     expect(response.conversation_config_override.agent?.first_message).toBe(
-      "Thanks for calling Apex Roofing. También hablamos español."
+      "Thanks for calling Apex Roofing. También hablamos español. How can I help you today?"
     );
   });
 

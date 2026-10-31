@@ -23,12 +23,9 @@
 import type { BusinessConfig } from "@/types";
 import { buildAgentPrompt } from "@/lib/ai/agentPromptBuilder";
 import { isSmsEnabled } from "@/lib/comms/sms";
-import {
-  composeGreetingWithDisclosure,
-  resolveRecordingDisclosure,
-} from "@/lib/recordingDisclosure";
+import { resolveRecordingDisclosure } from "@/lib/recordingDisclosure";
 import { voiceForLanguage } from "@/lib/vapi/voices";
-import { CALL_START_LANGUAGE, withSpanishInvite } from "@/lib/i18n/bilingual";
+import { CALL_START_LANGUAGE, phoneGreeting } from "@/lib/i18n/bilingual";
 import { isOpenAt, nextOpeningLabel } from "@/lib/scheduling/hours";
 import type { ReturningCaller } from "@/lib/voice/returningCaller";
 
@@ -135,18 +132,16 @@ export function buildInitiationResponse(
         returningCaller,
       },
     });
-    const baseGreeting =
-      runtime.isAfterHours && config.afterHoursGreeting
-        ? config.afterHoursGreeting
-        : (config.greeting ?? "");
+    // The phone always opens with the normal greeting, after hours too (owner, 2026-10-31: the after-hours line was
+    // too much to listen to before you could talk). The prompt's after-hours note and the booking result's
+    // sayToCaller tell the caller how the office confirms, at the moment it matters.
+    const baseGreeting = config.greeting?.trim() || config.afterHoursGreeting?.trim() || "";
     // A notice alone would replace the agent's configured greeting. Match the
     // sync-personas rule: only override when the tenant has greeting copy.
-    if (baseGreeting.trim()) {
-      greeting = composeGreetingWithDisclosure(
-        baseGreeting,
-        // Calls start in English, so the notice does too (a stored "es" no longer flips it).
-        resolveRecordingDisclosure({ ...config, agentLanguage: "en" })
-      );
+    if (baseGreeting) {
+      // Calls start in English, so the notice does too (a stored "es" no longer flips it).
+      const disclosure = resolveRecordingDisclosure({ ...config, agentLanguage: "en" });
+      greeting = phoneGreeting(baseGreeting, disclosure.enabled ? disclosure.text : null);
     }
   } catch (error) {
     console.error("elevenlabs initiation: failed to build dynamic prompt", error);
@@ -161,7 +156,7 @@ export function buildInitiationResponse(
 
   const agent: ElevenLabsInitiationResponse["conversation_config_override"]["agent"] = {};
   if (systemPrompt) agent.prompt = { prompt: systemPrompt };
-  if (greeting) agent.first_message = withSpanishInvite(greeting);
+  if (greeting) agent.first_message = greeting;
   agent.language = language;
 
   const override: ElevenLabsInitiationResponse["conversation_config_override"] = {

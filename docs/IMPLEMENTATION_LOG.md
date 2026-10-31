@@ -1995,6 +1995,28 @@ demo 7 days) / Explore the app. Prompt: asks the caller's name when setup has no
 Evidence: vitest 257/1986 (+1 expected fail); next build; e2e:call 12/12; demo browser specs 32/32 on desktop + 375 px with screenshots read.
 Not yet proven: a real call through the changed prompt/initiation (NH-36).
 
+## T-231 — Alice: no more mid-booking hang-ups, repeats or long greeting (2026-10-31 evening, Claude)
+
+**Trigger:** three owner calls on gpt-6-luna with parallel tool calls on. Two ended with Alice calling `end_call` mid-booking
+(her stated reason: "the caller has not completed the booking; continue collecting details"); one spoke "Monday at eight is
+available" twice in one reply; she asked "what service?" and checked the calendar in the same turn, then answered herself.
+The greeting took 16–18 s and ended on "También hablamos español", not a question.
+
+**Agent (ElevenLabs, live):** llm gpt-4o; `enable_parallel_tool_calls` false; `end_call` description restricts hang-up to after
+the caller's goodbye; tts `expressive_mode` false, `suggested_audio_tags` [], speed 0.92, stability 0.6; soft timeout 2.5 s with
+an English-unless-the-caller-spoke-Spanish filler prompt (call 1 said "Un momento, por favor" to an English caller).
+
+**Code:** `phoneGreeting()` (src/lib/i18n/bilingual.ts) — hello, notice, Spanish line, question last; the phone greeting no
+longer uses `afterHoursGreeting` (fallback only); default notice shortened to "This call may be recorded and transcribed."
+(NH-4 wording still needs owner/attorney review); the Settings preview uses the same builder. Prompt: "How a natural call goes".
+
+**Evidence:** simulation tests `test_3601m6a3zdn4fr89jvx45fhfeatj`, `test_7901m6a3zdw8fdqab930zxrevgez`,
+`test_1701m6a3zdz8fkws6qfjzh4f2ezk` on test branch `agtbrch_9601m67n0mr3eawv3n43yn4cjpvt`: first gemini pass 7/9 (Spanish run
+skipped access/email; one run re-asked the day), after the checklist line 12/12 gemini and 12/12 gpt-4o. 23 older booking-rule
+tests x2: gpt-4o 39/46, gemini 37/44 (failures are stale-date fixtures and the branch's returning-caller section). First-token
+p50 0.53 s gpt-4o vs 0.67 s gemini. vitest 2036 passed (one 5 s timeout flake, passes alone); e2e:call 12/12.
+Rollback: agent version `agtvrsn_4901m6a3k7pqftza9hjgr11t8yrh` (gemini) or revert this commit.
+
 ## T-230 — Phone AI before the Tuesday demo: call cap, date tool, returning callers (2026-10-31, Claude)
 Assessment (real calls `conv_2501m67rdsehezh99yb1x7b7zzkp`, `conv_3201m678qj74fgqrzfrdd45s524y`, live config): replies start
 1.0–1.7 s after the caller stops; checkAvailability round trip ~0.8 s; LLM soft-timeout filler at 3 s in the caller's language.

@@ -15,7 +15,7 @@
     "auth": "Firebase (Authentication)",
     "email": "Resend (transactional email)",
     "payments": "Stripe (integration present; production unconfigured)",
-    "ai": "ElevenLabs (voice; phone line runs gemini-2.5-flash, browser demo gpt-4o-mini), OpenAI (speech and parsing), DeepSeek (classification), Vapi (legacy voice)",
+    "ai": "ElevenLabs (voice; phone line runs gpt-4o since 2026-10-31 (gemini-2.5-flash is the tested fallback), browser demo gpt-4o-mini), OpenAI (speech and parsing), DeepSeek (classification), Vapi (legacy voice)",
     "tiers": [
       { "id": "standard", "name": "Standard", "price": "" },
       { "id": "subscriber", "name": "Subscriber", "price": "" }
@@ -37,6 +37,6 @@
     }
   },
   "alerts": [
-    { "level": "warning", "due": "2027-01-14", "text": "OpenAI shuts down gpt-4o, gpt-4o-mini and gpt-4.1 in its API; the phone line already moved to gemini-2.5-flash (2026-10-30); move the browser demo agent, field-note reading and call-summary fallback first." }
+    { "level": "warning", "due": "2027-01-14", "text": "OpenAI shuts down gpt-4o, gpt-4o-mini and gpt-4.1 in its API; the phone line went back to gpt-4o on 2026-10-31 for natural turn-taking, so move it (gemini-2.5-flash passed the same tests) along with the browser demo agent, field-note reading and call-summary fallback." }
   ]
 }

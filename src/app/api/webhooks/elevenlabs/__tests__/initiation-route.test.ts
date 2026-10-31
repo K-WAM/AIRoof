@@ -158,12 +158,10 @@ describe("POST /api/webhooks/elevenlabs/initiation", () => {
 
     expect(body.type).toBe("conversation_initiation_client_data");
     expect(body.conversation_config_override.agent.prompt.prompt).toContain("Apex Roofing");
-    expect(body.conversation_config_override.agent.first_message.startsWith(
-      DEFAULT_RECORDING_DISCLOSURE_EN
-    )).toBe(true);
-    expect(body.conversation_config_override.agent.first_message).toContain(
-      "Thanks for calling Apex Roofing."
-    );
+    // Hello first, the notice, then the question LAST so the caller knows it's their turn.
+    expect(body.conversation_config_override.agent.first_message.startsWith("Thanks for calling Apex Roofing.")).toBe(true);
+    expect(body.conversation_config_override.agent.first_message).toContain(DEFAULT_RECORDING_DISCLOSURE_EN);
+    expect(body.conversation_config_override.agent.first_message).toMatch(/\?$/);
     expect(body.conversation_config_override.agent.language).toBe("en");
     expect(body.conversation_config_override.conversation).toBeUndefined();
     expect(body.dynamic_variables.callerPhone).toBe("+1 (305) 555-0100");

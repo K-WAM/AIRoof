@@ -12,8 +12,8 @@ import { TeamPanel } from "./TeamPanel";
 import { NoticesPanel } from "./NoticesPanel";
 import { GettingPaidPanel } from "./GettingPaidPanel";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
+import { phoneGreeting } from "@/lib/i18n/bilingual";
 import {
-  composeGreetingWithDisclosure,
   defaultRecordingDisclosureText,
   RECORDING_DISCLOSURE_MAX_LENGTH,
 } from "@/lib/recordingDisclosure";
@@ -216,10 +216,13 @@ export default function CompanySettingsPage() {
   const disclosure = settings.recordingDisclosure ?? { enabled: true, text: "" };
   const disclosureDraft = {
     enabled: disclosure.enabled,
-    text: disclosure.text.trim() || defaultRecordingDisclosureText(settings.agentLanguage),
+    text: disclosure.text.trim() || defaultRecordingDisclosureText("en"),
   };
-  const previewGreeting = composeGreetingWithDisclosure(settings.greeting ?? "", disclosureDraft);
-  const previewAfterHours = composeGreetingWithDisclosure(settings.afterHoursGreeting ?? "", disclosureDraft);
+  // Same builder the phone line uses (src/lib/i18n/bilingual.ts), so the preview is exactly what callers hear.
+  const previewGreeting = phoneGreeting(
+    settings.greeting || settings.afterHoursGreeting || "",
+    disclosureDraft.enabled ? disclosureDraft.text : null
+  );
 
   return (
     <>
@@ -328,7 +331,7 @@ export default function CompanySettingsPage() {
                   <label htmlFor="recordingText">Spoken notice</label>
                   <textarea id="recordingText" rows={3} maxLength={RECORDING_DISCLOSURE_MAX_LENGTH} value={disclosure.text} onChange={(event) => setSettings((prev) => prev ? { ...prev, recordingDisclosure: { ...disclosure, text: event.target.value } } : prev)} placeholder={defaultRecordingDisclosureText(settings.agentLanguage)} />
                   <p>{disclosure.text.length}/{RECORDING_DISCLOSURE_MAX_LENGTH} characters. {disclosure.text.trim() ? "" : "The default notice is spoken if this is blank."}</p>
-                  <strong>Live preview — what callers hear first</strong><p>{previewGreeting}</p><strong>After hours</strong><p>{previewAfterHours}</p>
+                  <strong>Live preview — what callers hear first</strong><p>{previewGreeting}</p>
                 </div>}
               </div>
             </section>}

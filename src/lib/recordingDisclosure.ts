@@ -19,10 +19,10 @@
 import type { BusinessConfig } from "@/types";
 
 export const DEFAULT_RECORDING_DISCLOSURE_EN =
-  "This call may be recorded and transcribed for quality and training.";
+  "This call may be recorded and transcribed.";
 
 export const DEFAULT_RECORDING_DISCLOSURE_ES =
-  "Esta llamada puede ser grabada y transcrita para fines de calidad y entrenamiento.";
+  "Esta llamada puede ser grabada y transcrita.";
 
 /** Server-side cap for owner-edited wording (see PUT /api/company/settings). */
 export const RECORDING_DISCLOSURE_MAX_LENGTH = 300;
