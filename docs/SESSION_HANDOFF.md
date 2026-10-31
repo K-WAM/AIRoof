@@ -39,6 +39,11 @@ expected fail, 3 timeouts under load that pass alone (registry, send, demo-custo
 `--prod`); `e2e:call` 12/12; full Playwright on the prod build **226 passed / 10 skipped / 0 failed / 0 flaky (14.8 min)**,
 incl. CSP, screen audit and the new legal-page checks; phone screenshots of login, /demo, terms and invoice email read.
 
+**Deploy receipt (2026-10-31):** pushed 1aba643..ff8c030 (6 commits); Vercel `ai-roof-loxvzh6aw` Ready, aliased to crm.luxordev.com +
+ai-roof.vercel.app; `/api/app-status` reports commit ff8c030; health ok; /legal/terms, /legal/privacy, /legal/sms, /login,
+/demo all 200; `POST /api/auth/terms` without a token 401; production /login in a real browser shows the consent line with 0
+console errors/warnings; GitHub CI run 41165708143 success.
+
 ## Resume here — security review + hardening, LIVE (2026-10-23, pushed 2026-10-30, Claude, T-226)
 
 - **2026-10-30:** owner approved; `VAPI_AUTH_BYPASS` (prod) and `TWILIO_PHONE_NUMBER` (prod + preview) removed from Vercel;
