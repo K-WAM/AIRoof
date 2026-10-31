@@ -4,7 +4,7 @@
 
 - **Live on the agent now:** call cap 180 → 600 s (a full booking was about to be cut off; public trial calls keep 180 s via a
   per-call override, now allowed on the agent); `getCurrentDate` is fallback-only (Alice stopped spending ~2 s on "tomorrow").
-- **In code (needs deploy):** returning-caller recognition — the caller-ID number's upcoming visit and customer record go into
+- **Deployed (`5b29c6e`):** returning-caller recognition — the caller-ID number's upcoming visit and customer record go into
   the prompt at call start (800 ms cap, nothing during the call). Alice uses it only after the caller says a matching name.
 - **Owner check after deploy:** from the same phone, book a visit, hang up, call back and say "Hi, it's <your name>" — she
   should greet you by name and mention the visit. Then a call that STARTS in Spanish. Details + evidence: T-230 in
