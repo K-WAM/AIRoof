@@ -1,5 +1,7 @@
 "use client";
 
+import { fieldPost } from "@/lib/offline/outbox";
+
 import { track } from "@/lib/analytics/client";
 
 // One way to send a field note, shared by both field screens (the signed-in /company/field and the no-login QR
@@ -100,17 +102,18 @@ export function FieldNoteComposer({
   async function postTyped(body: Record<string, unknown>, targetJobId: string) {
     setSavingText(true); setTypedError(null);
     try {
-      const res = await fetch(`/api/jobs/${encodeURIComponent(targetJobId)}/updates`, {
+      const res = await fieldPost(`/api/jobs/${encodeURIComponent(targetJobId)}/updates`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, submittedBy: authorName || undefined, ...body }),
       });
       const data = await res.json().catch(() => ({}));
+      if (data.queued) { setText(""); setTyping(false); return null; }
       if (!res.ok) { track("field_note_failed", { job_id: targetJobId }); setTypedError(typeof data.error === "string" ? data.error : "Not saved. Check your signal and try again."); return null; }
       if (!data.proposedCorrection) track("field_note_sent", { job_id: targetJobId });
       return data as { proposedCorrection?: ProposedCorrection; changesSummary?: string; submittedBy?: string; jobId?: string };
-    } catch {
+    } catch (error) {
       track("field_note_failed", { job_id: targetJobId });
-      setTypedError("Not saved — no connection. Your text is still here; try again.");
+      setTypedError(error instanceof Error ? error.message : "Not saved. Your text is still here; try again.");
       return null;
     } finally { setSavingText(false); }
   }

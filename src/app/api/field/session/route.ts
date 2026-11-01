@@ -1,3 +1,4 @@
+import { fieldOfflineOwner } from "@/lib/offline/serverOwner";
 import { NextRequest, NextResponse } from "next/server";
 import { peekFieldSessionClaims } from "@/lib/auth/verifyRole";
 
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const claims = peekFieldSessionClaims(req);
   if (!claims) return NextResponse.json({ error: "No field session" }, { status: 401 });
   return NextResponse.json(
-    { businessId: claims.businessId, jobId: claims.jobId ?? null },
+    { businessId: claims.businessId, jobId: claims.jobId ?? null, offlineOwner: fieldOfflineOwner(req) },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { fieldPost } from "@/lib/offline/outbox";
+
 import { useEffect, useRef, useState } from "react";
 import { processPhoto, type ProcessedPhoto } from "@/lib/photos/clientResize";
 import type { PhotoPhase } from "@/types/jobs";
@@ -68,7 +70,7 @@ export function PhotoCapture({
     setUploading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/jobs/${jobId}/photos`, {
+      const res = await fieldPost(`/api/jobs/${jobId}/photos`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,8 +86,8 @@ export function PhotoCapture({
       } else {
         setError(data.error ?? "Upload failed");
       }
-    } catch {
-      setError("Network error. Try again.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Not saved. Try again.");
     } finally {
       setUploading(false);
     }

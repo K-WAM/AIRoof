@@ -1,3 +1,4 @@
+import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthor } from "@/lib/jobs/fieldInput";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const gate = await verifyFieldAccess(req, businessId, { write: true });
   if ("error" in gate) return gate.error;
+  const ownerError = checkOfflineOwner(req, gate.user);
+  if (ownerError) return ownerError;
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });

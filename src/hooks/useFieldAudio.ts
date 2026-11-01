@@ -1,5 +1,7 @@
 "use client";
 
+import { fieldPost } from "@/lib/offline/outbox";
+
 import { track } from "@/lib/analytics/client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -111,7 +113,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     setErrorMessage(null);
     startProgress();
     try {
-      const res = await fetch(`/api/jobs/${targetJobId}/field-audio`, {
+      const res = await fieldPost(`/api/jobs/${targetJobId}/field-audio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,6 +122,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
         body: JSON.stringify({ businessId: options.businessId, submittedBy: options.submittedBy, confirmCorrection: proposedCorrection }),
       });
       const data = await res.json();
+      if (data.queued) { setProposedCorrection(null); setStatus(null); return; }
       if (res.ok && data.success) {
         track("field_note_sent", { job_id: targetJobId });
         setProposedCorrection(null);
@@ -205,23 +208,25 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
               submittedBy: options.submittedBy,
               jobContext: options.jobContext,
             });
-            const res = await postFieldAudioWithRetry(`/api/jobs/${jobId}/field-audio`, {
+            const res = await fieldPost(`/api/jobs/${jobId}/field-audio`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 ...(options.fieldKey ? { "x-field-key": options.fieldKey } : {}),
               },
               body: requestBody,
-            });
+            }, blob);
 
             const data = await res.json();
+            if (data.queued) { setStatus(null); return; }
             if (res.ok && data.proposedCorrection) {
               // Correction detected — surface a one-tap confirm card; don't apply yet.
               setTranscript(data.transcript || "");
               setProposedCorrection(data.proposedCorrection);
               setProposedFor(jobId);
               setStatus(null);
-            } else if (res.ok && data.success) {
+            } else if (data.queued) { setProposedCorrection(null); setStatus(null); return; }
+      if (res.ok && data.success) {
               setTranscript(data.transcript || "");
               track("field_note_sent", { job_id: jobId ?? undefined });
               setLastResult(data);
@@ -232,7 +237,8 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
               setErrorMessage(typeof data.error === "string" ? data.error : res.ok ? "No speech heard — hold the button while you talk." : null);
               setStatus("error");
             }
-          } catch {
+          } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Not saved. Keep this page open and try again.");
             track("field_note_failed", { job_id: jobId ?? undefined });
             setStatus("error");
           } finally {

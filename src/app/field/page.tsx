@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { FieldOutbox } from "@/components/offline/FieldOutbox";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
@@ -269,6 +270,7 @@ function FieldApp() {
           )}
 
           {/* 4. Notes — the composer shows the job + name before anything is said, and a receipt after */}
+          <FieldOutbox />
           <FieldNoteComposer
             businessId={businessId || null}
             // The QR link already names the job: use it straight away, before the job details finish loading.

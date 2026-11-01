@@ -1,5 +1,6 @@
 "use client";
 
+import { setOfflineIdentity } from "@/lib/offline/identity";
 import { createContext, useContext, useEffect, useState } from "react";
 import { setAnalyticsUser } from "@/lib/analytics/client";
 import type { User } from "firebase/auth";
@@ -91,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clearTimeout(refreshTimer);
         if (!firebaseUser) {
           tokenExpiresAt = 0;
+          setOfflineIdentity(null);
           setUser(null);
           setIdToken(null);
           setLoading(false);
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // to render optimistically while the real values are re-verified.
         const cached = readCachedProfile<AuthUser>(firebaseUser.uid);
         if (cached) {
+          setOfflineIdentity({ uid: cached.uid, businessId: cached.businessId, preview: cached.superadmin || cached.role === "superadmin" });
           setUser(cached);
           setLoading(false);
         }
@@ -140,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // onIdTokenChanged also fires on Firebase's own hourly token refresh,
           // so this re-fetch (and the cache it refreshes) naturally picks up a
           // role change within one cycle instead of sticking on a stale value.
+          setOfflineIdentity({ uid: profile.uid, businessId: profile.businessId, preview: profile.superadmin || profile.role === "superadmin" });
           setUser(profile);
           writeCachedProfile(profile);
         } catch (err) {
