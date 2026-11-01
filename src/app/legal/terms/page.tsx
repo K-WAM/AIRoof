@@ -142,8 +142,7 @@ export default function TermsPage() {
         </li>
         <li>
           <strong>AI improvement.</strong> We may use Customer Data, including transcripts and recordings, internally to test, tune
-          and improve our own receptionist and features. We do not allow third parties to train their general AI models on Customer
-          Data, and we choose provider settings that prevent this where offered.
+          and improve our own receptionist and features. We do not give Customer Data to third parties to train their general AI models. Where an AI provider offers a setting that stops it from training on our data, we choose it; each provider’s own terms also apply.
         </li>
         <li>
           <strong>Fair use and abnormal traffic.</strong> We may limit, pause or block calls and AI features during abusive or

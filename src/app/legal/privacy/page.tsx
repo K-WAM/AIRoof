@@ -69,8 +69,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         <strong>We do not sell personal information</strong>, and we do not use one business’s customer information to market to anyone
-        else. We do not allow third parties to train their general AI models on Customer Data, and we choose provider settings that
-        prevent this where offered.
+        else. We do not give Customer Data to third parties to train their general AI models. Where an AI provider offers a setting that stops it from training on our data, we choose it; each provider’s own terms also apply.
       </p>
 
       <h2>4. Who we share information with</h2>
