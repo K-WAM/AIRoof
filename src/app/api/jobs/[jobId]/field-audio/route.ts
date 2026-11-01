@@ -1,3 +1,4 @@
+import { idempotentFieldRequest } from "@/lib/offline/idempotency";
 import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 import { recordUsage } from "@/lib/usage/meter";
 import { consumeTrialBudget, TRIAL_PREFIX } from "@/lib/demo/roofingTrial";
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  return idempotentFieldRequest(db, businessId, `audio:${jobId}:${gate.user.uid}`, body, async () => {
   const resolved = resolveAuthor(gate.user, submittedBy);
   if ("error" in resolved) return NextResponse.json({ error: resolved.error }, { status: 400 });
   const author = await withCrewName(db, businessId, resolved);
@@ -254,4 +256,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }));
 
   return NextResponse.json({ success: true, transcript, changesSummary, updatedJob: log, jobId, submittedBy: author.name });
+  });
 }

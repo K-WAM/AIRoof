@@ -56,7 +56,7 @@ export function flushOutbox(owner?: OfflineIdentity, send: typeof fetch = fetch,
           item.result = data; item.responseStatus = res.status;
           item.error = typeof data.error === "string" ? data.error : `Send failed (${res.status})`;
           // Auth/rate/server/pending responses are retryable. Keep every other rejection for explicit review.
-          if (res.status >= 400 && res.status < 500 && ![401,403,408,425,429].includes(res.status)) item.state = "rejected";
+          if (res.headers.get("x-idempotency-final") === "1" || (res.status >= 400 && res.status < 500 && ![401,403,408,425,429].includes(res.status))) item.state = "rejected";
         }
       } catch { item.error = "Waiting for signal"; }
       await save(item);

@@ -1,3 +1,4 @@
+import { idempotentFieldRequest } from "@/lib/offline/idempotency";
 import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, FIELD_NOTE_LIMIT } from "@/lib/auth/rateLimit";
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  return idempotentFieldRequest(db, businessId, `updates:${jobId}:${gate.user.uid}`, body, async () => {
   const resolved = resolveAuthor(gate.user, submittedBy);
   if ("error" in resolved) return NextResponse.json({ error: resolved.error }, { status: 400 });
   const author = await withCrewName(db, businessId, resolved);
@@ -169,4 +171,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const projection = await writeJobProjection(db, businessId, jobId, { ledger });
 
   return NextResponse.json({ update: { ...entry, parsed }, projection, jobId, submittedBy: author.name, changesSummary: summarizeParsed(parsed) }, { status: 201 });
+  });
 }

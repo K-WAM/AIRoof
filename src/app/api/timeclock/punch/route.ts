@@ -1,3 +1,4 @@
+import { idempotentFieldRequest } from "@/lib/offline/idempotency";
 import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 // POST /api/timeclock/punch — the cross-job guard (docs/PLATFORM-EXPANSION-PLAN.md Phase 5).
 // GET  /api/timeclock/punch — today's folded state for one worker, so the field screen can
@@ -117,8 +118,9 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  return idempotentFieldRequest(db, businessId, `punch:${jobId ?? "office"}:${worker.workerKey}`, body, async () => {
   const tz = await loadBusinessTz(db, businessId);
-  const now = Date.now();
+  const now = body.clientRequestId && typeof body.clientCreatedAt === "number" ? Math.min(body.clientCreatedAt, Date.now()) : Date.now();
   const todayKey = dayKey(now, tz);
   const punchesCol = db.collection(`businesses/${businessId}/punches`);
 
@@ -202,4 +204,5 @@ export async function POST(req: NextRequest) {
 
   const newDay = foldPunches([...existing, ...writes], now, tz).find((d) => d.dayKey === todayKey)!;
   return NextResponse.json({ ok: true, day: newDay, tz });
+  });
 }

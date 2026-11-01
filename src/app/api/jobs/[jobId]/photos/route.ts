@@ -1,3 +1,4 @@
+import { idempotentFieldRequest } from "@/lib/offline/idempotency";
 import { checkOfflineOwner } from "@/lib/offline/serverOwner";
 import { NextRequest, NextResponse } from "next/server";
 import { resolveAuthor } from "@/lib/jobs/fieldInput";
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  return idempotentFieldRequest(db, businessId, `photos:${jobId}:${gate.user.uid}`, body, async () => {
   // Who took it comes from the login (or the name typed on a field-QR link), never from the request body alone.
   const author = resolveAuthor(gate.user, uploadedBy);
   if ("error" in author) return NextResponse.json({ error: author.error }, { status: 400 });
@@ -54,4 +56,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if ("error" in result) return NextResponse.json({ error: result.error }, { status: 400 });
 
   return NextResponse.json({ ok: true, photoId: result.photoId }, { status: 201 });
+  });
 }
