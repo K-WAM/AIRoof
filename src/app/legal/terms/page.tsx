@@ -133,6 +133,23 @@ export default function TermsPage() {
           Customer Data, including information about your callers and customers.
         </li>
         <li>
+          <strong>Usage Data.</strong> Information about how the Service is used, including pages, clicks, feature use, call counts
+          and lengths, errors and performance, is “Usage Data”. Luxor may use Usage Data to operate, fix and improve the Service.
+        </li>
+        <li>
+          <strong>Support and quality access.</strong> Authorized Luxor staff may view account data, recordings and transcripts to
+          provide support, troubleshoot problems, check quality and fix bugs.
+        </li>
+        <li>
+          <strong>AI improvement.</strong> We may use Customer Data, including transcripts and recordings, internally to test, tune
+          and improve our own receptionist and features. We do not allow third parties to train their general AI models on Customer
+          Data, and we choose provider settings that prevent this where offered.
+        </li>
+        <li>
+          <strong>Fair use and abnormal traffic.</strong> We may limit, pause or block calls and AI features during abusive or
+          abnormal traffic. Usage far beyond your plan may be capped or billed. You are responsible for usage from your lines and links.
+        </li>
+        <li>
           <strong>Aggregated data.</strong> We may use data that has been combined and de-identified so it does not identify you or any
           person, for example to measure performance or improve the Service.
         </li>
