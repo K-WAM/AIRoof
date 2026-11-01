@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Luxor CRM · User guidebook</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #e8eef3; color: #1e293b; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; }
+      .page { max-width: 850px; margin: 24px auto; padding: 44px 54px; background: #fff; }
+      .brand { color: #0f766e; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+      h1 { font-size: 28px; line-height: 1.2; margin: 8px 0 17px; color: #0f172a; }
+      h2 { color: #0f766e; font-size: 17px; line-height: 1.25; margin: 17px 0 6px; }
+      p { margin: 7px 0 10px; }
+      li { padding-left: 3px; margin: 6px 0; }
+      ol { padding-left: 23px; margin: 7px 0 12px; }
+      a { color: #0f766e; }
+      .lead { font-size: 15px; color: #475569; }
+      .box { background: #e6f5f3; border-left: 4px solid #0f766e; padding: 10px 13px; margin: 14px 0; }
+      table { border-collapse: collapse; width: 100%; margin: 9px 0 12px; font-size: 13px; }
+      th, td { text-align: left; vertical-align: top; border-bottom: 1px solid #cbd5e1; padding: 6px 8px; }
+      th { background: #edf5f4; }
+      nav { max-width: 850px; margin: 24px auto; padding: 24px 30px; background: #0f172a; color: #fff; }
+      nav h2 { color: #fff; margin-top: 0; }
+      nav ol { columns: 2; }
+      nav a { color: #99f6e4; }
+      footer { margin-top: 18px; font-size: 10px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 7px; }
+      @media (max-width: 600px) { .page { padding: 28px 22px; } nav ol { columns: 1; } table { font-size: 12px; } }
+      @page { size: Letter; margin: 13mm 14mm; }
+      @media print {
+        body { background: #fff; font-size: 10.5pt; line-height: 1.36; }
+        nav { display: none; }
+        .page { max-width: none; margin: 0; padding: 0; break-after: page; }
+        .page:last-child { break-after: auto; }
+        h1 { font-size: 21pt; margin: 7px 0 12px; }
+        h2 { font-size: 12pt; margin: 12px 0 4px; break-after: avoid; }
+        p { margin: 5px 0 8px; }
+        ol { margin: 5px 0 9px; }
+        li { margin: 4px 0; }
+        .lead { font-size: 11pt; }
+        .box { margin: 10px 0; padding: 8px 11px; }
+        table { font-size: 9pt; margin: 7px 0; }
+        th, td { padding: 4px 6px; }
+        tr, .box { break-inside: avoid; }
+        #library-setup p { margin: 4px 0 6px; }
+        footer { margin-top: 10px; }
+        a { color: inherit; }
+      }
+    </style>
+  </head>
+  <body>
+    <nav aria-label="Contents">
+      <h2>User guidebook · contents</h2>
+      <p>Client staff guide · Print this page to save a PDF. Choose Letter paper. Use the contents links to jump to a section.</p>
+      <ol>
+        <li><a href="#first-day">Your first day · Set up the basics</a></li>
+        <li><a href="#library-setup">Your first day · Fill the shared lists</a></li>
+        <li><a href="#inbox">Dashboard, Calls and Pipeline</a></li>
+        <li><a href="#schedule">Calendar and Jobs</a></li>
+        <li><a href="#documents">Inside a job · Documents and evidence</a></li>
+        <li><a href="#field-library">Field and Library</a></li>
+        <li><a href="#billing-settings">Billing and Settings</a></li>
+        <li><a href="#one-job">One job, start to finish</a></li>
+        <li><a href="#owner">Daily SOP · Admin / owner</a></li>
+        <li><a href="#office">Daily SOP · Office staff</a></li>
+        <li><a href="#inspector">Daily SOP · Inspector / Technician</a></li>
+        <li><a href="#crew">Daily SOP · Crew on a field link</a></li>
+        <li><a href="#viewer">Daily SOP · View only</a></li>
+        <li><a href="#answers">Quick answers and status glossary</a></li>
+      </ol>
+    </nav>
+    <section class="page" id="first-day">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Your first day · Set up the basics</h1>
+      <p class="lead">Start here before taking real requests. Use your own business details. All names, amounts and addresses in the examples below are practice examples, not recommended prices.</p>
+      <h2>1. Enter contact details and hours</h2>
+      <p>Open <b>Settings → Company</b>. Check the business name. Enter the <b>Public contact phone</b> and <b>Public contact email</b> customers should use. Enter your license number if it applies. The business name is shown here for you to check.</p>
+      <p>Open <b>Hours &amp; timezone</b>. Choose a starting schedule, such as <b>Mon–Fri 8–5</b>, then check every day. Use the <b>Open</b> and <b>Close</b> lists, which show AM and PM in 15-minute steps. Tick <b>Closed</b> for days you do not take appointments. For example, Monday can open at 8:00 AM and close at 5:00 PM, with Sunday closed.</p>
+      <p>Choose <b>Your business timezone</b>. Closing time must be after opening time. The receptionist offers appointments during these hours. Use <b>Save Changes</b> and wait for the saved message. Changes take effect immediately; leaving with an unsaved warning does not finish the setup.</p>
+      <h2>2. Check the phone line with a test call</h2>
+      <ol>
+        <li>In <b>Settings → Phone &amp; notifications</b>, enter the <b>Notification email</b> that should receive booking and request notices.</li>
+        <li>Read the number under <b>Phone lines and texting</b>. Call that number from your phone. If Calls or Dashboard is empty, use its <b>Call your line</b> button to dial.</li>
+        <li>Give a practice name and ask for a visit during your saved hours. Give a callback number and email. Say whether texting is OK.</li>
+        <li>After the call, open <b>Calls</b>. Find the test call and check its summary, transcript and recording when available.</li>
+        <li>Open <b>Pipeline</b>. Read the request and requested time. Every AI booking waits for the office to confirm it. Do not mistake a saved request for a confirmed visit.</li>
+      </ol>
+      <h2>3. Upload and check your logo</h2>
+      <p>Open <b>Library → Logo</b> and choose <b>Upload logo</b>. Give it a name. <b>Full color</b> keeps the natural colors and suits a white invoice header. <b>Single color (dark)</b> turns a dark mark white on a colored bar. <b>Single color (light)</b> uses a light or white mark as-is on a colored bar. Check both previews and mark the intended logo as <b>Default</b>.</p>
+      <p>Open <b>Customers</b>. Search by name, phone or address before adding. Keep one record per customer, with the correct name, phone, email and address. Check spelling and reachability with the customer.</p>
+      <div class="box"><b>Done right:</b> Your hours and timezone are correct, the test call has a request, and the default logo is readable on white and brand color. Avoid choosing emergency 24-hour service by mistake or calling the public contact number when it differs from the AI line.</div>
+      <footer>Luxor CRM · Client staff guide · 1 / 14</footer>
+    </section>
+    <section class="page" id="library-setup">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Your first day · Fill the shared lists</h1>
+      <p class="lead">Enter correct rows first. Check how they appear on a job before adding a long list.</p>
+      <h2>4. Prices &amp; rates</h2>
+      <p>Open <b>Library → Prices &amp; rates</b>. For materials, enter <b>Name</b>, <b>Unit</b> and <b>Price</b>. The price is for one unit, not the whole job. For labor, enter a <b>Role</b> and hourly <b>Rate</b>. Check the default tax rate with the person responsible for billing. Edits save when you leave a field.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Example name</th>
+            <th>Unit</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Sealant cartridge</td>
+            <td>piece</td>
+            <td>$8.00</td>
+          </tr>
+          <tr>
+            <td>Replacement panel</td>
+            <td>piece</td>
+            <td>$45.00</td>
+          </tr>
+          <tr>
+            <td>Protective covering</td>
+            <td>sq ft</td>
+            <td>$0.50</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>A labor example is Technician at $65 per hour. Replace all example rates with your own. Duplicate material names use the first matching price. A <b>Starter — review price</b> badge means the amount still needs your review.</p>
+      <h2>5. Work catalog</h2>
+      <p>Enter the <b>Category</b>, <b>Problem</b> and <b>Standard resolution</b>. Add severity and suggested lines only when useful. The catalog supplies common fixes for findings; it is not a second price list.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Problem</th>
+            <th>Standard resolution</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Leaks</td>
+            <td>Failed seal</td>
+            <td>Remove failed seal and reseal the joint.</td>
+          </tr>
+          <tr>
+            <td>Panels</td>
+            <td>Damaged panel</td>
+            <td>Replace damaged panel and check the fixings.</td>
+          </tr>
+        </tbody>
+      </table>
+      <h2>6. Crews, people and customers</h2>
+      <p>In Library, add each crew/provider name, email and phone. Where shown, select Crew or Inspector as its type. An admin assigns existing team members to each row. Only an owner can change crew membership.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Example crew</th>
+            <th>Members</th>
+            <th>Purpose</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Service crew</td>
+            <td>Alex, Sam</td>
+            <td>Scheduled work</td>
+          </tr>
+          <tr>
+            <td>Inspection visits</td>
+            <td>Jordan</td>
+            <td>Inspection schedule</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>In <b>Team</b>, invite each person with their own email and a suitable type.</p>
+      <p><b>Admin:</b> all screens, Team and Settings.</p>
+      <p><b>Office staff:</b> Pipeline, Calendar, jobs, quotes, invoices and Field; cannot manage Team.</p>
+      <p><b>Inspector:</b> own Field schedule, time blocks, findings, comments, photos and notes; no prices or invoices.</p>
+      <p><b>Foreman:</b> site voice notes, photos, findings and time clock; no prices or invoices.</p>
+      <p><b>Technician:</b> Field time clock and photos, plus voice notes when covering; no prices or invoices.</p>
+      <p><b>View only:</b> reads office screens; cannot make changes.</p>
+      <div class="box"><b>Done right:</b> Units match field notes, fixes describe real work, and Calendar rows have the right people. Avoid duplicate customers, shared logins and unreviewed starter prices.</div>
+      <footer>Luxor CRM · Client staff guide · 2 / 14</footer>
+    </section>
+    <section class="page" id="inbox">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Dashboard, Calls and Pipeline</h1>
+      <h2>Dashboard</h2>
+      <p><b>What it is for:</b> Find the next item needing attention. <b>What you will see:</b> Your plan may show call totals, leads, appointments, active jobs and field updates. Sections include <b>New bookings to confirm</b>, <b>Needs Attention</b>, <b>Today’s bookings</b> and <b>Latest from the field</b>. An empty section can mean there is nothing waiting.</p>
+      <ol>
+        <li>Open Dashboard at the start of your day.</li>
+        <li>Review New bookings to confirm first.</li>
+        <li>Open a Needs Attention item and read its details.</li>
+        <li>Check today’s bookings and the latest field updates.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Hand each unresolved item to a named teammate. <b>Common mistakes:</b> Counting an unconfirmed booking as promised work; reading totals without opening the items behind them.</p>
+      <h2>Calls</h2>
+      <p><b>What it is for:</b> Review what the AI and caller said. <b>What you will see:</b> A call list and a detail view with summary, transcript and recording when available. A headphone mark means a recording is available. A call outcome is not proof that the office confirmed a booking.</p>
+      <ol>
+        <li>Choose a call from the list.</li>
+        <li>Read the summary for the service, address and requested time.</li>
+        <li>Read the transcript to check unclear contact details.</li>
+        <li>Play the recording when available, then review the linked request.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Check new calls for requests needing follow-up. <b>Common mistakes:</b> Treating a summary as the whole conversation; assuming a call without a transcript created a request.</p>
+      <h2>Pipeline · Requests and bookings</h2>
+      <p><b>What it is for:</b> Decide what happens next. <b>What you will see:</b> Requests, callbacks and bookings, with contact details, requested service and missing information. <b>Urgent</b> and <b>Escalated</b> flag attention. <b>Booking</b> means a time was chosen but the office has not confirmed it.</p>
+      <ol>
+        <li>Open a new request or <b>Review details</b>. Check address, time, service and recipient.</li>
+        <li>Read any missing-information notice. Use <b>AI call back to collect it</b> when offered, or <b>Call Back</b> to follow up.</li>
+        <li>Confirm only after checking the request. <b>Confirm &amp; email</b> uses the supplied email. <b>Confirm &amp; email + text</b> also texts when texting is enabled and the caller agreed. <b>Confirm &amp; text</b> uses text alone. The app chooses the available channels; these are not a channel picker.</li>
+        <li>If offered, <b>Confirm without email</b> records confirmation without an email. Use it only when you will tell the customer yourself. With no email or permission to text, the review card tells you to phone them.</li>
+        <li>For unsuitable requests, use <b>Decline &amp; notify</b>, choose a reason and review <b>Send decline</b>.</li>
+        <li>Use <b>Create Job</b> when available. A new non-booking request may offer <b>Confirm &amp; create Job</b> together.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Clear new requests and check confirmation errors. <b>Common mistakes:</b> Skipping office confirmation; assuming a notification succeeded without reading the result; creating a second job for a request already linked to one.</p>
+      <footer>Luxor CRM · Client staff guide · 3 / 14</footer>
+    </section>
+    <section class="page" id="schedule">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Calendar and Jobs</h1>
+      <h2>Calendar</h2>
+      <p><b>What it is for:</b> Give work a day, time and crew/provider. <b>What you will see:</b> Rows for your resources, day columns and an <b>Unscheduled</b> or <b>Unassigned</b> list. Gray cards with dashed borders are not confirmed. Confirmed cards use the assigned crew’s color. That color identifies the crew, not job progress.</p>
+      <ol>
+        <li>Check the displayed dates before moving a card.</li>
+        <li>Find the job in Unscheduled, or a booking in Unassigned.</li>
+        <li>Drag it onto the correct resource row and day.</li>
+        <li>Pick a suitable time. Check the customer and address against the request.</li>
+        <li>For jobs, choose <b>Confirm + email crew</b>. This emails the crew address and members who have email addresses, and locks the time.</li>
+        <li>For appointments, use the confirmation button shown on the booking. Read which customer channels it names.</li>
+        <li>Open the card’s details if you need to check the booking or job.</li>
+        <li>If needed, move it back to the unscheduled/unassigned list. This does not delete the job or cancel the booking; check any warning about an already notified crew.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Check today and the next working day. Resolve clashes before confirming. <b>Common mistakes:</b> Choosing the wrong row; reading a crew color as “work complete”; assuming moving a confirmed card has told everyone about a change.</p>
+      <h2>Jobs</h2>
+      <p><b>What it is for:</b> Keep one job’s work and documents together. <b>What you will see:</b> A list with status filters, customer information and the next step. Inside a job are work notes, materials, labor, photos and document tabs. Your plan and user type control what appears.</p>
+      <ol>
+        <li>Open Jobs and use the status filter to narrow the list.</li>
+        <li>Open the job and check its name, customer and address.</li>
+        <li>Expand the customer details. Use <b>Edit customer details</b> to correct them before an invoice is sent.</li>
+        <li>Use <b>Send to a worker</b> for a single-job field link.</li>
+        <li>Review new notes, materials and labor against what happened on site.</li>
+        <li>Review findings and the customer documents described on the next page.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Read new field updates and prepare the next document. <b>Common mistakes:</b> Working in the wrong job; leaving an active filter on and assuming a job disappeared; treating a progress status as a payment receipt.</p>
+      <div class="box"><b>If you book appointments:</b> Calendar can schedule bookings on provider rows instead of jobs on crew rows. Set-price businesses may have no Findings or Quote. Follow the available Report and Invoice steps without creating a quote that your business does not use.</div>
+      <footer>Luxor CRM · Client staff guide · 4 / 14</footer>
+    </section>
+    <section class="page" id="documents">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Inside a job · Documents and evidence</h1>
+      <p class="lead">Prepare, review and then send. Drafting a document does not send it to the customer.</p>
+      <h2>Findings</h2>
+      <p>Record the <b>Issue</b>, the <b>Work</b> needed and any note that helps the office understand it. Use a Library fix when it matches the real problem. Crew-reported issues can be added as findings. Check the wording and severity instead of accepting a standard fix without reading it. Findings save automatically after changes.</p>
+      <h2>Quote</h2>
+      <p>Review the issues, work descriptions, quantities, units and unit prices. Check <b>Valid until</b> and the recipient. <b>Send quote</b> emails the customer Accept and Reject links. If they answer outside the app, use <b>Mark accepted</b> or <b>Mark declined</b> only after that answer is known. A sent, accepted or declined quote is locked; new findings after acceptance belong on the invoice rather than changing the agreed quote.</p>
+      <h2>Photos</h2>
+      <p>Open images full size to check the right site and detail. Put them in a useful order and choose <b>In report</b> for images needed in the generated report. The report photo selection is limited to two pages. Check before/after images and captions so a customer can tell what changed.</p>
+      <h2>Report</h2>
+      <p>Use <b>Generate Report</b> and review the work summary, notes and selected photos. Reports are price-free by default. <b>Include the quote</b> adds the quote’s work and prices, and is available only after the quote is sent or accepted. Check the <b>Customer version</b>, including Hide materials, Hide labor details and Show technicians. Review before using <b>Send report</b> or <b>Print / Save as PDF</b>.</p>
+      <h2>Invoice</h2>
+      <p>Use <b>Create invoice</b> and review every amount, tax and recipient before <b>Send Invoice</b>. Under <b>Customer version</b>, choose <b>Itemized</b>, <b>Bundle materials</b> or <b>Project price</b>. The project price is entered before tax. <b>Also bundle labor</b> groups labor details. Your team still sees the lines. Always use <b>Preview what the customer gets</b>. Once the invoice has been sent, customer details are locked.</p>
+      <h2>Payments and reminders</h2>
+      <p>On the sent invoice, use <b>Record payment</b>, enter the amount, method and date received, then <b>Save payment</b>. Partial payments reduce the balance; the full amount marks it Paid. Check the receipt option and result. Overdue reminders depend on your saved Getting paid settings. A report, accepted quote or completed job does not by itself record money received.</p>
+      <h2>Daily document SOP</h2>
+      <ol>
+        <li>Check the job and customer.</li>
+        <li>Read the work and evidence.</li>
+        <li>Check prices and the customer version.</li>
+        <li>Preview, verify the recipient and send.</li>
+      </ol>
+      <p><b>Common mistakes:</b> Leaving a missing material price blank; choosing Project price without checking the total; including quote prices in a report meant to have none.</p>
+      <footer>Luxor CRM · Client staff guide · 5 / 14</footer>
+    </section>
+    <section class="page" id="field-library">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Field and Library</h1>
+      <h2>Field</h2>
+      <p><b>What it is for:</b> Record the day at the site. <b>What you will see:</b> Your job choice or schedule, time controls, a note composer and photo controls. Inspectors can see their schedule and time blocks. The chosen job controls where notes and photos go. Field access does not include customer prices or invoices for field-only users.</p>
+      <ol>
+        <li>Open Field or the job link sent by the office. Check the job name and address before starting.</li>
+        <li>Tap <b>Clock in</b> at the right place. Use the lunch and leaving controls as the day changes.</li>
+        <li>Use <b>Hold to talk, or tap to start</b>. Say the work, quantity and unit clearly. English and Spanish are supported.</li>
+        <li>Type instead when it is noisy. Check the save result before moving on; read any error and try again if needed.</li>
+        <li>Use <b>+ Photo</b> for clear site photos and a short description.</li>
+        <li>Review any proposed correction. Choose <b>Yes, change it</b> or <b>Keep as is</b>.</li>
+        <li>Tap <b>Clock out for the day</b> when you finish. Tell the office about urgent matters.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Record work as it happens and check the final note. <b>Common mistakes:</b> Talking into the wrong job; assuming a saved note was successfully read when an error is shown; forgetting to end the day.</p>
+      <h2>Library</h2>
+      <p><b>What it is for:</b> Maintain reusable business information. <b>What you will see:</b> Areas for prices and rates, work catalog, crews/providers, shared documents and logo, depending on the plan. A checked Logo label means a logo is present. A starter price badge means review is still needed; it is not approval of the price.</p>
+      <ol>
+        <li>Choose the Library area you need. Use the first-day examples as a format, replacing their values.</li>
+        <li>In Prices &amp; rates, check the material name, unit and one-unit price. Review labor roles and hourly rates separately.</li>
+        <li>In the work catalog, search problems, categories or solutions before adding a similar item.</li>
+        <li>Fill Category, Problem and Standard resolution, then use <b>Add item</b> or <b>Save changes</b>.</li>
+        <li>Review each crew/provider’s name, contact details, members and Active setting. Ask the owner for membership changes.</li>
+        <li>Check the default logo and both background previews. For shared documents, use a clear document name and a valid link.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Resolve price and crew changes reported by the team. <b>Common mistakes:</b> Entering the full job charge as a unit price; creating duplicate material names; removing a crew when you meant to pause it with Active off.</p>
+      <p>For detailed field instructions, see the <a href="/guides/field-operations-guide.html">Field Operations Guide</a>. Keep this book for the shared daily process.</p>
+      <footer>Luxor CRM · Client staff guide · 6 / 14</footer>
+    </section>
+    <section class="page" id="billing-settings">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Billing and Settings</h1>
+      <h2>Billing</h2>
+      <p><b>What it is for:</b> See customer money owed and received. <b>What you will see:</b> <b>Owed to you</b>, <b>Past due</b> and <b>Paid this month</b>, plus <b>Waiting on payment</b> and <b>Recently paid</b> lists. Past-due amounts use red to draw attention. Partial payments show how much has already been paid.</p>
+      <ol>
+        <li>Open Billing and start with Past due.</li>
+        <li>Open the relevant row to reach the job’s invoice.</li>
+        <li>Check the balance and existing payment entries before recording another payment.</li>
+        <li>Choose <b>Record payment</b>. Enter <b>Amount received ($)</b>, <b>Paid by</b> and <b>Date received</b>. Add a note such as a check number if useful.</li>
+        <li>Review <b>Email a receipt to</b> and use <b>Save payment</b>.</li>
+        <li>Read the result. A failed receipt email can still leave the payment recorded; do not enter it twice.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Match received money to invoices and follow up on unpaid balances. <b>Common mistakes:</b> Recording a promise to pay as money received; entering the same payment twice; treating an email failure as proof the payment was not saved.</p>
+      <h2>Settings</h2>
+      <p><b>What it is for:</b> Keep contact details, hours and document/payment settings current. <b>What you will see:</b> Section links for Company, Hours &amp; timezone, Phone &amp; notifications, Getting paid, Documents, Terms &amp; notices and Advanced, where available. An unsaved warning means you still need to save. A line may show Texting ready, registration pending, blocked or not configured.</p>
+      <ol>
+        <li>Check public contact details in Company.</li>
+        <li>Review each day in Hours &amp; timezone and choose the business timezone.</li>
+        <li>Check the Notification email and the listed AI phone number.</li>
+        <li>Use <b>Save Changes</b> for the main settings and read the saved result.</li>
+        <li>As an owner, open <b>Getting paid</b>. Enter <b>How customers pay you</b> and an optional <b>Pay link</b> to your own payment page.</li>
+        <li>Choose <b>Payment due</b>: On receipt or one of the offered day counts. Check <b>Email overdue reminders</b>, which sends reminders 1, 7 and 14 days after the due date when enabled.</li>
+        <li>Use Getting paid’s own save control and check its saved message. Office staff can read this area but cannot change it.</li>
+      </ol>
+      <p><b>Daily SOP:</b> Update changes when known, then check the saved result. <b>Common mistakes:</b> Leaving unsaved hours; confusing a public contact phone with the AI line; entering an untested or incorrect pay link.</p>
+      <div class="box">Customer payments go to your business through your payment method. Record the received money on the job so its balance and reminders stay useful.</div>
+      <footer>Luxor CRM · Client staff guide · 7 / 14</footer>
+    </section>
+    <section class="page" id="one-job">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>One job, start to finish</h1>
+      <p class="lead">Use this handoff checklist for a job that needs an inspection and quote. Keep the same customer and job throughout.</p>
+      <ol class="journey">
+        <li><b>Calls → select the call:</b> Read the summary and transcript; check the callback details and requested work.</li>
+        <li><b>Pipeline → Review details:</b> Read the request, missing information, requested time and address.</li>
+        <li><b>Pipeline → Confirm:</b> Use the displayed Confirm &amp; email, Confirm &amp; email + text, or other available confirmation action. Read its result.</li>
+        <li><b>Pipeline → Create Job:</b> Create the job from the request where offered. New non-booking requests can combine this as Confirm &amp; create Job.</li>
+        <li><b>Calendar → Confirm + email crew:</b> Put the job on the correct day and crew, pick its time, then confirm the assignment.</li>
+        <li><b>Jobs → Send to a worker:</b> Send the correct job’s field link to the person doing the work.</li>
+        <li><b>Field → Clock in and the talk control:</b> Record the work, materials, quantities and time. Review saved notes and corrections.</li>
+        <li><b>Field → + Photo:</b> Add clear before and after images. The office checks Photos and selects In report where useful.</li>
+        <li><b>Jobs → Findings:</b> Review the issue and work needed; use a matching Library fix and check its wording.</li>
+        <li><b>Jobs → Quote → Send quote:</b> Review scope, prices, customer version and recipient. Record an outside answer with Mark accepted or Mark declined only when known.</li>
+        <li><b>Jobs → Report → Generate Report:</b> Check the summary and photos. Keep Include the quote off for a price-free report, then Send report.</li>
+        <li><b>Jobs → Invoice → Create invoice:</b> Review actual work, amounts, customer details and the customer preview, then Send Invoice.</li>
+        <li><b>Jobs → Invoice → Record payment:</b> After money arrives, enter the amount, method and date, then Save payment. Check the remaining balance and receipt result.</li>
+      </ol>
+      <div class="box"><b>Handoff rule:</b> Tell the next person what is ready, what is still missing and which job to open. A draft is ready for review; it is not proof that a customer received anything.</div>
+      <p><b>If you book appointments:</b> Follow the call, review, confirmation and provider scheduling steps. Use only the job and document stages your plan offers. Set-price work can continue to Report and Invoice without Findings or Quote.</p>
+      <footer>Luxor CRM · Client staff guide · 8 / 14</footer>
+    </section>
+    <section class="page" id="owner">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Daily SOP · Admin / owner</h1>
+      <p class="lead">Keep the business ready to accept work, protect access and get paid. Resolve decisions the office cannot make.</p>
+      <h2>Start the day</h2>
+      <ol>
+        <li>Open <b>Dashboard</b>. Review New bookings to confirm and Needs Attention. Open the underlying item before making a decision from a total.</li>
+        <li>Review urgent or escalated requests in <b>Pipeline</b>. Make sure someone checks the service, address, time and contact details before confirmation.</li>
+        <li>Check <b>Calendar</b> for today and the next working day. Ask the office to resolve missing crew assignments or unconfirmed cards.</li>
+        <li>Open <b>Billing</b>. Review Past due and Waiting on payment. Ask which balances need a customer conversation and which payments have arrived.</li>
+      </ol>
+      <h2>Keep setup correct</h2>
+      <ol>
+        <li>Review <b>Settings</b> when hours, contact details or notification recipients change. Save the main settings before leaving.</li>
+        <li>Review <b>Getting paid</b> separately. Check payment instructions, pay link, due days and reminder setting. Save that panel’s changes.</li>
+        <li>In <b>Library</b>, check new material prices and units before they are used. Review starter badges rather than assuming example prices are approved.</li>
+        <li>In <b>Team</b>, give each person their own login and the appropriate user type. Check crew membership in Library so schedules and crew emails reach the intended people.</li>
+      </ol>
+      <h2>Before you finish</h2>
+      <p>Give unresolved requests to a named person. Check that documents waiting on your decision are clearly identified. Ask the office to record money already received so unpaid balances do not cause needless follow-up.</p>
+      <p>When a teammate reports a wrong amount, first check the invoice’s line items and Customer version. Project price can differ from the internal line total. Review both before deciding that the invoice total is wrong.</p>
+      <div class="box"><b>Done right:</b> New work has a clear next step, the right people have access, and hours and payment details reflect the real business.</div>
+      <p><b>Common mistakes:</b> Giving every person Admin access; leaving stale hours after a schedule change; assuming a colored calendar card means work or payment is complete.</p>
+      <footer>Luxor CRM · Client staff guide · 9 / 14</footer>
+    </section>
+    <section class="page" id="office">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Daily SOP · Office staff</h1>
+      <p class="lead">Turn requests into clear assignments and checked customer documents. Keep one record for each customer and one job for the work being handled.</p>
+      <h2>Review and schedule</h2>
+      <ol>
+        <li>Start in <b>Dashboard</b> and <b>Pipeline</b>. Open each new request and check who called, what they need and where the visit will happen.</li>
+        <li>Read missing-information notices. Use Call Back or the offered AI callback action when a detail needs checking. Do not fill gaps with a guess.</li>
+        <li>Check the requested time and the confirmation recipient. Press the displayed Confirm action only after review. Read any notification error before moving on.</li>
+        <li>Create the job from the request when available, checking the copied customer name, phone and address. If a job is already linked, open it rather than making another.</li>
+        <li>In <b>Calendar</b>, put work on the right crew/provider and day. Check the time and use the relevant confirmation control.</li>
+        <li>On the job, use <b>Send to a worker</b> when someone needs a field link. Check that you are sending the correct job.</li>
+      </ol>
+      <h2>Review and send</h2>
+      <ol>
+        <li>Read field notes, findings and photos. Check unclear quantities with the worker. Review Quote, Report and Invoice only where offered by your plan.</li>
+        <li>Preview the customer copy, confirm the recipient and then send. When payment arrives, use Record payment on the invoice and check the saved result.</li>
+      </ol>
+      <p>Search <b>Customers</b> before adding someone. Search name, phone or address. Correct customer details before sending an invoice, because those job details lock once it is sent.</p>
+      <h2>Before you finish</h2>
+      <p>Review tomorrow’s work and hand off unresolved requests. Tell the next person the customer or job name, what you checked and what still needs a decision. Review failed confirmation messages and receipt results so nobody repeats an action just because an email failed.</p>
+      <div class="box"><b>Done right:</b> Each accepted request has a clear appointment or job, the assigned worker has the right information, and the customer receives a checked document.</div>
+      <p><b>Common mistakes:</b> Treating an AI booking as confirmed; creating duplicate jobs; sending documents before checking customer details and totals.</p>
+      <footer>Luxor CRM · Client staff guide · 10 / 14</footer>
+    </section>
+    <section class="page" id="inspector">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Daily SOP · Inspector / Technician</h1>
+      <p class="lead">Capture facts the office can act on. Inspector and Technician are field user types: neither includes customer prices or invoices.</p>
+      <h2>Before the visit</h2>
+      <ol>
+        <li>Open <b>Field</b> and check the selected job or your schedule. Read the name, address and visit details before travelling.</li>
+        <li>For an Inspector schedule, review any time you need to block. Use the available block form with a clear label, start and end, then <b>Add block</b>.</li>
+        <li>Open the right job or the field link sent by the office. Clock in at the right place when you arrive.</li>
+      </ol>
+      <h2>At the site</h2>
+      <ol>
+        <li>Inspect the issue and record what you actually found. Use specific locations, quantities and units that another person can understand.</li>
+        <li>Use the talk control or type the note. English or Spanish is fine. Check the save result and any error instead of assuming the note reached the job correctly.</li>
+        <li>Add clear photos with short descriptions. Use wider and close views when useful.</li>
+        <li>Review findings and comments available in your Field workflow. Leave the office enough detail to decide the scope and price. If you correct a value, check and confirm the change.</li>
+        <li>Use the lunch and leaving controls during the day. Clock out for the day when finished and tell the office about urgent problems.</li>
+      </ol>
+      <h2>Make the handoff useful</h2>
+      <p>A useful note identifies what was found, where it is and what was measured or used. For example: “The seal failed at the rear joint. Used two cartridges of sealant.” That is easier to check than “fixed it.” Record only work and materials that belong to this job.</p>
+      <p>Inspectors use their own schedule, blocks, findings, comments, photos and notes. Technicians use the time clock and photos and can log voice notes when filling in for the foreman. The office handles prices, quotes and invoices using its own access.</p>
+      <div class="box"><b>Done right:</b> The office can identify the problem and completed work from your notes and photos without guessing at the location or quantity.</div>
+      <p><b>Common mistakes:</b> Guessing measurements; recording against the wrong job; trying to handle office pricing from a field-only account.</p>
+      <footer>Luxor CRM · Client staff guide · 11 / 14</footer>
+    </section>
+    <section class="page" id="crew">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Daily SOP · Crew on a field link</h1>
+      <p class="lead">The office can email or text a link for one job. Open that link on your phone; no account is needed for the link.</p>
+      <h2>Use the link for the right job</h2>
+      <ol>
+        <li>Open the message from the office. Check the job name and address at the top of the page. If they are wrong, ask the office for the correct link.</li>
+        <li>Tap <b>Clock in</b> when you reach the job. Use the time controls when you leave for lunch or finish a site visit.</li>
+        <li>Use <b>Hold to talk, or tap to start</b>. Say the work you did, the materials used and their quantities. English and Spanish are supported.</li>
+        <li>Type the note instead if speaking is difficult. Read the displayed save result and follow any error instructions.</li>
+        <li>Tap <b>+ Photo</b> to add evidence of the work. Use clear before and after images and a short description that names the area.</li>
+        <li>Review corrections before accepting them. If you said 12 but meant 15, say the correction and confirm only when it shows the intended change.</li>
+        <li>Tap <b>Clock out for the day</b> when finished. Tell the office if anything needs attention or could not be recorded.</li>
+      </ol>
+      <h2>Say enough for the office to use</h2>
+      <p>Keep one note focused on a clear update. Name the work and unit: “Used three replacement panels” is clearer than “used three.” Give labor or time details accurately. Check the job name when switching sites.</p>
+      <p>The office sees notes and photos on the job. A field update does not send an invoice or report to the customer. Tell the office about urgent matters directly as part of your normal handoff.</p>
+      <h2>Before you leave</h2>
+      <p>Check the last note and photo result for errors. Give them the job name and explain what still needs attention.</p>
+      <div class="box"><b>Done right:</b> Time, work and photos belong to the correct job, and the office knows about unfinished or urgent work.</div>
+      <p><b>Common mistakes:</b> Reusing another job’s link; leaving a wrong quantity uncorrected; forgetting the final clock-out.</p>
+      <p>More detail: <a href="/guides/field-operations-guide.html">Field Operations Guide</a>.</p>
+      <footer>Luxor CRM · Client staff guide · 12 / 14</footer>
+    </section>
+    <section class="page" id="viewer">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Daily SOP · View only</h1>
+      <p class="lead">Read office information and pass on anything needing action. View only does not allow edits, confirmations or sending documents.</p>
+      <h2>Find and check the information</h2>
+      <ol>
+        <li>Open <b>Dashboard</b> and review the activity relevant to your work. Open the item behind a total rather than assuming the count tells the whole story.</li>
+        <li>Use <b>Calls</b> when you need to understand a conversation. Read its summary and transcript, and play the recording if available.</li>
+        <li>Use <b>Pipeline</b> to check a request’s current state. A Booking still needs office confirmation; Confirmed means the office confirmed it.</li>
+        <li>Open <b>Calendar</b> to check the date, time and assigned crew/provider. Read the card instead of relying only on its color.</li>
+        <li>Open <b>Jobs</b> or <b>Customers</b> when included in your plan. Check the customer and address before using the information in a handoff.</li>
+        <li>Read document status and payment information where available. Draft, Sent and Paid describe different events.</li>
+        <li>Send any correction or action request to an authorized office teammate. Give the job/customer name and detail to check.</li>
+      </ol>
+      <h2>Make a useful handoff</h2>
+      <p>Say what you saw and what you need the office to do. For example: “This booking is still waiting for confirmation; please check the requested time.” Avoid telling a customer their appointment is confirmed until the office has done that step.</p>
+      <p>If a screen is missing, your plan or user type may not include it. Ask your admin about the access needed for your work. A field-only account has a different purpose from a View only office account.</p>
+      <h2>Before you finish</h2>
+      <p>Pass urgent items to a named person and include the reference they need to find the record. Seeing a report or quote in the app does not prove that it was sent. Seeing an invoice does not prove that the customer paid it.</p>
+      <div class="box"><b>Done right:</b> You use current information and the right person receives clear requests for changes.</div>
+      <p><b>Common mistakes:</b> Promising a time from an unconfirmed card; assuming a draft is a sent document; treating read access as permission to change a record.</p>
+      <footer>Luxor CRM · Client staff guide · 13 / 14</footer>
+    </section>
+    <section class="page" id="answers">
+      <div class="brand">Luxor CRM · User guidebook</div>
+      <h1>Quick answers and status glossary</h1>
+      <ol class="answers">
+        <li><b>Where do new requests go?</b> Open Pipeline; review the details before confirming or declining.</li>
+        <li><b>Does the AI confirm bookings for us?</b> No. Every AI booking waits for the office’s Confirm.</li>
+        <li><b>Which confirmation button should I use?</b> Use the one shown after review. Its label names the available email/text channels; read the result.</li>
+        <li><b>How do I find a recording?</b> Select the call in Calls. Use the audio controls if a recording is available.</li>
+        <li><b>How do I send work to a crew?</b> Confirm its Calendar assignment and use Send to a worker on the job for a field link.</li>
+        <li><b>Why is a price missing?</b> Check Library material names, units and prices. The app leaves an unmatched cost blank rather than guessing.</li>
+        <li><b>Why does a report show prices?</b> Check Include the quote. Reports are price-free when that option is off.</li>
+        <li><b>Can I change customer details after invoicing?</b> The job’s customer details lock after the invoice is sent. Check them beforehand.</li>
+        <li><b>Where do I record a payment?</b> On the job’s sent invoice: Record payment, then Save payment. Check the balance before repeating an entry.</li>
+        <li><b>Where do I ask for help?</b> Open Guide → Ask a question. Include the screen, job/customer reference and what you tried.</li>
+      </ol>
+      <h2>Status words</h2>
+      <p><b>Requests:</b> <b>Request</b> means the AI captured a request. <b>Callback</b> needs office follow-up. <b>Booking</b> has a chosen time awaiting confirmation. <b>Confirmed</b> means office-confirmed. <b>Job created</b> links to a job. <b>Declined</b> covers declined/cancelled requests. <b>Past booking</b> needs a new time. <b>Confirmation failed</b> needs checking and retrying.</p>
+      <p><b>Jobs:</b> <b>Open</b> or <b>Inspection</b> is early work; <b>Quoted</b> means the quote stage; <b>In Progress</b> is active work; <b>Complete</b> is finished work; <b>Invoiced</b> is the invoice stage. The progress strip can say <b>Working</b>, and set-price work can say <b>Booked</b> or <b>Done</b>. <b>Complete · Payment received</b> identifies a fully paid job.</p>
+      <p><b>Invoices:</b> <b>Draft</b> is for review, <b>Sent</b> has been sent, <b>Paid</b> is paid in full and <b>Void</b> is voided. A partial payment can leave a Sent invoice with a balance. <b>Past due</b> is an unpaid balance beyond its due date.</p>
+      <p><b>Color:</b> Attention and warning labels differ from success and neutral labels. Read the words: Calendar crew colors identify resources, while red Urgent/Escalated marks a need for attention.</p>
+      <footer>Luxor CRM · Client staff guide · 14 / 14</footer>
+    </section>
+  </body>
+</html>
