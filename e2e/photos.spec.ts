@@ -43,8 +43,10 @@ test.describe("Photos tab", () => {
     await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
     await page.mouse.down();
     await page.mouse.move(from.x + 20, from.y + 5, { steps: 4 }); // pass dnd-kit's activation distance
+    const saved = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes(`/api/jobs/${jobId}/photos`));
     await page.mouse.move(to.x + to.width / 2 + 10, to.y + to.height / 2, { steps: 15 });
     await page.mouse.up();
+    expect((await saved).ok(), "photo reorder must finish successfully before reload").toBe(true);
     await settle(page, 1200);
     await shot(page, "photos-after-drag");
 
@@ -54,9 +56,11 @@ test.describe("Photos tab", () => {
     await page.reload();
     await settle(page);
     await page.getByTestId("job-tab-photos").click(); // T-161: job sections are tabs now
-    await settle(page);
-    const shown = await page.getByRole("button", { name: /^Reorder / }).evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")?.replace("Reorder ", "")));
-    expect(shown, "the page shows the saved order after a reload").toEqual(await orderOf(owner, jobId));
+    const persisted = await orderOf(owner, jobId);
+    // The Photos chunk and its list fetch mount asynchronously. Network-idle may
+    // occur before that effect starts; wait for the actual ordered controls.
+    await expect(page.getByRole("button", { name: /^Reorder / })).toHaveCount(persisted.length);
+    await expect.poll(() => page.getByRole("button", { name: /^Reorder / }).evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")?.replace("Reorder ", ""))), { message: "the page shows the saved order after a reload" }).toEqual(persisted);
   });
 
   test("keyboard: space, arrow, space moves a photo and saves", async ({ as, isMobile }) => {
