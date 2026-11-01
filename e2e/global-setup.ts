@@ -26,8 +26,21 @@ export default async function globalSetup() {
       throw new Error(`Login failed for "${key}" (${account.email}). Is the harness seeded? Try: npm run e2e:seed. Page said: ${(await page.locator("body").innerText()).slice(0, 200)}`);
     }
     await page.waitForLoadState("networkidle").catch(() => {});
+    // /login writes a placeholder `__session=1`; AuthProvider swaps in the real ID token a moment later. Saving the
+    // placeholder made every spec using that account fail as "Invalid session" (401) — wait for the real token.
+    await expectRealSession(context, key);
     await context.storageState({ path: join(AUTH_DIR, `${key}.json`), indexedDB: true });
     await context.close();
   }
   await browser.close();
+}
+
+async function expectRealSession(context: import("@playwright/test").BrowserContext, key: string) {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const session = (await context.cookies()).find((c) => c.name === "__session");
+    if (session && session.value.length > 1) return;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`"${key}" signed in but never received a real session token (still the /login placeholder).`);
 }

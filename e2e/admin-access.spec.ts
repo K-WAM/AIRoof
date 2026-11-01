@@ -36,9 +36,13 @@ test("roofing owner cannot read another seeded tenant's records by id", async ()
   for (const path of paths) {
     // Prove the target really exists; a probe of a made-up ID proves nothing.
     must(await admin.get(`${path}?businessId=${businessId}`), "existing foreign record");
-    for (const tenant of [businessId, "e2e-roofing"]) {
-      const response = await owner.get(`${path}?businessId=${tenant}`);
-      expect([403, 404], path).toContain(response.status);
-    }
+    // Naming the other tenant is refused outright.
+    expect([403, 404], path).toContain((await owner.get(`${path}?businessId=${businessId}`)).status);
+    // Naming its own tenant may legitimately hit its OWN record (customer ids like C-1000 are numbered per tenant),
+    // but must never return the other tenant's record.
+    const own = await owner.get(`${path}?businessId=e2e-roofing`);
+    // Every foreign fixture carries `id` (job id, customer name, photo's job) or the dental call id.
+    if (own.status === 200) expect(own.text, path).not.toMatch(new RegExp(`${id}|${call.callId}`));
+    else expect([403, 404], path).toContain(own.status);
   }
 });
