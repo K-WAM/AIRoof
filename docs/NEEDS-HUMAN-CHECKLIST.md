@@ -175,6 +175,9 @@ change on luxordev.com: https://crm.luxordev.com/legal/terms · /legal/privacy �
 Have a Florida attorney review them before relying on them.
 
 ### Step 1 — Business profile (Twilio Trust Hub, 10 min)
+*A "business profile" is a form inside the SAME Twilio account ("My first Twilio account") — not a new account, not a
+subaccount, nothing changes on the phone line. Subaccounts are only worth it later, one per client (each client then registers
+its own brand).*
 1. **console.twilio.com** → left menu **Trust Hub** → **Customer Profiles** → **Create** a **Business** profile (not Individual).
 2. Enter Luxor Developments LLC exactly as on the IRS paperwork: legal name, **EIN**, business type LLC, address, website
    `https://www.luxordev.com`, and yourself as the authorized representative (name, title, email, phone).
