@@ -81,7 +81,7 @@ describe("buildInitiationResponse", () => {
   it("greets, gives the recording notice and the Spanish line, then ends on the question (caller's cue to talk)", () => {
     const response = buildInitiationResponse(config(), undefined, WEDNESDAY_10AM_ET);
     expect(response.conversation_config_override.agent?.first_message).toBe(
-      `Thanks for calling Apex Roofing. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help you today?`
+      `Hi! Thanks for calling Apex Roofing. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help you today?`
     );
   });
 
@@ -92,7 +92,7 @@ describe("buildInitiationResponse", () => {
       WEDNESDAY_10AM_ET
     );
     expect(response.conversation_config_override.agent?.first_message).toBe(
-      `Thanks for calling Apex Roofing, this is Alice. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help?`
+      `Hi! Thanks for calling Apex Roofing, this is Alice. ${DEFAULT_RECORDING_DISCLOSURE_EN} También hablamos español. How can I help?`
     );
   });
 
@@ -133,7 +133,7 @@ describe("buildInitiationResponse", () => {
       WEDNESDAY_10AM_ET
     );
     expect(response.conversation_config_override.agent?.first_message).toBe(
-      "Thanks for calling Apex Roofing. También hablamos español. How can I help you today?"
+      "Hi! Thanks for calling Apex Roofing. También hablamos español. How can I help you today?"
     );
   });
 

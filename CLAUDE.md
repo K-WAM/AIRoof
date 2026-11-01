@@ -357,6 +357,9 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 
 ## Phase 13–20 Key Files
 
+- **docs/ELEVENLABS-AGENT-PLAYBOOK.md — read before changing the live phone agent** (settings baseline, never-do list, test-branch +
+  simulation-test procedure, costs per minute, credit/renewal outage risks, ElevenLabs docs link).
+
 - src/lib/voice/types.ts + provider.ts + elevenlabs/ — the voice-provider seam: `voiceProviderOf(config)` (missing => "vapi"), `getVoiceProvider()`, `pushPersona`, `startOutboundCall`. **Only the phone call is provider-specific** — field notes (Whisper + gpt-4o), invoices, reports and the 7 booking tools never touch Vapi/ElevenLabs.
 - src/lib/voice/returningCaller.ts — returning-caller recognition (T-230): the ElevenLabs initiation webhook looks up the
   caller-ID number's upcoming visit + customer record while the phone rings (exact last-10-digit match, 800 ms budget, null on

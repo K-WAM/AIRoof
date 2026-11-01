@@ -13,7 +13,7 @@ export interface AiCostRate {
 }
 
 export const AI_COST_RATES: AiCostRate[] = [
-  { id: "phone_elevenlabs", feature: "Phone calls (live AI receptionist)", model: "ElevenLabs Agents — voice + its LLM", usd: 0.1, unit: "per minute" },
+  { id: "phone_elevenlabs", feature: "Phone calls (live AI receptionist)", model: "ElevenLabs Agents — voice (~$0.08) + gpt-4o (~$0.09); ~$0.09 total on gemini-2.5-flash", usd: 0.17, unit: "per minute" },
   { id: "phone_vapi", feature: "Phone calls on an older Vapi line", model: "Vapi — gpt-4o-mini + Deepgram + Vapi voice", usd: 0.12, unit: "per minute" },
   { id: "voice_note_transcribe", feature: "Field voice note → text (any language)", model: "OpenAI Whisper (whisper-1)", usd: 0.006, unit: "per minute of audio" },
   { id: "voice_note_read", feature: "Reading a note into materials, labor, issues", model: "OpenAI gpt-4o", usd: 0.01, unit: "per note" },

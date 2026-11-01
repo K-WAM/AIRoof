@@ -6,7 +6,7 @@
   `end_call` mid-booking ("reason: continue collecting details" — 2 of 3 calls hung up), asked a question and answered it
   itself, and spoke one sentence twice. The greeting ran ~17 s (notice + after-hours speech + Spanish line) and never ended
   on a question, so callers didn't know when to talk.
-- **Live agent now (`agtvrsn_2401m6a4ask4f7x802t51d7mcpqc`):** gpt-4o (owner preference; same-prompt tests: natural calls 12/12,
+- **Live agent now (`agtvrsn_4901m6a6fbj8f30bqkstt1xzncax`, renamed "Alice — LIVE roofing demo line (689 / 778)", filler 2.0 s):** gpt-4o (owner preference; same-prompt tests: natural calls 12/12,
   booking rules 39/46 vs gemini 37/44, p50 first token 0.53 s vs 0.67 s), parallel tool calls OFF,
   `end_call` description = only after the caller says goodbye; voice: expressive mode off, no audio tags, speed 0.92,
   stability 0.6; filler at 2.5 s in English unless the caller's own last words were Spanish.
@@ -15,6 +15,8 @@
   "How a natural call goes" (one thing per turn, never repeat, ≤2 times offered, ask phone/access/email before booking,
   never hang up mid-booking). Evidence: simulated callers 12/12 on gemini (`suite_0001m6a441v3e7yv4jeczx8fh6hf`) and 12/12 on
   gpt-4o (`suite_5601m6a46r3yf4er94kvd3hfwye0`). Rollback: gemini-2.5-flash, thinking 0 (`agtvrsn_4901m6a3k7pqftza9hjgr11t8yrh`).
+- **Rules + docs link + costs + credit outage risk:** `docs/ELEVENLABS-AGENT-PLAYBOOK.md`. Greeting now opens with "Hi!"
+  (the line swallowed the first half-second of one call). Creator credits cannot overrun: line stops when they run out.
 - **Rule:** don't switch the live LLM or turn on parallel tool calls without running the "Natural 1031" simulation tests
   on the test branch `agtbrch_9601m67n0mr3eawv3n43yn4cjpvt` first.
 

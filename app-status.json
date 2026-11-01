@@ -37,6 +37,7 @@
     }
   },
   "alerts": [
-    { "level": "warning", "due": "2027-01-14", "text": "OpenAI shuts down gpt-4o, gpt-4o-mini and gpt-4.1 in its API; the phone line went back to gpt-4o on 2026-10-31 for natural turn-taking, so move it (gemini-2.5-flash passed the same tests) along with the browser demo agent, field-note reading and call-summary fallback." }
+    {"level": "warning", "due": "2026-11-24", "text": "ElevenLabs Creator credits reset (214,953/month). The plan cannot go over its credits: when they run out the phone line stops answering. Move to a bigger plan before a client goes live."},
+    {"level": "warning", "due": "2027-01-14", "text": "OpenAI shuts down gpt-4o, gpt-4o-mini and gpt-4.1 in its API. The phone line runs gpt-4o again since 2026-10-31; move it (gemini-2.5-flash passed the same tests), the browser demo, field-note reading and call summaries."}
   ]
 }

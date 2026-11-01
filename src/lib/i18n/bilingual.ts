@@ -25,6 +25,9 @@ export function phoneGreeting(hello: string, notice?: string | null): string {
   const sentences = hello.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [];
   if (sentences.length === 0) return "";
   const question = /\?$/.test(sentences[sentences.length - 1]) ? sentences.pop()! : DEFAULT_OPENING_QUESTION;
+  // The phone line can swallow the first half-second while the call connects (owner's 2026-10-31 call lost the start
+  // of "Thanks for calling…"), so open with a throwaway "Hi!" unless the greeting already starts with a hello.
+  if (sentences.length && !/^(hi|hello|hey|good (morning|afternoon|evening))\b/i.test(sentences[0])) sentences.unshift("Hi!");
   const parts = [...sentences, notice?.trim() || ""];
   if (!/español|espanol/i.test(hello)) parts.push(SPANISH_INVITE);
   parts.push(question);
