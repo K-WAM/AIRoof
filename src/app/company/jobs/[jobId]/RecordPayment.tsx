@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 // The invoice's money panel (Billing product, no Stripe): what's been paid, what's still owed, and "Record payment" —
 // the office logs money the customer paid them directly (cash, check, Zelle, their own card reader…). Partial payments
 // add up; the payment that covers the total marks the invoice Paid. The customer gets an emailed receipt.
@@ -74,6 +76,7 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "The payment could not be saved."); return; }
+      track("payment_recorded", { job_id: jobId, count: 1 });
       const next = data.invoice as JobInvoice;
       setInvoice(next);
       setOpen(false);

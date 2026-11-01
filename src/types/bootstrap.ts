@@ -13,6 +13,8 @@ import type { CompanyModule } from "@/hooks/useBusinessModules";
 export interface CompanyBootstrap {
   business: {
     businessId: string;
+    /** Server-derived from the existing business read; absent in old caches (analytics denies). */
+    isDemo?: boolean;
     businessName: string;
     industry: VerticalId | null;
     timezone: string;

@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 // What a locked tab opens (owner, 2026-10-08): "the client should see the tabs for the rest, greyed out or locked …
 // upgrade required, contact connect@luxordev.com". One screen per product: what it does, what they'd get, ONE button
 // that tells Luxor (recorded on the client so the superadmin sees who asked) — and the email address as the fallback.
@@ -45,6 +47,7 @@ export default function UpgradePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ businessId, product: product!.id }),
       });
+      if (res.ok) track("upgrade_requested", { count: 1 });
       setState(res.ok ? "sent" : "error");
     } catch {
       setState("error");

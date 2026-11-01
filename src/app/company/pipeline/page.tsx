@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -361,6 +363,7 @@ export default function PipelinePage() {
   async function decideLead(lead: Lead, status: "booked" | "lost", reason?: RequestDeclineReason, customMessage?: string, notifyChannel?: "sms" | "email" | "none") {
     const res = await fetch(`/api/businesses/${businessId}/leads/${lead.leadId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, status, ...(notifyChannel ? { notifyChannel } : {}), ...(reason ? { declineReason: reason, customMessage } : {}) }) });
     if (!res.ok) throw new Error("Request decision failed");
+    track("request_reviewed", { request_id: lead.leadId });
     const data = await res.json() as { noEmail?: boolean; notifiedCustomer?: boolean };
     setLeads((previous) => previous.map((item) => item.leadId === lead.leadId ? { ...item, status } : item));
     setSelectedLead((current) => current?.leadId === lead.leadId ? { ...current, status } : current);
@@ -391,6 +394,7 @@ export default function PipelinePage() {
     const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
     if (!res.ok) throw new Error("Job creation failed");
     const { job, created } = await res.json() as { job: { jobId: string }; created?: boolean };
+    if (created !== false) track("job_created", { job_id: job.jobId });
     // One request makes one job. Opening the existing one without a word read as "it opened a random old job".
     if (created === false && !window.confirm(`This request already has ${vocab.jobNoun.toLowerCase()} ${job.jobId}. Open it?`)) return;
     window.location.href = `/company/jobs/${job.jobId}${previewSuffix}`;
@@ -437,6 +441,7 @@ export default function PipelinePage() {
       });
       if (res.ok) {
         const data = await res.json().catch(() => ({} as { notifiedChannels?: ConfirmChannel[]; staffNotified?: number }));
+        track("request_reviewed", { request_id: appt.appointmentId });
         setConfirmedSet((prev) => new Set(prev).add(appt.appointmentId));
         setConfirmedThisVisit((prev) => new Set(prev).add(appt.appointmentId));
         setAppointments((prev) =>

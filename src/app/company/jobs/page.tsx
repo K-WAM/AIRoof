@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { fmtPhone } from "@/lib/format/phone";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -149,6 +151,7 @@ export default function JobsPage() {
         window.location.href = `/company/jobs/${data.job.jobId}${previewSuffix}`;
         return;
       }
+      track("job_created", { job_id: data.job.jobId });
       setJobs((prev) => [data.job, ...prev]);
       setShowForm(false);
       setJustCreatedId(data.job.jobId);

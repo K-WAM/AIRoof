@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { analyticsReady, subscribeAnalyticsReady, track } from "@/lib/analytics/client";
+
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
@@ -293,6 +295,20 @@ export default function CompanyDashboardPage() {
 
   const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
+  const trackingReady = useSyncExternalStore(subscribeAnalyticsReady, analyticsReady, () => false);
+  const doneSteps = checklist.filter((item) => item.done).map((item) => item.id).join(",");
+  useEffect(() => {
+    if (!trackingReady || !setup || !user?.uid || !businessId) return;
+    try {
+      const key = `lx:analytics:setup:${user.uid}:${businessId}`;
+      const previous = new Set<string>(JSON.parse(sessionStorage.getItem(key) ?? "[]"));
+      for (const step of doneSteps.split(",").filter(Boolean)) {
+        if (!previous.has(step)) track("setup_step_done", { step_id: step });
+        previous.add(step);
+      }
+      sessionStorage.setItem(key, JSON.stringify([...previous]));
+    } catch { /* storage is optional */ }
+  }, [trackingReady, setup, user?.uid, businessId, doneSteps]);
   const checklistDone = checklist.filter((item) => item.done).length;
   const nextItemId = checklist.find((item) => !item.done)?.id;
   const nextItem = checklist.find((item) => !item.done);

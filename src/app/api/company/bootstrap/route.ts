@@ -1,3 +1,4 @@
+import { isDemoTenant } from "@/lib/accounts/purpose";
 import { productsOf, type ProductSet } from "@/lib/products/products";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -53,6 +54,7 @@ export async function GET(req: NextRequest) {
   const body: CompanyBootstrap = {
     business: {
       businessId,
+      isDemo: isDemoTenant(businessId, d),
       businessName: typeof d.businessName === "string" ? d.businessName : "",
       industry,
       timezone: typeof d.timezone === "string" && d.timezone.length > 0 ? d.timezone : "America/New_York",

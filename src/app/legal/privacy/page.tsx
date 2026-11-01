@@ -14,7 +14,7 @@ const PROVIDERS: Array<[string, string]> = [
   ["Twilio", "phone numbers, calls and text messages"],
   ["Vapi", "phone calls on lines set up on our earlier phone platform"],
   ["Resend", "sending email"],
-  ["PostHog", "counting which pages are viewed (page names only, not what you type)"],
+  ["PostHog", "pages, product actions, errors and session replays with typed text and on-screen text masked"],
   ["Stripe", "paying Luxor’s own invoices (we never see full card numbers)"],
 ];
 
@@ -50,8 +50,8 @@ export default function PrivacyPage() {
         <li><strong>Job and field details:</strong> job notes, voice notes, photos, materials and labor, time-clock entries, quotes, invoices and reports.</li>
         <li><strong>Billing details:</strong> plan, invoices and payment status. Card payments are handled by Stripe; we do not store full card numbers.</li>
         <li>
-          <strong>Device and usage details:</strong> a sign-in cookie, the pages viewed, and technical logs such as IP address, browser
-          type and time of access. We do not use advertising cookies or track you across other websites.
+          <strong>Device and usage details:</strong> a sign-in cookie, pages viewed, product actions, errors, performance, session replays
+          with typed text and on-screen text masked, and technical logs such as IP address, browser type and time of access. We do not use advertising cookies or track you across other websites.
         </li>
       </ul>
       <p>Please do not give us Social Security numbers, full payment card or bank numbers, or health information. The Service is not built for them.</p>
@@ -60,14 +60,16 @@ export default function PrivacyPage() {
       <ul>
         <li>to answer and transcribe calls, book appointments, and send the confirmations and notices a business or its customer asked for;</li>
         <li>to run, secure, support and improve the Service, and to prevent fraud and misuse;</li>
+        <li>to let authorized Luxor staff view account data, recordings and transcripts for support, troubleshooting, quality checks and bug fixes;</li>
+        <li>to use Customer Data, including transcripts and recordings, internally to test, tune and improve our own receptionist and features;</li>
+        <li>to understand usage patterns from pages, product actions, errors and masked session replays, linked to user IDs, business IDs and roles rather than names or emails;</li>
         <li>to bill for the Service and communicate with account holders;</li>
         <li>to reply to prospects who ask us to contact them; and</li>
         <li>to comply with the law and enforce our <a href={LEGAL_PATHS.terms}>Terms of Service</a>.</li>
       </ul>
       <p>
         <strong>We do not sell personal information</strong>, and we do not use one business’s customer information to market to anyone
-        else. Where an AI provider offers a setting that limits its use of data to providing the service, we choose it; each provider’s
-        own terms also apply.
+        else. We do not give Customer Data to third parties to train their general AI models. Where an AI provider offers a setting that stops it from training on our data, we choose it; each provider’s own terms also apply.
       </p>
 
       <h2>4. Who we share information with</h2>

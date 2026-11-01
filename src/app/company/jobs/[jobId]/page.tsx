@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
 import { fmtPhone } from "@/lib/format/phone";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -705,6 +707,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes }),
       });
       if (res.ok) {
+        track("report_sent", { job_id: jobId });
         setReportSent(true);
         setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
       } else {
@@ -764,6 +767,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         body: JSON.stringify({ businessId, to: sendEmail.trim() }),
       });
       if (res.ok) {
+        track("invoice_sent", { job_id: jobId });
         setSendSuccess(true);
         const to = sendEmail.trim();
         setSendEmail("");
