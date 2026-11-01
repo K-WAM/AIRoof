@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { setAnalyticsBusiness } from "@/lib/analytics/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import type { CompanyBootstrap } from "@/types/bootstrap";
@@ -110,6 +111,11 @@ export function BootstrapProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(() => {
     if (businessId) load(businessId, true);
   }, [businessId, load]);
+
+  useEffect(() => {
+    setAnalyticsBusiness(data?.business ?? null);
+  }, [data]);
+  useEffect(() => () => setAnalyticsBusiness(null), []);
 
   return (
     <BootstrapContext.Provider value={{ data, ready, refresh }}>

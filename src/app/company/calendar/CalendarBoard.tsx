@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { confirmButtonLabel, confirmChannels, notifiedPhrase } from "@/lib/comms/confirmChannels";
@@ -378,6 +380,7 @@ export default function CalendarBoard() {
       )),
       fallbackError: "The assignment could not be saved. The calendar was restored; try again.",
     });
+    if (result.ok) track("crew_assigned", { job_id: jobId, crew_id: crewId });
     if (!result.ok) setCalendarError(result.error ?? "The assignment could not be saved.");
   }
 
@@ -419,6 +422,7 @@ export default function CalendarBoard() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        track("crew_confirmed", { job_id: job.jobId, crew_id: job.assignedCrewId });
         setJobs((prev) => prev.map((j) => (j.jobId === job.jobId ? { ...j, crewConfirmed: true } : j)));
         if (data.notificationStatus === "failed") {
           setCalendarError("The assignment is saved, but a crew email failed. Try Confirm again to retry delivery.");

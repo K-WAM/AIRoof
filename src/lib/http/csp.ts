@@ -21,6 +21,7 @@ export function buildCsp({ nonce, voiceDemo }: CspOptions = {}): string {
     // 'unsafe-eval' is only for `next dev` (React's dev tooling); a production build never evals.
     dev ? "'unsafe-eval'" : "",
     voiceDemo ? "'wasm-unsafe-eval'" : "",
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? "https://us-assets.i.posthog.com" : "",
   ].filter(Boolean).join(" ");
   const connect = [
     "'self'",
@@ -30,7 +31,7 @@ export function buildCsp({ nonce, voiceDemo }: CspOptions = {}): string {
     // 'self' and every fetch/XHR to them is silently blocked (this was a live
     // incident: "Firebase: Error (auth/network-request-failed)" on /login).
     "https://*.googleapis.com",
-    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? "https://us.i.posthog.com" : "",
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ? "https://us.i.posthog.com https://us-assets.i.posthog.com" : "",
     process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL ?? "",
     voiceDemo ? "https://api.elevenlabs.io wss://api.elevenlabs.io" : "",
   ].filter(Boolean).join(" ");

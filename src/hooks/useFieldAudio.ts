@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { FieldMaterial, FieldLaborEntry, FieldTimelineEvent, ProposedCorrection } from "@/types/jobs";
 
@@ -119,6 +121,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        track("field_note_sent", { job_id: targetJobId });
         setProposedCorrection(null);
         setProposedFor(null);
         setStatus("success");
@@ -220,14 +223,17 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
               setStatus(null);
             } else if (res.ok && data.success) {
               setTranscript(data.transcript || "");
+              track("field_note_sent", { job_id: jobId ?? undefined });
               setLastResult(data);
               setStatus("success");
               options.onSuccess?.({ ...data, jobId: data.jobId ?? jobId ?? undefined });
             } else {
+              track("field_note_failed", { job_id: jobId ?? undefined });
               setErrorMessage(typeof data.error === "string" ? data.error : res.ok ? "No speech heard — hold the button while you talk." : null);
               setStatus("error");
             }
           } catch {
+            track("field_note_failed", { job_id: jobId ?? undefined });
             setStatus("error");
           } finally {
             stopProgress();

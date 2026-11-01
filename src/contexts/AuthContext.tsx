@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { setAnalyticsUser } from "@/lib/analytics/client";
 import type { User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { clearCachedProfile, readCachedProfile, writeCachedProfile } from "@/lib/auth/profileCache";
@@ -161,6 +162,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    setAnalyticsUser(user);
+  }, [user]);
+  useEffect(() => () => setAnalyticsUser(null), []);
 
   return (
     <AuthContext.Provider value={{ user, loading, idToken }}>

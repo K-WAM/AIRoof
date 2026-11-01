@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 // One way to send a field note, shared by both field screens (the signed-in /company/field and the no-login QR
 // /field) — 2026-10-04 field-update pass. It exists to make three things impossible to get wrong:
 //   1. WHICH JOB: the job the note goes to is printed right above the button, in words, before anyone talks; a crew
@@ -103,9 +105,11 @@ export function FieldNoteComposer({
         body: JSON.stringify({ businessId, submittedBy: authorName || undefined, ...body }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setTypedError(typeof data.error === "string" ? data.error : "Not saved. Check your signal and try again."); return null; }
+      if (!res.ok) { track("field_note_failed", { job_id: targetJobId }); setTypedError(typeof data.error === "string" ? data.error : "Not saved. Check your signal and try again."); return null; }
+      if (!data.proposedCorrection) track("field_note_sent", { job_id: targetJobId });
       return data as { proposedCorrection?: ProposedCorrection; changesSummary?: string; submittedBy?: string; jobId?: string };
     } catch {
+      track("field_note_failed", { job_id: targetJobId });
       setTypedError("Not saved — no connection. Your text is still here; try again.");
       return null;
     } finally { setSavingText(false); }

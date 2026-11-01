@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { useState, useRef } from "react";
 import { Send } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -86,6 +88,7 @@ export function FeedbackForm({ open, onClose, mode = "feedback" }: Props) {
         throw new Error(data.error ?? "We couldn't send your message. Please try again.");
       }
 
+      track("feedback_sent", { count: 1 });
       setStatus("sent");
     } catch (err) {
       setStatus("error");

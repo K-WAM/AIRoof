@@ -1,5 +1,7 @@
 "use client";
 
+import { track } from "@/lib/analytics/client";
+
 import { roundCents } from "@/lib/format/money";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Job } from "@/types/jobs";
@@ -228,6 +230,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
     try {
       const r = await fetch(`/api/jobs/${job.jobId}/quote/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, to: to.trim() }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not send quote");
+      track("quote_sent", { job_id: job.jobId });
       setQuote((current) => (current ? { ...current, status: "sent", sentTo: to.trim(), sentAt: Date.now() } : current));
       if (["open", "inspection"].includes(job.status)) onStatus("quoted");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not send quote"); }
