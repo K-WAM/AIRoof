@@ -30,6 +30,7 @@ export const test = base.extend<{ as: (role: Role) => Promise<Page> }>({
         storageState: join(__dirname, ".auth", `${role}.json`),
         viewport: u.viewport ?? { width: 1280, height: 800 },
         isMobile: u.isMobile, hasTouch: u.hasTouch, deviceScaleFactor: u.deviceScaleFactor,
+        userAgent: u.userAgent,
       });
       contexts.push(context);
       const page = await context.newPage();

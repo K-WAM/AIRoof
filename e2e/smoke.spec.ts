@@ -63,7 +63,7 @@ test.describe("industry gating", () => {
   test("roofing shows Jobs, dental does not", async ({ as }, testInfo) => {
     // On a phone the routes live in the Menu (T-159), not in header shortcuts.
     const openNav = async (page: import("@playwright/test").Page) => {
-      if (testInfo.project.name === "phone") await page.getByRole("button", { name: "Open menu" }).click();
+      if (testInfo.project.use.isMobile) await page.getByRole("button", { name: "Open menu" }).click();
     };
     const roofing = await as("owner");
     await roofing.goto("/company/dashboard");
