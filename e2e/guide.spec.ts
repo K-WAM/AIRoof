@@ -8,6 +8,9 @@ test("owner opens their own page, switches roles, and can ask a question", async
   await expect(page.getByRole("heading", { name: "E2E Roofing Co" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Owner" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("See the business at a glance, and get paid")).toBeVisible();
+  const guidebook = page.getByRole("link", { name: "Printable guidebook (PDF-ready)" });
+  await expect(guidebook).toHaveAttribute("href", "/guides/user-guidebook.html");
+  expect((await page.request.get("/guides/user-guidebook.html")).status()).toBe(200);
   await settle(page);
   await expectHealthy(page);
   await shot(page, "guide-owner");
