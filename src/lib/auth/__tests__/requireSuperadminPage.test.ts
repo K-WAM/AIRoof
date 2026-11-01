@@ -11,9 +11,10 @@ describe("privileged page gate", () => {
     await expect(requireSuperadminPage("/admin")).rejects.toThrow("/login?next=%2Fadmin");
     expect(mocks.verify).not.toHaveBeenCalled();
   });
-  it("redirects invalid or expired sessions to login", async () => {
+  it("asks the browser to refresh an unverifiable cookie (sign-in placeholder, expired token) instead of bouncing to login", async () => {
     mocks.token = "expired"; mocks.verify.mockResolvedValue(null);
-    await expect(requireSuperadminPage("/hub")).rejects.toThrow("/login?next=%2Fhub");
+    await expect(requireSuperadminPage("/hub")).resolves.toBe("refresh");
+    expect(mocks.confirm).not.toHaveBeenCalled();
   });
   it("rejects a stale profile role or revoked live claim", async () => {
     mocks.token = "member"; mocks.verify.mockResolvedValue({ uid: "u", role: "superadmin" });
@@ -23,6 +24,6 @@ describe("privileged page gate", () => {
   it("allows only a confirmed live claim", async () => {
     mocks.token = "admin"; mocks.verify.mockResolvedValue({ uid: "u", superadmin: true });
     mocks.confirm.mockResolvedValue(true);
-    await expect(requireSuperadminPage("/hub")).resolves.toBeUndefined();
+    await expect(requireSuperadminPage("/hub")).resolves.toBe("ok");
   });
 });

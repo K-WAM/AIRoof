@@ -1,7 +1,8 @@
 import { requireSuperadminPage } from "@/lib/auth/requireSuperadminPage";
+import { SessionRefresh } from "@/components/auth/SessionRefresh";
 import ClientShell from "./ClientShell";
 
 export default async function Layout({ children }: { children: React.ReactNode }) {
-  await requireSuperadminPage("/admin");
+  if ((await requireSuperadminPage("/admin")) === "refresh") return <SessionRefresh />;
   return <ClientShell>{children}</ClientShell>;
 }
