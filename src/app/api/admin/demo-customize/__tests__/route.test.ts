@@ -440,6 +440,11 @@ describe("demo-customize route", () => {
 
       const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
       expect(lockDoc?.locked).toBe(false);
+      const business = fs.documents.get("businesses/demo-roofing")!;
+      expect(business.fieldKey).not.toBe("abcd1234abcd1234abcd1234abcd1234");
+      expect(String(business.fieldKey)).toHaveLength(64);
+      expect(business.fieldKeyRotatedAt).toEqual(expect.any(Number));
+      expect(mocks.mintFieldExchangeToken).toHaveBeenCalledWith("demo-roofing", business.fieldKey);
     });
   });
 
@@ -664,7 +669,7 @@ describe("demo-customize route", () => {
       expect(body.fieldUrl).not.toContain("key=");
       expect(mocks.mintFieldExchangeToken).toHaveBeenCalledWith(
         "demo-roofing",
-        "abcd1234abcd1234abcd1234abcd1234",
+        fs.documents.get("businesses/demo-roofing")?.fieldKey,
       );
 
       const lockDoc = fs.documents.get("businesses/demo-roofing/backups/lock");
