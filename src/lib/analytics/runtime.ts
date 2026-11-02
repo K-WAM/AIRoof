@@ -71,7 +71,7 @@ export function startAnalytics() {
       if (client) posthog.identify(user!.uid); // no email/name; $identify is filtered, subsequent events carry uid
     }
     if (client) {
-      posthog.register({ business_id: business!.businessId, industry: business!.industry, role: user!.role });
+      posthog.register({ app: "crm", business_id: business!.businessId, industry: business!.industry, role: user!.role });
       bindAnalytics((event, props) => posthog.capture(event, props));
     } else {
       bindAnalytics(null);

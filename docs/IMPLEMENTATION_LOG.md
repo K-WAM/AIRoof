@@ -2054,3 +2054,14 @@ Owner: "do the overview page" (a superadmin dashboard with clients, users, usage
 - Invoices page: `?invoice=LX-…` opens that invoice (used by every invoice link on the Overview).
 - PostHog was not used for this: it records anonymous page names only (T-207), so it can't say which client is active.
 - Checks: unit tests (lib 9, route 2, page 3, invoices 4), `tsc`, eslint, smoke spec 75 passed / 1 skipped; desktop + phone screenshots read.
+
+
+## T-229 A4 — Capture scrubbed server exceptions (2026-11-02, Codex)
+
+Commit: `T-229 A4: Capture scrubbed server errors in PostHog` (this commit, branch `wt/errors`).
+
+- Added Next 15 `onRequestError`, production/token/harness/test gates, and background `after()` delivery with fire-and-forget fallback. Sender uses a masked surrogate with posthog-node captureException, flushAt 1, awaited shutdown, no retries, and a 2-second abort/deadline; every failure is contained.
+- Events retain exception type, masked value and source frames (file/line/column/function); Next route template without query/hash, method, route type, fixed host/app/runtime/server identity and public token. No request URL, headers, bodies, cookies, parameter values or original error reaches the SDK. Person profiles and geo-IP disabled. Per-instance limits: one type+route per minute; 200 captures per rolling hour.
+- Browser register/filter now retain app=crm. Added posthog-node dependency and synchronized its lock entries from the already-installed package metadata without running npm install or modifying the node_modules junction. CSP and Cache-Control need no change; existing provider/hosting/readiness facts in app-status.json remain accurate. No removals.
+- Evidence: tsc --noEmit; eslint on all changed TS files; vitest related (41 tests); vitest run src/lib/analytics (45 tests); one next build (passed; existing CSS/lint warnings). Actual installed SDK captureException+shutdown also verified against a mocked transport, including masked event, fixed server identity and no person profile. No network calls or Playwright/harness runs.
+- Unproven: production ingestion, alert email, and Vercel request lifetime retention. No deploy, push or merge. Remaining A4/dashboard work and other T-229 phases are not marked complete.

@@ -35,7 +35,7 @@ describe("deferred analytics lifecycle", () => {
     const { startAnalytics, track, setAnalyticsUser } = await setup();
     const stop = startAnalytics();
     expect(sdk.identify).toHaveBeenCalledWith("user-1");
-    expect(sdk.register).toHaveBeenCalledWith({ business_id: "business-1", industry: "roofing", role: "owner" });
+    expect(sdk.register).toHaveBeenCalledWith({ app: "crm", business_id: "business-1", industry: "roofing", role: "owner" });
     expect(sdk.startSessionRecording).not.toHaveBeenCalled();
     onIdle(); expect(sdk.startSessionRecording).toHaveBeenCalled();
     track("invoice_sent", { job_id: "J-1" }); expect(sdk.capture).toHaveBeenCalledWith("invoice_sent", { job_id: "J-1" });

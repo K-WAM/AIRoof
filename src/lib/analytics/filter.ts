@@ -29,7 +29,7 @@ export function beforeSend(event: CaptureResult | null): CaptureResult | null {
   if (!client && !(event.event === "$pageview" && publicPage && !user)) return null;
   if (!page || (event.event === "$snapshot" && (!client || !replayAllowed(path)))) return null;
   const properties: Record<string, unknown> = {
-    page, $current_url: `https://crm.luxordev.com${page}`, $pathname: page, $host: "crm.luxordev.com",
+    app: "crm", page, $current_url: `https://crm.luxordev.com${page}`, $pathname: page, $host: "crm.luxordev.com",
     $session_id: event.properties.$session_id, $window_id: event.properties.$window_id,
     // `token` is the public project key PostHog requires on every event — without it the SDK silently drops the event
     // ("had its 'token' property removed in a beforeSend function"); that is why no CRM event arrived before 2026-11-02.
