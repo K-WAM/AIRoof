@@ -174,7 +174,7 @@ export function FieldNoteComposer({
           onPointerLeave={onPointerLeave}
           onPointerCancel={onPointerLeave}
           onContextMenu={(e) => e.preventDefault()}
-          disabled={!ready || working}
+          disabled={!ready || working || !!audio.unsavedRecordingJobId}
           style={{
             width: 112, height: 112, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
             border: recording ? "3px solid #f97316" : "2px solid #334155",
@@ -197,6 +197,10 @@ export function FieldNoteComposer({
       {error && (
         <div role="alert" data-testid="note-error" style={{ ...card, background: "#2d0f0f", border: "1px solid #7f1d1d", color: "#fca5a5" }}>{error}</div>
       )}
+
+      {audio.unsavedRecordingJobId && <button className="button" disabled={working} onClick={() => void audio.retryRecording()}>
+        Retry saving recording for {audio.unsavedRecordingJobId}
+      </button>}
 
       {receipt && (
         <div role="status" data-testid="note-receipt" style={{ ...card, background: "#0f2d1a", border: "1px solid #166534", color: "#bbf7d0" }}>

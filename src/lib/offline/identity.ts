@@ -3,7 +3,11 @@ import { getFirebaseAuth } from "@/lib/firebase/client";
 export interface OfflineIdentity { uid: string; businessId?: string; preview?: boolean }
 let identity: OfflineIdentity | null = null;
 let revision = 0;
-export function setOfflineIdentity(next: OfflineIdentity | null) { identity = next; revision++; }
+export function setOfflineIdentity(next: OfflineIdentity | null) {
+  if (identity?.uid === next?.uid && identity?.businessId === next?.businessId && !!identity?.preview === !!next?.preview) return;
+  identity = next; revision++;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("luxor-identity"));
+}
 export function offlineIdentity() { return identity; }
 export function identityRevision() { return revision; }
 
@@ -22,12 +26,13 @@ export async function fieldIdentity(): Promise<OfflineIdentity | null> {
     if (!session.offlineOwner) return null;
     const next = { uid: session.offlineOwner, businessId: session.businessId };
     sessionStorage.setItem("luxor-offline-field", JSON.stringify(next));
-    identity = next;
+    setOfflineIdentity(next);
     return next;
   } catch {
     try {
       const saved = JSON.parse(sessionStorage.getItem("luxor-offline-field") ?? "null");
-      return saved?.uid?.startsWith("field:") ? saved : null;
+      if (saved?.uid?.startsWith("field:")) { setOfflineIdentity(saved); return saved; }
+      return null;
     } catch { return null; }
   }
 }

@@ -1,10 +1,10 @@
 import { offlineStore } from "./db";
-import { fieldIdentity, identityRevision, type OfflineIdentity } from "./identity";
+import { fieldIdentity, identityRevision, offlineIdentity, type OfflineIdentity } from "./identity";
 
 export interface OutboxItem {
   id: string; uid: string; url: string; businessId: string; jobId?: string; author: string;
   body: Record<string, unknown>; audio?: Blob; createdAt: number; attempts: number; nextAt: number;
-  responseStatus?: number; state: "waiting" | "rejected" | "sent" | "confirmation"; error?: string; result?: Record<string, unknown>;
+  responseStatus?: number; kept?: boolean; state: "waiting" | "rejected" | "sent" | "confirmation"; error?: string; result?: Record<string, unknown>;
 }
 const changed = () => { if (typeof window !== "undefined") window.dispatchEvent(new Event("luxor-outbox")); };
 export const listOutbox = async (uid: string) => (await offlineStore<OutboxItem[]>("outbox", "readonly", s => s.getAll())).filter(i => i.uid === uid).sort((a,b) => a.createdAt - b.createdAt);
@@ -15,6 +15,44 @@ export async function deleteOutboxItem(uid: string, id: string) {
 }
 export async function clearOutbox(uid: string) { for (const item of await listOutbox(uid)) await deleteOutboxItem(uid, item.id); }
 async function save(item: OutboxItem) { await offlineStore("outbox", "readwrite", s => s.put(item)); changed(); }
+
+export async function keepOutboxItem(uid: string, id: string) {
+  await offlineStore("outbox", "readwrite", store => {
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const item = request.result as OutboxItem | undefined;
+      if (item?.uid === uid && item.state === "rejected") store.put({ ...item, kept: true });
+    };
+    return request;
+  });
+  changed();
+}
+
+function acknowledged(url: string, data: Record<string, unknown>) {
+  if (data.proposedCorrection) return true;
+  if (url.endsWith("/field-audio")) return typeof data.success === "boolean";
+  if (url.endsWith("/photos")) return data.ok === true && typeof data.photoId === "string";
+  if (url.endsWith("/punch")) return data.ok === true && !!data.day;
+  const update = data.update as { updateId?: unknown } | undefined;
+  return data.corrected === true || typeof update?.updateId === "string";
+}
+
+/** Convert a proposal in one transaction. Double taps/reloads cannot create two confirmations. */
+export async function confirmOutboxItem(uid: string, id: string) {
+  await offlineStore("outbox", "readwrite", store => {
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const item = request.result as OutboxItem | undefined;
+      if (!item || item.uid !== uid || item.state !== "confirmation") return;
+      item.body = { businessId: item.businessId, submittedBy: item.author, confirmCorrection: item.result?.proposedCorrection, clientRequestId: `${item.id}-confirm`, clientCreatedAt: Date.now() };
+      item.state = "waiting"; item.attempts = 0; item.nextAt = 0;
+      delete item.result; delete item.error; delete item.audio;
+      store.put(item);
+    };
+    return request;
+  });
+  changed();
+}
 
 export async function enqueueField(url: string, body: Record<string, unknown>, audio?: Blob, owner?: OfflineIdentity): Promise<OutboxItem> {
   const user = owner ?? await fieldIdentity();
@@ -38,7 +76,8 @@ export function flushOutbox(owner?: OfflineIdentity, send: typeof fetch = fetch,
     if (!user || user.preview || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
     const revision = identityRevision();
     for (const item of await listOutbox(user.uid)) {
-      if (item.state !== "waiting" || item.nextAt > now) continue;
+      if (item.state !== "waiting") continue;
+      if (item.nextAt > now) break;
       if (identityRevision() !== revision) break;
       if (!owner && (await fieldIdentity())?.uid !== user.uid) break;
       // Persist backoff BEFORE sending. A closed tab never erases an unacknowledged upload.
@@ -47,11 +86,15 @@ export function flushOutbox(owner?: OfflineIdentity, send: typeof fetch = fetch,
       await save(item);
       try {
         const res = await send(item.url, { method: "POST", headers: { "Content-Type": "application/json", "x-offline-owner": item.uid }, body: JSON.stringify(item.body) });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
+        const result = await res.json().catch(() => null);
+        const data: Record<string, unknown> = result && typeof result === "object" ? result : {};
+        if (res.ok && acknowledged(item.url, data)) {
           item.result = data;
           item.state = data.proposedCorrection ? "confirmation" : data.success === false ? "rejected" : "sent";
+          if (item.state === "rejected") item.error = typeof data.error === "string" ? data.error : "This entry was not accepted. Your phone copy is kept.";
           if (item.state === "sent") { item.body = {}; delete item.audio; }
+        } else if (res.ok) {
+          item.error = "The server did not confirm this entry. Your phone copy is kept.";
         } else {
           item.result = data; item.responseStatus = res.status;
           item.error = typeof data.error === "string" ? data.error : `Send failed (${res.status})`;
@@ -68,17 +111,48 @@ export function flushOutbox(owner?: OfflineIdentity, send: typeof fetch = fetch,
 }
 
 export async function fieldPost(url: string, init: RequestInit, audio?: Blob): Promise<Response> {
-  const item = await enqueueField(url, JSON.parse(String(init.body)), audio);
-  await flushOutbox();
-  const saved = (await listOutbox(item.uid)).find(i => i.id === item.id)!;
+  const owner = await fieldIdentity();
+  // Preserve the existing online superadmin flow without persisting preview data on the device.
+  if (owner?.preview) {
+    if (navigator.onLine === false) throw new Error("Preview changes need a connection. Your entry has not been sent.");
+    const body = { ...JSON.parse(String(init.body)), clientRequestId: crypto.randomUUID() };
+    const response = await fetch(url, { ...init, body: JSON.stringify(body) });
+    if (!response.ok) {
+      const data = await response.clone().json().catch(() => ({}));
+      throw new Error(typeof data.error === "string" ? data.error : "Not saved. Try again when you have signal.");
+    }
+    return response;
+  }
+  const item = await enqueueField(url, JSON.parse(String(init.body)), audio, owner ?? undefined);
+  await flushOutbox().catch(() => {});
+  const saved = (await listOutbox(item.uid).catch(() => [])).find(i => i.id === item.id);
+  if (!saved) return Response.json({ queued: true }, { status: 202 });
   if (saved.state === "waiting" || saved.state === "confirmation") return Response.json({ queued: true }, { status: 202 });
   if (saved.state === "rejected") return Response.json({ ...saved.result, error: saved.error ?? "Not accepted. Your entry is kept on this phone." }, { status: saved.responseStatus ?? 422 });
   return Response.json(saved.result);
 }
 
+let retryUsers = 0;
+let stopRetry: (() => void) | null = null;
 export function startOutboxRetry() {
-  const retry = () => { void flushOutbox().catch(() => {}); };
-  window.addEventListener("online", retry); window.addEventListener("focus", retry);
-  const timer = window.setInterval(retry, 30_000); retry();
-  return () => { clearInterval(timer); window.removeEventListener("online", retry); window.removeEventListener("focus", retry); };
+  retryUsers++;
+  if (!stopRetry) {
+    const retry = () => {
+      const user = offlineIdentity();
+      if (!user || user.preview) return;
+      void listOutbox(user.uid).then(items => {
+        if (items.some(i => i.state === "waiting")) return flushOutbox();
+      }).catch(() => {});
+    };
+    window.addEventListener("online", retry); window.addEventListener("focus", retry); window.addEventListener("luxor-identity", retry);
+    const timer = window.setInterval(retry, 30_000); retry();
+    stopRetry = () => {
+      window.clearInterval(timer); window.removeEventListener("online", retry); window.removeEventListener("focus", retry); window.removeEventListener("luxor-identity", retry);
+    };
+  }
+  let stopped = false;
+  return () => {
+    if (stopped) return; stopped = true;
+    if (--retryUsers === 0) { stopRetry?.(); stopRetry = null; }
+  };
 }

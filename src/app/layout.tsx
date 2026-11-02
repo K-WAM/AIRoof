@@ -1,3 +1,4 @@
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { PostHogPageViews } from "@/components/analytics/PostHogPageViews";
@@ -45,7 +46,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/logo.png" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body><PostHogPageViews />{children}</body>
+      <body><OfflineBanner /><PostHogPageViews />{children}</body>
     </html>
   );
 }

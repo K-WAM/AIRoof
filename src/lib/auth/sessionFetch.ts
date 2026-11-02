@@ -1,3 +1,5 @@
+import { fetchWithOfflineCache } from "@/lib/offline/readCache";
+
 // Keeps the __session cookie honest (owner's "Invalid session" on Generate Invoice, 2026-09-25).
 //
 // __session holds a Firebase ID token, which lives one hour. Two things went wrong:
@@ -80,7 +82,7 @@ export function installSessionRetry(refresh: () => Promise<string | null>): () =
     return inflight;
   };
 
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const sessionFetch: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const res = await original(input, init);
     if (res.status !== 401) return res;
     const url = requestUrl(input);
@@ -90,6 +92,8 @@ export function installSessionRetry(refresh: () => Promise<string | null>): () =
     const token = await refreshOnce();
     return token ? original(input, init) : res;
   };
+
+  window.fetch = (input, init) => fetchWithOfflineCache(input, init, sessionFetch);
 
   w.__sessionRetry = { users: 1, restore: () => { window.fetch = previous; } };
   return release;
