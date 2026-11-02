@@ -3740,10 +3740,10 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .calendar-schedule-form { padding: 16px; }
 .calendar-schedule-form fieldset { display: grid; gap: 12px; padding: 0; margin: 0 0 12px; border: 0; min-width: 0; }
 .calendar-schedule-form label { display: grid; gap: 5px; color: var(--text); font-size: 14px; }
-.calendar-schedule-form .calendar-notify { display: flex; align-items: center; gap: 8px; }
+.calendar-schedule-form .calendar-notify { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); }
 .calendar-notify input { width: 20px; height: 20px; flex: none; }
 .calendar-sheet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.calendar-item-title { border: 0; padding: 0; text-align: left; background: none; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.calendar-item-title { border: 0; padding: 0; width: 100%; min-height: var(--control-h); text-align: left; background: none; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
 .help-hint { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 22px; height: 22px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: help; }
 .help-hint-content { position: fixed; z-index: 250; width: 260px; max-width: calc(100vw - 16px); padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.5; white-space: pre-line; pointer-events: none; }
 .job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }

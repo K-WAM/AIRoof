@@ -35,7 +35,12 @@ test("scheduled job: reschedule, notify, undo, unschedule, and refuse overlap", 
   const page = await as("owner");
   if (!isMobile) await page.setViewportSize({ width: 1280, height: 1300 });
   await showDay(page, day, isMobile);
-  if (isMobile) await page.getByText(job.title, { exact: false }).filter({ visible: true }).first().click();
+  if (isMobile) {
+    const trigger = page.getByTestId(`calendar-agenda-job-${job.jobId}`).locator(".calendar-item-title");
+    await expect(trigger).toBeVisible();
+    expect((await trigger.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await trigger.click();
+  }
   else {
     const source = page.getByTestId(`calendar-cell-${crew.crewId}-${dateKey(day)}`).getByText(job.title, { exact: true });
     const target = page.getByTestId(`calendar-cell-${other.crewId}-${dateKey(nextDay)}`);
@@ -49,6 +54,7 @@ test("scheduled job: reschedule, notify, undo, unschedule, and refuse overlap", 
   }
   const sheet = page.getByRole("dialog", { name: job.title });
   await expect(sheet.getByRole("checkbox")).toBeChecked();
+  expect((await sheet.locator(".calendar-notify").boundingBox())!.height).toBeGreaterThanOrEqual(44);
   if (!isMobile) {
     await expect(sheet.getByLabel("Reschedule day", { exact: true })).toHaveValue(dateKey(nextDay));
     await expect(sheet.getByLabel("Reschedule crew", { exact: true })).toHaveValue(other.crewId);
