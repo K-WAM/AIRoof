@@ -647,7 +647,10 @@ async function verifyFieldAccessInner(
   // Path 1: session (owner/staff/crew/viewer of this business, or superadmin). "crew" (T-150) is a field-only
   // login: it gets exactly these field routes and is refused by every office route, which list their roles.
   let sessionError: NextResponse<{ error: string }> | undefined;
-  if (req.cookies.get("__session")?.value) {
+  // A durable field-owned item must be authorized by its field grant, not a
+  // coincident CRM login. The grant and offline owner are both still checked.
+  const fieldOwned = req.headers.get("x-offline-owner")?.startsWith("field:") === true;
+  if (!fieldOwned && req.cookies.get("__session")?.value) {
     const byRole = await verifyAuthAndRole(
       req, businessId,
       options?.write ? ["owner", "staff", "crew", "superadmin"] : ["owner", "staff", "crew", "viewer", "superadmin"],
@@ -686,6 +689,8 @@ async function verifyFieldAccessInner(
     });
     return { user: fieldUser(businessId, parsed.claims.tokenId) };
   }
+
+  if (fieldOwned) return { error: NextResponse.json({ error: "Unauthenticated" }, { status: 401 }) };
 
   // Path 3: temporary legacy compatibility. The field page exchanges and strips
   // these immediately; direct API clients retain one deploy cycle to migrate.

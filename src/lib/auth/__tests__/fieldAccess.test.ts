@@ -113,6 +113,19 @@ describe("scoped field access tokens", () => {
     delete process.env.ENABLE_LEGACY_FIELD_KEY_FALLBACK;
   });
 
+  it("requires a valid scoped field grant for field-owned requests even with a CRM session", async () => {
+    const path = `/api/jobs/J-100/updates?businessId=${BUSINESS_ID}`;
+    const headers = { cookie: "__session=crm", "x-offline-owner": "field:claimed" };
+    expect(statusOf(await verifyFieldAccess(request(path, undefined, headers), BUSINESS_ID, { write: true, jobId: "J-100" }))).toBe(401);
+    const grant = mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY, "J-100");
+    const session = await consumeFieldExchangeToken(grant.token);
+    if (!session.ok) throw new Error("exchange failed");
+    const req = request(path, undefined, { ...headers, cookie: `__session=crm; ${FIELD_ACCESS_COOKIE}=${session.token}` });
+    const result = await verifyFieldAccess(req, BUSINESS_ID, { write: true, jobId: "J-100" });
+    expect("user" in result && result.user.uid.startsWith("field:")).toBe(true);
+    expect(statusOf(await verifyFieldAccess(req, BUSINESS_ID, { write: true, jobId: "J-200" }))).toBe(403);
+  });
+
   it("fails closed when the server signing secret is missing", () => {
     delete process.env.CRON_SECRET;
     expect(() => mintFieldExchangeToken(BUSINESS_ID, FIELD_KEY)).toThrow(

@@ -111,7 +111,7 @@ export function flushOutbox(owner?: OfflineIdentity, send: typeof fetch = fetch,
 }
 
 export async function fieldPost(url: string, init: RequestInit, audio?: Blob): Promise<Response> {
-  const owner = await fieldIdentity();
+  const owner = await fieldIdentity().catch(() => null);
   // Preserve the existing online superadmin flow without persisting preview data on the device.
   if (owner?.preview) {
     if (navigator.onLine === false) throw new Error("Preview changes need a connection. Your entry has not been sent.");
@@ -123,10 +123,18 @@ export async function fieldPost(url: string, init: RequestInit, audio?: Blob): P
     }
     return response;
   }
-  const item = await enqueueField(url, JSON.parse(String(init.body)), audio, owner ?? undefined);
+  let item: OutboxItem;
+  try {
+    item = await enqueueField(url, JSON.parse(String(init.body)), audio, owner ?? undefined);
+  } catch (error) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) throw error;
+    const body = { ...JSON.parse(String(init.body)), clientRequestId: crypto.randomUUID() };
+    return fetch(url, { ...init, body: JSON.stringify(body) });
+  }
   await flushOutbox().catch(() => {});
   const saved = (await listOutbox(item.uid).catch(() => [])).find(i => i.id === item.id);
   if (!saved) return Response.json({ queued: true }, { status: 202 });
+  if (saved.state === "waiting" && saved.responseStatus && saved.error) return Response.json({ ...saved.result, error: saved.error }, { status: saved.responseStatus });
   if (saved.state === "waiting" || saved.state === "confirmation") return Response.json({ queued: true }, { status: 202 });
   if (saved.state === "rejected") return Response.json({ ...saved.result, error: saved.error ?? "Not accepted. Your entry is kept on this phone." }, { status: saved.responseStatus ?? 422 });
   return Response.json(saved.result);

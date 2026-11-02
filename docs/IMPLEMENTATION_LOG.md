@@ -2065,3 +2065,10 @@ Commit: `T-229 A4: Capture scrubbed server errors in PostHog` (this commit, bran
 - Browser register/filter now retain app=crm. Added posthog-node dependency and synchronized its lock entries from the already-installed package metadata without running npm install or modifying the node_modules junction. CSP and Cache-Control need no change; existing provider/hosting/readiness facts in app-status.json remain accurate. No removals.
 - Evidence: tsc --noEmit; eslint on all changed TS files; vitest related (41 tests); vitest run src/lib/analytics (45 tests); one next build (passed; existing CSS/lint warnings). Actual installed SDK captureException+shutdown also verified against a mocked transport, including masked event, fixed server identity and no person profile. No network calls or Playwright/harness runs.
 - Unproven: production ingestion, alert email, and Vercel request lifetime retention. No deploy, push or merge. Remaining A4/dashboard work and other T-229 phases are not marked complete.
+
+## T-249 — Field link outbox identity (2026-11-02, Codex)
+
+- Field-link pages resolve the cookie owner independently of Firebase; field-owned uploads validate the scoped field grant before the existing offline-owner check. Signed-in staff queues retain UID ownership. Online storage failures fall back to a direct request, and server failures are exposed.
+- Evidence: tsc, changed-file eslint (one existing image warning), related vitest 846 passed and one expected failure, field access/identity/outbox focused tests 47 passed, production harness build, field-link/field-updates/photos Playwright 14 passed and 2 skipped, phone screenshots inspected, call-to-cash 12/12.
+- Limitation: the harness has no transcription provider configured; voice recording through to a persisted job was not verified. The new browser regression covers typed notes, photos and clock-in with a superadmin session and logged out; the existing email-link test covers exchange and revocation.
+- Screen audit: desktop and phone passed (2/2). Harness stopped; it cannot cover real phone audio, real inbox delivery, or a post-deploy call.

@@ -20,6 +20,13 @@ describe("durable field outbox", () => {
     vi.stubGlobal("indexedDB", undefined);
     await expect(enqueueField(url, body, undefined, owner)).rejects.toThrow("could not save");
   });
+  it("sends directly and preserves the server error when phone storage fails online", async () => {
+    vi.stubGlobal("indexedDB", undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "Server refused" }, { status: 403 })));
+    const response = await fieldPost(url, { method: "POST", body: JSON.stringify(body) });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "Server refused" });
+  });
   it("keeps an entry when a 200 response does not acknowledge the saved record", async () => {
     await enqueueField(url, body, undefined, owner);
     await flushOutbox(owner, vi.fn(async () => new Response("<html>Sign in</html>")));
