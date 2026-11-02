@@ -8,6 +8,11 @@ import type { CalendarMode, VerticalVocab } from "@/lib/verticals/templates";
 export type GuideRole = "owner" | "admin" | "staff" | "foreman";
 export const GUIDE_ROLES: GuideRole[] = ["owner", "admin", "staff", "foreman"];
 
+export const GUIDE_QUICK_ANSWERS = [{
+  question: "Can I answer calls myself?",
+  answer: "Yes. Keep your own number and forward it to your AI line only when you don't pick up. Your phone rings first; after about 4 rings, the call goes to the AI. You can also forward all calls after hours. Ask Luxor to set it up. The AI never takes a call you answered.",
+}];
+
 export interface GuideStep {
   action: string;
   detail: string;
@@ -92,7 +97,7 @@ export function guideFor(role: GuideRole, { isEnabled, vocab, calendarMode, quot
         tips: [
           ...only(hasJobs, `Send to a worker (on a ${job} page) emails or texts the field link for that ${job}. No account needed.`),
           ...only(calls, "Call Back on a request rings the number the caller asked to be reached on."),
-          "Search (in the menu) finds any call, request, job or customer by name, phone or number.",
+          "Search at the top finds any call, request, job or customer by name, phone or number.",
         ],
       };
     case "foreman":
