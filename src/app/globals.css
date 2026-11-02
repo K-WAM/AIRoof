@@ -1566,6 +1566,7 @@ a.metric:hover {
   letter-spacing: 0.07em;
   width: 34px;
   flex-shrink: 0;
+  overflow-wrap: anywhere;
 }
 
 .cmd-type--lead     { color: #1e40af; }

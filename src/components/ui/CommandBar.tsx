@@ -88,9 +88,10 @@ export function CommandBar({ header = false }: { header?: boolean }) {
   const router = useRouter();
   const previewSuffix = searchParams?.get("preview") ? `?preview=${searchParams.get("preview")}` : "";
   // Products (src/lib/products): only search what this client bought — the server refuses the rest.
-  const { isEnabled } = useBusinessModules();
+  const { isEnabled, vocab } = useBusinessModules();
   const hasCalls = isEnabled("calls");
   const hasJobs = isEnabled("jobs");
+  const searchName = `Search calls, requests, ${hasJobs ? vocab.jobNounPlural.toLowerCase() : "bookings"} and ${vocab.customerNounPlural.toLowerCase()}`;
 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -199,17 +200,17 @@ export function CommandBar({ header = false }: { header?: boolean }) {
   function statusText(): string {
     if (status === "searching") return "Searching…";
     if (status === "error") return "Search failed";
-    if (q.length === 0) return "Type to search calls, requests, jobs and customers";
+    if (q.length === 0) return `Type to ${searchName.toLowerCase()}`;
     if (filtered.length === 0) return `No matches for “${query}”`;
     return `${filtered.length} result${filtered.length === 1 ? "" : "s"}`;
   }
 
-  const TYPE_LABEL = { lead: "Request", job: "Job", appt: "Booking", customer: "Customer" } as const;
+  const TYPE_LABEL = { lead: "Request", job: vocab.jobNoun, appt: "Booking", customer: vocab.customerNoun };
 
   return (
     <>
       {header && <input className="cmd-header-field" type="search" aria-label="Search" aria-haspopup="dialog"
-        placeholder="Search calls, jobs, customers…  /" value="" onClick={() => setOpen(true)}
+        placeholder={`${searchName}…  /`} value="" onClick={() => setOpen(true)}
         onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
         onKeyDown={(event) => { if (event.key === "Enter") setOpen(true); }} />}
       <button
@@ -240,7 +241,7 @@ export function CommandBar({ header = false }: { header?: boolean }) {
                 ref={inputRef}
                 className="cmd-input"
                 role="combobox"
-                aria-label="Search calls, requests, jobs and customers"
+                aria-label={searchName}
                 aria-expanded="true"
                 aria-controls={listboxId}
                 aria-autocomplete="list"
@@ -248,7 +249,7 @@ export function CommandBar({ header = false }: { header?: boolean }) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKeyDown}
-                placeholder="Search calls, requests, jobs and customers…"
+                placeholder={`${searchName}…`}
               />
               {query && (
                 <button
