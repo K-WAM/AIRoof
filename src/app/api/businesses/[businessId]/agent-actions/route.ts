@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { collectionPoll } from "@/lib/http/collectionPoll";
 
 // GET /api/businesses/[businessId]/agent-actions?limit=N — most recent agent
 // actions (bookings, leads, escalations, …). No server-side type filter —
@@ -24,6 +25,8 @@ export async function GET(
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const poll = await collectionPoll(req, db.collection(`businesses/${businessId}/agentActions`), gate.user);
+  if (poll.unchanged) return NextResponse.json({ unchanged: true, pollVersion: poll.version });
 
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
@@ -35,5 +38,5 @@ export async function GET(
     .get();
 
   const actions = snap.docs.map((d) => ({ actionId: d.id, ...d.data() }));
-  return NextResponse.json({ actions });
+  return NextResponse.json({ actions, ...(poll.version ? { pollVersion: poll.version } : {}) });
 }

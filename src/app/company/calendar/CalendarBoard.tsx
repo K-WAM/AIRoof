@@ -27,6 +27,7 @@ const dropUnderPointer: CollisionDetection = (args) => {
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { createLiveFetch } from "@/lib/http/liveFetch";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useSearchParams } from "next/navigation";
@@ -185,6 +186,7 @@ function sameTimeOnDay(existingMs: number, day: Date, timeZone: string): number 
 // so page.tsx can lazy-load it via next/dynamic (T-068) instead of shipping it in
 // every route's initial bundle. No logic changed in this move, file split only.
 export default function CalendarBoard() {
+  const [liveFetch] = useState(createLiveFetch);
   const { user } = useAuth();
   const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const businessId = useBusinessId();
@@ -335,8 +337,8 @@ export default function CalendarBoard() {
     try {
       const [jr, ar, br] = await Promise.all([
         apptMode ? null : fetch(`/api/jobs?businessId=${businessId}&updatedSince=${jobsPolledAt.current}`),
-        hasCalls ? fetch(`/api/businesses/${businessId}/appointments?from=${from}&to=${to}`) : null,
-        fetch(`/api/company/time-blocks?businessId=${businessId}&from=${from}&to=${to}`),
+        hasCalls ? liveFetch(`/api/businesses/${businessId}/appointments?from=${from}&to=${to}`) : null,
+        liveFetch(`/api/company/time-blocks?businessId=${businessId}&from=${from}&to=${to}`),
       ]);
       const [jd, ad, bd] = await Promise.all([jr?.ok ? jr.json() : null, ar?.ok ? ar.json() : null, br.ok ? br.json() : null]);
       if (liveWindowRef.current !== liveWindow || confirmInFlight.current.size) return;
@@ -348,7 +350,7 @@ export default function CalendarBoard() {
       if (ad) setAppts((ad.appointments as Appointment[]).filter((appt) => appt.status !== "cancelled"));
       if (bd) setBlocks(bd.blocks ?? []);
     } catch { /* A failed background request keeps the board already on screen. */ }
-  }, { intervalMs: 5_000, enabled: !!businessId && modulesReady && !loading, isDirty: !!picker || !!editing || !!busyJob || !!blockForm, idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
+  }, { intervalMs: businessId === "demo-roofing" ? 5_000 : 10_000, enabled: !!businessId && modulesReady && !loading, isDirty: !!picker || !!editing || !!busyJob || !!blockForm, idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // The rail holds whatever still needs a resource: jobs with no crew/day,
   // or bookings the agent took that nobody has been assigned to yet.

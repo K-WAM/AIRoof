@@ -9,6 +9,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { createLiveFetch } from "@/lib/http/liveFetch";
 import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -222,6 +223,7 @@ export default function PipelinePage() {
   }
 
   // What the last load left on screen — background refreshes merge into it (see loadPipeline).
+  const [liveFetch] = useState(createLiveFetch);
   const leadsRef = useRef<Lead[]>([]);
   const apptsRef = useRef<Appointment[]>([]);
   // Synced from state (not just from loads) so a local edit — a status change, a cancel — is what the next merge keeps.
@@ -234,6 +236,7 @@ export default function PipelinePage() {
     const base = `/api/businesses/${businessId}`;
     // Returned so useLiveRefresh's "never overlap requests" guard actually waits for it.
     const now = Date.now();
+    const windowNow = Math.floor(now / 86_400_000) * 86_400_000;
     // The first load reads everything the page shows. A background refresh (every few seconds while the page is open)
     // reads only what can have changed — the newest callbacks, the next two weeks, and requests awaiting a decision —
     // and merges it into what is on screen. Re-reading every booking each tick cost hundreds of Firestore reads per
@@ -241,16 +244,16 @@ export default function PipelinePage() {
     const firstLoad = !initialLoadDone.current;
     const requests = firstLoad
       ? [
-        fetch(`${base}/leads`),
+        liveFetch(`${base}/leads`),
         fetch(`${base}/appointments?from=${now}&to=8640000000000000`),
         fetch(`${base}/appointments?order=desc&limit=500`),
-        fetch(`${base}/appointments?pending=1`),
+        liveFetch(`${base}/appointments?pending=1`),
         fetch(`/api/company/crews?businessId=${businessId}`),
       ]
       : [
-        fetch(`${base}/leads?limit=30`),
-        fetch(`${base}/appointments?from=${now - 86_400_000}&to=${now + 14 * 86_400_000}`),
-        fetch(`${base}/appointments?pending=1`),
+        liveFetch(`${base}/leads?limit=30`),
+        liveFetch(`${base}/appointments?from=${windowNow - 86_400_000}&to=${windowNow + 14 * 86_400_000}`),
+        liveFetch(`${base}/appointments?pending=1`),
       ];
     return Promise.all(requests)
       .then(async (responses) => {
@@ -281,9 +284,9 @@ export default function PipelinePage() {
       // A failed BACKGROUND refresh keeps the data already on screen; only a failed first load shows the error state.
       .catch(() => { if (!initialLoadDone.current) setLoadError(true); })
       .finally(() => setLoading(false));
-  }, [businessId, leadParam]);
+  }, [businessId, leadParam, liveFetch]);
   useEffect(() => { void loadPipeline(); }, [loadPipeline]);
-  useLiveRefresh(loadPipeline, { intervalMs: 5_000, enabled: Boolean(businessId), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
+  useLiveRefresh(loadPipeline, { intervalMs: businessId === "demo-roofing" ? 5_000 : 10_000, enabled: Boolean(businessId), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // Deep link from Calendar's "Bookings" strip (?tab=appointments&appt=<id>) —
   // scroll straight to the clicked appointment instead of leaving the user to

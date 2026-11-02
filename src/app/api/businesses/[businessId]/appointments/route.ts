@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import type { Appointment } from "@/types";
+import { collectionPoll } from "@/lib/http/collectionPoll";
 
 // GET /api/businesses/[businessId]/appointments?limit=N&order=asc|desc
 // GET /api/businesses/[businessId]/appointments?from=<ms>&to=<ms>
@@ -32,6 +33,8 @@ export async function GET(
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const poll = await collectionPoll(req, db.collection(`businesses/${businessId}/appointments`), gate.user);
+  if (poll.unchanged) return NextResponse.json({ unchanged: true, pollVersion: poll.version });
 
   const order = req.nextUrl.searchParams.get("order") === "desc" ? "desc" : "asc";
   // A range needs BOTH bounds actually present. (Number(null) is 0 — a finite number — so testing the parsed values alone
@@ -62,5 +65,5 @@ export async function GET(
 
   const appointments = (snap.docs.map((d) => ({ appointmentId: d.id, ...d.data() })) as Appointment[])
     .filter((appt) => onlyCrewId === undefined || appt.assignedCrewId === onlyCrewId);
-  return NextResponse.json({ appointments });
+  return NextResponse.json({ appointments, ...(poll.version ? { pollVersion: poll.version } : {}) });
 }
