@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 import { fmtMoney } from "@/lib/format/money";
+import { Hint } from "@/components/ui/Hint";
 
 export function CustomerVersionPanel({ draft, readOnlyRole = false, priceMode = "lines", hideMaterials, hideLabor, lineSubtotal, savedLineSubtotal, customerSubtotal, customerTotal, adjustmentNote = "", acceptedQuoteSubtotal, onChange, onPreview }: {
   draft: boolean;
@@ -24,7 +25,7 @@ export function CustomerVersionPanel({ draft, readOnlyRole = false, priceMode = 
   const chosen = customerSubtotal ?? lineSubtotal;
   const changed = project && savedLineSubtotal !== undefined && savedLineSubtotal !== lineSubtotal;
   return <section className="customer-version-panel no-print" aria-label="Customer version">
-    <div className="customer-version-panel__top"><h3>Customer version</h3><strong>Customer total {fmtMoney(customerTotal)}</strong></div>
+    <div className="customer-version-panel__top"><h3>Customer version <Hint label="Customer version">{"Itemized shows each line. Bundle materials shows one materials total. Project price shows one price for all the work. Your team keeps the full detail."}</Hint></h3><strong>Customer total {fmtMoney(customerTotal)}</strong></div>
     {draft ? <>
       <div className="segmented-control" aria-label="Customer price presentation">
         <button type="button" className="segment" aria-pressed={!project && !hideMaterials} onClick={() => onChange({ priceMode: "lines", hideMaterials: false })}>Itemized</button>

@@ -40,6 +40,8 @@ import { PageError } from "@/components/ui/PageError";
 import { Modal } from "@/components/ui/Modal";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { Hint } from "@/components/ui/Hint";
+import { glossaryMeaning } from "@/lib/copy/glossary";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useAuth } from "@/contexts/AuthContext";
@@ -749,6 +751,7 @@ export default function CalendarBoard() {
             {apptMode
               ? `Who sees which ${vocab.customerNoun.toLowerCase()}, and when.`
               : `Who works where, and when. Confirm a slot to notify the people on it.`}
+            {" "}<Hint label="Calendar status">{`Grey means the time is saved but not confirmed. ${glossaryMeaning("confirmed")} Confirm to send the notification.`}</Hint>
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", maxWidth: "100%", minWidth: 0 }}>

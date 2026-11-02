@@ -3743,3 +3743,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .calendar-notify input { width: 20px; height: 20px; flex: none; }
 .calendar-sheet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .calendar-item-title { border: 0; padding: 0; text-align: left; background: none; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.help-hint { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 22px; height: 22px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: help; }
+.help-hint-content { position: fixed; z-index: 250; width: 260px; max-width: calc(100vw - 16px); padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.5; white-space: pre-line; pointer-events: none; }
+.job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+.job-tabs-with-help > .job-tabs { flex: 1; min-width: 0; }
+@media (pointer: coarse) { .help-hint { width: 44px; height: 44px; } }
