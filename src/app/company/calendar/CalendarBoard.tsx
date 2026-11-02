@@ -1070,7 +1070,7 @@ export default function CalendarBoard() {
         const appt = editing.kind === "appointment" ? appts.find((item) => item.appointmentId === editing.id) : undefined;
         if (!job && !appt) return null;
         return <ScheduleSheet key={`${editing.kind}:${editing.id}:${editing.crewId}:${editing.day?.getTime()}`} title={job?.title ?? appt?.callerName ?? "Booking"}
-          start={job?.scheduledStart ?? appt!.startTime} duration={job?.scheduledEnd && job.scheduledStart ? job.scheduledEnd - job.scheduledStart : 3600000}
+          start={job ? job.scheduledStart ?? Date.now() : appt!.startTime} duration={job?.scheduledEnd && job.scheduledStart ? job.scheduledEnd - job.scheduledStart : 3600000}
           crewId={editing.crewId ?? job?.assignedCrewId ?? appt?.assignedCrewId ?? ""} day={editing.day} tz={tz}
           resources={job ? workCrews : apptMode ? crews : inspectors} resourceNoun={vocab.resourceNoun}
           confirmedJob={!!job?.crewConfirmed} readOnly={readOnly} busy={busyJob !== null} error={calendarError}

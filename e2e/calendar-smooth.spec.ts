@@ -49,6 +49,10 @@ test("scheduled job: reschedule, notify, undo, unschedule, and refuse overlap", 
   }
   const sheet = page.getByRole("dialog", { name: job.title });
   await expect(sheet.getByRole("checkbox")).toBeChecked();
+  if (!isMobile) {
+    await expect(sheet.getByLabel("Reschedule day", { exact: true })).toHaveValue(dateKey(nextDay));
+    await expect(sheet.getByLabel("Reschedule crew", { exact: true })).toHaveValue(other.crewId);
+  }
   await sheet.getByLabel("Reschedule day", { exact: true }).fill(dateKey(nextDay));
   await sheet.getByLabel("Reschedule time", { exact: true }).fill(new Date(moved).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" }));
   await sheet.getByLabel("Reschedule crew", { exact: true }).selectOption(other.crewId);
