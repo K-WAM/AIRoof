@@ -1,5 +1,7 @@
 "use client";
 
+import { Hint } from "@/components/ui/Hint";
+
 import { track } from "@/lib/analytics/client";
 
 import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
@@ -1014,7 +1016,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       <header className="page-header no-print">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <a href={`/company/jobs${previewSuffix}`} style={{ color: "#64748b", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <a href={`/company/jobs${previewSuffix}`} style={{ color: "var(--text-muted)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4 }}>
               <ArrowLeft size={13} strokeWidth={1.75} />
               Jobs
             </a>
@@ -1081,6 +1083,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       )}
 
       {/* Tab bar */}
+      <div className="job-tabs-with-help no-print">
       <div className="job-tabs no-print job-tabs-grouped" ref={tabStripRef} role="tablist" aria-label="Job sections">
         <span className="job-tab-group-label">Job details</span>
         {TABS.map((tab) => (
@@ -1097,6 +1100,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <span>{tab.number} {tab.label}</span>{!privateDemo && tab.step?.state === "done" && <span aria-label="Complete"> ✓</span>}{quoteLabel && <small>{quoteLabel}</small>}
           </button>;
         })}
+      </div>
+      <Hint label="Job documents">{"Findings: what needs work.\nQuote: agree the work and price.\nReport: show what was done.\nInvoice: ask for payment."}</Hint>
       </div>
 
       {privateDemo && (activeTab === "quote" || activeTab === "report" || activeTab === "invoice") && <PrivateDemoDocuments job={job} business={businessConfig} kind={activeTab} />}

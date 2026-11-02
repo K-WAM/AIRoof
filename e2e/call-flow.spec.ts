@@ -102,6 +102,8 @@ test("call → booked → inspector schedule follows the real workflow", async (
   const created = await api(owner, "POST", "/api/company/crews", { businessId: BUSINESS_ID, name: inspectorName, email: "dominic@inspector.e2e.test", kind: "inspector" });
   expect(created.ok, JSON.stringify(created.data)).toBeTruthy();
   const inspectorId = (created.data.crew as { crewId: string }).crewId;
+  let blockId: string | null = null;
+  try {
   const member = await api(owner, "PATCH", "/api/company/team/e2e-staff", { businessId: BUSINESS_ID, trade: "inspector", crewId: inspectorId });
   expect(member.ok, JSON.stringify(member.data)).toBeTruthy();
 
@@ -115,7 +117,7 @@ test("call → booked → inspector schedule follows the real workflow", async (
 
   const block = await api(owner, "POST", "/api/company/time-blocks", { businessId: BUSINESS_ID, crewId: inspectorId, label: "Materials pickup", startTime: first.ms + 2 * 3600000, endTime: first.ms + 3 * 3600000 });
   expect(block.ok, JSON.stringify(block.data)).toBeTruthy();
-  const blockId = (block.data.block as { blockId: string }).blockId;
+  blockId = (block.data.block as { blockId: string }).blockId;
 
   if (testInfo.project.name !== "phone") {
     await owner.goto("/company/calendar");
@@ -126,9 +128,12 @@ test("call → booked → inspector schedule follows the real workflow", async (
     const firstAppointment = ((firstBookingData.data.appointments ?? []) as Array<{ appointmentId: string; callerName?: string; startTime: number }>)
       .find((appointment) => appointment.callerName === firstName);
     expect(firstAppointment).toBeTruthy();
-    owner.once("dialog", (dialog) => dialog.accept());
     // T-160: an unassigned booking shows once, in the Phone bookings row — drag it from there.
     await dragTo(owner, `phone-booking-${firstAppointment!.appointmentId}`, `calendar-cell-${inspectorId}-${moved.key}`);
+    const moveSheet = owner.getByRole("dialog", { name: firstName });
+    await expect(moveSheet.getByLabel("Reschedule day", { exact: true })).toHaveValue(moved.key);
+    await moveSheet.getByRole("button", { name: "Reschedule", exact: true }).click();
+    await expect(moveSheet).toBeHidden();
     await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${moved.key}`).getByText(firstName, { exact: true })).toBeVisible();
     await expect(owner.getByTestId(`calendar-cell-${inspectorId}-${second.key}`).getByText(secondName, { exact: true })).toBeVisible();
 
@@ -137,6 +142,27 @@ test("call → booked → inspector schedule follows the real workflow", async (
     await expectHealthy(owner, { allowOverflow: true });
     await shot(owner, "call-flow-calendar-inspectors");
   }
+
+  const viewer = await as("viewer");
+  await viewer.goto("/company/calendar"); await settle(viewer);
+  if (testInfo.project.name === "phone") {
+    const item = viewer.locator(".c1-agenda-item").filter({ hasText: secondName });
+    for (let i = 0; i < 8 && !(await item.isVisible()); i++) {
+      await viewer.getByRole("button", { name: "Next day", exact: true }).click(); await settle(viewer, 200);
+    }
+    await expect(item).toBeVisible();
+    await item.locator(".calendar-item-title").click();
+    const sheet = viewer.getByRole("dialog", { name: secondName });
+    await expect(sheet.getByLabel("Reschedule time", { exact: true })).toBeDisabled();
+    await expect(sheet.getByRole("button", { name: /Reschedule|Unassign/ })).toHaveCount(0);
+  } else {
+    await viewer.getByRole("button", { name: "Next week", exact: true }).click();
+    await expect(viewer.getByText(secondName, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  }
+  await expect(viewer.getByRole("button", { name: /^(?:✓\s*)?Confirm\b|^Move back to/ })).toHaveCount(0);
+  await expectHealthy(viewer);
+  await shot(viewer, "calendar-viewer-scheduled-booking");
+  await viewer.close();
 
   const staff = await as("staff");
   await staff.goto("/company/field");
@@ -147,7 +173,11 @@ test("call → booked → inspector schedule follows the real workflow", async (
   await expectHealthy(staff, { allowOverflow: true });
   await shot(staff, "call-flow-field-my-schedule");
 
-  await api(owner, "PATCH", "/api/company/team/e2e-staff", { businessId: BUSINESS_ID, trade: null, crewId: null });
-  await api(owner, "DELETE", `/api/company/time-blocks?businessId=${BUSINESS_ID}&blockId=${blockId}`);
-  await api(owner, "DELETE", `/api/company/crews?businessId=${BUSINESS_ID}&crewId=${inspectorId}`);
+  } finally {
+    // Failed UI assertions must not turn the next spec's seeded staff member
+    // into an inspector or leave a different capacity policy behind.
+    await api(owner, "PATCH", "/api/company/team/e2e-staff", { businessId: BUSINESS_ID, trade: null, crewId: null });
+    if (blockId) await api(owner, "DELETE", `/api/company/time-blocks?businessId=${BUSINESS_ID}&blockId=${blockId}`);
+    await api(owner, "DELETE", `/api/company/crews?businessId=${BUSINESS_ID}&crewId=${inspectorId}`);
+  }
 });

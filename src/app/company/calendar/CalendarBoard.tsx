@@ -40,6 +40,8 @@ import { PageError } from "@/components/ui/PageError";
 import { Modal } from "@/components/ui/Modal";
 import { Sheet } from "@/components/ui/Sheet";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { Hint } from "@/components/ui/Hint";
+import { glossaryMeaning } from "@/lib/copy/glossary";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
 import { useAuth } from "@/contexts/AuthContext";
@@ -211,6 +213,8 @@ export default function CalendarBoard() {
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [picker, setPicker] = useState<SlotPickerState | null>(null);
+  const [editing, setEditing] = useState<{ kind: "job" | "appointment"; id: string; crewId?: string; day?: Date } | null>(null);
+  const [undo, setUndo] = useState<{ message: string; run: () => Promise<void> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busyJob, setBusyJob] = useState<string | null>(null);
@@ -351,16 +355,18 @@ export default function CalendarBoard() {
   }
 
   // Saves a time picked in the SlotPicker. Grey/unconfirmed until "Confirm + email crew", as before.
-  async function placeJob(jobId: string, crewId: string, dayMs: number, durationMs: number) {
+  async function placeJob(jobId: string, crewId: string, dayMs: number, durationMs: number, notify = false): Promise<boolean> {
     const previous = jobs.find((job) => job.jobId === jobId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(jobId)) return false;
+    confirmInFlight.current.add(jobId);
+    setBusyJob(jobId);
     setPicker(null);
     const scheduledEnd = dayMs + Math.max(durationMs, 1);
     setCalendarError(null);
-    const result = await runOptimisticCalendarMutation({
+    const result = await runOptimisticCalendarMutation<{ notificationStatus?: string }>({
       apply: () => setJobs((current) => current.map((job) =>
         job.jobId === jobId
-          ? { ...job, assignedCrewId: crewId, scheduledStart: dayMs, scheduledEnd, crewConfirmed: false }
+          ? { ...job, assignedCrewId: crewId, scheduledStart: dayMs, scheduledEnd, crewConfirmed: notify }
           : job
       )),
       persist: () => fetch(`/api/jobs/${jobId}/assign`, {
@@ -371,8 +377,8 @@ export default function CalendarBoard() {
           crewId,
           scheduledStart: dayMs,
           scheduledEnd,
-          crewConfirmed: false,
-          notify: false,
+          crewConfirmed: notify,
+          notify,
         }),
       }),
       rollback: () => setJobs((current) => current.map((job) =>
@@ -382,11 +388,47 @@ export default function CalendarBoard() {
     });
     if (result.ok) track("crew_assigned", { job_id: jobId, crew_id: crewId });
     if (!result.ok) setCalendarError(result.error ?? "The assignment could not be saved.");
+    if (result.ok) {
+      setEditing(null);
+      setUndo({ message: `${vocab.jobNoun} moved${notify ? " · confirmed" : " · not confirmed"}`, run: () => restoreJob(previous) });
+      if (result.data?.notificationStatus === "failed") {
+        setCalendarError("The move is saved, but a crew email failed. Retry confirmation to send it.");
+        setRetryConfirm({ kind: "job", id: jobId });
+      }
+    }
+    confirmInFlight.current.delete(jobId);
+    setBusyJob(null);
+    return result.ok;
+  }
+
+  async function restoreJob(previous: Job) {
+    if (busyJob) return;
+    setBusyJob(previous.jobId);
+    setCalendarError(null);
+    try {
+      const response = await fetch(`/api/jobs/${previous.jobId}/assign`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, crewId: previous.assignedCrewId ?? null,
+          scheduledStart: previous.scheduledStart ?? null, scheduledEnd: previous.scheduledEnd ?? null,
+          crewConfirmed: !!previous.crewConfirmed, notify: !!previous.crewConfirmed }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "The previous slot is no longer available. Nothing was changed.");
+      setJobs((current) => current.map((job) => job.jobId === previous.jobId ? { ...job,
+        assignedCrewId: previous.assignedCrewId, scheduledStart: previous.scheduledStart,
+        scheduledEnd: previous.scheduledEnd, crewConfirmed: previous.crewConfirmed } : job));
+      setUndo(null);
+      if (data.notificationStatus === "failed") setCalendarError("The previous schedule is restored, but a crew email failed. Retry confirmation.");
+      else flash("Previous schedule restored");
+    } catch (error) { setCalendarError(error instanceof Error ? error.message : "Undo could not be saved. Try again."); }
+    finally { setBusyJob(null); }
   }
 
   async function unschedule(jobId: string) {
     const previous = jobs.find((job) => job.jobId === jobId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(jobId)) return;
+    confirmInFlight.current.add(jobId);
+    setBusyJob(jobId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => setJobs((current) => current.map((job) =>
@@ -405,6 +447,9 @@ export default function CalendarBoard() {
       fallbackError: "The job could not be unscheduled. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The job could not be unscheduled.");
+    if (result.ok) { setEditing(null); setUndo({ message: `${vocab.jobNoun} unscheduled`, run: () => restoreJob(previous) }); }
+    confirmInFlight.current.delete(jobId);
+    setBusyJob(null);
   }
 
   async function confirmJob(job: Job) {
@@ -446,21 +491,22 @@ export default function CalendarBoard() {
     }
   }
 
-  async function placeAppt(appointmentId: string, crewId: string, day: Date) {
+  async function placeAppt(appointmentId: string, crewId: string, day: Date, chosenStart?: number) {
     const appt = appts.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return;
-    const startTime = sameTimeOnDay(appt.startTime, day, tz);
+    if (!appt || confirmInFlight.current.has(appointmentId)) return;
+    const startTime = chosenStart ?? sameTimeOnDay(appt.startTime, day, tz);
     if (startTime === null) {
       setCalendarError("That local time does not exist because of a daylight-saving change. Choose another day.");
       return;
     }
-    if (!sameDay(appt.startTime, day, tz)) {
+    if (chosenStart === undefined && !sameDay(appt.startTime, day, tz)) {
       const from = new Date(appt.startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
       const to = new Date(startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
       const customer = appt.callerName ? `${appt.callerName}${appt.callerName.endsWith("s") ? "'" : "'s"}` : "this customer's";
       if (!window.confirm(`This moves ${customer} booking from ${from} to ${to} — they're told when you confirm.`)) return;
     }
     const wasJustConfirmed = confirmedAppts.has(appointmentId);
+    confirmInFlight.current.add(appointmentId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => {
@@ -484,21 +530,11 @@ export default function CalendarBoard() {
           });
         }
       },
-      persist: async () => {
-        const save = (force = false) => fetch(`/api/appointments/${appointmentId}`, {
+      persist: () => fetch(`/api/appointments/${appointmentId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime, ...(force ? { force: true } : {}) }),
-        });
-        let response = await save();
-        if (response.status === 409) {
-          const data = await response.clone().json().catch(() => ({} as { code?: string; message?: string }));
-          if (data.code === "inspector_busy" && window.confirm(`${data.message || "That inspector is busy then."}\n\nAssign anyway?`)) {
-            response = await save(true);
-          }
-        }
-        return response;
-      },
+          body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
+        }),
       rollback: () => {
         setAppts((current) => current.map((item) =>
           item.appointmentId === appointmentId ? appt : item
@@ -510,11 +546,38 @@ export default function CalendarBoard() {
       fallbackError: "The appointment could not be moved. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The appointment could not be moved.");
+    if (result.ok) { setEditing(null); setUndo({ message: "Booking moved · confirm the new time to notify the customer", run: () => restoreAppt(appt) }); }
+    confirmInFlight.current.delete(appointmentId);
+    return result.ok;
+  }
+
+  async function restoreAppt(previous: Appointment) {
+    if (busyJob) return;
+    setBusyJob(previous.appointmentId);
+    setCalendarError(null);
+    try {
+      const response = await fetch(`/api/appointments/${previous.appointmentId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, assignedCrewId: previous.assignedCrewId ?? null,
+          startTime: previous.startTime, confirm: previous.status === "confirmed", notifyCustomer: previous.status === "confirmed" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "The previous slot is no longer available. Nothing was changed.");
+      setAppts((current) => current.map((appt) => appt.appointmentId === previous.appointmentId ? { ...appt,
+        assignedCrewId: previous.assignedCrewId, startTime: previous.startTime,
+        status: previous.status, pendingConfirmation: previous.pendingConfirmation } : appt));
+      setConfirmedAppts((current) => { const next = new Set(current); if (previous.status === "confirmed") next.add(previous.appointmentId); else next.delete(previous.appointmentId); return next; });
+      setUndo(null);
+      flash("Previous booking restored");
+    } catch (error) { setCalendarError(error instanceof Error ? error.message : "Undo could not be saved. Try again."); }
+    finally { setBusyJob(null); }
   }
 
   async function unassignAppt(appointmentId: string) {
     const previous = appts.find((appointment) => appointment.appointmentId === appointmentId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(appointmentId)) return;
+    confirmInFlight.current.add(appointmentId);
+    setBusyJob(appointmentId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => setAppts((current) => current.map((appointment) =>
@@ -533,6 +596,9 @@ export default function CalendarBoard() {
       fallbackError: "The appointment could not be unassigned. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The appointment could not be unassigned.");
+    if (result.ok) { setEditing(null); setUndo({ message: "Booking unassigned · the customer's time is kept", run: () => restoreAppt(previous) }); }
+    confirmInFlight.current.delete(appointmentId);
+    setBusyJob(null);
   }
 
   async function confirmAppt(appt: Appointment) {
@@ -617,6 +683,7 @@ export default function CalendarBoard() {
   }
 
   function onDragEnd(e: DragEndEvent) {
+    if (readOnly || busyJob !== null) return;
     const dragId = String(e.active.id);
     const id = dragId.replace(/^(?:appointment-rail|phone-strip):/, "");
     const over = e.over?.id as string | undefined;
@@ -634,10 +701,14 @@ export default function CalendarBoard() {
       return;
     }
     if (apptMode || isAppointment) {
-      placeAppt(id, crewId, day);
+      setEditing({ kind: "appointment", id, crewId, day });
       return;
     }
     if (readOnly) return;
+    if (jobs.find((job) => job.jobId === id)?.scheduledStart) {
+      setEditing({ kind: "job", id, crewId, day });
+      return;
+    }
     // A cell is a whole day, so a drop carries no time — ask for one (T-149). Before, every drop landed at opening
     // time, and a second job on the same crew-day collided with the first and was refused.
     const rect = e.over?.rect;
@@ -646,8 +717,7 @@ export default function CalendarBoard() {
 
   function openChangeTime(job: Job) {
     if (!job.assignedCrewId || !job.scheduledStart) return;
-    const parts = dateParts(job.scheduledStart, tz);
-    setPicker({ jobId: job.jobId, crewId: job.assignedCrewId, day: new Date(parts.year, parts.month - 1, parts.day), anchor: null });
+    setEditing({ kind: "job", id: job.jobId });
   }
 
   if (loading) return <PageSkeleton rows={5} />;
@@ -681,6 +751,7 @@ export default function CalendarBoard() {
             {apptMode
               ? `Who sees which ${vocab.customerNoun.toLowerCase()}, and when.`
               : `Who works where, and when. Confirm a slot to notify the people on it.`}
+            {" "}<Hint label="Calendar status">{`Grey means the time is saved but not confirmed. ${glossaryMeaning("confirmed")} Confirm to send the notification.`}</Hint>
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", maxWidth: "100%", minWidth: 0 }}>
@@ -694,7 +765,7 @@ export default function CalendarBoard() {
           )}
           <Link href={`/company/library${previewSuffix ? previewSuffix + "&section=crews" : "?section=crews"}`} className="button small" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
             <Users size={13} strokeWidth={1.75} />
-            Manage {vocab.resourceNounPlural.toLowerCase()}
+            {readOnly ? "View" : "Manage"} {vocab.resourceNounPlural.toLowerCase()}
           </Link>
         </div>
       </header>
@@ -708,6 +779,11 @@ export default function CalendarBoard() {
           }}>Retry</button>}
         </div>
       )}
+      {undo && <div className="calendar-undo" role="status">
+        <span>{undo.message}</span>
+        <button type="button" className="button small" disabled={busyJob !== null} onClick={() => void undo.run()}>Undo</button>
+        <button type="button" className="button ghost small" aria-label="Dismiss undo" onClick={() => setUndo(null)}>×</button>
+      </div>}
 
       <section className="c1-calendar-agenda panel" aria-label="Day agenda">
         <div className="panel-header c1-agenda-header">
@@ -747,7 +823,7 @@ export default function CalendarBoard() {
           {appts.filter((appt) => sameDay(appt.startTime, agendaDay, tz) && appt.status !== "cancelled").sort((a, b) => a.startTime - b.startTime).map((appt) => {
             const assignees = apptMode ? crews : inspectors;
             return <article className="c1-agenda-item" style={{ order: minuteOfDay(appt.startTime, tz) }} key={appt.appointmentId}>
-              <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</strong>
+              <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "appointment", id: appt.appointmentId })}>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</button>
               <span>{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}</span>
               <div className="c1-agenda-actions">
                 {!readOnly && <select aria-label={`Assign ${appt.callerName ?? "booking"}`} value={appt.assignedCrewId ?? ""} disabled={busyJob === appt.appointmentId} onChange={(event) => { if (event.target.value) void placeAppt(appt.appointmentId, event.target.value, agendaDay); else void unassignAppt(appt.appointmentId); }}>
@@ -758,13 +834,11 @@ export default function CalendarBoard() {
               </div>
             </article>;
           })}
-          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
-            <strong>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</strong>
+          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
+            <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>
             <span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span>
             <div className="c1-agenda-actions">
               {!readOnly && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
-              {!readOnly && job.assignedCrewId && <button type="button" className="button small" onClick={() => openChangeTime(job)}>Change time</button>}
-              <Link className="button small" href={`/company/jobs/${job.jobId}${previewSuffix}`}>Open {vocab.jobNoun.toLowerCase()}</Link>
             </div>
           </article>)}
           {appts.every((appt) => !sameDay(appt.startTime, agendaDay, tz) || appt.status === "cancelled") && jobs.every((job) => !job.scheduledStart || !sameDay(job.scheduledStart, agendaDay, tz)) && blocks.every((block) => !sameDay(block.startTime, agendaDay, tz)) && <p>No bookings or {vocab.jobNounPlural.toLowerCase()} this day.</p>}
@@ -802,7 +876,7 @@ export default function CalendarBoard() {
           <span style={{ width: 22, height: 14, borderRadius: 4, border: "1px solid var(--accent)", background: "var(--accent-soft)", flexShrink: 0 }} />
           Confirmed — {apptMode ? vocab.customerNoun.toLowerCase() : vocab.resourceNoun.toLowerCase()} emailed
         </span>
-        {crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0 || (inspectors.length > 0 && unassignedAppts.length > 0)) && (
+        {!readOnly && crews.length > 0 && (apptMode ? unassignedAppts.length > 0 : unscheduled.length > 0 || (inspectors.length > 0 && unassignedAppts.length > 0)) && (
           <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6, color: "var(--accent)", fontWeight: 600 }}>
             <GripVertical size={14} /> {apptMode ? `Drag a booking onto any ${vocab.resourceNoun.toLowerCase()} + day.` : vocab.resourceNoun === "Crew" ? "Drag bookings onto inspectors and jobs onto crews." : `Drag ${vocab.jobNounPlural.toLowerCase()} onto a ${vocab.resourceNoun.toLowerCase()} and a day.`}
           </span>
@@ -857,7 +931,7 @@ export default function CalendarBoard() {
                     Every booking this week has a {vocab.resourceNoun.toLowerCase()} 🎉
                   </p>
                 ) : (
-                  unassignedAppts.map((a) => <ApptTile key={a.appointmentId} appt={a} tz={tz} />)
+                  unassignedAppts.map((a) => <ApptTile key={a.appointmentId} appt={a} tz={tz} readOnly={readOnly} />)
                 )
               ) : (
                 <>
@@ -871,7 +945,7 @@ export default function CalendarBoard() {
                       value={railQuery} onChange={(event) => setRailQuery(event.target.value)} style={{ width: "100%", fontSize: 13 }} />
                   )}
                   {railShown.map((job) => (
-                    <JobTile key={job.jobId} job={job} tz={tz} crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)} />
+                    <JobTile key={job.jobId} job={job} tz={tz} readOnly={readOnly} crewGone={!!job.assignedCrewId && !!job.scheduledStart && !boardCrewIds.has(job.assignedCrewId)} />
                   ))}
                   {railMatches.length === 0 && railQuery && <p style={{ fontSize: 13, color: "var(--text-muted)" }}>No match for “{railQuery}”.</p>}
                   {railMatches.length > railShown.length && (
@@ -887,12 +961,12 @@ export default function CalendarBoard() {
           <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 14, background: "#fff" }}>
             <div style={{ display: "grid", gridTemplateColumns: `136px repeat(${days.length}, minmax(${DAY_MIN_PX}px, 1fr))`, minWidth: 136 + days.length * DAY_MIN_PX }}>
               {/* Header row */}
-              <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
+              <div style={{ padding: "14px 16px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12.5, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{vocab.resourceNoun}</div>
               {days.map((d) => {
                 const isToday = sameDay(Date.now(), d, tz);
                 return (
                   <div key={d.toISOString()} style={{ padding: "10px 8px", borderBottom: "1px solid #e2e8f0", borderLeft: "1px solid #f1f5f9", background: isToday ? "#eff6ff" : "#f8fafc", textAlign: "center" }}>
-                    <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{DOW[d.getDay()]}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{DOW[d.getDay()]}</div>
                     <div
                       style={{
                         fontSize: 19, fontWeight: 700, color: isToday ? "#fff" : "#0f172a",
@@ -919,7 +993,7 @@ export default function CalendarBoard() {
                     <Phone size={14} strokeWidth={1.75} />
                     Phone bookings
                   </span>
-                  <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.35 }}>Booked by your AI — not a {vocab.resourceNoun.toLowerCase()}</span>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.35 }}>Booked by your AI — not a {vocab.resourceNoun.toLowerCase()}</span>
                 </div>
               )}
               {!apptMode && days.map((d) => {
@@ -929,7 +1003,7 @@ export default function CalendarBoard() {
                     {dayAppts.map((a) => {
                       const pending = a.pendingConfirmation || a.status === "requested";
                       return (
-                        <PhoneBookingChip key={a.appointmentId} appt={a} tz={tz} pending={pending} previewSuffix={previewSuffix} />
+                        <PhoneBookingChip key={a.appointmentId} appt={a} tz={tz} pending={pending} previewSuffix={previewSuffix} readOnly={readOnly} />
                       );
                     })}
                   </div>
@@ -956,6 +1030,7 @@ export default function CalendarBoard() {
                     onChangeTime={readOnly ? undefined : openChangeTime}
                     onUnschedule={unschedule}
                     onConfirmAppt={confirmAppt}
+                    onEditAppt={(appt) => setEditing({ kind: "appointment", id: appt.appointmentId })}
                     onUnassignAppt={unassignAppt}
                     confirmedAppts={confirmedAppts}
                     busyJob={busyJob}
@@ -990,6 +1065,27 @@ export default function CalendarBoard() {
           />
         );
       })()}
+      {editing && (() => {
+        const job = editing.kind === "job" ? jobs.find((item) => item.jobId === editing.id) : undefined;
+        const appt = editing.kind === "appointment" ? appts.find((item) => item.appointmentId === editing.id) : undefined;
+        if (!job && !appt) return null;
+        return <ScheduleSheet key={`${editing.kind}:${editing.id}:${editing.crewId}:${editing.day?.getTime()}`} title={job?.title ?? appt?.callerName ?? "Booking"}
+          start={job ? job.scheduledStart ?? Date.now() : appt!.startTime} duration={job?.scheduledEnd && job.scheduledStart ? job.scheduledEnd - job.scheduledStart : 3600000}
+          crewId={editing.crewId ?? job?.assignedCrewId ?? appt?.assignedCrewId ?? ""} day={editing.day} tz={tz}
+          resources={job ? workCrews : apptMode ? crews : inspectors} resourceNoun={vocab.resourceNoun}
+          confirmedJob={!!job?.crewConfirmed} readOnly={readOnly} busy={busyJob !== null} error={calendarError}
+          href={job ? `/company/jobs/${job.jobId}${previewSuffix}` : appt?.jobId && isEnabled("jobs") ? `/company/jobs/${appt.jobId}${previewSuffix}` : `/company/pipeline?tab=appointments&appt=${appt!.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`}
+          openLabel={job || (appt?.jobId && isEnabled("jobs")) ? `Open ${vocab.jobNoun.toLowerCase()}` : "Open booking"}
+          onClose={() => setEditing(null)} onSave={async (crewId, start, duration, notify) => {
+            if (job) await placeJob(job.jobId, crewId, start, duration, notify);
+            else { setBusyJob(appt!.appointmentId); await placeAppt(appt!.appointmentId, crewId, new Date(start), start); setBusyJob(null); }
+          }}
+          unscheduleLabel={job ? "Unschedule" : `Unassign ${vocab.resourceNoun.toLowerCase()}`}
+          onUnschedule={async () => {
+            if (job?.crewConfirmed && !window.confirm("Unschedule this confirmed job? The crew was already emailed.")) return;
+            if (job) await unschedule(job.jobId); else await unassignAppt(appt!.appointmentId);
+          }} />;
+      })()}
       <Modal open={!!blockForm} onClose={() => setBlockForm(null)} title="Block time">
         {blockForm && (
           <div>
@@ -1004,6 +1100,47 @@ export default function CalendarBoard() {
       </Modal>
     </>
   );
+}
+
+function ScheduleSheet({ title, start, duration, crewId: initialCrew, day, tz, resources, resourceNoun, confirmedJob, readOnly, busy, error, href, openLabel, onClose, onSave, onUnschedule, unscheduleLabel }: {
+  title: string; start: number; duration: number; crewId: string; day?: Date; tz: string; resources: Crew[]; resourceNoun: string;
+  confirmedJob: boolean; readOnly: boolean; busy: boolean; error?: string | null; href: string; openLabel: string;
+  onClose: () => void; onSave: (crewId: string, start: number, duration: number, notify: boolean) => Promise<void>;
+  onUnschedule: () => Promise<void>; unscheduleLabel: string;
+}) {
+  const parts = dateParts(start, tz);
+  const [date, setDate] = useState(dayKey(day ?? new Date(parts.year, parts.month - 1, parts.day)));
+  const [time, setTime] = useState(`${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`);
+  const [crewId, setCrewId] = useState(initialCrew);
+  const [notify, setNotify] = useState(true);
+  const [invalid, setInvalid] = useState("");
+  return <Sheet open onClose={() => { if (!busy) onClose(); }} title={title}>
+    <form className="calendar-schedule-form" onSubmit={(event) => {
+      event.preventDefault();
+      const [year, month, day] = date.split("-").map(Number);
+      const [hour, minute] = time.split(":").map(Number);
+      const nextStart = wallTimeToUtc(new Date(year, month - 1, day), hour, minute, tz);
+      if (nextStart === null || !Number.isFinite(nextStart)) { setInvalid("That local time does not exist. Choose another time."); return; }
+      setInvalid("");
+      void onSave(crewId, nextStart, duration, confirmedJob && notify);
+    }}>
+      <fieldset disabled={readOnly || busy}>
+        <label>Day<input aria-label="Reschedule day" type="date" required value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label>Time ({tz})<input aria-label="Reschedule time" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></label>
+        <label>{resourceNoun}<select aria-label={`Reschedule ${resourceNoun.toLowerCase()}`} required value={crewId} onChange={(event) => setCrewId(event.target.value)}>
+          <option value="">Choose {resourceNoun.toLowerCase()}</option>{resources.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
+        </select></label>
+        {confirmedJob && !readOnly && <label className="calendar-notify"><input type="checkbox" checked={notify} onChange={(event) => setNotify(event.target.checked)} />Email the {resourceNoun.toLowerCase()} the new schedule</label>}
+      </fieldset>
+      {(error || invalid) && <p role="alert">{invalid || error}</p>}
+      {!confirmedJob && !readOnly && <p className="page-subtitle">Save the time, then confirm it to notify people.</p>}
+      <div className="calendar-sheet-actions">
+        {!readOnly && <button type="submit" className="button primary" disabled={busy}>{busy ? "Saving…" : "Reschedule"}</button>}
+        {!readOnly && <button type="button" className="button" disabled={busy} onClick={() => void onUnschedule()}>{unscheduleLabel}</button>}
+        <Link className="button ghost" href={href}>{openLabel}</Link>
+      </div>
+    </form>
+  </Sheet>;
 }
 
 function countMembers(people: unknown): Record<string, number> {
@@ -1103,7 +1240,7 @@ function SlotPicker({
               <span style={{ width: 10, height: 10, borderRadius: "50%", background: crew.color, flexShrink: 0 }} />
               {crew.name} · {dayLabel}
             </div>
-            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job.title}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{job.title}</div>
           </div>
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px 4px", fontSize: 12, fontWeight: 600, color: "#475569" }}>
@@ -1114,7 +1251,7 @@ function SlotPicker({
         </label>
         <div style={{ padding: "8px 14px 14px", overflowY: "auto" }}>
           {result.loading ? (
-            <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>Finding open times…</p>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)" }}>Finding open times…</p>
           ) : result.error ? (
             <p role="alert" style={{ margin: 0, fontSize: 13, color: "var(--danger)" }}>{result.error}</p>
           ) : result.starts.length === 0 ? (
@@ -1128,7 +1265,7 @@ function SlotPicker({
             </div>
           ) : (
             <>
-              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#64748b" }}>Open times for {crew.name}:</p>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--text-muted)" }}>Open times for {crew.name}:</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
                 {[...orderedTimes.preferred, ...(showEarlier ? orderedTimes.earlier : [])].map((start) => {
                   const highlighted = isHint(start);
@@ -1148,7 +1285,7 @@ function SlotPicker({
               </div>
               {orderedTimes.earlier.length > 0 && <button type="button" className="button small" onClick={() => setShowEarlier((value) => !value)}>{showEarlier ? "Hide earlier times" : "Show earlier times"}</button>}
               {hintParts && result.starts.some(isHint) && (
-                <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "#64748b" }}>
+                <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--text-muted)" }}>
                   Highlighted: {hintKind === "current" ? "its current time" : "the time the customer booked"}.
                 </p>
               )}
@@ -1163,7 +1300,7 @@ function SlotPicker({
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
+  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onEditAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
 }: {
   crew: Crew;
   days: Date[];
@@ -1176,6 +1313,7 @@ function CrewRow({
   onChangeTime?: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
   onConfirmAppt: (a: Appointment) => void;
+  onEditAppt: (a: Appointment) => void;
   onUnassignAppt: (appointmentId: string) => void;
   confirmedAppts: Set<string>;
   busyJob: string | null;
@@ -1192,7 +1330,7 @@ function CrewRow({
         <span style={{ fontSize: 13.5, fontWeight: 600, color: "#0f172a", lineHeight: 1.3, minWidth: 0, overflowWrap: "break-word", hyphens: "auto" }}>
           {crew.name}
           {memberCount > 0 && (
-            <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "#94a3b8" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
+            <span style={{ display: "block", fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>{memberCount} member{memberCount === 1 ? "" : "s"}</span>
           )}
           {/* Secondary: a quiet text link, so the crew's name stays the thing you read first. */}
           {!readOnly && <button type="button" onClick={() => onAddBlock(crew.crewId)} style={{ display: "block", marginTop: 4, padding: 0, background: "none", border: "none", color: "var(--accent)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>＋ Block time</button>}
@@ -1201,7 +1339,7 @@ function CrewRow({
       {days.map((d) => (
         <DayCell key={d.toISOString()} crewId={crew.crewId} day={d}>
           {jobs.filter((j) => j.scheduledStart && sameDay(j.scheduledStart, d, tz)).map((job) => (
-            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onChangeTime={onChangeTime} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} />
+            <ScheduledTile key={job.jobId} job={job} crew={crew} tz={tz} onConfirm={onConfirm} onChangeTime={onChangeTime} onUnschedule={onUnschedule} busy={busyJob === job.jobId} previewSuffix={previewSuffix} readOnly={readOnly} />
           ))}
           {appts.filter((a) => sameDay(a.startTime, d, tz)).map((appt) => (
             <ScheduledApptTile
@@ -1210,6 +1348,8 @@ function CrewRow({
               crew={crew}
               tz={tz}
               onConfirm={onConfirmAppt}
+              onEdit={onEditAppt}
+              readOnly={readOnly}
               onUnassign={onUnassignAppt}
               busy={busyJob === appt.appointmentId}
               justConfirmed={confirmedAppts.has(appt.appointmentId)}
@@ -1237,7 +1377,7 @@ function DayCell({ crewId, day, children }: { crewId: string; day: Date; childre
     <div ref={setNodeRef} data-testid={`calendar-cell-${crewId}-${dayKey(day)}`} style={{ padding: 8, borderBottom: "1px solid #f1f5f9", borderLeft: "1px solid #f1f5f9", minHeight: 116, background: isOver ? "var(--accent-soft)" : "transparent", boxShadow: isOver ? "inset 0 0 0 2px var(--accent)" : undefined, borderRadius: isOver ? 8 : 0, transition: "background 0.12s", display: "grid", gap: 6, alignContent: "start" }}>
       {children}
       {isEmpty && (
-        <span style={{ fontSize: 12, color: isOver ? "var(--accent)" : "#cbd5e1", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
+        <span style={{ fontSize: 12, color: isOver ? "var(--accent)" : "var(--text-muted)", textAlign: "center", alignSelf: "center", fontWeight: isOver ? 700 : 500, pointerEvents: "none" }}>
           {isOver ? "Drop to schedule" : "+"}
         </span>
       )}
@@ -1246,43 +1386,44 @@ function DayCell({ crewId, day, children }: { crewId: string; day: Date; childre
 }
 
 // ── Draggable job tile (unscheduled rail) ─────────────────────────────────────
-function JobTile({ job, tz, crewGone }: { job: Job; tz: string; crewGone: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId });
+function JobTile({ job, tz, crewGone, readOnly }: { job: Job; tz: string; crewGone: boolean; readOnly: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId, disabled: readOnly });
+  const resourceNoun = useBusinessModules().vocab.resourceNoun.toLowerCase();
   const booked = job.requestedStart
     ? `${new Date(job.requestedStart).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: tz })} · ${new Date(job.requestedStart).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}`
     : null;
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      title="Drag onto a crew + day"
+      {...(!readOnly ? listeners : {})}
+      {...(!readOnly ? attributes : {})}
+      title={readOnly ? undefined : `Drag onto a ${resourceNoun} + day`}
       style={{
         padding: "10px 12px 10px 8px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0",
-        cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
+        cursor: readOnly ? "default" : "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: "none", display: "flex", gap: 7, alignItems: "flex-start",
+        touchAction: readOnly ? "auto" : "none", display: "flex", gap: 7, alignItems: "flex-start",
       }}
     >
-      <GripVertical size={15} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      {!readOnly && <GripVertical size={15} style={{ color: "var(--text-muted)", flexShrink: 0, marginTop: 1 }} />}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.35, fontWeight: 600 }}>{job.title}</div>
-        {job.address && <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 1 }}>{job.address}</div>}
+        {job.address && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>{job.address}</div>}
         {booked && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#0369a1", marginTop: 3 }}>Customer booked: {booked}</div>}
-        {crewGone && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#b45309", marginTop: 3 }}>Its crew was removed or turned off — drag it to another crew</div>}
-        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "#cbd5e1", marginTop: 3 }}>{job.jobId}</div>
+        {crewGone && <div style={{ fontSize: 11.5, fontWeight: 600, color: "#b45309", marginTop: 3 }}>{readOnly ? `The office needs to assign an active ${resourceNoun}.` : `Its ${resourceNoun} was removed or turned off — drag it to another ${resourceNoun}`}</div>}
+        <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 3 }}>{job.jobId}</div>
       </div>
     </div>
   );
 }
 
 // ── Draggable booking tile (unassigned rail) ──────────────────────────────────
-function PhoneBookingChip({ appt, tz, pending, previewSuffix }: { appt: Appointment; tz: string; pending: boolean; previewSuffix: string }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `phone-strip:${appt.appointmentId}` });
+function PhoneBookingChip({ appt, tz, pending, previewSuffix, readOnly }: { appt: Appointment; tz: string; pending: boolean; previewSuffix: string; readOnly: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `phone-strip:${appt.appointmentId}`, disabled: readOnly });
   return (
     <div ref={setNodeRef} style={{ position: "relative", transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.5 : 1 }}>
-      <button type="button" {...listeners} {...attributes} data-testid={`phone-booking-${appt.appointmentId}`} style={{ width: "100%", textAlign: "left", cursor: "grab", touchAction: "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
-        <GripVertical size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />
+      <button type="button" disabled={readOnly} {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} data-testid={`phone-booking-${appt.appointmentId}`} style={{ width: "100%", textAlign: "left", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", fontSize: 12, padding: "5px 10px", borderRadius: 999, background: pending ? "#fff" : "#e0f2fe", color: pending ? "#64748b" : "#075985", border: pending ? "1px dashed #94a3b8" : "1px solid #bae6fd", lineHeight: 1.35 }}>
+        {!readOnly && <GripVertical size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />}
         <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}</strong> {appt.callerName ?? "Booking"}
       </button>
       <details style={{ marginTop: 3 }}>
@@ -1297,24 +1438,24 @@ function PhoneBookingChip({ appt, tz, pending, previewSuffix }: { appt: Appointm
   );
 }
 
-function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `appointment-rail:${appt.appointmentId}` });
+function ApptTile({ appt, tz, readOnly }: { appt: Appointment; tz: string; readOnly: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `appointment-rail:${appt.appointmentId}`, disabled: readOnly });
   const pending = appt.pendingConfirmation || appt.status === "requested";
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(!readOnly ? listeners : {})}
+      {...(!readOnly ? attributes : {})}
       data-testid={`unassigned-appointment-${appt.appointmentId}`}
-      title="Drag onto a row + day to assign"
+      title={readOnly ? undefined : "Drag onto a row + day to assign"}
       style={{
         padding: "10px 12px 10px 8px", borderRadius: 10, background: "#fff", border: "1px solid #e2e8f0",
-        cursor: "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
+        cursor: readOnly ? "default" : "grab", boxShadow: isDragging ? "0 8px 20px rgba(0,0,0,0.15)" : "0 1px 2px rgba(0,0,0,0.04)",
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        touchAction: "none", display: "flex", gap: 7, alignItems: "flex-start",
+        touchAction: readOnly ? "auto" : "none", display: "flex", gap: 7, alignItems: "flex-start",
       }}
     >
-      <GripVertical size={15} style={{ color: "#cbd5e1", flexShrink: 0, marginTop: 1 }} />
+      {!readOnly && <GripVertical size={15} style={{ color: "var(--text-muted)", flexShrink: 0, marginTop: 1 }} />}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
           {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
@@ -1322,7 +1463,7 @@ function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
           {new Date(appt.startTime).toLocaleDateString("en-US", { weekday: "short", timeZone: tz })}
         </div>
         <div style={{ fontSize: 12.5, color: "#334155", lineHeight: 1.35, marginTop: 1 }}>{appt.callerName ?? "Booking"}</div>
-        {appt.serviceType && <div style={{ fontSize: 11.5, color: "#94a3b8", marginTop: 1 }}>{appt.serviceType}</div>}
+        {appt.serviceType && <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 1 }}>{appt.serviceType}</div>}
         {pending && (
           <div style={{ fontSize: 10, fontWeight: 700, color: "#b45309", marginTop: 3 }}>UNCONFIRMED</div>
         )}
@@ -1333,19 +1474,21 @@ function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
 
 // ── Placed booking tile (in a resource×day cell) ──────────────────────────────
 function ScheduledApptTile({
-  appt, crew, tz, onConfirm, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled,
+  appt, crew, tz, onConfirm, onEdit, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled, readOnly,
 }: {
   appt: Appointment;
   crew: Crew;
   tz: string;
   onConfirm: (a: Appointment) => void;
+  onEdit: (a: Appointment) => void;
   onUnassign: (appointmentId: string) => void;
   busy: boolean;
   justConfirmed: boolean;
   previewSuffix: string;
   smsEnabled: boolean;
+  readOnly: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: appt.appointmentId, disabled: readOnly });
   const confirmed = appt.status === "confirmed" || justConfirmed;
   return (
     <div
@@ -1359,16 +1502,16 @@ function ScheduledApptTile({
       }}
     >
       {/* No grip icon here: a day cell is ~80 px on a full week, and the icon cut names to "Jordai". The whole top is the handle. */}
-      <div {...listeners} {...attributes} title="Drag to move" style={{ padding: "7px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
+      <div {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} title={readOnly ? undefined : "Drag to move, or open to reschedule"} onClick={() => { if (!readOnly) onEdit(appt); }} onKeyDown={(event) => { if (!readOnly && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit(appt); } }} style={{ padding: "7px 8px", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
             {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
           </div>
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {appt.callerName ?? "Booking"}
           </div>
           {appt.serviceType && (
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <div style={{ fontSize: 10.5, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.2, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {appt.serviceType}
             </div>
           )}
@@ -1379,18 +1522,18 @@ function ScheduledApptTile({
           <summary style={{ cursor: "pointer", color: "var(--accent)", fontWeight: 700 }}>Details</summary>
           <div style={{ position: "absolute", zIndex: 12, marginTop: 6, width: 280, maxWidth: "calc(100vw - 32px)", padding: 10, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 8px 24px rgba(15,23,42,.14)" }}><BookingDetails booking={appt} inspectorName={crew.name} timeZone={tz} compact /></div>
         </details>
-        {!confirmed ? (
-          <button onClick={() => onConfirm(appt)} disabled={busy} title="Confirms the booking and notifies the customer when a channel is available" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>
+        {!confirmed && !readOnly ? (
+          <button onClick={() => onConfirm(appt)} disabled={busy} title="Confirms the booking and notifies the customer when a channel is available" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>
             {busy ? "Sending…" : `✓ ${confirmButtonLabel(confirmChannels({ smsEnabled, phone: contactPhone(appt), textOk: appt.textOk, email: appt.callerEmail }))}`}
           </button>
         ) : (
-          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>
+          <Link href={`/company/pipeline${previewSuffix ? previewSuffix + "&" : "?"}tab=appointments&appt=${appt.appointmentId}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: "var(--accent-dark)", textDecoration: "none" }}>
             Open →
           </Link>
         )}
-        <button onClick={() => onUnassign(appt.appointmentId)} aria-label="Move back to unassigned" title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+        {!readOnly && <button onClick={() => onUnassign(appt.appointmentId)} aria-label="Move back to unassigned" title="Move back to Unassigned (does not cancel the booking)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
           <Undo2 size={14} strokeWidth={1.75} />
-        </button>
+        </button>}
       </div>
     </div>
   );
@@ -1398,7 +1541,7 @@ function ScheduledApptTile({
 
 // ── Scheduled tile (in a crew×day cell) — grey until confirmed, then crew color ──
 function ScheduledTile({
-  job, crew, tz, onConfirm, onChangeTime, onUnschedule, busy, previewSuffix,
+  job, crew, tz, onConfirm, onChangeTime, onUnschedule, busy, previewSuffix, readOnly,
 }: {
   job: Job;
   crew: Crew;
@@ -1408,8 +1551,9 @@ function ScheduledTile({
   onUnschedule: (jobId: string) => void;
   busy: boolean;
   previewSuffix: string;
+  readOnly: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: job.jobId, disabled: readOnly });
   // This industry's word for who does the work (Crew, Walker, Tech…).
   const resourceNoun = useBusinessModules().vocab.resourceNoun;
   const confirmed = !!job.crewConfirmed;
@@ -1425,34 +1569,34 @@ function ScheduledTile({
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
-        <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />
+      <div {...(!readOnly ? listeners : {})} {...(!readOnly ? attributes : {})} onClick={() => onChangeTime?.(job)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onChangeTime?.(job); } }} style={{ padding: "8px 10px", cursor: readOnly ? "default" : "grab", touchAction: readOnly ? "auto" : "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
+        {!readOnly && <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />}
         <div style={{ minWidth: 0, flex: 1 }}>
           {job.scheduledStart && (
-            <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
               {fmtTime(job.scheduledStart)}
               {job.scheduledEnd && job.scheduledEnd !== job.scheduledStart ? `–${fmtTime(job.scheduledEnd)}` : ""}
             </div>
           )}
           <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.title}</div>
-          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "#94a3b8", marginTop: 2 }}>{job.jobId}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 600, fontFamily: "monospace", color: "var(--text-muted)", marginTop: 2 }}>{job.jobId}</div>
         </div>
       </div>
       <div style={{ display: "flex", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-        {!confirmed ? (
-          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : `✓ Confirm + email ${resourceNoun.toLowerCase()}`}</button>
+        {!confirmed && !readOnly ? (
+          <button onClick={() => onConfirm(job)} disabled={busy} title="Emails the crew's address and every crew member who has one, and locks the time" style={{ flex: 1, fontSize: 12, fontWeight: 700, padding: "7px 4px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer" }}>{busy ? "Sending…" : `✓ Confirm + email ${resourceNoun.toLowerCase()}`}</button>
         ) : (
-          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
+          <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: "var(--accent-dark)", textDecoration: "none" }}>Open →</Link>
         )}
         {/* Outside the drag handle on purpose: a button nested in the draggable (role="button") is invalid and eats taps. */}
-        {!confirmed && onChangeTime && (
-          <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#64748b", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+        {onChangeTime && (
+          <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
             <Clock3 size={14} strokeWidth={1.75} />
           </button>
         )}
-        <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#94a3b8", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
+        {!readOnly && <button onClick={() => { if (!confirmed || confirm("Unschedule this confirmed job? The crew was already emailed.")) onUnschedule(job.jobId); }} aria-label="Move back to unscheduled" title="Move back to Unscheduled (does not delete the job)" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
           <Undo2 size={14} strokeWidth={1.75} />
-        </button>
+        </button>}
       </div>
     </div>
   );

@@ -11,6 +11,9 @@ test("owner opens their own page, switches roles, and can ask a question", async
   const guidebook = page.getByRole("link", { name: "Printable guidebook (PDF-ready)" });
   await expect(guidebook).toHaveAttribute("href", "/guides/user-guidebook.html");
   expect((await page.request.get("/guides/user-guidebook.html")).status()).toBe(200);
+  await page.getByText("Can I answer calls myself?", { exact: true }).click();
+  await expect(page.getByRole("region", { name: "Quick answers" })).toContainText("The AI never takes a call you answered.");
+  expect(await (await page.request.get("/guides/user-guidebook.html")).text()).toContain("Ask Luxor to set it up. The AI never takes a call you answered.");
   await settle(page);
   await expectHealthy(page);
   await shot(page, "guide-owner");

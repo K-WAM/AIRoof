@@ -194,7 +194,6 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         </div>
         <div className="company-sidebar-footer">
           {!crewOnly && <QuickAddButton />}
-          {!crewOnly && <CommandBar />}
           <div className="topbar-user">
             <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
             <span className="user-email">{user.email}</span>
@@ -208,6 +207,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
           <div className="company-brand">
             <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
           </div>
+          {!crewOnly && <CommandBar header />}
           {!crewOnly && <MobileNewButton />}
             <button
               type="button"
@@ -225,11 +225,6 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
         <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
           <div className="mobile-nav-sheet" id="company-mobile-nav">
             <CompanyNav />
-            {!crewOnly && (
-              <div className="mobile-nav-search">
-                <CommandBar />
-              </div>
-            )}
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>

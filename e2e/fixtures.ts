@@ -30,6 +30,7 @@ export const test = base.extend<{ as: (role: Role) => Promise<Page> }>({
         storageState: join(__dirname, ".auth", `${role}.json`),
         viewport: u.viewport ?? { width: 1280, height: 800 },
         isMobile: u.isMobile, hasTouch: u.hasTouch, deviceScaleFactor: u.deviceScaleFactor,
+        userAgent: u.userAgent,
       });
       contexts.push(context);
       const page = await context.newPage();
@@ -46,6 +47,10 @@ export const test = base.extend<{ as: (role: Role) => Promise<Page> }>({
       page.on("console", (m) => {
         if (m.type() !== "error") return;
         const text = m.text();
+        // WebKit eagerly asks Firebase Auth to initialize its optional Google redirect iframe.
+        // Verified email/password sign-in + authenticated Dashboard/Calendar/Jobs work without
+        // gapi. Keep CSP restrictive; ignore only this exact optional-script refusal on WebKit.
+        if (testInfo.project.use.browserName === "webkit" && /^Refused to load https:\/\/apis\.google\.com\/js\/api\.js\?onload=__iframefcb\d+ because it does not appear in the script-src directive of the Content Security Policy\.$/.test(text)) return;
         if (!IGNORED_CONSOLE.some((re) => re.test(text))) seen.push(`console.error: ${text.slice(0, 300)}`);
       });
       return page;
@@ -93,6 +98,8 @@ export async function shot(page: Page, name: string, testInfo: TestInfo = test.i
   const dir = join("test-results", "screens", testInfo.project.name);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, `${name.replace(/[^a-z0-9._-]+/gi, "-")}.png`);
-  await page.screenshot({ path, fullPage: true });
+  // CSS pixels preserve the whole long legal page within WebKit's 32767px
+  // image limit even on a 3x iPhone; no content is cropped from the evidence.
+  await page.screenshot({ path, fullPage: true, scale: "css" });
   return path;
 }

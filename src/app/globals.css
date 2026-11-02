@@ -805,8 +805,19 @@ a.panel:hover {
 }
 
 .company-topbar {
-  display: none;
+  display: flex;
+  align-items: center;
+  padding: 10px 28px;
+  gap: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
+.company-topbar .company-brand { display: none; }
+.cmd-header-field { width: min(100%, 560px); min-height: 44px; cursor: text; }
+.company-topbar .cmd-header-icon { display: none; }
 
 .company-brand {
   font-weight: 700;
@@ -1082,6 +1093,10 @@ a.panel:hover {
 .company-field-page {
   min-height: 100vh;
 }
+/* Keep the voice-note helper readable on the dark Field surface, without
+   changing the composer owned by the parallel offline task. */
+.company-field-page [data-testid="note-mic"] ~ p:not([role]) { color: var(--border) !important; }
+
 @media (max-width: 900px) {
   .company-field-page {
     min-height: calc(100vh - 64px);
@@ -1261,7 +1276,7 @@ a.metric:hover {
 }
 
 .feed-icon {
-  width: 34px;
+  width: 72px;
   height: 34px;
   border-radius: 8px;
   display: flex;
@@ -1468,7 +1483,7 @@ a.metric:hover {
   border-radius: 3px;
   padding: 1px 4px;
   font-family: monospace;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .cmd-overlay {
@@ -1551,6 +1566,7 @@ a.metric:hover {
   letter-spacing: 0.07em;
   width: 34px;
   flex-shrink: 0;
+  overflow-wrap: anywhere;
 }
 
 .cmd-type--lead     { color: #1e40af; }
@@ -2571,7 +2587,7 @@ a.metric:hover {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 8px;
     padding: 12px 16px;
     background: #ffffff;
     border-bottom: 1px solid var(--border);
@@ -2580,6 +2596,10 @@ a.metric:hover {
     top: 0;
     z-index: 10;
   }
+  .company-topbar .company-brand { display: flex; margin-right: auto; }
+  .cmd-header-field { display: none; }
+  .company-topbar .cmd-header-icon { display: inline-flex; justify-content: center; width: 44px; height: 44px; margin: 0; font-size: 24px; }
+  .cmd-header-icon .cmd-kbd { display: none; }
 
   .mobile-menu-btn {
     display: flex;
@@ -2850,7 +2870,7 @@ a.metric:hover {
 .job-tab { min-height: 44px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-muted); cursor: pointer; padding: 8px 12px; font-size: 13px; }
 .job-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
 .job-tabs-divider { align-self: stretch; width: 1px; min-width: 1px; margin: 6px 4px; background: var(--border); }
-.job-tab-workflow { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--accent) 8%, transparent); font-weight: 600; }
+.job-tab-workflow { display: inline-flex; align-items: center; gap: 5px; border-radius: 8px 8px 0 0; background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text); font-weight: 600; }
 .job-tab-workflow.current { box-shadow: inset 0 0 0 2px var(--accent); }
 .job-tab-workflow small { font-size: 10px; color: var(--accent); }
 
@@ -3714,3 +3734,18 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .legal-footer { max-width: 820px; margin: 0 auto; padding: 16px 20px 32px; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border); }
 .legal-consent { font-size: 0.75rem; line-height: 1.5; color: var(--text-muted); text-align: center; margin: 0; }
 .legal-consent a { color: inherit; text-decoration: underline; }
+
+.calendar-undo { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 8px; padding: 10px 12px; width: max-content; max-width: calc(100vw - 24px); background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md); }
+.calendar-undo > span { min-width: 0; font-size: 13px; }
+.calendar-schedule-form { padding: 16px; }
+.calendar-schedule-form fieldset { display: grid; gap: 12px; padding: 0; margin: 0 0 12px; border: 0; min-width: 0; }
+.calendar-schedule-form label { display: grid; gap: 5px; color: var(--text); font-size: 14px; }
+.calendar-schedule-form .calendar-notify { display: flex; align-items: center; gap: 8px; min-height: var(--control-h); }
+.calendar-notify input { width: 20px; height: 20px; flex: none; }
+.calendar-sheet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.calendar-item-title { border: 0; padding: 0; width: 100%; min-height: var(--control-h); text-align: left; background: none; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.help-hint { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 22px; height: 22px; flex: none; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 700; cursor: help; }
+.help-hint-content { position: fixed; z-index: 250; width: 260px; max-width: calc(100vw - 16px); padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); font-size: 13px; line-height: 1.5; white-space: pre-line; pointer-events: none; }
+.job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
+.job-tabs-with-help > .job-tabs { flex: 1; min-width: 0; }
+@media (pointer: coarse) { .help-hint { width: 44px; height: 44px; } }

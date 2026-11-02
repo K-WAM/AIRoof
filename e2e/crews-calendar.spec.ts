@@ -82,7 +82,9 @@ test("Library: edit a crew and add a member (T-148)", async ({ as }) => {
   await card.getByLabel(`Add a member to ${name} Renamed`).selectOption("e2e-field-crew");
   expect((await saved).ok()).toBeTruthy();
   await expect(card.getByText("Frank Field · Installer")).toBeVisible();
-  await expect(page.getByTestId("crew-capacity-line")).toContainText("one per active crew");
+  const roster = await api(page, "GET", `/api/company/crews?businessId=${B}`);
+  const hasInspector = (roster.data.crews as Array<{ active?: boolean; kind?: string }>).some((crew) => crew.active !== false && crew.kind === "inspector");
+  await expect(page.getByTestId("crew-capacity-line")).toContainText(hasInspector ? "one at a time per active inspector" : "one per active crew");
   await expectHealthy(page);
   await shot(page, "crews-library-edit-members");
 
@@ -92,8 +94,33 @@ test("Library: edit a crew and add a member (T-148)", async ({ as }) => {
   // Frank is on no crew now, so the next project run starts clean.
 });
 
+test("Library on a phone: long moved-from names keep member selectors in the card", async ({ as, isMobile }) => {
+  test.skip(!isMobile, "375px member selector regression");
+  const page = await as("owner");
+  const tag = stamp(), longName = `Phone Crew With a long readable name for member selection ${tag}`;
+  const before = await api(page, "GET", `/api/company/team?businessId=${B}`);
+  const person = (before.data.members as Array<{ uid: string; crewId?: string }>).find((person) => person.uid === "e2e-crew")!;
+  expect(person).toBeTruthy();
+  const longCrew = await createCrew(page, longName);
+  const otherCrew = await createCrew(page, `Phone Crew ${tag}`);
+  try {
+    expect((await api(page, "PATCH", "/api/company/team/e2e-crew", { businessId: B, crewId: longCrew })).ok).toBe(true);
+    await page.goto("/company/library?section=crews");
+    const select = page.getByTestId(`crew-card-${otherCrew}`).getByLabel(`Add a member to Phone Crew ${tag}`);
+    await expect(select).toContainText(longName);
+    const box = (await select.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(376);
+    await expectHealthy(page);
+    await shot(page, "library-long-member-options");
+  } finally {
+    await api(page, "PATCH", "/api/company/team/e2e-crew", { businessId: B, crewId: person.crewId ?? null });
+    await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${otherCrew}`);
+    await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${longCrew}`);
+  }
+});
+
 test("Calendar: a drop asks for a time, and a second job fits the same crew-day (T-149)", async ({ as }, testInfo) => {
-  test.skip(testInfo.project.name === "phone", "drag-and-drop is covered on desktop; the phone check below uses Change time");
+  test.skip(testInfo.project.name === "phone", "drag-and-drop is covered on desktop; the phone check below taps the scheduled job");
   const page = await as("owner");
   await page.setViewportSize({ width: 1280, height: 1300 });
   await clearTestCrews(page);
@@ -137,7 +164,7 @@ test("Calendar: a drop asks for a time, and a second job fits the same crew-day 
   await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${crewId}`);
 });
 
-test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149)", async ({ as }, testInfo) => {
+test("Calendar on a phone: tapping a scheduled job opens one reschedule sheet", async ({ as }, testInfo) => {
   test.skip(testInfo.project.name !== "phone", "phone layout check");
   const page = await as("owner");
   await clearTestCrews(page);
@@ -160,11 +187,11 @@ test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149
     await page.getByRole("button", { name: "Next day" }).click();
     await settle(page, 300);
   }
-  await item.getByRole("button", { name: "Change time", exact: true }).click();
-  const picker = page.getByTestId("calendar-slot-picker");
-  await expect(picker).toBeInViewport();
-  // The picker sits inside the shared bottom Sheet (T-158); the sheet spans the phone, not a clipped 320 px popover.
-  const sheet = page.getByRole("dialog").filter({ has: picker });
+  await item.getByRole("button", { name: new RegExp(title) }).click();
+  const sheet = page.getByRole("dialog", { name: title });
+  await expect(sheet.getByRole("button", { name: "Reschedule", exact: true })).toBeInViewport();
+  await expect(sheet.getByRole("button", { name: "Unschedule", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "Open job", exact: true })).toBeVisible();
   const box = (await sheet.boundingBox())!;
   expect(box.width).toBeGreaterThan(360);
   await shot(page, "calendar-change-time-sheet");

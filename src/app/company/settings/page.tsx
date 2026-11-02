@@ -13,6 +13,7 @@ import { NoticesPanel } from "./NoticesPanel";
 import { GettingPaidPanel } from "./GettingPaidPanel";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { phoneGreeting } from "@/lib/i18n/bilingual";
+import type { EffectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import {
   defaultRecordingDisclosureText,
   RECORDING_DISCLOSURE_MAX_LENGTH,
@@ -34,6 +35,7 @@ interface Settings {
   licenseNumber: string;
   businessName: string;
   invoiceCopy?: InvoiceCopyDefaults;
+  billingPrefs?: EffectiveBillingPrefs;
   agentLanguage: "en" | "es";
   agentLanguages?: Array<"en" | "es">;
   // Call-recording notice (Phase 16, T-102) — optional so an older cached
@@ -53,6 +55,7 @@ const SECTIONS: ReadonlyArray<readonly [string, string, ("calls" | "billing")?]>
 export default function CompanySettingsPage() {
   const businessId = useBusinessId();
   const { user } = useAuth();
+  const readOnly = !user?.superadmin && user?.role === "viewer";
   const smsEnabled = useBootstrap().data?.business.smsEnabled === true;
   const canManageTeam = user?.role === "owner" || !!user?.superadmin;
   const { isEnabled } = useBusinessModules();
@@ -234,10 +237,10 @@ export default function CompanySettingsPage() {
           </h1>
           <p className="page-subtitle">Business hours, timezone, and contact details. Changes take effect immediately.</p>
         </div>
-        <button className="button primary" onClick={save} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {!readOnly && <button className="button primary" onClick={save} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <Save size={15} strokeWidth={1.75} />
           {saving ? "Saving…" : "Save Changes"}
-        </button>
+        </button>}
       </header>
 
       {saved && (
@@ -262,7 +265,7 @@ export default function CompanySettingsPage() {
           {sections.map(([id, label]) => <a key={id} href={"#" + id} aria-current={activeSection === id ? "location" : undefined}
             onClick={(event) => { event.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }); setActiveSection(id); }}>{label}</a>)}
         </nav>
-        <div className="settings-section-content">
+        <fieldset className="settings-section-content" disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-label="Business settings">
           <section id="company" className="panel">
             <div className="panel-header"><h2 className="panel-title">Company</h2></div>
             <div className="panel-body form-grid">
@@ -301,7 +304,7 @@ export default function CompanySettingsPage() {
             </div>
           </section>}
 
-          {hasBilling && <GettingPaidPanel businessId={businessId} />}
+          {hasBilling && <GettingPaidPanel businessId={businessId} initialPrefs={settings.billingPrefs} />}
 
           {hasBilling && <section id="documents" className="panel">
             <div className="panel-header"><h2 className="panel-title">Documents</h2></div>
@@ -338,7 +341,7 @@ export default function CompanySettingsPage() {
             {canManageTeam && <TeamPanel businessId={businessId} />}
             <p>For services, FAQs, agent voice, or other setup changes, contact <a href="mailto:connect@luxordev.com">connect@luxordev.com</a>.</p>
           </section>
-        </div>
+        </fieldset>
       </div>
     </>
   );

@@ -134,15 +134,18 @@ test("a demo-line call reaches the operator app, becomes a job and shows its cre
   await expect(page.getByRole("heading", { name: "Calendar", exact: true })).toBeVisible();
   if (info.project.name === "phone") {
     await expect(page.getByRole("combobox", { name: "Block time for" })).toContainText(crew.name);
-    const item = page.locator(".c1-agenda-item").filter({ has: page.locator(`a[href*='/jobs/${jobId}?']`) });
+    const calendarTitle = String((await readDoc(`businesses/${B}/jobs/${jobId}`))?.title ?? "");
+    expect(calendarTitle).not.toBe("");
+    const item = page.getByTestId(`calendar-agenda-job-${jobId}`);
     for (let i = 0; i < 8 && !(await item.isVisible()); i++) {
       await page.getByRole("button", { name: "Next day" }).click();
       await settle(page, 200);
     }
     await expect(item).toContainText(crew.name);
-    await item.getByRole("button", { name: "Change time", exact: true }).click();
-    const picker = page.getByTestId("calendar-slot-picker");
-    await expect(picker.getByRole("button").filter({ hasText: /\d:\d\d [AP]M/ }).first()).toBeVisible();
+    await item.locator(".calendar-item-title").click();
+    const sheet = page.getByRole("dialog", { name: calendarTitle });
+    await expect(sheet.getByLabel("Reschedule time", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Open job", exact: true })).toHaveAttribute("href", `/company/jobs/${jobId}?preview=${B}`);
     await shot(page, "demo-live-crew-time-picker");
     await page.keyboard.press("Escape");
     await item.getByRole("button", { name: "Confirm", exact: true }).click();

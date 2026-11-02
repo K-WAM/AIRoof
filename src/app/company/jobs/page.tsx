@@ -329,7 +329,7 @@ export default function JobsPage() {
                   aria-pressed={statusFilter === key}
                   onClick={() => setStatusFilter(key)}
                 >
-                  {label}{allComplete && <> <span style={{ opacity: 0.6, fontSize: 11 }}>({count})</span></>}
+                  {label}{allComplete && <> <span style={{ fontSize: 11 }}>({count})</span></>}
                 </button>
               );
             })}

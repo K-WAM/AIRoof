@@ -1,4 +1,4 @@
-import { createHmac } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 import { test, expect } from "./fixtures";
 import { db, outbox, readDoc } from "../scripts/e2e/lib.cjs";
 import { SECRETS } from "../scripts/e2e/config.cjs";
@@ -10,10 +10,14 @@ test.beforeAll(async () => {
   for (const doc of budget.docs) await doc.ref.delete();
 });
 let nextTestIp = 0;
+// Documentation-only IPv6 range, unique to this worker/run/retry. The app's in-memory
+// limiter survives separate Playwright runs against the same harness.
+const runIp = randomBytes(10).toString("hex").match(/.{4}/g)!.join(":");
+const uniqueTestIp = () => `2001:db8:${runIp}:${(++nextTestIp).toString(16)}`;
 // The self-led /demo page no longer signs the window into the app (e2e/self-led-demo.spec.ts covers its screens);
 // these checks drive the same private-trial API it uses.
 async function createTrial(page: Page, name: string, email = "") {
-  const testIp = `198.51.100.${++nextTestIp}`;
+  const testIp = uniqueTestIp();
   await page.route("**/api/demo/roofing-trial", (route) => route.continue({ headers: { ...route.request().headers(), "x-forwarded-for": testIp } }));
   const created = await page.request.post("/api/demo/roofing-trial", { headers: { "x-forwarded-for": testIp }, data: { action: "create", name, companyName: `${name} Roofing`, email } });
   expect(created.status()).toBe(200);
@@ -77,7 +81,7 @@ test("a real local booking emails only the entered address and field updates rea
 
 test("missing, foreign and expired sessions fail closed; paid calls and notes stop at their limits", async ({ as }) => {
   const page = await as("viewer");
-  const requestHeaders = { "x-forwarded-for": `198.51.100.${100 + ++nextTestIp}` };
+  const requestHeaders = { "x-forwarded-for": uniqueTestIp() };
   const trialPost = (options: { data: unknown; headers?: Record<string, string> }) => page.request.post("/api/demo/roofing-trial", { ...options, headers: { ...requestHeaders, ...options.headers } });
   expect((await trialPost({ data: { action: "call" } })).status()).toBe(401);
   expect((await trialPost({ headers: { origin: "https://evil.example" }, data: { action: "create", name: "Caller", companyName: "Roofing" } })).status()).toBe(403);

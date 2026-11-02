@@ -10,7 +10,7 @@ import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModul
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { defaultLandingPath } from "@/lib/team/landing";
 import type { TeamRole, TradeTitle } from "@/types/team";
-import { GUIDE_ROLES, guideFor, type GuideRole } from "./guideContent";
+import { GUIDE_QUICK_ANSWERS, GUIDE_ROLES, guideFor, type GuideRole } from "./guideContent";
 
 /**
  * The quick guide (owner, 2026-10-30): one short, printable page per role — Owner, Admin, Office staff, Foreman — in
@@ -84,6 +84,11 @@ export default function GuidePage() {
         </div>
       </section>
 
+      {isEnabled("calls") && <section className="panel no-print" aria-label="Quick answers">
+        <div className="panel-body">{GUIDE_QUICK_ANSWERS.map(({ question, answer }) => <details key={question}>
+          <summary>{question}</summary><p>{answer}</p>
+        </details>)}</div>
+      </section>}
       <FeedbackForm open={asking} onClose={() => setAsking(false)} mode="question" />
     </div>
   );

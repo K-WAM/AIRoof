@@ -25,6 +25,8 @@ import { displayRequestState } from "@/lib/requests/displayState";
 import { fmtPhone } from "@/lib/format";
 import { contactPhone } from "@/lib/format/phone";
 import { confirmButtonLabel, confirmChannels, notifiedPhrase, type ConfirmChannel } from "@/lib/comms/confirmChannels";
+import { Hint } from "@/components/ui/Hint";
+import { glossaryMeaning } from "@/lib/copy/glossary";
 import { CalendarDays, Check, Clock, FilePlus, History, ListTodo, Phone, UserRound, Workflow } from "lucide-react";
 
 type Tab = "leads" | "appointments";
@@ -631,7 +633,7 @@ export default function PipelinePage() {
             <Workflow size={20} strokeWidth={1.75} />
             Pipeline
           </h1>
-          <p className="page-subtitle">Booked customers first. Call back anyone who did not book.</p>
+          <p className="page-subtitle">Booked customers first. Call back anyone who did not book. <Hint label="Pipeline confirmation options">{`${glossaryMeaning("confirmed")} The button names the available email or text channels. Confirm without a channel saves your decision; contact the customer yourself.`}</Hint></p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (
