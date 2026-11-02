@@ -212,8 +212,8 @@ export function CommandBar() {
         aria-label="Search"
         aria-haspopup="dialog"
       >
-        ⌕ Search
-        <span className="cmd-kbd">⌘K</span>
+        <span aria-hidden="true">⌕</span> Search
+        <span className="cmd-kbd" aria-hidden="true">⌘K</span>
       </button>
 
       {open && (

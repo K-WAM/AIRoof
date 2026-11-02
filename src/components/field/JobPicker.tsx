@@ -74,7 +74,7 @@ export function JobPicker({ jobs, loading, selectedId, onSelect, myCrewId, clock
 
   if (!open && selected) {
     return (
-      <button type="button" onClick={() => setPicking(true)} aria-label={`Job ${selected.jobId} — tap to change`} data-testid="job-selected"
+      <button type="button" onClick={() => setPicking(true)} data-testid="job-selected"
         style={{ width: "100%", background: "#1e293b", border: "1px solid #334155", borderRadius: 16, padding: "14px 16px", textAlign: "left", cursor: "pointer", color: "#f8fafc" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ color: "#f97316", fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>{selected.jobId}</span>

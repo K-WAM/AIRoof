@@ -47,6 +47,10 @@ export const test = base.extend<{ as: (role: Role) => Promise<Page> }>({
       page.on("console", (m) => {
         if (m.type() !== "error") return;
         const text = m.text();
+        // WebKit eagerly asks Firebase Auth to initialize its optional Google redirect iframe.
+        // Verified email/password sign-in + authenticated Dashboard/Calendar/Jobs work without
+        // gapi. Keep CSP restrictive; ignore only this exact optional-script refusal on WebKit.
+        if (testInfo.project.use.browserName === "webkit" && /^Refused to load https:\/\/apis\.google\.com\/js\/api\.js\?onload=__iframefcb\d+ because it does not appear in the script-src directive of the Content Security Policy\.$/.test(text)) return;
         if (!IGNORED_CONSOLE.some((re) => re.test(text))) seen.push(`console.error: ${text.slice(0, 300)}`);
       });
       return page;

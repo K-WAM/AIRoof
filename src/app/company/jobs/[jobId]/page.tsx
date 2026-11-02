@@ -1014,7 +1014,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       <header className="page-header no-print">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-            <a href={`/company/jobs${previewSuffix}`} style={{ color: "#64748b", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <a href={`/company/jobs${previewSuffix}`} style={{ color: "var(--text-muted)", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4 }}>
               <ArrowLeft size={13} strokeWidth={1.75} />
               Jobs
             </a>

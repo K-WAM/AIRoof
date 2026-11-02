@@ -23,6 +23,10 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
     await page.goto(role === "superadmin" ? "/hub" : role === "crew" || role === "fieldCrew" ? "/company/field" : "/company/dashboard");
     await expect(page.locator("nav").first()).toBeAttached();
     const routes = await navRoutes(page);
+    if (role === "viewer") {
+      const refused = await page.request.put("/api/company/settings", { data: { businessId: "e2e-roofing", contactEmail: "forbidden@example.test" } });
+      expect(refused.status(), "viewer settings writes must be refused by the server").toBe(403);
+    }
     expect(routes.length, "navigation must load before checking permissions").toBeGreaterThan(0);
     for (const route of routes) {
       await test.step(route, async () => {
