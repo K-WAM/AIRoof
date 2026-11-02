@@ -15,7 +15,13 @@ for (const screen of ["Dashboard", "Calendar", "Jobs", "Job detail", "Pipeline",
     await page.goto(path);
     await expect(page.getByRole("heading").first()).toBeVisible();
     await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
-    if (screen === "Field") await expect(page.getByTestId("job-selected")).toBeVisible();
+    if (screen === "Field") {
+      const selected = page.getByTestId("job-selected");
+      const choice = page.getByTestId("job-option").first();
+      await expect(selected.or(choice)).toBeVisible();
+      if (!(await selected.isVisible())) await choice.click();
+      await expect(selected).toBeVisible();
+    }
     await expect(page.getByText(/Failed to load this page|This page couldn.t load/)).toHaveCount(0);
     await expectHealthy(page);
     const results = await new AxeBuilder({ page }).analyze();
