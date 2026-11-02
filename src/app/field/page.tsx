@@ -13,6 +13,7 @@ import { RecentNotes } from "@/components/field/RecentNotes";
 import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import type { WorkerDay } from "@/types/timeclock";
 import { InstallPrompt } from "@/components/field/InstallPrompt";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import type { Job } from "@/types/jobs";
 
 // ── SVG mic icon ────────────────────────────────────────────────────────────
@@ -112,7 +113,8 @@ function FieldApp() {
       fetch("/api/field/session", { credentials: "same-origin" })
         .then((r) => (r.ok ? r.json() : null))
         .then((session: { businessId: string; jobId: string | null } | null) => {
-          if (cancelled || !session) return;
+          if (cancelled) return;
+          if (!session) { setAccessDenied(true); return; }
           setBusinessId(session.businessId);
           if (session.jobId) {
             setSessionJobId(session.jobId);
@@ -151,6 +153,15 @@ function FieldApp() {
 
     return () => { cancelled = true; };
   }, [prefillJobId, urlBusinessId, urlKey]);
+
+  // Recheck the credential without reloading job data. A phone left open during Reset/Stop all links should
+  // retire its controls as soon as the server revokes the session, rather than wait for the next failed save.
+  useLiveRefresh(async () => {
+    try {
+      const response = await fetch("/api/field/session", { cache: "no-store" });
+      if (response.status === 401 || response.status === 403) setAccessDenied(true);
+    } catch { /* A network interruption is not a revoked link. */ }
+  }, { intervalMs: 5_000, enabled: bootstrapComplete && !!businessId && !accessDenied, idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // Load jobs
   useEffect(() => {
@@ -223,7 +234,7 @@ function FieldApp() {
           {/* Access denied — expired/missing key */}
           {accessDenied && (
             <div style={{ padding: "16px", background: "#2d0f0f", border: "1px solid #7f1d1d", borderRadius: 14 }}>
-              <p style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#fca5a5" }}>This link isn&apos;t active</p>
+              <p style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 700, color: "#fca5a5" }}>This link has ended</p>
               <p style={{ margin: 0, fontSize: 13, color: "#f1a8a8", lineHeight: 1.5 }}>
                 The office stopped this link or sent a newer one. Ask them to send it to you again.
               </p>

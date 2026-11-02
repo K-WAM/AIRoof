@@ -4,6 +4,20 @@ import { describe, expect, it, vi } from "vitest";
 import { useLiveRefresh } from "./useLiveRefresh";
 
 describe("useLiveRefresh", () => {
+  it("keeps a visible demo live after three untouched minutes, but still pauses when hidden", async () => {
+    vi.useFakeTimers();
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = renderHook(() => useLiveRefresh(refresh, { intervalMs: 5_000, idleIntervalMs: 5_000 }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(4 * 60_000); });
+    expect(refresh).toHaveBeenCalledTimes(48);
+    visibility = "hidden";
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(refresh).toHaveBeenCalledTimes(48);
+    unmount();
+    vi.useRealTimers();
+  });
   it("pauses while hidden and skips unsaved edits", async () => {
     vi.useFakeTimers();
     const refresh = vi.fn().mockResolvedValue(undefined);

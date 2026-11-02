@@ -9,6 +9,7 @@ import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { createLiveFetch } from "@/lib/http/liveFetch";
 import { useNewRowIds } from "@/hooks/useNewRowIds";
 import { countDashboardMetrics, tilesFor } from "@/lib/verticals/dashboardTiles";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -89,6 +90,7 @@ function fmtTime(ms: number, tz: string): string {
 }
 
 export default function CompanyDashboardPage() {
+  const [liveFetch] = useState(createLiveFetch);
   const businessId = useBusinessId();
   const { user } = useAuth();
   const tz = useBusinessTimezone();
@@ -146,6 +148,7 @@ export default function CompanyDashboardPage() {
         // A two-day margin covers the tenant's local day across timezones and DST;
         // isToday below selects the exact local day. The range has no oldest-first cap.
         const now = Date.now();
+        const windowNow = Math.floor(now / 86_400_000) * 86_400_000;
         // The AI's settings and the setup checklist change only when someone edits Settings/Library — read them on
         // the first load, not on every 10-second refresh (each refresh is Firestore reads against the free quota;
         // the checklist alone is several count queries).
@@ -157,12 +160,12 @@ export default function CompanyDashboardPage() {
         const none = Promise.resolve(null);
         const [callCountRes, leadsRes, apptsRes, pendingRes, bizRes, jobsRes, actionsRes, setupRes] = await Promise.all([
           hasCalls ? fetch(`${base}/calls?countOnly=1`) : none,
-          hasCalls ? fetch(`${base}/leads?limit=20`) : none,
-          hasCalls ? fetch(`${base}/appointments?from=${now - 48 * 3600000}&to=${now + 48 * 3600000}`) : none,
-          hasCalls ? fetch(`${base}/appointments?pending=1`) : none,
+          hasCalls ? liveFetch(`${base}/leads?limit=20`) : none,
+          hasCalls ? liveFetch(`${base}/appointments?from=${windowNow - 48 * 3600000}&to=${windowNow + 48 * 3600000}`) : none,
+          hasCalls ? liveFetch(`${base}/appointments?pending=1`) : none,
           hasCalls && firstLoad ? fetch(`${base}/agent-config`) : none,
-          hasJobs && slowDue ? fetch(`/api/jobs?businessId=${businessId}`) : none,
-          hasCalls && slowDue ? fetch(`${base}/agent-actions?limit=50`) : none,
+          hasJobs && slowDue ? liveFetch(`/api/jobs?businessId=${businessId}`) : none,
+          hasCalls && slowDue ? liveFetch(`${base}/agent-actions?limit=50`) : none,
           // Only the owner (or a superadmin previewing) sees the checklist — nobody else pays for its count queries.
           canSeeChecklist && firstLoad ? fetch(`/api/company/setup-status?businessId=${businessId}`) : Promise.resolve(null),
         ]);
@@ -242,9 +245,9 @@ export default function CompanyDashboardPage() {
     }
 
     return load();
-  }, [businessId, modulesReady, hasJobs, hasCalls, canSeeChecklist]);
+  }, [businessId, modulesReady, hasJobs, hasCalls, canSeeChecklist, liveFetch]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
-  useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
+  useLiveRefresh(loadDashboard, { intervalMs: businessId === "demo-roofing" ? 5_000 : 10_000, enabled: Boolean(businessId && modulesReady), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).

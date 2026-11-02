@@ -13,6 +13,7 @@ import type { JobQuote } from "@/types/quote";
 import { syncQuoteWithFindings } from "@/lib/billing/quoteItems";
 import { quoteTotal } from "@/lib/billing/jobQuote";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { fieldResponse } from "@/lib/jobs/fieldResponse";
 
 const VALID_STATUSES = ["open", "inspection", "quoted", "in_progress", "invoiced", "complete"];
 
@@ -46,7 +47,7 @@ export async function GET(
   if (!snap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
   const job = { jobId: snap.id, ...snap.data() } as Job;
-  return NextResponse.json({ job });
+  return NextResponse.json(fieldResponse({ job }, gate.user));
 }
 
 // PATCH supports: status change, admin edits to the parsed projection, and reportNotes.

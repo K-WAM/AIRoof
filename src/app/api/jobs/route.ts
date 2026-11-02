@@ -3,6 +3,8 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
 import { nextJobId, nextJobIdInTransaction } from "@/lib/jobs/createJob";
+import { fieldResponse } from "@/lib/jobs/fieldResponse";
+import { collectionPoll } from "@/lib/http/collectionPoll";
 
 // GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
 // (session or field key)
@@ -29,6 +31,19 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  // Calendar's background refresh reads only changed jobs, using the automatic updatedAt index. The server
+  // watermark is captured BEFORE the read so a concurrent write is included here or on the next tick.
+  const updatedSinceRaw = req.nextUrl.searchParams.get("updatedSince");
+  if (updatedSinceRaw !== null) {
+    const updatedSince = Number(updatedSinceRaw);
+    if (!updatedSinceRaw || !Number.isFinite(updatedSince) || updatedSince < 0) {
+      return NextResponse.json({ error: "Invalid updatedSince cursor" }, { status: 400 });
+    }
+    const polledAt = Date.now();
+    const snap = await db.collection(`businesses/${businessId}/jobs`).where("updatedAt", ">=", updatedSince).get();
+    return NextResponse.json(fieldResponse({ jobs: snap.docs.map((d) => ({ jobId: d.id, ...d.data() })), polledAt }, gate.user));
+  }
+
   const customerId = req.nextUrl.searchParams.get("customerId");
   const status = req.nextUrl.searchParams.get("status");
   const validStatuses = new Set(["open", "inspection", "quoted", "in_progress", "invoiced", "complete"]);
@@ -38,6 +53,8 @@ export async function GET(req: NextRequest) {
   if (beforeRaw !== null && (!Number.isFinite(before) || before! <= 0)) {
     return NextResponse.json({ error: "Invalid before cursor" }, { status: 400 });
   }
+  const poll = await collectionPoll(req, db.collection(`businesses/${businessId}/jobs`), gate.user);
+  if (poll.unchanged) return NextResponse.json({ unchanged: true, pollVersion: poll.version });
   let query = db.collection(`businesses/${businessId}/jobs`) as FirebaseFirestore.Query;
   if (customerId) query = query.where("customerId", "==", customerId);
   if (status) {
@@ -63,7 +80,8 @@ export async function GET(req: NextRequest) {
 
   const hasMore = jobs.length > 100;
   jobs = jobs.slice(0, 100);
-  return NextResponse.json({ jobs, hasMore, nextBefore: hasMore ? jobs.at(-1)?.createdAt : null });
+  return NextResponse.json(fieldResponse({ jobs, hasMore, nextBefore: hasMore ? jobs.at(-1)?.createdAt : null,
+    ...(poll.version ? { pollVersion: poll.version } : {}) }, gate.user));
 }
 
 // POST /api/jobs — create job

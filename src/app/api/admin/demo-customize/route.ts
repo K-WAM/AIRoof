@@ -278,7 +278,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
   const afterHoursGreeting = `Thanks for calling ${opts.companyName}, this is ${agentName}. We're outside our normal hours right now, but I can still get you booked — the team will confirm first thing.`;
   const now = Date.now();
 
-  // 0. Ensure the business has a stable field-key mint secret. It never leaves
+  // 0. Rotate the field-key mint secret on launch/reset. It never leaves
   //    the server; QR links carry only a signed, one-use exchange grant.
   const base = db.collection("businesses").doc(LIVE_LINE_BUSINESS_ID);
   const existing = await base.get();
@@ -289,10 +289,9 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     return { ok: false, error: "Business is not a demo business (missing isDemo marker)" };
   }
 
-  let fieldKey: string = existing.data()?.fieldKey ?? "";
-  if (typeof fieldKey !== "string" || fieldKey.length < 16) {
-    fieldKey = randomBytes(16).toString("hex");
-  }
+  // The existing revoke-field-links mechanism: every stored job link, exchange grant and already-open session
+  // carries the old key fingerprint. Rotation also protects reused seeded job IDs after the reset.
+  const fieldKey = randomBytes(32).toString("hex");
 
   // Guard 3 — transactional lock: serializes concurrent resets so two operators
   // cannot interleave backup/delete/re-seed operations.
@@ -320,6 +319,7 @@ async function applyVertical(opts: { verticalId: VerticalId; companyName: string
     //    on a live call (see updateAssistantPersona's doc comment).
     const configPatch = {
       fieldKey,
+      fieldKeyRotatedAt: now,
       industry: opts.verticalId,
       businessName: opts.companyName,
       contactName: opts.contactName ?? null,

@@ -12,6 +12,7 @@ import { detectLanguage } from "@/lib/i18n/detect";
 import { resolveCorrection } from "@/lib/jobs/projection";
 import { loadLedger, writeJobProjection } from "@/lib/jobs/writeProjection";
 import type { FieldUpdate } from "@/types/jobs";
+import { fieldResponse } from "@/lib/jobs/fieldResponse";
 
 // GET /api/jobs/[jobId]/updates?businessId=xxx (session or field key)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     .get();
 
   const updates = snap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[];
-  return NextResponse.json({ updates });
+  return NextResponse.json(fieldResponse({ updates }, gate.user));
 }
 
 // POST /api/jobs/[jobId]/updates
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     await updatesCol.doc(corrId).set(corrEntry);
     const ledger = await loadLedger(db, businessId, jobId);
     const projection = await writeJobProjection(db, businessId, jobId, { ledger, bumpStatus: false });
-    return NextResponse.json({ ok: true, corrected: true, projection, jobId, submittedBy: author.name, changesSummary: "Correction applied" }, { status: 201 });
+    return NextResponse.json(fieldResponse({ ok: true, corrected: true, projection, jobId, submittedBy: author.name, changesSummary: "Correction applied" }, gate.user), { status: 201 });
   }
 
   if (!rawText?.trim()) {
@@ -170,6 +171,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const ledger = await loadLedger(db, businessId, jobId);
   const projection = await writeJobProjection(db, businessId, jobId, { ledger });
 
-  return NextResponse.json({ update: { ...entry, parsed }, projection, jobId, submittedBy: author.name, changesSummary: summarizeParsed(parsed) }, { status: 201 });
+  return NextResponse.json(fieldResponse({ update: { ...entry, parsed }, projection, jobId, submittedBy: author.name, changesSummary: summarizeParsed(parsed) }, gate.user), { status: 201 });
   });
 }

@@ -3,6 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import { timeBlocksPath, type TimeBlock } from "@/types/schedule";
+import { collectionPoll } from "@/lib/http/collectionPoll";
 
 // GET|POST|DELETE /api/company/time-blocks — an inspector/office blocks time on a crew row so the AI never books
 // into it (Phase 31, plan §2.5). GET lists blocks overlapping [from, to]; POST creates one; DELETE removes one.
@@ -46,6 +47,8 @@ export async function GET(req: NextRequest) {
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const poll = await collectionPoll(req, db.collection(timeBlocksPath(businessId)), gate.user);
+  if (poll.unchanged) return jsonWithCache({ unchanged: true, pollVersion: poll.version }, "noStore");
 
   // Firestore allows one range field: read every block that STARTS within the 14-day lead-in .. `to`, then keep the
   // ones that actually overlap [from, to]. crewId is filtered in code (not in the query) so no composite index is
@@ -69,7 +72,7 @@ export async function GET(req: NextRequest) {
         (onlyCrewId === undefined || block.crewId === onlyCrewId)
     );
 
-  return jsonWithCache({ blocks }, "noStore");
+  return jsonWithCache({ blocks, ...(poll.version ? { pollVersion: poll.version } : {}) }, "noStore");
 }
 
 export async function POST(req: NextRequest) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import type { Lead } from "@/types";
+import { collectionPoll } from "@/lib/http/collectionPoll";
 
 // GET /api/businesses/[businessId]/leads?limit=N — leads, newest first.
 //
@@ -27,6 +28,8 @@ export async function GET(
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+  const poll = await collectionPoll(req, db.collection(`businesses/${businessId}/leads`), gate.user);
+  if (poll.unchanged) return NextResponse.json({ unchanged: true, pollVersion: poll.version });
 
   const limitParam = Number(req.nextUrl.searchParams.get("limit"));
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 500) : 500;
@@ -38,5 +41,5 @@ export async function GET(
     .get();
 
   const leads = snap.docs.map((d) => ({ leadId: d.id, ...d.data() })) as Lead[];
-  return NextResponse.json({ leads });
+  return NextResponse.json({ leads, ...(poll.version ? { pollVersion: poll.version } : {}) });
 }
