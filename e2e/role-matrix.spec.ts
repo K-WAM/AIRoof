@@ -46,13 +46,24 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
     }
 
     const officeRoutes = visibleNavLinks({ role: "owner", isEnabled: () => true }).map((link) => link.path).filter((path) => path.startsWith("/"));
-    const denied = role === "fieldCrew" ? officeRoutes.filter((path) => !routes.includes(path))
-      : role === "dentalOwner" ? ["/company/jobs", "/company/field"] : [];
-    if (role !== "superadmin") denied.push("/admin/businesses", "/hub");
+    const denied = role === "superadmin" ? [] : officeRoutes.filter((path) => !routes.includes(path));
+    if (role !== "superadmin") {
+      const admin = await as("superadmin");
+      await admin.goto("/hub");
+      await expect(admin.locator("nav").first()).toBeAttached();
+      denied.push(...(await navRoutes(admin)).filter((path) => /^\/(admin|hub)(\/|$)/.test(path)), "/hub");
+      await admin.close();
+    }
     for (const route of denied) {
       await page.goto(route);
-      await expect.poll(() => new URL(page.url()).pathname, { message: `${role} must be redirected from ${route}` }).not.toBe(route);
-      await expect(page.getByRole("heading").first()).toBeVisible();
+      if (route === "/company/team" && role !== "fieldCrew") {
+        await expect(page.getByText("Only an admin can manage the team.", { exact: true })).toBeVisible();
+        await expect(page.locator(".team-member-card")).toHaveCount(0);
+        await expect(page.getByRole("button", { name: /Invite|Change role|Disable/ })).toHaveCount(0);
+      } else {
+        await expect.poll(() => new URL(page.url()).pathname, { message: `${role} must be redirected from ${route}` }).not.toBe(route);
+        await expect(page.getByRole("heading").first()).toBeVisible();
+      }
       await expectHealthy(page);
     }
   });
