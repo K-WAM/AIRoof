@@ -94,6 +94,31 @@ test("Library: edit a crew and add a member (T-148)", async ({ as }) => {
   // Frank is on no crew now, so the next project run starts clean.
 });
 
+test("Library on a phone: long moved-from names keep member selectors in the card", async ({ as, isMobile }) => {
+  test.skip(!isMobile, "375px member selector regression");
+  const page = await as("owner");
+  const tag = stamp(), longName = `Phone Crew With a long readable name for member selection ${tag}`;
+  const before = await api(page, "GET", `/api/company/team?businessId=${B}`);
+  const person = (before.data.members as Array<{ uid: string; crewId?: string }>).find((person) => person.uid === "e2e-crew")!;
+  expect(person).toBeTruthy();
+  const longCrew = await createCrew(page, longName);
+  const otherCrew = await createCrew(page, `Phone Crew ${tag}`);
+  try {
+    expect((await api(page, "PATCH", "/api/company/team/e2e-crew", { businessId: B, crewId: longCrew })).ok).toBe(true);
+    await page.goto("/company/library?section=crews");
+    const select = page.getByTestId(`crew-card-${otherCrew}`).getByLabel(`Add a member to Phone Crew ${tag}`);
+    await expect(select).toContainText(longName);
+    const box = (await select.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(376);
+    await expectHealthy(page);
+    await shot(page, "library-long-member-options");
+  } finally {
+    await api(page, "PATCH", "/api/company/team/e2e-crew", { businessId: B, crewId: person.crewId ?? null });
+    await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${otherCrew}`);
+    await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${longCrew}`);
+  }
+});
+
 test("Calendar: a drop asks for a time, and a second job fits the same crew-day (T-149)", async ({ as }, testInfo) => {
   test.skip(testInfo.project.name === "phone", "drag-and-drop is covered on desktop; the phone check below taps the scheduled job");
   const page = await as("owner");
