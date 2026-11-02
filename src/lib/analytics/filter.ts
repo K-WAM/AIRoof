@@ -31,7 +31,10 @@ export function beforeSend(event: CaptureResult | null): CaptureResult | null {
   const properties: Record<string, unknown> = {
     page, $current_url: `https://crm.luxordev.com${page}`, $pathname: page, $host: "crm.luxordev.com",
     $session_id: event.properties.$session_id, $window_id: event.properties.$window_id,
-    distinct_id: event.properties.distinct_id, $is_identified: client,
+    // `token` is the public project key PostHog requires on every event — without it the SDK silently drops the event
+    // ("had its 'token' property removed in a beforeSend function"); that is why no CRM event arrived before 2026-11-02.
+    token: event.properties.token, $lib: event.properties.$lib, $lib_version: event.properties.$lib_version,
+    distinct_id: event.properties.distinct_id, $device_id: event.properties.$device_id, $is_identified: client,
     ...(client ? { business_id: business!.businessId, industry: business!.industry, role: user!.role } : {}),
   };
   for (const [key, value] of Object.entries(event.properties)) {

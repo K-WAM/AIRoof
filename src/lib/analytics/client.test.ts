@@ -52,6 +52,10 @@ describe("before_send privacy boundary", () => {
     expect(result?.properties).toMatchObject({ business_id: "client-1", industry: "roofing", role: "owner", job_id: "J-1", $current_url: "https://crm.luxordev.com/company/dashboard" });
     expect(JSON.stringify(result)).not.toMatch(/private|Customer|secret/);
   });
+  it("keeps the project token PostHog needs to ingest — without it every event is silently dropped", () => {
+    client(); const result = beforeSend(event("job_created", { token: "phc_public_project_key", $lib: "web", $lib_version: "1.0.0", job_id: "J-1" }));
+    expect(result?.properties).toMatchObject({ token: "phc_public_project_key", $lib: "web" });
+  });
   it("redacts exception values and frame queries", () => {
     client(); const result = beforeSend(event("$exception", { $exception_list: [{ type: "Error", value: "Customer phone", stacktrace: { frames: [{ filename: "https://crm.luxordev.com/app.js?token=secret", lineno: 10, vars: { name: "Customer" } }] } }] }));
     expect(JSON.stringify(result)).toContain("[masked]");
