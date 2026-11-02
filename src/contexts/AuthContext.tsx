@@ -1,5 +1,7 @@
 "use client";
 
+import { clearReadCache } from "@/lib/offline/readCache";
+import { offlineIdentity, setOfflineIdentity } from "@/lib/offline/identity";
 import { createContext, useContext, useEffect, useState } from "react";
 import { setAnalyticsUser } from "@/lib/analytics/client";
 import type { User } from "firebase/auth";
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    let authRevision = 0;
     let unsub: (() => void) | undefined;
     let uninstallRetry: (() => void) | undefined;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -72,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const current = auth.currentUser;
         if (!current) return null;
         const result = await current.getIdTokenResult(true);
+        if (auth.currentUser?.uid !== current.uid) return null;
         tokenExpiresAt = safeExpiry(result.expirationTime);
         writeSessionCookie(result.token, tokenExpiresAt);
         return result.token;
@@ -88,9 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // onIdTokenChanged fires on sign-in, sign-out, and every token refresh (the timer below and forceRefresh cause
       // those — Firebase does not refresh on its own here). __session holds the ID token so API routes can verify it.
       unsub = onIdTokenChanged(auth, async (firebaseUser: User | null) => {
+        const generation = ++authRevision;
         clearTimeout(refreshTimer);
         if (!firebaseUser) {
+          let previousUid = offlineIdentity()?.uid;
+          try { previousUid ??= sessionStorage.getItem("luxor-offline-uid") ?? undefined; sessionStorage.removeItem("luxor-offline-uid"); } catch { /* private storage may be disabled */ }
+          if (previousUid) void clearReadCache(previousUid).catch(() => {});
           tokenExpiresAt = 0;
+          setOfflineIdentity(null);
           setUser(null);
           setIdToken(null);
           setLoading(false);
@@ -99,6 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        if (offlineIdentity()?.uid !== firebaseUser.uid) setOfflineIdentity(null);
+        try { sessionStorage.setItem("luxor-offline-uid", firebaseUser.uid); } catch { /* optional offline cache */ }
+
         // Serve a cached profile for this uid immediately, if one exists, so a
         // full page load or a layout remount (company <-> admin) never blocks
         // its first paint on the token + Firestore round trip below — this is
@@ -106,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // to render optimistically while the real values are re-verified.
         const cached = readCachedProfile<AuthUser>(firebaseUser.uid);
         if (cached) {
+          setOfflineIdentity({ uid: cached.uid, businessId: cached.businessId, preview: cached.superadmin || cached.role === "superadmin" });
           setUser(cached);
           setLoading(false);
         }
@@ -114,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // The cached token may already be most of the way through its hour: the cookie gets the token's REAL
           // remaining life, and a refresh is scheduled ahead of its expiry (immediately if it is already close).
           const result = await firebaseUser.getIdTokenResult();
+          if (cancelled || generation !== authRevision || auth.currentUser?.uid !== firebaseUser.uid) return;
           const token = result.token;
           tokenExpiresAt = safeExpiry(result.expirationTime);
           setIdToken(token);
@@ -140,13 +154,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // onIdTokenChanged also fires on Firebase's own hourly token refresh,
           // so this re-fetch (and the cache it refreshes) naturally picks up a
           // role change within one cycle instead of sticking on a stale value.
+          if (cancelled || generation !== authRevision || auth.currentUser?.uid !== firebaseUser.uid) return;
+          if (!res && cached) profile = cached;
+          setOfflineIdentity({ uid: profile.uid, businessId: profile.businessId, preview: profile.superadmin || profile.role === "superadmin" });
           setUser(profile);
           writeCachedProfile(profile);
         } catch (err) {
           console.error("Auth profile load failed:", err);
-          if (!cached) setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
+          if (!cached && generation === authRevision) setUser({ uid: firebaseUser.uid, email: firebaseUser.email });
         } finally {
-          setLoading(false);
+          if (generation === authRevision) setLoading(false);
         }
       });
     })();

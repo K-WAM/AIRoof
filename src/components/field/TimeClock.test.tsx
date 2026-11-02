@@ -80,3 +80,5 @@ describe("TimeClock", () => {
     expect(seen).toContain("office");
   });
 });
+
+vi.mock("@/lib/offline/outbox", () => ({ fieldPost: (url: string, init: RequestInit) => fetch(url, init) }));

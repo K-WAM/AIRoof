@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
+import { FieldOutbox } from "@/components/offline/FieldOutbox";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
 import { FieldFindingsButton } from "@/components/field/FindingPickerSheet";
 import { TimeClock } from "@/components/field/TimeClock";
@@ -346,7 +347,8 @@ function FieldPageContent() {
 
           {selectedJobId && <>
           {user?.role !== "viewer" && <div style={{ marginBottom: 20 }}>
-            <FieldNoteComposer
+            <FieldOutbox />
+          <FieldNoteComposer
               businessId={businessId}
               job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : { jobId: selectedJobId }}
               authorName={workerDisplayName}

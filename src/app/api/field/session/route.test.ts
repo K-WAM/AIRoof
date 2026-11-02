@@ -17,11 +17,11 @@ describe("GET /api/field/session", () => {
   });
 
   it("returns businessId/jobId from a valid field-session cookie", async () => {
-    mocks.peek.mockReturnValue({ businessId: "biz-1", jobId: "J-10" });
+    mocks.peek.mockReturnValue({ businessId: "biz-1", jobId: "J-10", offlineOwner: expect.stringMatching(/^field:[a-f0-9]{64}$/) });
     const response = await GET(new NextRequest("http://localhost/api/field/session"));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ businessId: "biz-1", jobId: "J-10" });
+    expect(await response.json()).toEqual({ businessId: "biz-1", jobId: "J-10", offlineOwner: expect.stringMatching(/^field:[a-f0-9]{64}$/) });
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
@@ -29,7 +29,7 @@ describe("GET /api/field/session", () => {
     mocks.peek.mockReturnValue({ businessId: "biz-1" });
     const response = await GET(new NextRequest("http://localhost/api/field/session"));
 
-    expect(await response.json()).toEqual({ businessId: "biz-1", jobId: null });
+    expect(await response.json()).toEqual({ businessId: "biz-1", jobId: null, offlineOwner: expect.stringMatching(/^field:[a-f0-9]{64}$/) });
   });
 
   it("401s when there is no valid field session", async () => {

@@ -1,5 +1,7 @@
 "use client";
 
+import { fieldPost } from "@/lib/offline/outbox";
+
 import { track } from "@/lib/analytics/client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -36,6 +38,8 @@ interface UseFieldAudioOptions {
   };
   onSuccess?: (result: FieldAudioResult) => void;
 }
+
+interface RecordingUpload { jobId: string; body: string; blob: Blob }
 
 type FetchImpl = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -81,6 +85,8 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     setErrorMessage(null);
   }, [jobId]);
 
+  const [unsavedRecording, setUnsavedRecording] = useState<RecordingUpload | null>(null);
+
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef("audio/webm");
@@ -111,7 +117,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
     setErrorMessage(null);
     startProgress();
     try {
-      const res = await fetch(`/api/jobs/${targetJobId}/field-audio`, {
+      const res = await fieldPost(`/api/jobs/${targetJobId}/field-audio`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,6 +126,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
         body: JSON.stringify({ businessId: options.businessId, submittedBy: options.submittedBy, confirmCorrection: proposedCorrection }),
       });
       const data = await res.json();
+      if (data.queued) { setProposedCorrection(null); setStatus(null); return; }
       if (res.ok && data.success) {
         track("field_note_sent", { job_id: targetJobId });
         setProposedCorrection(null);
@@ -140,9 +147,41 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
 
   const cancelCorrection = useCallback(() => { setProposedCorrection(null); setProposedFor(null); }, []);
 
+  // Keep a recording in memory if durable phone storage fails. Never overwrite it with a new recording.
+  const uploadRecording = useCallback(async (recording: RecordingUpload) => {
+    setUnsavedRecording(recording);
+    setStatus("transcribing"); setErrorMessage(null); startProgress();
+    try {
+      const res = await fieldPost(`/api/jobs/${recording.jobId}/field-audio`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: recording.body,
+      }, recording.blob);
+      // fieldPost only returns after IndexedDB committed. Even a rejected upload is retained there.
+      setUnsavedRecording(null);
+      const data = await res.json();
+      if (data.queued) { setStatus(null); return; }
+      if (res.ok && data.proposedCorrection) {
+        setTranscript(data.transcript || ""); setProposedCorrection(data.proposedCorrection);
+        setProposedFor(recording.jobId); setStatus(null);
+      } else if (res.ok && data.success) {
+        setTranscript(data.transcript || ""); setLastResult(data); setStatus("success");
+        track("field_note_sent", { job_id: recording.jobId });
+        options.onSuccess?.({ ...data, jobId: data.jobId ?? recording.jobId });
+      } else {
+        setErrorMessage(typeof data.error === "string" ? data.error : "No speech heard. Try recording again.");
+        setStatus("error");
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Not saved. Keep this page open and retry saving the recording.");
+      track("field_note_failed", { job_id: recording.jobId }); setStatus("error");
+    } finally { stopProgress(); }
+  }, [options, startProgress, stopProgress]);
+  const retryRecording = useCallback(async () => {
+    if (unsavedRecording) await uploadRecording(unsavedRecording);
+  }, [unsavedRecording, uploadRecording]);
+
   const startRecording = useCallback(async (e?: React.PointerEvent) => {
     e?.preventDefault();
-    if (!jobId || status === "transcribing") return;
+    if (!jobId || status === "transcribing" || unsavedRecording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -170,7 +209,7 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
       setStatus("error");
       setTimeout(() => setStatus(null), 3000);
     }
-  }, [jobId, status]);
+  }, [jobId, status, unsavedRecording]);
 
   const stopRecording = useCallback(async (e?: React.PointerEvent) => {
     e?.preventDefault();
@@ -190,62 +229,21 @@ export function useFieldAudio(jobId: string | null, options: UseFieldAudioOption
         }
 
         const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        reader.onloadend = async () => {
+        reader.onerror = () => { setErrorMessage("The recording could not be read. Keep this page open and try again."); setStatus("error"); resolve(); };
+        reader.onload = async () => {
           const base64 = (reader.result as string).split(",")[1];
-          setStatus("transcribing");
-          setErrorMessage(null);
-          startProgress();
-
-          try {
-            const requestBody = JSON.stringify({
-              businessId: options.businessId,
-              audioBase64: base64,
-              mimeType: mimeTypeRef.current,
-              submittedBy: options.submittedBy,
-              jobContext: options.jobContext,
-            });
-            const res = await postFieldAudioWithRetry(`/api/jobs/${jobId}/field-audio`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(options.fieldKey ? { "x-field-key": options.fieldKey } : {}),
-              },
-              body: requestBody,
-            });
-
-            const data = await res.json();
-            if (res.ok && data.proposedCorrection) {
-              // Correction detected — surface a one-tap confirm card; don't apply yet.
-              setTranscript(data.transcript || "");
-              setProposedCorrection(data.proposedCorrection);
-              setProposedFor(jobId);
-              setStatus(null);
-            } else if (res.ok && data.success) {
-              setTranscript(data.transcript || "");
-              track("field_note_sent", { job_id: jobId ?? undefined });
-              setLastResult(data);
-              setStatus("success");
-              options.onSuccess?.({ ...data, jobId: data.jobId ?? jobId ?? undefined });
-            } else {
-              track("field_note_failed", { job_id: jobId ?? undefined });
-              setErrorMessage(typeof data.error === "string" ? data.error : res.ok ? "No speech heard — hold the button while you talk." : null);
-              setStatus("error");
-            }
-          } catch {
-            track("field_note_failed", { job_id: jobId ?? undefined });
-            setStatus("error");
-          } finally {
-            stopProgress();
-            setTimeout(() => setStatus(null), 3000);
-            resolve();
-          }
+          await uploadRecording({ jobId: jobId!, blob, body: JSON.stringify({
+            businessId: options.businessId, audioBase64: base64, mimeType: blob.type,
+            submittedBy: options.submittedBy, jobContext: options.jobContext,
+          }) });
+          resolve();
         };
+        reader.readAsDataURL(blob);
       };
 
       recorder.stop();
     });
-  }, [jobId, options, startProgress, stopProgress]);
+  }, [jobId, options, uploadRecording]);
 
-  return { status, progress, transcript, lastResult, proposedCorrection, proposedFor, errorMessage, confirmCorrection, cancelCorrection, startRecording, stopRecording };
+  return { unsavedRecordingJobId: unsavedRecording?.jobId, retryRecording, status, progress, transcript, lastResult, proposedCorrection, proposedFor, errorMessage, confirmCorrection, cancelCorrection, startRecording, stopRecording };
 }

@@ -1,5 +1,8 @@
 "use client";
 
+import { applyPunch } from "@/lib/timeclock/machine";
+import { fieldPost } from "@/lib/offline/outbox";
+
 // Tap-based time clock (Phase 12, Phase 5 — docs/PLATFORM-EXPANSION-PLAN.md), shared by the signed-in field screen and
 // the no-login QR one. Reworked 2026-10-04 ("arrived at office / started lunch… were confusing, but we want the
 // functionality"):
@@ -127,7 +130,7 @@ export function TimeClock({
     setError(null);
     setConfirmingOut(false);
     try {
-      const res = await fetch("/api/timeclock/punch", {
+      const res = await fieldPost("/api/timeclock/punch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,6 +144,11 @@ export function TimeClock({
         }),
       });
       const body = await res.json().catch(() => ({}));
+      if (body.queued) {
+        const transition = applyPunch(day.state, type, { hadOfficeInToday: day.officeMs > 0 || day.state === "office" });
+        if (transition.ok) setDay({ ...day, state: transition.nextState, openJobId: transition.nextState === "site" || transition.nextState === "site_break" ? (type === "site_in" ? jobId ?? undefined : day.openJobId) : undefined, openSince: Date.now(), lastPunchAt: Date.now(), lastPunchType: type });
+        setJustDone("Saved on this phone — waiting for signal"); return;
+      }
       if (res.status === 409) {
         setConflict(body as ConflictInfo);
         if (body.tz) setTz(body.tz);
@@ -158,8 +166,8 @@ export function TimeClock({
       const said = type === "site_in" && jobId ? `Clocked in at ${jobId}` : type === "site_out" && day.openJobId ? `Left ${day.openJobId}` : PUNCH_DONE[type];
       setJustDone(`✓ ${said}${at ? ` · ${at}` : ""}`);
       try { navigator.vibrate?.(40); } catch { /* not supported */ }
-    } catch {
-      setError("Not saved — no connection. Tap again when you have signal.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Not saved. Try again.");
     } finally {
       setBusy(false);
     }
