@@ -817,7 +817,7 @@ a.panel:hover {
 }
 .company-topbar .company-brand { display: none; }
 .cmd-header-field { width: min(100%, 560px); min-height: 44px; cursor: text; }
-.cmd-header-icon { display: none; }
+.company-topbar .cmd-header-icon { display: none; }
 
 .company-brand {
   font-weight: 700;
@@ -2597,7 +2597,7 @@ a.metric:hover {
   }
   .company-topbar .company-brand { display: flex; margin-right: auto; }
   .cmd-header-field { display: none; }
-  .cmd-header-icon { display: inline-flex; justify-content: center; width: 44px; height: 44px; margin: 0; font-size: 24px; }
+  .company-topbar .cmd-header-icon { display: inline-flex; justify-content: center; width: 44px; height: 44px; margin: 0; font-size: 24px; }
   .cmd-header-icon .cmd-kbd { display: none; }
 
   .mobile-menu-btn {
