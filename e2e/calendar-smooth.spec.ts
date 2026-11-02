@@ -70,6 +70,21 @@ test("scheduled job: reschedule, notify, undo, unschedule, and refuse overlap", 
   expect((await outbox({ to: `other-${tag}@example.test` })).length).toBeGreaterThan(0);
   const undoBlocker = must(await owner.post("/api/jobs", { businessId: B, title: `Undo occupied ${tag}` })).job;
   must(await owner.post(`/api/jobs/${undoBlocker.jobId}/assign`, { businessId: B, crewId: crew.crewId, scheduledStart: start, scheduledEnd: start + 3600000, crewConfirmed: false, notify: false }));
+  const viewer = await as("viewer");
+  await showDay(viewer, nextDay, isMobile);
+  await expect(viewer.getByText(job.title, { exact: !isMobile }).filter({ visible: true }).first()).toBeVisible();
+  await expect(viewer.getByRole("button", { name: /^(?:✓\s*)?Confirm\b|^Move back to/ })).toHaveCount(0);
+  if (isMobile) {
+    await viewer.getByTestId(`calendar-agenda-job-${job.jobId}`).locator(".calendar-item-title").click();
+    const readOnlySheet = viewer.getByRole("dialog", { name: job.title });
+    await expect(readOnlySheet.getByLabel("Reschedule time", { exact: true })).toBeDisabled();
+    await expect(readOnlySheet.getByRole("button", { name: /Reschedule|Unschedule/ })).toHaveCount(0);
+    await expect(readOnlySheet.getByRole("checkbox")).toHaveCount(0);
+    await expect(readOnlySheet.getByRole("link", { name: "Open job", exact: true })).toBeVisible();
+  }
+  await shot(viewer, "calendar-viewer-scheduled-job");
+  await expectHealthy(viewer);
+  await viewer.close();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: /overlap|conflict|already|scheduled|booked/i })).toBeVisible();
   expect(await current()).toMatchObject({ assignedCrewId: other.crewId, scheduledStart: moved });

@@ -143,6 +143,27 @@ test("call → booked → inspector schedule follows the real workflow", async (
     await shot(owner, "call-flow-calendar-inspectors");
   }
 
+  const viewer = await as("viewer");
+  await viewer.goto("/company/calendar"); await settle(viewer);
+  if (testInfo.project.name === "phone") {
+    const item = viewer.locator(".c1-agenda-item").filter({ hasText: secondName });
+    for (let i = 0; i < 8 && !(await item.isVisible()); i++) {
+      await viewer.getByRole("button", { name: "Next day", exact: true }).click(); await settle(viewer, 200);
+    }
+    await expect(item).toBeVisible();
+    await item.locator(".calendar-item-title").click();
+    const sheet = viewer.getByRole("dialog", { name: secondName });
+    await expect(sheet.getByLabel("Reschedule time", { exact: true })).toBeDisabled();
+    await expect(sheet.getByRole("button", { name: /Reschedule|Unassign/ })).toHaveCount(0);
+  } else {
+    await viewer.getByRole("button", { name: "Next week", exact: true }).click();
+    await expect(viewer.getByText(secondName, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  }
+  await expect(viewer.getByRole("button", { name: /^(?:✓\s*)?Confirm\b|^Move back to/ })).toHaveCount(0);
+  await expectHealthy(viewer);
+  await shot(viewer, "calendar-viewer-scheduled-booking");
+  await viewer.close();
+
   const staff = await as("staff");
   await staff.goto("/company/field");
   await settle(staff);
