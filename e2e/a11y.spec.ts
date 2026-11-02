@@ -7,10 +7,10 @@ for (const screen of ["Dashboard", "Calendar", "Jobs", "Job detail", "Pipeline",
     const isPublic = screen === "Login" || screen === "Legal";
     const page = isPublic ? publicPage : await as(screen === "Field" ? "fieldCrew" : "owner");
     let path = screen === "Login" ? "/login" : screen === "Legal" ? "/legal/terms" : `/company/${screen.toLowerCase()}`;
-    if (screen === "Job detail") {
+    if (screen === "Job detail" || screen === "Field") {
       const owner = await api("owner");
       const { job } = must(await owner.post("/api/jobs", { businessId: "e2e-roofing", title: `Accessibility ${Date.now()}`, clientName: "Alex Test", address: "12 Test Street" }), "create accessibility job");
-      path = `/company/jobs/${job.jobId}`;
+      path = screen === "Field" ? `/company/field?jobId=${job.jobId}` : `/company/jobs/${job.jobId}`;
     }
     await page.goto(path);
     await expect(page.getByRole("heading").first()).toBeVisible();
