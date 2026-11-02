@@ -633,7 +633,7 @@ export default function PipelinePage() {
             <Workflow size={20} strokeWidth={1.75} />
             Pipeline
           </h1>
-          <p className="page-subtitle">Booked customers first. Call back anyone who did not book. <Hint label="Confirmation options">{`${glossaryMeaning("confirmed")} The button names the available email or text channels. Confirm without a channel saves your decision; contact the customer yourself.`}</Hint></p>
+          <p className="page-subtitle">Booked customers first. Call back anyone who did not book. <Hint label="Pipeline confirmation options">{`${glossaryMeaning("confirmed")} The button names the available email or text channels. Confirm without a channel saves your decision; contact the customer yourself.`}</Hint></p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {pendingCount > 0 && (

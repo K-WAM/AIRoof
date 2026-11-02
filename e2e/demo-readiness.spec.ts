@@ -136,7 +136,7 @@ test("a demo-line call reaches the operator app, becomes a job and shows its cre
     await expect(page.getByRole("combobox", { name: "Block time for" })).toContainText(crew.name);
     const calendarTitle = String((await readDoc(`businesses/${B}/jobs/${jobId}`))?.title ?? "");
     expect(calendarTitle).not.toBe("");
-    const item = page.locator(".c1-agenda-item").filter({ hasText: calendarTitle });
+    const item = page.getByTestId(`calendar-agenda-job-${jobId}`);
     for (let i = 0; i < 8 && !(await item.isVisible()); i++) {
       await page.getByRole("button", { name: "Next day" }).click();
       await settle(page, 200);

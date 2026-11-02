@@ -834,7 +834,7 @@ export default function CalendarBoard() {
               </div>
             </article>;
           })}
-          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
+          {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" data-testid={`calendar-agenda-job-${job.jobId}`} style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
             <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>
             <span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span>
             <div className="c1-agenda-actions">

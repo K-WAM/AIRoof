@@ -279,7 +279,7 @@ export function CrewsSection({
                             const person = people.find((p) => p.uid === e.target.value);
                             if (person) void setMembership(person, c.crewId);
                           }}
-                          style={{ fontSize: 12, minHeight: 32 }}
+                          style={{ fontSize: 12, minHeight: 32, minWidth: 0, maxWidth: "100%" }}
                         >
                           <option value="">＋ Add member…</option>
                           {candidates.map((person) => {
