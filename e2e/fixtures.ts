@@ -98,6 +98,8 @@ export async function shot(page: Page, name: string, testInfo: TestInfo = test.i
   const dir = join("test-results", "screens", testInfo.project.name);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, `${name.replace(/[^a-z0-9._-]+/gi, "-")}.png`);
-  await page.screenshot({ path, fullPage: true });
+  // CSS pixels preserve the whole long legal page within WebKit's 32767px
+  // image limit even on a 3x iPhone; no content is cropped from the evidence.
+  await page.screenshot({ path, fullPage: true, scale: "css" });
   return path;
 }

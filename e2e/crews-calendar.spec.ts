@@ -82,7 +82,9 @@ test("Library: edit a crew and add a member (T-148)", async ({ as }) => {
   await card.getByLabel(`Add a member to ${name} Renamed`).selectOption("e2e-field-crew");
   expect((await saved).ok()).toBeTruthy();
   await expect(card.getByText("Frank Field · Installer")).toBeVisible();
-  await expect(page.getByTestId("crew-capacity-line")).toContainText("one per active crew");
+  const roster = await api(page, "GET", `/api/company/crews?businessId=${B}`);
+  const hasInspector = (roster.data.crews as Array<{ active?: boolean; kind?: string }>).some((crew) => crew.active !== false && crew.kind === "inspector");
+  await expect(page.getByTestId("crew-capacity-line")).toContainText(hasInspector ? "one at a time per active inspector" : "one per active crew");
   await expectHealthy(page);
   await shot(page, "crews-library-edit-members");
 

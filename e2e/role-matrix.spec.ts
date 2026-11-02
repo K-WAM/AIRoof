@@ -6,6 +6,11 @@ import { defaultLandingPath } from "../src/lib/team/landing";
 import type { TeamRole, TradeTitle } from "../src/types/team";
 
 async function navRoutes(page: Page): Promise<string[]> {
+  if (new URL(page.url()).pathname.startsWith("/company/")) {
+    // The first render intentionally fails open until the industry's bootstrap
+    // resolves. Collect the actual tenant nav, not that brief fallback.
+    await expect(page.locator(".company-shell")).toHaveAttribute("data-portal-family", /\S+/);
+  }
   const menu = page.getByRole("button", { name: /^(Open menu|Menu)$/ });
   if (await menu.isVisible()) await menu.click();
   const routes = await page.locator("nav a[href]").evaluateAll((links) =>
@@ -28,6 +33,7 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
       expect(refused.status(), "viewer settings writes must be refused by the server").toBe(403);
     }
     expect(routes.length, "navigation must load before checking permissions").toBeGreaterThan(0);
+    let previewDiscovered = false;
     for (const route of routes) {
       await test.step(route, async () => {
         await page.goto(route);
@@ -39,9 +45,14 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
         expect(new URL(page.url()).pathname).toBe(destination);
         if (role === "viewer") {
           await expect(page.getByRole("button", { name: /^(New Job|Create job|Delete|Confirm & send|Send invoice|Send report|Save changes)$/i })).toHaveCount(0);
+          await expect(page.getByText("Payment settings couldn't be loaded.", { exact: true })).toHaveCount(0);
         }
         await expectHealthy(page);
         await shot(page, `matrix-${role}-${route}`);
+        if (role === "superadmin" && route.includes("preview=") && !previewDiscovered) {
+          previewDiscovered = true;
+          for (const link of await navRoutes(page)) if (!routes.includes(link)) routes.push(link);
+        }
       });
     }
 
