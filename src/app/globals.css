@@ -1093,6 +1093,10 @@ a.panel:hover {
 .company-field-page {
   min-height: 100vh;
 }
+/* Keep the voice-note helper readable on the dark Field surface, without
+   changing the composer owned by the parallel offline task. */
+.company-field-page [data-testid="note-mic"] ~ p:not([role]) { color: var(--border) !important; }
+
 @media (max-width: 900px) {
   .company-field-page {
     min-height: calc(100vh - 64px);
