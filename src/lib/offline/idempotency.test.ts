@@ -7,7 +7,7 @@ function database() {
   const docs = new Map<string, unknown>();
   let tail = Promise.resolve();
   const db = {
-    collection: (path: string) => ({ doc: (id: string) => ({ path: `${path}/${id}` }) }),
+    collection: (path: string) => ({ doc: (id: string) => ({ path: `${path}/${id}`, delete: async () => { docs.delete(`${path}/${id}`); } }) }),
     runTransaction: (run: (tx: unknown) => Promise<unknown>) => {
       const result = tail.then(() => run({
         get: async (ref: { path: string }) => ({ exists: docs.has(ref.path), data: () => docs.get(ref.path) }),
@@ -72,5 +72,30 @@ describe("transactional field request idempotency", () => {
     const work = vi.fn(async () => NextResponse.json({ ok: true }));
     for (const [biz, scope] of [["a", "notes:j1:u1"], ["b", "notes:j1:u1"], ["a", "notes:j2:u1"], ["a", "photos:j1:u1"], ["a", "notes:j1:u2"]]) await idempotentFieldRequest(fixture.db, biz, scope, body, work);
     expect(work).toHaveBeenCalledTimes(5);
+  });
+
+  it("releases the claim on a server error so the phone's retry runs the work again", async () => {
+    const work = vi.fn()
+      .mockResolvedValueOnce(NextResponse.json({ error: "Transcription failed" }, { status: 502 }))
+      .mockResolvedValueOnce(NextResponse.json({ success: true }, { status: 201 }));
+    const first = await idempotentFieldRequest(fixture.db, "biz", "job-1:user", body, work);
+    expect(first.status).toBe(502);
+    expect(first.headers.get("x-idempotency-final")).toBeNull();
+    const second = await idempotentFieldRequest(fixture.db, "biz", "job-1:user", body, work);
+    expect(second.status).toBe(201);
+    expect(work).toHaveBeenCalledTimes(2);
+  });
+
+  it("takes over a pending claim left by a run that died, but not a fresh one", async () => {
+    const work = vi.fn(async () => NextResponse.json({ success: true }, { status: 201 }));
+    const hang = idempotentFieldRequest(fixture.db, "biz", "job-1:user", body, () => new Promise<NextResponse>(() => {}));
+    await new Promise((r) => setTimeout(r, 0));
+    void hang;
+    expect((await idempotentFieldRequest(fixture.db, "biz", "job-1:user", body, work)).status).toBe(425);
+    const [key] = [...fixture.docs.keys()];
+    const claim = fixture.docs.get(key) as { createdAt: Date };
+    claim.createdAt = new Date(Date.now() - 11 * 60_000);
+    expect((await idempotentFieldRequest(fixture.db, "biz", "job-1:user", body, work)).status).toBe(201);
+    expect(work).toHaveBeenCalledTimes(1);
   });
 });

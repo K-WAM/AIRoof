@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 
 const RETENTION_MS = 90 * 24 * 60 * 60_000;
 const MAX_OFFLINE_AGE_MS = 30 * 24 * 60 * 60_000;
-interface Receipt { fingerprint: string; state: "pending" | "done"; status?: number; body?: string }
+interface Receipt { fingerprint: string; state: "pending" | "done"; status?: number; body?: string; createdAt?: { toMillis?: () => number } | Date }
+/** Far beyond any route's maxDuration (60 s): a claim this old belongs to a run that died (e.g. a function timeout). */
+export const STALE_PENDING_MS = 10 * 60_000;
+/** Server-side failures that happen before these routes write anything (DB unavailable, transcription failed, overload). */
+const RETRYABLE = (status: number) => status >= 500 || status === 429 || status === 408;
+const millis = (v: Receipt["createdAt"]) => v instanceof Date ? v.getTime() : typeof v?.toMillis === "function" ? v.toMillis() : 0;
 
 /** Claim before any paid work. Transaction retries never execute work/AI calls.
  * An interrupted claim is deliberately not stolen: the provider may already have charged us.
@@ -28,8 +33,11 @@ export async function idempotentFieldRequest(
   const ref = db.collection(`businesses/${businessId}/idempotency`).doc(id);
   const previous = await db.runTransaction(async tx => {
     const snap = await tx.get(ref);
-    if (snap.exists) return snap.data() as Receipt;
-    // Pending claims have no TTL: deleting one could replay an already paid operation after a crash.
+    const existing = snap.exists ? snap.data() as Receipt : null;
+    // A pending claim older than STALE_PENDING_MS is taken over so a note can never wait forever. The rare cost: if the dead
+    // run had already written, the office may see the note twice (and one extra ~1¢ parse) — better than a lost note.
+    const stale = existing?.state === "pending" && existing.fingerprint === fingerprint && Date.now() - millis(existing.createdAt) > STALE_PENDING_MS;
+    if (existing && !stale) return existing;
     tx.set(ref, { state: "pending", fingerprint, createdAt: new Date() });
     return null;
   });
@@ -44,6 +52,11 @@ export async function idempotentFieldRequest(
     // Do not release an ambiguous claim. A Firestore write or provider request may have succeeded.
     console.error("Field request interrupted", { id, error: error instanceof Error ? error.name : "unknown" });
     return NextResponse.json({ error: "The result needs office review before retrying. Your phone copy is kept." }, { status: 425 });
+  }
+  if (RETRYABLE(response.status)) {
+    // Nothing was applied; release the claim so the phone's retry runs the work again instead of replaying this error.
+    await ref.delete();
+    return response;
   }
   const result = await response.clone().text();
   await db.runTransaction(async tx => {
