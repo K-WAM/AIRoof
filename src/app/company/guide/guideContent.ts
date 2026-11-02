@@ -11,6 +11,18 @@ export const GUIDE_ROLES: GuideRole[] = ["owner", "admin", "staff", "foreman"];
 export const GUIDE_QUICK_ANSWERS = [{
   question: "Can I answer calls myself?",
   answer: "Yes. Keep your own number and forward it to your AI line only when you don't pick up. Your phone rings first; after about 4 rings, the call goes to the AI. You can also forward all calls after hours. Ask Luxor to set it up. The AI never takes a call you answered.",
+}, {
+  question: "What if there is no signal at the job site?",
+  answer: "Keep working. Notes, voice recordings, photos and clock-ins are saved on your phone and show \"Saved on this phone — will send when you have signal\". They send by themselves when signal comes back and then show \"Sent ✓\". Don't clear the browser or sign out until they say Sent.",
+}, {
+  question: "How do I move or reschedule a job?",
+  answer: "Open Calendar and tap the job or booking. Choose a new day, time and crew, then tap Reschedule — or Unschedule to take it off the calendar. You choose whether the crew gets an email. Made a mistake? Tap Undo right after.",
+}, {
+  question: "Where is search?",
+  answer: "At the top of every screen. Type a name, phone number or job number to find any call, request, job or customer. On a computer, press / to jump to it.",
+}, {
+  question: "Can I see the calendar without internet?",
+  answer: "Yes — the last version you opened stays on screen with a note saying when it was saved. Changes wait until you are back online.",
 }];
 
 export interface GuideStep {
