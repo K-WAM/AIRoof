@@ -398,7 +398,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     if (polled.updates) setUpdates(polled.updates);
     if (polled.photos) setPhotos(polled.photos);
   }, [businessId, jobId]);
-  useLiveRefresh(refreshLive, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty });
+  useLiveRefresh(refreshLive, { intervalMs: 5_000, enabled: Boolean(businessId), isDirty: editing || invoiceDirty, idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // Description of work starts as short, blunt bullets built from the job's findings ("• Tile replacement"), so nobody types it
   // from scratch. Once per invoice, only into an EMPTY draft, and it saves through the normal invoice autosave.

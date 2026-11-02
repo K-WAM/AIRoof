@@ -29,6 +29,19 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  // Calendar's background refresh reads only changed jobs, using the automatic updatedAt index. The server
+  // watermark is captured BEFORE the read so a concurrent write is included here or on the next tick.
+  const updatedSinceRaw = req.nextUrl.searchParams.get("updatedSince");
+  if (updatedSinceRaw !== null) {
+    const updatedSince = Number(updatedSinceRaw);
+    if (!updatedSinceRaw || !Number.isFinite(updatedSince) || updatedSince < 0) {
+      return NextResponse.json({ error: "Invalid updatedSince cursor" }, { status: 400 });
+    }
+    const polledAt = Date.now();
+    const snap = await db.collection(`businesses/${businessId}/jobs`).where("updatedAt", ">=", updatedSince).get();
+    return NextResponse.json({ jobs: snap.docs.map((d) => ({ jobId: d.id, ...d.data() })), polledAt });
+  }
+
   const customerId = req.nextUrl.searchParams.get("customerId");
   const status = req.nextUrl.searchParams.get("status");
   const validStatuses = new Set(["open", "inspection", "quoted", "in_progress", "invoiced", "complete"]);

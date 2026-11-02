@@ -26,6 +26,7 @@ const dropUnderPointer: CollisionDetection = (args) => {
 };
 import { CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Clock3, GripVertical, Phone, Plus, Undo2, Users, X } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
+import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useSearchParams } from "next/navigation";
@@ -224,6 +225,10 @@ export default function CalendarBoard() {
   const [retryConfirm, setRetryConfirm] = useState<{ kind: "job" | "appointment"; id: string } | null>(null);
   const [confirmedAppts, setConfirmedAppts] = useState<Set<string>>(new Set());
   const [blockForm, setBlockForm] = useState<{ crewId: string; label: string; start: string; end: string } | null>(null);
+  const jobsPolledAt = useRef(Date.now());
+  const liveWindow = `${businessId}|${weekStart.getTime()}`;
+  const liveWindowRef = useRef(liveWindow);
+  liveWindowRef.current = liveWindow;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -232,6 +237,7 @@ export default function CalendarBoard() {
   useEffect(() => {
     // Wait for the industry so intake tenants never fire a jobs request.
     if (!businessId || !modulesReady) return;
+    jobsPolledAt.current = Date.now();
     Promise.all([
       fetch(`/api/company/crews?businessId=${businessId}&people=1`).then((r) => {
         if (!r.ok) throw new Error("Resources request failed");
@@ -318,6 +324,31 @@ export default function CalendarBoard() {
       .then((data: { blocks?: TimeBlock[] }) => setBlocks(data.blocks ?? []))
       .catch(() => setCalendarError("Blocked time could not be loaded. Refresh the calendar and try again."));
   }, [businessId, weekStart]);
+
+  // Keep the open board current when a caller books or the office changes a job elsewhere. Crews/people stay
+  // cached; jobs are deltas merged by id, and bookings/blocks are limited to the visible week. Never overwrite
+  // an optimistic drag/confirm or a picker with a poll which started before that edit.
+  useLiveRefresh(async () => {
+    if (!businessId || confirmInFlight.current.size) return;
+    const from = weekStart.getTime();
+    const to = addDays(weekStart, 7).getTime();
+    try {
+      const [jr, ar, br] = await Promise.all([
+        apptMode ? null : fetch(`/api/jobs?businessId=${businessId}&updatedSince=${jobsPolledAt.current}`),
+        hasCalls ? fetch(`/api/businesses/${businessId}/appointments?from=${from}&to=${to}`) : null,
+        fetch(`/api/company/time-blocks?businessId=${businessId}&from=${from}&to=${to}`),
+      ]);
+      const [jd, ad, bd] = await Promise.all([jr?.ok ? jr.json() : null, ar?.ok ? ar.json() : null, br.ok ? br.json() : null]);
+      if (liveWindowRef.current !== liveWindow || confirmInFlight.current.size) return;
+      if (jd) {
+        setJobs((current) => [...new Map([...current, ...(jd.jobs as Job[])].map((job) => [job.jobId, job])).values()]
+          .filter((job) => job.status !== "complete"));
+        jobsPolledAt.current = jd.polledAt;
+      }
+      if (ad) setAppts((ad.appointments as Appointment[]).filter((appt) => appt.status !== "cancelled"));
+      if (bd) setBlocks(bd.blocks ?? []);
+    } catch { /* A failed background request keeps the board already on screen. */ }
+  }, { intervalMs: 5_000, enabled: !!businessId && modulesReady && !loading, isDirty: !!picker || !!editing || !!busyJob || !!blockForm, idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // The rail holds whatever still needs a resource: jobs with no crew/day,
   // or bookings the agent took that nobody has been assigned to yet.

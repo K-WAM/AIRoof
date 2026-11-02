@@ -9,6 +9,8 @@ export interface LiveRefreshOptions {
   enabled?: boolean;
   /** True while a local edit buffer would be overwritten by a refresh. */
   isDirty?: boolean;
+  /** Visible live demos keep their cadence while the presenter uses a different device. */
+  idleIntervalMs?: number;
 }
 
 /**
@@ -17,7 +19,7 @@ export interface LiveRefreshOptions {
  */
 export function useLiveRefresh(
   refresh: () => Promise<unknown> | unknown,
-  { intervalMs, enabled = true, isDirty = false }: LiveRefreshOptions,
+  { intervalMs, enabled = true, isDirty = false, idleIntervalMs = IDLE_INTERVAL_MS }: LiveRefreshOptions,
 ) {
   const refreshRef = useRef(refresh);
   const dirtyRef = useRef(isDirty);
@@ -40,7 +42,7 @@ export function useLiveRefresh(
     // few seconds — every refresh is Firestore reads against the plan's daily quota. The first touch catches up.
     const tick = () => {
       const idle = Date.now() - lastActive > IDLE_AFTER_MS;
-      if (idle && Date.now() - lastRun < Math.max(intervalMs, IDLE_INTERVAL_MS)) return;
+      if (idle && Date.now() - lastRun < Math.max(intervalMs, idleIntervalMs)) return;
       run();
     };
     const onActivity = () => {
@@ -59,5 +61,5 @@ export function useLiveRefresh(
       document.removeEventListener("visibilitychange", onVisibility);
       for (const name of ACTIVITY_EVENTS) window.removeEventListener(name, onActivity);
     };
-  }, [enabled, intervalMs]);
+  }, [enabled, intervalMs, idleIntervalMs]);
 }

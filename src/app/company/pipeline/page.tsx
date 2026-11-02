@@ -283,7 +283,7 @@ export default function PipelinePage() {
       .finally(() => setLoading(false));
   }, [businessId, leadParam]);
   useEffect(() => { void loadPipeline(); }, [loadPipeline]);
-  useLiveRefresh(loadPipeline, { intervalMs: 10_000, enabled: Boolean(businessId) });
+  useLiveRefresh(loadPipeline, { intervalMs: 5_000, enabled: Boolean(businessId), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   // Deep link from Calendar's "Bookings" strip (?tab=appointments&appt=<id>) —
   // scroll straight to the clicked appointment instead of leaving the user to

@@ -22,6 +22,23 @@ async function list(query = "") {
 }
 
 describe("GET /api/jobs paging", () => {
+  it("refuses delta reads when the existing field guard denies access", async () => {
+    mocks.field.mockResolvedValue({ error: Response.json({ error: "Forbidden" }, { status: 403 }) });
+    expect((await list("&updatedSince=1")).status).toBe(403);
+  });
+
+  it("rejects malformed delta cursors", async () => {
+    for (const cursor of ["", "-1", "NaN", "Infinity"]) expect((await list(`&updatedSince=${cursor}`)).status).toBe(400);
+  });
+
+  it("returns only changed jobs, including completed jobs for removal from the board", async () => {
+    db.__seed("businesses/biz/jobs", "old", { updatedAt: 99 });
+    db.__seed("businesses/biz/jobs", "changed", { updatedAt: 100, status: "complete" });
+    const res = await GET(new NextRequest("http://localhost/api/jobs?businessId=biz&updatedSince=100"));
+    const data = await res.json();
+    expect(data.jobs).toEqual([{ jobId: "changed", updatedAt: 100, status: "complete" }]);
+    expect(data.polledAt).toBeGreaterThanOrEqual(100);
+  });
   it("pages newest first through all jobs", async () => {
     const first = await list();
     expect(first.body.jobs).toHaveLength(100);

@@ -244,7 +244,7 @@ export default function CompanyDashboardPage() {
     return load();
   }, [businessId, modulesReady, hasJobs, hasCalls, canSeeChecklist]);
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
-  useLiveRefresh(loadDashboard, { intervalMs: 10_000, enabled: Boolean(businessId && modulesReady) });
+  useLiveRefresh(loadDashboard, { intervalMs: 5_000, enabled: Boolean(businessId && modulesReady), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
   const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
   // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).
