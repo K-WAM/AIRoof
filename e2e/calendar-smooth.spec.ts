@@ -13,7 +13,11 @@ async function showDay(page: Page, day: Date, mobile: boolean) {
   await page.goto("/company/calendar");
   await expect(page.getByRole("heading", { name: "Calendar", exact: true })).toBeVisible();
   if (mobile) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // The phone agenda starts on the business's day, which can differ from
+    // this Windows runner's date near midnight.
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric" }).formatToParts(new Date());
+    const n = (key: string) => Number(parts.find((part) => part.type === key)!.value);
+    const today = new Date(n("year"), n("month") - 1, n("day"));
     const target = new Date(day); target.setHours(0, 0, 0, 0);
     const days = Math.round((target.getTime() - today.getTime()) / 86400000);
     for (let i = 0; i < days; i++) await page.getByRole("button", { name: "Next day", exact: true }).click();
