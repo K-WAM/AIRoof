@@ -13,6 +13,7 @@ import { NoticesPanel } from "./NoticesPanel";
 import { GettingPaidPanel } from "./GettingPaidPanel";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { phoneGreeting } from "@/lib/i18n/bilingual";
+import type { EffectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import {
   defaultRecordingDisclosureText,
   RECORDING_DISCLOSURE_MAX_LENGTH,
@@ -34,6 +35,7 @@ interface Settings {
   licenseNumber: string;
   businessName: string;
   invoiceCopy?: InvoiceCopyDefaults;
+  billingPrefs?: EffectiveBillingPrefs;
   agentLanguage: "en" | "es";
   agentLanguages?: Array<"en" | "es">;
   // Call-recording notice (Phase 16, T-102) — optional so an older cached
@@ -302,7 +304,7 @@ export default function CompanySettingsPage() {
             </div>
           </section>}
 
-          {hasBilling && <GettingPaidPanel businessId={businessId} />}
+          {hasBilling && <GettingPaidPanel businessId={businessId} initialPrefs={settings.billingPrefs} />}
 
           {hasBilling && <section id="documents" className="panel">
             <div className="panel-header"><h2 className="panel-title">Documents</h2></div>

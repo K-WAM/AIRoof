@@ -11,23 +11,26 @@ import type { EffectiveBillingPrefs } from "@/lib/billing/customerPayments";
  * invoice and reminder, with a Pay button when there's a pay link (their own Square/PayPal/QuickBooks page — no Stripe,
  * no money passes through Luxor). Owner edits; staff see it read-only. Own Save, like Terms & notices.
  */
-export function GettingPaidPanel({ businessId }: { businessId: string }) {
+export function GettingPaidPanel({ businessId, initialPrefs }: { businessId: string; initialPrefs?: EffectiveBillingPrefs }) {
   const { user } = useAuth();
   const canEdit = user?.role === "owner" || !!user?.superadmin;
-  const [prefs, setPrefs] = useState<EffectiveBillingPrefs | null>(null);
+  const [prefs, setPrefs] = useState<EffectiveBillingPrefs | null>(initialPrefs ?? null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // Settings already returned these preferences under its own read guard.
+    // Reuse that response, including for viewers; editing keeps its owner guard.
+    if (initialPrefs) { setPrefs(initialPrefs); return; }
     let live = true;
     fetch(`/api/company/settings/billing?businessId=${encodeURIComponent(businessId)}`)
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: { prefs: EffectiveBillingPrefs }) => { if (live) setPrefs(data.prefs); })
       .catch(() => { if (live) setError("Payment settings couldn't be loaded."); });
     return () => { live = false; };
-  }, [businessId]);
+  }, [businessId, initialPrefs]);
 
   function change(patch: Partial<EffectiveBillingPrefs>) {
     setPrefs((prev) => (prev ? { ...prev, ...patch } : prev));
