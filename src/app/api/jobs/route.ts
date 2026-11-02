@@ -3,6 +3,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
 import { nextJobId, nextJobIdInTransaction } from "@/lib/jobs/createJob";
+import { fieldResponse } from "@/lib/jobs/fieldResponse";
 
 // GET /api/jobs?businessId=xxx[&customerId=xxx][&crewId=xxx&includeUnassigned=1] — list jobs
 // (session or field key)
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
     }
     const polledAt = Date.now();
     const snap = await db.collection(`businesses/${businessId}/jobs`).where("updatedAt", ">=", updatedSince).get();
-    return NextResponse.json({ jobs: snap.docs.map((d) => ({ jobId: d.id, ...d.data() })), polledAt });
+    return NextResponse.json(fieldResponse({ jobs: snap.docs.map((d) => ({ jobId: d.id, ...d.data() })), polledAt }, gate.user));
   }
 
   const customerId = req.nextUrl.searchParams.get("customerId");
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
 
   const hasMore = jobs.length > 100;
   jobs = jobs.slice(0, 100);
-  return NextResponse.json({ jobs, hasMore, nextBefore: hasMore ? jobs.at(-1)?.createdAt : null });
+  return NextResponse.json(fieldResponse({ jobs, hasMore, nextBefore: hasMore ? jobs.at(-1)?.createdAt : null }, gate.user));
 }
 
 // POST /api/jobs — create job

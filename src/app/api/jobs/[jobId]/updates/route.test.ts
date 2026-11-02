@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 
 let db = makeFakeDb();
-let user: { uid: string; displayName?: string; email?: string; crewId?: string } = { uid: "u1", displayName: "Carlos Reyes", email: "carlos@roof.test" };
+let user: { uid: string; role?: "crew" | "owner" | "staff" | "viewer" | "superadmin"; displayName?: string; email?: string; crewId?: string } = { uid: "u1", displayName: "Carlos Reyes", email: "carlos@roof.test" };
 const seenContext: unknown[] = [];
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyFieldAccess: async () => ({ user }) }));
@@ -11,10 +11,10 @@ vi.mock("@/lib/jobs/writeProjection", () => ({ loadLedger: async () => [], write
 vi.mock("@/lib/ai/deepseekClient", () => ({
   parseFieldUpdate: async (input: { jobContext?: unknown }) => {
     seenContext.push(input.jobContext);
-    return { timeline: [], materials: [{ item: "shingles", quantity: 12, unit: "bundles" }], labor: [{ description: "Carlos", hours: 8 }], issues: [{ description: "cracked vent boot", severity: "medium" }] };
+    return { timeline: [], materials: [{ item: "shingles", quantity: 12, unit: "bundles", cost: 90 }], labor: [{ description: "Carlos", hours: 8, rate: 65 }], issues: [{ description: "cracked vent boot", severity: "medium" }] };
   },
 }));
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 const params = { params: Promise.resolve({ jobId: "J-1" }) };
 const post = (body: unknown) => POST(new NextRequest("http://localhost/api/jobs/J-1/updates", {
@@ -30,6 +30,17 @@ beforeEach(() => {
 });
 
 describe("POST /api/jobs/[jobId]/updates — who and where", () => {
+  for (const role of ["crew", "owner", "staff", "viewer", "superadmin", "grant"] as const) {
+    it(`redacts saved updates and typed-note receipts for ${role} only when field-authorized`, async () => {
+      user = { uid: role === "grant" ? "field:biz:session" : "u1", displayName: "Ana", role: role === "grant" ? "viewer" : role };
+      const restricted = role === "grant" || role === "crew";
+      const posted = await (await post({ businessId: "biz", rawText: "Used shingles", submittedBy: "Ana" })).json();
+      expect(posted.update.parsed.labor[0]).toEqual(restricted ? { description: "Carlos", hours: 8 } : { description: "Carlos", hours: 8, rate: 65 });
+      const saved = await (await GET(new NextRequest("http://localhost/api/jobs/J-1/updates?businessId=biz"), params)).json();
+      expect(saved.updates[0].parsed.materials[0]).toEqual(restricted ? { item: "shingles", quantity: 12, unit: "bundles" } : { item: "shingles", quantity: 12, unit: "bundles", cost: 90 });
+      expect(db.__list("businesses/biz/jobs/J-1/updates")[0].data.parsed).toHaveProperty("materials.0.cost", 90);
+    });
+  }
   it("a signed-in note carries the account's name, not whatever the body claims", async () => {
     const res = await post({ businessId: "biz", rawText: "12 bundles, Carlos 8 hours", submittedBy: "The Owner" });
     expect(res.status).toBe(201);

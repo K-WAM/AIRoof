@@ -22,6 +22,17 @@ async function list(query = "") {
 }
 
 describe("GET /api/jobs paging", () => {
+  for (const role of ["crew", "owner", "staff", "viewer", "superadmin", "grant"] as const) {
+    it(`redacts both full and delta lists only for ${role === "grant" || role === "crew" ? "field" : "office"} reader ${role}`, async () => {
+      db.__seed("businesses/biz/jobs", "priced", { createdAt: 500, updatedAt: 500, parsed: { labor: [{ hours: 3, rate: 65 }] } });
+      mocks.field.mockResolvedValue({ user: { uid: role === "grant" ? "field:biz:session" : "login", role: role === "grant" ? "viewer" : role } });
+      for (const suffix of ["", "&updatedSince=500"]) {
+        const data = await (await GET(new NextRequest(`http://localhost/api/jobs?businessId=biz${suffix}`))).json();
+        const priced = data.jobs.find((job: { jobId: string }) => job.jobId === "priced");
+        expect(priced.parsed.labor[0]).toEqual(role === "grant" || role === "crew" ? { hours: 3 } : { hours: 3, rate: 65 });
+      }
+    });
+  }
   it("refuses delta reads when the existing field guard denies access", async () => {
     mocks.field.mockResolvedValue({ error: Response.json({ error: "Forbidden" }, { status: 403 }) });
     expect((await list("&updatedSince=1")).status).toBe(403);

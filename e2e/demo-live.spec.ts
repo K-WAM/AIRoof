@@ -123,6 +123,11 @@ test("live prospect: call → job → phone work → documents → reset ends ph
     await choice.click();
     await phone.getByRole("button", { name: "Add 1 finding", exact: true }).click();
     await seen(new RegExp(finding.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+    // Price privacy is enforced in the JSON boundary too, not just hidden by the phone components.
+    const fieldJob = await (await phoneContext.request.get(new URL(`/api/jobs/${jobId}?businessId=${B}`, fieldUrl).href)).json();
+    expect(JSON.stringify(fieldJob)).not.toMatch(/"(?:unitPrice|rate|cost|invoiceSuggestions|total|subtotal|customerSubtotal)"\s*:/);
+    const officeJob = must(await admin.get(`/api/jobs/${jobId}?businessId=${B}`), "office price response");
+    expect(JSON.stringify(officeJob.job.findings)).toContain('"unitPrice"');
     await shot(phone, "demo-live-phone-work");
     await shot(office, "demo-live-office-findings");
     expect(officeLoads, "phone actions update the office without navigation/reload").toBe(0);

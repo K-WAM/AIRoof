@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), update: vi.fn(), firestore: vi.fn() }));
-vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.verify, verifyFieldAccess: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verify: vi.fn(), field: vi.fn(), update: vi.fn(), firestore: vi.fn() }));
+vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.verify, verifyFieldAccess: mocks.field }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.firestore }));
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 import { quoteLinesFromFindings, quoteTotal } from "@/lib/billing/jobQuote";
 import type { JobFinding } from "@/types/workCatalog";
@@ -28,11 +28,33 @@ const reportRequest = (body: Record<string, unknown>) => new NextRequest("http:/
   headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId: "b", ...body }) });
 beforeEach(() => {
   mocks.verify.mockReset().mockResolvedValue({ user: { uid: "staff" } });
+  mocks.field.mockReset();
   mocks.update.mockReset();
   mocks.firestore.mockReset().mockReturnValue({ collection: (path: string) => ({ doc: () => ({
     get: async () => ({ exists: true, data: () => ({ industry: path === "businesses" ? "roofing" : undefined }) }),
     update: mocks.update,
   }) }) });
+});
+
+describe("job GET field price redaction", () => {
+  it("keeps the existing denial before reading data", async () => {
+    mocks.field.mockResolvedValue({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
+    expect((await GET(new NextRequest("http://localhost/api/jobs/j?businessId=b"), context)).status).toBe(403);
+    expect(mocks.firestore).not.toHaveBeenCalled();
+  });
+  for (const role of ["crew", "owner", "staff", "viewer", "superadmin", "grant"] as const) {
+    it(`serves the ${role} payload without mutating saved prices`, async () => {
+      const db = fakeDb({ parsed: { materials: [{ item: "Tile", quantity: "3", cost: 12 }], labor: [{ hours: 8, rate: 65 }] },
+        findings: [{ problem: "Leak", lines: [{ quantity: 1, unitPrice: 30 }] }] });
+      mocks.field.mockResolvedValue({ user: { uid: role === "grant" ? "field:b:token" : "login", role: role === "grant" ? "viewer" : role } });
+      const data = await (await GET(new NextRequest("http://localhost/api/jobs/j?businessId=b"), context)).json();
+      const restricted = role === "grant" || role === "crew";
+      expect(data.job.parsed.materials[0]).toEqual(restricted ? { item: "Tile", quantity: "3" } : { item: "Tile", quantity: "3", cost: 12 });
+      expect(data.job.parsed.labor[0]).toEqual(restricted ? { hours: 8 } : { hours: 8, rate: 65 });
+      expect(data.job.findings[0].lines[0]).toEqual(restricted ? { quantity: 1 } : { quantity: 1, unitPrice: 30 });
+      expect(db.__peek("businesses/b/jobs", "j")?.findings).toEqual([{ problem: "Leak", lines: [{ quantity: 1, unitPrice: 30 }] }]);
+    });
+  }
 });
 
 describe("job findings PATCH", () => {
