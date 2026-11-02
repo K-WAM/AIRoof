@@ -28,6 +28,7 @@
     "next": "^15.5.28",
     "openai": "^6.49.0",
     "posthog-js": "^1.438.9",
+    "posthog-node": "^5.61.1",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
