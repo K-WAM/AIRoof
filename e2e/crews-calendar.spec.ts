@@ -137,7 +137,7 @@ test("Calendar: a drop asks for a time, and a second job fits the same crew-day 
   await api(page, "DELETE", `/api/company/crews?businessId=${B}&crewId=${crewId}`);
 });
 
-test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149)", async ({ as }, testInfo) => {
+test("Calendar on a phone: tapping a scheduled job opens one reschedule sheet", async ({ as }, testInfo) => {
   test.skip(testInfo.project.name !== "phone", "phone layout check");
   const page = await as("owner");
   await clearTestCrews(page);
@@ -160,11 +160,11 @@ test("Calendar on a phone: Change time opens the picker as a bottom sheet (T-149
     await page.getByRole("button", { name: "Next day" }).click();
     await settle(page, 300);
   }
-  await item.getByRole("button", { name: "Change time", exact: true }).click();
-  const picker = page.getByTestId("calendar-slot-picker");
-  await expect(picker).toBeInViewport();
-  // The picker sits inside the shared bottom Sheet (T-158); the sheet spans the phone, not a clipped 320 px popover.
-  const sheet = page.getByRole("dialog").filter({ has: picker });
+  await item.getByRole("button", { name: new RegExp(title) }).click();
+  const sheet = page.getByRole("dialog", { name: title });
+  await expect(sheet.getByRole("button", { name: "Reschedule", exact: true })).toBeInViewport();
+  await expect(sheet.getByRole("button", { name: "Unschedule", exact: true })).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "Open job", exact: true })).toBeVisible();
   const box = (await sheet.boundingBox())!;
   expect(box.width).toBeGreaterThan(360);
   await shot(page, "calendar-change-time-sheet");

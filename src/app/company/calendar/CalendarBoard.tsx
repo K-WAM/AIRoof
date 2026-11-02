@@ -211,6 +211,8 @@ export default function CalendarBoard() {
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [picker, setPicker] = useState<SlotPickerState | null>(null);
+  const [editing, setEditing] = useState<{ kind: "job" | "appointment"; id: string; crewId?: string; day?: Date } | null>(null);
+  const [undo, setUndo] = useState<{ message: string; run: () => Promise<void> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busyJob, setBusyJob] = useState<string | null>(null);
@@ -351,16 +353,18 @@ export default function CalendarBoard() {
   }
 
   // Saves a time picked in the SlotPicker. Grey/unconfirmed until "Confirm + email crew", as before.
-  async function placeJob(jobId: string, crewId: string, dayMs: number, durationMs: number) {
+  async function placeJob(jobId: string, crewId: string, dayMs: number, durationMs: number, notify = false): Promise<boolean> {
     const previous = jobs.find((job) => job.jobId === jobId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(jobId)) return false;
+    confirmInFlight.current.add(jobId);
+    setBusyJob(jobId);
     setPicker(null);
     const scheduledEnd = dayMs + Math.max(durationMs, 1);
     setCalendarError(null);
-    const result = await runOptimisticCalendarMutation({
+    const result = await runOptimisticCalendarMutation<{ notificationStatus?: string }>({
       apply: () => setJobs((current) => current.map((job) =>
         job.jobId === jobId
-          ? { ...job, assignedCrewId: crewId, scheduledStart: dayMs, scheduledEnd, crewConfirmed: false }
+          ? { ...job, assignedCrewId: crewId, scheduledStart: dayMs, scheduledEnd, crewConfirmed: notify }
           : job
       )),
       persist: () => fetch(`/api/jobs/${jobId}/assign`, {
@@ -371,8 +375,8 @@ export default function CalendarBoard() {
           crewId,
           scheduledStart: dayMs,
           scheduledEnd,
-          crewConfirmed: false,
-          notify: false,
+          crewConfirmed: notify,
+          notify,
         }),
       }),
       rollback: () => setJobs((current) => current.map((job) =>
@@ -382,11 +386,47 @@ export default function CalendarBoard() {
     });
     if (result.ok) track("crew_assigned", { job_id: jobId, crew_id: crewId });
     if (!result.ok) setCalendarError(result.error ?? "The assignment could not be saved.");
+    if (result.ok) {
+      setEditing(null);
+      setUndo({ message: `${vocab.jobNoun} moved${notify ? " · confirmed" : " · not confirmed"}`, run: () => restoreJob(previous) });
+      if (result.data?.notificationStatus === "failed") {
+        setCalendarError("The move is saved, but a crew email failed. Retry confirmation to send it.");
+        setRetryConfirm({ kind: "job", id: jobId });
+      }
+    }
+    confirmInFlight.current.delete(jobId);
+    setBusyJob(null);
+    return result.ok;
+  }
+
+  async function restoreJob(previous: Job) {
+    if (busyJob) return;
+    setBusyJob(previous.jobId);
+    setCalendarError(null);
+    try {
+      const response = await fetch(`/api/jobs/${previous.jobId}/assign`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, crewId: previous.assignedCrewId ?? null,
+          scheduledStart: previous.scheduledStart ?? null, scheduledEnd: previous.scheduledEnd ?? null,
+          crewConfirmed: !!previous.crewConfirmed, notify: !!previous.crewConfirmed }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "The previous slot is no longer available. Nothing was changed.");
+      setJobs((current) => current.map((job) => job.jobId === previous.jobId ? { ...job,
+        assignedCrewId: previous.assignedCrewId, scheduledStart: previous.scheduledStart,
+        scheduledEnd: previous.scheduledEnd, crewConfirmed: previous.crewConfirmed } : job));
+      setUndo(null);
+      if (data.notificationStatus === "failed") setCalendarError("The previous schedule is restored, but a crew email failed. Retry confirmation.");
+      else flash("Previous schedule restored");
+    } catch (error) { setCalendarError(error instanceof Error ? error.message : "Undo could not be saved. Try again."); }
+    finally { setBusyJob(null); }
   }
 
   async function unschedule(jobId: string) {
     const previous = jobs.find((job) => job.jobId === jobId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(jobId)) return;
+    confirmInFlight.current.add(jobId);
+    setBusyJob(jobId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => setJobs((current) => current.map((job) =>
@@ -405,6 +445,9 @@ export default function CalendarBoard() {
       fallbackError: "The job could not be unscheduled. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The job could not be unscheduled.");
+    if (result.ok) { setEditing(null); setUndo({ message: `${vocab.jobNoun} unscheduled`, run: () => restoreJob(previous) }); }
+    confirmInFlight.current.delete(jobId);
+    setBusyJob(null);
   }
 
   async function confirmJob(job: Job) {
@@ -446,21 +489,22 @@ export default function CalendarBoard() {
     }
   }
 
-  async function placeAppt(appointmentId: string, crewId: string, day: Date) {
+  async function placeAppt(appointmentId: string, crewId: string, day: Date, chosenStart?: number) {
     const appt = appts.find((a) => a.appointmentId === appointmentId);
-    if (!appt) return;
-    const startTime = sameTimeOnDay(appt.startTime, day, tz);
+    if (!appt || confirmInFlight.current.has(appointmentId)) return;
+    const startTime = chosenStart ?? sameTimeOnDay(appt.startTime, day, tz);
     if (startTime === null) {
       setCalendarError("That local time does not exist because of a daylight-saving change. Choose another day.");
       return;
     }
-    if (!sameDay(appt.startTime, day, tz)) {
+    if (chosenStart === undefined && !sameDay(appt.startTime, day, tz)) {
       const from = new Date(appt.startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
       const to = new Date(startTime).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: tz });
       const customer = appt.callerName ? `${appt.callerName}${appt.callerName.endsWith("s") ? "'" : "'s"}` : "this customer's";
       if (!window.confirm(`This moves ${customer} booking from ${from} to ${to} — they're told when you confirm.`)) return;
     }
     const wasJustConfirmed = confirmedAppts.has(appointmentId);
+    confirmInFlight.current.add(appointmentId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => {
@@ -484,21 +528,11 @@ export default function CalendarBoard() {
           });
         }
       },
-      persist: async () => {
-        const save = (force = false) => fetch(`/api/appointments/${appointmentId}`, {
+      persist: () => fetch(`/api/appointments/${appointmentId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime, ...(force ? { force: true } : {}) }),
-        });
-        let response = await save();
-        if (response.status === 409) {
-          const data = await response.clone().json().catch(() => ({} as { code?: string; message?: string }));
-          if (data.code === "inspector_busy" && window.confirm(`${data.message || "That inspector is busy then."}\n\nAssign anyway?`)) {
-            response = await save(true);
-          }
-        }
-        return response;
-      },
+          body: JSON.stringify({ businessId, assignedCrewId: crewId, startTime }),
+        }),
       rollback: () => {
         setAppts((current) => current.map((item) =>
           item.appointmentId === appointmentId ? appt : item
@@ -510,11 +544,38 @@ export default function CalendarBoard() {
       fallbackError: "The appointment could not be moved. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The appointment could not be moved.");
+    if (result.ok) { setEditing(null); setUndo({ message: "Booking moved · confirm the new time to notify the customer", run: () => restoreAppt(appt) }); }
+    confirmInFlight.current.delete(appointmentId);
+    return result.ok;
+  }
+
+  async function restoreAppt(previous: Appointment) {
+    if (busyJob) return;
+    setBusyJob(previous.appointmentId);
+    setCalendarError(null);
+    try {
+      const response = await fetch(`/api/appointments/${previous.appointmentId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, assignedCrewId: previous.assignedCrewId ?? null,
+          startTime: previous.startTime, confirm: previous.status === "confirmed", notifyCustomer: previous.status === "confirmed" }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error ?? "The previous slot is no longer available. Nothing was changed.");
+      setAppts((current) => current.map((appt) => appt.appointmentId === previous.appointmentId ? { ...appt,
+        assignedCrewId: previous.assignedCrewId, startTime: previous.startTime,
+        status: previous.status, pendingConfirmation: previous.pendingConfirmation } : appt));
+      setConfirmedAppts((current) => { const next = new Set(current); if (previous.status === "confirmed") next.add(previous.appointmentId); else next.delete(previous.appointmentId); return next; });
+      setUndo(null);
+      flash("Previous booking restored");
+    } catch (error) { setCalendarError(error instanceof Error ? error.message : "Undo could not be saved. Try again."); }
+    finally { setBusyJob(null); }
   }
 
   async function unassignAppt(appointmentId: string) {
     const previous = appts.find((appointment) => appointment.appointmentId === appointmentId);
-    if (!previous) return;
+    if (!previous || confirmInFlight.current.has(appointmentId)) return;
+    confirmInFlight.current.add(appointmentId);
+    setBusyJob(appointmentId);
     setCalendarError(null);
     const result = await runOptimisticCalendarMutation({
       apply: () => setAppts((current) => current.map((appointment) =>
@@ -533,6 +594,9 @@ export default function CalendarBoard() {
       fallbackError: "The appointment could not be unassigned. The calendar was restored; try again.",
     });
     if (!result.ok) setCalendarError(result.error ?? "The appointment could not be unassigned.");
+    if (result.ok) { setEditing(null); setUndo({ message: "Booking unassigned · the customer's time is kept", run: () => restoreAppt(previous) }); }
+    confirmInFlight.current.delete(appointmentId);
+    setBusyJob(null);
   }
 
   async function confirmAppt(appt: Appointment) {
@@ -617,6 +681,7 @@ export default function CalendarBoard() {
   }
 
   function onDragEnd(e: DragEndEvent) {
+    if (readOnly || busyJob !== null) return;
     const dragId = String(e.active.id);
     const id = dragId.replace(/^(?:appointment-rail|phone-strip):/, "");
     const over = e.over?.id as string | undefined;
@@ -634,10 +699,14 @@ export default function CalendarBoard() {
       return;
     }
     if (apptMode || isAppointment) {
-      placeAppt(id, crewId, day);
+      setEditing({ kind: "appointment", id, crewId, day });
       return;
     }
     if (readOnly) return;
+    if (jobs.find((job) => job.jobId === id)?.scheduledStart) {
+      setEditing({ kind: "job", id, crewId, day });
+      return;
+    }
     // A cell is a whole day, so a drop carries no time — ask for one (T-149). Before, every drop landed at opening
     // time, and a second job on the same crew-day collided with the first and was refused.
     const rect = e.over?.rect;
@@ -646,8 +715,7 @@ export default function CalendarBoard() {
 
   function openChangeTime(job: Job) {
     if (!job.assignedCrewId || !job.scheduledStart) return;
-    const parts = dateParts(job.scheduledStart, tz);
-    setPicker({ jobId: job.jobId, crewId: job.assignedCrewId, day: new Date(parts.year, parts.month - 1, parts.day), anchor: null });
+    setEditing({ kind: "job", id: job.jobId });
   }
 
   if (loading) return <PageSkeleton rows={5} />;
@@ -708,6 +776,11 @@ export default function CalendarBoard() {
           }}>Retry</button>}
         </div>
       )}
+      {undo && <div className="calendar-undo" role="status">
+        <span>{undo.message}</span>
+        <button type="button" className="button small" disabled={busyJob !== null} onClick={() => void undo.run()}>Undo</button>
+        <button type="button" className="button ghost small" aria-label="Dismiss undo" onClick={() => setUndo(null)}>×</button>
+      </div>}
 
       <section className="c1-calendar-agenda panel" aria-label="Day agenda">
         <div className="panel-header c1-agenda-header">
@@ -747,7 +820,7 @@ export default function CalendarBoard() {
           {appts.filter((appt) => sameDay(appt.startTime, agendaDay, tz) && appt.status !== "cancelled").sort((a, b) => a.startTime - b.startTime).map((appt) => {
             const assignees = apptMode ? crews : inspectors;
             return <article className="c1-agenda-item" style={{ order: minuteOfDay(appt.startTime, tz) }} key={appt.appointmentId}>
-              <strong>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</strong>
+              <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "appointment", id: appt.appointmentId })}>{new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {appt.callerName ?? "Booking"}</button>
               <span>{assignees.find((crew) => crew.crewId === appt.assignedCrewId)?.name ?? "Unassigned"} · {displayRequestState(appt).label}</span>
               <div className="c1-agenda-actions">
                 {!readOnly && <select aria-label={`Assign ${appt.callerName ?? "booking"}`} value={appt.assignedCrewId ?? ""} disabled={busyJob === appt.appointmentId} onChange={(event) => { if (event.target.value) void placeAppt(appt.appointmentId, event.target.value, agendaDay); else void unassignAppt(appt.appointmentId); }}>
@@ -759,12 +832,10 @@ export default function CalendarBoard() {
             </article>;
           })}
           {jobs.filter((job) => job.scheduledStart && sameDay(job.scheduledStart, agendaDay, tz)).sort((a, b) => (a.scheduledStart ?? 0) - (b.scheduledStart ?? 0)).map((job) => <article className="c1-agenda-item" style={{ order: minuteOfDay(job.scheduledStart!, tz) }} key={job.jobId}>
-            <strong>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</strong>
+            <button type="button" className="calendar-item-title" onClick={() => setEditing({ kind: "job", id: job.jobId })}>{new Date(job.scheduledStart!).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })} · {job.title}</button>
             <span>{crews.find((crew) => crew.crewId === job.assignedCrewId)?.name ?? "Unassigned"} · {job.crewConfirmed ? "Confirmed" : "Not confirmed"}</span>
             <div className="c1-agenda-actions">
               {!readOnly && job.assignedCrewId && !job.crewConfirmed && <button type="button" className="button small primary" disabled={busyJob === job.jobId} onClick={() => void confirmJob(job)}>{busyJob === job.jobId ? "Confirming…" : "Confirm"}</button>}
-              {!readOnly && job.assignedCrewId && <button type="button" className="button small" onClick={() => openChangeTime(job)}>Change time</button>}
-              <Link className="button small" href={`/company/jobs/${job.jobId}${previewSuffix}`}>Open {vocab.jobNoun.toLowerCase()}</Link>
             </div>
           </article>)}
           {appts.every((appt) => !sameDay(appt.startTime, agendaDay, tz) || appt.status === "cancelled") && jobs.every((job) => !job.scheduledStart || !sameDay(job.scheduledStart, agendaDay, tz)) && blocks.every((block) => !sameDay(block.startTime, agendaDay, tz)) && <p>No bookings or {vocab.jobNounPlural.toLowerCase()} this day.</p>}
@@ -956,6 +1027,7 @@ export default function CalendarBoard() {
                     onChangeTime={readOnly ? undefined : openChangeTime}
                     onUnschedule={unschedule}
                     onConfirmAppt={confirmAppt}
+                    onEditAppt={(appt) => setEditing({ kind: "appointment", id: appt.appointmentId })}
                     onUnassignAppt={unassignAppt}
                     confirmedAppts={confirmedAppts}
                     busyJob={busyJob}
@@ -990,6 +1062,27 @@ export default function CalendarBoard() {
           />
         );
       })()}
+      {editing && (() => {
+        const job = editing.kind === "job" ? jobs.find((item) => item.jobId === editing.id) : undefined;
+        const appt = editing.kind === "appointment" ? appts.find((item) => item.appointmentId === editing.id) : undefined;
+        if (!job && !appt) return null;
+        return <ScheduleSheet key={`${editing.kind}:${editing.id}:${editing.crewId}:${editing.day?.getTime()}`} title={job?.title ?? appt?.callerName ?? "Booking"}
+          start={job?.scheduledStart ?? appt!.startTime} duration={job?.scheduledEnd && job.scheduledStart ? job.scheduledEnd - job.scheduledStart : 3600000}
+          crewId={editing.crewId ?? job?.assignedCrewId ?? appt?.assignedCrewId ?? ""} day={editing.day} tz={tz}
+          resources={job ? workCrews : apptMode ? crews : inspectors} resourceNoun={vocab.resourceNoun}
+          confirmedJob={!!job?.crewConfirmed} readOnly={readOnly} busy={busyJob !== null} error={calendarError}
+          href={job ? `/company/jobs/${job.jobId}${previewSuffix}` : appt?.jobId && isEnabled("jobs") ? `/company/jobs/${appt.jobId}${previewSuffix}` : `/company/pipeline?tab=appointments&appt=${appt!.appointmentId}${previewSuffix ? `&${previewSuffix.slice(1)}` : ""}`}
+          openLabel={job || (appt?.jobId && isEnabled("jobs")) ? `Open ${vocab.jobNoun.toLowerCase()}` : "Open booking"}
+          onClose={() => setEditing(null)} onSave={async (crewId, start, duration, notify) => {
+            if (job) await placeJob(job.jobId, crewId, start, duration, notify);
+            else { setBusyJob(appt!.appointmentId); await placeAppt(appt!.appointmentId, crewId, new Date(start), start); setBusyJob(null); }
+          }}
+          unscheduleLabel={job ? "Unschedule" : `Unassign ${vocab.resourceNoun.toLowerCase()}`}
+          onUnschedule={async () => {
+            if (job?.crewConfirmed && !window.confirm("Unschedule this confirmed job? The crew was already emailed.")) return;
+            if (job) await unschedule(job.jobId); else await unassignAppt(appt!.appointmentId);
+          }} />;
+      })()}
       <Modal open={!!blockForm} onClose={() => setBlockForm(null)} title="Block time">
         {blockForm && (
           <div>
@@ -1004,6 +1097,47 @@ export default function CalendarBoard() {
       </Modal>
     </>
   );
+}
+
+function ScheduleSheet({ title, start, duration, crewId: initialCrew, day, tz, resources, resourceNoun, confirmedJob, readOnly, busy, error, href, openLabel, onClose, onSave, onUnschedule, unscheduleLabel }: {
+  title: string; start: number; duration: number; crewId: string; day?: Date; tz: string; resources: Crew[]; resourceNoun: string;
+  confirmedJob: boolean; readOnly: boolean; busy: boolean; error?: string | null; href: string; openLabel: string;
+  onClose: () => void; onSave: (crewId: string, start: number, duration: number, notify: boolean) => Promise<void>;
+  onUnschedule: () => Promise<void>; unscheduleLabel: string;
+}) {
+  const parts = dateParts(start, tz);
+  const [date, setDate] = useState(dayKey(day ?? new Date(parts.year, parts.month - 1, parts.day)));
+  const [time, setTime] = useState(`${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`);
+  const [crewId, setCrewId] = useState(initialCrew);
+  const [notify, setNotify] = useState(true);
+  const [invalid, setInvalid] = useState("");
+  return <Sheet open onClose={() => { if (!busy) onClose(); }} title={title}>
+    <form className="calendar-schedule-form" onSubmit={(event) => {
+      event.preventDefault();
+      const [year, month, day] = date.split("-").map(Number);
+      const [hour, minute] = time.split(":").map(Number);
+      const nextStart = wallTimeToUtc(new Date(year, month - 1, day), hour, minute, tz);
+      if (nextStart === null || !Number.isFinite(nextStart)) { setInvalid("That local time does not exist. Choose another time."); return; }
+      setInvalid("");
+      void onSave(crewId, nextStart, duration, confirmedJob && notify);
+    }}>
+      <fieldset disabled={readOnly || busy}>
+        <label>Day<input aria-label="Reschedule day" type="date" required value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label>Time ({tz})<input aria-label="Reschedule time" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></label>
+        <label>{resourceNoun}<select aria-label={`Reschedule ${resourceNoun.toLowerCase()}`} required value={crewId} onChange={(event) => setCrewId(event.target.value)}>
+          <option value="">Choose {resourceNoun.toLowerCase()}</option>{resources.map((crew) => <option key={crew.crewId} value={crew.crewId}>{crew.name}</option>)}
+        </select></label>
+        {confirmedJob && <label className="calendar-notify"><input type="checkbox" checked={notify} onChange={(event) => setNotify(event.target.checked)} />Email the {resourceNoun.toLowerCase()} the new schedule</label>}
+      </fieldset>
+      {(error || invalid) && <p role="alert">{invalid || error}</p>}
+      {!confirmedJob && !readOnly && <p className="page-subtitle">Save the time, then confirm it to notify people.</p>}
+      <div className="calendar-sheet-actions">
+        {!readOnly && <button type="submit" className="button primary" disabled={busy}>{busy ? "Saving…" : "Reschedule"}</button>}
+        {!readOnly && <button type="button" className="button" disabled={busy} onClick={() => void onUnschedule()}>{unscheduleLabel}</button>}
+        <Link className="button ghost" href={href}>{openLabel}</Link>
+      </div>
+    </form>
+  </Sheet>;
 }
 
 function countMembers(people: unknown): Record<string, number> {
@@ -1163,7 +1297,7 @@ function SlotPicker({
 }
 // ── Resource row (crew / tech / provider / vendor) with droppable day cells ───
 function CrewRow({
-  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
+  crew, days, jobs, appts, blocks, tz, memberCount, onConfirm, onChangeTime, onUnschedule, onConfirmAppt, onEditAppt, onUnassignAppt, confirmedAppts, busyJob, previewSuffix, smsEnabled, readOnly, onAddBlock, onDeleteBlock,
 }: {
   crew: Crew;
   days: Date[];
@@ -1176,6 +1310,7 @@ function CrewRow({
   onChangeTime?: (j: Job) => void;
   onUnschedule: (jobId: string) => void;
   onConfirmAppt: (a: Appointment) => void;
+  onEditAppt: (a: Appointment) => void;
   onUnassignAppt: (appointmentId: string) => void;
   confirmedAppts: Set<string>;
   busyJob: string | null;
@@ -1210,6 +1345,7 @@ function CrewRow({
               crew={crew}
               tz={tz}
               onConfirm={onConfirmAppt}
+              onEdit={onEditAppt}
               onUnassign={onUnassignAppt}
               busy={busyJob === appt.appointmentId}
               justConfirmed={confirmedAppts.has(appt.appointmentId)}
@@ -1333,12 +1469,13 @@ function ApptTile({ appt, tz }: { appt: Appointment; tz: string }) {
 
 // ── Placed booking tile (in a resource×day cell) ──────────────────────────────
 function ScheduledApptTile({
-  appt, crew, tz, onConfirm, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled,
+  appt, crew, tz, onConfirm, onEdit, onUnassign, busy, justConfirmed, previewSuffix, smsEnabled,
 }: {
   appt: Appointment;
   crew: Crew;
   tz: string;
   onConfirm: (a: Appointment) => void;
+  onEdit: (a: Appointment) => void;
   onUnassign: (appointmentId: string) => void;
   busy: boolean;
   justConfirmed: boolean;
@@ -1359,7 +1496,7 @@ function ScheduledApptTile({
       }}
     >
       {/* No grip icon here: a day cell is ~80 px on a full week, and the icon cut names to "Jordai". The whole top is the handle. */}
-      <div {...listeners} {...attributes} title="Drag to move" style={{ padding: "7px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
+      <div {...listeners} {...attributes} title="Drag to move, or open to reschedule" onClick={() => onEdit(appt)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onEdit(appt); } }} style={{ padding: "7px 8px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}` }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: confirmed ? crew.color : "#64748b" }}>
             {new Date(appt.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}
@@ -1425,7 +1562,7 @@ function ScheduledTile({
         opacity: isDragging ? 0.5 : 1, transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
       }}
     >
-      <div {...listeners} {...attributes} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
+      <div {...listeners} {...attributes} onClick={() => onChangeTime?.(job)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onChangeTime?.(job); } }} style={{ padding: "8px 10px", cursor: "grab", touchAction: "none", borderLeft: `3px solid ${confirmed ? crew.color : "#cbd5e1"}`, display: "flex", gap: 6, alignItems: "flex-start" }}>
         <GripVertical size={13} style={{ color: confirmed ? crew.color : "#cbd5e1", flexShrink: 0, marginTop: 2, opacity: 0.8 }} />
         <div style={{ minWidth: 0, flex: 1 }}>
           {job.scheduledStart && (
@@ -1445,7 +1582,7 @@ function ScheduledTile({
           <Link href={`/company/jobs/${job.jobId}${previewSuffix}`} style={{ flex: 1, fontSize: 11, fontWeight: 700, padding: "6px", textAlign: "center", color: crew.color, textDecoration: "none" }}>Open →</Link>
         )}
         {/* Outside the drag handle on purpose: a button nested in the draggable (role="button") is invalid and eats taps. */}
-        {!confirmed && onChangeTime && (
+        {onChangeTime && (
           <button onClick={() => onChangeTime(job)} aria-label="Change time" title="Change time" style={{ fontSize: 12, padding: "5px 9px", border: "none", borderLeft: "1px solid rgba(0,0,0,0.06)", background: "transparent", color: "#64748b", cursor: "pointer", display: "inline-flex", alignItems: "center" }}>
             <Clock3 size={14} strokeWidth={1.75} />
           </button>
