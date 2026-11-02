@@ -13,12 +13,13 @@ export function identityRevision() { return revision; }
 
 // QR pages have no AuthProvider. Never invent a shared "anonymous" queue.
 export async function fieldIdentity(): Promise<OfflineIdentity | null> {
-  const auth = await getFirebaseAuth();
+  const isFieldLink = typeof window !== "undefined" && window.location?.pathname === "/field";
+  const auth = isFieldLink ? null : await getFirebaseAuth();
   if (auth?.currentUser) {
     if (identity?.uid === auth.currentUser.uid) return identity;
     return null; // wait until the profile (including preview status) is resolved
   }
-  if (identity && !identity.uid.startsWith("field:")) return null;
+  if (!isFieldLink && identity && !identity.uid.startsWith("field:")) return null;
   try {
     const res = await fetch("/api/field/session", { cache: "no-store" });
     if (!res.ok) { setOfflineIdentity(null); sessionStorage.removeItem("luxor-offline-field"); return null; }
@@ -36,3 +37,4 @@ export async function fieldIdentity(): Promise<OfflineIdentity | null> {
     } catch { return null; }
   }
 }
+
