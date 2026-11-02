@@ -107,7 +107,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     // Superadmin belongs in admin panel — unless using ?preview= or ?businessId= (field/demo links)
     const hasBusinessContext = Boolean(searchParams?.get("preview") || searchParams?.get("businessId"));
     if (!loading && user?.superadmin && !hasBusinessContext) {
-      router.replace("/admin/businesses");
+      router.replace("/admin");
     }
   }, [user, loading, router, searchParams]);
 

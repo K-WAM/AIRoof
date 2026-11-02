@@ -2039,3 +2039,18 @@ getCurrentDate calls. Failures: 4 = two G1 v2 fixtures that hard-code 2026-09-28
 correct 2026-11-02 / tomorrow 2026-10-31); 2 = known gemini variance (ES asked phone confirmation before booking; EN said
 "available" without the next question) — safe, no false booking.
 Not yet proven: a real call through the returning-caller prompt (owner: call twice from the same phone).
+
+## T-232 — Superadmin Overview (2026-10-31, Claude)
+
+Owner: "do the overview page" (a superadmin dashboard with clients, users, usage, monthly pricing and invoices).
+
+- `/admin` was a redirect to the client list; it is now the Overview, first in the Admin sidebar, and where a superadmin lands.
+- `GET /api/admin/overview` (superadmin): per client its team (`businessUsers`, Luxor's own account excluded), last sign-in from Firebase
+  Auth (`getUsers`, batches of 100; if Auth can't be read the page says so and raises no "nobody signed in" items), this month's usage
+  via the new shared `readBusinessMonthUsage()` (the Usage route now uses it too — same numbers), and the latest 500 Luxor invoices.
+  Archived accounts are skipped; demo/test costs are shown as one separate line.
+- `src/lib/admin/overview.ts` `buildOverview()` decides everything (revenue = live plan prices; collected = paid this month; unpaid =
+  sent; margin = price − estimated cost; the "Needs you" rules). Months are UTC, like the Usage page.
+- Invoices page: `?invoice=LX-…` opens that invoice (used by every invoice link on the Overview).
+- PostHog was not used for this: it records anonymous page names only (T-207), so it can't say which client is active.
+- Checks: unit tests (lib 9, route 2, page 3, invoices 4), `tsc`, eslint, smoke spec 75 passed / 1 skipped; desktop + phone screenshots read.

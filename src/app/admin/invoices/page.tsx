@@ -51,6 +51,9 @@ function calcItem(item: LineItem): LineItem {
 function AdminInvoicesPageInner() {
   const searchParams = useSearchParams();
   const prefillBusinessId = searchParams?.get("businessId") ?? null;
+  // ?invoice=LX-0004 (from the Overview's "Needs you" list and Billing column) opens that invoice once it has loaded.
+  const openInvoiceId = searchParams?.get("invoice") ?? null;
+  const openedFromLink = useRef(false);
 
   const [invoices, setInvoices] = useState<LuxorInvoice[]>([]);
   const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
@@ -104,11 +107,19 @@ function AdminInvoicesPageInner() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!openInvoiceId || openedFromLink.current) return;
+    const inv = invoices.find((i) => i.invoiceId === openInvoiceId);
+    if (!inv) return;
+    openedFromLink.current = true;
+    loadInvoice(inv);
+  }, [openInvoiceId, invoices]);
+
   // Arrived from a client's "Generate invoice" link — prefill from that
   // client's record and link the new invoice to it, without disturbing the
   // free-text walk-up-client flow that still works with no businessId.
   useEffect(() => {
-    if (!prefillBusinessId || editingId) return;
+    if (!prefillBusinessId || openInvoiceId || editingId) return;
     fetch(`/api/admin/businesses/${prefillBusinessId}/config`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {

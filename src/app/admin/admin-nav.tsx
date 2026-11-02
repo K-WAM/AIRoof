@@ -8,6 +8,7 @@ import {
   BookOpen,
   Building2,
   ExternalLink,
+  LayoutDashboard,
   MessageSquareText,
   Plus,
   QrCode,
@@ -32,6 +33,7 @@ const GROUPS: Array<{ label: string; links: NavLink[] }> = [
   {
     label: "Clients",
     links: [
+      { href: "/admin", label: "Overview", Icon: LayoutDashboard },
       { href: "/admin/businesses", label: "Client accounts", Icon: Building2 },
       { href: "/hub/onboarding", label: "New client", Icon: Plus },
     ],

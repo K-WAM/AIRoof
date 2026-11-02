@@ -1,5 +1,11 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — superadmin Overview built (2026-10-31 late, Claude, T-232)
+
+`/admin` is now the Overview (money, Needs you, balances, one row per client). Built and tested locally, **not yet committed or deployed**.
+To make its numbers real: set each client's monthly price (Client → Plan). Next ideas, not built: email alerts for low ElevenLabs credits /
+failed calls, Stripe auto-charge (NH-14).
+
 ## Resume here — Alice hang-ups/repeats fixed (2026-10-31 evening, Claude, T-231)
 
 - **What went wrong:** the owner switched the live agent to `gpt-6-luna` and turned on parallel tool calls. Luna then called

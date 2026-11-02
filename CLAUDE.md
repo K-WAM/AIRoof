@@ -265,6 +265,10 @@ See **[docs/ADMIN-ONBOARDING.md](docs/ADMIN-ONBOARDING.md)** for complete workfl
 - src/app/admin/admin-nav.tsx — the ONE superadmin sidebar (Clients · Operations · Billing · Resources), used by /admin and /hub (T-166)
 - src/app/hub/hub-nav.tsx — deleted (T-166): /hub/* renders the Admin shell + AdminNav; /hub redirects to /hub/demo
 - src/app/hub/layout.tsx — Hub shell, same superadmin gate as /admin (T-055)
+- src/app/admin/page.tsx + src/app/api/admin/overview/route.ts + src/lib/admin/overview.ts — the superadmin Overview (2026-10-31, the
+  first admin screen): monthly revenue (sum of Plan prices), collected, unpaid/overdue, our cost + margin, a "Needs you" list, and one
+  row per client (plan, users, last sign-in from Firebase Auth, calls, cost, margin, invoice status). All decisions live in the pure
+  `buildOverview()`; per-client usage comes from `src/lib/usage/businessMonthUsage.ts` (shared with the Usage page). `/admin/invoices?invoice=LX-…` opens one invoice
 - src/app/admin/usage/page.tsx + src/app/api/admin/usage/route.ts — Usage & costs (2026-10-04): per client per month — users, calls,
   phone minutes, field notes, estimated cost. Unit rates live ONLY in `src/lib/billing/aiCostRates.ts`; field-note counts come from
   `src/lib/usage/meter.ts` (`businesses/{id}/usageMonths/{YYYY-MM}`). Provider balances: `src/app/api/admin/ai-status/route.ts`
