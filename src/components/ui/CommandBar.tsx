@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -81,7 +82,7 @@ function buildResults(
   return results;
 }
 
-export function CommandBar() {
+export function CommandBar({ header = false }: { header?: boolean }) {
   const businessId = useBusinessId();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -108,7 +109,8 @@ export function CommandBar() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      const editing = e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable=true]");
+      if (((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") || (e.key === "/" && !editing && !e.altKey && !e.ctrlKey && !e.metaKey)) {
         e.preventDefault();
         setOpen(true);
       }
@@ -206,13 +208,17 @@ export function CommandBar() {
 
   return (
     <>
+      {header && <input className="cmd-header-field" type="search" aria-label="Search" aria-haspopup="dialog"
+        placeholder="Search calls, jobs, customers…  /" value="" onClick={() => setOpen(true)}
+        onChange={(event) => { setQuery(event.target.value); setOpen(true); }}
+        onKeyDown={(event) => { if (event.key === "Enter") setOpen(true); }} />}
       <button
-        className="cmd-trigger"
+        className={`cmd-trigger${header ? " cmd-header-icon" : ""}`}
         onClick={() => setOpen(true)}
         aria-label="Search"
         aria-haspopup="dialog"
       >
-        <span aria-hidden="true">⌕</span> Search
+        <Search size={18} aria-hidden="true" /><span className={header ? "sr-only" : undefined}>Search</span>
         <span className="cmd-kbd" aria-hidden="true">⌘K</span>
       </button>
 

@@ -63,6 +63,16 @@ describe("CommandBar (T-158)", () => {
     expect(input).toHaveAttribute("aria-controls");
   });
 
+  it("opens on slash outside fields, and preserves slash while typing", async () => {
+    stubData();
+    render(<CommandBar header />);
+    fireEvent.keyDown(window, { key: "/" });
+    const input = await screen.findByRole("combobox");
+    fireEvent.change(input, { target: { value: "a/b" } });
+    fireEvent.keyDown(input, { key: "/" });
+    expect(input).toHaveValue("a/b");
+  });
+
   it("closes on Escape and returns focus to the trigger", async () => {
     stubData();
     render(<CommandBar />);
