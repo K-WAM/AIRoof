@@ -93,7 +93,7 @@ test("Library: edit a crew and add a member (T-148)", async ({ as }) => {
 });
 
 test("Calendar: a drop asks for a time, and a second job fits the same crew-day (T-149)", async ({ as }, testInfo) => {
-  test.skip(testInfo.project.name === "phone", "drag-and-drop is covered on desktop; the phone check below uses Change time");
+  test.skip(testInfo.project.name === "phone", "drag-and-drop is covered on desktop; the phone check below taps the scheduled job");
   const page = await as("owner");
   await page.setViewportSize({ width: 1280, height: 1300 });
   await clearTestCrews(page);
