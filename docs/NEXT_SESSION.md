@@ -1,5 +1,8 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+**2026-11-02 (latest):** demo-ready release live (`42da029`) — see the top of `docs/SESSION_HANDOFF.md`. Owner: real-phone dry run
+before the client demo. Then T-233 (bot-call bill guard), T-245 (backups), the T-250–T-257 screen polish.
+
 **2026-10-31 (latest):** Tuesday roofing demo (T-227) + Terms/Privacy/SMS pages (T-228) — pushed and live. Owner checklist for Tuesday and the deploy receipt: top of `docs/SESSION_HANDOFF.md`.
 
 **2026-10-30 (latest):** security review + hardening (T-226, `2117d3a`) is **live** and verified in a real browser. Owner's two

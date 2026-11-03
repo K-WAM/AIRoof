@@ -1,5 +1,16 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — demo-ready release live (2026-11-01/02, Claude + Codex, T-229 A4, T-232, T-237–T-249, T-256)
+
+Live on crm.luxordev.com (`42da029`). Shipped: server-gated admin, new Terms/Privacy (LEGAL_VERSION 2026-11-01), PostHog per client
+(fixed: before_send had dropped the `token`, so no CRM event ever arrived before 2026-11-02; filter by `app = crm` — free plan allows
+ONE PostHog project), scrubbed server errors to PostHog, printable guidebook + FAQ, calendar reschedule sheet/Undo, header search, offline
+field outbox + idempotency, QR field link fixed for phones also signed in (T-249), live demo (office screens refresh while the phone
+works, Reset ends phone links, prices stripped from field-link data, demo-only 5 s polling — real tenants stay 10 s), T-232 Overview.
+Last gates on `42da029`: 324 browser passed / 1 flaky (iPhone crew redirect timing) / 13 skipped, e2e:call 12/12, vitest 2,208.
+**Owner next:** one dry run on a real phone (English + Spanish call, QR voice note, photo, finding, quote email, Reset). Open work and
+groups: TODO.md T-233–T-257. Codex CLI how-to + usage-limit gotcha: memory `reference_codex_cli`.
+
 ## Resume here — superadmin Overview built (2026-10-31 late, Claude, T-232)
 
 `/admin` is now the Overview (money, Needs you, balances, one row per client). Built and tested locally, **not yet committed or deployed**.
