@@ -1,7 +1,13 @@
 # IMPLEMENTATION_LOG.md — Evidence log
 
 Append-only. One entry per completed task (workers) and per merge/removal decision (integrator).
-Format: `## T-0XX — <title>` · date · branch · commit · acceptance evidence (commands + results) ·
+Format: `## 2026-11-01 → 11-03 — release summary (integrator)
+Live `42da029`: T-237 server-gated admin · T-238 terms/privacy · T-239 + token fix PostHog per client · T-229 A4 server errors ·
+T-240 guidebook · T-241 role matrix/a11y/iPhone/calendar/search · T-242 offline outbox (+5xx/stale-claim fix) · T-249 QR link on
+signed-in phones · T-256 live demo (reset ends links, field price redaction, demo-only 5 s polling) · T-232 Overview.
+Gates on `42da029`: Playwright 324 passed / 1 flaky (iPhone crew redirect timing) / 13 skipped · e2e:call 12/12 · vitest 2,208.
+
+## T-0XX — <title>` · date · branch · commit · acceptance evidence (commands + results) ·
 removals + rationale (if any) · deviations from spec (if any).
 
 ---

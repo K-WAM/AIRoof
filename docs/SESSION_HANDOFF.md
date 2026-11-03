@@ -1,5 +1,16 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — wrap-up 2026-11-03 (Claude)
+
+- Live: `42da029` (T-256 live demo). Local main has docs/TODO-only commits not yet pushed (push with the next release).
+- **TODO.md** now opens with a prioritized index (P0–P3) — start there. P0: owner phone dry run, T-258 invoice $0 bug, NH-39 caps,
+  T-233 bot calls, T-276 CI limits, T-265 emergencies, T-245 backups. New this session: T-250–T-279 + NH-39 details.
+- **PostHog findings (read-only):** CRM traffic so far is only the owner + Claude's checks (superadmin is never tracked); "0 issues" =
+  no crashes — handled failures are custom events, not Error tracking (weekly review T-277 must include `*_error`/`*_failed` events).
+  propflow `/delete-account` ~daily hits look like an automated store/uptime checker; luxordev.com `demo_availability_error` ×3 look
+  like bots (375×812, Asia/Shanghai, fail <1 s) — a real demo booking worked Oct 19. Owner has a prompt for the website repo agent.
+- PostHog free plan = one project; filter `app = crm` / Host. Owner to add Authorized URLs in PostHog.
+
 ## Resume here — demo-ready release live (2026-11-01/02, Claude + Codex, T-229 A4, T-232, T-237–T-249, T-256)
 
 Live on crm.luxordev.com (`42da029`). Shipped: server-gated admin, new Terms/Privacy (LEGAL_VERSION 2026-11-01), PostHog per client
