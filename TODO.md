@@ -3071,16 +3071,28 @@ beyond T-040's single banner; offline field queue; operator replay console; SMS;
 | T-231 | Claude | main | **live 2026-10-31** (agent `agtvrsn_2401m6a4ask4f7x802t51d7mcpqc` + this commit); real-call gate open (owner) | Alice hung up mid-booking, repeated herself and answered her own questions (owner had switched to gpt-6-luna + parallel tool calls). Agent: gpt-4o, parallel tool calls off, strict `end_call` description, expressive off, speed 0.92, filler 2.5 s English unless the caller spoke Spanish. Code: greeting ends on the question and drops the after-hours speech (`phoneGreeting()`), shorter default recording notice, prompt section "How a natural call goes". Evidence: 3 simulated-caller tests (Monday booking, change to Tuesday, Spanish) 12/12 on gpt-4o and gemini; booking rules 39/46 vs 37/44. |
 | T-232 | Claude | main | **built 2026-10-31, not deployed** | Superadmin **Overview** (`/admin`, first item in the Admin sidebar; superadmins land there): monthly revenue, collected, unpaid/overdue, our cost + margin, "Needs you" (overdue/draft invoices, missing price, no phone line, failed booking check, nobody signed in for 14 days), balances, and one row per client with plan, users (active/total), last sign-in, calls, cost, margin and invoice status. Every invoice link opens that invoice (`?invoice=`). PostHog stays anonymous page counts — sign-ins come from Firebase Auth. Not built: Stripe auto-charge, alert emails. |
 
-## Open work — grouped index (updated 2026-11-03; details in the rows below)
+## Open work — prioritized (updated 2026-11-03; details in the rows below)
 
-- **Demo & bugs first:** T-258 invoice $0 vs report · T-256/T-249 done (live demo + QR) — owner dry run pending.
-- **Protect the business:** T-233 bot-call guard · NH-39 provider caps (owner) · T-234 firewall · T-235 AI caps · T-245 backups · T-265 emergency escalation.
-- **Client-facing screens:** T-270 Team page gaps · T-250 Dashboard · T-251 Calls · T-252 materials picker · T-253 Library · T-254 Guide · T-257 Findings/Quote/Report/Invoice · T-255 several emails.
-- **Documents & billing:** T-279 customer job emails (scheduled, rescheduled, reminder, on our way, completed) · T-278 photo-loading audit · T-275 report photos (smooth loading, drag to arrange Before/After) · T-269 void/correct/resend · T-259 email subjects + quote tracking · T-266 billing product "coming soon" · T-267 Luxor invoices + Stripe · T-248 photo storage.
-- **Phone AI setup:** T-263 client "Phone AI" settings + document upload · T-264 client edit page clean-up · T-225 move off gpt-4o by 2027-01-14.
-- **Superadmin & monitoring:** T-277 weekly PostHog review → later auto-fix PRs · T-276 CI/Vercel runaway-cost safety · T-268 health suite · T-261 feedback tickets · T-260 archive/delete clients · T-229/T-243 error alerts + /fix-errors · T-244 load test · T-246 CI nets.
-- **Sales & legal:** T-274 client onboarding playbook (step by step) · T-273 Stripe — get paid (setup fee + monthly auto-charge) · T-271 terms review (indemnity, pilot, cancellation, non-payment) · T-272 welcome packet + onboarding/fulfillment/monthly report.
-- **Content & later:** T-262 guide audit · T-247 coming-soon page · NH-29 texting (parked) · NH-38 attorney review · NH-32 Firebase Blaze.
+**P0 — this week (demo works, money can't leak, data can't be lost)**
+- Demo: owner real-phone dry run (EN + ES call, QR voice note/photo/finding, quote email, Reset) · **T-258** invoice $0 vs report bug.
+- Bill protection: **NH-39** provider caps (owner) · **T-233** bot-call guard · **T-276** CI/Vercel runaway-cost limits.
+- Safety: **T-265** emergencies reach a human · **T-245** nightly backups.
+
+**P1 — before the first paying client**
+- Get paid: **T-273** Stripe (setup fee + monthly auto-charge) · **T-267** Luxor invoices (logo, Orlando, copy to you, register).
+- Contract & onboarding: **T-271** terms review (indemnity, pilot, cancellation, non-payment) → NH-38 attorney · **T-272** welcome packet + access form · **T-274** onboarding playbook.
+- Client setup: **T-263** client "Phone AI" settings (+ document upload) · **T-264** client edit page clean-up · **T-266** billing product "coming soon" · NH-32 Firebase Blaze.
+- Documents customers see: **T-269** void/correct/resend · **T-259** email subjects + quote tracking · **T-279** job email updates.
+
+**P2 — polish & insight (first month)**
+- Screens: **T-257** Findings/Quote/Report/Invoice · **T-250** Dashboard · **T-251** Calls · **T-252** materials picker · **T-253** Library · **T-254** Guide · **T-255** several emails · **T-270** Team page.
+- Photos: **T-278** loading audit → **T-275** smooth loading + drag Before/After · **T-248** photo storage (with NH-32).
+- Running the platform: **T-277** weekly PostHog review · **T-268** health suite · **T-261** feedback tickets · **T-260** archive/delete clients · **T-234** firewall limits · **T-235** AI caps per client.
+
+**P3 — later / when ready**
+- Automation & quality: **T-229/T-243** auto-fix PRs (after T-277 proves out) · **T-244** load test · **T-246** CI nets.
+- Content & growth: **T-262** guide audit · **T-247** coming-soon page.
+- Waiting on others: **NH-29** texting (weeks) · **T-225** move off gpt-4o (deadline 2027-01-14 — schedule by mid-December).
 
 ## Protect the business, learn from clients, user guidebook (owner, 2026-11-01)
 
