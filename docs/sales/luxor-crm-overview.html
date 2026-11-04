@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luxor CRM | From first call to final invoice</title>
+<style>
+  :root { --accent:#0f766e; --ink:#182c30; --muted:#526267; --line:#dce5e4; --soft:#f0f7f6; }
+  * { box-sizing:border-box; }
+  @page { size:Letter; margin:0; }
+  html,body { margin:0; padding:0; }
+  body { font-family:"Segoe UI",Arial,sans-serif; color:var(--ink); background:#e5e9e9; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { width:8.5in; height:11in; padding:46px 54px 36px; background:white; position:relative; break-after:page; }
+  .page:last-child { break-after:auto; }
+  .top { display:flex; align-items:center; justify-content:space-between; padding-bottom:20px; border-bottom:1px solid var(--line); }
+  .brand { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:700; letter-spacing:-.8px; }
+  .brand span { font-weight:400; }
+  .mark { width:28px; height:28px; color:var(--accent); }
+  .eyebrow { font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--accent); }
+  h1,h2,h3,p { margin:0; }
+  h1 { font-size:48px; line-height:1.08; letter-spacing:-2px; font-weight:650; margin:18px 0; }
+  h1 em { font-style:normal; color:var(--accent); }
+  .hero { padding-top:30px; }
+  .lead { font-size:18px; line-height:1.5; max-width:640px; color:var(--muted); }
+  .pain { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin:30px 0 34px; padding:22px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+  .pain h3 { font-size:14px; margin-bottom:5px; font-weight:650; }
+  .pain p { font-size:12px; line-height:1.5; color:var(--muted); }
+  h2 { font-size:28px; font-weight:650; line-height:1.16; letter-spacing:-.9px; }
+  .journey { display:grid; grid-template-columns:200px 1fr; gap:40px; }
+  .journey .eyebrow { margin-bottom:13px; }
+  .journey-intro p { font-size:13px; color:var(--muted); line-height:1.6; margin-top:15px; }
+  .steps { list-style:none; padding:0; margin:0; }
+  .steps li { display:grid; grid-template-columns:30px 1fr; gap:14px; position:relative; padding-bottom:23px; }
+  .steps li:last-child { padding-bottom:0; }
+  .steps li:not(:last-child):before { content:""; position:absolute; top:30px; bottom:0; left:14px; width:1px; background:var(--line); }
+  .num { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border:1px solid var(--accent); color:var(--accent); border-radius:50%; font-size:12px; font-weight:700; background:white; }
+  .steps h3 { font-size:16px; font-weight:650; margin:2px 0 5px; }
+  .steps p { font-size:12.5px; line-height:1.5; color:var(--muted); }
+  .footer { position:absolute; bottom:31px; left:54px; right:54px; border-top:1px solid var(--line); padding-top:13px; display:flex; align-items:center; justify-content:space-between; font-size:10px; color:var(--muted); }
+  a { color:var(--accent); text-decoration:none; }
+  .footer a { font-weight:650; }
+  .page2 .intro { margin:26px 0 20px; }
+  .intro .eyebrow { margin-bottom:9px; }
+  .tiles { display:grid; grid-template-columns:repeat(3,1fr); gap:12px 20px; }
+  .tile { padding:13px 0 15px; border-top:1px solid var(--line); }
+  .icon { width:23px; height:23px; color:var(--accent); margin-bottom:8px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .tile h3 { font-size:14px; font-weight:650; margin-bottom:5px; }
+  .tile p { font-size:12px; line-height:1.5; color:var(--muted); }
+  .comparison { margin-top:12px; }
+  .section-title { font-size:19px; font-weight:650; letter-spacing:-.4px; margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:11.5px; line-height:1.45; }
+  th { text-align:left; font-size:10px; padding:9px 12px; border-bottom:1px solid var(--line); }
+  th:first-child { width:21%; padding-left:0; }
+  th:nth-child(2) { width:38%; }
+  th:last-child { color:var(--accent); background:var(--soft); }
+  td { padding:10px 12px; border-bottom:1px solid var(--line); color:var(--muted); vertical-align:top; }
+  td:first-child { padding-left:0; font-weight:650; color:var(--ink); }
+  td:last-child { background:var(--soft); color:var(--ink); }
+  .note { font-size:9px; line-height:1.5; color:var(--muted); margin-top:7px; }
+  .setup { margin-top:19px; }
+  .setup-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; }
+  .setup-head .section-title { margin:0; }
+  .setup-head span { font-size:11px; color:var(--accent); font-weight:650; }
+  .setup-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+  .setup-steps h3 { font-size:12px; font-weight:650; margin-bottom:5px; }
+  .setup-steps p { font-size:11.5px; line-height:1.45; color:var(--muted); }
+  .cta { margin-top:19px; border:1px solid var(--line); border-left:4px solid var(--accent); padding:16px 20px; display:flex; justify-content:space-between; align-items:center; gap:20px; }
+  .cta h2 { font-size:23px; margin-bottom:5px; }
+  .cta p { font-size:11.5px; color:var(--muted); }
+  .cta-links { flex-shrink:0; text-align:right; }
+  .cta-links a { display:block; font-size:12px; line-height:1.9; }
+  .cta-links a:first-child { font-weight:700; }
+  .defs { width:0; height:0; position:absolute; overflow:hidden; }
+  @media screen { .page { margin:24px auto; box-shadow:0 3px 24px #182c3015; } }
+</style>
+</head>
+<body>
+<svg class="defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="luxor" viewBox="0 0 28 28"><path d="M3 23V5h5v13h17v5Z" fill="currentColor"/><path d="M12 5h13v9h-5V10h-8Z" fill="currentColor"/></symbol>
+  <symbol id="phone" viewBox="0 0 24 24"><path d="m6 3 4 4-2 3a16 16 0 0 0 6 6l3-2 4 4-2 3C10 22 2 14 3 5Z"/><path d="M14 3a8 8 0 0 1 7 7M14 7a4 4 0 0 1 3 3"/></symbol>
+  <symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 5h8m-3-3 3 3-3 3"/></symbol>
+  <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/></symbol>
+  <symbol id="document" viewBox="0 0 24 24"><path d="M14 2H5v20h14V7Zm0 0v6h5M8 12h8m-8 4h6"/></symbol>
+  <symbol id="invoice" viewBox="0 0 24 24"><path d="M5 2h14v20l-3-2-4 2-4-2-3 2Zm3 5h8M8 11h8m-8 4h4"/></symbol>
+  <symbol id="shield" viewBox="0 0 24 24"><path d="m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5Z"/><path d="m8 12 3 3 5-6"/></symbol>
+</defs></svg>
+<main>
+<section class="page" aria-label="Product overview, page 1">
+  <header class="top"><div class="brand"><svg class="mark" aria-hidden="true"><use href="#luxor"/></svg>Luxor <span>CRM</span></div><div class="eyebrow">Built for roofing &amp; other trades</div></header>
+  <div class="hero">
+    <div class="eyebrow">AI receptionist + field app + job documents</div>
+    <h1>Pick up more work.<br><em>Put down the paperwork.</em></h1>
+    <p class="lead">Answer calls around the clock and keep the office, crew and customer connected from inspection to invoice.</p>
+  </div>
+  <div class="pain">
+    <div><h3>Calls while you're on a roof.</h3><p>New work shouldn't wait for you to reach the phone.</p></div>
+    <div><h3>Notes scattered everywhere.</h3><p>Keep site details with the job, where the office can use them.</p></div>
+    <div><h3>Quotes waiting on paperwork.</h3><p>Turn findings into clear customer documents in one place.</p></div>
+  </div>
+  <div class="journey">
+    <div class="journey-intro"><div class="eyebrow">How it works</div><h2>One job.<br>One connected<br>workflow.</h2><p>From the first leak call to the final invoice, each handoff has a clear next step.</p><p>Your office confirms bookings, creates jobs and reviews documents before sending.</p></div>
+    <ol class="steps">
+      <li><span class="num">1</span><div><h3>The call gets answered.</h3><p>AI answers 24/7 in English and Spanish, captures the request and books an inspection time for office confirmation.</p></div></li>
+      <li><span class="num">2</span><div><h3>The visit gets scheduled.</h3><p>Review the request, confirm it and create a job. Assign a crew on the calendar.</p></div></li>
+      <li><span class="num">3</span><div><h3>The crew records the site.</h3><p>Open the QR field link. Add voice notes, photos, findings and time; the office sees updates as they sync.</p></div></li>
+      <li><span class="num">4</span><div><h3>The customer sees the work.</h3><p>Build a quote from findings for online acceptance. Follow with a price-free report and selected photos.</p></div></li>
+      <li><span class="num">5</span><div><h3>The office closes the loop.</h3><p>Review and send the invoice. Record payments received, track the balance and enable overdue reminders.</p></div></li>
+    </ol>
+  </div>
+  <footer class="footer"><span>Luxor CRM · From first call to final invoice</span><a href="https://crm.luxordev.com/demo">Book a demo → crm.luxordev.com/demo</a><span>01 / 02</span></footer>
+</section>
+<section class="page page2" aria-label="Features and getting started, page 2">
+  <header class="top"><div class="brand"><svg class="mark" aria-hidden="true"><use href="#luxor"/></svg>Luxor <span>CRM</span></div><div class="eyebrow">The office and the field, together</div></header>
+  <div class="intro"><div class="eyebrow">Less chasing. More clarity.</div><h2>The tools behind every handoff.</h2></div>
+  <div class="tiles">
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#phone"/></svg><h3>24/7 AI receptionist</h3><p>English and Spanish calls, request capture and inspection booking.</p></article>
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#calendar"/></svg><h3>A calendar that moves</h3><p>Drag to schedule. Reschedule visits and email the crew the new plan.</p></article>
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#mic"/></svg><h3>Speak from the site</h3><p>QR access, voice notes in any language, photos, findings and a time clock.</p></article>
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#document"/></svg><h3>Clear customer documents</h3><p>Findings become quotes with online acceptance and price-free photo reports.</p></article>
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#invoice"/></svg><h3>Billing you can follow</h3><p>Send invoices, record payments received and remind customers about overdue balances.</p></article>
+    <article class="tile"><svg class="icon" aria-hidden="true"><use href="#shield"/></svg><h3>Ready for real fieldwork</h3><p>Save field updates offline; sync when connected. Give each role the right access.</p></article>
+  </div>
+  <div class="comparison">
+    <h2 class="section-title">Luxor vs. typical field software</h2>
+    <table aria-label="Workflow comparison"><thead><tr><th>At the handoff</th><th>Typical workflow*</th><th>With Luxor CRM</th></tr></thead><tbody>
+      <tr><td>A new call</td><td>Office answers, or a separate answering service takes the message.</td><td>Built-in AI answers 24/7 and books an inspection for office review.</td></tr>
+      <tr><td>From the site</td><td>Crew types updates or relays notes for the office to enter.</td><td>Crew speaks into the field app; notes and photos stay with the job.</td></tr>
+      <tr><td>To the customer</td><td>Office assembles job details into customer documents.</td><td>Findings feed the quote, followed by a photo report and invoice.</td></tr>
+    </tbody></table>
+    <p class="note">*Illustrative workflow comparison; individual software features vary.</p>
+  </div>
+  <div class="setup">
+    <div class="setup-head"><h2 class="section-title">Start simple.</h2><span>Live in about a week*</span></div>
+    <div class="setup-steps">
+      <div><h3>01 · Set up your business</h3><p>Add hours, service area, team, logo and reviewed prices.</p></div>
+      <div><h3>02 · Test the full workflow</h3><p>Try a call, a crew update and the documents your customers receive.</p></div>
+      <div><h3>03 · Go live together</h3><p>Connect your phone setup and walk the office and crew through their roles.</p></div>
+    </div>
+    <p class="note">*Setup target, subject to your business details and phone setup being ready.</p>
+  </div>
+  <div class="cta"><div><h2>See your next job in Luxor.</h2><p>Book a demo of the call-to-invoice workflow.</p></div><div class="cta-links"><a href="https://crm.luxordev.com/demo">crm.luxordev.com/demo →</a><a href="mailto:connect@luxordev.com">connect@luxordev.com</a></div></div>
+  <footer class="footer"><span>Luxor Developments LLC</span><span>AI receptionist · Field app · Quotes, reports &amp; invoices</span><span>02 / 02</span></footer>
+</section>
+</main>
+</body>
+</html>

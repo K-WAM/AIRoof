@@ -28,6 +28,10 @@ client-resources/
     04-brand/
       website.png                              Website reference; branding
       email-format.png                         Email reference; formatting
+    05-crm-import/
+      roofdoctors-customers.csv                Customer summary for migration
+      import-report.md                         Counts and source limitations
+      build.mjs                                Rebuild the summary and report
   jobba-benchmark/
     app-screens/
       powerboard.png                           Powerboard; calendar benchmark
@@ -62,6 +66,12 @@ Counts are data rows; concerns are inferred from headers only, not a review of r
 - **invoices.csv — 326 rows → JobInvoice history.** Columns: Date, Invoice ID, Name, Bill To, Amount, Tax, Billed, Voided, Credits, Amt Due, Paid, Status. Preserve invoice IDs; reconcile customer/job links, dates, statuses and duplicates.
 - **material-items.csv — 194 rows → Library pricing.** Columns: Enabled, Name, Category, Type, Std Cost, Pkg Price, Manufacturer, Product Line, MFG Part #, Description. No general item ID; use part numbers where available, check duplicates and price semantics.
 - **vendors.csv — 11 rows → no entity yet.** Columns: Name, Type, Address, City, State, Main, Contact. No explicit vendor ID; resolve duplicates and contact/address mapping before import.
+
+## CRM import file
+
+`05-crm-import/roofdoctors-customers.csv` contains one row per exported customer. Columns: `name`, `kind`, `phone`, `email`, `address`, `city`, `state`, `zip`, `contacts`, `property_count`, `property_addresses`, `inspections_count`, `last_inspection_date`, `invoices_count`, `total_billed`, `amount_due`, `last_invoice_date`, `status`, `priority`, `salesperson`, `jobba_customer_ref`, `tags`, `notes`, `possible_duplicate_of`. Review `import-report.md` for completeness and unmatched source rows before loading. The summary includes migration metadata beyond the current Customer fields; the current Customer type supports only residential and commercial kinds, and contacts and tags are arrays. A loader must map these fields and resolve any missing or unsupported values.
+
+From the repository root, re-run `node client-resources/roofdoctors/05-crm-import/build.mjs`. The generated files and script remain in the git-ignored private resources folder.
 
 ## What RoofDoctors needs that we don't have yet
 
