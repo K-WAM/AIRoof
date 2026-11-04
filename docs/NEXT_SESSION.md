@@ -1,6 +1,10 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-**2026-11-02 (latest):** demo-ready release live (`42da029`) — see the top of `docs/SESSION_HANDOFF.md`. Owner: real-phone dry run
+**2026-11-04 (latest):** demo day. Two finished branches are parked, not merged: `wt/preview` (T-289 preview pages; demo uses the
+screenshots in `client-resources/demo-previews/`) and `wt/dst` (T-290 DST fix — symptom not reproduced; ask the owner which screen
+showed the wrong time). Read the top of `docs/SESSION_HANDOFF.md`, then TODO.md's "Open work — prioritized".
+
+**2026-11-02:** demo-ready release live (`42da029`) — see the top of `docs/SESSION_HANDOFF.md`. Owner: real-phone dry run
 before the client demo. Then T-233 (bot-call bill guard), T-245 (backups), the T-250–T-257 screen polish.
 
 **2026-10-31 (latest):** Tuesday roofing demo (T-227) + Terms/Privacy/SMS pages (T-228) — pushed and live. Owner checklist for Tuesday and the deploy receipt: top of `docs/SESSION_HANDOFF.md`.

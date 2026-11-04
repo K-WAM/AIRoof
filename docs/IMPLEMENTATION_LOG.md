@@ -1,7 +1,13 @@
 # IMPLEMENTATION_LOG.md — Evidence log
 
 Append-only. One entry per completed task (workers) and per merge/removal decision (integrator).
-Format: `## 2026-11-01 → 11-03 — release summary (integrator)
+Format: `## 2026-11-03/04 — T-289 + T-290 on branches (integrator, not merged)
+T-289 `wt/preview` `0713d3d` (Codex GPT-6.1 Sol, reviewed by Claude): new files only under `src/app/company/preview/` + one spec;
+tsc/eslint/`next build` green, preview spec + smoke green on the harness, desktop/phone screenshots read. T-290 `wt/dst` `12863d0`
+(Codex, reviewed): legacy Vapi offset + `toTimestamp` `-0500` form; 84-case DST test; scheduling/tools/webhooks + full vitest green.
+Real Nov 3 ElevenLabs bookings verified stored correctly — owner's symptom unreproduced. Neither branch merged or pushed.
+
+## 2026-11-01 → 11-03 — release summary (integrator)
 Live `42da029`: T-237 server-gated admin · T-238 terms/privacy · T-239 + token fix PostHog per client · T-229 A4 server errors ·
 T-240 guidebook · T-241 role matrix/a11y/iPhone/calendar/search · T-242 offline outbox (+5xx/stale-claim fix) · T-249 QR link on
 signed-in phones · T-256 live demo (reset ends links, field price redaction, demo-only 5 s polling) · T-232 Overview.

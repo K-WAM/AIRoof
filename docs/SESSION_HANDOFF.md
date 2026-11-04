@@ -1,5 +1,23 @@
 # SESSION_HANDOFF.md — Current state
 
+## Resume here — 2026-11-04 (Claude) — demo day prep, two branches parked
+
+- **Live is still `42da029`.** Local `main` is ~20 docs/TODO/sales commits ahead of `origin/main` (no app code) — push with the next
+  release, only when the owner says so.
+- **Two finished branches, NOT merged, NOT pushed** (worktrees still exist):
+  - `wt/preview` (`D:/Apps/air-wt-preview`, `0713d3d`) — **T-289** static superadmin-only preview pages (Finances, Payroll, Permit
+    Leads), new files only. For the demo the owner flashes screenshots from `client-resources/demo-previews/*.png` (git-ignored) via
+    Photos + Alt+Tab. Optional: early-November sample dates + reshoot under the real account.
+  - `wt/dst` (`D:/Apps/air-wt-dst`, `12863d0`) — **T-290** daylight-saving fix + 84-case test. The real Nov 3 bookings were stored
+    right, so the owner's "wrong time" is not reproduced — **first ask the owner which screen/email showed it**, then e2e:call, merge
+    after the demo, real-call check.
+- Removing a worktree: delete its `node_modules` junction first, then `git worktree remove`.
+- New this session (docs only): sales PDF `docs/sales/`, RoofDoctors resource index `docs/clients/ROOFDOCTORS-RESOURCES.md`
+  (+ CRM import CSV in git-ignored `client-resources/roofdoctors/05-crm-import/` — 191 customers, no phones/emails yet; needs Jobba
+  Contacts export), TODO rows T-280–T-290.
+- **Next action:** after the demo, owner's feedback → decide on merging `wt/preview` / `wt/dst`; then P0 in TODO.md's prioritized
+  index (T-258 invoice $0 bug, NH-39 caps, T-233, T-276, T-265, T-245).
+
 ## Resume here — wrap-up 2026-11-03 (Claude)
 
 - Live: `42da029` (T-256 live demo). Local main has docs/TODO-only commits not yet pushed (push with the next release).
