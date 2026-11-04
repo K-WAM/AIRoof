@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { checkRateLimit } from "@/lib/auth/rateLimit";
+import { zonedDateTimeToUtc } from "@/lib/scheduling/hours";
 import { claimVapiWebhookEvent, recordVapiAuthFailure, verifyVapiWebhook } from "@/lib/vapi/verify";
 import { findBusinessByVapiAssistantId, findBusinessByVapiPhoneNumberId } from "@/lib/vapi/businessLookup";
 import {
@@ -625,23 +626,18 @@ function safeJsonParse(s: string): Record<string, unknown> | null {
   }
 }
 
-function getTZUTCOffsetHours(date: Date, tz: string): number {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "shortOffset" });
-  const tzPart = fmt.formatToParts(date).find(p => p.type === "timeZoneName")?.value ?? "GMT-5";
-  const m = tzPart.match(/GMT([+-])(\d+)/);
-  return m ? (m[1] === "+" ? 1 : -1) * parseInt(m[2]) : -5;
-}
-
 function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
     // Bare ISO string (no timezone) — treat as business local time, not UTC, since Vercel runs in UTC
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(v)) {
-      const offset = getTZUTCOffsetHours(new Date(), tz);
-      const sign = offset >= 0 ? "+" : "-";
-      const offsetStr = `${sign}${String(Math.abs(offset)).padStart(2, "0")}:00`;
-      const t = Date.parse(v + offsetStr);
-      return Number.isNaN(t) ? undefined : t;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(v)) {
+      const match = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+      if (!match) return undefined;
+      // Resolve the requested date, never today's offset: the visit can be across a DST change.
+      return zonedDateTimeToUtc({
+        year: Number(match[1]), month: Number(match[2]), day: Number(match[3]),
+        hour: Number(match[4]), minute: Number(match[5]), second: Number(match[6] ?? 0),
+      }, tz) ?? undefined;
     }
     const t = Date.parse(v);
     return Number.isNaN(t) ? undefined : t;

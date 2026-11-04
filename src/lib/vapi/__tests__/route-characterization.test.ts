@@ -61,6 +61,27 @@ describe("Vapi route baseline characterization", () => {
     expect(mocks.bookAppointment).toHaveBeenCalledWith(expect.objectContaining({ businessId: "biz-1", callerPhone: "+15551234567", sourceCallId: "call_vapi_vapi-characterization" }));
   });
 
+  it.each([
+    ["America/New_York", "2026-10-31T12:00Z", "2026-11-04T09:00", "2026-11-04T14:00Z"],
+    ["America/New_York", "2026-11-03T12:00Z", "2026-10-31T11:00", "2026-10-31T15:00Z"],
+    ["America/Los_Angeles", "2026-10-31T12:00Z", "2026-11-04T09:00", "2026-11-04T17:00Z"],
+    ["America/Phoenix", "2026-10-31T12:00Z", "2026-11-04T09:00", "2026-11-04T16:00Z"],
+    ["America/New_York", "2027-03-07T12:00Z", "2027-03-14T11:00", "2027-03-14T15:00Z"],
+    ["America/Los_Angeles", "2027-03-07T12:00Z", "2027-03-14T11:00", "2027-03-14T18:00Z"],
+    ["America/New_York", "2026-10-31T12:00Z", "2026-11-01T01:30-0500", "2026-11-01T06:30Z"],
+  ])("T-290 uses the appointment date's offset in %s (now %s, booking %s)", async (zone, now, startTime, expected) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      mocks.getBusinessTimezone.mockResolvedValue(zone);
+      mocks.bookAppointment.mockResolvedValue({ appointmentId: "apt-dst", callerName: "Pat", startTime: Date.parse(expected) });
+      await POST(toolRequest("bookAppointment", { name: "Pat", startTime }));
+      expect(mocks.bookAppointment).toHaveBeenCalledWith(expect.objectContaining({ startTime: Date.parse(expected) }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("captures a lead", async () => {
     mocks.createLead.mockResolvedValue({ callerName: "Pat" });
     expect(await (await POST(toolRequest("createLead", { name: "Pat" }))).json()).toEqual({ result: "Lead captured for Pat. The team will follow up." });
