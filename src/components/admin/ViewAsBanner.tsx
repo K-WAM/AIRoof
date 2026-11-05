@@ -14,7 +14,12 @@ export function ViewAsBanner() {
   // Re-verify on expiry or return from a sleeping tab, before leaving stale preview controls on screen.
   useEffect(() => {
     if (!viewed) return;
-    const expire = () => { if (Date.now() >= viewed.expiresAt) { clearCachedProfile(); window.location.assign("/admin/businesses"); } };
+    const expire = () => {
+      if (Date.now() < viewed.expiresAt) return;
+      // End the server record and clear the HttpOnly cookie too, then leave for the real Admin tab.
+      void fetch("/api/admin/view-as", { method: "DELETE", keepalive: true })
+        .catch(() => {}).finally(() => { clearCachedProfile(); window.location.assign("/admin/businesses"); });
+    };
     const timer = setTimeout(expire, Math.max(0, viewed.expiresAt - Date.now()));
     window.addEventListener("focus", expire);
     return () => { clearTimeout(timer); window.removeEventListener("focus", expire); };

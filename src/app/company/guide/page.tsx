@@ -48,7 +48,7 @@ export default function GuidePage() {
         <div className="guide-actions no-print">
           <a href="/guides/user-guidebook.html" target="_blank" rel="noopener noreferrer" className="button secondary small">Printable guidebook (PDF-ready)</a>
           <button type="button" className="button secondary small" onClick={() => window.print()}><Printer size={14} /> Print</button>
-          <button type="button" className="button primary small" onClick={() => setAsking(true)}><HelpCircle size={14} /> Ask a question</button>
+          {!user?.viewAs && <button type="button" className="button primary small" onClick={() => setAsking(true)}><HelpCircle size={14} /> Ask a question</button>}
         </div>
       </header>
 
