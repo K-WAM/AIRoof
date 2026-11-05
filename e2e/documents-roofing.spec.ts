@@ -2,6 +2,28 @@ import { api, must } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("proposal scope and T&M labor rates render on customer copies", async ({ as }) => {
+  test.setTimeout(150_000);
+  const owner = await api("owner");
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Service proposal", address: "14 Example Avenue", clientName: "Example Customer" }), "create proposal job");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "create quote");
+  must(await owner.patch(`/api/jobs/${job.jobId}/quote`, { businessId: B, layout: "proposal", lines: [{ lineId: "entry", kind: "other", description: "Restore entrance surface", quantity: 1, unitPrice: 1250.5 }] }), "proposal layout");
+  const page = await as("owner");
+  await page.goto(`/company/jobs/${job.jobId}?tab=quote`);
+  await settle(page);
+  await expectHealthy(page);
+  await expect(page.locator(".quote-doc li").filter({ hasText: "Restore entrance surface" })).toBeVisible();
+  await expect(page.locator(".quote-doc")).toContainText("One Thousand Two Hundred Fifty Dollars and 50/100");
+  await page.locator(".quote-doc").scrollIntoViewIfNeeded();
+  await shot(page, "documents-proposal");
+  await page.getByLabel("Quote layout").selectOption("tm_authorization");
+  await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/quote?businessId=${B}`), "saved quote").quote.layout).toBe("tm_authorization");
+  await expect(page.locator(".quote-doc").getByRole("heading", { name: "Labor rates" })).toBeVisible();
+  await expect(page.locator(".quote-doc table")).toContainText("Hourly rate");
+  await expect(page.locator(".quote-doc")).not.toContainText("$1,250.50");
+  await page.locator(".quote-doc").scrollIntoViewIfNeeded();
+  await shot(page, "documents-tm");
+});
 test("letters editor previews and saves plain text", async ({ as }) => {
   const page = await as("owner");
   await page.goto("/company/library?section=documents");

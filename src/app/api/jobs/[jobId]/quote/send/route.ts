@@ -13,6 +13,8 @@ import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { getAppUrl } from "@/lib/config/appUrl";
 import { newQuoteResponseToken, quoteResponseTokenHash, quoteResponseUrl } from "@/lib/billing/quoteResponse";
+import { loadLetter } from "@/lib/documents/letterStore";
+import type { LetterRate } from "@/lib/documents/quoteLetter";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
@@ -55,10 +57,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
   const responseToken = newQuoteResponseToken();
   const responseUrl = (decision: "accepted" | "declined") => quoteResponseUrl(getAppUrl(), businessId, jobId, responseToken, decision);
+  const letterContext = quote.layout === "proposal" || quote.layout === "tm_authorization" ? {
+    template: await loadLetter(db, businessId, quote.layout),
+    rates: ((await db.collection(`businesses/${businessId}/library`).doc("pricing").get()).data()?.laborRates ?? []) as LetterRate[],
+  } : undefined;
   const html = buildQuoteEmailHtml(quote, {
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
-  }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") });
+  }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") }, letterContext);
   const sent = await sendEmail({
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
