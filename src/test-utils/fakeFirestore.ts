@@ -37,6 +37,11 @@ export class FakeQuery {
     return new FakeQuery(this.store, this.path, this.filters, this.order, n);
   }
 
+  /** Field projection is irrelevant in memory; kept so route code using .select() is testable. */
+  select(..._fields: string[]): FakeQuery {
+    return new FakeQuery(this.store, this.path, this.filters, this.order, this.limitN);
+  }
+
   count() {
     return { get: async () => {
       const snapshot = await this.get();
@@ -208,6 +213,10 @@ export function makeFakeDb() {
   const db = {
     collection(name: string) {
       return new FakeCollectionRef(store, name);
+    },
+    /** Batched point reads (admin SDK db.getAll) — used when a route must fetch exactly the ids it was given. */
+    async getAll(...refs: FakeDocRef[]) {
+      return Promise.all(refs.map((ref) => ref.get()));
     },
     async runTransaction<T>(fn: (tx: {
       get: (ref: FakeDocRef | FakeQuery) => Promise<ReturnType<FakeStore["snapshotFor"]> | Awaited<ReturnType<FakeQuery["get"]>>>;

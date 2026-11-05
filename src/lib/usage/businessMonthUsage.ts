@@ -157,11 +157,16 @@ export async function readBusinessCompanyActivity(
   range: { from: number; to: number },
 ): Promise<CompanyActivity> {
   const business = db.collection("businesses").doc(businessId);
-  const [jobsSnap, invoicesSnap] = await Promise.all([
+  const invoiceFields = ["companyId", "jobId", "total", "status", "amountPaid", "payments", "paidAt"] as const;
+  const [jobsSnap, invoicesSnap, updatedInvoicesSnap] = await Promise.all([
     business.collection("jobs").where("createdAt", ">=", range.from).where("createdAt", "<", range.to)
       .select("companyId").limit(MAX_COMPANY_JOBS).get(),
     business.collection("invoices").where("createdAt", ">=", range.from).where("createdAt", "<", range.to)
-      .select("companyId", "jobId", "total", "status", "amountPaid", "payments", "paidAt").limit(MAX_COMPANY_INVOICES).get(),
+      .select(...invoiceFields).limit(MAX_COMPANY_INVOICES).get(),
+    // Collected money is a payment, not an invoice: an invoice created in an earlier month can be paid this month.
+    // Bounded to invoices touched since the month started, then each payment is filtered by its own receivedAt.
+    business.collection("invoices").where("updatedAt", ">=", range.from)
+      .select(...invoiceFields).limit(MAX_COMPANY_INVOICES).get(),
   ]);
 
   const jobs = jobsSnap.docs.map((doc) => {
@@ -169,12 +174,18 @@ export async function readBusinessCompanyActivity(
     return typeof companyId === "string" ? { companyId } : {};
   });
 
-  const invoiceRows = invoicesSnap.docs
-    .map((doc) => doc.data() as Record<string, unknown>)
-    .filter((inv) => inv.status === "sent" || inv.status === "paid");
-  const missingJobIds = [...new Set(invoiceRows
-    .filter((inv) => typeof inv.companyId !== "string" && typeof inv.jobId === "string")
-    .map((inv) => inv.jobId as string))];
+  // One row per invoice. `total` only ever comes from an invoice created this month; `collected` only from payments
+  // whose receivedAt is in this month, whichever month the invoice was created in.
+  const invoiceRows = new Map<string, { data: Record<string, unknown>; created: boolean }>();
+  for (const doc of invoicesSnap.docs) invoiceRows.set(doc.id, { data: doc.data() as Record<string, unknown>, created: true });
+  for (const doc of updatedInvoicesSnap.docs) {
+    if (!invoiceRows.has(doc.id)) invoiceRows.set(doc.id, { data: doc.data() as Record<string, unknown>, created: false });
+  }
+  const rows = [...invoiceRows.entries()].filter(([, row]) => row.data.status === "sent" || row.data.status === "paid");
+
+  const missingJobIds = [...new Set(rows
+    .filter(([, row]) => typeof row.data.companyId !== "string" && typeof row.data.jobId === "string")
+    .map(([, row]) => row.data.jobId as string))];
   const jobCompany: Record<string, string> = {};
   for (let i = 0; i < missingJobIds.length; i += 100) {
     const snaps = await db.getAll(...missingJobIds.slice(i, i + 100).map((jobId) => business.collection("jobs").doc(jobId)));
@@ -184,8 +195,7 @@ export async function readBusinessCompanyActivity(
     }
   }
 
-  const invoices = invoiceRows.map((inv) => {
-    const companyId = typeof inv.companyId === "string" ? inv.companyId : typeof inv.jobId === "string" ? jobCompany[inv.jobId] : undefined;
+  const invoices = rows.flatMap(([, { data: inv, created }]) => {
     const payments = Array.isArray(inv.payments) ? inv.payments as Array<{ receivedAt?: unknown; amount?: unknown }> : [];
     let collected = payments
       .filter((p) => typeof p.receivedAt === "number" && p.receivedAt >= range.from && p.receivedAt < range.to)
@@ -193,11 +203,14 @@ export async function readBusinessCompanyActivity(
     if (collected === 0 && inv.status === "paid" && typeof inv.paidAt === "number" && inv.paidAt >= range.from && inv.paidAt < range.to) {
       collected = typeof inv.amountPaid === "number" ? inv.amountPaid : typeof inv.total === "number" ? inv.total : 0;
     }
-    return {
+    // An older invoice contributes only money received this month, never its total.
+    if (!created && collected === 0) return [];
+    const companyId = typeof inv.companyId === "string" ? inv.companyId : typeof inv.jobId === "string" ? jobCompany[inv.jobId] : undefined;
+    return [{
       ...(companyId ? { companyId } : {}),
-      total: typeof inv.total === "number" && Number.isFinite(inv.total) ? inv.total : 0,
+      total: created && typeof inv.total === "number" && Number.isFinite(inv.total) ? inv.total : 0,
       collected,
-    };
+    }];
   });
 
   return { jobs, invoices };
