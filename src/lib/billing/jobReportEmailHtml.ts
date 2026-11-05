@@ -34,7 +34,7 @@ export function buildJobReportEmailHtml(input: {
   const brand = resolveLetterhead(input.business, input.logos, "light", input.reportDocument?.logoId);
   const sections = reportSections(input.parsed, input.options);
   const tz = input.business.timezone ?? "America/New_York";
-  const quoteSection = reportQuoteSection(input.quote, input.options, (ms) => fmtDate(ms, tz));
+  const quoteSection = reportQuoteSection(input.quote, { ...input.options, priceMode: input.reportDocument?.priceMode }, (ms) => fmtDate(ms, tz));
   const meta: [string, string][] = [["Date", fmtDate(Date.now(), tz)], ["Reference", input.jobId]];
   if (input.billTo.address) meta.push(["Service at", input.billTo.address]);
   if (input.options?.showTechnicians && input.technicians?.length) meta.push(["Technicians", input.technicians.join(", ")]);

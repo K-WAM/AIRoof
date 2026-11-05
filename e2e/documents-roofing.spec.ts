@@ -2,6 +2,49 @@ import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("one finding picker and one customer version card with thirty findings", async ({ as }) => {
+  test.setTimeout(180_000);
+  const owner = await api("owner");
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Document controls review", clientName: "Example Customer", address: "14 Example Avenue" }), "controls job");
+  const findings = Array.from({ length: 30 }, (_, i) => ({ findingId: `f-${i}`, category: "General", problem: `Finding ${i + 1}`, solution: `Service location ${i + 1}`, includeInReport: true, includeInQuote: true, addedAt: Date.now(), lines: [{ kind: "other", description: `Service ${i + 1}`, quantity: 1, unitPrice: 10 }] }));
+  must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings }), "thirty findings");
+  const page = await as("owner");
+  await page.goto(`/company/jobs/${job.jobId}?tab=findings`);
+  await settle(page);
+  await expect(page.getByRole("article", { name: /^Finding \d+$/ })).toHaveCount(3);
+  await page.getByRole("button", { name: "＋ Add finding", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Add a finding", exact: true });
+  await expect(picker.getByLabel("One-off problem")).toBeInViewport();
+  await picker.getByLabel("One-off problem").fill("Unlisted entry condition");
+  await picker.getByLabel("One-off solution").fill("Restore the entry");
+  await picker.getByLabel("One-off price").fill("25");
+  await expect(picker.getByRole("button", { name: "Save findings", exact: true })).toHaveCount(1);
+  await shot(page, "documents-finding-picker");
+  await picker.getByRole("button", { name: "Save findings", exact: true }).click();
+  await expect.poll(async () => (must(await owner.get(`/api/jobs/${job.jobId}?businessId=${B}`), "saved finding").job.findings ?? []).length).toBe(31);
+  await shot(page, "documents-findings-bounded");
+  for (const tab of ["quote", "report", "invoice"]) {
+    if (tab === "report") must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: "controls@customer.e2e.test" }), "send quote for report options");
+    if (tab === "invoice") must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "draft invoice");
+    await page.goto(`/company/jobs/${job.jobId}?tab=${tab}`); await settle(page);
+    const card = page.getByRole("region", { name: "Customer version", exact: true });
+    await expect(card).toHaveCount(1);
+    await expect(card.getByLabel("Letterhead logo")).toBeVisible();
+    if (tab === "report") {
+      await card.getByText("Photos and document details", { exact: true }).click();
+      await card.getByRole("switch", { name: /Include the quote/ }).click();
+      await card.getByText("Photos and document details", { exact: true }).click();
+    }
+    {
+      await expect(card.getByLabel("Customer price presentation").locator("option")).toHaveCount(5);
+      await card.getByLabel("Customer price presentation").selectOption("Bundle everything");
+    }
+    await expect(page.getByText("What the customer sees", { exact: true })).toHaveCount(0);
+    await expectHealthy(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, `documents-controls-${tab}`);
+  }
+});
 test("50 percent deposit is sent separately and credited on the final", async ({ as }) => {
   test.setTimeout(180_000);
   const owner = await api("owner");

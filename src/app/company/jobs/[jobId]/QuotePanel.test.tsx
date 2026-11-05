@@ -142,9 +142,9 @@ describe("QuotePanel", () => {
   it("explains each customer-copy option in one line", async () => {
     serverQuote = draftFrom([finding()]);
     renderPanel(jobWith([finding()]));
-    await waitFor(() => expect(screen.getByText("What the customer sees")).toBeTruthy());
-    expect(screen.getByText(/materials show as one total line/)).toBeTruthy();
-    expect(screen.getByText(/no names, hours or rates/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByRole("region", { name: "Customer version" })).toBeTruthy());
+    expect(screen.getByText(/Show one materials total; keep labor details/)).toBeTruthy();
+    expect(screen.getByText(/Show one labor total; keep materials details/)).toBeTruthy();
     expect(screen.getByText(/Prints the crew names/)).toBeTruthy();
   });
 });

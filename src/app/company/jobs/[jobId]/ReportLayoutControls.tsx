@@ -4,7 +4,7 @@ import { LogoPicker } from "@/lib/documents/LogoPicker";
 import type { LibraryLogo } from "@/types/library";
 import type { ReportLetterOptions } from "@/types/documentTemplate";
 
-export function ReportLayoutControls({ jobId, address, value, logos, readOnly, onSaved }: { jobId: string; address?: string; logos: LibraryLogo[]; value?: ReportLetterOptions; readOnly: boolean; onSaved: (value: ReportLetterOptions) => void }) {
+export function ReportLayoutControls({ jobId, address, value, logos, includeQuote, readOnly, onSaved }: { jobId: string; address?: string; logos: LibraryLogo[]; value?: ReportLetterOptions; includeQuote?: boolean; readOnly: boolean; onSaved: (value: ReportLetterOptions) => void }) {
   const [settings, setSettings] = useState<ReportLetterOptions>(value ?? {});
   const [message, setMessage] = useState("");
   useEffect(() => { setSettings(value ?? {}); }, [value]);
@@ -21,7 +21,8 @@ export function ReportLayoutControls({ jobId, address, value, logos, readOnly, o
   return <div className="no-print" style={{ display: "grid", gap: 10 }}>
     <LogoPicker logos={logos} value={settings.logoId} disabled={readOnly} onChange={logoId => { const next = { ...settings, logoId }; setSettings(next); void save(next); }} />
     <label>Layout<select aria-label="Report layout" value={settings.layout ?? "report"} disabled={readOnly} onChange={e => { const next = { ...settings, layout: e.target.value as ReportLetterOptions["layout"], locations: settings.locations ?? address ?? "" }; setSettings(next); void save(next); }}><option value="report">Report</option><option value="inspection_completion">Inspection completion notice</option><option value="repair_completion">Repair completion notice</option></select></label>
-    {settings.layout && settings.layout !== "report" && <><p>Completion notices include photos and never include prices.</p><label>Locations (one per line)<textarea aria-label="Completion locations" rows={3} value={settings.locations ?? address ?? ""} disabled={readOnly} onChange={e => setSettings(s => ({ ...s, locations: e.target.value }))} onBlur={() => void save(settings)} /></label>{settings.layout === "repair_completion" && <label><input type="checkbox" checked={settings.noCharge === true} disabled={readOnly} onChange={e => { const next = { ...settings, noCharge: e.target.checked }; setSettings(next); void save(next); }} /> There is no charge</label>}</>}
+    <small>{settings.layout && settings.layout !== "report" ? "No prices included. Completion notices retain photos." : includeQuote ? "Includes the sent quote." : "No prices included."}</small>
+    {settings.layout && settings.layout !== "report" && <><label>Locations (one per line)<textarea aria-label="Completion locations" rows={3} value={settings.locations ?? address ?? ""} disabled={readOnly} onChange={e => setSettings(s => ({ ...s, locations: e.target.value }))} onBlur={() => void save(settings)} /></label>{settings.layout === "repair_completion" && <label><input type="checkbox" checked={settings.noCharge === true} disabled={readOnly} onChange={e => { const next = { ...settings, noCharge: e.target.checked }; setSettings(next); void save(next); }} /> There is no charge</label>}</>}
     {message && <small role="status">{message}</small>}
   </div>;
 }

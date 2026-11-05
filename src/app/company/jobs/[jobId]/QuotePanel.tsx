@@ -12,10 +12,9 @@ import { addFindingToQuote, customFinding, findingFromCatalogItem, findingsMissi
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 import { quoteGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
-import { OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
+import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useFormat } from "@/hooks/useFormat";
@@ -62,6 +61,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
   const [to, setTo] = useState(job.clientEmail ?? "");
+  const [showAllItems, setShowAllItems] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const [cProblem, setCProblem] = useState("");
@@ -304,6 +304,30 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       </span>}
     </div>
     <div className="panel-body quote-panel-body" style={{ display: "grid", gap: 16 }}>
+      {quote && <CustomerVersionPanel controls={<>        <LogoPicker logos={logos} value={quote.logoId} disabled={!draft} onChange={logoId => change({ logoId })} />
+        <div className="no-print"><label>Layout<select aria-label="Quote layout" disabled={!draft} value={quote.layout ?? "itemized"} onChange={e => change({ layout: e.target.value as JobQuote["layout"], includeOptional: undefined })}><option value="itemized">Itemized quote</option><option value="proposal">Proposal letter</option><option value="tm_authorization">T&amp;M authorization</option></select></label>
+        {letterLayout && <><label>Attention<input value={quote.attention ?? ""} disabled={!draft} onChange={e => change({ attention: e.target.value })} /></label><label>Description<input value={quote.description ?? job.title} disabled={!draft} onChange={e => change({ description: e.target.value })} /></label>
+        {templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.optional).map(s => <label key={s.id}><input type="checkbox" disabled={!draft} checked={(quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id)).includes(s.id)} onChange={e => { const ids = quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id); change({ includeOptional: e.target.checked ? [...ids, s.id] : ids.filter(id => id !== s.id) }); }} /> {s.heading || s.id}</label>)}</>}
+        {(letterError || ratesError) && <p role="alert">{letterError || ratesError}</p>}</div></>} intro={<>          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+            <textarea aria-label="Intro text" maxLength={4000} rows={4} disabled={!draft} value={quote.narrative ?? ""} onChange={(e) => change({ narrative: e.target.value })} style={{ width: "100%" }} />
+            {draft && <div><button className="button small" type="button" onClick={() => change({ narrative: draftQuoteIntro(job, quote.findings, businessConfig?.businessName) })}>Rewrite from the items above</button></div>}
+          </div>
+</>} more={<>          <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
+            <DocumentOptionToggles keys={["showTechnicians"]} disabled={!draft}
+              values={{ hideMaterials: quote.hideMaterials, hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true }}
+              onChange={(key, next) => change({ [key]: next } as Partial<JobQuote>)} />
+            <DocumentPhotoSelector photos={photos} photoIds={quote.photoIds} disabled={!draft} onChange={(photoIds) => change({ photoIds })} />
+            {quote.showTechnicians && <label>Technicians (comma separated, up to 10)
+              <input list="quote-technicians" disabled={!draft} value={(quote.technicians ?? []).join(", ")} style={{ width: "100%", display: "block" }}
+                onChange={(event) => change({ technicians: event.target.value.split(",").slice(0, 10).map((name) => name.trim()) })} />
+              <datalist id="quote-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist>
+            </label>}
+            <PropertyTypeToggle jobId={job.jobId} businessId={businessId} value={job.propertyType} disabled={!draft} onChange={(next) => onPropertyType?.(next)} />
+          </div>
+</>} draft={!!draft} readOnlyRole={readOnly} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
+          lineSubtotal={lineSubtotal} savedLineSubtotal={projectPriceAnchor} customerSubtotal={quote.customerSubtotal} customerTotal={total}
+          adjustmentNote={quote.adjustmentNote} onChange={(patch) => { if (patch.customerSubtotal !== undefined) setProjectPriceAnchor(lineSubtotal); change(patch); }}
+          onPreview={() => { previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); previewRef.current?.focus(); }} />}
       {(!quote || draft) && (
         <p className="no-print" style={{ margin: 0, color: "var(--text-muted)" }}>
           Send the quote to the customer. Their email includes Accept and Reject links; you can also record their answer here.
@@ -336,7 +360,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
           {pickerAndCustom}
         </>
       ) : <>
-        <div className="no-print" style={{ display: "flex", gap: 16, alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div className="no-print" style={{ display: "none", gap: 16, alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div>
             {/* Sent/accepted/declined: the banner above says the status — the chip would say it twice (C5). */}
             {draft && <StatusChip status={quote.status} label={quote.status.charAt(0).toUpperCase() + quote.status.slice(1)} />}
@@ -348,15 +372,8 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
           </div>}
         </div>
-        <LogoPicker logos={logos} value={quote.logoId} disabled={!draft} onChange={logoId => change({ logoId })} />
-        <div className="no-print"><label>Layout<select aria-label="Quote layout" disabled={!draft} value={quote.layout ?? "itemized"} onChange={e => change({ layout: e.target.value as JobQuote["layout"], includeOptional: undefined })}><option value="itemized">Itemized quote</option><option value="proposal">Proposal letter</option><option value="tm_authorization">T&amp;M authorization</option></select></label>
-        {letterLayout && <><label>Attention<input value={quote.attention ?? ""} disabled={!draft} onChange={e => change({ attention: e.target.value })} /></label><label>Description<input value={quote.description ?? job.title} disabled={!draft} onChange={e => change({ description: e.target.value })} /></label>
-        {templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.optional).map(s => <label key={s.id}><input type="checkbox" disabled={!draft} checked={(quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id)).includes(s.id)} onChange={e => { const ids = quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id); change({ includeOptional: e.target.checked ? [...ids, s.id] : ids.filter(id => id !== s.id) }); }} /> {s.heading || s.id}</label>)}</>}
-        {(letterError || ratesError) && <p role="alert">{letterError || ratesError}</p>}</div>
-        <CustomerVersionPanel draft={!!draft} readOnlyRole={readOnly} priceMode={quote.priceMode} hideMaterials={quote.hideMaterials} hideLabor={quote.hideLabor === true}
-          lineSubtotal={lineSubtotal} savedLineSubtotal={projectPriceAnchor} customerSubtotal={quote.customerSubtotal} customerTotal={total}
-          adjustmentNote={quote.adjustmentNote} onChange={(patch) => { if (patch.customerSubtotal !== undefined) setProjectPriceAnchor(lineSubtotal); change(patch); }}
-          onPreview={() => { previewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); previewRef.current?.focus(); }} />
+
+
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {draft && <>
             <input aria-label="Quote recipient email" type="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Customer email" style={{ flex: "1 1 220px" }} />
@@ -386,8 +403,9 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
               <button className="button small primary" type="button" onClick={() => addMissing(missingFindings)}>{missingFindings.length === 1 ? "Add it" : "Add them"}</button>
             </div>
           )}
+          {quote.lines.length > 5 && <button className="button" onClick={() => setShowAllItems(!showAllItems)}>{showAllItems ? "Show fewer items" : `Show all ${quote.lines.length} items`}</button>}
           {groups.length === 0 && <p style={{ margin: 0 }}>No items yet. Add one from the Library — its work and default price fill in automatically.</p>}
-          {groups.map((group) => (
+          {(showAllItems ? groups : groups.slice(0, 3)).map((group) => (
             <div key={group.finding?.findingId ?? "other"} style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 12, display: "grid", gap: 8 }}>
               {group.finding ? (
                 <>
@@ -410,7 +428,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
                 </>
               ) : <strong>Other work</strong>}
               <div style={{ display: "grid", gap: 8 }}>
-                {group.lines.map((line) => (
+                {(showAllItems ? group.lines : group.lines.slice(0, 5)).map((line) => (
                   <div key={line.lineId} style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     <select aria-label="Line kind" disabled={!draft} value={line.kind} onChange={(e) => changeLine(line.lineId, { kind: e.target.value as QuoteLine["kind"] })}>
                       <option value="material">Material</option><option value="labor">Labor</option><option value="other">Other</option>
@@ -434,29 +452,9 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
         {pickerAndCustom}
 
-        <details className="no-print">
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>Intro text (optional)</summary>
-          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-            <textarea aria-label="Intro text" maxLength={4000} rows={4} disabled={!draft} value={quote.narrative ?? ""} onChange={(e) => change({ narrative: e.target.value })} style={{ width: "100%" }} />
-            {draft && <div><button className="button small" type="button" onClick={() => change({ narrative: draftQuoteIntro(job, quote.findings, businessConfig?.businessName) })}>Rewrite from the items above</button></div>}
-          </div>
-        </details>
 
-        <details className="no-print">
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
-          <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
-            <DocumentOptionToggles disabled={!draft}
-              values={{ hideMaterials: quote.hideMaterials, hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true }}
-              onChange={(key, next) => change({ [key]: next } as Partial<JobQuote>)} />
-            <DocumentPhotoSelector photos={photos} photoIds={quote.photoIds} disabled={!draft} onChange={(photoIds) => change({ photoIds })} />
-            {quote.showTechnicians && <label>Technicians (comma separated, up to 10)
-              <input list="quote-technicians" disabled={!draft} value={(quote.technicians ?? []).join(", ")} style={{ width: "100%", display: "block" }}
-                onChange={(event) => change({ technicians: event.target.value.split(",").slice(0, 10).map((name) => name.trim()) })} />
-              <datalist id="quote-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist>
-            </label>}
-            <PropertyTypeToggle jobId={job.jobId} businessId={businessId} value={job.propertyType} disabled={!draft} onChange={(next) => onPropertyType?.(next)} />
-          </div>
-        </details>
+
+
         </>}
 
         <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3>{letterLayout ? <QuoteLetterPreview quote={customerQuote!} brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)} template={templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"]} rates={rates} photos={photos.filter(photo => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))} /> : <DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)}

@@ -36,7 +36,7 @@ export function NextStepButton({ job, busy = false, activeTab, billing = true, q
     );
   }
   return (
-    <button type="button" className="button primary" title={now.hint} onClick={() => onGo(now.tab)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <button type="button" className={activeTab && ["findings", "quote", "report", "invoice"].includes(activeTab) ? "button" : "button primary"} title={now.hint} onClick={() => onGo(now.tab)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
       Next: {now.label}
       <ArrowRight size={15} strokeWidth={1.75} />
     </button>

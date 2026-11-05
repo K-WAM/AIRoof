@@ -22,13 +22,13 @@ export interface ReportQuoteSection {
  */
 export function reportQuoteSection(
   quote: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "priceMode" | "subtotal" | "sentAt" | "answeredAt"> | null | undefined,
-  options: Partial<DocumentOptions> | null | undefined,
+  options: (Partial<DocumentOptions> & { priceMode?: "lines" | "project" }) | null | undefined,
   fmtDate: (ms: number) => string,
 ): ReportQuoteSection | null {
   if (options?.includeQuote !== true || !quote || !QUOTE_SHOWABLE_STATUSES.includes(quote.status)) return null;
   const hideMaterials = quote.hideMaterials === true || options.hideMaterials === true;
   const hideLabor = quote.hideLabor === true || options.hideLabor === true;
-  const groups = quoteGroups(quote as JobQuote, { hideMaterials, hideLabor });
+  const groups = quoteGroups({ ...quote, priceMode: options.priceMode ?? quote.priceMode } as JobQuote, { hideMaterials, hideLabor });
   const accepted = quote.status === "accepted";
   const at = accepted ? quote.answeredAt : quote.sentAt;
   return {

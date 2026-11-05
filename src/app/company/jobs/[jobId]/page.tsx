@@ -25,7 +25,7 @@ import { ReportLayoutControls } from "./ReportLayoutControls";
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
 import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
 import { LetterBody } from "@/lib/documents/LetterBody";
-import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
+import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
@@ -42,7 +42,7 @@ import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
-import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
+import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { ClientDetailsEditor } from "./ClientDetailsEditor";
@@ -223,6 +223,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceAdjustmentNote, setInvoiceAdjustmentNote] = useState("");
   const invoicePreviewRef = useRef<HTMLDivElement>(null);
   const [showTechnicians, setShowTechnicians] = useState(false);
+  const [showAllInvoiceLines, setShowAllInvoiceLines] = useState(false);
   const [invoiceLogoId, setInvoiceLogoId] = useState<string | null | undefined>();
   const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
@@ -1423,9 +1424,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
-              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.clientEmail ?? ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
-              <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />
-              {invoiceStatus === "draft" && !readOnly && <CustomerVersionPanel draft priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />} intro={<div className="no-print" style={{ marginBottom: 20 }}>
+                  <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
+                  <textarea id="invoiceOpening" disabled={readOnly || invoiceStatus !== "draft"} rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
+                  <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
+                  {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+                </div>} more={<div style={{ marginTop: 8, maxWidth: 380 }}>
+                      <DocumentOptionToggles keys={["showTechnicians"]} disabled={readOnly || invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
+                        onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={readOnly || invoiceStatus !== "draft"}
+                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
+                      </div>
+                    </div>} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
                 adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
                 onChange={(patch) => {
@@ -1435,7 +1450,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   if (patch.customerSubtotal !== undefined) { setInvoiceCustomerSubtotal(patch.customerSubtotal); setInvoiceCalculatedSubtotal(calculatedSubtotal); }
                   if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
                 }}
-                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />}
+                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
+              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.clientEmail ?? ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
@@ -1448,20 +1464,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus === "draft" ? "Draft" : invoiceStatus === "sent" ? "Sent" : invoiceStatus === "void" ? "Void" : invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
-                  <details>
-                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
-                    <div style={{ marginTop: 8, maxWidth: 380 }}>
-                      <DocumentOptionToggles disabled={readOnly || invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
-                        onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
-                      <div style={{ marginTop: 12 }}>
-                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={readOnly || invoiceStatus !== "draft"}
-                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
-                      </div>
-                    </div>
-                  </details>
+
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {invoiceStatus === "draft" && !readOnly && <button className="button primary" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1612,14 +1615,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </div>
                 </div>
 
-                <div className="no-print" style={{ marginBottom: 20 }}>
-                  <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
-                  <textarea id="invoiceOpening" rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
-                  <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
-                  <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
-                  {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
-                </div>
-                {/* Labor */}
+
+                {(laborRows.length > 5 || materialRows.length > 5 || otherRows.length > 5) && <button className="button no-print" onClick={() => setShowAllInvoiceLines(!showAllInvoiceLines)}>{showAllInvoiceLines ? "Show fewer invoice lines" : "Show all invoice lines"}</button>}
                 {laborRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Labor</div>
@@ -1653,7 +1650,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         </tr>
                       </thead>
                       <tbody>
-                        {laborRows.map((row, i) => (
+                        {(showAllInvoiceLines ? laborRows : laborRows.slice(0, 5)).map((row, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                             <td style={tdStyle()}><InlineInput label="Technician" value={row.name} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Name" /></td>
                             <td style={tdStyle()}><InlineInput label="Arrival time" value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => {
@@ -1737,7 +1734,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         </tr>
                       </thead>
                       <tbody>
-                        {materialRows.map((row, i) => {
+                        {(showAllInvoiceLines ? materialRows : materialRows.slice(0, 5)).map((row, i) => {
                           const unpriced = row.item.trim() !== "" && row.unitPrice.trim() === "";
                           return (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -1795,7 +1792,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {otherRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Other Charges</div>
-                    {otherRows.map((row, i) => (
+                    {(showAllInvoiceLines ? otherRows : otherRows.slice(0, 5)).map((row, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <InlineInput label="Charge description" value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
@@ -1929,6 +1926,25 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
+              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={<div style={{ marginBottom: 16 }} className="no-print">
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
+                <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+                {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
+                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input disabled={readOnly} value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { if (!readOnly) void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+              </div>} more={<div style={{ marginTop: 8, maxWidth: 380 }}>
+                  <DocumentOptionToggles values={{ ...reportOptions, includeQuote: isCompletion(job.reportDocument) ? false : reportOptions.includeQuote }} disabled={readOnly}
+                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
+                    disabledKeys={isCompletion(job.reportDocument) ? { includeQuote: "Completion notices never include prices." } : quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
+                    onChange={(key, next) => {
+                      const options = { ...reportOptions, [key]: next };
+                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
+                      // that leftover text is how "Hide materials" used to leak into the Description of work.
+                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
+                      setReportOptions(options);
+                      setReportNotes(notes);
+                      void saveReportNotes(options, reportTechnicians, notes);
+                    }} />
+                </div>} />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 {!readOnly && <button className="button primary" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Send size={14} strokeWidth={1.75} />
@@ -1945,24 +1961,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div></details>
               </div>
 
-              <ReportLayoutControls jobId={jobId} address={job.address} value={job.reportDocument} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />
-              <details className="no-print" style={{ marginBottom: 16 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
-                <div style={{ marginTop: 8, maxWidth: 380 }}>
-                  <DocumentOptionToggles values={reportOptions} disabled={readOnly}
-                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
-                    disabledKeys={quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
-                    onChange={(key, next) => {
-                      const options = { ...reportOptions, [key]: next };
-                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
-                      // that leftover text is how "Hide materials" used to leak into the Description of work.
-                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
-                      setReportOptions(options);
-                      setReportNotes(notes);
-                      void saveReportNotes(options, reportTechnicians, notes);
-                    }} />
-                </div>
-              </details>
+
+
 
               {/* Mail panel — automation prepares the report; a human presses send */}
               {showReportSend && (
@@ -1985,12 +1985,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               )}
 
               {/* Scope & Resolution notes — admin-edited, persisted, included in the report */}
-              <div style={{ marginBottom: 16 }} className="no-print">
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
-                <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
-                {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
-                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input disabled={readOnly} value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { if (!readOnly) void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
-              </div>
 
               <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} quote={pageQuote} />
             </div>
@@ -2227,7 +2221,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const brand = resolveLetterhead(businessConfig ?? {}, logos, "light", job.reportDocument?.logoId);
   const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
   // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
-  const quoteSection = reportQuoteSection(quote, options, fmtDate);
+  const quoteSection = reportQuoteSection(quote, { ...options, priceMode: job.reportDocument?.priceMode }, fmtDate);
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));

@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: Context) {
   const newQuote: JobQuote = {
     quoteId, businessId, jobId, customerId: job.customerId,
     serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),
-    billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: job.address },
+    billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: customer?.address ?? job.address },
     findings, lines, status: "draft", hideMaterials: false, validUntil: now + 30 * 86400000, notes: DEFAULT_QUOTE_NOTES,
     subtotal: quoteTotal(lines), total: quoteTotal(lines), createdAt: now, updatedAt: now, createdBy: gate.user.uid,
   };

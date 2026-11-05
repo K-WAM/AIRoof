@@ -25,7 +25,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
   howToPay?: { instructions: string; link: string } | null;
 }) {
   const accent = /^#[0-9a-f]{6}$/i.test(brand.brandColor ?? "") ? brand.brandColor! : "var(--accent)";
-  return <article className={className} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
+  return <article className={`k1-document ${className}`} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "clamp(16px, 4vw, 44px)", color: "#1e293b", overflowWrap: "anywhere" }}>
     <header style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 24, borderBottom: `3px solid ${accent}`, paddingBottom: 20 }}>
       <div>{brand.logoUrl && <>
         {/* Library logos may be data URIs, which next/image cannot optimize. */}
