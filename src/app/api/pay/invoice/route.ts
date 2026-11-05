@@ -89,8 +89,21 @@ export async function POST(req: NextRequest) {
     if (previous && !invoice.payNowPending) {
       const existing = await stripe.checkout.sessions.retrieve(previous.sessionId, {}, account).catch(() => null);
       if (existing?.status === "complete") return processing();
-      if (existing?.status === "open" && Date.now() - previous.createdAt < 30 * 60 * 1000 && checkoutUrl(existing.url)) {
+      // Resume only a session for exactly what is owed now, on the current link. Anything else (a payment was recorded
+      // since, or the office sent a new link) is closed at Stripe first, so two payable sessions never exist at once.
+      const owedNow = Math.round(invoiceBalance(invoice) * 100);
+      const sameTerms = previous.amount === owedNow && previous.payLinkNonce === invoice.payLinkNonce;
+      if (existing?.status === "open" && sameTerms && checkoutUrl(existing.url)) {
         return resume(existing.url!, previous.method, method);
+      }
+      if (existing?.status === "open") {
+        const closed = await stripe.checkout.sessions.expire(previous.sessionId, {}, account).catch(() => null);
+        if (!closed) {
+          // It may have completed in the meantime; never open a second session while that is unknown.
+          const again = await stripe.checkout.sessions.retrieve(previous.sessionId, {}, account).catch(() => null);
+          return again?.status === "complete" ? processing() : unavailable();
+        }
+        expiredSessionId = previous.sessionId;
       }
       if (existing?.status === "expired") expiredSessionId = previous.sessionId;
     }
@@ -134,7 +147,7 @@ export async function POST(req: NextRequest) {
         tx.update(invoiceRef, { payNowCheckoutAttempt: FieldValue.delete() });
         return;
       }
-      tx.update(invoiceRef, { payNowCheckout: { sessionId: session.id, method: attempt.method, amount: attempt.amount,
+      tx.update(invoiceRef, { payNowCheckout: { sessionId: session.id, method: attempt.method, amount: attempt.amount, payLinkNonce: attempt.payLinkNonce,
         createdAt: current.payNowCheckout?.sessionId === session.id ? current.payNowCheckout.createdAt : Date.now() } });
     });
     // Token stays out of Stripe's success/cancel URLs and the Referrer header.

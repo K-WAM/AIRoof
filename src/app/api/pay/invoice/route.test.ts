@@ -5,10 +5,10 @@ import { createHash } from "node:crypto";
 import { issuePayLink, signPayToken } from "@/lib/billing/payNowToken";
 import { GET, POST } from "./route";
 
-const mock = vi.hoisted(() => ({ create: vi.fn(), retrieve: vi.fn(), configured: true }));
+const mock = vi.hoisted(() => ({ create: vi.fn(), retrieve: vi.fn(), expire: vi.fn(), configured: true }));
 let db: ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
-vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mock.configured, getStripeClient: () => ({ checkout: { sessions: { create: mock.create, retrieve: mock.retrieve } } }) }));
+vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mock.configured, getStripeClient: () => ({ checkout: { sessions: { create: mock.create, retrieve: mock.retrieve, expire: mock.expire } } }) }));
 const secret = "test-only-pay-link-secret-32-characters";
 const state = issuePayLink({});
 let token: string;
@@ -122,12 +122,35 @@ describe("public invoice payment page", () => {
   });
   it("persists Checkout and reuses its URL on a second POST without creating another session", async () => {
     const first = await POST(request("POST"));
-    expect(db.__peek("businesses/a/invoices", "INV-1")).toHaveProperty("payNowCheckout", { sessionId: "cs_test", method: "card", amount: 10000, createdAt: expect.any(Number) });
+    expect(db.__peek("businesses/a/invoices", "INV-1")).toHaveProperty("payNowCheckout", { sessionId: "cs_test", method: "card", amount: 10000, payLinkNonce: expect.any(String), createdAt: expect.any(Number) });
     const second = await POST(request("POST"));
     expect(second.status).toBe(303);
     expect(second.headers.get("location")).toBe(first.headers.get("location"));
     expect(mock.create).toHaveBeenCalledTimes(1);
     expect(mock.retrieve).toHaveBeenCalledWith("cs_test", {}, { stripeAccount: "acct_a" });
+  });
+  it("never resumes a session for an old amount: closes it at Stripe and opens one for what is owed now", async () => {
+    await POST(request("POST"));
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ amountPaid: 48 });
+    mock.create.mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/new", id: "cs_new" });
+    mock.expire.mockResolvedValueOnce({ id: "cs_test", status: "expired" });
+    const second = await POST(request("POST"));
+    expect(mock.expire).toHaveBeenCalledWith("cs_test", {}, { stripeAccount: "acct_a" });
+    expect(mock.create).toHaveBeenCalledTimes(2);
+    expect(mock.create.mock.calls[1][0].line_items[0].price_data.unit_amount).toBe(7500);
+    expect(second.headers.get("location")).toBe("https://checkout.stripe.com/c/pay/new");
+  });
+  it("opens no second session when the old one cannot be closed", async () => {
+    await POST(request("POST"));
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ amountPaid: 48 });
+    mock.expire.mockRejectedValueOnce(new Error("stripe down"));
+    const res = await POST(request("POST"));
+    expect(await res.text()).toContain("This payment link isn't available");
+    expect(mock.create).toHaveBeenCalledTimes(1);
+    mock.expire.mockRejectedValueOnce(new Error("already complete"));
+    mock.retrieve.mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/test", id: "cs_test", status: "open" }).mockResolvedValueOnce({ id: "cs_test", status: "complete" });
+    expect(await (await POST(request("POST"))).text()).toContain("being processed");
+    expect(mock.create).toHaveBeenCalledTimes(1);
   });
   it("shows the existing bank method and resume link when card is chosen after ACH was started", async () => {
     const first = await POST(request("POST", { method: "us_bank_account" }));
@@ -161,9 +184,10 @@ describe("public invoice payment page", () => {
     await POST(request("POST", { method: "us_bank_account" }));
     expect(mock.create.mock.calls[1][1].idempotencyKey).toBe(key);
     expect(mock.create.mock.calls[1][0]).toEqual(mock.create.mock.calls[0][0]);
+    // Later, same amount and same link: the open session is simply resumed (Stripe keeps it open for 24 h).
     clock.mockReturnValue(now + 31 * 60 * 1000);
     await POST(request("POST"));
-    expect(mock.create.mock.calls[2][1].idempotencyKey).toBe(key);
+    expect(mock.create).toHaveBeenCalledTimes(2);
     expect(key).toContain("10000");
   });
   it("uses a fresh attempt nonce only after confirmed expiry", async () => {
