@@ -1,3 +1,4 @@
+import { companiesOf, isMultiCompany } from "@/lib/companies/companies";
 import { FieldValue } from "firebase-admin/firestore";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { NextRequest, NextResponse } from "next/server";
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest) {
 
   const d = snap.data()! as BusinessConfig;
   return jsonWithCache({
+    ...(isMultiCompany(d) ? { billingCompanies: companiesOf(d) } : {}),
     timezone: d.timezone ?? "America/New_York",
     businessHours: d.businessHours ?? {},
     notificationEmail: d.notificationEmail ?? "",

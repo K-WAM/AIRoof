@@ -14,6 +14,7 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CrewsSection } from "./CrewsSection";
+import { CompaniesSection } from "./CompaniesSection";
 import { LogosSection } from "./LogosSection";
 import { WorkCatalogSection } from "./WorkCatalogSection";
 import { LettersSection } from "./LettersSection";
@@ -237,7 +238,7 @@ export default function LibraryPage() {
       )}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} people={crewPeople} setPeople={setCrewPeople} readOnly={readOnly} />}
       {section === "documents" && <><LettersSection readOnly={readOnly} /><DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} /></>}
-      {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />}
+      {section === "branding" && <><LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} /><CompaniesSection logos={logos} /></>}
       {section === "work-catalog" && isEnabled("jobs") && (
         <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} readOnly={readOnly} />
       )}

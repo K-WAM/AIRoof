@@ -114,7 +114,7 @@ export interface Job {
   /** Billing company (src/types/company.ts): set from the customer at creation; missing = the default company. */
   companyId?: string;
   reportDocument?: import("./documentTemplate").ReportLetterOptions;
-  documentSendLock?: { invoiceId: string; token: string; at: number };
+  documentSendLock?: { invoiceId: string; token: string; at: number; companyId?: string };
   documentRecipients?: string[];
   jobId: string;            // e.g. "J-1042"
   businessId: string;

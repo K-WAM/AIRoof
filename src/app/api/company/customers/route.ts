@@ -12,6 +12,7 @@ const SEARCH_LIMIT = 20;
 function toSlim(d: FirebaseFirestore.DocumentData): CustomerSlim {
   return {
     customerId: d.customerId,
+    ...(typeof d.companyId === "string" ? { companyId: d.companyId } : {}),
     name: d.name,
     kind: d.kind,
     phone: d.phone,
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const { customerId, created } = await resolveCustomer(db, businessId, { name, phone, email, address, kind });
+  const { customerId, created } = await resolveCustomer(db, businessId, { name, phone, email, address, kind, companyId: body.companyId });
   const ref = db.collection("businesses").doc(businessId).collection("customers").doc(customerId);
 
   if (!created) {

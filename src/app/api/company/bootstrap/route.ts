@@ -1,3 +1,6 @@
+import { bootstrapCompanies } from "@/lib/companies/bootstrap";
+import { isMultiCompany } from "@/lib/companies/companies";
+import type { LibraryLogo } from "@/types/library";
 import { isDemoTenant } from "@/lib/accounts/purpose";
 import { productsOf, type ProductSet } from "@/lib/products/products";
 import { NextRequest, NextResponse } from "next/server";
@@ -32,6 +35,10 @@ export async function GET(req: NextRequest) {
   if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
   const d = snap.data()!;
 
+  const companyFields = isMultiCompany(d)
+    ? bootstrapCompanies(d, ((await db.collection(`businesses/${businessId}/library`).doc("logos").get()).data()?.logos ?? []) as LibraryLogo[])
+    : {};
+
   const industryValue = d.industry;
   const industry: VerticalId | null = (() => {
     try {
@@ -63,6 +70,7 @@ export async function GET(req: NextRequest) {
   const body: CompanyBootstrap = {
     business: {
       businessId,
+      ...companyFields,
       isDemo: isDemoTenant(businessId, d),
       businessName: typeof d.businessName === "string" ? d.businessName : "",
       industry,

@@ -28,7 +28,9 @@ import { completionLetter, isCompletion } from "@/lib/documents/completionLetter
 import { LetterBody } from "@/lib/documents/LetterBody";
 import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { invoiceGroups } from "@/lib/documents/groups";
-import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { noticeApproval, noticesForDocument } from "@/lib/documents/notices";
 import { PropertyTypeToggle } from "@/components/documents/PropertyTypeToggle";
@@ -66,6 +68,8 @@ const SortablePhotoGrid = dynamic(() => import("@/components/photos/SortablePhot
   loading: () => <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Loading photos…</p>,
 });
 import { useQuickAdd } from "@/contexts/QuickAddContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { CompanyToggle } from "@/components/companies/CompanyToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
@@ -141,6 +145,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const { open: openQuickAdd } = useQuickAdd();
   const { user } = useAuth();
   const readOnly = user?.role === "viewer";
+  const companies = useBootstrap().data?.business.companies;
+  const [companySaving, setCompanySaving] = useState(false);
   const canSendInvoices = !user?.superadmin && (user?.role === "owner" || user?.role === "staff");
   const privateDemo = user?.isDemoTrial === true;
   // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
@@ -348,6 +354,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       .then((d) => { if (d?.library) { setLibrary(d.library as LibraryPricing); setLibraryLoadFailed(false); } })
       .catch(() => {});
   });
+
+  async function changeJobCompany(companyId: string) {
+    if (!businessId || companySaving) return;
+    setCompanySaving(true); setStatusError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, companyId }) });
+      if (!res.ok) throw new Error((await res.json()).error || "Could not change company.");
+      setJob(j => j ? { ...j, companyId } : j);
+    } catch (e) { setStatusError(e instanceof Error ? e.message : "Could not change company."); }
+    finally { setCompanySaving(false); }
+  }
 
   async function updateStatus(newStatus: string) {
     if (!businessId || !job || updatingStatus) return;
@@ -733,7 +750,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       if (res.ok) {
         const result = await res.json();
         if (result.warning) setReportSendError(result.warning);
-        setJob(j => j ? { ...j, documentRecipients: selected.recipients } : j);
+        setJob(j => j ? { ...j, documentRecipients: selected.recipients, ...(result.companyId ? { reportDocument: { ...j.reportDocument, companyId: result.companyId, sentAt: Date.now() } } : {}) } : j);
         track("report_sent", { job_id: jobId });
         setReportSent(true);
         if (!result.warning) setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
@@ -797,6 +814,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       if (res.ok) {
         const result = await res.json();
         if (result.warning) setSendError(result.warning);
+        if (result.companyId) setInvoiceCustomerDetails(current => ({ ...current, companyId: result.companyId }));
         setSentPayLink(result.payNow ?? null);
         setNewPayLink(false);
         track("invoice_sent", { job_id: jobId });
@@ -977,9 +995,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // tenants will only ever have the one from Settings, so this is a strict upgrade, never a
   // regression: no library logo just means the same fallback as before it existed.
   const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
-  const invoiceBizName = businessConfig?.businessName ?? job.title;
-  const invoiceLogoSrc = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId).logoUrl;
-  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId);
+  const invoiceLetterhead = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: invoiceCustomerDetails.companyId, jobCompanyId: job.companyId }), logos, invoiceLogoId);
+  const invoiceBizName = invoiceLetterhead.businessName ?? job.title;
+  const invoiceLogoSrc = invoiceLetterhead.logoUrl;
   const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, discount: invoiceDiscount, hideMaterials, hideLabor, priceMode: invoicePriceMode, subtotal, total: grandTotal, laborSubtotal, materialSubtotal, otherSubtotal } as JobInvoice;
 
   return (
@@ -1058,6 +1076,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             {job.title}
             <StatusChip status={invoiceStatus === "paid" ? "complete" : job.status} label={invoiceStatus === "paid" || job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
           </h1>
+          <CompanyToggle companies={companies} value={job.companyId} disabled={companySaving || !(user?.role === "owner" || user?.role === "staff")} onChange={id => void changeJobCompany(id)} />
           <ClientDetailsEditor job={job} businessId={businessId!} canEdit={!readOnly}
             locked={job.status === "invoiced" || (invoiceStatus !== null && invoiceStatus !== "draft")}
             onSaved={(client) => { setJob((current) => current ? { ...current, ...client } : current); setClientVersion((v) => v + 1); }} />
@@ -1135,7 +1154,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       <Hint label="Job documents">{"Findings: what needs work.\nQuote: agree the work and price.\nReport: show what was done.\nInvoice: ask for payment."}</Hint>
       </div>
 
-      {privateDemo && (activeTab === "quote" || activeTab === "report" || activeTab === "invoice") && <PrivateDemoDocuments job={job} business={businessConfig} kind={activeTab} />}
+      {privateDemo && (activeTab === "quote" || activeTab === "report" || activeTab === "invoice") && <PrivateDemoDocuments job={job} business={businessConfig} logos={logos} kind={activeTab} />}
 
       {/* Edit / Save / Cancel — Materials and Labor (on Activity it sits right above the work log instead) */}
       {["materials", "labor"].includes(activeTab) && !readOnly && editBar}
@@ -1444,7 +1463,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
-              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<><LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />{!!job.findings?.length && <label><input type="checkbox" checked={invoiceShowFindingSections !== false} disabled={readOnly || invoiceStatus !== "draft"} onChange={e => setInvoiceShowFindingSections(e.target.checked)} /> Show findings as Problem / Corrective Action</label>}</>} intro={<div className="no-print" style={{ marginBottom: 20 }}>
+              <DocumentCompanyControl jobId={jobId} kind="invoice" companyId={invoiceCustomerDetails.companyId} jobCompanyId={job.companyId} sent={invoiceStatus !== "draft"} disabled={readOnly || invoiceSaving || sending} onSaved={companyId => setInvoiceCustomerDetails(current => ({ ...current, companyId }))} />
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<>{!isMultiCompany(businessConfig) && <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />}{!!job.findings?.length && <label><input type="checkbox" checked={invoiceShowFindingSections !== false} disabled={readOnly || invoiceStatus !== "draft"} onChange={e => setInvoiceShowFindingSections(e.target.checked)} /> Show findings as Problem / Corrective Action</label>}</>} intro={<div className="no-print" style={{ marginBottom: 20 }}>
                   <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
                   <textarea id="invoiceOpening" disabled={readOnly || invoiceStatus !== "draft"} rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
                   <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
@@ -1471,7 +1491,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
                 }}
                 onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
-              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.documentRecipients?.join(", ") || job.clientEmail || ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
+              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} businessConfig={businessConfig} logos={logos} jobCompanyId={job.companyId} email={job.documentRecipients?.join(", ") || job.clientEmail || ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
@@ -1588,12 +1608,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 19, color: "#0f172a" }}>{invoiceBizName}</div>
                       <div style={{ fontSize: 12, color: "#64748b", marginTop: 3, lineHeight: 1.6 }}>
-                        {businessConfig?.address && <>{businessConfig.address}<br /></>}
-                        {(businessConfig?.contactPhone || businessConfig?.contactEmail) && (
-                          <>{[businessConfig?.contactPhone, businessConfig?.contactEmail].filter(Boolean).join("  ·  ")}<br /></>
+                        {invoiceLetterhead.address && <>{invoiceLetterhead.address}<br /></>}
+                        {(invoiceLetterhead.contactPhone || invoiceLetterhead.contactEmail) && (
+                          <>{[invoiceLetterhead.contactPhone, invoiceLetterhead.contactEmail].filter(Boolean).join("  ·  ")}<br /></>
                         )}
-                        {businessConfig?.websiteUrl && <>{businessConfig.websiteUrl}</>}
-                        {businessConfig?.licenseNumber && <><br />License #{businessConfig.licenseNumber}</>}
+                        {invoiceLetterhead.websiteUrl && <>{invoiceLetterhead.websiteUrl}</>}
+                        {invoiceLetterhead.licenseNumber && <><br />License #{invoiceLetterhead.licenseNumber}</>}
                       </div>
                     </div>
                   </div>
@@ -1891,7 +1911,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
                 <div style={{ marginTop: 28, paddingTop: 16, borderTop: "1px solid #e2e8f0", textAlign: "center" }}>
                   <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                    {[invoiceBizName, businessConfig?.websiteUrl, businessConfig?.contactPhone].filter(Boolean).join("  ·  ")}
+                    {[invoiceBizName, invoiceLetterhead.websiteUrl, invoiceLetterhead.contactPhone].filter(Boolean).join("  ·  ")}
                   </div>
                   {invoiceStatus === "draft" && (
                     <div className="no-print" style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>
@@ -1913,9 +1933,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findingSections={invoiceShowFindingSections !== false} findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
-                  howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
+                  howToPay={invoiceStatus !== "paid" && hasBilling && invoiceLetterhead.billingPrefs ? { instructions: invoiceLetterhead.billingPrefs.payInstructions ?? "", link: invoiceLetterhead.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
-                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} >
+                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: invoiceLetterhead.businessName, licenseNumber: invoiceLetterhead.licenseNumber } })} >
                   {invoiceStatus === "sent" && canSendInvoices && businessId && <InvoicePayPrint link={sentPayLink} businessId={businessId} jobId={jobId} invoiceId={invoiceId} />}
                 </DocumentPreview>
               </div>
@@ -1949,7 +1969,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
-              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls hasFindings={!!job.findings?.length} jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={<div style={{ marginBottom: 16 }} className="no-print">
+              <DocumentCompanyControl jobId={jobId} kind="report" companyId={job.reportDocument?.companyId} jobCompanyId={job.companyId} sent={!!job.reportDocument?.sentAt} disabled={readOnly || reportSending} onSaved={companyId => setJob(current => current ? { ...current, reportDocument: { ...current.reportDocument, companyId } } : current)} />
+              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls showLogoPicker={!isMultiCompany(businessConfig)} hasFindings={!!job.findings?.length} jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={<div style={{ marginBottom: 16 }} className="no-print">
                 <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
                 <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
                 {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
@@ -2241,7 +2262,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
-  const brand = resolveLetterhead(businessConfig ?? {}, logos, "light", job.reportDocument?.logoId);
+  const brand = documentLetterhead(businessConfig ?? {}, resolveDocumentCompany(businessConfig, { documentCompanyId: job.reportDocument?.companyId, jobCompanyId: job.companyId }), logos, job.reportDocument?.logoId);
   const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
   // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
   const quoteSection = reportQuoteSection(quote, { ...options, priceMode: job.reportDocument?.priceMode }, fmtDate);
@@ -2250,7 +2271,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }));
   if (isCompletion(job.reportDocument)) {
     const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
-    const letter = completionLetter(job, businessConfig ?? {}, templates[kind], Date.now(), quote);
+    const letter = completionLetter(job, brand, templates[kind], Date.now(), quote);
     return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
   }
   return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}

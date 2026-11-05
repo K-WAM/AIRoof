@@ -1,5 +1,8 @@
 "use client";
 
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { CompanyToggle } from "@/components/companies/CompanyToggle";
+import { CompanyBadge } from "@/components/companies/CompanyBadge";
 import { useEffect, useMemo, useState } from "react";
 import { useBusinessModules } from "@/hooks/useBusinessModules";
 import { useBusinessTimezone } from "@/hooks/useBusinessTimezone";
@@ -24,6 +27,7 @@ interface Props {
 }
 
 type DraftFields = {
+  companyId?: string;
   name: string; kind: CustomerKind; phone: string; email: string; address: string; notes: string;
   /** An organization's person to talk to (stored as contacts[0]). */
   contactName: string;
@@ -45,6 +49,7 @@ function likelyKind(customers: CustomerSlim[]): CustomerKind {
 
 export function CustomersSection({ businessId, customers, setCustomers, initialCustomerId }: Props) {
   const { vocab } = useBusinessModules();
+  const companies = useBootstrap().data?.business.companies;
   const readOnly = useAuth().user?.role === "viewer";
   const tz = useBusinessTimezone();
   const [query, setQuery] = useState("");
@@ -62,7 +67,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
   const selected = customers.find((c) => c.customerId === selectedId) ?? null;
 
   function onCreated(customer: Customer) {
-    setCustomers([{ customerId: customer.customerId, name: customer.name, kind: customer.kind, phone: customer.phone, address: customer.address, jobCount: customer.jobCount, lastJobAt: customer.lastJobAt }, ...customers]);
+    setCustomers([{ ...(customer.companyId ? { companyId: customer.companyId } : {}), customerId: customer.customerId, name: customer.name, kind: customer.kind, phone: customer.phone, address: customer.address, jobCount: customer.jobCount, lastJobAt: customer.lastJobAt }, ...customers]);
     setCreating(false);
     setSelectedId(customer.customerId);
   }
@@ -119,7 +124,7 @@ export function CustomersSection({ businessId, customers, setCustomers, initialC
               filtered.slice(0, 200).map((c) => (
                 <article key={c.customerId} className="c1-customer-card" data-selected={selectedId === c.customerId}>
                   <button type="button" onClick={() => { setSelectedId(c.customerId); setCreating(false); }} className="c1-customer-open">
-                    <strong>{c.name}</strong>
+                    <strong>{c.name} <CompanyBadge companies={companies} companyId={c.companyId} /></strong>
                     <span>{c.phone ? fmtPhone(c.phone) : "No phone"} · {c.jobCount} {c.jobCount === 1 ? vocab.jobNoun.toLowerCase() : vocab.jobNounPlural.toLowerCase()}</span>
                     <span>Open</span>
                   </button>
@@ -182,6 +187,10 @@ function CustomerDetail({
   onCreated: (c: Customer) => void;
   onUpdated: (patch: Partial<CustomerSlim> & { customerId: string }) => void;
 }) {
+  const companies = useBootstrap().data?.business.companies;
+  const companyUser = useAuth().user;
+  const canEditCompany = companyUser?.role === "owner" || companyUser?.role === "staff" || companyUser?.superadmin === true;
+  const multi = (companies?.length ?? 0) >= 2;
   const isCreate = customerId === null;
   const [loading, setLoading] = useState(!isCreate);
   const [loadError, setLoadError] = useState(false);
@@ -225,6 +234,7 @@ function CustomerDetail({
           phone: d.customer.phone ?? "", email: d.customer.email ?? "",
           address: d.customer.address ?? "", notes: d.customer.notes ?? "",
           contactName: d.customer.contacts?.[0]?.name ?? "",
+          ...(d.customer.companyId ? { companyId: d.customer.companyId } : {}),
         });
       })
       .catch(() => { if (!cancelled) setLoadError(true); })
@@ -246,10 +256,11 @@ function CustomerDetail({
     if (!businessId || !draft.name.trim()) return;
     setSaving(true);
     setError(null);
-    const { contactName, ...fields } = draft;
+    const { contactName, companyId, ...fields } = draft;
+    const companyFields = multi ? { companyId: companyId ?? companies?.find(c => c.isDefault)?.id ?? companies?.[0].id } : {};
     const keptContacts = (customer?.contacts ?? []).slice(1);
     const payload = {
-      businessId, ...fields,
+      businessId, ...fields, ...companyFields,
       contacts: contactName.trim() ? [{ name: contactName.trim(), role: "Main contact" }, ...keptContacts] : keptContacts,
     };
     try { localStorage.setItem(KIND_KEY, draft.kind); } catch { /* private mode */ }
@@ -273,7 +284,7 @@ function CustomerDetail({
           body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error("Update failed");
-        onUpdated({ customerId: customerId!, name: draft.name, kind: draft.kind, phone: draft.phone || undefined, address: draft.address || undefined });
+        onUpdated({ ...companyFields, customerId: customerId!, name: draft.name, kind: draft.kind, phone: draft.phone || undefined, address: draft.address || undefined });
         setCustomer((c) => (c ? { ...c, ...draft, phone: draft.phone || undefined, address: draft.address || undefined } : c));
       }
     } catch (e) {
@@ -305,6 +316,8 @@ function CustomerDetail({
       </div>
       <div className="panel-body">
         {error && <p role="alert" style={{ color: "var(--danger)", marginTop: 0, fontSize: 13 }}>{error}</p>}
+
+        <CompanyToggle companies={companies} value={draft.companyId} disabled={saving || !canEditCompany} onChange={companyId => setDraft(d => ({ ...d, companyId }))} />
 
         {/* Who is it? asked first, because it changes the words below (owner: most customers are schools). */}
         <div className="form-grid">

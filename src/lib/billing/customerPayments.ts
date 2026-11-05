@@ -1,3 +1,6 @@
+import { isMultiCompany } from "@/lib/companies/companies";
+import { resolveLetterhead, type LetterheadBusiness } from "@/lib/documents/letterhead";
+import { documentShell, letterheadBlock, footerBlock } from "@/lib/documents/emailBlocks";
 // Customer-invoice money rules: staff-recorded payments and optional Stripe Connect direct payments (T-315)
 // share the same balance, receipt and reminder path. The customer pays the business directly.
 //
@@ -150,7 +153,7 @@ export function customerReminderDue(invoice: Pick<JobInvoice, "status" | "dueAt"
 
 // ── Emails (to the CLIENT's customer, from the client's name) ───────────────────────────────────────────────────────
 
-export interface PayBusiness { businessName: string; brandColor?: string | null; contactPhone?: string; contactEmail?: string }
+export interface PayBusiness extends LetterheadBusiness { businessName: string; billingCompanies?: unknown }
 
 const usd = (n: number) => fmtMoney(n);
 const accentOf = (c?: string | null) => (/^#[0-9a-f]{6}$/i.test(c ?? "") ? c! : "#0f766e");
@@ -166,6 +169,10 @@ export function howToPayBlock(prefs: Pick<EffectiveBillingPrefs, "payInstruction
 }
 
 function shell(business: PayBusiness, heading: string, body: string): string {
+  if (isMultiCompany(business)) {
+    const brand = resolveLetterhead(business);
+    return documentShell(letterheadBlock(brand, heading, []) + body + footerBlock(brand));
+  }
   const contact = [business.contactPhone, business.contactEmail].filter(Boolean).map((v) => escapeHtml(v!)).join(" · ");
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;padding:24px 0;background:#f8fafc;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b">
 <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">

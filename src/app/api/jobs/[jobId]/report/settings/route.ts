@@ -1,3 +1,4 @@
+import { sendLockActive } from "@/lib/billing/jobInvoiceStore";
 import { NextRequest } from "next/server";
 import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -24,7 +25,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ jobI
   const snap = await ref.get();
   if (!snap.exists) return jsonWithCache({ error: "Job not found" }, "noStore", { status: 404 });
   const settings = Object.fromEntries(["layout", "noCharge", "locations", "renewalMonth", "showFindingSections", "approvalDate", "attention", "poNumber", "logoId", "priceMode"].filter(k => body[k as keyof ReportLetterOptions] !== undefined).map(k => [k, body[k as keyof ReportLetterOptions]]));
-  const reportDocument = { ...snap.data()?.reportDocument, ...settings };
-  await ref.update({ reportDocument, updatedAt: Date.now() });
+  const reportDocument = await db.runTransaction(async tx => {
+    const fresh = (await tx.get(ref)).data();
+    if (sendLockActive(fresh?.reportCompanySendClaim)) return null;
+    const next = { ...fresh?.reportDocument, ...settings };
+    tx.update(ref, { reportDocument: next, updatedAt: Date.now() });
+    return next;
+  });
+  if (!reportDocument) return jsonWithCache({ error: "Report is being sent. Try again afterwards." }, "noStore", { status: 409 });
   return jsonWithCache({ reportDocument }, "noStore");
 }

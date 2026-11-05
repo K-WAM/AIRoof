@@ -1,3 +1,6 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { resolveDocumentCompany } from "@/lib/companies/companies";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
 // Persisted job invoices (Phase 12, Phase 4). Previously this route built a draft and returned
 // it without ever writing it anywhere — "dead" per the plan doc, since nothing called it; the
 // job detail page built invoice rows as pure ephemeral React state instead, discarded the moment
@@ -86,7 +89,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   if (saved.businessId !== businessId || saved.jobId !== jobId || requestedId && saved.kind !== "deposit") return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const invoice = requestedId ? { ...saved, invoiceId } : await updateStandardDraft(db, businessId, invoiceId);
   const business = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
-  return jsonWithCache({ invoice, payNowAvailable: !!invoice && payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, invoice) }, "noStore");
+  const company = invoice ? await loadDocumentCompany(db, businessId, business, invoice, jobSnap.data() ?? {}) : null;
+  return jsonWithCache({ invoice, payNowAvailable: !!invoice && payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, { ...invoice, ...(company ? { companyId: company.id } : {}) }) }, "noStore");
 }
 
 // POST /api/jobs/[jobId]/invoice — create the (one) invoice for this job from its current
@@ -143,13 +147,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });
   const invoiceId = await allocateJobInvoiceNumber(db, businessId);
   const now = Date.now();
-  const name = typeof business?.businessName === "string" ? business.businessName : "";
+  const documentBusiness = documentLetterhead(business ?? {}, resolveDocumentCompany(business, { jobCompanyId: job.companyId, customerCompanyId: customer?.companyId }));
+  const name = typeof documentBusiness.businessName === "string" ? documentBusiness.businessName : "";
   const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.jobNoun };
   const copy = business?.invoiceCopy ?? {};
   const openingTemplate = await loadLetter(db, businessId, "invoice_opening");
   const openingLetter = renderLetter(openingTemplate, { date: values.visitDate, "customer.name": job.clientName,
     "customer.code": customer?.customerCode, billTo: customer?.address ?? job.address, serviceAt: job.address, workOrder: jobId,
-    description: job.title, scope: scopeText(acceptedQuote, job.findings?.filter(finding => finding.includeInReport)), "business.name": name, "business.license": business?.licenseNumber,
+    description: job.title, scope: scopeText(acceptedQuote, job.findings?.filter(finding => finding.includeInReport)), "business.name": name, "business.license": documentBusiness.licenseNumber,
   }, { includeOptional: openingTemplate.sections.filter(s => s.defaultOn).map(s => s.id) });
   const invoice: JobInvoice = {
     invoiceId,

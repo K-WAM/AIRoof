@@ -11,6 +11,8 @@ export interface LetterTemplate {
 
 /** Saved alongside the report's existing options. Missing layout keeps the original report. */
 export interface ReportLetterOptions {
+  companyId?: string;
+  sentAt?: number;
   priceMode?: "lines" | "project";
   layout?: "report" | "inspection_completion" | "repair_completion";
   locations?: string;

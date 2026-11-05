@@ -1,3 +1,4 @@
+import { companyAssignment } from "@/lib/companies/assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -76,6 +77,7 @@ export async function PATCH(
   const current = snap.data() as Customer;
 
   const update: Record<string, unknown> = { updatedAt: Date.now() };
+  if (body.companyId !== undefined) Object.assign(update, companyAssignment((await db.collection("businesses").doc(businessId).get()).data(), body.companyId));
   const nextName = name !== undefined ? name.trim() : current.name;
   const nextPhone = phone !== undefined ? phone : current.phone;
   if (name !== undefined) update.name = nextName;

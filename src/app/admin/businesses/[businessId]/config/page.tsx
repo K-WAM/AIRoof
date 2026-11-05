@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/config/appUrl";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { TeamPanel } from "@/app/company/settings/TeamPanel";
+import { CompaniesPanel } from "./CompaniesPanel";
 import { ProductsPanel } from "./ProductsPanel";
 import { PhoneLinesPanel } from "./PhoneLinesPanel";
 import { HoursEditor, DEFAULT_BUSINESS_HOURS } from "@/components/scheduling/HoursEditor";
@@ -802,6 +803,7 @@ export default function AdminBusinessConfigPage({
 
           {/* ─── Products (what the contract includes) ─── */}
           <ProductsPanel businessId={businessId} stored={biz.products} requests={biz.upgradeRequests} />
+          <CompaniesPanel businessId={businessId} />
 
           {/* ─── Subscription & Billing ─── */}
           <section className="panel" id="subscription" aria-labelledby="subscription-title">

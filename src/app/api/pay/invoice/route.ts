@@ -1,3 +1,6 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { letterheadBlock } from "@/lib/documents/emailBlocks";
 import { createHash, randomBytes } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest } from "next/server";
@@ -6,7 +9,7 @@ import { payNowAvailability } from "@/lib/billing/payNow";
 import { verifyPayToken } from "@/lib/billing/payNowToken";
 import { getStripeClient, isStripeConfigured } from "@/lib/billing/stripePayments";
 import { invoiceBalance } from "@/lib/billing/customerPayments";
-import { escapeHtml, resolveLetterhead } from "@/lib/documents/letterhead";
+import { escapeHtml } from "@/lib/documents/letterhead";
 import { getAppUrl } from "@/lib/config/appUrl";
 import { fmtMoney } from "@/lib/format/money";
 import type { BusinessConfig } from "@/types";
@@ -46,7 +49,9 @@ async function linked(input: NonNullable<ReturnType<typeof parse>>) {
     || !verifyPayToken(input.t, input.b, input.i, invoice) || !payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, invoice)) return { name };
   const job = await db.collection(`businesses/${input.b}/jobs`).doc(invoice.jobId).get();
   if (!job.exists || (invoice.kind !== "deposit" && job.data()?.invoiceId !== input.i)) return { name };
-  return { name, db, business, invoice };
+  const company = await loadDocumentCompany(db, input.b, business, invoice, job.data() ?? {});
+  if (!payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, { ...invoice, ...(company ? { companyId: company.id } : {}) })) return { name };
+  return { name: company?.name || name, db, business, invoice, company };
 }
 
 export async function GET(req: NextRequest) {
@@ -61,12 +66,13 @@ export async function GET(req: NextRequest) {
     const { business, invoice } = link;
     if (activePending(invoice)) return processing();
     const logos = await link.db.collection(`businesses/${input.b}/library`).doc("logos").get();
-    const logo = resolveLetterhead(business, (logos.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", invoice.logoId).logoUrl;
+    const brand = documentLetterhead(business, link.company, (logos.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
+    const logo = brand.logoUrl;
     const safeLogo = logo && (/^https:\/\//i.test(logo) || /^data:image\/(png|jpeg|webp);base64,/i.test(logo)) ? `<img src="${escapeHtml(logo)}" alt="" style="max-width:180px;max-height:90px">` : "";
     const due = invoice.dueAt ? new Date(invoice.dueAt).toLocaleDateString("en-US", { timeZone: business.timezone || "America/New_York", year: "numeric", month: "long", day: "numeric" }) : "On receipt";
     const fields = Object.entries(input).map(([name, value]) => `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`).join("");
     const buttonStyle = "display:block;width:100%;min-height:48px;padding:12px;margin-top:12px;border:1px solid #0f766e;border-radius:8px;font-size:16px;cursor:pointer";
-    return page(link.name, `${safeLogo}<p>Invoice ${escapeHtml(invoice.invoiceId)}</p><p style="font-size:28px;font-weight:bold">${escapeHtml(fmtMoney(invoiceBalance(invoice)))} due</p><p>Due: ${escapeHtml(due)}</p><form method="post" action="/api/pay/invoice">${fields}<button type="submit" name="method" value="card" style="${buttonStyle};background:#0f766e;color:white">Pay by card</button><button type="submit" name="method" value="us_bank_account" style="${buttonStyle};background:white;color:#0f766e">Pay by bank (ACH)</button></form>`);
+    return page(link.name, `${link.company ? letterheadBlock(brand, "", []) : safeLogo}<p>Invoice ${escapeHtml(invoice.invoiceId)}</p><p style="font-size:28px;font-weight:bold">${escapeHtml(fmtMoney(invoiceBalance(invoice)))} due</p><p>Due: ${escapeHtml(due)}</p><form method="post" action="/api/pay/invoice">${fields}<button type="submit" name="method" value="card" style="${buttonStyle};background:#0f766e;color:white">Pay by card</button><button type="submit" name="method" value="us_bank_account" style="${buttonStyle};background:white;color:#0f766e">Pay by bank (ACH)</button></form>`);
   } catch { return unavailable(); }
 }
 

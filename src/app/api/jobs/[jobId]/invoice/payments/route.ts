@@ -1,3 +1,6 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import type { LibraryLogo } from "@/types/library";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -81,9 +84,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   let receiptWarning: string | undefined;
   if (recipients.length && body.sendReceipt !== false) {
     const biz = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
-    const business = { businessName: String(biz.businessName || "Your service provider"), brandColor: biz.brandColor, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail };
+    const company = await loadDocumentCompany(db, businessId, biz, result.invoice, jobSnap.data() ?? {});
+    const logos = company ? ((await db.collection(`businesses/${businessId}/library`).doc("logos").get()).data()?.logos ?? []) as LibraryLogo[] : [];
+    const business = company ? { ...documentLetterhead(biz, company, logos), businessName: company.name } : { businessName: String(biz.businessName || "Your service provider"), brandColor: biz.brandColor, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail };
     const email = buildCustomerReceiptEmail(result.invoice, result.payment, result.balance, business, biz.timezone);
-    const sent = await deliverDocument(recipients, to => sendEmail({ businessId, to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail }));
+    const sent = await deliverDocument(recipients, to => sendEmail({ businessId, to, ...email, fromName: business.businessName, replyTo: business.contactEmail || biz.notificationEmail }));
     receipt = sent.failed.length ? "failed" : "sent";
     receiptWarning = deliveryWarning(sent);
     await jobRef.update({ documentRecipients: recipients, updatedAt: Date.now() });

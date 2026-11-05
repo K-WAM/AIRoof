@@ -1,3 +1,7 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { isMultiCompany } from "@/lib/companies/companies";
+import { claimDocumentCompany, finishDocumentCompany } from "@/lib/companies/documentSend";
 import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -54,14 +58,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get()
     : null;
   const quote = quoteSnap?.exists ? (quoteSnap.data() as JobQuote) : null;
-  const biz = bizSnap.exists ? bizSnap.data()! : {};
+  const storedBusiness = bizSnap.exists ? bizSnap.data()! : {};
+  let claim;
+  try { claim = isMultiCompany(storedBusiness) ? await claimDocumentCompany(db, businessId, jobId, "report") : null; }
+  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Document is being sent" }, { status: 409 }); }
+  let finalized = false;
+  try {
+  const biz = documentLetterhead(storedBusiness, await loadDocumentCompany(db, businessId, storedBusiness, claim ? { companyId: claim.companyId } : job.reportDocument, job), (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], job.reportDocument?.logoId);
   const bizName: string = biz.businessName ?? "Field Report";
   const projection = job.parsed ?? buildProjection(updatesSnap.docs.map((d) => ({ updateId: d.id, ...d.data() })) as FieldUpdate[]);
   const html = buildJobReportEmailHtml({
     reportDocument: job.reportDocument,
     ...(isCompletion(job.reportDocument) ? { template: await loadLetter(db, businessId, job.reportDocument.layout) } : {}),
     business: biz,
-    logos: (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [],
+    logos: [],
     jobId,
     title: job.title ?? jobId,
     billTo: { name: job.clientName ?? "", address: job.address, phone: job.clientPhone },
@@ -83,5 +93,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (sent.delivered.length === 0) {
     return NextResponse.json({ error: "The email could not be delivered — check the address and try again." }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
+  await finishDocumentCompany(db, claim, true);
+  finalized = true;
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), ...(claim ? { companyId: claim.companyId } : {}) });
+  } finally { if (!finalized) await finishDocumentCompany(db, claim, false); }
 }

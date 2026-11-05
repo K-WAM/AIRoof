@@ -16,7 +16,7 @@ import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
-import { logoStyle } from "@/lib/branding/logo";
+import { CompanyBrand } from "@/components/companies/CompanyBrand";
 import { BootstrapProvider, useBootstrap } from "@/contexts/BootstrapContext";
 import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
@@ -38,23 +38,7 @@ const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
 ];
 
 function BusinessBrand() {
-  const business = useBootstrap().data?.business;
-  const name = business?.businessName?.trim() || "Luxor AI";
-  const logoUrl = business?.logoUrl;
-  const lightSurfaceLogo = logoStyle({ variant: "color" }, "light");
-  return (
-    <div className="company-brand">
-      {logoUrl ? (
-        <img src={logoUrl} alt={`${name} logo`} className="company-brand-logo company-brand-logo--business" style={lightSurfaceLogo} />
-      ) : (
-        <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
-      )}
-      <span className="company-brand-text">
-        <span className="company-brand-name">{name}</span>
-        <span className="company-brand-powered">Powered by Luxor</span>
-      </span>
-    </div>
-  );
+  return <CompanyBrand business={useBootstrap().data?.business} />;
 }
 
 function MobileNewButton() {
