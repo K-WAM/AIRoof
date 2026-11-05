@@ -557,7 +557,7 @@ function toTimestamp(v: unknown, tz = "America/New_York"): number | undefined {
   if (typeof v === "number") return v;
   if (typeof v === "string") {
     // Bare ISO string (no timezone) — treat as business local time, not UTC, since Vercel runs in UTC
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(v)) {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) && !v.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(v)) {
       const match = v.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
       if (!match) return undefined;
       return zonedDateTimeToUtc({
