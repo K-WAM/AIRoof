@@ -10,6 +10,7 @@ import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 import { displayLine } from "@/lib/calls/voiceTags";
 
 export type ReviewRequest = RequestReviewEntity & {
+  openDecline?: boolean;
   callerName?: string;
   urgency?: string;
   preferredTime?: string;
@@ -53,7 +54,7 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState<"accept" | "decline" | "call" | null>(null);
   const [transcript, setTranscript] = useState(false);
-  const [decline, setDecline] = useState(false);
+  const [decline, setDecline] = useState(!!request.openDecline);
   const missing = missingRequestInformation(request);
 
   const act = async (action: "accept" | "decline" | "call") => {

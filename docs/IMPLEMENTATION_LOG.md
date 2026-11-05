@@ -2150,3 +2150,7 @@ Added a title explaining that the callback places a real per-minute billed call.
 ## T-299 - Field name prompt (browser verification pending)
 
 The QR screen focuses the missing name and redirects taps on name-blocked controls to it. Added reasons for name or job blocked note, photo and finding actions. TypeScript and 26 related tests pass; lint reports an existing image warning. Browser check and remaining disabled-control audit pending. No removals.
+
+## T-288 - Visible booked request decline
+
+The secondary Decline opens the existing review form with its decline options shown; Send decline remains the explicit final action. TypeScript, eight related tests and 25 booking scenarios pass; lint has one existing hook warning. Browser verification pending. No removals.

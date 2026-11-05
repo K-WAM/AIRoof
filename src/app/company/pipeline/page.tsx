@@ -211,6 +211,7 @@ export default function PipelinePage() {
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);
   const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
+  const [openDecline, setOpenDecline] = useState(false);
   const [crewNames, setCrewNames] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
@@ -590,10 +591,11 @@ export default function PipelinePage() {
               {busy ? "Confirming…" : confirmErrors[appt.appointmentId] ? "Retry confirmation" : confirmButtonLabel(channelsFor(appt))}
             </button>
           ) : !isPast && appt.status !== "cancelled" && !isConfirmed ? (
-            <button className="button primary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>
+            <button className="button primary" type="button" onClick={() => { setOpenDecline(false); setReviewAppt(appt); }}>Review request</button>
           ) : !readOnly && showJobActions && isConfirmed && !appt.jobId ? (
             <button className="button primary" disabled={busy} onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })}>Create {vocab.jobNoun}</button>
           ) : null}
+          {!readOnly && !isPast && appt.status !== "cancelled" && isPending && !timePassed && <button type="button" className="button secondary" onClick={() => { setOpenDecline(true); setReviewAppt(appt); }}>Decline</button>}
           {confirmErrors[appt.appointmentId] && <p role="alert" className="c1-inline-error">{confirmErrors[appt.appointmentId]}</p>}
           <details className="c1-more-menu">
             <summary className="button secondary">More</summary>
@@ -604,7 +606,7 @@ export default function PipelinePage() {
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
               {!readOnly && appt.callerPhone && <button className="button secondary" title="Places a real call from your AI line (billed per minute)" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
-              {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
+              {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => { setOpenDecline(false); setReviewAppt(appt); }}>Review details</button>}
               {!readOnly && !isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
               {!readOnly && !isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
             </div>
@@ -1003,7 +1005,7 @@ export default function PipelinePage() {
       <RequestReviewDialog
         open={!!reviewAppt}
         onClose={() => setReviewAppt(null)}
-        request={reviewAppt ? { ...reviewAppt, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
+        request={reviewAppt ? { ...reviewAppt, openDecline, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
