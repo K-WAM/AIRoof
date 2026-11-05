@@ -2209,4 +2209,17 @@ exist in this branch yet. Server-side gating is not part of this task.
 Evidence: tsc clean; eslint clean on the changed files (one pre-existing unused-import warning in layout.tsx);
 navModel tests 16/16 (22 tests in the related run). No removals.
 
+## 2026-11-05 - T-302 business logo and name in the app shell (DeepSeek K6)
+
+The desktop sidebar header and the phone topbar now render one BusinessBrand component from the bootstrap business
+data: the business's logoUrl (plain img, contain, max 104 x 36) beside the business name, with a small
+"Powered by Luxor" line. When the business has no logo the Luxor logo is shown instead, and the name falls back to
+"Luxor AI" while bootstrap loads. The shell surface is white, so the logo is drawn with logoStyle(variant color,
+surface light), which applies no filter; the coloured-bar knockout rule is untouched. Buttons and accents are
+unchanged (one teal accent). New styles live only in the marked K6 block at the end of globals.css. Both header
+instances use the same component, so the sidebar and phone header cannot drift.
+Evidence: tsc clean; eslint 0 errors on the changed files (warnings: pre-existing unused Link import in layout.tsx,
+no-img-element for the remote business logo); no unit test targets the shell, so vitest related found no test files.
+Visual check not run (this stream is barred from Playwright/e2e). No removals.
+
 

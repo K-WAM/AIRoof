@@ -3749,3 +3749,38 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
 .job-tabs-with-help > .job-tabs { flex: 1; min-width: 0; }
 @media (pointer: coarse) { .help-hint { width: 44px; height: 44px; } }
+
+/* === K6 shell === */
+.company-brand { gap: 10px; min-width: 0; }
+.company-brand-logo { flex: none; }
+.company-brand-logo--business {
+  width: auto;
+  max-width: 104px;
+  max-height: 36px;
+  object-fit: contain;
+}
+.company-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.company-brand-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.company-brand-powered {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .company-brand-logo--business { max-width: 88px; }
+}
+/* === end K6 === */
