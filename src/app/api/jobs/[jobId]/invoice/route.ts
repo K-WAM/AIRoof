@@ -25,6 +25,13 @@ import type { JobQuote } from "@/types/quote";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { loadLetter } from "@/lib/documents/letterStore";
 import { renderLetter } from "@/lib/documents/letters";
+import { updateStandardDraft, jobInvoices, InvoiceConflict } from "@/lib/billing/jobInvoiceStore";
+import { withInvoiceDeposits } from "@/lib/billing/jobInvoiceDeposits";
+
+async function saveStandardDraft(db: FirebaseFirestore.Firestore, businessId: string, invoiceId: string, patch: Partial<JobInvoice>) {
+  try { return await updateStandardDraft(db, businessId, invoiceId, patch); }
+  catch (e) { if (e instanceof InvoiceConflict) return null; throw e; }
+}
 import { validLogoSelection } from "@/lib/documents/logoSelection";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
@@ -70,7 +77,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   const invSnap = await db.collection(`businesses/${businessId}/invoices`).doc(invoiceId).get();
   if (!invSnap.exists) return NextResponse.json({ invoice: null });
 
-  return NextResponse.json({ invoice: { invoiceId: invSnap.id, ...invSnap.data() } as JobInvoice });
+  const invoice = await updateStandardDraft(db, businessId, invoiceId);
+  return NextResponse.json({ invoice });
 }
 
 // POST /api/jobs/[jobId]/invoice — create the (one) invoice for this job from its current
@@ -104,9 +112,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (job.invoiceId) {
     const existingRef = db.collection(`businesses/${businessId}/invoices`).doc(job.invoiceId);
     const existing = await existingRef.get();
-    if (existing.exists) {
+    if (existing.exists && existing.data()?.kind !== "deposit") {
       const existingInvoice = existing.data() as JobInvoice;
-      if (!force) return NextResponse.json({ invoice: existingInvoice });
+      if (!force) return NextResponse.json({ invoice: await updateStandardDraft(db, businessId, job.invoiceId) });
       if (existingInvoice.status !== "draft") {
         return NextResponse.json({ error: `Invoice is ${existingInvoice.status} and can no longer be regenerated` }, { status: 409 });
       }
@@ -116,8 +124,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const customerSubtotal = existingInvoice.customerSubtotal ?? rebuilt.acceptedQuote?.subtotal;
       const patch = { ...rebuilt.draft, priceMode, ...(priceMode === "project" ? { customerSubtotal } : {}),
         ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode, customerSubtotal }), updatedAt: Date.now() };
-      await existingRef.update(patch);
-      return NextResponse.json({ invoice: { ...existingInvoice, ...patch } });
+      const invoice = await saveStandardDraft(db, businessId, job.invoiceId, patch);
+      return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
     }
   }
 
@@ -161,12 +169,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     createdBy: gate.user.uid,
   };
 
+  const deposits = await jobInvoices(db, businessId, jobId).get();
+  const reconciled = withInvoiceDeposits(invoice, deposits.docs.map(d => ({ ...d.data(), invoiceId: d.id }) as JobInvoice));
   const batch = db.batch();
-  batch.set(db.collection(`businesses/${businessId}/invoices`).doc(invoiceId), invoice);
+  batch.set(db.collection(`businesses/${businessId}/invoices`).doc(invoiceId), reconciled);
   batch.update(jobRef, { invoiceId, updatedAt: now });
   await batch.commit();
 
-  return NextResponse.json({ invoice }, { status: 201 });
+  return NextResponse.json({ invoice: reconciled }, { status: 201 });
 }
 
 interface PatchBody {
@@ -234,6 +244,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const invSnap = await invRef.get();
   if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const current = invSnap.data() as JobInvoice;
+  if (current.kind === "deposit") return NextResponse.json({ error: "No standard invoice exists" }, { status: 404 });
 
   // "Mark paid": the one change a sent invoice still accepts. Nothing else may ride along with it.
   if (body.status !== undefined) {
@@ -253,7 +264,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
       const freshInvoiceSnap = await tx.get(invRef);
       const freshJob = freshJobSnap.data() as Job | undefined;
       const freshInvoice = freshInvoiceSnap.data() as JobInvoice | undefined;
-      if (!freshJob || freshJob.invoiceId !== invoiceId || freshInvoice?.status !== "sent") return false;
+      if (!freshJob || freshJob.documentSendLock || freshJob.invoiceId !== invoiceId || freshInvoice?.status !== "sent" || freshInvoice.kind === "deposit") return false;
       tx.update(invRef, patch);
       tx.update(jobRef, { status: "complete", completedAt: freshJob.completedAt ?? now, paymentReceivedAt: now, updatedAt: now,
         statusHistory: [...(freshJob.statusHistory ?? []), { status: "complete", at: now, by: gate.user.uid }] });
@@ -290,8 +301,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     const merged = addFindingsToInvoice(current, job.findings ?? [], librarySnap.exists ? librarySnap.data() as LibraryPricing : null);
     const patch = { labor: merged.labor, materials: merged.materials, other: merged.other,
       ...customerTotals({ kind: "invoice", invoice: merged, priceMode: current.priceMode, customerSubtotal: current.customerSubtotal }), updatedAt: Date.now() };
-    await invRef.update(patch);
-    return NextResponse.json({ invoice: { ...current, ...patch } });
+    const invoice = await saveStandardDraft(db, businessId, invoiceId, patch);
+    return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
   }
 
   const merged: Pick<JobInvoice, "labor" | "materials" | "other" | "taxRate" | "discount"> = {
@@ -328,7 +339,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
     ...(body.notes !== undefined ? { notes: body.notes } : {}),
   };
-  await invRef.update(patch);
+  const invoice = await saveStandardDraft(db, businessId, invoiceId, patch);
 
-  return NextResponse.json({ invoice: { ...current, ...patch } });
+  return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
 }

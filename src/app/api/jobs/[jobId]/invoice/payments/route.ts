@@ -27,7 +27,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
   const jobSnap = await jobRef.get();
-  const invoiceId = jobSnap.data()?.invoiceId;
+  const requestedDeposit = typeof body.invoiceId === "string" ? body.invoiceId : undefined;
+  const invoiceId = requestedDeposit ?? jobSnap.data()?.invoiceId;
   if (!invoiceId) return NextResponse.json({ error: "This job has no invoice yet" }, { status: 404 });
   const invRef = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
   const now = Date.now();
@@ -39,8 +40,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const snap = await tx.get(invRef);
       if (!snap.exists) throw new HttpError(404, "Invoice not found");
       const currentJob = currentJobSnap.data() as Job | undefined;
-      if (!currentJob || currentJob.invoiceId !== invoiceId) throw new HttpError(409, "The job's invoice changed. Reload and try again.");
+      if (!currentJob || (!requestedDeposit && currentJob.invoiceId !== invoiceId)) throw new HttpError(409, "The job's invoice changed. Reload and try again.");
       const invoice = snap.data() as JobInvoice;
+      if (invoice.jobId && invoice.jobId !== jobId || (requestedDeposit ? invoice.kind !== "deposit" : invoice.kind === "deposit")) throw new HttpError(404, "Invoice does not match this document.");
+      if (currentJob.documentSendLock) throw new HttpError(409, "An invoice is being sent. Try again afterwards.");
       if (invoice.status === "draft") throw new HttpError(409, "Send the invoice before recording a payment.");
       if (invoice.status === "void") throw new HttpError(409, "This invoice was voided.");
       const balance = invoiceBalance(invoice);
@@ -52,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const { payments, amountPaid, status, paidAt } = applyPayment(invoice, payment);
       const applied = { payments, amountPaid, status, ...(paidAt ? { paidAt } : {}) };
       tx.update(invRef, { ...applied, updatedAt: now });
-      if (status === "paid") {
+      if (status === "paid" && invoice.kind !== "deposit") {
         const change: JobStatusChange = { status: "complete", at: now, by: gate.user.uid };
         tx.update(jobRef, { status: "complete", completedAt: currentJob.completedAt ?? now, paymentReceivedAt: paidAt ?? now,
           updatedAt: now, statusHistory: [...(currentJob.statusHistory ?? []), change] });

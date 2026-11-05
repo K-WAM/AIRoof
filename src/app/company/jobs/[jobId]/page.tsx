@@ -19,6 +19,7 @@ import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { canSendInvoice } from "./jobInvoice";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { DepositInvoices } from "./DepositInvoices";
 import { LogoPicker } from "@/lib/documents/LogoPicker";
 import { ReportLayoutControls } from "./ReportLayoutControls";
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
@@ -826,7 +827,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     other: otherRowsToLines(otherRows),
     taxRate: parseFloat(taxRate) || 0,
     discount: invoiceDiscount,
-  }, priceMode: invoicePriceMode, customerSubtotal: invoiceCustomerSubtotal });
+  }, priceMode: invoicePriceMode, customerSubtotal: invoiceCustomerSubtotal, depositsApplied: invoiceCustomerDetails.depositsApplied });
 
   // Autosave (debounced 1200ms) — PATCH only while a real draft invoice exists; the server
   // itself refuses a PATCH once status !== "draft", and this mirrors that so an edit after
@@ -1422,6 +1423,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
+              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.clientEmail ?? ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
               <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />
               {invoiceStatus === "draft" && !readOnly && <CustomerVersionPanel draft priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
@@ -1812,6 +1814,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </button>
 
                 {/* Totals */}
+                {!!invoiceCustomerDetails.depositsApplied?.length && <div>{invoiceCustomerDetails.depositsApplied.map(deposit => <p key={deposit.invoiceId} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Less deposit ({deposit.invoiceId})</span><strong>−{fmtMoney(deposit.amount)}</strong></p>)}<p style={{ fontSize: 12 }}>Tax is calculated on work; deposits are deducted after tax.</p></div>}
                 <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <div style={{ minWidth: 260 }}>
@@ -1888,7 +1891,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 )}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
                   meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Reference", "Work order " + jobId], ...(invoiceCustomerDetails.description ? [["Description", invoiceCustomerDetails.description] as [string, string]] : []), ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
-                  serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
+                  depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
                   billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
                   findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}

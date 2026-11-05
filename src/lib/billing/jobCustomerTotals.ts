@@ -13,6 +13,7 @@ const round2 = roundCents;
 /** The only calculation of persisted customer figures for quote and invoice. */
 type QuoteInput = { kind: "quote"; lineSubtotal: number; priceMode?: PriceMode; customerSubtotal?: number };
 type InvoiceInput = {
+  depositsApplied?: JobInvoice["depositsApplied"];
   kind: "invoice";
   invoice: Pick<JobInvoice, "labor" | "materials" | "other" | "taxRate" | "discount">;
   priceMode?: PriceMode;
@@ -29,10 +30,12 @@ export function customerTotals(input: QuoteInput | InvoiceInput) {
     return { calculatedSubtotal, subtotal, total: subtotal, taxAmount: 0 };
   }
   const lineTotals = computeTotals({ ...input.invoice, discount: undefined });
+  const credits = (input.depositsApplied ?? []).reduce((sum, deposit) => sum + Math.round(deposit.amount * 100), 0);
+  const afterDeposits = (total: number) => Math.max(0, Math.round(total * 100) - credits) / 100;
   const calculatedSubtotal = round2(lineTotals.laborSubtotal + lineTotals.materialSubtotal + lineTotals.otherSubtotal);
-  if (input.priceMode !== "project") return { ...computeTotals(input.invoice), calculatedSubtotal };
+  if (input.priceMode !== "project") { const totals = computeTotals(input.invoice); return { ...totals, total: afterDeposits(totals.total), calculatedSubtotal }; }
   if (!validCustomerSubtotal(input.customerSubtotal)) throw new Error("Invalid customer subtotal");
   const subtotal = input.customerSubtotal;
   const taxAmount = round2(subtotal * (input.invoice.taxRate / 100));
-  return { ...lineTotals, calculatedSubtotal, subtotal, taxAmount, total: round2(subtotal + taxAmount) };
+  return { ...lineTotals, calculatedSubtotal, subtotal, taxAmount, total: afterDeposits(round2(subtotal + taxAmount)) };
 }

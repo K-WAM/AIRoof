@@ -2,6 +2,36 @@ import { api, must, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("50 percent deposit is sent separately and credited on the final", async ({ as }) => {
+  test.setTimeout(180_000);
+  const owner = await api("owner");
+  const email = "deposit@customer.e2e.test";
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Deposit review", address: "14 Example Avenue", clientName: "Example Customer", clientEmail: email }), "deposit job");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "quote");
+  must(await owner.patch(`/api/jobs/${job.jobId}/quote`, { businessId: B, lines: [{ lineId: "service", kind: "other", description: "Service work", quantity: 1, unitPrice: 8000 }] }), "scope");
+  must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: email }), "send quote");
+  must(await owner.patch(`/api/jobs/${job.jobId}/quote`, { businessId: B, status: "accepted" }), "accepted quote");
+  must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "final draft");
+  const page = await as("owner");
+  await page.goto(`/company/jobs/${job.jobId}?tab=invoice`);
+  await settle(page);
+  const deposits = page.getByRole("region", { name: "Deposit invoices" });
+  await deposits.locator("summary").first().click();
+  await deposits.getByRole("button", { name: "Request a deposit", exact: true }).click();
+  await deposits.getByRole("button", { name: "Create deposit draft", exact: true }).click();
+  await expect(deposits).toContainText("$4,000.00");
+  await expect(deposits).toContainText("Progress billing: 50% complete");
+  await deposits.getByRole("button", { name: "Send deposit", exact: true }).click();
+  await expect(page.locator(".invoice-doc")).toContainText("Less deposit (INV-");
+  await expect(page.locator(".invoice-doc")).toContainText("$4,000.00");
+  const final = must(await owner.get(`/api/jobs/${job.jobId}/invoice?businessId=${B}`), "final").invoice;
+  expect(final.total).toBe(4000);
+  expect(final.depositsApplied).toHaveLength(1);
+  expect(final.kind).not.toBe("deposit");
+  await expectHealthy(page);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot(page, "documents-deposit-final");
+});
 test("letterhead selection persists on the document", async ({ as }) => {
   test.setTimeout(150_000);
   const owner = await api("owner");

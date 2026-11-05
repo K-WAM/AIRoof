@@ -5,8 +5,7 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { noticesForDocument } from "@/lib/documents/notices";
-import type { JobInvoice } from "@/types/invoice";
-import type { Job, JobStatusChange } from "@/types/jobs";
+import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import type { LibraryLogo } from "@/types/library";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
@@ -25,7 +24,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
 
-  let body: { businessId?: string; to?: string };
+  let body: { businessId?: string; to?: string; invoiceId?: string };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
@@ -35,15 +34,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
 
-  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
-  const jobSnap = await jobRef.get();
-  const invoiceId = jobSnap.data()?.invoiceId;
-  if (!invoiceId) return NextResponse.json({ error: "No invoice exists for this job yet" }, { status: 404 });
-
-  const invRef = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
-  const invSnap = await invRef.get();
-  if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  const invoice = invSnap.data() as JobInvoice;
+  if (body.invoiceId !== undefined && (typeof body.invoiceId !== "string" || !/^INV-\d+$/.test(body.invoiceId))) return NextResponse.json({ error: "Invalid deposit invoice" }, { status: 400 });
+  let claimed;
+  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId); }
+  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Invoice cannot be sent" }, { status: 409 }); }
+  const { invoice, job, token } = claimed;
+  let finalized = false;
+  try {
   if (!invoice.billTo.name.trim() || ![
     ...invoice.labor.map((line) => line.name),
     ...invoice.materials.map((line) => line.item),
@@ -82,9 +79,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     licenseNumber: biz.licenseNumber,
     industry: biz.industry,
     timezone: biz.timezone,
-  }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
+  }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
-  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
   effectiveBillingPrefs(biz));
 
   const sent = await sendEmail({
@@ -99,16 +96,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
   }
 
-  const now = Date.now();
-  // A resend of a paid invoice must not knock it back to "sent".
-  await invRef.update({ ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
-
-  // Sending — not drafting — is what bills the customer, so this is the moment the job becomes Invoiced.
-  const job = jobSnap.data() as Job;
-  if (invoice.status !== "paid" && job.status !== "invoiced") {
-    const change: JobStatusChange = { status: "invoiced", at: now, by: gate.user.uid };
-    await jobRef.update({ status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), change] });
-  }
-
+  await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, to, gate.user.uid, true);
+  finalized = true;
   return NextResponse.json({ ok: true });
+  } finally {
+    if (!finalized) await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, to, gate.user.uid, false);
+  }
 }

@@ -20,5 +20,5 @@ describe("letter text renderer", () => {
 });
 describe("amount in words", () => {
   it.each([[0, "Zero Dollars"], [2695, "Two Thousand Six Hundred Ninety-Five Dollars"], [2695.5, "Two Thousand Six Hundred Ninety-Five Dollars and 50/100"], [1_000_001.01, "One Million One Dollars and 01/100"], [9_999_999.99, "Nine Million Nine Hundred Ninety-Nine Thousand Nine Hundred Ninety-Nine Dollars and 99/100"]])("renders %s", (amount, expected) => expect(amountInWords(amount as number)).toBe(expected));
-  it.each([-1, NaN, Infinity, 10_000_000])("refuses %s", amount => expect(() => amountInWords(amount)).toThrow());
+  it.each([-1, NaN, Infinity, 10_000_000.01])("refuses %s", amount => expect(() => amountInWords(amount)).toThrow());
 });

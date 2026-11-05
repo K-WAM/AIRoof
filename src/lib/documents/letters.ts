@@ -51,7 +51,7 @@ function words(n: number): string {
   return `${words(Math.floor(n / scale))} ${scale === 1000 ? "Thousand" : "Million"}${n % scale ? ` ${words(n % scale)}` : ""}`;
 }
 export function amountInWords(amount: number): string {
-  if (!Number.isFinite(amount) || amount < 0 || amount > 9_999_999.99) throw new RangeError("Amount must be between 0 and 9,999,999.99");
+  if (!Number.isFinite(amount) || amount < 0 || amount > 10_000_000) throw new RangeError("Amount must be between 0 and 10,000,000");
   const cents = Math.round(amount * 100);
   return `${words(Math.floor(cents / 100))} Dollars${cents % 100 ? ` and ${String(cents % 100).padStart(2, "0")}/100` : ""}`;
 }
@@ -67,7 +67,10 @@ export const DEFAULT_LETTERS: Record<LetterKind, LetterTemplate> = {
   inspection_completion: make("inspection_completion", "Inspection completion notice", "We have completed the inspection at {{serviceAt}}. Please see the recorded findings and photographs for your records."),
   repair_completion: make("repair_completion", "Repair completion notice", "We have completed the approved work at the following locations:\n{{locations}}\nPlease see the photographs for your records."),
   invoice_opening: make("invoice_opening", "Invoice opening", "The work described below at {{serviceAt}} is complete. Please arrange payment under the agreed terms."),
-  deposit_opening: make("deposit_opening", "Deposit request", "Under our agreement dated {{agreementDate}}, we request a {{depositPercent}}% deposit of {{depositAmount}}. This amount will be deducted from the final invoice."),
+  deposit_opening: { ...make("deposit_opening", "Deposit request", "Under our agreement dated {{agreementDate}}, we request a {{depositPercent}}% deposit of {{depositAmount}}. This amount will be deducted from the final invoice."), sections: [
+    { id: "opening", body: "Under our agreement dated {{agreementDate}}, we request a {{depositPercent}}% deposit of {{depositAmount}}. This amount will be deducted from the final invoice." },
+    { id: "progress", heading: "Invoice line", body: "Progress billing: {{depositPercent}}% complete" },
+  ] },
 };
 
 export function isLetterKind(value: unknown): value is LetterKind { return typeof value === "string" && LETTER_KINDS.includes(value as LetterKind); }

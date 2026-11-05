@@ -3749,3 +3749,11 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
 .job-tabs-with-help > .job-tabs { flex: 1; min-width: 0; }
 @media (pointer: coarse) { .help-hint { width: 44px; height: 44px; } }
+/* === K1 documents === */
+.k1-deposit-print { display: none; }
+@media print {
+  body:not(.k1-print-deposit) .k1-deposit-print { display: none !important; }
+  body.k1-print-deposit .invoice-doc { display: none !important; }
+  body.k1-print-deposit .k1-deposit-print { display: block !important; }
+}
+/* === end K1 === */

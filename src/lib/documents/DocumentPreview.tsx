@@ -10,8 +10,8 @@ import { fmtMoney } from "@/lib/format/money";
 
 export type DocumentPhoto = JobPhotoMeta & { fullB64?: string; src?: string };
 
-export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, children, serviceAt, customerCode }: {
-  serviceAt?: string; customerCode?: string;
+export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill to", opening, narrative, findings, closing, thankYou, groups = [], sections = [], quoteSection, notices = [], totalLabel, total, photos = [], className = "", howToPay, children, serviceAt, customerCode, depositsApplied }:  {
+  serviceAt?: string; customerCode?: string; depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   children?: ReactNode;
   title: string; brand: Letterhead; meta: [string, string][];
   billTo: { name: string; address?: string; phone?: string }; partyLabel?: string; opening?: string; narrative?: string; findings?: Array<{ problem: string; solution: string; note?: string }>; closing?: string; thankYou?: string;
@@ -58,6 +58,7 @@ export function DocumentPreview({ title, brand, meta, billTo, partyLabel = "Bill
       </div>)}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 16, fontWeight: 800 }}><span>Quoted total</span><span>{fmtMoney(quoteSection.total)}</span></div>
     </section>}
+    {!!depositsApplied?.length && <section style={{ marginTop: 20 }}>{depositsApplied.map(deposit => <div key={deposit.invoiceId} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0" }}><span>Less deposit ({deposit.invoiceId})</span><strong>−{fmtMoney(deposit.amount)}</strong></div>)}<small>Tax is calculated on work; deposits are deducted after tax.</small></section>}
     {total !== undefined && totalLabel && <div style={{ display: "flex", justifyContent: "space-between", gap: 12, border: `2px solid ${accent}`, borderRadius: 6, padding: 14, marginTop: 24, fontWeight: 800 }}><span>{totalLabel}</span><span style={{ whiteSpace: "nowrap" }}>{fmtMoney(total)}</span></div>}
     {howToPay && (howToPay.instructions || howToPay.link) && <section data-testid="how-to-pay" style={{ marginTop: 16, padding: "12px 14px", border: "1px solid #e2e8f0", borderRadius: 8, background: "#f8fafc", breakInside: "avoid" }}>
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#64748b", marginBottom: 4 }}>How to pay</div>

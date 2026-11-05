@@ -70,6 +70,7 @@ export interface JobInvoice {
   kind?: "standard" | "deposit";
   /** Deposit invoices: the percent requested, 1-100. */
   depositPercent?: number;
+  depositRequestId?: string;
   /** Deposit invoices: the contract amount (dollars) the percent was taken from. */
   depositBasis?: number;
   /** Deposit invoices: when the customer agreed to the work (ms). */
