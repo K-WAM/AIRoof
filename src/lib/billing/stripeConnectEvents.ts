@@ -37,50 +37,67 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
     return;
   }
   if (!["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "charge.refunded"].includes(event.type)) return;
+  // Resolve ownership from the authenticated connected account, never from invoice metadata.
+  const owners = await db.collection("businesses").where("stripeConnect.accountId", "==", event.account).limit(1).get();
+  if (owners.empty) { ignored(event); return; }
+  const businessId = owners.docs[0].id;
+  const bizRef = db.collection("businesses").doc(businessId);
   const refund = event.type === "charge.refunded";
   const session = event.data.object as Stripe.Checkout.Session;
   const charge = event.data.object as Stripe.Charge;
   let metadata = refund ? charge.metadata : session.metadata;
-  // Charge metadata isn't guaranteed to inherit PaymentIntent metadata. Retrieve on the DIRECT account only.
-  if (refund && !metadata?.businessId) {
-    const intentId = providerId(charge.payment_intent);
-    if (!intentId || !idShape.test(intentId)) { ignored(event); return; }
+  const intentId = providerId(refund ? charge.payment_intent : session.payment_intent);
+  // Retrieve metadata only after proving this is one of our connected accounts.
+  if (refund && !metadata?.businessId && intentId && idShape.test(intentId)) {
     const intent = await getStripeClient().paymentIntents.retrieve(intentId, {}, { stripeAccount: event.account });
     metadata = intent.metadata;
   }
-  const businessId = metadata?.businessId, invoiceId = metadata?.invoiceId, jobId = metadata?.jobId;
-  if (![businessId, invoiceId, jobId].every(v => typeof v === "string" && idShape.test(v))) { ignored(event); return; }
-  const bizRef = db.collection("businesses").doc(businessId!);
-  const invRef = bizRef.collection("invoices").doc(invoiceId!);
-  const jobRef = bizRef.collection("jobs").doc(jobId!);
-  const [biz, inv] = await Promise.all([bizRef.get(), invRef.get()]);
-  if (biz.data()?.stripeConnect?.accountId !== event.account || inv.data()?.businessId !== businessId || inv.data()?.invoiceId !== invoiceId || inv.data()?.jobId !== jobId) { ignored(event); return; }
-  const intentId = providerId(refund ? charge.payment_intent : session.payment_intent);
+  const invoiceId = metadata?.invoiceId, jobId = metadata?.jobId;
+  const validId = (value: unknown): value is string => typeof value === "string" && idShape.test(value);
+  const invRef = validId(invoiceId) ? bizRef.collection("invoices").doc(invoiceId) : null;
+  const jobRef = validId(jobId) ? bizRef.collection("jobs").doc(jobId) : null;
   const paid = event.type === "checkout.session.async_payment_succeeded" || event.type === "checkout.session.completed" && session.payment_status === "paid";
-  if ((paid || refund) && (!intentId || !idShape.test(intentId))) { ignored(event); return; }
-  if (!refund && (session.mode !== "payment" || !idShape.test(session.id))) { ignored(event); return; }
-  if ((paid && (session.currency !== "usd" || !Number.isSafeInteger(session.amount_total) || session.amount_total! <= 0))
-    || refund && (charge.currency !== "usd" || !Number.isSafeInteger(charge.amount_refunded))) { ignored(event); return; }
-  await claimOperation({ businessId: businessId!, opId: `stripe:${event.id}`, kind: "stripe-connect", entityRef: { collection: "invoices", id: invoiceId! } }, { firestore: db });
+  const payloadValid = (!(paid || refund) || validId(intentId))
+    && (refund || session.mode === "payment" && validId(session.id))
+    && (!paid || session.currency === "usd" && Number.isSafeInteger(session.amount_total) && session.amount_total! > 0)
+    && (!refund || charge.currency === "usd" && Number.isSafeInteger(charge.amount_refunded));
+  await claimOperation({ businessId, opId: `stripe:${event.id}`, kind: "stripe-connect" }, { firestore: db });
   const opRef = bizRef.collection("operations").doc(`stripe:${event.id}`);
-  const stateRef = refund ? null : bizRef.collection("stripeCheckoutSessions").doc(session.id);
+  const stateRef = refund || !validId(session.id) ? null : bizRef.collection("stripeCheckoutSessions").doc(session.id);
   const receipt = await db.runTransaction(async tx => {
     const business = (await tx.get(bizRef)).data() as BusinessConfig | undefined;
-    const invoice = (await tx.get(invRef)).data() as JobInvoice | undefined;
-    const job = (await tx.get(jobRef)).data() as Job | undefined;
+    const invoice = invRef ? (await tx.get(invRef!)).data() as JobInvoice | undefined : undefined;
+    const job = jobRef ? (await tx.get(jobRef)).data() as Job | undefined : undefined;
     const op = (await tx.get(opRef)).data();
     const sessionState = stateRef ? (await tx.get(stateRef)).data() : null;
     if (op?.state === "succeeded") return null;
-    if (!business || business.stripeConnect?.accountId !== event.account || !invoice || invoice.businessId !== businessId || invoice.invoiceId !== invoiceId || invoice.jobId !== jobId || !job) { ignored(event); return null; }
+    if (!business || business.stripeConnect?.accountId !== event.account) throw new Error("Connected account ownership changed");
+    if (!payloadValid || metadata?.businessId !== businessId || !invoice || invoice.businessId !== businessId || invoice.invoiceId !== invoiceId || invoice.jobId !== jobId || !job || (job.businessId !== undefined && job.businessId !== businessId)) {
+      const cents = refund ? charge.amount_refunded : session.amount_total;
+      const currency = refund ? charge.currency : session.currency;
+      tx.set(bizRef.collection("stripeUnmatched").doc(event.id), {
+        eventType: event.type,
+        ...(!refund && validId(session.id) ? { sessionId: session.id } : {}),
+        ...(validId(intentId) ? { paymentIntentId: intentId } : {}),
+        ...(refund && validId(charge.id) ? { chargeId: charge.id } : {}),
+        amount: typeof cents === "number" && Number.isFinite(cents) ? cents / 100 : 0,
+        currency: typeof currency === "string" ? currency : "unknown",
+        ...(validId(invoiceId) ? { invoiceIdFromMetadata: invoiceId } : {}),
+        receivedAt: Date.now(),
+        reason: !payloadValid ? "unsupported-payment-payload" : "invoice-or-job-not-owned-or-missing",
+      });
+      tx.update(opRef, { state: "succeeded", completedAt: Timestamp.now(), updatedAt: Timestamp.now(), note: "unmatched-online-payment" });
+      return null;
+    }
     const now = Date.now(), paymentId = `stripe_${intentId}`;
     let result: { invoice: JobInvoice; payment: InvoicePayment; business: BusinessConfig; job: Job } | null = null;
     let note: string | undefined;
     if (refund) {
       const changed = applyStripeRefund(invoice, paymentId, charge.amount_refunded / 100, event.created * 1000);
       if (changed) {
-        tx.update(invRef, { ...changed, ...(changed.status !== "paid" ? { paidAt: FieldValue.delete() } : {}), updatedAt: now,
+        tx.update(invRef!, { ...changed, ...(changed.status !== "paid" ? { paidAt: FieldValue.delete() } : {}), updatedAt: now,
           payNowNotice: "An online payment was refunded. Review the invoice and job." });
-        if (changed.status === "sent" && invoice.kind !== "deposit") tx.update(jobRef, { paymentReceivedAt: FieldValue.delete(),
+        if (changed.status === "sent" && invoice.kind !== "deposit") tx.update(jobRef!, { paymentReceivedAt: FieldValue.delete(),
           ...(job.status === "complete" ? { status: "invoiced", statusHistory: [...(job.statusHistory ?? []), { status: "invoiced", at: now, by: "stripe" }] } : {}), updatedAt: now });
         note = "refund-recorded";
       }
@@ -93,22 +110,22 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
         const status = invoice.status === "void" ? "void" : fields.status;
         const notice = payment.amount > invoiceBalance(invoice) ? "An online payment exceeds the balance. Review the overpayment."
           : invoice.status === "draft" || invoice.status === "void" ? "An online payment arrived for an unavailable invoice. Review it." : undefined;
-        tx.update(invRef, { ...fields, status, updatedAt: now, ...(notice ? { payNowNotice: notice } : {}) });
-        if (status === "paid" && invoice.kind !== "deposit") tx.update(jobRef, { status: "complete", completedAt: job.completedAt ?? now, paymentReceivedAt: fields.paidAt ?? now,
+        tx.update(invRef!, { ...fields, status, updatedAt: now, ...(notice ? { payNowNotice: notice } : {}) });
+        if (status === "paid" && invoice.kind !== "deposit") tx.update(jobRef!, { status: "complete", completedAt: job.completedAt ?? now, paymentReceivedAt: fields.paidAt ?? now,
           updatedAt: now, statusHistory: [...(job.statusHistory ?? []), { status: "complete", at: now, by: "stripe" }] });
         result = { invoice: { ...invoice, ...fields, status, ...(notice ? { payNowNotice: notice } : {}) }, payment, business, job };
         note = notice ? "payment-office-review" : "payment-recorded";
       }
-      if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef, { payNowPending: FieldValue.delete() });
+      if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef!, { payNowPending: FieldValue.delete() });
       tx.set(stateRef!, { state: "paid", updatedAt: now });
     } else if (event.type === "checkout.session.async_payment_failed") {
       if (sessionState?.state !== "paid") {
-        if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef, { payNowPending: FieldValue.delete(), payNowNotice: "A bank payment failed. Contact the customer to arrange payment." });
+        if (invoice.payNowPending?.sessionId === session.id) tx.update(invRef!, { payNowPending: FieldValue.delete(), payNowNotice: "A bank payment failed. Contact the customer to arrange payment." });
         tx.set(stateRef!, { state: "failed", updatedAt: now });
         note = "ach-failed";
       }
     } else if (session.payment_status === "unpaid" && session.payment_method_types?.includes("us_bank_account") && !sessionState && !invoice.payments?.some(p => p.paymentId === paymentId)) {
-      tx.update(invRef, { payNowPending: { sessionId: session.id, at: event.created * 1000 }, updatedAt: now });
+      tx.update(invRef!, { payNowPending: { sessionId: session.id, at: event.created * 1000 }, updatedAt: now });
       tx.set(stateRef!, { state: "pending", updatedAt: now });
       note = "ach-pending";
     }
@@ -124,10 +141,10 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
   const receiptFailed = async () => {
     // Preserve an overpayment/refund warning if the courtesy email also fails.
     await db.runTransaction(async tx => {
-      const current = (await tx.get(invRef)).data();
+      const current = (await tx.get(invRef!)).data();
       const message = "Payment recorded. The receipt email could not be delivered.";
       const previous = typeof current?.payNowNotice === "string" ? current.payNowNotice : "";
-      if (!previous.includes(message)) tx.update(invRef, { payNowNotice: [previous, message].filter(Boolean).join(" ") });
+      if (!previous.includes(message)) tx.update(invRef!, { payNowNotice: [previous, message].filter(Boolean).join(" ") });
     }).catch(() => { console.error("stripe-connect receipt notice failed", event.id); });
   };
   const deliverReceipt = async () => {

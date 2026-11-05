@@ -2397,3 +2397,64 @@ exist only in the sending tab; the full URL is printed, since no short-link cred
 that limitation or specify a revised durable/short-link design before release. Restore Git metadata write access
 and create the six requested commits. Connect platform setup, webhook registration/secret, sandbox verification,
 fee policy, and legal review remain NEEDS-HUMAN in PAY-NOW.md. No surcharge was implemented.
+
+
+## 2026-11-05 - T-315 review fixes: payment recovery and durable pay links
+
+Commit: uncommitted. Git add was refused because the worktree index.lock could not
+be created (Permission denied). The integrator must create the local commit.
+Branch/root verified before edits and staging: task/pay-now, D:/Apps/air-wt-pay-now.
+
+Fix 1: verified Connect payment events resolve the tenant from the saved connected
+account. Known-account invoice/job mismatches are atomically recorded once per
+event in stripeUnmatched with amount/currency and provider references, no customer
+PII, alongside the succeeded ledger state. Database/handling errors return 500,
+leaving a pending claim replayable. Unknown accounts cause no writes or provider
+lookups. Owner/staff GET /api/company/billing/unmatched uses the central guard,
+session tenant and private volatile cache. Billing shows one office notice with
+bounded details. Tests cover missing/foreign invoice/job/metadata, deduplication,
+Firestore failure plus exact-once replay, foreign account, real role/tenant guards
+and the office notice.
+
+Fix 2: all public pay failures return status 200 and byte-identical neutral HTML
+with no business name/logo. GET/POST tests compare complete responses against a
+nonexistent business for invalid/expired tokens, missing invoices, void/paid/zero
+balance, unavailable Stripe, evaluation/product/opt-in restrictions, and missing
+or short signing secrets.
+
+Fix 3: PAY_LINK_SECRET (at least 32 characters) is part of the payNow capability;
+missing/short fails closed. The send-claim transaction stores a random 16-byte
+base64url nonce plus 90-day expiry before delivery. HMAC-SHA256 binds tenant,
+invoice and nonce; timing-safe verification checks expiry. Ordinary resends keep
+links with at least 30 days left; the explicit New payment link option rotates.
+Failed sends leave the nonce. A claimed draft nonce is payable so an email remains
+usable if finalization fails; sent status still waits for confirmed delivery.
+Removed legacy stored token-hash/expiry fields and readers, replacing their tests.
+Tests cover secret/nonce/tenant/invoice binding, expiry, rotation/reuse boundary,
+pre-delivery validity, failed delivery, and a delivered email with failed finalization.
+
+Fix 4: owner/staff GET /api/jobs/[jobId]/invoice/pay-link uses verifyAuthAndRole,
+session tenant and noStore, rechecks eligibility and existing nonce, and returns
+only url/expiresAt without writes. Viewers/crew/platform previews are refused.
+InvoicePayPrint recovers URL/QR after reload and hides stale invoice links. Tests
+exercise the real guard, foreign tenants and bindings, missing/expired nonces,
+unavailable state, no-creation, reload rendering and stale component requests.
+Existing product PATH_RULES already cover both new routes; asserted in tests.
+
+Docs: PAY-NOW.md now lists secret setup, unmatched payments, durable link rules,
+and the known deposit-refund/manual-handling limit. The sent unpaid deposit credit
+calculation was not changed. Appended only the authorized PAY_LINK_SECRET example
+entry; no .env file was read. No dependencies or CSP changes.
+
+Validation on the final source tree:
+- npx.cmd tsc --noEmit: passed.
+- Changed-file eslint: 0 errors, 2 existing no-img-element warnings on the job page.
+- npx.cmd vitest related <changed files> --run: 133 files passed;
+  1,268 tests passed and 1 expected failure.
+- One full npx.cmd vitest run: 322 files passed;
+  2,602 tests passed and 1 expected failure. Route guards/tenant isolation green.
+- git diff --check: passed. React component quality checklist reviewed.
+- Browser/harness, build and real phone/inbox/Stripe checks not run in this fix round;
+  owner explicitly prohibited calling Stripe or any website and reading .env files.
+  DOM tests cover the changed UI; phone screenshots still need integrator review.
+- No external services contacted, no live keys, no push, merge or deploy.

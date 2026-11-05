@@ -256,6 +256,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
   // Send invoice state
   const [sendEmail, setSendEmail] = useState("");
+  const [newPayLink, setNewPayLink] = useState(false);
   const suggestedSendEmail = useRef<{ jobId: string; email: string } | null>(null);
   const sendEmailJobId = job?.jobId;
   const sendEmailSuggestion = job?.documentRecipients?.join(", ") || job?.clientEmail?.trim() || "";
@@ -791,12 +792,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: selected.recipients }),
+        body: JSON.stringify({ businessId, to: selected.recipients, newLink: newPayLink }),
       });
       if (res.ok) {
         const result = await res.json();
         if (result.warning) setSendError(result.warning);
         setSentPayLink(result.payNow ?? null);
+        setNewPayLink(false);
         track("invoice_sent", { job_id: jobId });
         setSendSuccess(true);
         const to = result.delivered?.join(", ") ?? selected.recipients.join(", ");
@@ -1555,6 +1557,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         placeholder="Emails, separated by commas (up to 5)"
                         style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }}
                       />
+                      <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={newPayLink} disabled={sending} onChange={e => setNewPayLink(e.target.checked)} /> New payment link (turns off earlier links)</label>
                       <button onClick={sendInvoice} disabled={sending || sendQueued} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <Send size={14} strokeWidth={1.75} />
                         {sending ? "Sending…" : sendQueued ? "Saving, then sending…" : "Send Invoice"}
@@ -1913,7 +1916,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
                   notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} >
-                  {invoiceStatus === "sent" && businessId && <InvoicePayPrint link={sentPayLink} businessId={businessId} jobId={jobId} invoiceId={invoiceId} />}
+                  {invoiceStatus === "sent" && canSendInvoices && businessId && <InvoicePayPrint link={sentPayLink} businessId={businessId} jobId={jobId} invoiceId={invoiceId} />}
                 </DocumentPreview>
               </div>
             </div>

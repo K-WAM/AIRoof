@@ -14,7 +14,7 @@ import { documentEmailSubject } from "@/lib/documents/emailCopy";
 import { fmtDate } from "@/lib/format";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { payNowAvailability } from "@/lib/billing/payNow";
-import { createPayToken, invoicePayUrl } from "@/lib/billing/payNowToken";
+import { signPayToken, validPayLink, invoicePayUrl } from "@/lib/billing/payNowToken";
 import { isStripeConfigured } from "@/lib/billing/stripePayments";
 import { getAppUrl } from "@/lib/config/appUrl";
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
 
-  let body: { businessId?: string; to?: string | string[]; invoiceId?: string };
+  let body: { businessId?: string; to?: string | string[]; invoiceId?: string; newLink?: boolean };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
@@ -45,8 +45,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const businessId = gate.user.businessId!;
 
   if (body.invoiceId !== undefined && (typeof body.invoiceId !== "string" || !/^INV-\d+$/.test(body.invoiceId))) return NextResponse.json({ error: "Invalid deposit invoice" }, { status: 400 });
+  if (body.newLink !== undefined && typeof body.newLink !== "boolean") return NextResponse.json({ error: "Invalid new link option" }, { status: 400 });
   let claimed;
-  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId); }
+  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId, body.newLink === true); }
   catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Invoice cannot be sent" }, { status: 409 }); }
   const { invoice, job, token } = claimed;
   let finalized = false;
@@ -64,9 +65,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const biz = bizDoc.exists ? bizDoc.data()! : {};
-  // Evaluate the post-send state: a draft becomes payable only after delivery and finalization.
-  const payToken = payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? createPayToken() : null;
-  const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken.token) : undefined;
+  // The claim committed the nonce; finalization cannot invalidate an emailed link.
+  const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, invoice) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
+  const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;
   const bizName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!bizName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
 
@@ -111,11 +112,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
   }
 
-  await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, sent.delivered.join(", "), gate.user.uid, true,
-    payToken ? { payTokenHash: payToken.payTokenHash, payTokenExpiresAt: payToken.payTokenExpiresAt } : null);
+  await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, sent.delivered.join(", "), gate.user.uid, true);
   finalized = true;
-  // The clear token is returned only to this authorized sender for this tab's printed invoice; never persisted.
-  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), payNow: payToken ? { url: payNowUrl, hash: payToken.payTokenHash, expiresAt: payToken.payTokenExpiresAt } : null }, { headers: { "Cache-Control": "private, no-store" } });
+  // Authorized senders can recover the URL later through the guarded pay-link route.
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), payNow: payToken ? { url: payNowUrl, expiresAt: invoice.payLinkExpiresAt } : null }, { headers: { "Cache-Control": "private, no-store" } });
   } finally {
     if (!finalized) await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, recipients.join(", "), gate.user.uid, false);
   }

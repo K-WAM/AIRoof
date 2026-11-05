@@ -40,8 +40,8 @@ export interface JobInvoiceDiscount {
 }
 
 export interface JobInvoice {
-  payTokenHash?: string;
-  payTokenExpiresAt?: number;
+  payLinkNonce?: string;
+  payLinkExpiresAt?: number;
   payNowPending?: { sessionId: string; at: number };
   payNowNotice?: string;
   serviceAt?: string;

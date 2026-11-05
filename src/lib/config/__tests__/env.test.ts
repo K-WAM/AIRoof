@@ -168,6 +168,7 @@ describe("env.ts", () => {
       vi.stubEnv("CRON_SECRET", "cron-secret");
       vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_123");
       vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "whsec_test_only");
+      vi.stubEnv("PAY_LINK_SECRET", "test-only-pay-link-secret-32-characters");
       const { getCapabilityReport } = await import("@/lib/config/env");
       const report = getCapabilityReport();
       for (const status of Object.values(report)) {

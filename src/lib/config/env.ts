@@ -7,6 +7,7 @@ const CAPABILITIES: Record<string, string[]> = {
   firebase: ["FIREBASE_SERVICE_ACCOUNT_JSON"],
   cron: ["CRON_SECRET"],
   stripe: ["STRIPE_SECRET_KEY"],
+  payNow: ["STRIPE_SECRET_KEY", "PAY_LINK_SECRET"],
   stripeConnectWebhook: ["STRIPE_SECRET_KEY", "STRIPE_CONNECT_WEBHOOK_SECRET"],
 } as const;
 
@@ -45,6 +46,7 @@ export function requireEnv(name: string): string {
 export function getCapabilityStatus(name: string): EnvStatus {
   const requiredVars = CAPABILITIES[name];
   if (!requiredVars) return "not_configured";
+  if (name === "payNow" && (resolveEnv("PAY_LINK_SECRET")?.length ?? 0) < 32) return "not_configured";
   return requiredVars.every((v) => resolveEnv(v) !== undefined)
     ? "configured"
     : "not_configured";

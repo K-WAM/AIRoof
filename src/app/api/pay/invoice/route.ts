@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { payNowAvailability } from "@/lib/billing/payNow";
-import { payTokenHash, verifyPayToken } from "@/lib/billing/payNowToken";
+import { verifyPayToken } from "@/lib/billing/payNowToken";
 import { getStripeClient, isStripeConfigured } from "@/lib/billing/stripePayments";
 import { invoiceBalance } from "@/lib/billing/customerPayments";
 import { escapeHtml, resolveLetterhead } from "@/lib/documents/letterhead";
@@ -17,7 +18,8 @@ const idShape = /^[A-Za-z0-9_-]{1,128}$/;
 function page(title: string, body: string) {
   return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head><body style="font-family:Arial,sans-serif;margin:0;padding:24px 16px;background:#f1f5f9;color:#0f172a"><main style="max-width:480px;margin:32px auto;padding:24px;background:white;border:1px solid #cbd5e1;border-radius:12px;line-height:1.6"><h1 style="font-size:22px">${escapeHtml(title)}</h1>${body}</main></body></html>`, { headers });
 }
-const unavailable = (name = "the business") => page("Payment link unavailable", `<p>This payment link isn't available. Please contact ${escapeHtml(name)}.</p>`);
+const unavailable = () => page("Payment link unavailable", "<p>This payment link isn't available. Please contact the business that sent you this invoice.</p>");
+const tokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 function parse(input: URLSearchParams | FormData) {
   const b = input.get("b"), i = input.get("i"), t = input.get("t");
   if (typeof b !== "string" || !idShape.test(b) || typeof i !== "string" || !idShape.test(i) || typeof t !== "string") return null;
@@ -32,7 +34,7 @@ async function linked(input: NonNullable<ReturnType<typeof parse>>) {
   const name = business?.businessName || "the business";
   const invoice = snap.data() as JobInvoice | undefined;
   if (!business || !invoice || invoice.businessId !== input.b || invoice.invoiceId !== input.i || !idShape.test(invoice.jobId)
-    || !verifyPayToken(input.t, invoice) || !payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, invoice)) return { name };
+    || !verifyPayToken(input.t, input.b, input.i, invoice) || !payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, invoice)) return { name };
   const job = await db.collection(`businesses/${input.b}/jobs`).doc(invoice.jobId).get();
   if (!job.exists || (invoice.kind !== "deposit" && job.data()?.invoiceId !== input.i)) return { name };
   return { name, db, business, invoice };
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
   if (!input) return unavailable();
   try {
     const link = await linked(input);
-    if (!link.invoice) return unavailable(link.name);
+    if (!link.invoice) return unavailable();
     const { business, invoice } = link;
     const logos = await link.db.collection(`businesses/${input.b}/library`).doc("logos").get();
     const logo = resolveLetterhead(business, (logos.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", invoice.logoId).logoUrl;
@@ -64,19 +66,19 @@ export async function POST(req: NextRequest) {
   if (!input) return unavailable();
   try {
     const link = await linked(input);
-    if (!link.invoice) return unavailable(link.name);
+    if (!link.invoice) return unavailable();
     const method = form.get("method");
     // No amount, currency, account, URLs or metadata are accepted from the form.
-    if ((method !== "card" && method !== "us_bank_account") || [...form.keys()].some(key => !["b", "i", "t", "method"].includes(key))) return unavailable(link.name);
+    if ((method !== "card" && method !== "us_bank_account") || [...form.keys()].some(key => !["b", "i", "t", "method"].includes(key))) return unavailable();
     const { invoice, business } = link;
     const amount = Math.round(invoiceBalance(invoice) * 100);
-    const metadata = { businessId: input.b, invoiceId: input.i, jobId: invoice.jobId, tokenHashPrefix: payTokenHash(input.t).slice(0, 8) };
+    const metadata = { businessId: input.b, invoiceId: input.i, jobId: invoice.jobId, tokenHashPrefix: tokenDigest(input.t).slice(0, 8) };
     const session = await getStripeClient().checkout.sessions.create({ mode: "payment", payment_method_types: [method],
       line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: amount, product_data: { name: `Invoice ${invoice.invoiceId}` } } }],
       metadata, payment_intent_data: { metadata },
       success_url: `${getAppUrl()}/api/pay/invoice?result=submitted`, cancel_url: `${getAppUrl()}/api/pay/invoice?result=cancelled`,
-    }, { stripeAccount: business.stripeConnect!.accountId, idempotencyKey: `invoice-${input.b}-${input.i}-${payTokenHash(input.t)}-${amount}-${method}-${Math.floor(Date.now() / 1800000)}` });
-    if (!session.url || new URL(session.url).origin !== "https://checkout.stripe.com") return unavailable(link.name);
+    }, { stripeAccount: business.stripeConnect!.accountId, idempotencyKey: `invoice-${input.b}-${input.i}-${tokenDigest(input.t)}-${amount}-${method}-${Math.floor(Date.now() / 1800000)}` });
+    if (!session.url || new URL(session.url).origin !== "https://checkout.stripe.com") return unavailable();
     // Token stays out of Stripe's success/cancel URLs and the Referrer header.
     return new Response(null, { status: 303, headers: { ...headers, Location: session.url } });
   } catch { return unavailable(); }

@@ -4,9 +4,9 @@ import { makeFakeDb } from "@/test-utils/fakeFirestore";
 import { POST } from "./route";
 import type Stripe from "stripe";
 
-const mocks = vi.hoisted(() => ({ construct: vi.fn(), email: vi.fn(), retrieve: vi.fn() }));
+const mocks = vi.hoisted(() => ({ construct: vi.fn(), email: vi.fn(), retrieve: vi.fn(), unavailable: false }));
 let db: ReturnType<typeof makeFakeDb>;
-vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
+vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => mocks.unavailable ? null : db }));
 vi.mock("@/lib/billing/stripePayments", () => ({ getStripeClient: () => ({ webhooks: { constructEvent: mocks.construct }, paymentIntents: { retrieve: mocks.retrieve } }) }));
 vi.mock("@/lib/comms/send", () => ({ sendEmail: mocks.email }));
 vi.mock("next/server", async importOriginal => ({ ...await importOriginal<typeof import("next/server")>(), after: (work: () => Promise<void>) => { void work(); } }));
@@ -19,7 +19,7 @@ async function post(evt: Stripe.Event) {
   return POST(new NextRequest("https://app.test/api/webhooks/stripe-connect", { method: "POST", body: "raw bytes", headers: { "stripe-signature": "signed" } }));
 }
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubEnv("STRIPE_SECRET_KEY", "test-only"); vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "test-only-secret");
+  mocks.unavailable = false; vi.clearAllMocks(); vi.stubEnv("STRIPE_SECRET_KEY", "test-only"); vi.stubEnv("STRIPE_CONNECT_WEBHOOK_SECRET", "test-only-secret");
   db = makeFakeDb();
   db.__seed("businesses", "a", { businessName: "A", stripeConnect: { accountId: "acct_a", chargesEnabled: true } });
   db.__seed("businesses/a/invoices", "INV-1", { businessId: "a", invoiceId: "INV-1", jobId: "job1", total: 100, status: "sent", billTo: { name: "Customer", email: "c@example.test" } });
@@ -45,7 +45,7 @@ describe("Connect webhook authentication and tenant boundaries", () => {
     db.__seed("businesses/a/invoices", "INV-1", { ...invoice(), businessId: "b" });
     expect((await post(event())).status).toBe(200);
     expect(invoice()).not.toHaveProperty("payments");
-    expect(db.__list("businesses/a/operations")).toHaveLength(0);
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
   });
 });
 describe("Connect money and event idempotency", () => {
@@ -125,4 +125,53 @@ describe("Connect money and event idempotency", () => {
     await post(event("account.updated", { ...account, id: "acct_other", charges_enabled: true }, "evt_wrong", "acct_other"));
     expect(db.__peek("businesses", "a")).toHaveProperty("stripeConnect.chargesEnabled", false);
   });
+});
+
+describe("verified event recovery", () => {
+  it.each(["invoice", "job", "foreign job", "missing metadata", "foreign metadata"])("stores an unmatched record once: %s", async reason => {
+    if (reason === "invoice") await db.collection("businesses/a/invoices").doc("INV-1").delete();
+    if (reason === "job") await db.collection("businesses/a/jobs").doc("job1").delete();
+    if (reason === "foreign job") await db.collection("businesses/a/jobs").doc("job1").update({ businessId: "b" });
+    const payload = { ...session, metadata: reason === "missing metadata" ? {} : reason === "foreign metadata" ? { ...metadata, businessId: "b" } : metadata, customer_email: "DO-NOT-STORE@example.test" };
+    expect((await post(event(undefined, payload))).status).toBe(200);
+    const record = db.__peek("businesses/a/stripeUnmatched", "evt_1");
+    expect(record).toMatchObject({ eventType: "checkout.session.completed", sessionId: "cs_1", paymentIntentId: "pi_1", amount: 100, currency: "usd", receivedAt: expect.any(Number), reason: expect.any(String) });
+    expect(JSON.stringify(record)).not.toContain("DO-NOT-STORE");
+    expect(invoice()?.payments).toBeUndefined();
+    await post(event(undefined, payload));
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
+    expect(db.__peek("businesses/a/stripeUnmatched", "evt_1")).toEqual(record);
+  });
+  it("returns 500 for a failed money transaction, leaves the claim pending, and replays exactly once", async () => {
+    const run = db.runTransaction.bind(db);
+    let calls = 0;
+    const spy = vi.spyOn(db, "runTransaction").mockImplementation(async callback => {
+      if (++calls === 2) throw new Error("Firestore unavailable");
+      return run(callback);
+    });
+    expect((await post(event())).status).toBe(500);
+    expect(db.__peek("businesses/a/operations", "stripe:evt_1")).toHaveProperty("state", "pending");
+    expect(invoice().payments).toBeUndefined();
+    spy.mockRestore();
+    expect((await post(event())).status).toBe(200);
+    await post(event());
+    expect(invoice().payments).toHaveLength(1);
+    expect(db.__peek("businesses/a/operations", "stripe:evt_1")).toHaveProperty("state", "succeeded");
+  });
+  it("does not write anything or retrieve Stripe objects for an unknown account", async () => {
+    expect((await post(event("charge.refunded", { id: "ch_1", payment_intent: "pi_1", metadata: {} }, "evt_foreign", "acct_foreign"))).status).toBe(200);
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(0);
+    expect(db.__list("businesses/a/operations")).toHaveLength(0);
+    expect(invoice().payments).toBeUndefined();
+    expect(mocks.retrieve).not.toHaveBeenCalled();
+  });
+});
+
+it("returns 500 when Firestore is unavailable after signature verification", async () => {
+  mocks.unavailable = true;
+  expect((await post(event())).status).toBe(500);
+  mocks.unavailable = false;
+  expect(db.__list("businesses/a/operations")).toHaveLength(0);
+  expect((await post(event())).status).toBe(200);
+  expect(invoice().payments).toHaveLength(1);
 });

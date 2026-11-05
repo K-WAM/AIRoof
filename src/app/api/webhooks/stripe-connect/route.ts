@@ -11,9 +11,11 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
   try { event = getStripeClient().webhooks.constructEvent(await req.text(), req.headers.get("stripe-signature") ?? "", getEnv("STRIPE_CONNECT_WEBHOOK_SECRET")!); }
   catch { return NextResponse.json({ error: "Invalid signature" }, { status: 400 }); }
-  const db = getAdminFirestore();
-  if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
-  try { await handleConnectEvent(db, event, after); }
+  try {
+    const db = getAdminFirestore();
+    if (!db) throw new Error("Database unavailable");
+    await handleConnectEvent(db, event, after);
+  }
   catch { console.error("stripe-connect processing failed", event.id); return NextResponse.json({ error: "Retry later" }, { status: 500 }); }
   return NextResponse.json({ received: true });
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 import { GET, POST, PUT } from "./route";
@@ -10,6 +10,7 @@ vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => true, getStripeClient: () => ({ accounts: { create: mocks.create, retrieve: mocks.retrieve }, accountLinks: { create: mocks.link } }) }));
 const request = (method: string, body?: object, query = "") => new NextRequest(`https://app.test/api/company/settings/billing/connect${query}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
 beforeEach(() => {
+  vi.stubEnv("STRIPE_SECRET_KEY", "test-only"); vi.stubEnv("PAY_LINK_SECRET", "test-only-pay-link-secret-32-characters");
   vi.clearAllMocks(); db = makeFakeDb();
   db.__seed("businesses", "a", { businessName: "A" });
   db.__seed("businesses", "b", { businessName: "B" });
@@ -17,6 +18,7 @@ beforeEach(() => {
   mocks.create.mockResolvedValue({ id: "acct_a", charges_enabled: false });
   mocks.link.mockResolvedValue({ url: "https://connect.stripe.com/setup" });
 });
+afterEach(() => vi.unstubAllEnvs());
 describe("Connect settings", () => {
   it("refuses non-owners before accessing Stripe", async () => {
     mocks.guard.mockResolvedValue({ error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) });
