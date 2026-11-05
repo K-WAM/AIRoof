@@ -3,14 +3,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessId } from "@/hooks/useBusinessId";
 import { Sheet } from "@/components/ui/Sheet";
+import { CompanyFilter } from "@/components/companies/CompanyFilter";
+import { CompanyBadge, companyBadgeLabel } from "@/components/companies/CompanyBadge";
 import type { FinanceRow, FinanceSummary } from "@/types/finance";
+import type { BootstrapCompany } from "@/types/company";
 import s from "../preview/preview.module.css";
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
 function defaultFrom() { return iso(new Date(Date.now() - 90 * 86400000)); }
-function download(rows: FinanceRow[]) {
-  const csv = [["Invoice", "Job", "Customer", "Issued", "Due", "Days late", "Total", "Owed", "Status"], ...rows.map((r) => [r.invoiceNo, r.jobId ?? "", r.customer, iso(new Date(r.issuedAt)), r.dueAt ? iso(new Date(r.dueAt)) : "", r.daysLate ?? 0, r.total, r.balance, r.status])].map((row) => row.map((x) => `"${String(x).replace(/^[=+@\-]/, "'").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+function download(rows: FinanceRow[], companies?: BootstrapCompany[]) {
+  const multi = (companies?.length ?? 0) >= 2;
+  const shortName = (companyId: unknown) => companies?.find((c) => c.id === companyId)?.shortName ?? "";
+  const header = ["Invoice", ...(multi ? ["Company"] : []), "Job", "Customer", "Issued", "Due", "Days late", "Total", "Owed", "Status"];
+  const csv = [header, ...rows.map((r) => [r.invoiceNo, ...(multi ? [shortName(r.companyId)] : []), r.jobId ?? "", r.customer, iso(new Date(r.issuedAt)), r.dueAt ? iso(new Date(r.dueAt)) : "", r.daysLate ?? 0, r.total, r.balance, r.status])].map((row) => row.map((x) => `"${String(x).replace(/^[=+@\-]/, "'").replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "invoices.csv"; link.click(); URL.revokeObjectURL(url);
 }
 export default function FinancesPage() {
@@ -18,20 +24,22 @@ export default function FinancesPage() {
   const [from, setFrom] = useState(defaultFrom); const [to, setTo] = useState(() => iso(new Date()));
   const [customer, setCustomer] = useState(""); const [jobType, setJobType] = useState(""); const [status, setStatus] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false); const [helpOpen, setHelpOpen] = useState(false);
-  const [data, setData] = useState<(FinanceSummary & { capped?: boolean }) | null>(null); const [error, setError] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all");
+  const [data, setData] = useState<(FinanceSummary & { capped?: boolean; companies?: BootstrapCompany[] }) | null>(null); const [error, setError] = useState("");
   const [sort, setSort] = useState<"issuedAt" | "customer" | "balance">("issuedAt");
   useEffect(() => {
     if (!user || !businessId) return;
     const controller = new AbortController(); const q = new URLSearchParams({ businessId });
-    if (from) q.set("from", from); if (to) q.set("to", to); if (customer) q.set("customer", customer); if (jobType) q.set("jobType", jobType); if (status) q.set("status", status);
+    if (from) q.set("from", from); if (to) q.set("to", to); if (customer) q.set("customer", customer); if (jobType) q.set("jobType", jobType); if (status) q.set("status", status); if (companyFilter !== "all") q.set("company", companyFilter);
     setError(""); fetch(`/api/company/finance?${q}`, { signal: controller.signal }).then(async (r) => { if (!r.ok) throw new Error("Finances could not be loaded."); return r.json(); }).then(setData).catch((e) => { if (e.name !== "AbortError") setError(e.message); });
     return () => controller.abort();
-  }, [user, businessId, from, to, customer, jobType, status]);
+  }, [user, businessId, from, to, customer, jobType, status, companyFilter]);
   const rows = useMemo(() => [...(data?.rows ?? [])].sort((a, b) => sort === "customer" ? a.customer.localeCompare(b.customer) : sort === "balance" ? b.balance - a.balance : b.issuedAt - a.issuedAt), [data, sort]);
   const age = data?.aging; const groups = age ? [["Current", age.current], ["1–30 days", age.d1_30], ["31–60 days", age.d31_60], ["61–90 days", age.d61_90], ["Over 90 days", age.d90plus]] as const : [];
   const max = Math.max(1, ...groups.map((g) => g[1]));
   return <div className={s.page}>
     <header className={s.header}><div><h1>Finances</h1><p className={s.subtitle}>See who owes you and how much is late.</p></div><button className="button secondary" onClick={() => setHelpOpen(true)}>How these numbers are worked out</button></header>
+    {data?.companies && <div style={{ marginBottom: 12 }}><CompanyFilter companies={data.companies} value={companyFilter} onChange={setCompanyFilter} /></div>}
     <div className={s.toolbar}><button className="button secondary" onClick={() => setFiltersOpen(!filtersOpen)}>Filters</button><div className={s.actions}>
       {from && <button className="button small" onClick={() => setFrom("")}>From {from} ×</button>}{to && <button className="button small" onClick={() => setTo("")}>To {to} ×</button>}{customer && <button className="button small" onClick={() => setCustomer("")}>{customer} ×</button>}{jobType && <button className="button small" onClick={() => setJobType("")}>{jobType} ×</button>}{status && <button className="button small" onClick={() => setStatus("")}>{status} ×</button>}
     </div></div>
@@ -41,7 +49,7 @@ export default function FinancesPage() {
       {data.rows.length === 0 ? <section className={`${s.card} ${s.empty}`}><h2>No invoices in this period</h2><p>Change the filters to see other invoices.</p></section> : <>
       <section className={s.card}><h2>How late are unpaid invoices?</h2>{groups.map(([label, value]) => <div key={label} className={s.row}><span>{label}</span><div className={s.bar} style={{ flex: 1 }}><span style={{ width: `${value / max * 100}%` }} /></div><strong>{money(value)}</strong></div>)}</section>
       <section className={s.card}><h2>Who owes the most?</h2>{data.topOwing.length ? data.topOwing.map((row) => <button key={row.customer} className={s.row} style={{ width: "100%", background: "none", borderLeft: 0, borderRight: 0, borderTop: 0, cursor: "pointer" }} onClick={() => setCustomer(row.customer)}><span>{row.customer}</span><strong>{money(row.amount)}</strong></button>) : <p>Nothing is outstanding.</p>}</section>
-      <section className={s.card}><div className={s.toolbar}><h2>Invoices</h2><div className={s.actions}><label>Sort <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="issuedAt">Newest</option><option value="customer">Customer</option><option value="balance">Amount owed</option></select></label><button className="button secondary" onClick={() => download(rows)}>Export CSV</button></div></div><table className={s.table}><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Invoiced</th><th>Owed</th><th>Status</th></tr></thead><tbody>{rows.map((r, i) => <tr key={`${r.source}-${r.invoiceNo}-${i}`}><td>{r.invoiceNo}{r.jobId && <span> · {r.jobId}</span>}</td><td>{r.customer}</td><td>{iso(new Date(r.issuedAt))}</td><td>{r.dueAt ? iso(new Date(r.dueAt)) : ""}</td><td>{money(r.total)}</td><td>{money(r.balance)}</td><td>{r.status.replace("_", " ")}{r.daysLate ? <strong> · {r.daysLate} {r.daysLate === 1 ? "day" : "days"} late</strong> : null}</td></tr>)}</tbody></table></section></>}
+      <section className={s.card}><div className={s.toolbar}><h2>Invoices</h2><div className={s.actions}><label>Sort <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="issuedAt">Newest</option><option value="customer">Customer</option><option value="balance">Amount owed</option></select></label><button className="button secondary" onClick={() => download(rows, data.companies)}>Export CSV</button></div></div><table className={s.table}><thead><tr><th>Invoice</th><th>Customer</th><th>Issued</th><th>Due</th><th>Invoiced</th><th>Owed</th><th>Status</th></tr></thead><tbody>{rows.map((r, i) => <tr key={`${r.source}-${r.invoiceNo}-${i}`}><td>{r.invoiceNo}{r.jobId && <span> · {r.jobId}</span>}</td><td>{r.customer}{data.companies && companyBadgeLabel(data.companies, r.companyId) && <> <CompanyBadge companies={data.companies} companyId={r.companyId} /></>}</td><td>{iso(new Date(r.issuedAt))}</td><td>{r.dueAt ? iso(new Date(r.dueAt)) : ""}</td><td>{money(r.total)}</td><td>{money(r.balance)}</td><td>{r.status.replace("_", " ")}{r.daysLate ? <strong> · {r.daysLate} {r.daysLate === 1 ? "day" : "days"} late</strong> : null}</td></tr>)}</tbody></table></section></>}
       {data.capped && <p>Showing up to 2,000 records from each source.</p>}
     </>}
     <p className={s.note}>From your Jobba export and invoices sent from this app</p>

@@ -21,6 +21,28 @@ describe("finance summary", () => {
   it("counts deposit invoices", () => expect(rowsFromInvoices([invoice({kind:"deposit"})])[0].total).toBe(10));
 });
 
+describe("company attribution (T-317)", () => {
+  it("carries the invoice's own company", () => {
+    expect(rowsFromInvoices([invoice({ companyId: "rcu" })])[0].companyId).toBe("rcu");
+  });
+  it("falls back to the job's company when the invoice has none", () => {
+    expect(rowsFromInvoices([invoice({ companyId: undefined })], { j: "rcu" })[0].companyId).toBe("rcu");
+  });
+  it("leaves companyId off when neither is known (today's shape)", () => {
+    expect(rowsFromInvoices([invoice()])[0]).not.toHaveProperty("companyId");
+  });
+  it("filters one company and recomputes every total", () => {
+    const rows = [row({ invoiceNo: "A", companyId: "rdsf", total: 100, balance: 100 }), row({ invoiceNo: "B", companyId: "rcu", total: 25, balance: 25 })];
+    const only = summarizeFinances(rows, { company: "rcu" }, now);
+    expect(only.rows.map((r) => r.invoiceNo)).toEqual(["B"]);
+    expect(only.totals).toMatchObject({ invoiced: 25, outstanding: 25 });
+  });
+  it("no company filter keeps every row and every total", () => {
+    const rows = [row({ invoiceNo: "A", companyId: "rdsf", total: 100, balance: 100 }), row({ invoiceNo: "B", companyId: "rcu", total: 25, balance: 25 })];
+    expect(summarizeFinances(rows, {}, now).totals.invoiced).toBe(125);
+  });
+});
+
 describe("due dates and days late (T-301)", () => {
   const DAY = 86400000, now = Date.UTC(2026, 10, 5, 12);
   const row = (over: Partial<import("@/types/finance").FinanceRow>) => ({ invoiceNo: "X", customer: "Acme", issuedAt: now - 45 * DAY, total: 100, balance: 100, status: "unpaid" as const, source: "app" as const, ...over });

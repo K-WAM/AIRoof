@@ -14,15 +14,16 @@ export function rowsFromHistory(records: InvoiceHistoryRecord[]): FinanceRow[] {
     return { invoiceNo: r.sourceInvoiceId, customer: r.billTo, jobType: r.workName, issuedAt: r.issuedAt, total: total / 100, balance: balance / 100, status: status(total, balance), source: "jobba" };
   });
 }
-export function rowsFromInvoices(invoices: JobInvoice[]): FinanceRow[] {
+export function rowsFromInvoices(invoices: JobInvoice[], jobCompanyById: Record<string, string | undefined> = {}): FinanceRow[] {
   return invoices.filter(i => i.status !== "draft" && i.status !== "void").map(i => {
     const total = cents(customerTotals({ kind: "invoice", invoice: i, priceMode: i.priceMode, customerSubtotal: i.customerSubtotal }).total);
     const balance = cents(invoiceBalance(i));
-    return { invoiceNo: i.invoiceId, jobId: i.jobId, customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, ...(typeof i.dueAt === "number" ? { dueAt: i.dueAt } : {}), total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
+    const companyId = typeof i.companyId === "string" ? i.companyId : jobCompanyById[i.jobId];
+    return { invoiceNo: i.invoiceId, jobId: i.jobId, ...(typeof companyId === "string" ? { companyId } : {}), customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, ...(typeof i.dueAt === "number" ? { dueAt: i.dueAt } : {}), total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
   });
 }
 export function summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, now: number, termsDays = 30, tz = "America/New_York"): FinanceSummary {
-  const filtered = rows.filter(r => (filters.from === undefined || r.issuedAt >= filters.from) && (filters.to === undefined || r.issuedAt <= filters.to) && (!filters.customer || r.customer.toLowerCase() === filters.customer.toLowerCase()) && (!filters.jobType || r.jobType === filters.jobType) && (!filters.status || r.status === filters.status)).sort((a,b) => b.issuedAt - a.issuedAt);
+  const filtered = rows.filter(r => (filters.from === undefined || r.issuedAt >= filters.from) && (filters.to === undefined || r.issuedAt <= filters.to) && (!filters.customer || r.customer.toLowerCase() === filters.customer.toLowerCase()) && (!filters.jobType || r.jobType === filters.jobType) && (!filters.status || r.status === filters.status) && (!filters.company || r.companyId === filters.company)).sort((a,b) => b.issuedAt - a.issuedAt);
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit" });
   const monthKey = (time: number) => { const parts = formatter.formatToParts(time); return `${parts.find(p => p.type === "year")!.value}-${parts.find(p => p.type === "month")!.value}`; };
   const [year, month] = monthKey(now).split("-").map(Number);

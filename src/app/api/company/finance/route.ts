@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Firestore } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { jsonWithCache } from "@/lib/http/cache";
 import { rowsFromHistory, rowsFromInvoices, summarizeFinances } from "@/lib/finance/summary";
+import { companiesOf, defaultCompany, effectiveCompanyId, isMultiCompany } from "@/lib/companies/companies";
 import type { FinanceFilters, FinanceStatus } from "@/types/finance";
 import type { InvoiceHistoryRecord } from "@/types/invoiceHistory";
 import type { JobInvoice } from "@/types/invoice";
@@ -33,8 +35,41 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore(); if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
   const business = db.collection("businesses").doc(businessId); const snap = await business.get();
   if (!snap.exists || snap.data()?.showcase?.finances !== true) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const biz = snap.data()!;
+  const multi = isMultiCompany(biz);
+  const knownCompanies = companiesOf(biz);
+  const companyParam = q.get("company")?.trim();
+  if (multi && companyParam && !knownCompanies.some((c) => c.id === companyParam)) return NextResponse.json({ error: "Invalid filters" }, { status: 400 });
+  const company = multi ? companyParam || undefined : undefined;
   const [history, invoices] = await Promise.all([business.collection("invoiceHistory").limit(2000).get(), business.collection("invoices").limit(2000).get()]);
-  const filters: FinanceFilters = { from, to, ...(customer ? { customer } : {}), ...(jobType ? { jobType } : {}), ...(status ? { status: status as FinanceStatus } : {}) };
-  const rows = [...rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord)), ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice))];
-  return jsonWithCache({ ...summarizeFinances(rows, filters, Date.now(), 30, snap.data()?.timezone || "America/New_York"), capped: history.size >= 2000 || invoices.size >= 2000 }, "semiStatic");
+  const jobCompanies = multi ? await invoiceJobCompanies(db, businessId, invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice)) : {};
+  const filters: FinanceFilters = { from, to, ...(customer ? { customer } : {}), ...(jobType ? { jobType } : {}), ...(status ? { status: status as FinanceStatus } : {}), ...(company ? { company } : {}) };
+  const rows = [...rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord)), ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
+  // Multi-company: every row carries its effective company (unattributed history rows = the default company).
+  const attributed = multi ? rows.map((r) => ({ ...r, companyId: effectiveCompanyId(biz, r.companyId) ?? undefined })) : rows;
+  const summary = summarizeFinances(attributed, filters, Date.now(), 30, biz.timezone || "America/New_York");
+  return jsonWithCache({
+    ...summary,
+    capped: history.size >= 2000 || invoices.size >= 2000,
+    ...(multi ? { companies: knownCompanies.map((c) => ({ id: c.id, name: c.name, shortName: c.shortName, isDefault: c.id === defaultCompany(biz)?.id, logoUrl: null })) } : {}),
+  }, "semiStatic");
+}
+
+/** The job's company for invoices that carry none (the money row rule: invoice.companyId ?? job.companyId). */
+async function invoiceJobCompanies(
+  db: Firestore,
+  businessId: string,
+  invoices: JobInvoice[],
+): Promise<Record<string, string | undefined>> {
+  const ids = [...new Set(invoices.filter((i) => typeof i.companyId !== "string" && typeof i.jobId === "string").map((i) => i.jobId))];
+  const out: Record<string, string | undefined> = {};
+  for (let i = 0; i < ids.length; i += 100) {
+    const refs = ids.slice(i, i + 100).map((jobId) => db.collection("businesses").doc(businessId).collection("jobs").doc(jobId));
+    const snaps = await db.getAll(...refs);
+    for (const job of snaps) {
+      const companyId = job.data()?.companyId;
+      if (typeof companyId === "string") out[job.id] = companyId;
+    }
+  }
+  return out;
 }
