@@ -20,8 +20,16 @@ export interface UserTypeDef {
 export const USER_TYPES: UserTypeDef[] = [
   { id: "admin", label: "Admin", role: "owner", field: false,
     help: "Everything, including the Team page (adding people and changing their role) and Settings." },
+  { id: "manager", label: "Management", role: "owner", trade: "manager", field: false,
+    help: "Same access as Admin (team, settings, money). The title just says they manage, not own." },
   { id: "office", label: "Office staff", role: "staff", trade: "office", field: false,
     help: "The office: Pipeline, Calendar, jobs, quotes and invoices. Can also use the Field screen. Can't manage the team." },
+  { id: "supervisor", label: "Supervisor", role: "staff", trade: "supervisor", field: false,
+    help: "Office access, opens on Jobs: schedules work, writes quotes and reports. Can't manage the team." },
+  { id: "office_admin", label: "Office admin", role: "staff", trade: "office_admin", field: false,
+    help: "Office access: requests, calendar, customers, invoices and payments. Can't manage the team." },
+  { id: "front_desk", label: "Front desk", role: "staff", trade: "front_desk", field: false,
+    help: "Office access, opens on Pipeline: answers requests and books visits. Can't manage the team." },
   { id: "inspector", label: "Inspector", role: "crew", trade: "inspector", field: true,
     help: "Opens on the Field screen with their own schedule: their inspections, blocking time, findings with comments, photos and notes. No prices or invoices." },
   // Owner, 2026-10-04: "really only the foremen will use the voice input, but the crews should still be able to
@@ -32,10 +40,6 @@ export const USER_TYPES: UserTypeDef[] = [
     help: "Opens on the Field screen: time clock and photos, and can log voice notes when filling in for the foreman. No prices or invoices." },
   { id: "viewer", label: "View only", role: "viewer", field: false,
     help: "Can look around the office screens. Can't change anything." },
-  { id: "manager", label: "Management", role: "owner", trade: "manager", field: false, help: "Manages the business, team and settings." },
-  { id: "supervisor", label: "Supervisor", role: "staff", trade: "supervisor", field: false, help: "Works in the office and field, including jobs and invoices." },
-  { id: "office_admin", label: "Office admin", role: "staff", trade: "office_admin", field: false, help: "Works in the office and field, including requests and billing." },
-  { id: "front_desk", label: "Front desk", role: "staff", trade: "front_desk", field: false, help: "Works in the office and field, including requests and customers." },
 ];
 
 const BY_ID = new Map(USER_TYPES.map((type) => [type.id, type]));

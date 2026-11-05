@@ -53,4 +53,4 @@ async function main() {
   const writes = [...invoices.map(record => ({collection:"invoiceHistory",record,name:record.billTo})),...inspections.map(record => ({collection:"jobHistory",record,name:record.customerName}))];
   for (let i=0;i<writes.length;i+=400) { const batch=db.batch(); for (const item of writes.slice(i,i+400)) { const customerId = customerMap.get(matchKey({name:item.name}))?.id; batch.set(biz.collection(item.collection).doc(item.record.id),{...item.record,importedAt:now,...(customerId ? {customerId} : {})},{merge:true}); } await batch.commit(); }
 }
-main().catch(() => { console.error("Import failed. Check the input files and configuration; no credentials are displayed."); process.exitCode=1; });
+main().catch((err) => { console.error(`Import failed: ${String(err?.message ?? err).slice(0, 300)}`); process.exitCode=1; });

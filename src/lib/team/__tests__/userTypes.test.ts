@@ -24,8 +24,8 @@ describe("user types", () => {
   });
 
   it("hides the field types where there is no field work", () => {
-    expect(userTypesFor(false).map((type) => type.id)).toEqual(["admin", "office", "viewer", "manager", "supervisor", "office_admin", "front_desk"]);
-    expect(userTypesFor(true).map((type) => type.id)).toEqual(["admin", "office", "inspector", "foreman", "technician", "viewer", "manager", "supervisor", "office_admin", "front_desk"]);
+    expect(userTypesFor(false).map((type) => type.id)).toEqual(["admin", "manager", "office", "supervisor", "office_admin", "front_desk", "viewer"]);
+    expect(userTypesFor(true).map((type) => type.id)).toEqual(["admin", "manager", "office", "supervisor", "office_admin", "front_desk", "inspector", "foreman", "technician", "viewer"]);
   });
 
   it("reads CSV cells in the new words and the old ones", () => {

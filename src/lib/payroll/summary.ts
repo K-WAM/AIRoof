@@ -1,5 +1,6 @@
-// STUB (Wave 0, Roof Doctors plan §7). Final signature, empty result — so the Payroll screen (stream K2) can be
-// built before the real math (stream K3) merges. K3 replaces the body and keeps this export and signature exactly.
+// Payroll overview math (T-285, Roof Doctors plan §7) — a PREVIEW: hours from time-clock punches, overtime above
+// 40 h per ISO week (Mon-Sun), estimated gross = regular x rate + overtime x rate x 1.5. Never approves or pays anything.
+// A week cut by the period edge counts only the days inside the period.
 import type { PayrollSummary } from "@/types/payroll";
 import type { WorkerDay } from "@/types/timeclock";
 
