@@ -7,6 +7,7 @@ export const PRODUCT_EVENTS = [
 export type ProductEvent = typeof PRODUCT_EVENTS[number];
 export type EventProps = Partial<Record<"job_id" | "request_id" | "crew_id" | "step_id" | "count", string | number>>;
 export interface AnalyticsUser {
+  viewAs?: unknown;
   uid: string; businessId?: string; role?: string; superadmin?: boolean;
   isSandboxVisitor?: boolean; isDemoTrial?: boolean;
 }
@@ -42,7 +43,7 @@ export function anonymousPage(path: string) {
 }
 export function eligibleClient() {
   return !!user && !!business && user.businessId === business.businessId &&
-    !user.superadmin && user.role !== "superadmin" && !user.isSandboxVisitor && !user.isDemoTrial &&
+    !user.viewAs && !user.superadmin && user.role !== "superadmin" && !user.isSandboxVisitor && !user.isDemoTrial &&
     business.isDemo === false && business.subscriptionStatus !== "trial" &&
     !/^(demo|sandbox|trial|e2e|test)(-|$)/.test(business.businessId);
 }

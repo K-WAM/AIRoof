@@ -2,6 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
+import { ViewAsBanner } from "@/components/admin/ViewAsBanner";
 import { useEffect, useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -223,6 +224,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="company-content">
+        <ViewAsBanner />
         <header className="company-topbar">
           <BusinessBrand />
           {!crewOnly && <CommandBar header />}

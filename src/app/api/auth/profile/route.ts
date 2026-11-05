@@ -1,3 +1,4 @@
+import { resolveViewAs } from "@/lib/auth/viewAs";
 import { NextRequest, NextResponse } from "next/server";
 import { confirmSuperadminClaim, getAdminFirestore, verifyIdToken } from "@/lib/firebase/admin";
 import { jsonWithCache } from "@/lib/http/cache";
@@ -26,6 +27,21 @@ export async function GET(req: NextRequest) {
   const decoded = await verifyIdToken(sessionCookie);
   if (!decoded) {
     return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  // Admin/hub tabs keep the real platform profile. Company tabs receive only the viewed projection.
+  const viewed = req.nextUrl.searchParams.get("context") === "admin" ? null : await resolveViewAs(req, decoded);
+  if (viewed) {
+    const db = getAdminFirestore();
+    if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
+    const business = await db.collection("businesses").doc(viewed.businessId).get();
+    return jsonWithCache({ profile: {
+      uid: decoded.uid, email: null, superadmin: false, role: viewed.role, trade: viewed.trade,
+      crewId: viewed.crewId, businessId: viewed.businessId, displayName: viewed.label,
+      businessName: business.data()?.businessName ?? "",
+      viewAs: { label: viewed.label, businessId: viewed.businessId,
+        businessName: business.data()?.businessName ?? "", expiresAt: viewed.expiresAt },
+    } }, "noStore");
   }
 
   const profile: Record<string, unknown> = { uid: decoded.uid, email: decoded.email ?? null };
