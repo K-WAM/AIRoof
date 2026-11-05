@@ -2,6 +2,7 @@
 
 import { useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { confirmDiscard, useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface SheetProps {
@@ -37,9 +38,9 @@ export function Sheet({ open, onClose, title, children, dirty }: SheetProps) {
     if (confirmDiscard(dirty)) onClose();
   }
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div className="sheet-backdrop" onClick={requestClose}>
       <div
         ref={panelRef}
@@ -65,6 +66,7 @@ export function Sheet({ open, onClose, title, children, dirty }: SheetProps) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

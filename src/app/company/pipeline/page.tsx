@@ -18,6 +18,7 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
+import { ContactEditor, type ContactEditorProps } from "@/components/requests/RequestReviewCard";
 import { RequestReviewDialog } from "@/components/requests/RequestReviewDialog";
 import { BookingDetails } from "@/components/appointments/BookingDetails";
 import type { RequestDeclineReason } from "@/lib/comms/requestDeclineEmail";
@@ -39,6 +40,7 @@ interface Lead {
   /** "es" when the caller spoke Spanish. */
   callerLanguage?: string;
   callerEmail?: string;
+  accessNotes?: string;
   serviceRequested?: string;
   address?: string;
   urgency: string;
@@ -77,7 +79,9 @@ interface Appointment {
   appointmentId: string;
   callerName?: string;
   callerPhone?: string;
+  callbackPhone?: string;
   callerEmail?: string;
+  accessNotes?: string;
   serviceType?: string;
   address?: string;
   notes?: string;
@@ -211,6 +215,7 @@ export default function PipelinePage() {
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);
   const [reviewAppt, setReviewAppt] = useState<Appointment | null>(null);
+  const [openDecline, setOpenDecline] = useState(false);
   const [crewNames, setCrewNames] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
@@ -395,6 +400,21 @@ export default function PipelinePage() {
     }
   }
 
+  function contactEditor(kind: "appointments" | "leads", item: Appointment | Lead): ContactEditorProps {
+    const id = "appointmentId" in item ? item.appointmentId : item.leadId;
+    return { businessId, kind, id, initial: { name: item.callerName ?? "", phone: contactPhone(item) ?? "", email: item.callerEmail ?? "", address: item.address ?? "", accessNotes: item.accessNotes ?? "" }, onSaved: (v) => {
+      const update = { callerName: v.name, ...(item.callbackPhone ? { callbackPhone: v.phone } : { callerPhone: v.phone }), callerEmail: v.email, address: v.address, accessNotes: v.accessNotes };
+      if (kind === "appointments") {
+        setAppointments((all) => all.map((row) => row.appointmentId === id ? { ...row, ...update } : row));
+        setReviewAppt((row) => row?.appointmentId === id ? { ...row, ...update } : row);
+      } else {
+        setLeads((all) => all.map((row) => row.leadId === id ? { ...row, ...update } : row));
+        setReviewLead((row) => row?.leadId === id ? { ...row, ...update } : row);
+        setSelectedLead((row) => row?.leadId === id ? { ...row, ...update } : row);
+      }
+    } };
+  }
+
   async function createJobFromRequest(request: { appointmentId?: string; leadId?: string }) {
     const res = await fetch("/api/jobs/from-request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, ...request }) });
     if (!res.ok) throw new Error("Job creation failed");
@@ -407,13 +427,14 @@ export default function PipelinePage() {
 
   /** "confirm" = the office has confirmed and the AI tells the customer; "callback" = the AI follows up on the request. */
   async function callBackAppt(appt: Appointment, purpose: "confirm" | "callback" = "callback") {
-    if (!appt.callerPhone) return;
+    const phone = contactPhone(appt);
+    if (!phone) return;
     setApptCalling(appt.appointmentId);
     try {
       const res = await fetch("/api/calls/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, targetPhone: appt.callerPhone, appointmentId: appt.appointmentId, purpose }),
+        body: JSON.stringify({ businessId, targetPhone: phone, appointmentId: appt.appointmentId, purpose }),
       });
       if (res.ok) {
         showToast(`The AI is calling ${appt.callerName || "the customer"} now${purpose === "confirm" ? " to confirm" : ""}.`, "ok");
@@ -582,6 +603,7 @@ export default function PipelinePage() {
         </div>
 
         <div className="appt-actions">
+          {!readOnly && <ContactEditor {...contactEditor("appointments", appt)} />}
           {isNewRequest(appt.status) && <span className="tag">New request</span>}
           {appt.jobId && showJobActions ? (
             <Link className="button primary" href={`/company/jobs/${appt.jobId}${previewSuffix}`}>Open {vocab.jobNoun} {appt.jobId}</Link>
@@ -590,10 +612,11 @@ export default function PipelinePage() {
               {busy ? "Confirming…" : confirmErrors[appt.appointmentId] ? "Retry confirmation" : confirmButtonLabel(channelsFor(appt))}
             </button>
           ) : !isPast && appt.status !== "cancelled" && !isConfirmed ? (
-            <button className="button primary" type="button" onClick={() => setReviewAppt(appt)}>Review request</button>
+            <button className="button primary" type="button" onClick={() => { setOpenDecline(false); setReviewAppt(appt); }}>Review request</button>
           ) : !readOnly && showJobActions && isConfirmed && !appt.jobId ? (
             <button className="button primary" disabled={busy} onClick={() => void createJobFromRequest({ appointmentId: appt.appointmentId })}>Create {vocab.jobNoun}</button>
           ) : null}
+          {!readOnly && !isPast && appt.status !== "cancelled" && isPending && !timePassed && <button type="button" className="button secondary" onClick={() => { setOpenDecline(true); setReviewAppt(appt); }}>Decline</button>}
           {confirmErrors[appt.appointmentId] && <p role="alert" className="c1-inline-error">{confirmErrors[appt.appointmentId]}</p>}
           <details className="c1-more-menu">
             <summary className="button secondary">More</summary>
@@ -603,8 +626,8 @@ export default function PipelinePage() {
                 <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} />
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
-              {!readOnly && appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
-              {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
+              {!readOnly && contactPhone(appt) && <button className="button secondary" title="Places a real call from your AI line (billed per minute)" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
+              {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => { setOpenDecline(false); setReviewAppt(appt); }}>Review details</button>}
               {!readOnly && !isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
               {!readOnly && !isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}
             </div>
@@ -752,6 +775,7 @@ export default function PipelinePage() {
                         <p className="queue-meta">Captured {timeAgo(lead.createdAt)}</p>
                         <details className="c1-phone-only" onClick={(event) => event.stopPropagation()}><summary>Details</summary><p>{lead.serviceRequested || "No service"} · {lead.address || "No address"}</p>{lead.notes && <p>{lead.notes}</p>}</details>
                         <div className="lead-actions" onClick={(e) => e.stopPropagation()}>
+                          {!readOnly && <ContactEditor {...contactEditor("leads", lead)} />}
                           {linkedJobId(lead, appointments) && (
                             <Link className="button small" href={`/company/jobs/${linkedJobId(lead, appointments)}${previewSuffix}`}>
                               Open {vocab.jobNoun} {linkedJobId(lead, appointments)}
@@ -989,7 +1013,7 @@ export default function PipelinePage() {
       <RequestReviewDialog
         open={!!reviewLead}
         onClose={() => setReviewLead(null)}
-        request={reviewLead ? { ...reviewLead, status: reviewLead.status } : null}
+        request={reviewLead ? { ...reviewLead, contactEditor: contactEditor("leads", reviewLead), status: reviewLead.status } : null}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
@@ -1003,14 +1027,14 @@ export default function PipelinePage() {
       <RequestReviewDialog
         open={!!reviewAppt}
         onClose={() => setReviewAppt(null)}
-        request={reviewAppt ? { ...reviewAppt, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
+        request={reviewAppt ? { ...reviewAppt, contactEditor: contactEditor("appointments", reviewAppt), openDecline, serviceRequested: reviewAppt.serviceType, status: reviewAppt.status, assignedCrewName: reviewAppt.assignedCrewId ? crewNames[reviewAppt.assignedCrewId] : undefined } : null}
         timeZone={tz}
         smsEnabled={smsEnabled}
         intakeLabelFor={intakeLabelFor}
         jobNoun={vocab.jobNoun}
         canCreateJob={showJobActions}
         readOnly={readOnly}
-        onCallBack={reviewAppt?.callerPhone ? async () => { await callBackAppt(reviewAppt); } : undefined}
+        onCallBack={reviewAppt && contactPhone(reviewAppt) ? async () => { await callBackAppt(reviewAppt); } : undefined}
         onDecline={async (reason, customMessage) => { if (!reviewAppt) return; await declineAppointment(reviewAppt, reason, customMessage); setReviewAppt(null); }}
         onAccept={async () => { if (!reviewAppt) return; if (!await sendConfirmation(reviewAppt)) return; if (showJobActions && !reviewAppt.jobId) await createJobFromRequest({ appointmentId: reviewAppt.appointmentId }); setReviewAppt(null); }}
       />

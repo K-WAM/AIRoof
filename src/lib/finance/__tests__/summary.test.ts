@@ -20,3 +20,23 @@ describe("finance summary", () => {
   it("skips draft and void invoices", () => expect(rowsFromInvoices([invoice({status:"draft"}),invoice({status:"void"})])).toHaveLength(0));
   it("counts deposit invoices", () => expect(rowsFromInvoices([invoice({kind:"deposit"})])[0].total).toBe(10));
 });
+
+describe("due dates and days late (T-301)", () => {
+  const DAY = 86400000, now = Date.UTC(2026, 10, 5, 12);
+  const row = (over: Partial<import("@/types/finance").FinanceRow>) => ({ invoiceNo: "X", customer: "Acme", issuedAt: now - 45 * DAY, total: 100, balance: 100, status: "unpaid" as const, source: "app" as const, ...over });
+  it("uses issued + terms when the invoice has no due date", () => {
+    const s = summarizeFinances([row({})], {}, now, 30);
+    expect(s.rows[0].daysLate).toBe(15);
+    expect(s.rows[0].dueAt).toBe(now - 15 * DAY);
+  });
+  it("prefers the invoice's own due date", () => {
+    const s = summarizeFinances([row({ dueAt: now - 2 * DAY })], {}, now, 30);
+    expect(s.rows[0].daysLate).toBe(2);
+    expect(s.aging.d1_30).toBe(100);
+  });
+  it("a paid or not-yet-due invoice is 0 days late", () => {
+    const s = summarizeFinances([row({ balance: 0, status: "paid" }), row({ invoiceNo: "Y", dueAt: now + DAY })], {}, now, 30);
+    expect(s.rows.map(r => r.daysLate)).toEqual([0, 0]);
+    expect(s.totals.pastDue).toBe(0);
+  });
+});

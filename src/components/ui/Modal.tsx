@@ -2,6 +2,7 @@
 
 import { useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { confirmDiscard, useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ModalProps {
@@ -39,9 +40,9 @@ export function Modal({ open, onClose, title, children, headerLeft, dirty }: Mod
     if (confirmDiscard(dirty)) onClose();
   }
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={requestClose}>
       <div
         ref={panelRef}
@@ -67,6 +68,7 @@ export function Modal({ open, onClose, title, children, headerLeft, dirty }: Mod
         </div>
         <div className="modal-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

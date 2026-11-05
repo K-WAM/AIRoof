@@ -53,6 +53,8 @@ export function productsOf(config: { products?: Partial<Record<ProductId, unknow
 const PATH_RULES: Array<{ pattern: RegExp; product: ProductId }> = [
   { pattern: /^\/api\/jobs\/[^/]+\/invoice(\/|$)/, product: "billing" },
   { pattern: /^\/api\/company\/billing(\/|$)/, product: "billing" },
+  { pattern: /^\/api\/company\/finance(\/|$)/, product: "billing" },
+  { pattern: /^\/api\/company\/payroll(\/|$)/, product: "field" },
   { pattern: /^\/api\/company\/settings\/billing(\/|$)/, product: "billing" },
   { pattern: /^\/api\/jobs\/from-request(\/|$)/, product: "calls" },
   { pattern: /^\/api\/jobs(\/|$)/, product: "field" },

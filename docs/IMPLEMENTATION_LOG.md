@@ -2304,3 +2304,56 @@ tenant businessId so the T-306 evaluation guard applies to each address; the job
 Checks: tsc clean; full vitest 306 files, 2475 passed + 1 expected fail (K5 MISMATCH case).
 Open from K1: public quote-response page still says Accept, not Authorize, for T&M; old subject filters in doc-photos,
 products-billing and roofing-job-flow specs need updating (fix in the merged-tree e2e run).
+
+## T-286 - Calendar dialog stacking
+
+Portal Modal and Sheet to the body with a shared stacking token. Added a typed portal declaration and an invented current-week booking and crew in the local harness. Related tests 80 passed; TypeScript and lint passed; desktop and phone Calendar feedback checks passed with a booking and screenshots inspected. No removals. Commit: T-286 completion follows WIP 3ba9602.
+
+## T-251 - Pipeline callback wording
+
+Added a title explaining that the callback places a real per-minute billed call. TypeScript and related test pass; eslint has one existing hook dependency warning. No removals.
+
+## T-299 - Field name prompt (browser verification pending)
+
+The QR screen focuses the missing name and redirects taps on name-blocked controls to it. Added reasons for name or job blocked note, photo and finding actions. TypeScript and 26 related tests pass; lint reports an existing image warning. Browser check and remaining disabled-control audit pending. No removals.
+
+## T-288 - Visible booked request decline
+
+The secondary Decline opens the existing review form with its decline options shown; Send decline remains the explicit final action. TypeScript, eight related tests and 25 booking scenarios pass; lint has one existing hook warning. Browser verification pending. No removals.
+
+## T-287 - Correct caller contact details
+
+Added owner/staff contact editing on Pipeline cards and reviews. Both new tenant-checked routes validate contact fields and preserve original values transactionally on the first edit; booking fields are untouched. Route tests cover tenant/crew denial, invalid email, repeat edits and unchanged scheduling. Browser verification pending. No removals.
+
+T-299 follow-up: name-blocked finding comments also point to the name; missing job and disabled save controls state their prerequisites. TypeScript and 26 related tests pass; lint has the existing image warning. Browser check remains in the final batch.
+
+## T-300 - Hold to talk
+
+The shared composer labels the control, shows a timer and pulse while held, supports pointer and keyboard holds, and gives a quick-tap hint without starting a recording. The microphone starts after 500 ms; the hint tells workers to wait for it before speaking. TypeScript, lint and two focused tests pass; browser check follows. No removals.
+
+## T-294/T-301 - Finance screen and endpoint (integration pending)
+
+Added the owner and showcase gated endpoint and a filtered, sortable finance screen with CSV and calculation sheet. It uses the agreed finance math contract, which is still a stub in this worktree; it cannot show real numbers until the math stream is integrated. The shared FinanceRow contract lacks due date and days-late fields required by T-301, so those columns are not implemented. TypeScript, lint and related tests pass; browser verification pending. No removals.
+
+## T-285 - Payroll preview (integration pending)
+
+Added an owner/showcase-gated, bounded punch endpoint and read-only period screen with CSV and disabled approval. Seeded invented history, properties and punches for the harness. The payroll summary remains a stub in this worktree and no payroll rates source exists in the agreed contract, so rows and pay estimates require integration. TypeScript, lint and route tests pass; browser verification pending. No removals.
+
+T-299 browser follow-up: the first final run found that the blocked-action accessible names also matched the name input locator. Renamed them to Go to name field; TypeScript and lint pass. The corrected selector has not been rerun in the browser.
+
+## Roof Doctors screen browser spec - integration pending
+
+Single final run: 6 passed, 6 failed. Calendar overlay, booked request edit/decline, and no-showcase checks passed on desktop and phone. Field checks stopped on an ambiguous selector; the selector and action labels were corrected after the run and need a rerun. Finance and payroll row checks failed because the agreed summary functions are still stubs; their empty-state screenshots and field failure screenshots were inspected on desktop and phone. Finance due-date fields and populated screen review remain pending. No removals.
+
+T-287 follow-up: when a separate callback number exists, preserve caller ID and edit the callback number; keep the original callback in asHeard and use the corrected contact number for Pipeline callbacks. TypeScript, lint and nine related tests pass. Clearing a separate callback number still falls back to caller ID under the existing contactPhone contract; job creation does not copy the new accessNotes field and is outside this stream.
+
+T-288 follow-up: hide the confirm action while the decline form is open, leaving only Send decline as the primary action. TypeScript, lint and eight related tests pass; this adjustment followed the browser run.
+
+## 2026-11-05 - Merge K2 (task/rd-screens, Codex Terra): T-286, T-251, T-299, T-300, T-288, T-287, T-294/T-301, T-285 (Claude K0 review)
+K2 reported BLOCKED only because its branch predated K3's finance/payroll math; on main the real math is present.
+Reviewed: finance and payroll routes (session owner role + server-side showcase flag, superadmin preview needs the claim,
+date/filter validation, private cache tiers, product PATH_RULES); contact-edit routes (owner/staff of the path business,
+field allowlist + length caps, asHeard kept in a transaction). Integrator additions: FinanceRow.dueAt + daysLate
+(invoice due date, else issued + terms; 0 when paid or not yet due) with tests, shown as a Due column and "n days late"
+on Finances and in the CSV; request accessNotes copied into the job's notes as "Access: ..." (from-request route) with a test.
+Checks: tsc clean; full vitest 311 files, 2497 passed + 1 expected fail. Browser spec rerun pending in the merged-tree e2e gate.

@@ -18,7 +18,7 @@ export function rowsFromInvoices(invoices: JobInvoice[]): FinanceRow[] {
   return invoices.filter(i => i.status !== "draft" && i.status !== "void").map(i => {
     const total = cents(customerTotals({ kind: "invoice", invoice: i, priceMode: i.priceMode, customerSubtotal: i.customerSubtotal }).total);
     const balance = cents(invoiceBalance(i));
-    return { invoiceNo: i.invoiceId, jobId: i.jobId, customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
+    return { invoiceNo: i.invoiceId, jobId: i.jobId, customer: i.billTo.name, issuedAt: i.issuedAt ?? i.createdAt, ...(typeof i.dueAt === "number" ? { dueAt: i.dueAt } : {}), total: total / 100, balance: balance / 100, status: status(total, balance), source: "app" };
   });
 }
 export function summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, now: number, termsDays = 30, tz = "America/New_York"): FinanceSummary {
@@ -30,8 +30,11 @@ export function summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, n
   const totals = { invoiced: 0, collected: 0, outstanding: 0, pastDue: 0, pastDuePct: 0 };
   const aging = { current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90plus: 0 };
   const owing = new Map<string, {customer:string; amount:number; invoices:number}>();
+  const out: FinanceRow[] = [];
   for (const r of filtered) {
-    const total = cents(r.total), balance = cents(r.balance), late = Math.floor((now-r.issuedAt)/86400000)-termsDays;
+    const dueAt = r.dueAt ?? r.issuedAt + termsDays * 86400000;
+    const total = cents(r.total), balance = cents(r.balance), late = Math.floor((now - dueAt) / 86400000);
+    out.push({ ...r, dueAt, daysLate: balance > 0 && late > 0 ? late : 0 });
     totals.invoiced += total; totals.collected += total-balance; totals.outstanding += balance;
     if (late > 0) totals.pastDue += balance;
     if (balance > 0) {
@@ -46,5 +49,5 @@ export function summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, n
   for (const key of Object.keys(aging) as Array<keyof typeof aging>) aging[key] /= 100;
   for (const m of byMonth) { m.invoiced /= 100; m.collected /= 100; }
   const topOwing = [...owing.values()].sort((a,b) => b.amount-a.amount).slice(0,5).map(x => ({...x, amount:x.amount/100}));
-  return { asOf: now, filters, totals, aging, byMonth, topOwing, rows: filtered };
+  return { asOf: now, filters, totals, aging, byMonth, topOwing, rows: out };
 }

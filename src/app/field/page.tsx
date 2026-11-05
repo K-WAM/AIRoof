@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { FieldOutbox } from "@/components/offline/FieldOutbox";
 import { PhotoCapture } from "@/components/field/PhotoCapture";
@@ -63,6 +63,20 @@ function FieldApp() {
   // after hydration: the server cannot read localStorage, and differing initial names made
   // the whole field screen regenerate on the client.
   const [workerName, setWorkerName] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const [highlightName, setHighlightName] = useState(false);
+  const promptedForName = useRef(false);
+  useEffect(() => {
+    if (!bootstrapComplete || accessDenied || promptedForName.current) return;
+    promptedForName.current = true;
+    if (!workerName.trim()) nameRef.current?.focus();
+  }, [bootstrapComplete, accessDenied, workerName]);
+  function pointToName() {
+    setHighlightName(true);
+    nameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    nameRef.current?.focus({ preventScroll: true });
+    window.setTimeout(() => setHighlightName(false), 1800);
+  }
   useEffect(() => {
     try { setWorkerName(localStorage.getItem(WORKER_NAME_STORE) ?? ""); } catch { /* optional remembered name */ }
   }, []);
@@ -251,6 +265,7 @@ function FieldApp() {
             <label htmlFor="field-worker-name" style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>Your name</label>
             <input
               id="field-worker-name"
+              ref={nameRef}
               required
               autoComplete="name"
               value={workerName}
@@ -260,7 +275,7 @@ function FieldApp() {
               style={{
                 width: "100%", padding: "12px 16px", borderRadius: 12,
                 border: `1.5px solid ${hasWorkerName ? "#1e2a4a" : "#b45309"}`, fontSize: 15, color: "#e2e8f0",
-                background: "#0f172a", outline: "none",
+                background: "#0f172a", outline: "none", boxShadow: highlightName ? "0 0 0 4px #fbbf24" : undefined,
               }}
             />
             {!hasWorkerName && (
@@ -273,7 +288,11 @@ function FieldApp() {
           {/* 2. Which job */}
           <JobPicker jobs={jobs} loading={loadingJobs} selectedId={selectedJobId} onSelect={setSelectedJobId} clockedInJobId={clockedInJobId} recentJobId={recentJobId} />
 
-          <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
+          {!hasWorkerName && <p role="status" style={{ margin: 0, color: "#fbbf24" }}>Type your name above to start</p>}
+          <div style={{ position: "relative" }}>
+            {!hasWorkerName && !!selectedJob?.findings?.length && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
+            <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
+          </div>
 
           {/* 3. Hours */}
           {!privateDemo && bootstrapComplete && businessId && hasWorkerName && (
@@ -282,19 +301,26 @@ function FieldApp() {
 
           {/* 4. Notes — the composer shows the job + name before anything is said, and a receipt after */}
           <FieldOutbox />
+          <div style={{ position: "relative" }}>
+          {!hasWorkerName && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
           <FieldNoteComposer
             businessId={businessId || null}
             // The QR link already names the job: use it straight away, before the job details finish loading.
             job={selectedJob ? { jobId: selectedJob.jobId, title: selectedJob.title, address: selectedJob.address } : selectedJobId ? { jobId: selectedJobId } : null}
             authorName={workerName.trim()}
-            blockedReason={!hasWorkerName ? "Type your name above first" : null}
+            blockedReason={!hasWorkerName ? "Type your name above to start" : null}
             clockedInJobId={clockedInJobId}
             onSaved={() => setNotesVersion((v) => v + 1)}
             maxRecordingSeconds={privateDemo ? 30 : undefined}
           />
 
+          </div>
+
+          {hasWorkerName && !selectedJobId && <p style={{ margin: 0, color: "#cbd5e1", fontSize: 13 }}>Pick a job above to add a note, photo or finding.</p>}
+
           {/* Photo and Finding side by side */}
-          {!privateDemo && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {!privateDemo && <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {!hasWorkerName && <button type="button" aria-label="Go to name field" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
             <PhotoCapture
               jobId={selectedJobId || null}
               businessId={businessId}

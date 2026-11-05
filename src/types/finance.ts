@@ -10,6 +10,10 @@ export interface FinanceRow {
   jobType?: string;
   /** ms */
   issuedAt: number;
+  /** ms. The invoice's own due date when it has one (app invoices); otherwise issued + payment terms. */
+  dueAt?: number;
+  /** Whole days past due as of the summary (0 = not late). Filled in by summarizeFinances. */
+  daysLate?: number;
   /** Dollars. */
   total: number;
   /** Dollars still owed. */

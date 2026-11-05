@@ -3800,3 +3800,11 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   body.k1-print-deposit .k1-deposit-print { display: block !important; }
 }
 /* === end K1 === */
+
+/* === K2 screens === */
+:root { --z-modal: 2147483647; }
+.modal-overlay, .sheet-backdrop { z-index: var(--z-modal); }
+@keyframes k2-mic-pulse { from { opacity: 1; } to { opacity: .65; } }
+.k2-finance-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 700px) { .k2-finance-kpis section { padding: 12px 8px; } .k2-finance-kpis strong { font-size: clamp(14px, 4vw, 20px); overflow-wrap: anywhere; } }
+/* === end K2 === */

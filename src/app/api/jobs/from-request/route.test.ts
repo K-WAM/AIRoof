@@ -20,6 +20,12 @@ describe("POST /api/jobs/from-request", () => {
     expect(data.job.customerId).toBeTruthy();
     expect(db.__peek("businesses/biz/appointments", "a1")?.jobId).toBe(data.job.jobId);
   });
+  it("carries the office's access notes onto the job (T-287)", async () => {
+    db.__seed("businesses/biz/appointments", "a9", { callerName: "Cy", callerPhone: "+15550001111", address: "9 Main", notes: "Leak", accessNotes: " Gate code 1234 " });
+    const data = await (await POST(request({ businessId: "biz", appointmentId: "a9" }))).json();
+    expect(data.job.notes).toBe(["Leak", "Access: Gate code 1234"].join(String.fromCharCode(10)));
+  });
+
   it("keeps the booked time as a hint, never as the schedule (T-149)", async () => {
     db.__seed("businesses/biz/appointments", "a3", { callerName: "Bea", callerPhone: "+15557654321", address: "3 Main", startTime: 1_800_000_000_000, endTime: 1_800_003_600_000 });
     const data = await (await POST(request({ businessId: "biz", appointmentId: "a3" }))).json();

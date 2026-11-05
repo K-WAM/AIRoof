@@ -7,7 +7,7 @@ import type { Job } from "@/types/jobs";
 import { contactPhone } from "@/lib/format/phone";
 import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 
-type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
+type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; accessNotes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
@@ -39,7 +39,10 @@ export async function POST(req: NextRequest) {
   const jobBase: Omit<Job, "jobId"> = {
     businessId, title: `${serviceType} — ${address}`, status: "open", address: data.address,
     clientName: data.callerName, clientPhone: phone, clientEmail: email,
-    serviceType, notes: data.notes, ...(appointmentId ? { appointmentId } : { leadId }),
+    serviceType,
+    // T-287: access notes the office typed on the request (gate code, dog, side door) travel with the job.
+    notes: [data.notes, data.accessNotes?.trim() ? `Access: ${data.accessNotes.trim()}` : undefined].filter(Boolean).join("\n") || undefined,
+    ...(appointmentId ? { appointmentId } : { leadId }),
     ...(data.sourceCallId ? { sourceCallId: data.sourceCallId, callSummary: typeof callSummary === "string" ? joinSpelledEmails(callSummary) : callSummary } : {}),
     ...(customer ? { customerId: customer.customerId } : {}), createdAt: now, updatedAt: now,
     // The time the caller booked (T-149): shown on the Unscheduled tile and preselected when it's dropped on a crew.
