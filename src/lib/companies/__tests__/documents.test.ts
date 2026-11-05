@@ -15,7 +15,7 @@ import { resolveDocumentCompany } from "../companies";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
-import { staleCompanyName } from "../documentCopy";
+import { resolvedInvoiceCopy, resolvedQuoteNarrative, staleCompanyName } from "../documentCopy";
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 const mocks=vi.hoisted(()=>({send:vi.fn()}));let db:ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin",()=>({getAdminFirestore:()=>db}));
@@ -42,6 +42,11 @@ it.each([undefined,[a],[a,b]])("sends all document kinds under the resolved comp
   expect(db.__peek("businesses/biz/invoices","INV-1")?.companyId).toBe(multi?"rcu":undefined);expect(db.__peek("businesses/biz/quotes","Q-1")?.companyId).toBe(multi?"rcu":undefined);
   const report=db.__peek("businesses/biz/jobs","j")?.reportDocument as {companyId?:string;sentAt?:number};expect(report.companyId).toBe(multi?"rcu":undefined);expect(!!report.sentAt).toBe(multi);
   for(const kind of ["invoice","quote","report"]) expect((await switchDocument(req({kind,companyId:"rdsf"}),ctx)).status).toBe(multi?409:200);
+});
+it("single-company copy is never rewritten",()=>{
+  const business={billingCompanies:[a],industry:"roofing"};
+  expect(resolvedInvoiceCopy({closing:"Keep",thankYou:"Keep too",createdAt:1},business,{},"")).toEqual({closing:"Keep",thankYou:"Keep too"});
+  expect(resolvedQuoteNarrative({narrative:"Keep",findings:[]},{},business,"")).toBe("Keep");
 });
 it("switching a deposit's company uses the posted deposit invoice id, not the job's standard invoice",async()=>{
   seed([a,b]);

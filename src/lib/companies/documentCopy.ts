@@ -31,7 +31,7 @@ export function refreshGeneratedText(
   resolvedName: string,
   generate: (name: string) => string,
 ): string | undefined {
-  if (!stored) return stored;
+  if (!stored || !resolvedName) return stored;
   if (stored === generate(resolvedName)) return stored;
   for (const name of names) {
     if (name !== resolvedName && stored === generate(name)) return generate(resolvedName);
