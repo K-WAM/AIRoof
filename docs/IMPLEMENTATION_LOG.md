@@ -2519,3 +2519,29 @@ platform mail, so the roofdoctors workspace is created with no Roof Doctors owne
 - Browser execution and phone screenshot review were deliberately NOT run, as instructed. The integrator must run e2e/companies.spec.ts on desktop and phone, inspect the screenshots, and run the applicable merged-tree gates. No production build, real phone audio or real inbox delivery was checked here.
 - Scope check: no T-317-owned paths, booking code, TODO.md, CompanyBadge or the fixed company contract/resolver were changed. No .env files or client-resources files were read; no live service was called.
 - Removals: none. The existing shell brand markup was moved into CompanyBrand to reuse and test it; single-company output is unchanged.
+
+## 2026-11-05 - T-317 one client, two billing companies (DeepSeek, branch task/company-split)
+
+Built on the fixed contract from T-316: Job.companyId, JobInvoice.companyId, JobQuote.companyId,
+Customer.companyId (missing = default). Every path is gated by isMultiCompany from
+src/lib/companies/companies.ts, so a single-/no-company business keeps today's screens and stored data.
+- Finances: rows carry their effective company (invoice.companyId ?? job.companyId ?? default); the API
+  returns the company list only when multi-company (id, name, shortName, isDefault, logoUrl) and accepts
+  ?company=; the page shows the existing segmented All | RDSF | RCU filter, badges non-default rows, and
+  the CSV gains a Company column.
+- Billing: same company rule, filter and badge; totals recompute for the selected company.
+- Jobs, Calendar and job-linked Pipeline cards show the existing CompanyBadge (hidden for default).
+  Jobs search also matches the company short name. Company list comes from bootstrap business.companies.
+- Call attribution: the ElevenLabs post-call writer and the Vapi end-of-call report set calls.companyId
+  only when the caller's customer has a known non-default company (same last-10-digit match as
+  returning-caller). No booking/tool code changed.
+- Field notes: the usage meter also increments byCompany.<id>.<counter> for a non-default job; only the
+  two meter call lines changed in the updates and field-audio routes.
+- Superadmin Overview and Usage: one pure splitByCompany (unit-tested) gives each company calls, phone
+  minutes, field notes, jobs, invoiced $, collected $ and estimated cost; unattributed work is the default
+  company's. One compact line per company under a multi-company client row.
+- e2e/company-split.spec.ts written but deliberately not run (the integrator runs it after the other
+  stream seeds e2e-roofpros).
+Validation: npx tsc --noEmit passed; eslint on every changed file passed (0 errors); vitest related per
+step passed. No new dependencies, no live services, no push/merge/deploy, no edits outside this worktree.
+

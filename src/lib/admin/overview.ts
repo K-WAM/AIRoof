@@ -11,6 +11,8 @@
 import type { EffectiveAccountPurpose } from "@/lib/accounts/purpose";
 import { daysOverdue } from "@/lib/billing/luxorNotices";
 import { roundCents } from "@/lib/format/money";
+import { companiesOf, defaultCompany, effectiveCompanyId } from "@/lib/companies/companies";
+import { estimateMonthCost } from "@/lib/billing/aiCostRates";
 
 const DAY = 24 * 60 * 60 * 1000;
 /** No sign-in for this long = "nobody is using it" on the Needs-you list. */
@@ -36,6 +38,8 @@ export interface OverviewClientInput {
   phoneLineReady: boolean;
   bookingCheckFailed: boolean;
   createdAt: number | null;
+  /** Multi-company clients only: the already-computed split (see splitByCompany). */
+  companies?: CompanySplitLine[];
 }
 
 export interface OverviewInvoiceInput {
@@ -73,6 +77,113 @@ export interface OverviewClientRow {
   margin: number | null;
   unpaid: number;
   billing: BillingState;
+  /** One compact line per company for a multi-company client; absent otherwise. */
+  companies?: CompanySplitLine[];
+}
+
+export interface CompanySplitLine {
+  companyId: string;
+  shortName: string;
+  isDefault: boolean;
+  calls: number;
+  /** ElevenLabs + Vapi phone minutes, rounded. */
+  phoneMinutes: number;
+  /** Voice + typed field notes. */
+  notes: number;
+  jobs: number;
+  invoiced: number;
+  collected: number;
+  /** Estimated AI/phone cost for this company's slice (src/lib/billing/aiCostRates.ts). */
+  cost: number;
+}
+
+export interface CompanyUsageSlice {
+  calls?: number;
+  phoneMinutes?: number;
+  vapiMinutes?: number;
+  voiceNotes?: number;
+  voiceNoteMinutes?: number;
+  typedNotes?: number;
+  notesRead?: number;
+}
+
+export interface CompanySplitInput {
+  business: { billingCompanies?: unknown } | null | undefined;
+  /** Whole-client totals; anything not explicitly attributed goes to the default company. */
+  totals: { calls: number; notes: number; phoneMinutes: number; vapiMinutes: number; voiceNoteMinutes: number; notesRead: number };
+  /** Known non-default companies only (src/lib/usage/businessMonthUsage.ts). */
+  byCompany?: Record<string, CompanyUsageSlice>;
+  jobs: Array<{ companyId?: unknown }>;
+  invoices: Array<{ companyId?: unknown; total: number; collected: number }>;
+}
+
+const splitField = (slice: CompanyUsageSlice | undefined, key: keyof CompanyUsageSlice) => {
+  if (!slice) return 0;
+  const value = slice[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+};
+
+/**
+ * One client's month split by company (T-317). Calls, minutes and notes with a known non-default company are theirs;
+ * every other call/minute/note (unattributed or default) is the default company's. Jobs and invoices follow
+ * Job.companyId and invoice.companyId ?? job.companyId. Returns [] for a single-/no-company business, so no caller
+ * shows or stores anything new.
+ */
+export function splitByCompany(input: CompanySplitInput): CompanySplitLine[] {
+  const companies = companiesOf(input.business);
+  if (companies.length < 2) return [];
+  const fallback = defaultCompany(input.business)!;
+  const nonDefault = companies.filter((c) => c.id !== fallback.id);
+  const slices = nonDefault.map((c) => ({ id: c.id, slice: input.byCompany?.[c.id] }));
+  const notesOf = (slice: CompanyUsageSlice | undefined) => splitField(slice, "voiceNotes") + splitField(slice, "typedNotes");
+  const attributed = slices.reduce((sum, { slice }) => ({
+    calls: sum.calls + splitField(slice, "calls"),
+    notes: sum.notes + notesOf(slice),
+    phoneMinutes: sum.phoneMinutes + splitField(slice, "phoneMinutes"),
+    vapiMinutes: sum.vapiMinutes + splitField(slice, "vapiMinutes"),
+    voiceNoteMinutes: sum.voiceNoteMinutes + splitField(slice, "voiceNoteMinutes"),
+    notesRead: sum.notesRead + splitField(slice, "notesRead"),
+  }), { calls: 0, notes: 0, phoneMinutes: 0, vapiMinutes: 0, voiceNoteMinutes: 0, notesRead: 0 });
+  const residual = (key: keyof typeof attributed) => Math.max(0, input.totals[key] - attributed[key]);
+
+  const jobs = new Map<string, number>();
+  for (const job of input.jobs) {
+    const id = effectiveCompanyId(input.business, job.companyId) ?? fallback.id;
+    jobs.set(id, (jobs.get(id) ?? 0) + 1);
+  }
+  const money = new Map<string, { invoiced: number; collected: number }>();
+  for (const invoice of input.invoices) {
+    const id = effectiveCompanyId(input.business, invoice.companyId) ?? fallback.id;
+    const row = money.get(id) ?? { invoiced: 0, collected: 0 };
+    row.invoiced += invoice.total;
+    row.collected += invoice.collected;
+    money.set(id, row);
+  }
+
+  return companies.map((company) => {
+    const isDefault = company.id === fallback.id;
+    const slice = input.byCompany?.[company.id];
+    const calls = isDefault ? residual("calls") : splitField(slice, "calls");
+    const phoneMinutes = isDefault ? residual("phoneMinutes") : splitField(slice, "phoneMinutes");
+    const vapiMinutes = isDefault ? residual("vapiMinutes") : splitField(slice, "vapiMinutes");
+    const voiceNoteMinutes = isDefault ? residual("voiceNoteMinutes") : splitField(slice, "voiceNoteMinutes");
+    const notesRead = isDefault ? residual("notesRead") : splitField(slice, "notesRead");
+    const notes = isDefault ? residual("notes") : notesOf(slice);
+    const cost = estimateMonthCost({ calls, phoneMinutes, vapiMinutes, voiceNoteMinutes, notesRead });
+    const cash = money.get(company.id) ?? { invoiced: 0, collected: 0 };
+    return {
+      companyId: company.id,
+      shortName: company.shortName,
+      isDefault,
+      calls,
+      phoneMinutes: Math.round(phoneMinutes + vapiMinutes),
+      notes: Math.round(notes),
+      jobs: jobs.get(company.id) ?? 0,
+      invoiced: roundCents(cash.invoiced),
+      collected: roundCents(cash.collected),
+      cost: roundCents(cost.total),
+    };
+  });
 }
 
 export interface AttentionItem {
@@ -180,6 +291,7 @@ export function buildOverview(
       margin: price === null ? null : roundCents(price - b.cost),
       unpaid,
       billing,
+      ...(b.companies && b.companies.length > 0 ? { companies: b.companies } : {}),
     });
 
     // "Needs you": money first, then a client the product isn't working for.

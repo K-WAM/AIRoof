@@ -19,6 +19,8 @@ import { Briefcase, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { matchesJobSearch } from "@/lib/jobs/search";
 import { useWaitingRequests } from "@/hooks/useWaitingRequests";
+import { useBootstrap } from "@/contexts/BootstrapContext";
+import { CompanyBadge } from "@/components/companies/CompanyBadge";
 
 type StatusFilter = "all" | "inspection" | "quoted" | "in_progress" | "invoiced" | "complete" | "paid";
 // Named for the NEXT ACTION so the list doubles as a to-do list (keys stay the stored statuses).
@@ -41,6 +43,8 @@ const SET_PRICE_NEXT_STEP: Record<string, string> = {
 
 export default function JobsPage() {
   const businessId = useBusinessId();
+  const companies = useBootstrap().data?.business.companies;
+  const multiCompany = (companies?.length ?? 0) >= 2;
   const { user } = useAuth();
   const tz = useBusinessTimezone();
   const { vocab, quotes: usesQuotes } = useBusinessModules();
@@ -174,6 +178,9 @@ export default function JobsPage() {
     });
   }
 
+  const companyNameFor = (job: Job) => multiCompany
+    ? (companies!.find((c) => c.id === job.companyId) ?? companies!.find((c) => c.isDefault))?.shortName
+    : undefined;
   const visibleJobs = jobs
     .filter((j) =>
       statusFilter === "all" ||
@@ -182,7 +189,7 @@ export default function JobsPage() {
         : statusFilter === "complete" ? j.status === "complete" && !j.paymentReceivedAt
         : j.status === statusFilter)
     )
-    .filter((j) => matchesJobSearch(j, query));
+    .filter((j) => matchesJobSearch(j, query, companyNameFor(j)));
   // Long lists are bounded (C10): the newest PAGE first, "Show more" for the rest. Search still covers every loaded job.
   const shownJobs = visibleJobs.slice(0, shownCount);
 
@@ -390,7 +397,7 @@ export default function JobsPage() {
                       <a href={`/company/jobs/${job.jobId}${previewSuffix}`} onClick={(e) => e.stopPropagation()} style={{ color: "inherit", textDecoration: "none" }}>{job.jobId}</a>
                     </td>
                     <td data-label="Job" style={{ padding: "12px 16px" }}>
-                      <div style={{ fontWeight: 600 }}>{job.title}</div>
+                      <div style={{ fontWeight: 600 }}>{job.title}{companies && <> <CompanyBadge companies={companies} companyId={job.companyId} /></>}</div>
                       {job.address && <div style={{ fontSize: 12, color: "#64748b" }}>{job.address}</div>}
                     </td>
                     <td data-label="Client" style={{ padding: "12px 16px" }}>
@@ -412,7 +419,7 @@ export default function JobsPage() {
               {shownJobs.map((job) => <a className="c1-list-card c1-list-card--link" key={job.jobId} href={`/company/jobs/${job.jobId}${previewSuffix}`} data-testid="job-card">
                 <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
                   <strong>{job.jobId} · {job.title}</strong>
-                  <StatusChip status={job.status} label={job.paymentReceivedAt ? "Complete · Payment received" : undefined} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{companies && <CompanyBadge companies={companies} companyId={job.companyId} />}<StatusChip status={job.status} label={job.paymentReceivedAt ? "Complete · Payment received" : undefined} /></span>
                 </span>
                 <span className="c1-list-card__sub">{[job.clientName, job.address].filter(Boolean).join(" · ") || "No customer yet"}</span>
                 <span className="c1-list-card__next">{job.paymentReceivedAt ? "Payment received in full" : nextStep[job.status] ?? "Open to see where it stands"}</span>

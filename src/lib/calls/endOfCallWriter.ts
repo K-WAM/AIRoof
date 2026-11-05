@@ -11,6 +11,8 @@ import type { CallOutcomeOutput } from "@/lib/schemas/ai";
 import type { CallMessage } from "@/types";
 import { detectLanguage } from "@/lib/i18n/detect";
 import { displayLine } from "@/lib/calls/voiceTags";
+import { findCallingCustomerCompanyId } from "@/lib/calls/callCompany";
+import { withinBudget } from "@/lib/voice/returningCaller";
 
 /** Provider transcript turns (Vapi messages / ElevenLabs transcript entries) before normalization. */
 export interface NormalizedProviderTranscriptMessage {
@@ -98,6 +100,11 @@ export async function writeEndedCallReport(
     },
     { merge: true }
   );
+
+  // Which company the caller belongs to (T-317). Bounded and non-fatal: no call is ever held up or failed by it, and
+  // a default-company/unknown caller writes no field at all.
+  const companyId = await withinBudget(findCallingCustomerCompanyId(db, input.businessId, input.callerPhone));
+  if (companyId) await callRef.set({ companyId }, { merge: true });
 
   // Optional, bounded enrichment must never delay saving the provider facts.
   let outcome: string | null = null;

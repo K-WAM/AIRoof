@@ -6,6 +6,8 @@ export type FinanceStatus = "paid" | "unpaid" | "partly_paid";
 export interface FinanceRow {
   invoiceNo: string;
   jobId?: string;
+  /** The billing company this money row belongs to (effective id; missing = default). */
+  companyId?: string;
   customer: string;
   jobType?: string;
   /** ms */
@@ -30,6 +32,8 @@ export interface FinanceFilters {
   customer?: string;
   jobType?: string;
   status?: FinanceStatus;
+  /** Multi-company businesses only: one company's effective id (rows were already attributed). */
+  company?: string;
 }
 
 export interface FinanceSummary {

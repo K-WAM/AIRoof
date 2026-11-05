@@ -26,4 +26,18 @@ describe("usage meter", () => {
     await expect(recordUsage(db(true) as never, "biz", { notesRead: 1 })).resolves.toBeUndefined();
     warn.mockRestore();
   });
+
+  it("also bumps a non-default company's counter under byCompany", async () => {
+    const fake = db();
+    await recordUsage(fake as never, "biz", { typedNotes: 2, notesRead: 1 }, Date.UTC(2026, 9, 4), "rcu");
+    const data = fake.sets[0].data;
+    expect(data.byCompany).toMatchObject({ rcu: { typedNotes: expect.anything(), notesRead: expect.anything() } });
+    expect(data.typedNotes).toBeDefined();
+  });
+
+  it("cannot write a malformed company key", async () => {
+    const fake = db();
+    await recordUsage(fake as never, "biz", { typedNotes: 1 }, Date.UTC(2026, 9, 4), "RC U/../x");
+    expect(fake.sets[0].data).not.toHaveProperty("byCompany");
+  });
 });

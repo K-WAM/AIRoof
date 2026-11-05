@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { billingStateFor, buildOverview, sinceLabel, type OverviewClientInput, type OverviewInvoiceInput } from "@/lib/admin/overview";
+import { billingStateFor, buildOverview, sinceLabel, splitByCompany, type OverviewClientInput, type OverviewInvoiceInput } from "@/lib/admin/overview";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-10-31T15:00:00Z");
 const RANGE = { from: Date.UTC(2026, 9, 1), to: Date.UTC(2026, 10, 1) };
+const rdsf = { id: "rdsf", name: "Roof Doctors South Florida", shortName: "RDSF", isDefault: true };
+const rcu = { id: "rcu", name: "Roofing Concepts Unlimited", shortName: "RCU" };
+const two = { billingCompanies: [rdsf, rcu] };
 
 function client(over: Partial<OverviewClientInput> = {}): OverviewClientInput {
   return {
@@ -141,5 +144,45 @@ describe("sinceLabel", () => {
     expect(sinceLabel(NOW - 60_000, NOW)).toBe("Today");
     expect(sinceLabel(NOW - DAY - 1, NOW)).toBe("Yesterday");
     expect(sinceLabel(NOW - 9 * DAY, NOW)).toBe("9 days ago");
+  });
+});
+
+describe("splitByCompany", () => {
+  const totals = { calls: 30, notes: 9, phoneMinutes: 100, vapiMinutes: 20, voiceNoteMinutes: 5, notesRead: 10 };
+
+  it("is empty for a single-/no-company business", () => {
+    expect(splitByCompany({ business: { billingCompanies: [rcu] }, totals, jobs: [], invoices: [] })).toEqual([]);
+    expect(splitByCompany({ business: {}, totals, jobs: [], invoices: [] })).toEqual([]);
+  });
+
+  it("gives attributed activity to its company and the residual to the default", () => {
+    const lines = splitByCompany({
+      business: two,
+      totals,
+      byCompany: { rcu: { calls: 10, phoneMinutes: 60, voiceNotes: 2, typedNotes: 1, voiceNoteMinutes: 2, notesRead: 3 } },
+      jobs: [{ companyId: "rcu" }, { companyId: "rcu" }, {}, { companyId: "rdsf" }, { companyId: "unknown" }],
+      invoices: [
+        { companyId: "rcu", total: 100, collected: 40 },
+        { companyId: undefined, total: 50, collected: 10 },
+        { companyId: "rdsf", total: 25, collected: 0 },
+      ],
+    });
+    expect(lines.map((l) => l.companyId)).toEqual(["rdsf", "rcu"]);
+    expect(lines.find((l) => l.companyId === "rcu")).toMatchObject({ calls: 10, phoneMinutes: 60, notes: 3, jobs: 2, invoiced: 100, collected: 40 });
+    expect(lines.find((l) => l.companyId === "rdsf")).toMatchObject({ calls: 20, phoneMinutes: 60, notes: 6, jobs: 3, invoiced: 75, collected: 10 });
+    // Every line carries an estimated cost; none is zero when there is activity.
+    expect(lines.every((l) => l.cost > 0)).toBe(true);
+  });
+
+  it("gives everything to the default company when nothing is attributed", () => {
+    const lines = splitByCompany({ business: two, totals, jobs: [{}, {}], invoices: [{ total: 10, collected: 5 }] });
+    expect(lines.find((l) => l.isDefault)).toMatchObject({ calls: 30, notes: 9, phoneMinutes: 120, jobs: 2, invoiced: 10, collected: 5 });
+    expect(lines.find((l) => !l.isDefault)).toMatchObject({ calls: 0, notes: 0, jobs: 0, invoiced: 0 });
+  });
+
+  it("clamps a never-negative default residual", () => {
+    const lines = splitByCompany({ business: two, totals, byCompany: { rcu: { calls: 50, voiceNotes: 20 } }, jobs: [], invoices: [] });
+    expect(lines.find((l) => l.isDefault)?.calls).toBe(0);
+    expect(lines.find((l) => l.isDefault)?.notes).toBe(0);
   });
 });

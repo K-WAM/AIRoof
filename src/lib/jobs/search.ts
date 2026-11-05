@@ -9,13 +9,13 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** Client-side instant filter — matches a query against a job's id/title/client/address/service type. */
-export function matchesJobSearch(job: Job, query: string): boolean {
+/** Client-side instant filter — matches a query against a job's id/title/client/address/service type and (multi-company) its company short name. */
+export function matchesJobSearch(job: Job, query: string, companyShortName?: string | null): boolean {
   const q = normalize(query);
   if (!q) return true;
 
   const haystack = normalize(
-    [job.jobId, job.title, job.clientName, job.address, job.serviceType].filter(Boolean).join(" ")
+    [job.jobId, job.title, job.clientName, job.address, job.serviceType, companyShortName].filter(Boolean).join(" ")
   );
   if (haystack.includes(q)) return true;
 
