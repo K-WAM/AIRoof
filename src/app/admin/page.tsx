@@ -5,12 +5,13 @@
 // the balances, then one row per client. Everything is computed by src/lib/admin/overview.ts (GET /api/admin/overview);
 // Mark paid / Send stay on the Invoices page — every invoice link here opens that exact invoice.
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, LayoutDashboard } from "lucide-react";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { ProviderStatusStrip } from "@/components/admin/ProviderStatusStrip";
+import { CompanySplitLines } from "@/components/admin/CompanySplitLines";
 import { fmtMoney } from "@/lib/format/money";
 import { invoiceHref, newInvoiceHref, sinceLabel, type BillingState, type OverviewSummary } from "@/lib/admin/overview";
 
@@ -149,24 +150,31 @@ export default function AdminOverviewPage() {
                   </thead>
                   <tbody>
                     {data.clients.map((c) => (
-                      <tr key={c.businessId}>
-                        <td>
-                          <Link href={`/admin/businesses/${c.businessId}/config`} className="business-name">{c.businessName}</Link>
-                          {c.paused && <> <span className="tag urgent">Paused</span></>}
-                          <p className="cell-note c1-phone-only">
-                            {c.monthlyAmount !== null ? `${usd(c.monthlyAmount)}/mo` : "No price"} · {c.users} user{c.users === 1 ? "" : "s"} · last sign-in {sinceLabel(c.lastSignInAt).toLowerCase()} · cost {usd(c.cost)}
-                          </p>
-                        </td>
-                        <td className="hide-phone" data-label="Plan" style={{ textAlign: "right" }} title={c.planName ?? undefined}>
-                          {c.monthlyAmount !== null ? `${usd(c.monthlyAmount)}/mo` : <Link href={`/admin/businesses/${c.businessId}/config`} className="pb-note">Set price</Link>}
-                        </td>
-                        <td className="hide-phone" data-label="Users" style={{ textAlign: "right" }} title={`${c.activeUsers} signed in within 30 days`}>{c.activeUsers}/{c.users}</td>
-                        <td className="hide-phone" data-label="Last sign-in">{data.signInsKnown ? sinceLabel(c.lastSignInAt) : "—"}</td>
-                        <td className="hide-phone" data-label="Calls" style={{ textAlign: "right" }} title={`${c.phoneMinutes} phone min · ${c.notes} field notes`}>{c.calls}</td>
-                        <td className="hide-phone" data-label="Our cost" style={{ textAlign: "right" }}>{usd(c.cost)}</td>
-                        <td className="hide-phone" data-label="Margin" style={{ textAlign: "right", fontWeight: 700 }}>{c.margin === null ? "—" : usd(c.margin)}</td>
-                        <td data-label="Billing"><BillingTag billing={c.billing} businessId={c.businessId} /></td>
-                      </tr>
+                      <Fragment key={c.businessId}>
+                        <tr>
+                          <td>
+                            <Link href={`/admin/businesses/${c.businessId}/config`} className="business-name">{c.businessName}</Link>
+                            {c.paused && <> <span className="tag urgent">Paused</span></>}
+                            <p className="cell-note c1-phone-only">
+                              {c.monthlyAmount !== null ? `${usd(c.monthlyAmount)}/mo` : "No price"} · {c.users} user{c.users === 1 ? "" : "s"} · last sign-in {sinceLabel(c.lastSignInAt).toLowerCase()} · cost {usd(c.cost)}
+                            </p>
+                          </td>
+                          <td className="hide-phone" data-label="Plan" style={{ textAlign: "right" }} title={c.planName ?? undefined}>
+                            {c.monthlyAmount !== null ? `${usd(c.monthlyAmount)}/mo` : <Link href={`/admin/businesses/${c.businessId}/config`} className="pb-note">Set price</Link>}
+                          </td>
+                          <td className="hide-phone" data-label="Users" style={{ textAlign: "right" }} title={`${c.activeUsers} signed in within 30 days`}>{c.activeUsers}/{c.users}</td>
+                          <td className="hide-phone" data-label="Last sign-in">{data.signInsKnown ? sinceLabel(c.lastSignInAt) : "—"}</td>
+                          <td className="hide-phone" data-label="Calls" style={{ textAlign: "right" }} title={`${c.phoneMinutes} phone min · ${c.notes} field notes`}>{c.calls}</td>
+                          <td className="hide-phone" data-label="Our cost" style={{ textAlign: "right" }}>{usd(c.cost)}</td>
+                          <td className="hide-phone" data-label="Margin" style={{ textAlign: "right", fontWeight: 700 }}>{c.margin === null ? "—" : usd(c.margin)}</td>
+                          <td data-label="Billing"><BillingTag billing={c.billing} businessId={c.businessId} /></td>
+                        </tr>
+                        {c.companies && c.companies.length > 0 && (
+                          <tr data-testid={`client-companies-${c.businessId}`}>
+                            <td colSpan={8} style={{ padding: "0 16px 10px" }}><CompanySplitLines lines={c.companies} /></td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

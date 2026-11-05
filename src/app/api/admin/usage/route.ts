@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { monthKey } from "@/lib/usage/meter";
-import { monthRange, readBusinessMonthUsage } from "@/lib/usage/businessMonthUsage";
+import { monthRange, readBusinessCompanyActivity, readBusinessMonthUsage } from "@/lib/usage/businessMonthUsage";
+import { splitByCompany } from "@/lib/admin/overview";
+import { isMultiCompany } from "@/lib/companies/companies";
 
 // GET /api/admin/usage?month=YYYY-MM — per client, for one month: team size, calls and phone minutes (read from the
 // calls themselves), voice/typed notes (from the usage meter, src/lib/usage/meter.ts) and the estimated cost to us
@@ -27,11 +29,27 @@ export async function GET(req: NextRequest) {
       bizSnap.docs.map(async (biz) => {
         const id = biz.id;
         const data = biz.data();
+        const multi = isMultiCompany(data);
 
-        const [usersSnap, month_] = await Promise.all([
+        const [usersSnap, month_, activity] = await Promise.all([
           db.collection("businessUsers").where("businessId", "==", id).count().get(),
           readBusinessMonthUsage(db, id, month, range),
+          multi ? readBusinessCompanyActivity(db, id, range) : Promise.resolve({ jobs: [], invoices: [] }),
         ]);
+        const basis = month_.costBasis ?? {
+          calls: month_.usage.calls,
+          phoneMinutes: month_.usage.phoneMinutes,
+          vapiMinutes: 0,
+          voiceNoteMinutes: month_.usage.voiceNoteMinutes,
+          notesRead: 0,
+        };
+        const companies = multi ? splitByCompany({
+          business: data,
+          totals: { ...basis, notes: month_.usage.voiceNotes + month_.usage.typedNotes },
+          byCompany: month_.usage.byCompany,
+          jobs: activity.jobs,
+          invoices: activity.invoices,
+        }) : [];
 
         return {
           businessId: id,
@@ -45,6 +63,7 @@ export async function GET(req: NextRequest) {
           isDemo: data.isDemo === true || id.startsWith("demo-"),
           usage: { users: usersSnap.data().count, ...month_.usage },
           cost: month_.cost,
+          ...(companies.length > 0 ? { companies } : {}),
           // Written daily by the booking canary (/api/cron/booking-canary); null until its first run.
           bookingCheck: data.bookingCheck ?? null,
         };

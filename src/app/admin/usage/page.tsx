@@ -4,14 +4,16 @@
 // talk to the field app, and what that costs us (estimate). Balances for each paid service sit on top so nothing
 // runs dry. Most expensive client first. Rates: src/lib/billing/aiCostRates.ts.
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { ProviderStatusStrip } from "@/components/admin/ProviderStatusStrip";
+import { CompanySplitLines } from "@/components/admin/CompanySplitLines";
 import { monthKey } from "@/lib/usage/month";
 import { BarChart3 } from "lucide-react";
 import { fmtMoney } from "@/lib/format/money";
+import type { CompanySplitLine } from "@/lib/admin/overview";
 
 interface BizUsage {
   businessId: string;
@@ -25,6 +27,8 @@ interface BizUsage {
   usage: { users: number; calls: number; callsCapped?: boolean; phoneMinutes: number; voiceNotes: number; voiceNoteMinutes: number; typedNotes: number };
   cost: { phone: number; ai: number; total: number };
   bookingCheck?: { ok: boolean; checkedAt: number; problems: string[] } | null;
+  /** Multi-company clients only. */
+  companies?: CompanySplitLine[];
 }
 
 const usd = (n: number) => fmtMoney(n);
@@ -102,24 +106,31 @@ export default function AdminUsagePage() {
                     {rows.map((r) => {
                       const line = r.voiceProvider === "elevenlabs" ? !!r.elevenLabsAgentId : !!r.vapiAssistantId;
                       return (
-                        <tr key={r.businessId}>
-                          <td>
-                            <Link href={`/admin/businesses/${r.businessId}/config`} className="business-name">{r.businessName}</Link>
-                            <p className="cell-note c1-phone-only">{r.usage.calls} calls · {r.usage.phoneMinutes} min · {r.usage.voiceNotes + r.usage.typedNotes} notes · {usd(r.cost.total)}</p>
-                          </td>
-                          <td className="hide-phone" data-label="Users" style={{ textAlign: "right" }}>{r.usage.users}</td>
-                          <td className="hide-phone" data-label="Calls" style={{ textAlign: "right" }}>{r.usage.calls}{r.usage.callsCapped ? "+" : ""}</td>
-                          <td className="hide-phone" data-label="Phone min" style={{ textAlign: "right" }}>{r.usage.phoneMinutes}</td>
-                          <td className="hide-phone" data-label="Field notes" style={{ textAlign: "right" }} title={`${r.usage.voiceNotes} voice (${r.usage.voiceNoteMinutes} min), ${r.usage.typedNotes} typed`}>{r.usage.voiceNotes + r.usage.typedNotes}</td>
-                          <td className="hide-phone" data-label="Est. cost" style={{ textAlign: "right", fontWeight: 700 }} title={`Phone ${usd(r.cost.phone)} · AI ${usd(r.cost.ai)}`}>{usd(r.cost.total)}</td>
-                          <td data-label="Status">
-                            {r.subscriptionStatus === "paused" ? <span className="tag urgent">Paused</span>
-                              : r.isDemo ? <span className="tag">Demo</span>
-                              : !line ? <Link href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }}>No phone line</Link>
-                              : r.bookingCheck && !r.bookingCheck.ok ? <span className="tag urgent" title={r.bookingCheck.problems.join("; ")}>Booking check failed</span>
-                              : <span className="tag success">Live</span>}
-                          </td>
-                        </tr>
+                        <Fragment key={r.businessId}>
+                          <tr>
+                            <td>
+                              <Link href={`/admin/businesses/${r.businessId}/config`} className="business-name">{r.businessName}</Link>
+                              <p className="cell-note c1-phone-only">{r.usage.calls} calls · {r.usage.phoneMinutes} min · {r.usage.voiceNotes + r.usage.typedNotes} notes · {usd(r.cost.total)}</p>
+                            </td>
+                            <td className="hide-phone" data-label="Users" style={{ textAlign: "right" }}>{r.usage.users}</td>
+                            <td className="hide-phone" data-label="Calls" style={{ textAlign: "right" }}>{r.usage.calls}{r.usage.callsCapped ? "+" : ""}</td>
+                            <td className="hide-phone" data-label="Phone min" style={{ textAlign: "right" }}>{r.usage.phoneMinutes}</td>
+                            <td className="hide-phone" data-label="Field notes" style={{ textAlign: "right" }} title={`${r.usage.voiceNotes} voice (${r.usage.voiceNoteMinutes} min), ${r.usage.typedNotes} typed`}>{r.usage.voiceNotes + r.usage.typedNotes}</td>
+                            <td className="hide-phone" data-label="Est. cost" style={{ textAlign: "right", fontWeight: 700 }} title={`Phone ${usd(r.cost.phone)} · AI ${usd(r.cost.ai)}`}>{usd(r.cost.total)}</td>
+                            <td data-label="Status">
+                              {r.subscriptionStatus === "paused" ? <span className="tag urgent">Paused</span>
+                                : r.isDemo ? <span className="tag">Demo</span>
+                                : !line ? <Link href={`/admin/businesses/${r.businessId}/config`} className="tag urgent" style={{ textDecoration: "none" }}>No phone line</Link>
+                                : r.bookingCheck && !r.bookingCheck.ok ? <span className="tag urgent" title={r.bookingCheck.problems.join("; ")}>Booking check failed</span>
+                                : <span className="tag success">Live</span>}
+                            </td>
+                          </tr>
+                          {r.companies && r.companies.length > 0 && (
+                            <tr data-testid={`usage-companies-${r.businessId}`}>
+                              <td colSpan={7} style={{ padding: "0 16px 10px" }}><CompanySplitLines lines={r.companies} /></td>
+                            </tr>
+                          )}
+                        </Fragment>
                       );
                     })}
                   </tbody>

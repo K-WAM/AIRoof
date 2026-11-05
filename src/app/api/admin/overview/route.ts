@@ -3,8 +3,9 @@ import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { effectiveAccountPurpose } from "@/lib/accounts/purpose";
 import { monthKey } from "@/lib/usage/month";
-import { monthRange, readBusinessMonthUsage } from "@/lib/usage/businessMonthUsage";
-import { buildOverview, type OverviewClientInput, type OverviewInvoiceInput } from "@/lib/admin/overview";
+import { monthRange, readBusinessCompanyActivity, readBusinessMonthUsage } from "@/lib/usage/businessMonthUsage";
+import { buildOverview, splitByCompany, type OverviewClientInput, type OverviewInvoiceInput } from "@/lib/admin/overview";
+import { isMultiCompany } from "@/lib/companies/companies";
 import { jsonWithCache } from "@/lib/http/cache";
 
 // GET /api/admin/overview — the superadmin's first screen (/admin): every client with its plan price, team size and
@@ -35,18 +36,21 @@ export async function GET(req: NextRequest) {
     const perBusiness = await Promise.all(
       bizSnap.docs.map(async (biz) => {
         const id = biz.id;
-        const purpose = effectiveAccountPurpose(id, biz.data());
+        const data = biz.data();
+        const purpose = effectiveAccountPurpose(id, data);
         // Archived accounts are left out of the Overview entirely — no reads spent on them.
         if (purpose === "archived") return null;
-        const [teamSnap, monthUsage] = await Promise.all([
+        const multi = isMultiCompany(data);
+        const [teamSnap, monthUsage, activity] = await Promise.all([
           db.collection("businessUsers").where("businessId", "==", id).get(),
           readBusinessMonthUsage(db, id, month, range),
+          multi ? readBusinessCompanyActivity(db, id, range) : Promise.resolve({ jobs: [], invoices: [] }),
         ]);
         // Luxor's own superadmin account can sit on a tenant for previews — it is not the client's user.
         const members = teamSnap.docs
           .filter((d) => d.data().role !== "superadmin")
           .map((d) => ({ uid: d.id, active: d.data().active !== false }));
-        return { biz, purpose, members, monthUsage };
+        return { biz, data, purpose, members, monthUsage, multi, activity };
       })
     );
     const rows = perBusiness.filter((r): r is NonNullable<typeof r> => r !== null);
@@ -69,10 +73,23 @@ export async function GET(req: NextRequest) {
       console.warn("Overview: sign-in times unavailable", err instanceof Error ? err.message : err);
     }
 
-    const businesses: OverviewClientInput[] = rows.map(({ biz, purpose, members, monthUsage }) => {
-      const data = biz.data();
+    const businesses: OverviewClientInput[] = rows.map(({ biz, data, purpose, members, monthUsage, multi, activity }) => {
       const billing = data.billing ?? {};
       const phoneLineReady = data.voiceProvider === "elevenlabs" ? typeof data.elevenlabs?.agentId === "string" && !!data.elevenlabs.agentId : !!data.vapiAssistantId;
+      const basis = monthUsage.costBasis ?? {
+        calls: monthUsage.usage.calls,
+        phoneMinutes: monthUsage.usage.phoneMinutes,
+        vapiMinutes: 0,
+        voiceNoteMinutes: monthUsage.usage.voiceNoteMinutes,
+        notesRead: 0,
+      };
+      const companies = multi ? splitByCompany({
+        business: data,
+        totals: { ...basis, notes: monthUsage.usage.voiceNotes + monthUsage.usage.typedNotes },
+        byCompany: monthUsage.usage.byCompany,
+        jobs: activity.jobs,
+        invoices: activity.invoices,
+      }) : [];
       return {
         businessId: biz.id,
         businessName: typeof data.businessName === "string" && data.businessName ? data.businessName : biz.id,
@@ -90,6 +107,7 @@ export async function GET(req: NextRequest) {
         phoneLineReady,
         bookingCheckFailed: data.bookingCheck?.ok === false,
         createdAt: typeof data.createdAt === "number" ? data.createdAt : null,
+        ...(companies.length > 0 ? { companies } : {}),
       };
     });
 
