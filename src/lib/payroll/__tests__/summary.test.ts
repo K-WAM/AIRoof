@@ -1,0 +1,14 @@
+import { expect, it } from "vitest";
+import { summarizePayroll } from "../summary";
+import type { WorkerDay } from "@/types/timeclock";
+const opts = {periodStart:"2026-11-02",periodEnd:"2026-11-15"};
+const day = (key: string, hours: number, extra: Partial<WorkerDay> = {}): WorkerDay => ({workerKey:"a",workerName:"Zoe",dayKey:key,state:"off",officeMs:hours*3600000,jobs:{},anomalies:[],...extra});
+it("splits a 45-hour week", () => expect(summarizePayroll([day("2026-11-02",45)],opts).people[0]).toMatchObject({regularHours:40,overtimeHours:5}));
+it("resets overtime across weeks", () => expect(summarizePayroll([day("2026-11-02",45),day("2026-11-09",45)],opts).people[0]).toMatchObject({regularHours:80,overtimeHours:10}));
+it("ignores outside days", () => expect(summarizePayroll([day("2026-11-01",10)],opts).people).toEqual([]));
+it("deduplicates anomaly flags", () => expect(summarizePayroll([day("2026-11-02",1,{anomalies:[{type:"missing_out",detail:""},{type:"missing_out",detail:""},{type:"overlap",detail:""},{type:"over_16h",detail:""}]})],opts).people[0].flags).toEqual(["Missing clock-out","Overlapping punches","Over 16 hours"]));
+it("calculates gross and crew", () => expect(summarizePayroll([day("2026-11-02",45)],{...opts,rates:{a:20},crews:{a:"One"}})).toMatchObject({people:[{estimatedGross:950,crew:"One"}],totals:{estimatedGross:950}}));
+it("omits gross without rates", () => expect(summarizePayroll([day("2026-11-02",1)],opts).totals).not.toHaveProperty("estimatedGross"));
+it("sorts workers by name", () => expect(summarizePayroll([day("2026-11-02",1),day("2026-11-02",1,{workerKey:"b",workerName:"Amy"})],opts).people.map(p=>p.name)).toEqual(["Amy","Zoe"]));
+it("counts distinct jobs and worked days", () => expect(summarizePayroll([day("2026-11-02",0,{jobs:{j:{ms:3600000}}}),day("2026-11-03",0,{jobs:{j:{ms:3600000}}})],opts).people[0]).toMatchObject({days:2,jobs:1,regularHours:2}));
+it("uses a custom weekly threshold", () => expect(summarizePayroll([day("2026-11-02",12)],{...opts,overtimeAfterWeeklyHours:10}).people[0].overtimeHours).toBe(2));
