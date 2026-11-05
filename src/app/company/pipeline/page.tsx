@@ -603,7 +603,7 @@ export default function PipelinePage() {
                 <BookingDetails booking={appt} inspectorName={appt.assignedCrewId ? crewNames[appt.assignedCrewId] : undefined} timeZone={tz} compact showName={false} showTime={false} />
                 <IntakeRows intake={appt.intake} labelFor={intakeLabelFor} />
               </div>
-              {!readOnly && appt.callerPhone && <button className="button secondary" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
+              {!readOnly && appt.callerPhone && <button className="button secondary" title="Places a real call from your AI line (billed per minute)" disabled={apptCalling === appt.appointmentId} onClick={() => callBackAppt(appt)}>{apptCalling === appt.appointmentId ? "Calling…" : "Call back"}</button>}
               {!isPast && appt.status !== "cancelled" && <button className="button secondary" type="button" onClick={() => setReviewAppt(appt)}>Review details</button>}
               {!readOnly && !isPast && !isConfirmed && !justConfirmed && <button className="button ghost" disabled={busy} onClick={() => updateApptStatus(appt, "confirmed")}>Confirm without email</button>}
               {!readOnly && !isPast && appt.status !== "cancelled" && !appt.jobId && <button className="button danger" disabled={busy} onClick={() => { if (confirm("Cancel this appointment?")) updateApptStatus(appt, "cancelled"); }}>Cancel</button>}

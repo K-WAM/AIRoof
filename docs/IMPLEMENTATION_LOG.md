@@ -2142,3 +2142,7 @@ Commit: `T-290: Preserve booking times across daylight-saving changes` (this com
 ## T-286 - Calendar dialog stacking
 
 Portal Modal and Sheet to the body with a shared stacking token. Added a typed portal declaration and an invented current-week booking and crew in the local harness. Related tests 80 passed; TypeScript and lint passed; desktop and phone Calendar feedback checks passed with a booking and screenshots inspected. No removals. Commit: T-286 completion follows WIP 3ba9602.
+
+## T-251 - Pipeline callback wording
+
+Added a title explaining that the callback places a real per-minute billed call. TypeScript and related test pass; eslint has one existing hook dependency warning. No removals.
