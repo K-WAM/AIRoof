@@ -528,13 +528,15 @@ async function handleEndOfCallReport(
     timestamp: m.time ?? Date.now(),
   }));
 
+  // One business read for the whole report: company attribution and outcome classification both reuse it.
+  const business = (await db.collection("businesses").doc(businessId).get()).data();
+
   // Classify outcome async — don't block the webhook response
   let outcome: string | null = null;
   let outcomeReason: string | null = null;
   if (transcript.length > 1) {
     try {
-      const bizSnap = await db.collection("businesses").doc(businessId).get();
-      const businessName = bizSnap.data()?.businessName ?? businessId;
+      const businessName = typeof business?.businessName === "string" ? business.businessName : businessId;
       const classification = await classifyCallOutcome({
         transcript: transcript.map((m) => ({ role: m.role, text: m.text })),
         businessName,
@@ -566,7 +568,7 @@ async function handleEndOfCallReport(
   );
 
   // Which company the caller belongs to (T-317). Bounded and non-fatal; a default-company/unknown caller writes nothing.
-  const companyId = await withinBudget(findCallingCustomerCompanyId(db, businessId, message.call.customer?.number));
+  const companyId = await withinBudget(findCallingCustomerCompanyId(db, businessId, message.call.customer?.number, business));
   if (companyId) await callRef.set({ companyId }, { merge: true });
 }
 

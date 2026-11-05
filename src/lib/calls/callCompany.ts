@@ -13,18 +13,17 @@ export async function findCallingCustomerCompanyId(
   db: Pick<Firestore, "collection">,
   businessId: string,
   callerPhone: string | null | undefined,
+  business: { billingCompanies?: unknown } | null | undefined,
 ): Promise<string | null> {
   const raw = typeof callerPhone === "string" ? callerPhone.trim() : "";
   const digits = raw.replace(/\D/g, "");
   if (!raw || digits.length < 7) return null;
   const caller10 = digits.slice(-10);
-  const business = db.collection("businesses").doc(businessId);
-  const bizSnap = await business.get();
-  if (!bizSnap.exists) return null;
-  const businessData = bizSnap.data();
-  if (!isMultiCompany(businessData)) return null;
+  // The caller already holds the business document (read once for classification/attribution); never read it again.
+  if (!isMultiCompany(business)) return null;
 
-  const customerSnap = await business
+  const businessRef = db.collection("businesses").doc(businessId);
+  const customerSnap = await businessRef
     .collection("customers")
     .where("searchTokens", "array-contains", caller10.slice(-7))
     .limit(5)
@@ -33,7 +32,7 @@ export async function findCallingCustomerCompanyId(
     .map((doc) => doc.data() as Doc)
     .filter((data) => last10(str(data.phone)) === caller10)
     .sort((a, b) => num(b.lastJobAt) - num(a.lastJobAt))[0];
-  return customer ? nonDefaultCompanyId(businessData, customer.companyId) : null;
+  return customer ? nonDefaultCompanyId(business, customer.companyId) : null;
 }
 
 function last10(value: string | undefined): string | undefined {

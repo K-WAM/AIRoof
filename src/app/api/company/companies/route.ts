@@ -4,6 +4,7 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { companiesOf, isMultiCompany } from "@/lib/companies/companies";
 import { patchCompanyProfiles, validateCompanies } from "@/lib/companies/validation";
 import { jsonWithCache } from "@/lib/http/cache";
+import { invalidateProducts } from "@/lib/products/productCache";
 import type { LibraryLogo } from "@/types/library";
 
 export async function GET(req: NextRequest) {
@@ -39,5 +40,7 @@ export async function PATCH(req: NextRequest) {
     tx.set(audit, { action: "companies.updated", actorUid: gate.user.uid, businessId, before, after: valid.companies, createdAt: now });
     return { companies: valid.companies };
   });
-  return "error" in result ? NextResponse.json({ error: result.error }, { status: result.status }) : jsonWithCache(result, "noStore");
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
+  invalidateProducts(businessId);
+  return jsonWithCache(result, "noStore");
 }

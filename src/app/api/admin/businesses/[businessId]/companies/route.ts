@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifySuperadmin } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { jsonWithCache } from "@/lib/http/cache";
+import { invalidateProducts } from "@/lib/products/productCache";
 import { companiesOf } from "@/lib/companies/companies";
 import { validateCompanies } from "@/lib/companies/validation";
 import type { LibraryLogo } from "@/types/library";
@@ -41,5 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ busi
     tx.set(audit, event);
     return { companies: valid.companies };
   });
-  return "error" in result ? NextResponse.json({ error: result.error }, { status: result.status }) : jsonWithCache(result, "noStore");
+  if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.status });
+  invalidateProducts(businessId);
+  return jsonWithCache(result, "noStore");
 }

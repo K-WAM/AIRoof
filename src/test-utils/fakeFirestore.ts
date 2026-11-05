@@ -9,7 +9,7 @@
 // "clears nothing else" contract is observable in tests.)
 
 type DocData = Record<string, unknown>;
-type WhereOp = "==" | "array-contains" | "<" | "<=" | ">" | ">=";
+type WhereOp = "==" | "in" | "array-contains" | "<" | "<=" | ">" | ">=";
 
 interface StoredDoc {
   id: string;
@@ -55,6 +55,7 @@ export class FakeQuery {
       docs = docs.filter((d) => {
         const v = readPath(d.data, f.field);
         if (f.op === "==") return v === f.value;
+        if (f.op === "in") return Array.isArray(f.value) && f.value.includes(v);
         if (f.op === "array-contains") return Array.isArray(v) && v.includes(f.value);
         if (typeof v !== "number" || typeof f.value !== "number") return false;
         if (f.op === "<") return v < f.value;

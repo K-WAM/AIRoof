@@ -44,4 +44,33 @@ describe("ended call durability", () => {
     expect(mocks.lead).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ businessId: "biz", callId: "call_1", classification: { outcome: "scheduled", reason: "Booked" } }));
     expect(call()).toMatchObject({ outcome: "scheduled", outcomeReason: "Booked", messages: input.messages });
   });
+
+  describe("company attribution (T-317 fix)", () => {
+    const rdsf = { id: "rdsf", name: "Roof Pros South", shortName: "RDSF", isDefault: true };
+    const rcu = { id: "rcu", name: "Concepts Unlimited", shortName: "RCU" };
+    const attributedInput: EndedCallReportInput = { ...input, callerPhone: "+1 (555) 123-4567" };
+    const runAttributed = () => writeEndedCallReport(db as unknown as Firestore, attributedInput);
+
+    beforeEach(() => {
+      db.__seed("businesses", "biz", { businessName: "RoofDoctors", billingCompanies: [rdsf, rcu] });
+      db.__seed("businesses/biz/customers", "C-1", { phone: "+15551234567", companyId: "rcu", searchTokens: ["1234567"] });
+      mocks.classify.mockResolvedValue({ outcome: "scheduled", reason: "Booked" });
+    });
+
+    it("reads the business document once for attribution and classification", async () => {
+      const ref = db.collection("businesses").doc("biz");
+      const prototype = Object.getPrototypeOf(ref);
+      const originalGet = prototype.get;
+      let businessReads = 0;
+      const spy = vi.spyOn(prototype, "get").mockImplementation(function (this: { id: string }) {
+        if (this.id === "biz") businessReads += 1;
+        return originalGet.call(this);
+      });
+      try {
+        await runAttributed();
+        expect(call()).toMatchObject({ companyId: "rcu" });
+        expect(businessReads).toBe(1);
+      } finally { spy.mockRestore(); }
+    });
+  });
 });

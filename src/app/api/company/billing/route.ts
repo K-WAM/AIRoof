@@ -6,6 +6,7 @@ import { jsonWithCache } from "@/lib/http/cache";
 import { daysPastDue, invoiceBalance } from "@/lib/billing/customerPayments";
 import { roundCents } from "@/lib/format/money";
 import { companiesOf, defaultCompany, effectiveCompanyId, isMultiCompany } from "@/lib/companies/companies";
+import { loadBusinessConfig } from "@/lib/products/productCache";
 import type { JobInvoice } from "@/types/invoice";
 
 // GET /api/company/billing?businessId= — the Billing screen (Billing product): what customers owe, what's late, what
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const bizSnap = await db.collection("businesses").doc(businessId).get();
-  const biz = bizSnap.data();
+  // Reuse the business document the product guard already read for this request (src/lib/products/productCache.ts),
+  // so identifying the client's companies adds no business-document read.
+  const { business: biz } = await loadBusinessConfig(db, businessId);
   const multi = isMultiCompany(biz);
   const knownCompanies = companiesOf(biz);
   const companyParam = req.nextUrl.searchParams.get("company")?.trim();
