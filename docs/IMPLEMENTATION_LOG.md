@@ -2158,3 +2158,42 @@ alert mail passes null). Missing allowlist = unchanged behaviour for every other
 - Part 5: Updated K3 review and math status in TODO. No removals.
 
 - Part 6 WIP: Added callback and catalog hints. TypeScript passed; lint has one existing calls hook warning. Related tests failed twice: Team role options test expects the pre-T-303 list. Outbound button is in an unowned shared dialog; Team has Disable access rather than a remove action. No removals.
+
+## 2026-11-05 - T-311 properties and past work on a customer (DeepSeek, K4)
+
+Added GET /api/company/customers/[customerId]/history?businessId=, gated by verifyAuthAndRole with owner, staff, viewer and
+superadmin (crew refused). It reads businesses/{businessId}/jobHistory where customerId equals the path id, limited to 200,
+sorted newest first in code by dueAt so no index is needed, and responds through jsonWithCache with the volatile policy
+(private, no-cache). Items carry id, dueAt, property, address, city, jobType and status. Missing businessId returns 400;
+no database returns 503. The route only reads.
+
+The customer detail now shows "Customer ID: <code>" beside the name when customerCode is present, a Properties (n) section
+(first 10, then Show all n) and a "Past work from Jobba (n)" section (date, property, job type, status; first 10, then Show
+all). Both live in their own components (CustomerProperties.tsx, CustomerPastWork.tsx) and render nothing when empty. The
+history is fetched once per opened detail; a failed fetch shows nothing extra. All text renders as plain text.
+
+Evidence: new tests cover crew refusal through the guard error, missing businessId (400, guard not called), newest-first
+ordering, another customer's records excluded, and database unavailable (503). tsc clean; eslint clean on changed files;
+history tests 5/5; route-guards inventory 4/4; related library run found no tests. No removals.
+
+## 2026-11-05 - T-293 online payments preview inside Billing (DeepSeek, K4)
+
+Added PaymentsPreview.tsx under src/app/company/billing. It reads the showcase switch defensively from bootstrap and returns
+nothing unless showcase.payments is true, so every other business sees the same Billing page as before. When on, a card
+titled "Online payments" with a Preview badge sits below the page header and is collapsed to the line "See how customers
+would pay online" until opened. Opened, it shows a pay-page mock-up built from the first loaded invoice with status sent
+(invoice number, amount due from the page's existing balance, bill-to name) or invented example values when there is none,
+two payment buttons and the line "Payments by Stripe". Both buttons are disabled and each shows "Online payments turn on at
+launch."; there are no other buttons in the preview. It also shows paid, partly paid and overdue counts taken from the
+invoices already loaded on the page (no new money math), three invented deposit rows labelled Sample, and the line about
+Stripe fees. No network call, no Stripe code, no writes.
+
+Billing rows now show a small Deposit chip beside the invoice number when the row carries kind === "deposit". The page reads
+that field defensively; the billing API response does not select kind yet, so the chip stays hidden until the route includes
+it (flagged to the integrator).
+
+Evidence: PaymentsPreview render tests cover disabled payment buttons with the launch text, the absent card when payments is
+not on, the office counts and three sample deposits. tsc clean; eslint clean on changed files; related billing tests 3/3. No
+removals.
+
+

@@ -15,6 +15,8 @@ const MAX_INVOICES = 300;
 
 export interface BillingRow {
   invoiceId: string; jobId: string; customer: string; total: number; balance: number;
+  /** Deposit invoices show a "Deposit" chip (T-304f). Missing = standard. */
+  kind?: "standard" | "deposit";
   status: "sent" | "paid"; sentAt?: number; dueAt?: number; paidAt?: number; daysLate: number;
 }
 
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
     // Money in this month: each recorded payment by its date; a one-step "Mark paid" (no payments list) by paidAt.
     if (inv.payments?.length) paidThisMonth += inv.payments.filter((p) => p.receivedAt >= monthStart.getTime()).reduce((s, p) => s + p.amount, 0);
     else if (inv.status === "paid" && (inv.paidAt ?? 0) >= monthStart.getTime()) paidThisMonth += inv.amountPaid ?? inv.total;
-    rows.push({ invoiceId: doc.id, jobId: inv.jobId, customer: inv.billTo?.name || "—", total: inv.total, balance, status: inv.status as "sent" | "paid", sentAt: inv.sentAt, dueAt: inv.dueAt, paidAt: inv.paidAt, daysLate });
+    rows.push({ invoiceId: doc.id, jobId: inv.jobId, customer: inv.billTo?.name || "—", total: inv.total, balance, status: inv.status as "sent" | "paid", ...(inv.kind === "deposit" ? { kind: "deposit" as const } : {}), sentAt: inv.sentAt, dueAt: inv.dueAt, paidAt: inv.paidAt, daysLate });
   }
   const unpaid = rows.filter((r) => r.status === "sent").sort((a, b) => b.daysLate - a.daysLate || (a.dueAt ?? 0) - (b.dueAt ?? 0));
   const paid = rows.filter((r) => r.status === "paid").sort((a, b) => (b.paidAt ?? 0) - (a.paidAt ?? 0)).slice(0, 20);
