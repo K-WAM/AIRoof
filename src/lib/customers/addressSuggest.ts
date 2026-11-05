@@ -56,6 +56,16 @@ function matches(suggestion: AddressSuggestion, queryTokens: string[]): boolean 
 }
 
 /**
+ * Filter an already-built suggestion list by the typed text, capping at
+ * ADDRESS_SUGGESTIONS_MAX. The component uses this for every keystroke, so
+ * typing never costs a network round trip.
+ */
+export function filterAddressSuggestions(suggestions: AddressSuggestion[], query?: string): AddressSuggestion[] {
+  const queryTokens = tokenize(query);
+  return suggestions.filter((s) => matches(s, queryTokens)).slice(0, ADDRESS_SUGGESTIONS_MAX);
+}
+
+/**
  * De-duplicated suggestions in trust order — the most recent past job address
  * first, then the customer's own address, then its saved properties — filtered
  * by the typed text (any word order; punctuation and accents are ignored).
@@ -83,14 +93,11 @@ export function suggestAddresses(input: AddressSuggestInput): AddressSuggestion[
     });
   }
 
-  const queryTokens = tokenize(input.query);
   const seen: AddressSuggestion[] = [];
   for (const candidate of candidates) {
-    if (!matches(candidate, queryTokens)) continue;
     if (seen.some((s) => sameAddress(s, candidate))) continue;
     seen.push(candidate);
-    if (seen.length >= ADDRESS_SUGGESTIONS_MAX) break;
   }
 
-  return seen;
+  return filterAddressSuggestions(seen, input.query);
 }

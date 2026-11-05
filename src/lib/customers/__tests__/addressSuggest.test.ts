@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suggestAddresses, ADDRESS_SUGGESTIONS_MAX } from "@/lib/customers/addressSuggest";
+import { suggestAddresses, filterAddressSuggestions, ADDRESS_SUGGESTIONS_MAX } from "@/lib/customers/addressSuggest";
 
 const properties = [
   { name: "Northside Plaza", address: "10 Example Way", city: "Miami", state: "FL" },
@@ -78,5 +78,13 @@ describe("suggestAddresses", () => {
     const list = suggestAddresses({ properties: [{ address: "  " }, ...properties] });
     expect(list).toHaveLength(2);
     expect(list[0]).toMatchObject({ name: "Northside Plaza", city: "Miami", state: "FL" });
+  });
+});
+
+describe("filterAddressSuggestions", () => {
+  it("filters an existing list and caps at 8", () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ address: `${i + 1} Test Street` }));
+    expect(filterAddressSuggestions(many, "")).toHaveLength(ADDRESS_SUGGESTIONS_MAX);
+    expect(filterAddressSuggestions(many, "street 12").map((s) => s.address)).toEqual(["12 Test Street"]);
   });
 });
