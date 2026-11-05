@@ -419,3 +419,11 @@ The owner approved the plan with these changes:
 A per-client rename of "Job" to "Work order" was considered and **not** done: the word appears in too many places to change
 safely before the review (a half-renamed app looks worse). Their documents still say "Work order" (the letter field
 `workOrder` = the job number).
+
+**Update 2026-11-04, late:** DeepSeek runs as stream **K4** (owner asked for it) on T-311 (properties + past work on the customer)
+and T-293 (payments preview in Billing), moved off K2 before K2 started. It runs through the Kilo CLI as a locked-down agent
+(`kilo.jsonc` in its git-excluded worktree `D:/Apps/air-wt-rd-k4`): everything is denied except reading/editing inside that
+folder, type-check, lint, unit tests and git add/commit. No network, no pushes, no scripts, no reading outside the folder (so it
+cannot open `client-resources/`). K3 (roles, money math, importer) ran on Codex Terra and is merged. No worker has live keys;
+no import, email or production write happens until the owner approves the push and the evaluation guard (T-306) is live.
+
