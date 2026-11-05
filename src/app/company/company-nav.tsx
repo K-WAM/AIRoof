@@ -33,7 +33,10 @@ const MODULE_OF: Record<string, CompanyModule> = {
 };
 const groups: NavGroup[] = ["Primary", "Manage", "Account", "Help"];
 
-export function CompanyNav() {
+// onOpenFeedback: the shell owns the Feedback window so the phone menu can close first (a window opened from inside
+// the menu sheet left the menu showing underneath it — "floating text", owner 2026-11-05). Without it, the nav keeps
+// its own window (unchanged behaviour for any other caller).
+export function CompanyNav({ onOpenFeedback }: { onOpenFeedback?: () => void } = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preview = searchParams?.get("preview");
@@ -75,7 +78,7 @@ export function CompanyNav() {
               }
               return path === "feedback" ? (
                 <button key={path} type="button" className="company-nav-trigger" data-state={feedbackOpen ? "open" : undefined}
-                  onClick={() => setFeedbackOpen(true)} aria-haspopup="dialog" aria-label="Send feedback">
+                  onClick={() => (onOpenFeedback ? onOpenFeedback() : setFeedbackOpen(true))} aria-haspopup="dialog" aria-label="Send feedback">
                   <Icon size={16} strokeWidth={1.75} />{label}
                 </button>
               ) : (
@@ -87,7 +90,7 @@ export function CompanyNav() {
           </div>
         );
       })}
-      {links.some((link) => link.path === "feedback") && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
+      {!onOpenFeedback && links.some((link) => link.path === "feedback") && <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );
 }

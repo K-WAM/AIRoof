@@ -14,6 +14,7 @@ import { QuickAddButton } from "@/components/ui/QuickAddButton";
 import { DemoTourBanner } from "@/components/demo/DemoTourBanner";
 import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import { Sheet } from "@/components/ui/Sheet";
+import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
 import { CompanyBrand } from "@/components/companies/CompanyBrand";
@@ -54,6 +55,9 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // One Feedback window for the shell: opening it closes the phone menu first, so nothing is left showing behind it.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const openFeedback = () => { setMobileMenuOpen(false); setFeedbackOpen(true); };
   const { ready: modulesReady, isEnabled, isLocked, family, subscriptionStatus, disabledModules } = useBusinessModules();
   const { ready: bootstrapReady, data: bootstrap } = useBootstrap();
 
@@ -210,7 +214,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
       <aside className="company-sidebar">
         <BusinessBrand />
         <div className="company-sidebar-nav">
-          <CompanyNav />
+          <CompanyNav onOpenFeedback={openFeedback} />
         </div>
         <div className="company-sidebar-footer">
           {!crewOnly && <QuickAddButton />}
@@ -242,7 +246,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
         <Sheet open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} title="Menu">
           <div className="mobile-nav-sheet" id="company-mobile-nav">
-            <CompanyNav />
+            <CompanyNav onOpenFeedback={openFeedback} />
             <div className="mobile-nav-divider" />
             <div className="mobile-nav-user">
               <span className={`user-role-badge ${user.superadmin ? "superadmin" : ""}`}>{roleLabel}</span>
@@ -251,6 +255,8 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
             <button className="logout-btn mobile-nav-logout" onClick={handleLogout}>Sign out</button>
           </div>
         </Sheet>
+
+        <FeedbackForm open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
         <main className="company-main">
           {user.isSandboxVisitor && <DemoTourBanner previewSuffix={previewSuffix} />}
