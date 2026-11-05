@@ -1473,6 +1473,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
               </div>
 
+              {invoiceStatus === "draft" && grandTotal === 0 && !readOnly && <p className="no-print">This draft has no charges; <button className="button" disabled={generatingInvoice} onClick={() => generateInvoice(true)}>Rebuild from the latest quote and findings</button>.</p>}
               {invoiceStatus && invoiceStatus !== "draft" && (
                 <div className="no-print" style={{ marginBottom: 16, padding: "10px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, color: "#15803d" }}>
                   {/* When paid, the payments panel below carries the date — this line only says it's locked (C5). */}

@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { allocateJobInvoiceNumber } from "@/lib/billing/jobInvoiceNumber";
-import { buildDraftFromProjection, computeTotals, invoiceLinesFromQuote } from "@/app/company/jobs/[jobId]/jobInvoice";
+import { buildDraftFromProjection, invoiceLinesFromQuote } from "@/app/company/jobs/[jobId]/jobInvoice";
+import { quoteLinesFromFindings } from "@/lib/billing/jobQuote";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
 import type { Job } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
@@ -33,13 +34,18 @@ async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string,
   const customer = customerSnap?.exists ? (customerSnap.data() as Customer) : null;
   const library = librarySnap.exists ? (librarySnap.data() as LibraryPricing) : null;
 
-  const draft = buildDraftFromProjection({
+  const logged = buildDraftFromProjection({
     parsed: job.parsed ?? { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [] },
     library,
     businessConfig: biz ? { laborRate: biz.laborRate, defaultTaxRate: biz.defaultTaxRate } : null,
     customer,
   });
-  return { draft, totals: computeTotals(draft), business: biz };
+  const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
+  const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
+  const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
+  const scope = acceptedQuote?.lines?.length ? acceptedQuote.lines : quoteLinesFromFindings(job.findings ?? []);
+  const draft = nothingLogged && scope.length ? { ...logged, ...invoiceLinesFromQuote(scope) } : logged;
+  return { draft, acceptedQuote, business: biz };
 }
 
 // GET /api/jobs/[jobId]/invoice?businessId=xxx — fetch the job's saved invoice, if any
@@ -102,17 +108,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
         return NextResponse.json({ error: `Invoice is ${existingInvoice.status} and can no longer be regenerated` }, { status: 409 });
       }
       const rebuilt = await rebuildDraft(db, businessId, job);
-      const patch = { ...rebuilt.draft, ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode: existingInvoice.priceMode, customerSubtotal: existingInvoice.customerSubtotal }), updatedAt: Date.now() };
+      // Recover an early empty draft's accepted contract price; preserve an office-edited project price.
+      const priceMode = existingInvoice.priceMode ?? rebuilt.acceptedQuote?.priceMode ?? "lines";
+      const customerSubtotal = existingInvoice.customerSubtotal ?? rebuilt.acceptedQuote?.subtotal;
+      const patch = { ...rebuilt.draft, priceMode, ...(priceMode === "project" ? { customerSubtotal } : {}),
+        ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode, customerSubtotal }), updatedAt: Date.now() };
       await existingRef.update(patch);
       return NextResponse.json({ invoice: { ...existingInvoice, ...patch } });
     }
   }
 
-  const { draft: logged, business } = await rebuildDraft(db, businessId, job);
-  const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
-  const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
-  const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
-  const draft = nothingLogged && acceptedQuote?.lines?.length ? { ...logged, ...invoiceLinesFromQuote(acceptedQuote.lines) } : logged;
+  const { draft, acceptedQuote, business } = await rebuildDraft(db, businessId, job);
   const priceMode = acceptedQuote?.priceMode ?? "lines";
   const customerSubtotal = priceMode === "project" ? acceptedQuote?.subtotal : undefined;
   const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });

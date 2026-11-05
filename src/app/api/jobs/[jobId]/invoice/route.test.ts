@@ -7,6 +7,9 @@ vi.mock("@/lib/auth/verifyRole", () => ({ verifyAuthAndRole: mocks.verify }));
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: mocks.firestore }));
 vi.mock("@/lib/photos/store", () => ({ listPhotoMetas: mocks.listPhotoMetas, getPhotoBlobs: mocks.getPhotoBlobs }));
 import { PATCH, POST } from "./route";
+import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { reportQuoteSection } from "@/lib/documents/reportQuote";
+import type { JobQuote } from "@/types/quote";
 
 const context = { params: Promise.resolve({ jobId: "j" }) };
 const request = (body: Record<string, unknown>) => new NextRequest("http://localhost/api/jobs/j/invoice", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -35,6 +38,22 @@ describe("Mark paid", () => {
 });
 
 describe("invoice document options", () => {
+  it.each(["lines", "project"] as const)("rebuilds an old zero draft from the accepted %s quote used on the report", async (priceMode) => {
+    const lines = [{ lineId: "scope", kind: "other" as const, description: "Restore entrance surface", quantity: 1, unitPrice: 1760 }];
+    const quote = { quoteId: "Q-8", status: "accepted", lines, hideMaterials: false, priceMode,
+      customerSubtotal: 1850, subtotal: priceMode === "project" ? 1850 : 1760 } as JobQuote;
+    db.__seed("businesses", "b", { businessName: "Example Services" });
+    db.__seed("businesses/b/jobs", "j", { invoiceId: "INV-1", quoteId: "Q-8", findings: [{ findingId: "f", includeInQuote: true, lines }],
+      parsed: { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [] } });
+    db.__seed("businesses/b/quotes", "Q-8", { ...quote });
+    const response = await POST(request({ businessId: "b", force: true }), context);
+    expect(response.status).toBe(200);
+    const invoice = (await response.json()).invoice;
+    const quoteTotal = customerTotals({ kind: "quote", lineSubtotal: 1760, priceMode, customerSubtotal: 1850 }).total;
+    expect(reportQuoteSection(quote, { includeQuote: true }, String)?.total).toBe(quoteTotal);
+    expect(invoice.total).toBe(quoteTotal);
+    expect(invoice.other[0].description).toBe("Restore entrance surface");
+  });
   it("rejects invalid project prices, a locked invoice, and a foreign tenant", async () => {
     for (const customerSubtotal of [null, -1, 10_000_000.01, 1.001, Number.NaN]) {
       expect((await PATCH(request({ businessId: "b", priceMode: "project", customerSubtotal }), context)).status).toBe(400);
