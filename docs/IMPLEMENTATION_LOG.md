@@ -2196,4 +2196,30 @@ Evidence: PaymentsPreview render tests cover disabled payment buttons with the l
 not on, the office counts and three sample deposits. tsc clean; eslint clean on changed files; related billing tests 3/3. No
 removals.
 
+## 2026-11-05 - T-314 role test accounts and the who-sees-what truth table (DeepSeek, K5)
+
+Test data and tests only; no product code changed.
+
+Added TENANTS.pros (e2e-roofpros, "E2E Roof Pros", roofing) and eight pro accounts: owner, manager (owner + manager title),
+supervisor, office admin, front desk (staff), and foreman, technician and inspector (crew). The e2e seed now sets seatLimit 15,
+showcase { finances, payroll, payments } and outboundEmailAllowlist ["owner@roofpros.e2e.test"] on that tenant. It also puts
+the three field users on one invented crew ("Pros Field Crew"). The e2e seed had no crew-link example of its own, so the crew
+document and member crewId copy the shape used by src/lib/verticals/writeDemoSeed.ts and the invite path.
+
+Added e2e/roles/expectations.ts: one RoleExpectation per ACCOUNTS key, including the eight existing accounts. It records the
+owner's rules (nav labels, landing, canWrite, fieldVoiceNote, seesPrices) and 3 to 6 real API probes per role. Probe paths
+and allowed roles were read from the route files. The GET probes carry ?businessId=; the team PATCH probes carry businessId in
+an optional body field so they reach the auth gate instead of failing validation first. The two finance probes are marked
+"route lands with K2".
+
+Added src/app/company/__tests__/role-expectations.test.ts. It checks visibleNavLinks and defaultLandingPath against every
+entry except superadmin. disabledModules mirrors the app: the industry template's disabled modules plus Billing off with Jobs
+(bootstrap disabledModulesFor). No product mismatches were found, so no case needed it.fails.
+
+Added docs/E2E-ROLE-TEST-PLAN.md: what exists today, how to read and extend the truth table, the browser spec to build next
+(e2e/role-journeys.spec.ts), the later production smoke workspace, and the run tiers.
+
+Evidence: target vitest file 32/32 green; npx tsc --noEmit clean; npx eslint clean on the new TS files. Commits f12a8b4,
+e18b9a8, be44512 and the plan-doc commit. Removals: none.
+
 
