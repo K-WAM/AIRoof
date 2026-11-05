@@ -21,6 +21,11 @@ async function main() {
   else admin.initializeApp({credential:admin.credential.cert(JSON.parse(readFileSync(join(root,"firebase-service-account.json"),"utf8")))});
   const db = admin.firestore(), biz = db.collection("businesses").doc(business), snap = await biz.get();
   if (!snap.exists) throw new Error("Business document does not exist.");
+  // Owner rule (2026-11-04): use their data, never contact anyone with it. No write until the workspace's evaluation
+  // guard is on (src/lib/comms/evaluationGuard.ts: the email allowlist switches on the email AND the phone side).
+  const guardOn = Array.isArray(snap.data().outboundEmailAllowlist);
+  console.log(`Evaluation guard: ${guardOn ? "ON" : "OFF"}`);
+  if (apply && !guardOn) throw new Error("Evaluation guard is OFF for this business. Set outboundEmailAllowlist and outboundPhoneAllowlist on it before importing.");
   const tz = snap.data().timezone || "America/New_York";
   let replacement = 0;
   const files = filenames.map(name => { const text = decodeCsvBuffer(readFileSync(join(dir,name))); replacement += (text.match(/\uFFFD/g) || []).length; return parseCsv(text); });

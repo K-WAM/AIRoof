@@ -2498,3 +2498,11 @@ one Checkout per amount, stable idempotency key), cumulative refunds, resuming a
 same amount + same link; superseded sessions expired at Stripe). Not built: card surcharge (legal check). Needs the owner:
 Stripe Connect platform, webhook registration + STRIPE_CONNECT_WEBHOOK_SECRET, PAY_LINK_SECRET, fee policy
 (docs/PAY-NOW.md). Checks on merged main: tsc clean; vitest 322 files, 2629 passed + 1 expected fail.
+
+## 2026-11-05 - Roof Doctors data double-check before the push (owner: "no emails to them, nothing")
+Checked every way the app can contact someone: all email goes through sendEmail (guard first, fails closed on a read
+error); texts are off platform-wide (SMS_ENABLED unset in production) and guarded; outbound calls have two entry points,
+both guarded; the live agent has no call-transfer tool; no new automatic message for existing clients in this push (crons
+unchanged apart from the evaluation skip). The Jobba import carries no customer email or phone. Added: import-jobba.mjs
+--apply refuses to write unless the evaluation guard is ON. Open gap, by procedure: the onboarding wizard's welcome email is
+platform mail, so the roofdoctors workspace is created with no Roof Doctors owner email (ROOFDOCTORS-DEMO-PLAN.md).

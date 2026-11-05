@@ -427,6 +427,19 @@ do anything that would be viewed as weird, like getting an email or a text." So 
 the evaluation guard now covers texts and outbound calls as well as email (§10 rule 13). Before the workspace exists,
 `outboundEmailAllowlist` and `outboundPhoneAllowlist` are set on it **first**, before any import, login or document.
 
+**Double-check before the push (2026-11-05):**
+- The import carries **no customer email or phone number** (names, property addresses, materials, past invoices and
+  inspections only). `scripts/import-jobba.mjs --apply` now refuses to write unless the workspace's guard is ON.
+- Create the workspace with **no Roof Doctors owner email**: the onboarding wizard's welcome email is Luxor platform mail
+  (`businessId: null`), which the guard does not cover. Their staff get logins only when the owner asks, after their
+  addresses are on the list.
+- `notificationEmail` and `escalationPhone` = the owner's own (both on the lists), so booking and urgent alerts reach him,
+  never their office. The live agent has no call-transfer tool (checked 2026-11-05: end call, language and voicemail
+  detection only); the Roof Doctors copy (T-307) must keep it that way.
+- Review day: calls in, bookings, jobs, findings, quotes, reports and invoices work for everyone present. Only what the
+  system sends out is limited to the lists, so attendees who should see an email arrive are added beforehand. A blocked
+  send currently shows staff the generic "could not be delivered" message. Texts are off platform-wide (`SMS_ENABLED` unset).
+
 A per-client rename of "Job" to "Work order" was considered and **not** done: the word appears in too many places to change
 safely before the review (a half-renamed app looks worse). Their documents still say "Work order" (the letter field
 `workOrder` = the job number).
