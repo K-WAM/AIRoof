@@ -205,6 +205,7 @@ export function FieldFindingsButton({ businessId, jobId, disabled, onAdded, show
         type="button"
         onClick={() => setOpen(true)}
         disabled={off}
+        title={disabled ? "Type your name above to start" : !jobId ? "Pick a job above first" : undefined}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           width: "100%", padding: "12px", borderRadius: 12,

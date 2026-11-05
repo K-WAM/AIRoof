@@ -102,6 +102,7 @@ export function PhotoCapture({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || !jobId || processing}
+        title={processing ? "Processing photo" : disabled ? "Type your name above to start" : !jobId ? "Pick a job above first" : undefined}
         style={{
           display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           width: "100%", padding: "12px", borderRadius: 12,

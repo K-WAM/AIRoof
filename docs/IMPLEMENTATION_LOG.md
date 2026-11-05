@@ -2146,3 +2146,7 @@ Portal Modal and Sheet to the body with a shared stacking token. Added a typed p
 ## T-251 - Pipeline callback wording
 
 Added a title explaining that the callback places a real per-minute billed call. TypeScript and related test pass; eslint has one existing hook dependency warning. No removals.
+
+## T-299 - Field name prompt (browser verification pending)
+
+The QR screen focuses the missing name and redirects taps on name-blocked controls to it. Added reasons for name or job blocked note, photo and finding actions. TypeScript and 26 related tests pass; lint reports an existing image warning. Browser check and remaining disabled-control audit pending. No removals.

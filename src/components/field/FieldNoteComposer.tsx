@@ -169,6 +169,7 @@ export function FieldNoteComposer({
           type="button"
           aria-label={recording ? "Stop recording" : "Record a voice note"}
           data-testid="note-mic"
+          title={blockedReason || (!jobId ? "Pick a job above first" : audio.unsavedRecordingJobId ? "Retry saving the earlier recording first" : working ? "Please wait while the note is saved" : undefined)}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerLeave}
@@ -231,7 +232,7 @@ export function FieldNoteComposer({
 
       {/* Typing: one tap away, same receipt */}
       {!typing ? (
-        <button type="button" onClick={() => setTyping(true)} disabled={!ready} data-testid="note-type-toggle"
+        <button type="button" onClick={() => setTyping(true)} disabled={!ready} title={blockedReason || (!jobId ? "Pick a job above first" : undefined)} data-testid="note-type-toggle"
           style={{ ...ghostBtn, width: "100%", borderStyle: "dashed", color: ready ? "#94a3b8" : "#475569", cursor: ready ? "pointer" : "not-allowed" }}>
           <Keyboard size={15} /> Type a note instead
         </button>
@@ -243,7 +244,7 @@ export function FieldNoteComposer({
             style={{ width: "100%", padding: "12px 14px", borderRadius: 12, border: "1.5px solid #334155", background: "#0f172a", color: "#f1f5f9", fontSize: 15, lineHeight: 1.5, fontFamily: "inherit", resize: "vertical" }} />
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" onClick={() => { setTyping(false); setText(""); setTypedError(null); }} disabled={savingText} style={{ ...ghostBtn, flex: 1 }}>Cancel</button>
-            <button type="button" onClick={() => void saveTyped()} disabled={!ready || !text.trim() || working} data-testid="note-save"
+            <button type="button" onClick={() => void saveTyped()} disabled={!ready || !text.trim() || working} title={working ? "Saving your note" : !text.trim() ? "Type a note first" : blockedReason || (!jobId ? "Pick a job above first" : undefined)} data-testid="note-save"
               style={{ ...primaryBtn, flex: 2, opacity: !ready || !text.trim() || working ? 0.5 : 1 }}>{savingText ? "Saving…" : `Save to ${jobId}`}</button>
           </div>
         </div>
