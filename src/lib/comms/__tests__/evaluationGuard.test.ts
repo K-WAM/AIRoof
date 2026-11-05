@@ -89,3 +89,40 @@ describe("sendEmail with the guard (blocked before any provider call)", () => {
     expect(await checkOutboundEmail("roofdoctors", "owner+rd@example.com")).toEqual({ allowed: true });
   });
 });
+
+describe("phone side: texts and outbound calls under evaluation", () => {
+  it("outside evaluation mode every number is allowed", async () => {
+    const { isPhoneAllowed, isEvaluationBusiness } = await import("@/lib/comms/evaluationGuard");
+    expect(isEvaluationBusiness({ businessName: "X" })).toBe(false);
+    expect(isPhoneAllowed({ businessName: "X" }, "+1 (305) 555-0101")).toBe(true);
+    expect(isPhoneAllowed(undefined, "+13055550101")).toBe(true);
+  });
+
+  it("evaluation mode with no phone list blocks everyone, even an empty email list", async () => {
+    const { isPhoneAllowed, isEvaluationBusiness } = await import("@/lib/comms/evaluationGuard");
+    expect(isEvaluationBusiness({ outboundEmailAllowlist: [] })).toBe(true);
+    expect(isPhoneAllowed({ outboundEmailAllowlist: [] }, "+13055550101")).toBe(false);
+    expect(isPhoneAllowed({ outboundEmailAllowlist: "bad" }, "+13055550101")).toBe(false);
+    expect(isPhoneAllowed({ outboundEmailAllowlist: [], outboundPhoneAllowlist: "bad" }, "+13055550101")).toBe(false);
+  });
+
+  it("only the owner's listed phones pass, compared on the last 10 digits", async () => {
+    const { isPhoneAllowed } = await import("@/lib/comms/evaluationGuard");
+    const biz = { outboundEmailAllowlist: ["me@example.com"], outboundPhoneAllowlist: ["(305) 555-0101"] };
+    expect(isPhoneAllowed(biz, "+1 305 555 0101")).toBe(true);
+    expect(isPhoneAllowed(biz, "13055550101")).toBe(true);
+    expect(isPhoneAllowed(biz, "+13055550102")).toBe(false);
+    expect(isPhoneAllowed(biz, "5550101")).toBe(false);
+    expect(isPhoneAllowed(biz, "")).toBe(false);
+  });
+
+  it("assertPhoneAllowed throws a plain-language error and never logs the full number", async () => {
+    const { assertPhoneAllowed, EvaluationGuardError } = await import("@/lib/comms/evaluationGuard");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => assertPhoneAllowed({ outboundEmailAllowlist: [] }, "+13055550199", "call", "biz-1")).toThrow(EvaluationGuardError);
+    const logged = warn.mock.calls.flat().join(" ");
+    expect(logged).toContain("…0199");
+    expect(logged).not.toContain("3055550199");
+    warn.mockRestore();
+  });
+});

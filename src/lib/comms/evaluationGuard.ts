@@ -67,6 +67,54 @@ export async function checkOutboundEmail(businessId: string | null, to: string):
   return { allowed: false, reason: "evaluation_guard" };
 }
 
+// ── Phone side (texts + outbound calls) ──────────────────────────────────────────────────────────────────────────
+// Evaluation mode = the email allowlist is present. In that mode nothing rings or texts a customer: only numbers on
+// `outboundPhoneAllowlist` (the owner's own test phones) may be called or texted. Every caller of these checks already
+// holds the business document, so these are pure — no extra read, nothing to cache.
+
+export class EvaluationGuardError extends Error {
+  constructor(channel: "call" | "text") {
+    super(
+      channel === "call"
+        ? "Calls to customers are paused for this workspace while it is being evaluated."
+        : "Texts to customers are paused for this workspace while it is being evaluated."
+    );
+    this.name = "EvaluationGuardError";
+  }
+}
+
+/** Pure: is this business in evaluation mode (email allowlist present, even if empty or malformed)? */
+export function isEvaluationBusiness(data: Record<string, unknown> | object | undefined | null): boolean {
+  return allowlistFromBusiness(data as Record<string, unknown> | undefined | null) !== null;
+}
+
+function last10(value: string): string {
+  return value.replace(/\D/g, "").slice(-10);
+}
+
+/** Pure: may this business call/text this number? Outside evaluation mode always yes. */
+export function isPhoneAllowed(data: Record<string, unknown> | object | undefined | null, to: string): boolean {
+  if (!isEvaluationBusiness(data)) return true;
+  const target = last10(typeof to === "string" ? to : "");
+  if (target.length < 10) return false;
+  const raw = (data as Record<string, unknown>).outboundPhoneAllowlist;
+  if (!Array.isArray(raw)) return false;
+  return raw.some((entry) => typeof entry === "string" && last10(entry) === target);
+}
+
+/** Throws EvaluationGuardError when the number is not allowed; logs the last four digits only. */
+export function assertPhoneAllowed(
+  data: Record<string, unknown> | object | undefined | null,
+  to: string,
+  channel: "call" | "text",
+  businessId?: string
+): void {
+  if (isPhoneAllowed(data, to)) return;
+  const tail = (typeof to === "string" ? to : "").replace(/\D/g, "").slice(-4);
+  console.warn(`[evaluation-guard] blocked ${channel} for business ${businessId ?? "?"} to …${tail}`);
+  throw new EvaluationGuardError(channel);
+}
+
 /** Tests only. */
 export function __resetEvaluationGuardCache(): void {
   cache.clear();

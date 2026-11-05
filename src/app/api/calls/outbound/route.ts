@@ -6,6 +6,7 @@ import { placeElevenLabsOutboundCall } from "@/lib/voice/elevenlabs/outbound";
 import { buildOutboundCallContext, type OutboundPurpose, type OutboundRequestRecord } from "@/lib/voice/outboundContext";
 import type { BusinessConfig } from "@/types";
 import { contactPhone } from "@/lib/format/phone";
+import { EvaluationGuardError, isPhoneAllowed } from "@/lib/comms/evaluationGuard";
 
 function sanitizePhone(v: unknown): string | undefined {
   if (typeof v !== "string") return undefined;
@@ -87,6 +88,11 @@ export async function POST(request: NextRequest) {
         : "Business is not configured for ElevenLabs outbound calls." },
       { status: 400 }
     );
+  }
+
+  // Evaluation guard (T-306): a business under evaluation never rings a customer (owner's test phones excepted).
+  if (!isPhoneAllowed(bizData, targetPhone)) {
+    return NextResponse.json({ error: new EvaluationGuardError("call").message, code: "evaluation_guard" }, { status: 403 });
   }
 
   // Create a placeholder Firestore doc before calling Vapi

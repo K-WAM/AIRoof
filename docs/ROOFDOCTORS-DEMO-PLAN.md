@@ -310,6 +310,12 @@ If Deepseek has no credits: K3 runs on Codex **GPT-6.1 Terra, medium** with the 
 11. **Commits:** one per task, `T-xxx: <summary>` + evidence; an `docs/IMPLEMENTATION_LOG.md` entry (plain ASCII); set your
     TODO row to `review`. Never push or merge; Claude merges, the owner approves every push.
 12. **Stuck?** Stop, write what blocked you and what you tried; don't guess or invent.
+13. **Their data: use it, never contact anyone with it** (owner, 2026-11-04). Importing, showing and filling the workspace
+    with Roof Doctors' real data is fine and wanted. What must never happen is anything their customers (or staff) would
+    notice: no email, no text, no phone call, no invite, no reminder. Enforced in code, not only by care: the
+    `roofdoctors` business carries `outboundEmailAllowlist` (owner-controlled addresses only), which also switches on the
+    phone side, so texts and outbound calls go only to `outboundPhoneAllowlist` (the owner's own test phones) and the
+    nightly call-back job skips the business entirely. Imported invoices live in `invoiceHistory` (no reminder reads it).
 
 ## 11. Verification and screenshots
 
@@ -415,6 +421,11 @@ The owner approved the plan with these changes:
 | Their customers with properties, Customer IDs and past work; their invoice history in Finances | the Jobba export | K3 importer, K0 runs it |
 | Their phone greeting and agent wording | plan D3 | K0 (T-307) |
 | Their crews and staff titles (Supervisor, Office admin, Front desk, Foreman, Technician) | RFI answers, else role labels | K0 |
+
+**Data rule, clarified by the owner (2026-11-04, late):** "integrate it, use it, populate with it, but don't email them or
+do anything that would be viewed as weird, like getting an email or a text." So the import and the tailoring pack go ahead;
+the evaluation guard now covers texts and outbound calls as well as email (§10 rule 13). Before the workspace exists,
+`outboundEmailAllowlist` and `outboundPhoneAllowlist` are set on it **first**, before any import, login or document.
 
 A per-client rename of "Job" to "Work order" was considered and **not** done: the word appears in too many places to change
 safely before the review (a half-renamed app looks worse). Their documents still say "Work order" (the letter field

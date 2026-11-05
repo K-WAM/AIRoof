@@ -2260,3 +2260,12 @@ priority, non-open statuses and missing timestamps (8 tests). tsc clean; eslint 
 pre-existing useCallback dependency warning). No browser check (this stream runs no Playwright/e2e). No removals.
 
 
+
+## 2026-11-04 - T-306 phone side: no texts or outbound calls for a business under evaluation (Claude K0)
+Owner clarified the Roof Doctors data rule: use and populate their data, but nothing their customers would notice (no email,
+no text, no call). The email guard already existed; texts and calls did not. Added `outboundPhoneAllowlist` and pure helpers
+in src/lib/comms/evaluationGuard.ts (isEvaluationBusiness, isPhoneAllowed, assertPhoneAllowed, EvaluationGuardError).
+Evaluation mode = outboundEmailAllowlist present. Wired: sendSms (returns unconfigured, nothing recorded), Vapi and
+ElevenLabs startOutboundCall (throw before any network call), POST /api/calls/outbound (403 before the placeholder call doc),
+cron follow-up-calls (skips the business). Logs the last four digits only. Checks: tsc clean; vitest comms, voice, cron,
+calls and route-guards: 22 files, 205 tests passed.

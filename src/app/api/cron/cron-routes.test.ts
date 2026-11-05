@@ -482,6 +482,17 @@ describe("follow-up callback state machine", () => {
     expect(firestore.documents.get("businesses/biz-1/calls/call_elevenlabs_conv_callback")).toMatchObject({ elevenlabsConversationId: "conv_callback" });
   });
 
+  it("never calls the customers of a business under evaluation (T-306)", async () => {
+    const firestore = new FakeFirestore();
+    seedCallbackBusiness(firestore, { outboundEmailAllowlist: ["owner@example.com"] });
+    seedLead(firestore, "eval-lead");
+    providerMocks.getAdminFirestore.mockReturnValue(firestore as never);
+    const response = await followUpCalls(cronRequest("/api/cron/follow-up-calls", "GET", CRON_SECRET));
+    expect(await response.json()).toMatchObject({ attempted: 0, errors: [] });
+    expect(providerMocks.initiateVapiCall).not.toHaveBeenCalled();
+    expect(firestore.documents.get("businesses/biz-1/operations/callback:eval-lead:1")).toBeUndefined();
+  });
+
   it("lets only one overlapping invocation call the provider for the same lead", async () => {
     const firestore = new FakeFirestore();
     seedCallbackBusiness(firestore, { maxCallAttempts: 1 });

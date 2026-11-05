@@ -91,6 +91,12 @@ export interface BusinessConfig {
    * (lower-case); everything else is skipped and logged, never thrown. Missing = normal sending.
    */
   outboundEmailAllowlist?: string[];
+  /**
+   * Evaluation guard, phone side: while `outboundEmailAllowlist` is present (evaluation mode), NO text and NO outbound
+   * call goes out from this business except to these numbers (compared on the last 10 digits). Missing = nobody.
+   * Ignored when evaluation mode is off.
+   */
+  outboundPhoneAllowlist?: string[];
   invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
   /** Terms & notices on quotes/invoices: per-notice edits + the owner's approval. Nothing prints until approved (documents/notices.ts). */
   documentNotices?: import("@/lib/documents/notices").DocumentNoticeSettings;

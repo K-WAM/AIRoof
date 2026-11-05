@@ -48,6 +48,18 @@ describe("isSmsEnabled", () => {
 });
 
 describe("sendSms", () => {
+  it("texts nobody but the owner's test phones while the business is under evaluation (T-306)", async () => {
+    seed({ outboundEmailAllowlist: ["owner@example.com"], outboundPhoneAllowlist: ["+13055550199"] });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ sid: "SM9" }) });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(await sendSms(MSG)).toBe("unconfigured");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.__peek("businesses/biz/operations", OP_ID)).toBeUndefined();
+    expect(await sendSms({ ...MSG, to: "(305) 555-0199", entityId: "appt-1:assigned:101" })).toBe("delivered");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("posts to Twilio with Basic auth, shapes E.164 and records the operation", async () => {
     seed();
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ sid: "SM123" }) });

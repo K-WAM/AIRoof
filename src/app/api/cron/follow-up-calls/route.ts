@@ -12,6 +12,7 @@ import { getVoiceProvider } from "@/lib/voice/provider";
 import { UnsupportedVoiceFeatureError } from "@/lib/voice/types";
 import type { BusinessConfig } from "@/types";
 import { contactPhone } from "@/lib/format/phone";
+import { isEvaluationBusiness } from "@/lib/comms/evaluationGuard";
 
 const DEFAULT_MAX_CALL_ATTEMPTS = 3;
 const DEFAULT_CALLBACK_WINDOW_START = 8;
@@ -77,6 +78,12 @@ export async function GET(request: NextRequest) {
       const business = businessDocument.data() as BusinessConfig;
       const businessId = businessDocument.id;
       const provider = getVoiceProvider(business);
+
+      // Evaluation guard (T-306): never auto-call the customers of a business under evaluation.
+      if (isEvaluationBusiness(business)) {
+        skipped += 1;
+        continue;
+      }
 
       if (!configuredNonNegativeNumber(business.callbackDelayMinutes)) {
         skipped += 1;

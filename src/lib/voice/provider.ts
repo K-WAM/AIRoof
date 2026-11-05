@@ -1,6 +1,7 @@
 import type { BusinessConfig } from "@/types";
 import { initiateVapiCall, updateAssistantPersona } from "@/lib/vapi/vapiClient";
 import { elevenLabsVoiceProvider } from "./elevenlabs/client";
+import { assertPhoneAllowed } from "@/lib/comms/evaluationGuard";
 import { voiceProviderOf, type VoiceProvider } from "./types";
 
 const vapiVoiceProvider: VoiceProvider = {
@@ -19,6 +20,8 @@ const vapiVoiceProvider: VoiceProvider = {
     });
   },
   async startOutboundCall(input) {
+    // Evaluation guard (backstop): a business under evaluation never rings a customer.
+    assertPhoneAllowed(input.config, input.targetPhone, "call", input.metadata?.businessId);
     const { vapiAssistantId, vapiPhoneNumberId } = input.config;
     if (!vapiAssistantId || !vapiPhoneNumberId) throw new Error("Vapi outbound calling is not configured");
     const call = await initiateVapiCall({

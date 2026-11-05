@@ -1,6 +1,7 @@
 import { CALL_START_LANGUAGE, multilingualModel } from "@/lib/i18n/bilingual";
 import { voiceForLanguage } from "@/lib/vapi/voices";
 import { voicemailVariables } from "./initiationConfig";
+import { assertPhoneAllowed } from "@/lib/comms/evaluationGuard";
 import {
   UnsupportedVoiceFeatureError,
   type OutboundCallInput,
@@ -49,6 +50,8 @@ export async function pushPersona(input: PersonaPushInput): Promise<void> {
 }
 
 export async function startOutboundCall(input: OutboundCallInput): Promise<OutboundCallResult> {
+  // Evaluation guard (backstop): a business under evaluation never rings a customer.
+  assertPhoneAllowed(input.config, input.targetPhone, "call", input.metadata?.businessId);
   if (input.scheduledAt) throw new UnsupportedVoiceFeatureError("scheduled outbound calls", "elevenlabs");
   const { agentId, phoneNumberId } = input.config.elevenlabs ?? {};
   if (!agentId || !phoneNumberId) throw new Error("ElevenLabs outbound calling is not configured");

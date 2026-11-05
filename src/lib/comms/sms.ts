@@ -8,6 +8,7 @@ import {
 } from "@/lib/ops/ledger";
 import type { NotificationDeliveryState } from "@/lib/comms/send";
 import { resolveSmsSender } from "@/lib/phoneLines/sender";
+import { isPhoneAllowed } from "@/lib/comms/evaluationGuard";
 import type { SmsPurpose } from "@/types/phoneLine";
 
 export type { NotificationDeliveryState };
@@ -132,6 +133,11 @@ export async function sendSms(opts: {
   const businessSnapshot = await firestore.collection("businesses").doc(opts.businessId).get();
   const business = businessSnapshot.data() ?? {};
   if (!isSmsEnabled(business)) return "unconfigured";
+  // Evaluation guard (T-306): a business under evaluation texts nobody but the owner's own test phones.
+  if (!isPhoneAllowed(business, opts.to)) {
+    console.warn(`[evaluation-guard] blocked text for business ${opts.businessId} to …${last4(typeof opts.to === "string" ? opts.to : "")}`);
+    return "unconfigured";
+  }
 
   const to = sanitizePhone(opts.to);
   if (!to) {
