@@ -62,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
-  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", invoice.logoId);
 
   const metas = await listPhotoMetas(db, businessId, jobId);
   const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);

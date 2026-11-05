@@ -25,6 +25,7 @@ import type { JobQuote } from "@/types/quote";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { loadLetter } from "@/lib/documents/letterStore";
 import { renderLetter } from "@/lib/documents/letters";
+import { validLogoSelection } from "@/lib/documents/logoSelection";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -169,6 +170,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 }
 
 interface PatchBody {
+  logoId?: string | null;
   businessId?: string;
   /** Only "paid", and only from "sent" — the office's "Mark paid". */
   status?: string;
@@ -265,6 +267,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     return NextResponse.json({ error: `Invoice is ${current.status} and can no longer be edited` }, { status: 409 });
   }
 
+  if (body.logoId !== undefined && !await validLogoSelection(db, businessId, body.logoId)) return NextResponse.json({ error: "Invalid letterhead logo" }, { status: 400 });
+
   if (body.photoIds !== undefined) {
     const selected = await loadDocumentPhotos(db, businessId, jobId, body.photoIds);
     if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
@@ -303,6 +307,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const totals = customerTotals({ kind: "invoice", invoice: merged, priceMode, customerSubtotal });
 
   const patch: Partial<JobInvoice> = {
+    ...(body.logoId !== undefined ? { logoId: body.logoId } : {}),
     ...merged,
     ...totals,
     priceMode,

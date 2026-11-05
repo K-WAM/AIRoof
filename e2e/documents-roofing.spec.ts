@@ -1,7 +1,26 @@
-import { api, must } from "../scripts/e2e/lib.cjs";
+import { api, must, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("letterhead selection persists on the document", async ({ as }) => {
+  test.setTimeout(150_000);
+  const owner = await api("owner");
+  const b64 = pngBase64(80, 32, [20, 60, 160]);
+  const { logo } = must(await owner.post("/api/company/library/logos", { businessId: B, name: "Alternate company", b64, mimeType: "image/png", variant: "color", w: 80, h: 32 }), "logo");
+  try {
+    const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Letterhead review", clientName: "Example Customer" }), "job");
+    must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "quote");
+    const page = await as("owner");
+    await page.goto(`/company/jobs/${job.jobId}?tab=quote`);
+    await settle(page);
+    await page.getByLabel("Letterhead logo").selectOption(logo.logoId);
+    await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/quote?businessId=${B}`), "saved logo").quote.logoId).toBe(logo.logoId);
+    await expect(page.locator(".quote-doc header img")).toHaveAttribute("src", `data:image/png;base64,${b64}`);
+    await expectHealthy(page);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await shot(page, "documents-letterhead");
+  } finally { must(await owner.del(`/api/company/library/logos?businessId=${B}&logoId=${logo.logoId}`), "remove test logo"); }
+});
 test("repair completion lists locations and excludes all quote prices", async ({ as }) => {
   const owner = await api("owner");
   const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Completion review", address: "14 Example Avenue", clientName: "Example Customer" }), "completion job");

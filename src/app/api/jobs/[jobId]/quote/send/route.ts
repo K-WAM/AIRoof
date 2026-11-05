@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (!quote.lines.length || !quote.billTo.name.trim()) return NextResponse.json({ error: "Quote needs bill-to and at least one line" }, { status: 400 });
   const biz = bizSnap.data()!;
   const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
-  const letterhead = resolveLetterhead(biz, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const letterhead = resolveLetterhead(biz, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", quote.logoId);
   const businessName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!businessName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
   // Terms & notices print only once the owner has approved the wording; statutory ones only for a residential job over the threshold.

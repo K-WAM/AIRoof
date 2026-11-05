@@ -13,6 +13,7 @@ export interface JobQuote {
   description?: string;
   poNumber?: string;
   customerCode?: string;
+  logoId?: string | null;
   quoteId: string;
   businessId: string;
   jobId: string;

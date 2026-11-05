@@ -15,11 +15,11 @@ import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { buildProjection } from "@/lib/jobs/projection";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { LibraryPricing, LibraryLogo } from "@/types/library";
-import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { canSendInvoice } from "./jobInvoice";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
+import { LogoPicker } from "@/lib/documents/LogoPicker";
 import { ReportLayoutControls } from "./ReportLayoutControls";
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
 import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
@@ -222,6 +222,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceAdjustmentNote, setInvoiceAdjustmentNote] = useState("");
   const invoicePreviewRef = useRef<HTMLDivElement>(null);
   const [showTechnicians, setShowTechnicians] = useState(false);
+  const [invoiceLogoId, setInvoiceLogoId] = useState<string | null | undefined>();
   const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
@@ -498,6 +499,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
         setShowTechnicians(inv.showTechnicians === true);
         setInvoicePhotoIds(inv.photoIds);
+        setInvoiceLogoId(inv.logoId);
         setTechnicians(inv.technicians ?? []);
         setNarrative(inv.narrative ?? "");
         setInvoiceOpening(inv.opening ?? "");
@@ -604,6 +606,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
       setShowTechnicians(inv.showTechnicians === true);
       setInvoicePhotoIds(inv.photoIds);
+        setInvoiceLogoId(inv.logoId);
       setTechnicians(inv.technicians ?? []);
       setNarrative(inv.narrative ?? "");
       setInvoiceOpening(inv.opening ?? "");
@@ -859,7 +862,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               photoIds: invoicePhotoKey ? invoicePhotoKey.split(",") : [],
               technicians,
                narrative,
-               opening: invoiceOpening,
+               logoId: invoiceLogoId, opening: invoiceOpening,
                closing: invoiceClosing,
                thankYou: invoiceThankYou,
                terms: invoiceTerms,
@@ -878,7 +881,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoKey, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
+  }, [invoiceLogoId, laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoKey, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -953,9 +956,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // regression: no library logo just means the same fallback as before it existed.
   const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
   const invoiceBizName = businessConfig?.businessName ?? job.title;
-  const defaultLogo = pickDefaultLogo(logos);
-  const invoiceLogoSrc = defaultLogo ? logoDataUri(defaultLogo) : businessConfig?.logoUrl;
-  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos);
+  const invoiceLogoSrc = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId).logoUrl;
+  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId);
   const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, discount: invoiceDiscount, hideMaterials, hideLabor, priceMode: invoicePriceMode, subtotal, total: grandTotal, laborSubtotal, materialSubtotal, otherSubtotal } as JobInvoice;
 
   return (
@@ -1420,6 +1422,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
+              <LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />
               {invoiceStatus === "draft" && !readOnly && <CustomerVersionPanel draft priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
                 adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
@@ -1939,7 +1942,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div></details>
               </div>
 
-              <ReportLayoutControls jobId={jobId} address={job.address} value={job.reportDocument} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />
+              <ReportLayoutControls jobId={jobId} address={job.address} value={job.reportDocument} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />
               <details className="no-print" style={{ marginBottom: 16 }}>
                 <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
                 <div style={{ marginTop: 8, maxWidth: 380 }}>
@@ -2218,7 +2221,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
-  const brand = resolveLetterhead(businessConfig ?? {}, logos);
+  const brand = resolveLetterhead(businessConfig ?? {}, logos, "light", job.reportDocument?.logoId);
   const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
   // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
   const quoteSection = reportQuoteSection(quote, options, fmtDate);

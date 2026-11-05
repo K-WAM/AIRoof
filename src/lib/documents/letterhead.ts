@@ -5,8 +5,8 @@ import type { BusinessConfig } from "@/types";
 export type LetterheadBusiness = Partial<Pick<BusinessConfig, "businessName" | "brandColor" | "logoUrl" | "address" | "contactPhone" | "contactEmail" | "websiteUrl" | "licenseNumber" | "timezone">>;
 export interface Letterhead extends LetterheadBusiness { logoStyle: ReturnType<typeof logoStyle>; logoChip: boolean }
 
-export function resolveLetterhead(business: LetterheadBusiness, logos: LibraryLogo[] = [], surface: "light" | "brand-bar" = "light"): Letterhead {
-  const logo = pickDefaultLogo(logos);
+export function resolveLetterhead(business: LetterheadBusiness, logos: LibraryLogo[] = [], surface: "light" | "brand-bar" = "light", logoId?: string | null): Letterhead {
+  const logo = typeof logoId === "string" ? logos.find(l => l.logoId === logoId) ?? null : logoId === null && business.logoUrl ? null : pickDefaultLogo(logos);
   return { ...business, logoUrl: logo ? logoDataUri(logo) : business.logoUrl ?? null, logoStyle: logo ? logoStyle(logo, surface) : {}, logoChip: logo ? needsLogoChip(logo, surface) : surface === "brand-bar" };
 }
 

@@ -31,7 +31,7 @@ export function buildJobReportEmailHtml(input: {
   /** The job's quote, loaded server-side. Only used when options.includeQuote is on AND it was sent/accepted (reportQuote.ts). */
   quote?: Pick<JobQuote, "quoteId" | "status" | "lines" | "hideMaterials" | "hideLabor" | "priceMode" | "subtotal" | "sentAt" | "answeredAt"> | null;
 }): string {
-  const brand = resolveLetterhead(input.business, input.logos);
+  const brand = resolveLetterhead(input.business, input.logos, "light", input.reportDocument?.logoId);
   const sections = reportSections(input.parsed, input.options);
   const tz = input.business.timezone ?? "America/New_York";
   const quoteSection = reportQuoteSection(input.quote, input.options, (ms) => fmtDate(ms, tz));

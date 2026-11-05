@@ -31,6 +31,7 @@ import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/do
 import type { JobPhotoMeta } from "@/types/jobs";
 import { NumberField } from "@/components/ui/NumberField";
 import { useLiveRefresh } from "@/hooks/useLiveRefresh";
+import { LogoPicker } from "@/lib/documents/LogoPicker";
 import { QuoteLetterPreview } from "@/lib/documents/QuoteLetterPreview";
 import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
 import type { LetterRate } from "@/lib/documents/quoteLetter";
@@ -153,7 +154,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
       const r = await fetch(`/api/jobs/${job.jobId}/quote`, { method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessId, lines: quote.lines, findings: quote.findings, notes: quote.notes ?? "", hideMaterials: quote.hideMaterials,
-          layout: quote.layout, includeOptional: quote.includeOptional, serviceAt: quote.serviceAt, attention: quote.attention, description: quote.description, poNumber: quote.poNumber,
+          logoId: quote.logoId, layout: quote.layout, includeOptional: quote.includeOptional, serviceAt: quote.serviceAt, attention: quote.attention, description: quote.description, poNumber: quote.poNumber,
           hideLabor: quote.hideLabor === true, showTechnicians: quote.showTechnicians === true, technicians: quote.technicians ?? [],
           priceMode: quote.priceMode ?? "lines", customerSubtotal: quote.customerSubtotal, adjustmentNote: quote.adjustmentNote ?? "",
           narrative: quote.narrative ?? "", photoIds: selectedDocumentPhotoIds(photos, quote.photoIds),
@@ -347,6 +348,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
             <div style={{ fontSize: 28, fontWeight: 800 }} aria-live="polite">{money(total)}</div>
           </div>}
         </div>
+        <LogoPicker logos={logos} value={quote.logoId} disabled={!draft} onChange={logoId => change({ logoId })} />
         <div className="no-print"><label>Layout<select aria-label="Quote layout" disabled={!draft} value={quote.layout ?? "itemized"} onChange={e => change({ layout: e.target.value as JobQuote["layout"], includeOptional: undefined })}><option value="itemized">Itemized quote</option><option value="proposal">Proposal letter</option><option value="tm_authorization">T&amp;M authorization</option></select></label>
         {letterLayout && <><label>Attention<input value={quote.attention ?? ""} disabled={!draft} onChange={e => change({ attention: e.target.value })} /></label><label>Description<input value={quote.description ?? job.title} disabled={!draft} onChange={e => change({ description: e.target.value })} /></label>
         {templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.optional).map(s => <label key={s.id}><input type="checkbox" disabled={!draft} checked={(quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id)).includes(s.id)} onChange={e => { const ids = quote.includeOptional ?? templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"].sections.filter(s => s.defaultOn).map(s => s.id); change({ includeOptional: e.target.checked ? [...ids, s.id] : ids.filter(id => id !== s.id) }); }} /> {s.heading || s.id}</label>)}</>}
@@ -457,7 +459,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
         </details>
         </>}
 
-        <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3>{letterLayout ? <QuoteLetterPreview quote={customerQuote!} brand={resolveLetterhead(businessConfig ?? {}, logos)} template={templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"]} rates={rates} photos={photos.filter(photo => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))} /> : <DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos)}
+        <div className="quote-preview-wrap" ref={previewRef} tabIndex={-1}><h3 className="no-print">Customer preview</h3>{letterLayout ? <QuoteLetterPreview quote={customerQuote!} brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)} template={templates[quote.layout === "proposal" ? "proposal" : "tm_authorization"]} rates={rates} photos={photos.filter(photo => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))} /> : <DocumentPreview className="quote-doc" title="Quote" brand={resolveLetterhead(businessConfig ?? {}, logos, "light", quote.logoId)}
           meta={[["Date", new Date(quote.createdAt).toLocaleDateString("en-US")], ["Number", quote.quoteId], ["Valid until", new Date(quote.validUntil).toLocaleDateString("en-US")], ["Reference", quote.jobId], ["Service at", job.address ?? ""], ...(quote.showTechnicians && quote.technicians?.length ? [["Technicians", quote.technicians.join(", ")] as [string, string]] : [])]}
           billTo={quote.billTo} narrative={quote.narrative} findings={quote.findings} groups={quoteGroups(customerQuote!)} totalLabel="Estimated Total" total={total}
           photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, quote.photoIds).includes(photo.photoId))}

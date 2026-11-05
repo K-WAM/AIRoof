@@ -12,6 +12,7 @@ import type { JobQuote, QuoteStatus } from "@/types/quote";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
+import { validLogoSelection } from "@/lib/documents/logoSelection";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -99,6 +100,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     return NextResponse.json({ quote: { ...quote, ...patch } });
   }
   if (quote.status !== "draft") return err("Only a draft quote can be edited", 409);
+  if (body.logoId !== undefined && !await validLogoSelection(db, businessId, body.logoId)) return err("Invalid letterhead logo", 400);
   if (body.layout !== undefined && !["itemized", "proposal", "tm_authorization"].includes(body.layout as string)) return err("Invalid layout", 400);
   if (body.includeOptional !== undefined && (!Array.isArray(body.includeOptional) || body.includeOptional.length > 20 || body.includeOptional.some(id => typeof id !== "string" || !/^[\w-]{1,80}$/.test(id)))) return err("Invalid optional sections", 400);
   for (const key of ["serviceAt", "attention", "description", "poNumber"] as const) {
@@ -126,6 +128,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (priceMode === "project" && !validCustomerSubtotal(customerSubtotal)) return err("Project price requires a valid customer subtotal", 400);
   const totals = customerTotals({ kind: "quote", lineSubtotal: quoteTotal(lines), priceMode, customerSubtotal });
   const patch: Partial<JobQuote> = { updatedAt: Date.now(), subtotal: totals.subtotal, total: totals.total, calculatedSubtotal: totals.calculatedSubtotal,
+    ...(body.logoId !== undefined ? { logoId: body.logoId as string | null } : {}),
     ...(body.layout !== undefined ? { layout: body.layout as JobQuote["layout"] } : {}),
     ...(body.includeOptional !== undefined ? { includeOptional: body.includeOptional as string[] } : {}),
     ...Object.fromEntries(["serviceAt", "attention", "description", "poNumber"].filter(k => body[k] !== undefined).map(k => [k, body[k]])),
