@@ -2174,3 +2174,7 @@ Added the owner and showcase gated endpoint and a filtered, sortable finance scr
 Added an owner/showcase-gated, bounded punch endpoint and read-only period screen with CSV and disabled approval. Seeded invented history, properties and punches for the harness. The payroll summary remains a stub in this worktree and no payroll rates source exists in the agreed contract, so rows and pay estimates require integration. TypeScript, lint and route tests pass; browser verification pending. No removals.
 
 T-299 browser follow-up: the first final run found that the blocked-action accessible names also matched the name input locator. Renamed them to Go to name field; TypeScript and lint pass. The corrected selector has not been rerun in the browser.
+
+## Roof Doctors screen browser spec - integration pending
+
+Single final run: 6 passed, 6 failed. Calendar overlay, booked request edit/decline, and no-showcase checks passed on desktop and phone. Field checks stopped on an ambiguous selector; the selector and action labels were corrected after the run and need a rerun. Finance and payroll row checks failed because the agreed summary functions are still stubs; their empty-state screenshots and field failure screenshots were inspected on desktop and phone. Finance due-date fields and populated screen review remain pending. No removals.
