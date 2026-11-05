@@ -41,12 +41,12 @@ describe("FindingsPanel — Reported by crew", () => {
       { ...item, itemId: "drain", problem: "Blocked drain" }];
     const onSaved = vi.fn();
     render(<FindingsPanel job={job({ parsed: undefined })} businessId="biz" catalog={{ ...catalog, items }} onSaved={onSaved} />);
-    fireEvent.click(screen.getByRole("button", { name: /Add from Library/ }));
-    const dialog = screen.getByRole("dialog", { name: /Add a finding from the Library/ });
+    fireEvent.click(screen.getByRole("button", { name: /Add finding/ }));
+    const dialog = screen.getByRole("dialog", { name: /Add a finding/ });
     for (const choice of ["Broken or slipped tiles", "Failed flashing", "Blocked drain"]) {
       fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(choice) }));
     }
-    fireEvent.click(within(dialog).getByRole("button", { name: "Add 3 findings" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save findings" }));
     expect(screen.getByText("On this job (3)")).toBeTruthy();
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.arrayContaining(items.map((catalogItem) => expect.objectContaining({ itemId: catalogItem.itemId })))), { timeout: 2500 });
     expect(JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string).findings).toHaveLength(3);

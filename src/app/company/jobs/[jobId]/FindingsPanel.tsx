@@ -9,7 +9,7 @@ import { customFinding } from "@/lib/billing/quoteItems";
 import { normalizeName } from "@/lib/format/name";
 import { workBullet } from "@/lib/documents/workSummary";
 import { saveToLibrary, SAVED_FROM_JOBS_CATEGORY } from "@/lib/jobs/catalogClient";
-import { FindingPickerSheet } from "@/components/field/FindingPickerSheet";
+import { JobFindingPicker } from "./JobFindingPicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 export interface CatalogState {
@@ -33,6 +33,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = useState("");
+  const [showAllFindings, setShowAllFindings] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newProblem, setNewProblem] = useState("");
   const [newSolution, setNewSolution] = useState("");
@@ -132,12 +133,13 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
     if (additions.length) change([...findings, ...additions]);
   };
 
-  async function addOneOff() {
+  async function addOneOff(items: WorkCatalogItem[] = []): Promise<boolean> {
+    if (!newProblem.trim() && !newSolution.trim() && !newPrice.trim()) { addCatalogItems(items); return true; }
     const problem = newProblem.trim();
-    if (!problem) { setError("Enter what was found."); return; }
+    if (!problem) { setError("Enter what was found."); return false; }
     const price = newPrice.trim() === "" ? 0 : Number(newPrice);
-    if (!Number.isFinite(price) || price < 0) { setError("Enter the price as a number, or leave it blank."); return; }
-    if (saveToLib && !newSolution.trim()) { setError("Add the work to perform to save this to the Library."); return; }
+    if (!Number.isFinite(price) || price < 0) { setError("Enter the price as a number, or leave it blank."); return false; }
+    if (saveToLib && !newSolution.trim()) { setError("Add the work to perform to save this to the Library."); return false; }
     setAdding(true);
     setError("");
     let itemId: string | undefined;
@@ -153,9 +155,10 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
         setError(`Added to this job, but could not save it to the Library: ${e instanceof Error ? e.message : "try again"}`);
       }
     }
-    change([...findings, customFinding({ problem, solution: newSolution, price, itemId, category: itemId ? SAVED_FROM_JOBS_CATEGORY : "One-off" })]);
+    change([...findings, ...items.filter(item => !onJobIds.has(item.itemId)).map(copyCatalogFinding), customFinding({ problem, solution: newSolution, price, itemId, category: itemId ? SAVED_FROM_JOBS_CATEGORY : "One-off" })]);
     setNewProblem(""); setNewSolution(""); setNewPrice(""); setSaveToLib(false);
     setAdding(false);
+    return true;
   }
 
   const patch = (findingId: string, next: Partial<JobFinding>) => change(findings.map((f) => (f.findingId === findingId ? { ...f, ...next } : f)));
@@ -219,7 +222,7 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
         {findings.length > 0 && (
           <div>
             <button className="button primary" type="button" onClick={() => setPickerOpen(true)} disabled={catalog.loading}>
-              ＋ Add from Library
+              ＋ Add finding
             </button>
           </div>
         )}
@@ -227,9 +230,9 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
 
         {findings.length > 0 ? (
           <div style={{ display: "grid", gap: 16 }}>
-            <h3 style={{ fontSize: 14, margin: 0 }}>On this job ({findings.length})</h3>
+            <h3 style={{ fontSize: 14, margin: 0 }}>On this job ({findings.length})</h3>{findings.length > 3 && <button className="button" onClick={() => setShowAllFindings(!showAllFindings)}>{showAllFindings ? "Show fewer findings" : `Show all ${findings.length} findings`}</button>}
             {/* Numbered, with a tinted header band, so it is obvious where one finding ends and the next begins. */}
-            {findings.map((f, index) => (
+            {(showAllFindings ? findings : findings.slice(0, 3)).map((f, index) => (
               <article key={f.findingId} className="finding-card" aria-label={`Finding ${index + 1}`}>
                 <header className="finding-card-head">
                   <span className="finding-number" aria-hidden="true">{index + 1}</span>
@@ -267,37 +270,23 @@ export function FindingsPanel({ job, businessId, catalog, onSaved, readOnly = fa
             compact
             title="What did you find?"
             body="Pick from your Library or add your own."
-            action={readOnly ? undefined : { label: "＋ Add from Library", onClick: () => setPickerOpen(true), disabled: catalog.loading }}
+            action={readOnly ? undefined : { label: "＋ Add finding", onClick: () => setPickerOpen(true), disabled: catalog.loading }}
             testId="job-findings-empty"
           />
         )}
 
-        <details>
-          <summary style={{ cursor: "pointer", fontWeight: 600 }}>＋ Something not in the Library</summary>
-          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-            <input aria-label="One-off problem" value={newProblem} onChange={(e) => setNewProblem(e.target.value)} placeholder="What was found" maxLength={1000} />
-            <textarea aria-label="One-off solution" value={newSolution} onChange={(e) => setNewSolution(e.target.value)} placeholder="Work to perform" maxLength={2000} rows={2} />
-            <input aria-label="One-off price" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} placeholder="Price (optional)" inputMode="decimal" style={{ maxWidth: 200 }} />
-            <label><input type="checkbox" checked={saveToLib} onChange={(e) => setSaveToLib(e.target.checked)} /> Save to Library so it&apos;s one tap next time</label>
-            <div><button className="button" type="button" onClick={() => void addOneOff()} disabled={adding}>{adding ? "Adding…" : "Add finding"}</button></div>
-          </div>
-        </details>
+
 
         {error && <p role="alert" style={{ color: "var(--danger, #b91c1c)", margin: 0 }}>{error}</p>}
         {status === "error" && <div><button className="button" type="button" onClick={() => void save()}>Retry save</button></div>}
       </div>
 
-      <FindingPickerSheet
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        title="Add a finding from the Library"
-        items={catalog.items}
-        loading={catalog.loading}
-        addedItemIds={onJobIds}
-        onPick={(item) => { const full = catalog.items.find((c) => c.itemId === item.itemId); if (full) addCatalogItem(full); }}
-        onPickMany={addCatalogItems}
-        confirm={{ label: (count) => count === 0 ? "Select findings to add" : `Add ${count} finding${count === 1 ? "" : "s"}` }}
-      />
+      <JobFindingPicker open={pickerOpen} onClose={() => setPickerOpen(false)} items={catalog.items} loading={catalog.loading} addedItemIds={onJobIds} error={error || (catalog.error ? "Could not load Library. Reload to retry." : "")} saving={adding} hasCustom={!!(newProblem.trim() || newSolution.trim() || newPrice.trim())} onSave={addOneOff} custom={<div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            <input aria-label="One-off problem" value={newProblem} onChange={(e) => setNewProblem(e.target.value)} placeholder="What was found" maxLength={1000} />
+            <textarea aria-label="One-off solution" value={newSolution} onChange={(e) => setNewSolution(e.target.value)} placeholder="Work to perform" maxLength={2000} rows={2} />
+            <input aria-label="One-off price" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} placeholder="Price (optional)" inputMode="decimal" style={{ maxWidth: 200 }} />
+            <label><input type="checkbox" checked={saveToLib} onChange={(e) => setSaveToLib(e.target.checked)} /> Save to Library so it&apos;s one tap next time</label>
+          </div>} />
     </section>
   );
 }

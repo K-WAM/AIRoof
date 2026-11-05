@@ -12,6 +12,7 @@ import type { JobQuote, QuoteStatus } from "@/types/quote";
 import { validNarrative, validTechnicians } from "@/lib/documents/validation";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
+import { validLogoSelection } from "@/lib/documents/logoSelection";
 
 type Context = { params: Promise<{ jobId: string }> };
 const err = (message: string, status: number) => NextResponse.json({ error: message }, { status });
@@ -61,9 +62,11 @@ export async function POST(req: NextRequest, { params }: Context) {
   const quoteId = await allocateJobQuoteNumber(db, businessId);
   const findings = (job.findings ?? []).filter((f) => f.includeInQuote).map((f) => ({ ...f, lines: f.lines?.map((line) => ({ ...line })) }));
   const lines = quoteLinesFromFindings(findings);
+  const customer = job.customerId ? (await db.collection(`businesses/${businessId}/customers`).doc(job.customerId).get()).data() : null;
   const newQuote: JobQuote = {
     quoteId, businessId, jobId, customerId: job.customerId,
-    billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: job.address },
+    serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),
+    billTo: { name: job.clientName ?? "", email: job.clientEmail, phone: job.clientPhone, address: customer?.address ?? job.address },
     findings, lines, status: "draft", hideMaterials: false, validUntil: now + 30 * 86400000, notes: DEFAULT_QUOTE_NOTES,
     subtotal: quoteTotal(lines), total: quoteTotal(lines), createdAt: now, updatedAt: now, createdBy: gate.user.uid,
   };
@@ -97,6 +100,12 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     return NextResponse.json({ quote: { ...quote, ...patch } });
   }
   if (quote.status !== "draft") return err("Only a draft quote can be edited", 409);
+  if (body.logoId !== undefined && !await validLogoSelection(db, businessId, body.logoId)) return err("Invalid letterhead logo", 400);
+  if (body.layout !== undefined && !["itemized", "proposal", "tm_authorization"].includes(body.layout as string)) return err("Invalid layout", 400);
+  if (body.includeOptional !== undefined && (!Array.isArray(body.includeOptional) || body.includeOptional.length > 20 || body.includeOptional.some(id => typeof id !== "string" || !/^[\w-]{1,80}$/.test(id)))) return err("Invalid optional sections", 400);
+  for (const key of ["serviceAt", "attention", "description", "poNumber"] as const) {
+    if (body[key] !== undefined && (typeof body[key] !== "string" || (body[key] as string).length > 1000)) return err(`Invalid ${key}`, 400);
+  }
   if (body.lines !== undefined && !validQuoteLines(body.lines)) return err("Invalid quote lines", 400);
   if (body.findings !== undefined && !validFindings(body.findings)) return err("Invalid quote findings", 400);
   if (body.notes !== undefined && (typeof body.notes !== "string" || body.notes.length > 2000 || /[<>\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(body.notes))) return err("Invalid notes", 400);
@@ -119,6 +128,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (priceMode === "project" && !validCustomerSubtotal(customerSubtotal)) return err("Project price requires a valid customer subtotal", 400);
   const totals = customerTotals({ kind: "quote", lineSubtotal: quoteTotal(lines), priceMode, customerSubtotal });
   const patch: Partial<JobQuote> = { updatedAt: Date.now(), subtotal: totals.subtotal, total: totals.total, calculatedSubtotal: totals.calculatedSubtotal,
+    ...(body.logoId !== undefined ? { logoId: body.logoId as string | null } : {}),
+    ...(body.layout !== undefined ? { layout: body.layout as JobQuote["layout"] } : {}),
+    ...(body.includeOptional !== undefined ? { includeOptional: body.includeOptional as string[] } : {}),
+    ...Object.fromEntries(["serviceAt", "attention", "description", "poNumber"].filter(k => body[k] !== undefined).map(k => [k, body[k]])),
     priceMode,
     ...(priceMode === "project" ? { customerSubtotal } : {}),
     ...(body.adjustmentNote !== undefined ? { adjustmentNote: body.adjustmentNote as string } : {}),

@@ -2,6 +2,7 @@
 
 import { Hint } from "@/components/ui/Hint";
 
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 import { track } from "@/lib/analytics/client";
 
 import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
@@ -15,12 +16,17 @@ import { useLiveRefresh } from "@/hooks/useLiveRefresh";
 import { buildProjection } from "@/lib/jobs/projection";
 import type { Job, FieldUpdate, ParsedUpdate, JobPhotoMeta } from "@/types/jobs";
 import type { LibraryPricing, LibraryLogo } from "@/types/library";
-import { pickDefaultLogo, logoDataUri } from "@/lib/branding/logo";
 import type { BusinessConfig } from "@/types";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine } from "@/types/invoice";
 import { canSendInvoice } from "./jobInvoice";
 import { customerTotals } from "@/lib/billing/jobCustomerTotals";
-import { CustomerVersionPanel } from "@/components/documents/CustomerVersionPanel";
+import { DepositInvoices } from "./DepositInvoices";
+import { LogoPicker } from "@/lib/documents/LogoPicker";
+import { ReportLayoutControls } from "./ReportLayoutControls";
+import { useLetterTemplates } from "@/lib/documents/useLetterTemplates";
+import { completionLetter, isCompletion } from "@/lib/documents/completionLetter";
+import { LetterBody } from "@/lib/documents/LetterBody";
+import { CustomerVersionCard as CustomerVersionPanel } from "./CustomerVersionCard";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
@@ -37,7 +43,7 @@ import { useWorkCatalog } from "@/hooks/useWorkCatalog";
 import { pollJobOnce } from "@/lib/jobs/livePoll";
 import { DocumentOptionToggles } from "@/components/documents/DocumentOptionToggles";
 import { DocumentPhotoSelector, selectedDocumentPhotoIds } from "@/components/documents/DocumentPhotoSelector";
-import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE, OPTIONS_HEADING } from "@/lib/documents/optionsCopy";
+import { INCLUDE_QUOTE_NEEDS_SENT_QUOTE } from "@/lib/documents/optionsCopy";
 import { draftWorkDescription } from "@/lib/documents/workSummary";
 import { QuotePanel } from "./QuotePanel";
 import { ClientDetailsEditor } from "./ClientDetailsEditor";
@@ -208,6 +214,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
   // Bumped when the customer details are edited so the quote panel reloads its (server-updated) bill-to.
   const [clientVersion, setClientVersion] = useState(0);
+  const [invoiceCustomerDetails, setInvoiceCustomerDetails] = useState<Partial<JobInvoice>>({});
   const [invoiceMeta, setInvoiceMeta] = useState<Pick<JobInvoice, "sentAt" | "sentTo" | "paidAt">>({});
   const [hideMaterials, setHideMaterials] = useState(false);
   const [hideLabor, setHideLabor] = useState(false);
@@ -217,6 +224,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [invoiceAdjustmentNote, setInvoiceAdjustmentNote] = useState("");
   const invoicePreviewRef = useRef<HTMLDivElement>(null);
   const [showTechnicians, setShowTechnicians] = useState(false);
+  const [showAllInvoiceLines, setShowAllInvoiceLines] = useState(false);
+  const [invoiceLogoId, setInvoiceLogoId] = useState<string | null | undefined>();
+  const [invoiceShowFindingSections, setInvoiceShowFindingSections] = useState<boolean | undefined>();
   const [invoicePhotoIds, setInvoicePhotoIds] = useState<string[] | undefined>();
   const [technicians, setTechnicians] = useState<string[]>([]);
   const [narrative, setNarrative] = useState("");
@@ -245,7 +255,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [sendEmail, setSendEmail] = useState("");
   const suggestedSendEmail = useRef<{ jobId: string; email: string } | null>(null);
   const sendEmailJobId = job?.jobId;
-  const sendEmailSuggestion = job?.clientEmail?.trim() ?? "";
+  const sendEmailSuggestion = job?.documentRecipients?.join(", ") || job?.clientEmail?.trim() || "";
   useEffect(() => {
     if (!sendEmailJobId) return;
     const previous = suggestedSendEmail.current;
@@ -493,6 +503,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
         setShowTechnicians(inv.showTechnicians === true);
         setInvoicePhotoIds(inv.photoIds);
+        setInvoiceLogoId(inv.logoId);
+        setInvoiceShowFindingSections(inv.showFindingSections);
         setTechnicians(inv.technicians ?? []);
         setNarrative(inv.narrative ?? "");
         setInvoiceOpening(inv.opening ?? "");
@@ -504,6 +516,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
         setInvoiceNotes(inv.notes ?? invoiceNotes);
         setInvoiceId(inv.invoiceId);
+        setInvoiceCustomerDetails(inv);
         setInvoiceStatus(inv.status);
         setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
         setInvoiceReady(true);
@@ -598,6 +611,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setInvoiceAdjustmentNote(inv.adjustmentNote ?? "");
       setShowTechnicians(inv.showTechnicians === true);
       setInvoicePhotoIds(inv.photoIds);
+      setInvoiceLogoId(inv.logoId);
+      setInvoiceShowFindingSections(inv.showFindingSections);
       setTechnicians(inv.technicians ?? []);
       setNarrative(inv.narrative ?? "");
       setInvoiceOpening(inv.opening ?? "");
@@ -608,6 +623,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       setInvoiceIssuedAt(inv.issuedAt ?? inv.createdAt);
       setInvoiceDueAt(inv.dueAt ?? inv.issuedAt ?? inv.createdAt);
       setInvoiceId(inv.invoiceId);
+        setInvoiceCustomerDetails(inv);
       setInvoiceStatus(inv.status);
       setInvoiceMeta({ sentAt: inv.sentAt, sentTo: inv.sentTo, paidAt: inv.paidAt });
       setJob((j) => (j && !j.invoiceId ? { ...j, invoiceId: inv.invoiceId } : j));
@@ -698,7 +714,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }
 
   async function mailReport() {
-    if (!businessId || !reportTo.trim()) { setReportSendError("Enter a recipient email."); return; }
+    if (!businessId) return;
+    const selected = parseDocumentRecipients(reportTo);
+    if ("error" in selected) { setReportSendError(selected.error); return; }
     setReportSending(true);
     setReportSendError(null);
     try {
@@ -706,12 +724,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/report/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes }),
+        body: JSON.stringify({ businessId, to: selected.recipients, reportNotes }),
       });
       if (res.ok) {
+        const result = await res.json();
+        if (result.warning) setReportSendError(result.warning);
+        setJob(j => j ? { ...j, documentRecipients: selected.recipients } : j);
         track("report_sent", { job_id: jobId });
         setReportSent(true);
-        setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
+        if (!result.warning) setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
         setReportSendError(d.error ?? "Failed to send.");
@@ -751,13 +772,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   async function sendInvoice() {
     // Edits still saving (a photo just ticked, a line just typed): don't bounce the user — queue the send and fire it
     // the moment the save lands (the effect below). The server still only ever sends the SAVED invoice.
-    if (invoiceDirty && invoiceId && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sendEmail.trim())) {
+    if (invoiceDirty && invoiceId && "recipients" in parseDocumentRecipients(sendEmail)) {
       setSendError(null);
       setSendQueued(true);
       return;
     }
-    if (!canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
-      setSendError("Enter a recipient email.");
+    const selected = parseDocumentRecipients(sendEmail);
+    if ("error" in selected || !canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
+      setSendError("error" in selected ? selected.error : "Wait for this draft to save.");
       return;
     }
     setSendQueued(false);
@@ -766,18 +788,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: sendEmail.trim() }),
+        body: JSON.stringify({ businessId, to: selected.recipients }),
       });
       if (res.ok) {
+        const result = await res.json();
+        if (result.warning) setSendError(result.warning);
         track("invoice_sent", { job_id: jobId });
         setSendSuccess(true);
-        const to = sendEmail.trim();
+        const to = result.delivered?.join(", ") ?? selected.recipients.join(", ");
         setSendEmail("");
         setInvoiceStatus((s) => (s === "paid" ? s : "sent"));
         setInvoiceMeta((m) => ({ ...m, sentAt: Date.now(), sentTo: to }));
         // The server moved the job to Invoiced on the send; mirror it so the status bar agrees without a reload.
-        setJob((j) => (j ? { ...j, status: invoiceStatus === "paid" ? "complete" : "invoiced" } : j));
-        setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
+        setJob((j) => (j ? { ...j, documentRecipients: selected.recipients, status: invoiceStatus === "paid" ? "complete" : "invoiced" } : j));
+        if (!result.warning) setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
         setSendError(d.error ?? "Failed to send. Try again.");
@@ -816,7 +840,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
     other: otherRowsToLines(otherRows),
     taxRate: parseFloat(taxRate) || 0,
     discount: invoiceDiscount,
-  }, priceMode: invoicePriceMode, customerSubtotal: invoiceCustomerSubtotal });
+  }, priceMode: invoicePriceMode, customerSubtotal: invoiceCustomerSubtotal, depositsApplied: invoiceCustomerDetails.depositsApplied });
 
   // Autosave (debounced 1200ms) — PATCH only while a real draft invoice exists; the server
   // itself refuses a PATCH once status !== "draft", and this mirrors that so an edit after
@@ -827,7 +851,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // your edits" though nobody had edited anything (2026-10-03).
   const invoicePhotoKey = selectedDocumentPhotoIds(photos, invoicePhotoIds).join(",");
   useEffect(() => {
-    if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; return; }
+    if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; setInvoiceDirty(false); return; }
     if (!invoiceId || invoiceStatus !== "draft" || !businessId || readOnly) return;
     setInvoiceDirty(true);
     const timer = setTimeout(() => {
@@ -852,7 +876,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               photoIds: invoicePhotoKey ? invoicePhotoKey.split(",") : [],
               technicians,
                narrative,
-               opening: invoiceOpening,
+               logoId: invoiceLogoId, showFindingSections: invoiceShowFindingSections, opening: invoiceOpening,
                closing: invoiceClosing,
                thankYou: invoiceThankYou,
                terms: invoiceTerms,
@@ -861,8 +885,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                notes: invoiceNotes,
             }),
           });
-          if (res.ok) setInvoiceDirty(false);
-        } catch {
+          if (res.ok) { setInvoiceDirty(false); setInvoiceError(null); }
+          else { const data = await res.json().catch(() => ({})); setInvoiceError(data.error ?? "Could not save the invoice. Your edits are still here."); }
+        } catch (error) {
+          setInvoiceError(error instanceof Error ? error.message : "Could not save the invoice. Your edits are still here.");
           // Left dirty — the beforeunload guard below still warns, and the next successful
           // autosave (or an explicit retry) clears it. Never silently claim a save that failed.
         } finally {
@@ -871,7 +897,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       });
     }, 1200);
     return () => clearTimeout(timer);
-  }, [laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoKey, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
+  }, [invoiceShowFindingSections, invoiceLogoId, laborRows, materialRows, otherRows, taxRate, hideMaterials, hideLabor, invoicePriceMode, invoiceCustomerSubtotal, invoiceAdjustmentNote, showTechnicians, invoicePhotoKey, technicians, narrative, invoiceOpening, invoiceClosing, invoiceThankYou, invoiceTerms, invoicePoNumber, invoiceDueAt, invoiceNotes, invoiceId, invoiceStatus, businessId, jobId, readOnly]);
 
   // Warn on tab close/navigate-away with unsaved invoice edits still in flight.
   useEffect(() => {
@@ -946,9 +972,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // regression: no library logo just means the same fallback as before it existed.
   const invoiceAccent = businessConfig?.brandColor ?? "#1e3a5f";
   const invoiceBizName = businessConfig?.businessName ?? job.title;
-  const defaultLogo = pickDefaultLogo(logos);
-  const invoiceLogoSrc = defaultLogo ? logoDataUri(defaultLogo) : businessConfig?.logoUrl;
-  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos);
+  const invoiceLogoSrc = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId).logoUrl;
+  const invoiceLetterhead = resolveLetterhead(businessConfig ?? {}, logos, "light", invoiceLogoId);
   const customerInvoice = { labor: laborRowsToLines(laborRows), materials: materialRowsToLines(materialRows), other: otherRowsToLines(otherRows), taxRate: parseFloat(taxRate) || 0, discount: invoiceDiscount, hideMaterials, hideLabor, priceMode: invoicePriceMode, subtotal, total: grandTotal, laborSubtotal, materialSubtotal, otherSubtotal } as JobInvoice;
 
   return (
@@ -1413,7 +1438,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             <div style={{ maxWidth: 780, margin: "0 auto" }}>
               {/* Only while the price presentation can still change. A sent/paid invoice is shown in full right below —
                   the panel would just repeat its total (say it once, C5). */}
-              {invoiceStatus === "draft" && !readOnly && <CustomerVersionPanel draft priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
+              <CustomerVersionPanel draft={invoiceStatus === "draft" && !readOnly} readOnlyRole={readOnly} taxHint={`Tax is added at ${taxRate || "0"}% on this invoice.`} controls={<><LogoPicker logos={logos} value={invoiceLogoId} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoiceLogoId} />{!!job.findings?.length && <label><input type="checkbox" checked={invoiceShowFindingSections !== false} disabled={readOnly || invoiceStatus !== "draft"} onChange={e => setInvoiceShowFindingSections(e.target.checked)} /> Show findings as Problem / Corrective Action</label>}</>} intro={<div className="no-print" style={{ marginBottom: 20 }}>
+                  <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
+                  <textarea id="invoiceOpening" disabled={readOnly || invoiceStatus !== "draft"} rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
+                  <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
+                  <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
+                  {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+                </div>} more={<div style={{ marginTop: 8, maxWidth: 380 }}>
+                      <DocumentOptionToggles keys={["showTechnicians"]} disabled={readOnly || invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
+                        onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
+                      <div style={{ marginTop: 12 }}>
+                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={readOnly || invoiceStatus !== "draft"}
+                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
+                      </div>
+                    </div>} priceMode={invoicePriceMode} hideMaterials={hideMaterials} hideLabor={hideLabor}
                 lineSubtotal={calculatedSubtotal} savedLineSubtotal={invoiceCalculatedSubtotal} customerSubtotal={invoiceCustomerSubtotal} customerTotal={grandTotal}
                 adjustmentNote={invoiceAdjustmentNote} acceptedQuoteSubtotal={pageQuote?.status === "accepted" && pageQuote.priceMode === "project" ? pageQuote.subtotal : undefined}
                 onChange={(patch) => {
@@ -1423,7 +1464,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   if (patch.customerSubtotal !== undefined) { setInvoiceCustomerSubtotal(patch.customerSubtotal); setInvoiceCalculatedSubtotal(calculatedSubtotal); }
                   if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
                 }}
-                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />}
+                onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
+              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.documentRecipients?.join(", ") || job.clientEmail || ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
@@ -1436,23 +1478,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }}>{invoiceStatus === "paid" ? "✓ Paid" : invoiceStatus === "draft" ? "Draft" : invoiceStatus === "sent" ? "Sent" : invoiceStatus === "void" ? "Void" : invoiceStatus}</span>
                   )}
                   {invoiceStatus === "draft" && (invoiceSaving ? "Saving…" : invoiceDirty ? "Unsaved changes" : "Saved")}
-                  <details>
-                    <summary style={{ cursor: "pointer", fontWeight: 600 }}>{OPTIONS_HEADING}</summary>
-                    <div style={{ marginTop: 8, maxWidth: 380 }}>
-                      <DocumentOptionToggles disabled={readOnly || invoiceStatus !== "draft"} values={{ hideMaterials, hideLabor, showTechnicians }}
-                        onChange={(key, next) => (key === "hideMaterials" ? setHideMaterials(next) : key === "hideLabor" ? setHideLabor(next) : setShowTechnicians(next))} />
-                      <div style={{ marginTop: 12 }}>
-                        <DocumentPhotoSelector photos={photos} photoIds={invoicePhotoIds} disabled={readOnly || invoiceStatus !== "draft"} onChange={setInvoicePhotoIds} />
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <PropertyTypeToggle jobId={jobId} businessId={businessId!} value={job.propertyType} disabled={readOnly || invoiceStatus !== "draft"}
-                          onChange={(propertyType) => setJob((current) => current ? { ...current, propertyType } : current)} />
-                      </div>
-                    </div>
-                  </details>
+
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {invoiceStatus === "draft" && !readOnly && <button className="button primary" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {invoiceStatus === "draft" && !readOnly && <button className={showSendPanel ? "button" : "button primary"} onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
                     Send to Customer
                   </button>}
@@ -1473,6 +1502,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div>
               </div>
 
+              {invoiceStatus === "draft" && grandTotal === 0 && !readOnly && <p className="no-print">This draft has no charges; <button className="button" disabled={generatingInvoice} onClick={() => generateInvoice(true)}>Rebuild from the latest quote and findings</button>.</p>}
               {invoiceStatus && invoiceStatus !== "draft" && (
                 <div className="no-print" style={{ marginBottom: 16, padding: "10px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, fontSize: 13, color: "#15803d" }}>
                   {/* When paid, the payments panel below carries the date — this line only says it's locked (C5). */}
@@ -1483,7 +1513,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
               {/* Billing (no Stripe): balance, payments received, Record payment → receipt. */}
               {invoiceStatus && invoiceStatus !== "draft" && businessId && (
-                <RecordPayment businessId={businessId} jobId={jobId} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
+                <RecordPayment businessId={businessId} jobId={jobId} recipients={job.documentRecipients} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
                   onPaid={(paidAt) => { setInvoiceStatus("paid"); setInvoiceMeta((m) => ({ ...m, paidAt })); setJob((current) => current ? { ...current, status: "complete", paymentReceivedAt: paidAt } : current); }} />
               )}
 
@@ -1514,11 +1544,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Invoice sent successfully!</p>
                   ) : (
                     <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-                      <input
-                        type="email"
+                      <textarea rows={Math.min(10, Math.max(2, sendEmail.split(",").length * 2))}
+                        aria-label="Invoice recipient emails" inputMode="email"
                         value={sendEmail}
                         onChange={e => setSendEmail(e.target.value)}
-                        placeholder={job?.clientName ? `Email for ${job.clientName}` : "customer@email.com"}
+                        placeholder="Emails, separated by commas (up to 5)"
                         style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }}
                       />
                       <button onClick={sendInvoice} disabled={sending || sendQueued} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1572,6 +1602,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         <InvoiceMetaRow label="Due" value={due} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Terms" value={invoiceTerms} accent={invoiceAccent} />
                         <InvoiceMetaRow label="Work order" value={jobId} accent={invoiceAccent} />
+                        {invoiceCustomerDetails.description && <InvoiceMetaRow label="Description" value={invoiceCustomerDetails.description} accent={invoiceAccent} />}
                         {invoicePoNumber && <InvoiceMetaRow label="PO number" value={invoicePoNumber} accent={invoiceAccent} />}
                         {job.serviceType && <InvoiceMetaRow label="Service" value={job.serviceType} accent={invoiceAccent} />}
                       </tbody>
@@ -1583,9 +1614,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 <div className="invoice-editor-billto" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32, padding: "16px 0", borderBottom: "1px solid #e2e8f0" }}>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Bill To</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{job.clientName || "—"}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{invoiceCustomerDetails.billTo?.name || job.clientName || "—"}</div>
+                    {invoiceCustomerDetails.customerCode && <div>Customer ID: {invoiceCustomerDetails.customerCode}</div>}
                     {job.clientPhone && <div style={{ fontSize: 13, color: "#64748b" }}>{fmtPhone(job.clientPhone)}</div>}
-                    {job.address && <div style={{ fontSize: 13, color: "#64748b" }}>{job.address}</div>}
+                    {(invoiceCustomerDetails.billTo?.address ?? job.address) && <div style={{ fontSize: 13, color: "#64748b" }}>{invoiceCustomerDetails.billTo?.address ?? job.address}</div>}
                   </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: invoiceAccent, marginBottom: 6 }}>Service At</div>
@@ -1597,14 +1629,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </div>
                 </div>
 
-                <div className="no-print" style={{ marginBottom: 20 }}>
-                  <label htmlFor="invoiceOpening" style={{ display: "block", fontWeight: 600, fontSize: 13 }}>Opening</label>
-                  <textarea id="invoiceOpening" rows={3} value={invoiceOpening} onChange={(event) => setInvoiceOpening(event.target.value)} style={{ width: "100%" }} />
-                  <label htmlFor="invoiceNarrative" style={{ fontWeight: 600, fontSize: 13 }}>Description of work <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>— short bullet points, shown to the customer</span></label>
-                  <textarea id="invoiceNarrative" maxLength={4000} rows={Math.min(8, Math.max(3, narrative.split("\n").length + 1))} placeholder="• What was done, one line each" disabled={invoiceStatus !== "draft"} value={narrative} onChange={(event) => setNarrative(event.target.value)} style={{ width: "100%", display: "block", marginTop: 6 }} />
-                  {showTechnicians && <label>Technicians (comma separated, up to 10)<input list="invoice-technicians" value={technicians.join(", ")} disabled={invoiceStatus !== "draft"} onChange={(event) => setTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()))} style={{ width: "100%", display: "block" }} /><datalist id="invoice-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
-                </div>
-                {/* Labor */}
+
+                {(laborRows.length > 5 || materialRows.length > 5 || otherRows.length > 5) && <button className="button no-print" onClick={() => setShowAllInvoiceLines(!showAllInvoiceLines)}>{showAllInvoiceLines ? "Show fewer invoice lines" : "Show all invoice lines"}</button>}
                 {laborRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Labor</div>
@@ -1638,7 +1664,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         </tr>
                       </thead>
                       <tbody>
-                        {laborRows.map((row, i) => (
+                        {(showAllInvoiceLines ? laborRows : laborRows.slice(0, 5)).map((row, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                             <td style={tdStyle()}><InlineInput label="Technician" value={row.name} onChange={(v) => setLaborRows(r => r.map((x, j) => j === i ? { ...x, name: v } : x))} placeholder="Name" /></td>
                             <td style={tdStyle()}><InlineInput label="Arrival time" value={row.arrival} onChange={(v) => setLaborRows(r => r.map((x, j) => {
@@ -1722,7 +1748,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                         </tr>
                       </thead>
                       <tbody>
-                        {materialRows.map((row, i) => {
+                        {(showAllInvoiceLines ? materialRows : materialRows.slice(0, 5)).map((row, i) => {
                           const unpriced = row.item.trim() !== "" && row.unitPrice.trim() === "";
                           return (
                           <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
@@ -1780,7 +1806,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 {otherRows.length > 0 && (
                   <div style={{ marginBottom: 28 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#475569", marginBottom: 8 }}>Other Charges</div>
-                    {otherRows.map((row, i) => (
+                    {(showAllInvoiceLines ? otherRows : otherRows.slice(0, 5)).map((row, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <InlineInput label="Charge description" value={row.description} onChange={(v) => setOtherRows(r => r.map((x, j) => j === i ? { ...x, description: v } : x))} placeholder="Description" />
@@ -1799,6 +1825,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </button>
 
                 {/* Totals */}
+                {!!invoiceCustomerDetails.depositsApplied?.length && <div>{invoiceCustomerDetails.depositsApplied.map(deposit => <p key={deposit.invoiceId} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span>Less deposit ({deposit.invoiceId})</span><strong>−{fmtMoney(deposit.amount)}</strong></p>)}<p style={{ fontSize: 12 }}>Tax is calculated on work; deposits are deducted after tax.</p></div>}
                 <div style={{ borderTop: "2px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <div style={{ minWidth: 260 }}>
@@ -1874,9 +1901,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   </p>
                 )}
                 <DocumentPreview className="invoice-doc" title="Invoice" brand={invoiceLetterhead}
-                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Work order", jobId], ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
-                  billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
-                  findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }))}
+                  meta={[["Date", today], ["Number", invoiceId ?? jobId], ["Terms", invoiceTerms], ["Due", due], ["Reference", "Work order " + jobId], ...(invoiceCustomerDetails.description ? [["Description", invoiceCustomerDetails.description] as [string, string]] : []), ...(invoicePoNumber ? [["PO number", invoicePoNumber] as [string, string]] : []), ["Service at", job.address ?? ""], ...(showTechnicians && technicians.length ? [["Technicians", technicians.join(", ")] as [string, string]] : [])]}
+                  depositsApplied={invoiceCustomerDetails.depositsApplied} serviceAt={invoiceCustomerDetails.serviceAt} customerCode={invoiceCustomerDetails.customerCode}
+                  billTo={invoiceCustomerDetails.billTo ?? { name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} opening={invoiceOpening} narrative={narrative} closing={invoiceClosing} thankYou={invoiceThankYou}
+                  findingSections={invoiceShowFindingSections !== false} findings={job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }))}
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
                   howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
@@ -1912,8 +1940,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             </section>
           ) : (
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
+              <CustomerVersionPanel report={!reportOptions.includeQuote || isCompletion(job.reportDocument)} fixedPrice priceMode={job.reportDocument?.priceMode ?? pageQuote?.priceMode} hideMaterials={reportOptions.hideMaterials} hideLabor={reportOptions.hideLabor} customerSubtotal={pageQuote?.subtotal} customerTotal={reportOptions.includeQuote && !isCompletion(job.reportDocument) ? pageQuote?.total : undefined} onChange={patch => { const next = { ...reportOptions, ...(patch.hideMaterials === undefined ? {} : { hideMaterials: patch.hideMaterials }), ...(patch.hideLabor === undefined ? {} : { hideLabor: patch.hideLabor }) }; setReportOptions(next); void saveReportNotes(next); if (patch.priceMode) void fetch(`/api/jobs/${jobId}/report/settings`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ priceMode: patch.priceMode }) }).then(async r => { if (r.ok) { const d = await r.json(); setJob(j => j ? { ...j, reportDocument: d.reportDocument } : j); } }); }} draft={!readOnly} readOnlyRole={readOnly} controls={<ReportLayoutControls hasFindings={!!job.findings?.length} jobId={jobId} address={job.address} value={job.reportDocument} includeQuote={reportOptions.includeQuote === true} logos={logos} readOnly={readOnly} onSaved={reportDocument => setJob(current => current ? { ...current, reportDocument } : current)} />} intro={<div style={{ marginBottom: 16 }} className="no-print">
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
+                <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
+                {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
+                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input disabled={readOnly} value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { if (!readOnly) void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
+              </div>} more={<div style={{ marginTop: 8, maxWidth: 380 }}>
+                  <DocumentOptionToggles values={{ ...reportOptions, includeQuote: isCompletion(job.reportDocument) ? false : reportOptions.includeQuote }} disabled={readOnly}
+                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
+                    disabledKeys={isCompletion(job.reportDocument) ? { includeQuote: "Completion notices never include prices." } : quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
+                    onChange={(key, next) => {
+                      const options = { ...reportOptions, [key]: next };
+                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
+                      // that leftover text is how "Hide materials" used to leak into the Description of work.
+                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
+                      setReportOptions(options);
+                      setReportNotes(notes);
+                      void saveReportNotes(options, reportTechnicians, notes);
+                    }} />
+                </div>} />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
-                {!readOnly && <button className="button primary" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {!readOnly && <button className={showReportSend ? "button" : "button primary"} onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo) setReportTo(job?.documentRecipients?.join(", ") || job?.clientEmail || ""); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Send size={14} strokeWidth={1.75} />
                   Mail report
                 </button>}
@@ -1928,23 +1975,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                 </div></details>
               </div>
 
-              <details className="no-print" style={{ marginBottom: 16 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>Customer version · {reportOptions.includeQuote && quoteCanGoOnReport ? `Includes the ${pageQuote?.status === "accepted" ? "accepted" : "sent"} quote's total` : "No prices included"}</summary>
-                <div style={{ marginTop: 8, maxWidth: 380 }}>
-                  <DocumentOptionToggles values={reportOptions} disabled={readOnly}
-                    keys={["hideMaterials", "hideLabor", "showTechnicians", "includeQuote"]}
-                    disabledKeys={quoteCanGoOnReport ? {} : { includeQuote: INCLUDE_QUOTE_NEEDS_SENT_QUOTE }}
-                    onChange={(key, next) => {
-                      const options = { ...reportOptions, [key]: next };
-                      // Hiding labor or materials must also clear the detail sentences an earlier draft saved in the notes —
-                      // that leftover text is how "Hide materials" used to leak into the Description of work.
-                      const notes = key === "hideMaterials" || key === "hideLabor" ? stripHiddenFacts(reportNotes, options) : reportNotes;
-                      setReportOptions(options);
-                      setReportNotes(notes);
-                      void saveReportNotes(options, reportTechnicians, notes);
-                    }} />
-                </div>
-              </details>
+
+
 
               {/* Mail panel — automation prepares the report; a human presses send */}
               {showReportSend && (
@@ -1954,7 +1986,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Report sent successfully!</p>
                   ) : (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <input type="email" value={reportTo} onChange={(e) => setReportTo(e.target.value)} placeholder={job?.clientName ? `Email for ${job.clientName}` : "client@email.com"} style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }} />
+                      <textarea rows={2} aria-label="Report recipient emails" inputMode="email" value={reportTo} onChange={(e) => setReportTo(e.target.value)} placeholder="Emails, separated by commas (up to 5)" style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }} />
                       <button onClick={mailReport} disabled={reportSending} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <Send size={14} strokeWidth={1.75} />
                         {reportSending ? "Sending…" : "Send report"}
@@ -1967,12 +1999,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               )}
 
               {/* Scope & Resolution notes — admin-edited, persisted, included in the report */}
-              <div style={{ marginBottom: 16 }} className="no-print">
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 }}>Scope &amp; Resolution notes</label>
-                <textarea disabled={readOnly} value={reportNotes} onChange={(e) => setReportNotes(e.target.value)} onBlur={() => { if (!readOnly) void saveReportNotes(); }} rows={3} placeholder="Summarize the issue identified and the repair applied — this appears in the report." style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, lineHeight: 1.6, resize: "vertical", outline: "none", fontFamily: "inherit" }} />
-                {!readOnly && <button type="button" className="button" onClick={draftReportNarrative} style={{ marginTop: 8, fontSize: 13 }}>Draft from job</button>}
-                {reportOptions.showTechnicians && <label style={{ display: "block", marginTop: 12, fontSize: 13 }}>Technicians (comma separated, up to 10)<input disabled={readOnly} value={reportTechnicians.join(", ")} onChange={(event) => setReportTechnicians(event.target.value.split(",").slice(0, 10).map((name) => name.trim()).filter(Boolean))} onBlur={() => { if (!readOnly) void saveReportNotes(); }} list="report-technicians" style={{ display: "block", width: "100%" }} /><datalist id="report-technicians">{job.parsed?.labor.map((entry, index) => <option key={index} value={entry.description} />)}</datalist></label>}
-              </div>
 
               <ReportDocument job={job} jobId={jobId} businessConfig={businessConfig} logos={logos} reportNotes={reportNotes} reportOptions={reportOptions} reportTechnicians={reportTechnicians} reportPhotos={reportPhotos} quote={pageQuote} />
             </div>
@@ -2203,19 +2229,25 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   quote: JobQuote | null;
 }) {
   const { fmtDate } = useFormat();
+  const { templates, error: letterError } = useLetterTemplates(isCompletion(job.reportDocument));
   const options = normalizeDocumentOptions(reportOptions);
   const sections = reportSections(job.parsed, options);
-  const brand = resolveLetterhead(businessConfig ?? {}, logos);
+  const brand = resolveLetterhead(businessConfig ?? {}, logos, "light", job.reportDocument?.logoId);
   const meta: [string, string][] = [["Date", fmtDate(Date.now())], ["Reference", jobId]];
   // Opt-in, price-bearing: null (nothing shown) unless "Include the quote" is on and the quote was sent or accepted.
-  const quoteSection = reportQuoteSection(quote, options, fmtDate);
+  const quoteSection = reportQuoteSection(quote, { ...options, priceMode: job.reportDocument?.priceMode }, fmtDate);
   if (job.address) meta.push(["Service at", job.address]);
   if (options.showTechnicians && reportTechnicians.length) meta.push(["Technicians", reportTechnicians.join(", ")]);
-  const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));
+  const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note }));
+  if (isCompletion(job.reportDocument)) {
+    const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
+    const letter = completionLetter(job, businessConfig ?? {}, templates[kind], Date.now(), quote);
+    return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
+  }
   return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}
     billTo={{ name: job.clientName ?? "", address: job.address, phone: job.clientPhone }} partyLabel="Prepared for"
     narrative={stripHiddenFacts(reportNotes, options)}
-    findings={findings} sections={sections} quoteSection={quoteSection}
+    findingSections={job.reportDocument?.showFindingSections !== false} findings={findings} sections={sections} quoteSection={quoteSection}
     photos={options.showPhotos ? reportPhotos : []} />;
 }
 
@@ -2226,7 +2258,7 @@ function InvoiceMetaRow({ label, value, accent }: { label: string; value: string
   return (
     <tr>
       <td style={{ padding: "1px 8px 1px 0", textAlign: "right", fontWeight: 700, color: accent, whiteSpace: "nowrap" }}>{label}:</td>
-      <td style={{ padding: "1px 0", textAlign: "left", color: "#1e293b", whiteSpace: "nowrap" }}>{value}</td>
+      <td style={{ padding: "1px 0", textAlign: "left", color: "#1e293b", overflowWrap: "anywhere" }}>{value}</td>
     </tr>
   );
 }

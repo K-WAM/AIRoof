@@ -16,6 +16,7 @@ import { useQuickAddRefresh } from "@/lib/events/quickAdd";
 import { CrewsSection } from "./CrewsSection";
 import { LogosSection } from "./LogosSection";
 import { WorkCatalogSection } from "./WorkCatalogSection";
+import { LettersSection } from "./LettersSection";
 import {
   BadgeDollarSign,
   BookOpen,
@@ -235,7 +236,7 @@ export default function LibraryPage() {
         <PricingSection library={library} onSave={saveLibrary} onLoadExamples={loadStarterKit} loadingKit={loadingKit} readOnly={readOnly} />
       )}
       {section === "crews" && <CrewsSection businessId={businessId} crews={crews} setCrews={setCrews} people={crewPeople} setPeople={setCrewPeople} readOnly={readOnly} />}
-      {section === "documents" && <DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} />}
+      {section === "documents" && <><LettersSection readOnly={readOnly} /><DocumentsSection library={library} onSave={saveLibrary} readOnly={readOnly} /></>}
       {section === "branding" && <LogosSection businessId={businessId} logos={logos} setLogos={setLogos} readOnly={readOnly} />}
       {section === "work-catalog" && isEnabled("jobs") && (
         <WorkCatalogSection businessId={businessId} catalog={workCatalog} onCatalogChange={setWorkCatalog} readOnly={readOnly} />
@@ -430,7 +431,7 @@ function DocumentsSection({ library, onSave, readOnly }: { library: LibraryPrici
           <div className="field"><label>Document name</label><input value={name} onChange={(e) => setName(e.target.value)} placeholder={vocab.documentPlaceholder} /></div>
           <div className="field"><label>Link (URL)</label><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></div>
           <div className="field">
-            <button className="button primary" onClick={addLink} disabled={!name.trim() || !url.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button className="button" onClick={addLink} disabled={!name.trim() || !url.trim()} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <Plus size={15} strokeWidth={1.75} />
               Add document
             </button>

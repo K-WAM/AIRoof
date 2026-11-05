@@ -36,6 +36,10 @@ export function findingsBlock(findings: Array<{ problem: string; solution: strin
   return findings.length ? `<section style="padding:18px 0"><strong>Issues found &amp; work recommended</strong>${findings.map((finding) => `<p style="line-height:1.5"><strong>${escapeHtml(finding.problem)}</strong><br/>${escapeHtml(finding.solution)}${finding.note?.trim() ? `<br/><em style="color:#475569">Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em>` : ""}</p>`).join("")}</section>` : "";
 }
 
+export function findingSectionsBlock(findings: Array<{ category?: string; problem: string; solution: string; note?: string }>): string {
+  return findings.map((finding, index) => `<section style="padding:18px 0;white-space:pre-wrap"><h3>${escapeHtml(finding.category || `Finding ${index + 1}`)}</h3><p><strong>Problem:</strong> ${escapeHtml(finding.problem)}</p><p><strong>Corrective Action:</strong> ${escapeHtml(finding.solution)}</p>${finding.note?.trim() ? `<p><em>Inspector&#39;s note: ${escapeHtml(finding.note.trim())}</em></p>` : ""}</section>`).join("");
+}
+
 export function groupsBlock(groups: DocumentGroup[]): string {
   return groups.map((group) => `<section style="margin:20px 0">${group.title === "Project price" ? "" : `<h3 style="font-size:13px;color:#334155">${group.title}</h3>`}<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${group.rows.map((row) => `<tr><td style="${cell}">${escapeHtml(row.description)}${row.detail ? `<div style="font-size:11px;color:#64748b">${escapeHtml(row.detail)}</div>` : ""}</td><td style="${cell};text-align:right;font-weight:600">${money(row.amount)}</td></tr>`).join("")}</tbody></table>${group.title === "Project price" ? "" : `<div style="text-align:right;padding:8px 12px;font-weight:700">${group.title} subtotal: ${money(group.subtotal)}</div>`}</section>`).join("");
 }
@@ -89,7 +93,8 @@ export function photosBlock(photos: Array<JobPhotoMeta & { fullB64?: string; cid
   return photoPages(photos).map((page, index) => `<section style="margin-top:24px;${index ? "page-break-before:always;" : ""}"><h3 style="font-size:13px">Photo documentation</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:6px">Before</th><th style="text-align:left;padding:6px">After</th></tr></thead><tbody>${page.rows.map((row) => `<tr style="break-inside:avoid;page-break-inside:avoid">${image(row.before, row.before?.phase === "before" ? "Before" : "Photo")}${image(row.after, row.after?.phase === "after" ? "After" : "Photo")}</tr>`).join("")}</tbody></table></section>`).join("");
 }
 
-export function documentShell(content: string): string {
+export function documentShell(content: string, preheader?: string): string {
+  if (preheader) content = `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px">${escapeHtml(preheader)}</div>` + content;
   // Email-client safe card: a centered table (Outlook ignores <main> and max-width on block elements), a web-safe font
   // fallback after system-ui, lang + viewport so phones render at width, and rounded corners where supported.
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="x-apple-disable-message-reformatting"/></head><body style="margin:0;padding:16px 8px;background:#f8fafc;font-family:system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1e293b;-webkit-text-size-adjust:100%"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:680px;border-collapse:separate;background:#fff;border:1px solid #e2e8f0;border-radius:12px"><tr><td style="padding:28px 24px">${content}</td></tr></table></td></tr></table></body></html>`;

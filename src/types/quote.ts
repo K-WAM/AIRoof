@@ -6,6 +6,14 @@ export interface QuoteLine extends WorkCatalogLine {
   findingId?: string;
 }
 export interface JobQuote {
+  layout?: "itemized" | "proposal" | "tm_authorization";
+  includeOptional?: string[];
+  serviceAt?: string;
+  attention?: string;
+  description?: string;
+  poNumber?: string;
+  customerCode?: string;
+  logoId?: string | null;
   quoteId: string;
   businessId: string;
   jobId: string;

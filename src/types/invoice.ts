@@ -40,6 +40,9 @@ export interface JobInvoiceDiscount {
 }
 
 export interface JobInvoice {
+  serviceAt?: string;
+  description?: string;
+  customerCode?: string;
   invoiceId: string;   // "INV-1000+" via businesses/{bid}.invoiceCounter — see jobInvoiceNumber.ts
   businessId: string;
   jobId: string;
@@ -67,6 +70,7 @@ export interface JobInvoice {
   kind?: "standard" | "deposit";
   /** Deposit invoices: the percent requested, 1-100. */
   depositPercent?: number;
+  depositRequestId?: string;
   /** Deposit invoices: the contract amount (dollars) the percent was taken from. */
   depositBasis?: number;
   /** Deposit invoices: when the customer agreed to the work (ms). */
@@ -82,6 +86,7 @@ export interface JobInvoice {
   technicians?: string[];
   narrative?: string;
   logoId?: string | null; // null = business.logoUrl; undefined = no logo. Logo library not shipped yet (T-092 follow-up).
+  showFindingSections?: boolean;
   notes?: string;
   taxRate: number;
   discount?: JobInvoiceDiscount;

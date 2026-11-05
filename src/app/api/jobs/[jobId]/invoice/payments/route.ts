@@ -5,6 +5,8 @@ import { sendEmail } from "@/lib/comms/send";
 import { applyPayment, buildCustomerReceiptEmail, invoiceBalance, MAX_PAYMENTS_PER_INVOICE, parsePayment } from "@/lib/billing/customerPayments";
 import type { InvoicePayment, JobInvoice } from "@/types/invoice";
 import type { Job, JobStatusChange } from "@/types/jobs";
+import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
+import { sendLockActive } from "@/lib/billing/jobInvoiceStore";
 
 // POST /api/jobs/[jobId]/invoice/payments  body: { businessId, amount, method, receivedAt?, note?, sendReceipt? }
 // "Record payment" (Billing product, no Stripe): the office logs money the customer paid them directly. Partial
@@ -21,13 +23,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
+  const explicitRecipients = body.to === undefined ? undefined : parseDocumentRecipients(body.to);
+  if (explicitRecipients && "error" in explicitRecipients) return NextResponse.json({ error: explicitRecipients.error }, { status: 400 });
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
   const jobSnap = await jobRef.get();
-  const invoiceId = jobSnap.data()?.invoiceId;
+  const requestedDeposit = typeof body.invoiceId === "string" ? body.invoiceId : undefined;
+  const invoiceId = requestedDeposit ?? jobSnap.data()?.invoiceId;
   if (!invoiceId) return NextResponse.json({ error: "This job has no invoice yet" }, { status: 404 });
   const invRef = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
   const now = Date.now();
@@ -39,8 +44,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const snap = await tx.get(invRef);
       if (!snap.exists) throw new HttpError(404, "Invoice not found");
       const currentJob = currentJobSnap.data() as Job | undefined;
-      if (!currentJob || currentJob.invoiceId !== invoiceId) throw new HttpError(409, "The job's invoice changed. Reload and try again.");
+      if (!currentJob || (!requestedDeposit && currentJob.invoiceId !== invoiceId)) throw new HttpError(409, "The job's invoice changed. Reload and try again.");
       const invoice = snap.data() as JobInvoice;
+      if (invoice.jobId && invoice.jobId !== jobId || (requestedDeposit ? invoice.kind !== "deposit" : invoice.kind === "deposit")) throw new HttpError(404, "Invoice does not match this document.");
+      if (sendLockActive(currentJob.documentSendLock)) throw new HttpError(409, "An invoice is being sent. Try again afterwards.");
       if (invoice.status === "draft") throw new HttpError(409, "Send the invoice before recording a payment.");
       if (invoice.status === "void") throw new HttpError(409, "This invoice was voided.");
       const balance = invoiceBalance(invoice);
@@ -52,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const { payments, amountPaid, status, paidAt } = applyPayment(invoice, payment);
       const applied = { payments, amountPaid, status, ...(paidAt ? { paidAt } : {}) };
       tx.update(invRef, { ...applied, updatedAt: now });
-      if (status === "paid") {
+      if (status === "paid" && invoice.kind !== "deposit") {
         const change: JobStatusChange = { status: "complete", at: now, by: gate.user.uid };
         tx.update(jobRef, { status: "complete", completedAt: currentJob.completedAt ?? now, paymentReceivedAt: paidAt ?? now,
           updatedAt: now, statusHistory: [...(currentJob.statusHistory ?? []), change] });
@@ -68,16 +75,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   // The receipt is a courtesy: a failed email never undoes a recorded payment, it just says so.
   let receipt: "sent" | "skipped" | "failed" = "skipped";
-  const to = (result.invoice.sentTo || result.invoice.billTo.email || "").trim();
-  if (to && body.sendReceipt !== false) {
+  const defaults = (jobSnap.data() as Job).documentRecipients ?? result.invoice.sentTo ?? result.invoice.billTo.email;
+  const parsedRecipients = explicitRecipients ?? (defaults ? parseDocumentRecipients(defaults) : undefined);
+  const recipients = parsedRecipients && "recipients" in parsedRecipients ? parsedRecipients.recipients : [];
+  let receiptWarning: string | undefined;
+  if (recipients.length && body.sendReceipt !== false) {
     const biz = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
     const business = { businessName: String(biz.businessName || "Your service provider"), brandColor: biz.brandColor, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail };
     const email = buildCustomerReceiptEmail(result.invoice, result.payment, result.balance, business, biz.timezone);
-    const sent = await sendEmail({ businessId: businessId, to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail });
-    receipt = sent.status === "delivered" ? "sent" : "failed";
+    const sent = await deliverDocument(recipients, to => sendEmail({ businessId, to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail }));
+    receipt = sent.failed.length ? "failed" : "sent";
+    receiptWarning = deliveryWarning(sent);
+    await jobRef.update({ documentRecipients: recipients, updatedAt: Date.now() });
   }
 
-  return NextResponse.json({ invoice: { ...result.invoice, invoiceId }, balance: result.balance, receipt });
+  return NextResponse.json({ invoice: { ...result.invoice, invoiceId }, balance: result.balance, receipt, warning: receiptWarning });
 }
 
 class HttpError extends Error {

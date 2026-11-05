@@ -3784,3 +3784,19 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .company-brand-logo--business { max-width: 88px; }
 }
 /* === end K6 === */
+
+/* === K1 documents === */
+.k1-version { display: grid; gap: 12px; margin-bottom: 16px; }
+.k1-version label { display: grid; gap: 5px; min-width: 0; }
+.k1-version input:not([type="checkbox"]), .k1-version select, .k1-version textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+.k1-version label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+.k1-version p { margin: 4px 0; }
+.k1-document { max-height: 900px; overflow-y: auto; }
+.k1-deposit-print { display: none; }
+@media print {
+  .k1-document { max-height: none; overflow: visible; }
+  body:not(.k1-print-deposit) .k1-deposit-print { display: none !important; }
+  body.k1-print-deposit .invoice-doc { display: none !important; }
+  body.k1-print-deposit .k1-deposit-print { display: block !important; }
+}
+/* === end K1 === */

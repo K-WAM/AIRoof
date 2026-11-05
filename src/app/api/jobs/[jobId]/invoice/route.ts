@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { allocateJobInvoiceNumber } from "@/lib/billing/jobInvoiceNumber";
-import { buildDraftFromProjection, computeTotals, invoiceLinesFromQuote } from "@/app/company/jobs/[jobId]/jobInvoice";
+import { buildDraftFromProjection, invoiceLinesFromQuote } from "@/app/company/jobs/[jobId]/jobInvoice";
+import { quoteLinesFromFindings } from "@/lib/billing/jobQuote";
 import type { JobInvoice, InvoiceLaborLine, InvoiceMaterialLine, InvoiceOtherLine, JobInvoiceDiscount } from "@/types/invoice";
 import type { Job } from "@/types/jobs";
 import type { LibraryPricing } from "@/types/library";
@@ -22,6 +23,16 @@ import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomerTotals";
 import type { JobQuote } from "@/types/quote";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
+import { loadLetter } from "@/lib/documents/letterStore";
+import { renderLetter, scopeText } from "@/lib/documents/letters";
+import { updateStandardDraft, jobInvoices, InvoiceConflict, sendLockActive } from "@/lib/billing/jobInvoiceStore";
+import { withInvoiceDeposits } from "@/lib/billing/jobInvoiceDeposits";
+
+async function saveStandardDraft(db: FirebaseFirestore.Firestore, businessId: string, invoiceId: string, patch: Partial<JobInvoice>) {
+  try { return await updateStandardDraft(db, businessId, invoiceId, patch); }
+  catch (e) { if (e instanceof InvoiceConflict) return null; throw e; }
+}
+import { validLogoSelection } from "@/lib/documents/logoSelection";
 
 async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string, job: Job) {
   const [bizSnap, customerSnap, librarySnap] = await Promise.all([
@@ -33,13 +44,18 @@ async function rebuildDraft(db: FirebaseFirestore.Firestore, businessId: string,
   const customer = customerSnap?.exists ? (customerSnap.data() as Customer) : null;
   const library = librarySnap.exists ? (librarySnap.data() as LibraryPricing) : null;
 
-  const draft = buildDraftFromProjection({
+  const logged = buildDraftFromProjection({
     parsed: job.parsed ?? { timeline: [], materials: [], labor: [], issues: [], invoiceSuggestions: [] },
     library,
     businessConfig: biz ? { laborRate: biz.laborRate, defaultTaxRate: biz.defaultTaxRate } : null,
     customer,
   });
-  return { draft, totals: computeTotals(draft), business: biz };
+  const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
+  const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
+  const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
+  const scope = acceptedQuote?.lines?.length ? acceptedQuote.lines : quoteLinesFromFindings(job.findings ?? []);
+  const draft = nothingLogged && scope.length ? { ...logged, ...invoiceLinesFromQuote(scope) } : logged;
+  return { draft, acceptedQuote, business: biz, customer };
 }
 
 // GET /api/jobs/[jobId]/invoice?businessId=xxx — fetch the job's saved invoice, if any
@@ -61,7 +77,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   const invSnap = await db.collection(`businesses/${businessId}/invoices`).doc(invoiceId).get();
   if (!invSnap.exists) return NextResponse.json({ invoice: null });
 
-  return NextResponse.json({ invoice: { invoiceId: invSnap.id, ...invSnap.data() } as JobInvoice });
+  const invoice = await updateStandardDraft(db, businessId, invoiceId);
+  return NextResponse.json({ invoice });
 }
 
 // POST /api/jobs/[jobId]/invoice — create the (one) invoice for this job from its current
@@ -95,24 +112,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (job.invoiceId) {
     const existingRef = db.collection(`businesses/${businessId}/invoices`).doc(job.invoiceId);
     const existing = await existingRef.get();
-    if (existing.exists) {
+    if (existing.exists && existing.data()?.kind !== "deposit") {
       const existingInvoice = existing.data() as JobInvoice;
-      if (!force) return NextResponse.json({ invoice: existingInvoice });
+      if (!force) return NextResponse.json({ invoice: await updateStandardDraft(db, businessId, job.invoiceId) });
       if (existingInvoice.status !== "draft") {
         return NextResponse.json({ error: `Invoice is ${existingInvoice.status} and can no longer be regenerated` }, { status: 409 });
       }
       const rebuilt = await rebuildDraft(db, businessId, job);
-      const patch = { ...rebuilt.draft, ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode: existingInvoice.priceMode, customerSubtotal: existingInvoice.customerSubtotal }), updatedAt: Date.now() };
-      await existingRef.update(patch);
-      return NextResponse.json({ invoice: { ...existingInvoice, ...patch } });
+      // Recover an early empty draft's accepted contract price; preserve an office-edited project price.
+      const priceMode = existingInvoice.priceMode ?? rebuilt.acceptedQuote?.priceMode ?? "lines";
+      const customerSubtotal = existingInvoice.customerSubtotal ?? rebuilt.acceptedQuote?.subtotal;
+      const patch = { ...rebuilt.draft, priceMode, ...(priceMode === "project" ? { customerSubtotal } : {}),
+        ...customerTotals({ kind: "invoice", invoice: rebuilt.draft, priceMode, customerSubtotal }), updatedAt: Date.now() };
+      const invoice = await saveStandardDraft(db, businessId, job.invoiceId, patch);
+      return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
     }
   }
 
-  const { draft: logged, business } = await rebuildDraft(db, businessId, job);
-  const quoteSnap = job.quoteId ? await db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId).get() : null;
-  const acceptedQuote = quoteSnap?.exists && quoteSnap.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
-  const nothingLogged = !logged.labor.length && !logged.materials.length && !logged.other.length;
-  const draft = nothingLogged && acceptedQuote?.lines?.length ? { ...logged, ...invoiceLinesFromQuote(acceptedQuote.lines) } : logged;
+  const { draft, acceptedQuote, business, customer } = await rebuildDraft(db, businessId, job);
   const priceMode = acceptedQuote?.priceMode ?? "lines";
   const customerSubtotal = priceMode === "project" ? acceptedQuote?.subtotal : undefined;
   const totals = customerTotals({ kind: "invoice", invoice: draft, priceMode, customerSubtotal });
@@ -121,17 +138,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const name = typeof business?.businessName === "string" ? business.businessName : "";
   const values = { businessName: name, address: job.address ?? "the service address", visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business?.timezone ?? "America/New_York"), industryNoun: getVerticalTemplate(business?.industry ?? "").vocab.jobNoun };
   const copy = business?.invoiceCopy ?? {};
+  const openingTemplate = await loadLetter(db, businessId, "invoice_opening");
+  const openingLetter = renderLetter(openingTemplate, { date: values.visitDate, "customer.name": job.clientName,
+    "customer.code": customer?.customerCode, billTo: customer?.address ?? job.address, serviceAt: job.address, workOrder: jobId,
+    description: job.title, scope: scopeText(acceptedQuote, job.findings?.filter(finding => finding.includeInReport)), "business.name": name, "business.license": business?.licenseNumber,
+  }, { includeOptional: openingTemplate.sections.filter(s => s.defaultOn).map(s => s.id) });
   const invoice: JobInvoice = {
     invoiceId,
     businessId,
     jobId,
     customerId: job.customerId,
-    billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: job.address },
+    billTo: { name: job.clientName ?? "", phone: job.clientPhone, email: job.clientEmail, address: customer?.address ?? job.address },
+    serviceAt: job.address ?? "", description: job.title ?? "", ...(customer?.customerCode ? { customerCode: customer.customerCode } : {}),
     status: "draft",
     issuedAt: now,
     // Settings → Getting paid → payment terms (0 = due on receipt, the old behavior).
     dueAt: now + effectiveBillingPrefs(business).dueDays * 86_400_000,
-    opening: fillInvoiceCopy(copy.opening ?? DEFAULT_INVOICE_COPY.opening, values),
+    opening: openingLetter.blocks.flatMap(b => [...(b.heading ? [b.heading] : []), ...b.paragraphs, ...(b.bullets ?? []).map(s => `- ${s}`)]).join("\n"),
     closing: fillInvoiceCopy(copy.closing ?? DEFAULT_INVOICE_COPY.closing, values),
     thankYou: fillInvoiceCopy(copy.thankYou ?? DEFAULT_INVOICE_COPY.thankYou, values),
     terms: copy.terms ?? DEFAULT_INVOICE_COPY.terms,
@@ -146,15 +169,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     createdBy: gate.user.uid,
   };
 
+  const deposits = await jobInvoices(db, businessId, jobId).get();
+  const reconciled = withInvoiceDeposits(invoice, deposits.docs.map(d => ({ ...d.data(), invoiceId: d.id }) as JobInvoice));
   const batch = db.batch();
-  batch.set(db.collection(`businesses/${businessId}/invoices`).doc(invoiceId), invoice);
+  batch.set(db.collection(`businesses/${businessId}/invoices`).doc(invoiceId), reconciled);
   batch.update(jobRef, { invoiceId, updatedAt: now });
   await batch.commit();
 
-  return NextResponse.json({ invoice }, { status: 201 });
+  return NextResponse.json({ invoice: reconciled }, { status: 201 });
 }
 
 interface PatchBody {
+  showFindingSections?: boolean;
+  logoId?: string | null;
   businessId?: string;
   /** Only "paid", and only from "sent" — the office's "Mark paid". */
   status?: string;
@@ -192,6 +219,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (body.hideMaterials !== undefined && typeof body.hideMaterials !== "boolean") return NextResponse.json({ error: "Invalid hideMaterials" }, { status: 400 });
   if (body.hideLabor !== undefined && typeof body.hideLabor !== "boolean") return NextResponse.json({ error: "Invalid hideLabor" }, { status: 400 });
   if (body.showTechnicians !== undefined && typeof body.showTechnicians !== "boolean") return NextResponse.json({ error: "Invalid showTechnicians" }, { status: 400 });
+  if (body.showFindingSections !== undefined && typeof body.showFindingSections !== "boolean") return NextResponse.json({ error: "Invalid showFindingSections" }, { status: 400 });
   if (body.priceMode !== undefined && body.priceMode !== "lines" && body.priceMode !== "project") return NextResponse.json({ error: "Invalid priceMode" }, { status: 400 });
   if (body.customerSubtotal !== undefined && !validCustomerSubtotal(body.customerSubtotal)) return NextResponse.json({ error: "Invalid customerSubtotal" }, { status: 400 });
   if (body.adjustmentNote !== undefined && (typeof body.adjustmentNote !== "string" || body.adjustmentNote.length > 1000 || /[<>\u0000-\u001f]/.test(body.adjustmentNote))) return NextResponse.json({ error: "Invalid adjustmentNote" }, { status: 400 });
@@ -218,6 +246,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const invSnap = await invRef.get();
   if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   const current = invSnap.data() as JobInvoice;
+  if (current.kind === "deposit") return NextResponse.json({ error: "No standard invoice exists" }, { status: 404 });
 
   // "Mark paid": the one change a sent invoice still accepts. Nothing else may ride along with it.
   if (body.status !== undefined) {
@@ -237,7 +266,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
       const freshInvoiceSnap = await tx.get(invRef);
       const freshJob = freshJobSnap.data() as Job | undefined;
       const freshInvoice = freshInvoiceSnap.data() as JobInvoice | undefined;
-      if (!freshJob || freshJob.invoiceId !== invoiceId || freshInvoice?.status !== "sent") return false;
+      if (!freshJob || sendLockActive(freshJob.documentSendLock) || freshJob.invoiceId !== invoiceId || freshInvoice?.status !== "sent" || freshInvoice.kind === "deposit") return false;
       tx.update(invRef, patch);
       tx.update(jobRef, { status: "complete", completedAt: freshJob.completedAt ?? now, paymentReceivedAt: now, updatedAt: now,
         statusHistory: [...(freshJob.statusHistory ?? []), { status: "complete", at: now, by: gate.user.uid }] });
@@ -250,6 +279,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   if (current.status !== "draft") {
     return NextResponse.json({ error: `Invoice is ${current.status} and can no longer be edited` }, { status: 409 });
   }
+
+  if (body.logoId !== undefined && !await validLogoSelection(db, businessId, body.logoId)) return NextResponse.json({ error: "Invalid letterhead logo" }, { status: 400 });
 
   if (body.photoIds !== undefined) {
     const selected = await loadDocumentPhotos(db, businessId, jobId, body.photoIds);
@@ -272,8 +303,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     const merged = addFindingsToInvoice(current, job.findings ?? [], librarySnap.exists ? librarySnap.data() as LibraryPricing : null);
     const patch = { labor: merged.labor, materials: merged.materials, other: merged.other,
       ...customerTotals({ kind: "invoice", invoice: merged, priceMode: current.priceMode, customerSubtotal: current.customerSubtotal }), updatedAt: Date.now() };
-    await invRef.update(patch);
-    return NextResponse.json({ invoice: { ...current, ...patch } });
+    const invoice = await saveStandardDraft(db, businessId, invoiceId, patch);
+    return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
   }
 
   const merged: Pick<JobInvoice, "labor" | "materials" | "other" | "taxRate" | "discount"> = {
@@ -289,6 +320,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
   const totals = customerTotals({ kind: "invoice", invoice: merged, priceMode, customerSubtotal });
 
   const patch: Partial<JobInvoice> = {
+    ...(body.showFindingSections !== undefined ? { showFindingSections: body.showFindingSections } : {}),
+    ...(body.logoId !== undefined ? { logoId: body.logoId } : {}),
     ...merged,
     ...totals,
     priceMode,
@@ -309,7 +342,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
     ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
     ...(body.notes !== undefined ? { notes: body.notes } : {}),
   };
-  await invRef.update(patch);
+  const invoice = await saveStandardDraft(db, businessId, invoiceId, patch);
 
-  return NextResponse.json({ invoice: { ...current, ...patch } });
+  return invoice ? NextResponse.json({ invoice }) : NextResponse.json({ error: "Invoice changed or is being sent. Reload and try again." }, { status: 409 });
 }

@@ -1,3 +1,4 @@
+import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -5,11 +6,12 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
 import { noticesForDocument } from "@/lib/documents/notices";
-import type { JobInvoice } from "@/types/invoice";
-import type { Job, JobStatusChange } from "@/types/jobs";
+import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import type { LibraryLogo } from "@/types/library";
 import { listPhotoMetas } from "@/lib/photos/store";
 import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
+import { documentEmailSubject } from "@/lib/documents/emailCopy";
+import { fmtDate } from "@/lib/format";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
@@ -25,25 +27,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
 
-  let body: { businessId?: string; to?: string };
+  let body: { businessId?: string; to?: string | string[]; invoiceId?: string };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const { businessId, to } = body;
-  if (!businessId || !to) return NextResponse.json({ error: "businessId and to required" }, { status: 400 });
+  if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  const parsedRecipients = parseDocumentRecipients(to);
+  if ("error" in parsedRecipients) return NextResponse.json({ error: parsedRecipients.error }, { status: 400 });
+  const { recipients } = parsedRecipients;
 
   const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
 
-  const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
-  const jobSnap = await jobRef.get();
-  const invoiceId = jobSnap.data()?.invoiceId;
-  if (!invoiceId) return NextResponse.json({ error: "No invoice exists for this job yet" }, { status: 404 });
-
-  const invRef = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
-  const invSnap = await invRef.get();
-  if (!invSnap.exists) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
-  const invoice = invSnap.data() as JobInvoice;
+  if (body.invoiceId !== undefined && (typeof body.invoiceId !== "string" || !/^INV-\d+$/.test(body.invoiceId))) return NextResponse.json({ error: "Invalid deposit invoice" }, { status: 400 });
+  let claimed;
+  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId); }
+  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Invoice cannot be sent" }, { status: 409 }); }
+  const { invoice, job, token } = claimed;
+  let finalized = false;
+  try {
   if (!invoice.billTo.name.trim() || ![
     ...invoice.labor.map((line) => line.name),
     ...invoice.materials.map((line) => line.item),
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
-  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? []);
+  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", invoice.logoId);
 
   const metas = await listPhotoMetas(db, businessId, jobId);
   const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
@@ -82,33 +85,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     licenseNumber: biz.licenseNumber,
     industry: biz.industry,
     timezone: biz.timezone,
-  }, (jobSnap.data() as Job).findings?.filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
+  }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
-  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
+  noticesForDocument({ doc: "invoice", total: invoice.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
   effectiveBillingPrefs(biz));
 
-  const sent = await sendEmail({ businessId: businessId,
-    to,
-    subject: `[Invoice] ${invoice.invoiceId} from ${bizName}`,
+  await db.collection(`businesses/${businessId}/jobs`).doc(jobId).update({ documentRecipients: recipients, updatedAt: Date.now() });
+  const sent = await deliverDocument(recipients, recipient => sendEmail({
+    businessId,
+    to: recipient,
+    subject: documentEmailSubject("invoice", bizName, job.title, invoice.invoiceId, invoice.dueAt ? fmtDate(invoice.dueAt, biz.timezone ?? "America/New_York") : ""),
     html,
     fromName: bizName,
     replyTo: biz.contactEmail || biz.notificationEmail,
-  });
+  }));
   // Never mark an invoice "sent" that the mail provider rejected — the office would believe the customer has it.
-  if (sent.status !== "delivered") {
+  if (sent.delivered.length === 0) {
     return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
   }
 
-  const now = Date.now();
-  // A resend of a paid invoice must not knock it back to "sent".
-  await invRef.update({ ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
-
-  // Sending — not drafting — is what bills the customer, so this is the moment the job becomes Invoiced.
-  const job = jobSnap.data() as Job;
-  if (invoice.status !== "paid" && job.status !== "invoiced") {
-    const change: JobStatusChange = { status: "invoiced", at: now, by: gate.user.uid };
-    await jobRef.update({ status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), change] });
+  await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, sent.delivered.join(", "), gate.user.uid, true);
+  finalized = true;
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
+  } finally {
+    if (!finalized) await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, recipients.join(", "), gate.user.uid, false);
   }
-
-  return NextResponse.json({ ok: true });
 }
