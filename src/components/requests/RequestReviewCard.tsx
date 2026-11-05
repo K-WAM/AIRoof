@@ -123,9 +123,9 @@ export function RequestReviewCard({ request, call, timeZone, smsEnabled = false,
               : <>They gave no email or OK to text on the call — {phone ? <a href={`tel:${phone}`}>phone them at {fmtPhone(phone)}</a> : "phone them"} after you confirm.</>}
           </p>
         )}
-        <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept"
+        {!decline && <button className="button primary" onClick={() => act("accept")} disabled={busy !== null}>{busy === "accept"
           ? "Confirming…"
-          : isBooking && channels.length > 0 ? confirmButtonLabel(channels) : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>
+          : isBooking && channels.length > 0 ? confirmButtonLabel(channels) : canCreateJob ? `Confirm & create ${jobNoun}` : "Confirm"}</button>}
         <button className="button secondary" onClick={() => setDecline(!decline)} disabled={busy !== null}>Decline & notify</button>
       </div>}
 
