@@ -50,7 +50,8 @@ test("View as Office staff is a read-only company view, and Exit returns to Clie
   await page.goto("/company/settings");
   await settle(page);
   await page.getByRole("button", { name: /Save Changes/i }).click();
-  await expect(page.getByRole("alert")).toContainText("View as is read-only. Exit to make changes.");
+  // Scoped: Next.js's hidden route announcer is also role="alert".
+  await expect(page.getByRole("alert").filter({ hasText: "View as is read-only" })).toContainText("View as is read-only. Exit to make changes.");
   await shot(page, "view-as-office-readonly");
 
   await banner.getByRole("button", { name: "Exit" }).click();

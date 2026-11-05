@@ -35,10 +35,13 @@ export function ViewAsBanner() {
       window.location.assign("/admin/businesses");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not exit view as."); setBusy(false); }
   }
-  return <div data-testid="view-as-banner" role="region" aria-label="View as" style={{ padding: "var(--sp-3)", background: "var(--surface)", color: "var(--text)", borderBottom: "1px solid var(--border)", overflowWrap: "anywhere" }}>
-    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "var(--sp-2)" }}>
-      <span>Viewing as {viewed.label} · {viewed.businessName} — read-only</span>
-      <button type="button" className="button" onClick={() => void exit()} disabled={busy}>{busy ? "Exiting…" : "Exit"}</button>
+  // One compact row on every width: the label shrinks (ellipsis, full text in the tooltip); Exit always stays visible.
+  return <div data-testid="view-as-banner" role="region" aria-label="View as" style={{ padding: "var(--sp-2) var(--sp-3)", background: "var(--surface)", color: "var(--text)", borderBottom: "1px solid var(--border)" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "var(--sp-2)" }}>
+      <span title={`Viewing as ${viewed.label} · ${viewed.businessName} — read-only`} style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        Viewing as <strong>{viewed.label}</strong> · {viewed.businessName} — read-only
+      </span>
+      <button type="button" className="button" style={{ flexShrink: 0 }} onClick={() => void exit()} disabled={busy}>{busy ? "Exiting…" : "Exit"}</button>
     </div>
     {error && <InlineNotice message={error} />}
   </div>;
