@@ -148,7 +148,7 @@ test("a new job's tabs each explain themselves", async ({ as }) => {
 
   // No dead end: the Invoice tab's blocked state leads straight to the step that unblocks it.
   await page.getByTestId("job-invoice-empty").getByRole("button", { name: "Add a finding" }).click();
-  await expectEmpty(page, "job-findings-empty", /What did you find\?/, "＋ Add from Library");
+  await expectEmpty(page, "job-findings-empty", /What did you find\?/, "＋ Add finding");
 });
 
 test("the setup checklist counts up when the owner loads example prices", async ({ as }) => {

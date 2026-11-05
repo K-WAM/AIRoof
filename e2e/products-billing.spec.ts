@@ -108,7 +108,7 @@ test("billing without Stripe: payment details on the invoice, partial + final pa
   await expect(page.getByTestId("how-to-pay")).toBeVisible();
   await page.getByText("More invoice actions", { exact: true }).click();
   await page.getByRole("button", { name: "Send again" }).click();
-  await expect(page.locator('input[type="email"]').last()).toHaveValue(email);
+  await expect(page.getByLabel("Invoice recipient emails")).toHaveValue(email);
   await page.getByTestId("record-payment").click();
   const amount = page.getByRole("textbox", { name: "Amount received" });
   await amount.fill("200");

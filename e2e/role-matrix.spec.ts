@@ -17,7 +17,8 @@ async function navRoutes(page: Page): Promise<string[]> {
     [...new Set(links.map((link) => link.getAttribute("href")!).filter((href) => /^\/(company|admin|hub)(\/|$)/.test(href)))],
   );
   const close = page.getByRole("button", { name: "Close", exact: true });
-  if (await close.isVisible()) await close.click();
+  // The sheet can still be animating on a slow WebKit run; fall back to Escape rather than waiting for "stable".
+  if (await close.isVisible()) await close.click({ timeout: 5000 }).catch(() => page.keyboard.press("Escape"));
   return routes;
 }
 
@@ -42,7 +43,8 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
         const member = ACCOUNTS[role] as { role?: TeamRole; trade?: TradeTitle };
         const destination = route === "/company/dashboard" && role !== "superadmin"
           ? defaultLandingPath(member, role === "dentalOwner" ? ["jobs"] : []) : new URL(route, page.url()).pathname;
-        expect(new URL(page.url()).pathname).toBe(destination);
+        // The trade-landing redirect runs after the shell bootstrap resolves; wait for it instead of racing it.
+        await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe(destination);
         await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
         if (role === "viewer") {
           await expect(page.getByRole("button", { name: /^(New Job|Create job|Delete|Confirm & send|Send invoice|Send report|Save changes)$/i })).toHaveCount(0);
@@ -69,7 +71,7 @@ for (const role of Object.keys(ACCOUNTS) as Role[]) {
     }
     for (const route of denied) {
       await page.goto(route);
-      if (route === "/company/team" && role !== "fieldCrew") {
+      if (route === "/company/team" && (ACCOUNTS[role] as { role?: TeamRole }).role !== "crew") {
         await expect(page.getByText("Only an admin can manage the team.", { exact: true })).toBeVisible();
         await expect(page.locator(".team-member-card")).toHaveCount(0);
         await expect(page.getByRole("button", { name: /Invite|Change role|Disable/ })).toHaveCount(0);

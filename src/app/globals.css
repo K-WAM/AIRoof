@@ -3808,3 +3808,12 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .k2-finance-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 700px) { .k2-finance-kpis section { padding: 12px 8px; } .k2-finance-kpis strong { font-size: clamp(14px, 4vw, 20px); overflow-wrap: anywhere; } }
 /* === end K2 === */
+
+/* 2026-11-05: phone menu. The sheet is a scrolling flex column; without this its children shrank to fit and the nav list
+   painted over the role/email row and Sign out (long menus: Supervisor, Admin with Finances/Payroll). */
+.mobile-nav-sheet > * { flex-shrink: 0; }
+/* Phone header: the business name gets the room; "Powered by Luxor" stays on the sidebar/desktop. */
+@media (max-width: 480px) {
+  .company-topbar .company-brand-powered { display: none; }
+  .company-topbar .company-brand-text { max-width: 112px; }
+}

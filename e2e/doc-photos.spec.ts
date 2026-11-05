@@ -69,7 +69,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
 
   await page.locator(".job-tab").filter({ hasText: "Quote" }).click();
   await settle(page);
-  await page.getByText("What the customer sees", { exact: true }).click();
+  await page.getByText("Photos and document details", { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByText("Include photos", { exact: true }).first()).toBeVisible();
   const quoteBefore = page.getByRole("checkbox", { name: `Before: ${beforeLabel}` });
   const quoteAfter = page.getByRole("checkbox", { name: `After: ${afterLabel}` });
@@ -93,7 +93,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
 
   await page.locator(".job-tab").filter({ hasText: "Invoice" }).click();
   await settle(page);
-  await page.getByText("What the customer sees", { exact: true }).click();
+  await page.getByText("Photos and document details", { exact: true }).filter({ visible: true }).first().click();
   await expect(page.getByText("Include photos", { exact: true }).first()).toBeVisible();
   const invoiceAfter = page.getByRole("checkbox", { name: `After: ${afterLabel}` });
   await invoiceAfter.uncheck();
@@ -104,7 +104,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await expect(page.locator(`img[alt="${BIZ_NAME}"]`).filter({ visible: true }).first()).toBeVisible();
   await shot(page, "doc-photos-invoice");
   await page.getByRole("button", { name: "Send to Customer" }).click();
-  await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
+  await page.getByLabel("Invoice recipient emails").fill(email);
   await page.getByRole("button", { name: "Send Invoice" }).click();
   await expect.poll(async () => (await outbox({ to: email, subject: "Your invoice from" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
   const invoiceMail = (await outbox({ to: email, subject: "Your invoice from" }))[0];
@@ -123,7 +123,7 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await expect(page.locator(`img[alt="${BIZ_NAME}"]`).filter({ visible: true }).first()).toBeVisible();
   await shot(page, "doc-photos-report");
   await page.getByRole("button", { name: "Mail report" }).click();
-  await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
+  await page.getByLabel("Report recipient emails").fill(email);
   await page.getByRole("button", { name: "Send report" }).click();
   await expect.poll(async () => (await outbox({ to: email, subject: " report from " })).length, { timeout: 20_000 }).toBeGreaterThan(0);
   const reportMail = (await outbox({ to: email, subject: " report from " }))[0];

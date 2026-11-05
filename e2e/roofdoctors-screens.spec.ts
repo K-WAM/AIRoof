@@ -50,7 +50,7 @@ test("booked request has decline and saves corrected details", async ({ as }, te
 
 test("finances loads invoices, removes filters and exports CSV", async ({ as }) => {
   const page = await as("owner"); await page.goto("/company/finances"); await settle(page); await expect(page.getByRole("heading", { name: "Finances" })).toBeVisible(); await shot(page, "roofdoctors-finances");
-  await page.getByRole("button", { name: "Filters", exact: true }).click(); await page.getByLabel("Customer").fill("Sample Customer 1");
+  await page.getByRole("button", { name: "Filters", exact: true }).click(); await page.getByRole("textbox", { name: "Customer" }).fill("Sample Customer 1");
   const chip = page.getByRole("button", { name: /Sample Customer 1/ }); await expect(chip).toBeVisible(); await chip.click();
   await expect(page.getByRole("heading", { name: "Invoices", exact: true })).toBeVisible(); const download = page.waitForEvent("download"); await page.getByRole("button", { name: "Export CSV" }).click(); expect((await download).suggestedFilename()).toBe("invoices.csv");
 });

@@ -21,8 +21,13 @@ for (const { role, path } of PAGES) {
     const scriptSrc = csp.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src ")) ?? "";
     expect(scriptSrc).toMatch(/'nonce-[A-Za-z0-9+/=]+'/);
     expect(scriptSrc).not.toContain("'unsafe-inline'");
-    const unstamped = await page.locator("script:not([nonce])").count();
-    expect(unstamped, "every server-rendered script carries the nonce").toBe(0);
+    // Check the HTML the server actually sent. Counting the live DOM is racy: the browser later adds same-origin webpack
+    // chunks (allowed by 'self') and, under `next dev` only, the dev-overlay host element — neither is server-rendered.
+    const html = (await response?.text()) ?? "";
+    const scriptTags = html.match(/<script\b[^>]*>/gi) ?? [];
+    expect(scriptTags.length, "the page server-renders its scripts").toBeGreaterThan(0);
+    const unstamped = scriptTags.filter((tag) => !/\snonce=/.test(tag));
+    expect(unstamped, "every server-rendered script carries the nonce").toEqual([]);
     await page.waitForLoadState("networkidle").catch(() => {});
     await expectHealthy(page);
   });

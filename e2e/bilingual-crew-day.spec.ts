@@ -174,7 +174,7 @@ test("the issues (findings) picker fits the screen and its list scrolls inside i
   const page = await as("owner");
   await page.goto(`/company/jobs/${job.jobId}?tab=findings`);
   await settle(page);
-  await page.getByRole("button", { name: /Add from Library/ }).first().click();
+  await page.getByRole("button", { name: /Add finding/ }).first().click();
   const sheet = page.locator(".sheet");
   await expect(sheet).toBeVisible();
   await settle(page, 400);

@@ -23,14 +23,14 @@ test("desktop can add three findings together and a customer can accept the emai
     await office.goto(`/company/jobs/${jobId}?tab=findings`);
     await settle(office, 500);
     await expectHealthy(office);
-    await office.getByRole("button", { name: /Add from Library/ }).first().click();
-    const picker = office.getByRole("dialog", { name: "Add a finding from the Library" });
+    await office.getByRole("button", { name: /Add finding/ }).first().click();
+    const picker = office.getByRole("dialog", { name: "Add a finding" });
     const options = picker.locator("button[aria-pressed='false']");
     await expect.poll(() => options.count()).toBeGreaterThanOrEqual(3);
     for (let i = 0; i < 3; i++) await options.nth(0).click();
-    await expect(picker.getByRole("button", { name: "Add 3 findings" })).toBeVisible();
+    await expect(picker.locator("button[aria-pressed='true']")).toHaveCount(3);
     await shot(office, "job-three-findings-selected");
-    await picker.getByRole("button", { name: "Add 3 findings" }).click();
+    await picker.getByRole("button", { name: "Save findings" }).click();
     await expect(office.getByText("On this job (3)")).toBeVisible();
     await expect.poll(async () => (must(await owner.get(`/api/jobs/${jobId}?businessId=${BUSINESS}`), "saved job").job.findings ?? []).length).toBe(3);
 

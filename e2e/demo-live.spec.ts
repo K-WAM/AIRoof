@@ -101,9 +101,12 @@ test("live prospect: call → job → phone work → documents → reset ends ph
     // Exercise the voice composer and the real write/projection/poll path, substituting ONLY transcription.
     await installVoiceAdapter(phone, jobId, worker);
     await tab("timeline");
-    await phone.getByTestId("note-mic").click();
-    await expect(phone.getByRole("button", { name: "Stop recording" })).toBeVisible();
-    await phone.getByRole("button", { name: "Stop recording" }).click();
+    // T-300 hold-to-talk: hold the button (Space held down), wait until it says "Release to send", then let go.
+    await phone.getByTestId("note-mic").focus();
+    await phone.keyboard.down(" ");
+    await expect(phone.getByRole("button", { name: "Release to send" })).toBeVisible();
+    await phone.waitForTimeout(700);
+    await phone.keyboard.up(" ");
     await expect(phone.getByTestId("note-receipt")).toContainText("Voice demo: inspected the ridge", { timeout: 10_000 });
     await seen("Voice demo: inspected the ridge");
 
