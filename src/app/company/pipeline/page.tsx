@@ -16,6 +16,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { CompanyBadge } from "@/components/companies/CompanyBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBootstrap } from "@/contexts/BootstrapContext";
 import { ContactEditor, type ContactEditorProps } from "@/components/requests/RequestReviewCard";
@@ -211,6 +212,23 @@ export default function PipelinePage() {
   const [confirmErrors, setConfirmErrors] = useState<Record<string, string>>({});
   const [confirmedSet, setConfirmedSet] = useState<Set<string>>(new Set());
   const bootstrapBusiness = useBootstrap().data?.business;
+  const companies = bootstrapBusiness?.companies;
+  const multiCompany = (companies?.length ?? 0) >= 2;
+  // Multi-company only: which company each job was made under, so a booking/lead card linked to a job can show its
+  // badge. One read per visit; single-company clients never make it.
+  const [jobCompanyIds, setJobCompanyIds] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!businessId || !multiCompany) { setJobCompanyIds({}); return; }
+    let cancelled = false;
+    fetch(`/api/jobs?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { jobs?: Array<{ jobId: string; companyId?: string }> }) => {
+        if (cancelled) return;
+        setJobCompanyIds(Object.fromEntries((d.jobs ?? []).filter((j) => typeof j.companyId === "string").map((j) => [j.jobId, j.companyId!])));
+      })
+      .catch(() => { /* the card simply shows no badge */ });
+    return () => { cancelled = true; };
+  }, [businessId, multiCompany]);
   const phoneLine = bootstrapBusiness?.phoneLine ?? null;
   const smsEnabled = bootstrapBusiness?.smsEnabled === true;
   const [apptCalling, setApptCalling] = useState<string | null>(null);
@@ -582,6 +600,7 @@ export default function PipelinePage() {
           <div className="appt-name-row">
             <span className="appt-name">{appt.callerName ?? "Unknown caller"}</span>
             {appt.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
+            {appt.jobId && jobCompanyIds[appt.jobId] && <CompanyBadge companies={companies} companyId={jobCompanyIds[appt.jobId]} />}
             {/* A waiting booking sits under "Needs Confirmation" with a note saying what Confirm does — no chip repeating it (C5). */}
             {!isPending && <StatusChip status={appt.status} label={displayRequestState(appt).label} />}
           </div>
@@ -754,6 +773,7 @@ export default function PipelinePage() {
                             <AttentionChip lead={lead} />
                             {lead.callerLanguage === "es" && <span className="tag" title="The caller spoke Spanish">Spanish</span>}
                             {linkedJobId(lead, appointments) && <span className="tag">{vocab.jobNoun} created</span>}
+                            {linkedJobId(lead, appointments) && jobCompanyIds[linkedJobId(lead, appointments)!] && <CompanyBadge companies={companies} companyId={jobCompanyIds[linkedJobId(lead, appointments)!]} />}
                             {isNewRequest(lead.status) ? <span className="tag">New request</span> : <StatusChip status={lead.status} />}
                           </div>
                         </div>

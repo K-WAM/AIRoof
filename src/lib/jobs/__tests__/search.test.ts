@@ -54,4 +54,13 @@ describe("matchesJobSearch", () => {
   it("does not match an unrelated query", () => {
     expect(matchesJobSearch(job(), "zzz-no-match")).toBe(false);
   });
+
+  it("matches a multi-company short name (e.g. rcu)", () => {
+    expect(matchesJobSearch(job({ companyId: "rcu" }), "rcu", "RCU")).toBe(true);
+    expect(matchesJobSearch(job(), "rcu", "RDSF")).toBe(false);
+  });
+
+  it("ignores the company when none is given (single-company businesses)", () => {
+    expect(matchesJobSearch(job({ companyId: "rcu" }), "rcu")).toBe(false);
+  });
 });
