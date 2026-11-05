@@ -2158,3 +2158,21 @@ alert mail passes null). Missing allowlist = unchanged behaviour for every other
 - Part 5: Updated K3 review and math status in TODO. No removals.
 
 - Part 6 WIP: Added callback and catalog hints. TypeScript passed; lint has one existing calls hook warning. Related tests failed twice: Team role options test expects the pre-T-303 list. Outbound button is in an unowned shared dialog; Team has Disable access rather than a remove action. No removals.
+
+## 2026-11-05 - T-311 properties and past work on a customer (DeepSeek, K4)
+
+Added GET /api/company/customers/[customerId]/history?businessId=, gated by verifyAuthAndRole with owner, staff, viewer and
+superadmin (crew refused). It reads businesses/{businessId}/jobHistory where customerId equals the path id, limited to 200,
+sorted newest first in code by dueAt so no index is needed, and responds through jsonWithCache with the volatile policy
+(private, no-cache). Items carry id, dueAt, property, address, city, jobType and status. Missing businessId returns 400;
+no database returns 503. The route only reads.
+
+The customer detail now shows "Customer ID: <code>" beside the name when customerCode is present, a Properties (n) section
+(first 10, then Show all n) and a "Past work from Jobba (n)" section (date, property, job type, status; first 10, then Show
+all). Both live in their own components (CustomerProperties.tsx, CustomerPastWork.tsx) and render nothing when empty. The
+history is fetched once per opened detail; a failed fetch shows nothing extra. All text renders as plain text.
+
+Evidence: new tests cover crew refusal through the guard error, missing businessId (400, guard not called), newest-first
+ordering, another customer's records excluded, and database unavailable (503). tsc clean; eslint clean on changed files;
+history tests 5/5; route-guards inventory 4/4; related library run found no tests. No removals.
+

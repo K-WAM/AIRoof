@@ -7,6 +7,8 @@ import { matchesQuery } from "@/lib/customers/search";
 import { fmtDay, fmtPhone } from "@/lib/format";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { CustomerProperties } from "./CustomerProperties";
+import { CustomerPastWork, type CustomerHistoryItem } from "./CustomerPastWork";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus, Search, Users, X } from "lucide-react";
@@ -185,6 +187,7 @@ function CustomerDetail({
   const [loadError, setLoadError] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [history, setHistory] = useState<CustomerHistoryItem[]>([]);
   const [draft, setDraft] = useState<DraftFields>(BLANK_DRAFT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -196,6 +199,7 @@ function CustomerDetail({
     // flash of the previous customer's data before the effect below runs.
     setLoadedFor(activeKey);
     setError(null);
+    setHistory([]);
     if (isCreate) {
       setDraft({ ...BLANK_DRAFT, kind: defaultKind });
       setCustomer(null);
@@ -225,6 +229,16 @@ function CustomerDetail({
       })
       .catch(() => { if (!cancelled) setLoadError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [isCreate, businessId, customerId]);
+
+  useEffect(() => {
+    if (isCreate || !businessId || !customerId) return;
+    let cancelled = false;
+    fetch(`/api/company/customers/${customerId}/history?businessId=${businessId}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (!cancelled) setHistory(Array.isArray(d.items) ? d.items : []); })
+      .catch(() => { if (!cancelled) setHistory([]); });
     return () => { cancelled = true; };
   }, [isCreate, businessId, customerId]);
 
@@ -279,7 +293,12 @@ function CustomerDetail({
   return (
     <section className="panel">
       <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 className="panel-title">{isCreate ? `New ${vocabCustomerNoun}` : customer?.name}</h2>
+        <div style={{ minWidth: 0 }}>
+          <h2 className="panel-title">{isCreate ? `New ${vocabCustomerNoun}` : customer?.name}</h2>
+          {!isCreate && customer?.customerCode && (
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#94a3b8" }}>Customer ID: {customer.customerCode}</p>
+          )}
+        </div>
         <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", display: "flex" }}>
           <X size={18} strokeWidth={1.75} />
         </button>
@@ -360,6 +379,13 @@ function CustomerDetail({
               </div>
             )}
           </div>
+        )}
+
+        {!isCreate && customer && (
+          <>
+            <CustomerProperties key={`properties-${customerId}`} properties={customer.properties} />
+            <CustomerPastWork key={`history-${customerId}`} items={history} />
+          </>
         )}
       </div>
     </section>
