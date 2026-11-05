@@ -20,4 +20,21 @@ describe("finance gate", () => {
     expect(body.rows).toHaveLength(1);
     expect(body.rows[0]).not.toHaveProperty("companyId");
   });
+  it("attributes imported history through the matched customer's company", async () => {
+    const rdsf = { id: "rdsf", name: "Roof Pros South", shortName: "RDSF", isDefault: true };
+    const rcu = { id: "rcu", name: "Concepts Unlimited", shortName: "RCU" };
+    const now = Date.UTC(2026, 10, 5);
+    m.db!.__seed("businesses", "a", { showcase: { finances: true }, billingCompanies: [rdsf, rcu] });
+    m.db!.__seed("businesses/a/customers", "C-1", { name: "Lakeview County Schools", companyId: "rcu" });
+    m.db!.__seed("businesses/a/invoiceHistory", "jobba-0012345", {
+      source: "jobba", sourceInvoiceId: "0012345", issuedAt: now, workName: "Maintenance",
+      billTo: "Lakeview County Schools", customerId: "C-1", amount: 100, tax: 0, credits: 0,
+      amountDue: 100, voided: false, status: "", importedAt: now,
+    });
+    const body = await (await GET(req())).json();
+    expect(body.rows).toHaveLength(1);
+    expect(body.rows[0]).toMatchObject({ source: "jobba", companyId: "rcu" });
+    expect(body.rows[0]).not.toHaveProperty("customerId");
+    expect(body.companies).toEqual(expect.arrayContaining([expect.objectContaining({ id: "rcu", shortName: "RCU" })]));
+  });
 });

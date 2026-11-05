@@ -43,11 +43,20 @@ export async function GET(req: NextRequest) {
   const company = multi ? companyParam || undefined : undefined;
   const [history, invoices] = await Promise.all([business.collection("invoiceHistory").limit(2000).get(), business.collection("invoices").limit(2000).get()]);
   const jobCompanies = multi ? await invoiceJobCompanies(db, businessId, invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice)) : {};
+  const historyRows = rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord));
+  const historyCompanies = multi ? await historyCustomerCompanies(db, business, historyRows) : {};
   const filters: FinanceFilters = { from, to, ...(customer ? { customer } : {}), ...(jobType ? { jobType } : {}), ...(status ? { status: status as FinanceStatus } : {}), ...(company ? { company } : {}) };
-  const rows = [...rowsFromHistory(history.docs.map((doc) => ({ ...doc.data(), id: doc.id }) as InvoiceHistoryRecord)), ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
-  // Multi-company: every row carries its effective company (unattributed history rows = the default company).
-  // Single-company: strip any stray field so the response is byte-for-byte today's shape.
-  const rowsForResponse = multi ? rows.map((r) => ({ ...r, companyId: effectiveCompanyId(biz, r.companyId) ?? undefined })) : rows.map((r) => { const copy = { ...r }; delete copy.companyId; return copy; });
+  const rows = [...historyRows, ...rowsFromInvoices(invoices.docs.map((doc) => ({ ...doc.data(), invoiceId: doc.id }) as JobInvoice), jobCompanies)];
+  // Multi-company: every row carries its effective company. Imported history has no job/company of its own, so it
+  // follows the customer it matched (only the referenced customers are read). Single-company: strip every new field
+  // so the response is byte-for-byte today's shape.
+  const rowsForResponse = rows.map((r) => {
+    const copy = { ...r };
+    const fromCustomer = copy.customerId ? historyCompanies[copy.customerId] : undefined;
+    delete copy.customerId;
+    if (!multi) { delete copy.companyId; return copy; }
+    return { ...copy, companyId: effectiveCompanyId(biz, copy.companyId ?? fromCustomer) ?? undefined };
+  });
   const summary = summarizeFinances(rowsForResponse, filters, Date.now(), 30, biz.timezone || "America/New_York");
   return jsonWithCache({
     ...summary,
@@ -70,6 +79,24 @@ async function invoiceJobCompanies(
     for (const job of snaps) {
       const companyId = job.data()?.companyId;
       if (typeof companyId === "string") out[job.id] = companyId;
+    }
+  }
+  return out;
+}
+
+/** Imported history has no company/job of its own; it follows the matched customer's company. Only referenced customers. */
+async function historyCustomerCompanies(
+  db: Firestore,
+  business: FirebaseFirestore.DocumentReference,
+  rows: Array<{ customerId?: string }>,
+): Promise<Record<string, string>> {
+  const ids = [...new Set(rows.map((row) => row.customerId).filter((id): id is string => typeof id === "string"))];
+  const out: Record<string, string> = {};
+  for (let i = 0; i < ids.length; i += 100) {
+    const snaps = await db.getAll(...ids.slice(i, i + 100).map((customerId) => business.collection("customers").doc(customerId)));
+    for (const customer of snaps) {
+      const companyId = customer.data()?.companyId;
+      if (typeof companyId === "string") out[customer.id] = companyId;
     }
   }
   return out;
