@@ -63,6 +63,16 @@ export interface JobInvoice {
   // always stored and always shown in the app itself.
   hideMaterials: boolean;
   priceMode?: "lines" | "project";
+  /** Roof Doctors plan §7 (T-304f). Missing = "standard". A deposit invoice is its own document with its own number. */
+  kind?: "standard" | "deposit";
+  /** Deposit invoices: the percent requested, 1-100. */
+  depositPercent?: number;
+  /** Deposit invoices: the contract amount (dollars) the percent was taken from. */
+  depositBasis?: number;
+  /** Deposit invoices: when the customer agreed to the work (ms). */
+  depositAgreementDate?: number;
+  /** Standard invoice: deposits already billed, shown as negative "Less deposit" lines. */
+  depositsApplied?: Array<{ invoiceId: string; amount: number }>;
   customerSubtotal?: number;
   calculatedSubtotal?: number;
   adjustmentNote?: string;

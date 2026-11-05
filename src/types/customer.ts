@@ -14,6 +14,19 @@ export interface CustomerContact {
 
 export type CustomerKind = "residential" | "commercial";
 
+/** A service address under a customer (a property manager's buildings). Imported from Jobba; at most 500 per customer. */
+export interface CustomerProperty {
+  name?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  /** The source system's own id for this property, for idempotent re-imports. Never rendered. */
+  sourceRef?: string;
+}
+
+export const CUSTOMER_PROPERTIES_MAX = 500;
+
 export interface Customer {
   customerId: string; // "C-1000+" via businesses/{bid}.customerCounter
   businessId: string;
@@ -30,6 +43,10 @@ export interface Customer {
   /** Beats the Library's catalog defaults on this customer's invoices when set. */
   defaultTaxRate?: number;
   defaultLaborRate?: number;
+  /** Service addresses (plan §7, T-311). At most CUSTOMER_PROPERTIES_MAX. */
+  properties?: CustomerProperty[];
+  /** The business's own short customer code (e.g. "ABC01"), shown on documents as "Customer ID". */
+  customerCode?: string;
   // Rollups — maintained by resolveCustomer/bumpCustomerJobStats as jobs get
   // linked. Never treated as source of truth; recomputable from a jobs query.
   jobCount: number;

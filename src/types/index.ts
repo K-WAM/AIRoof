@@ -84,6 +84,13 @@ export interface BusinessConfig {
   logoUrl?: string | null;
   contactPhone?: string;
   licenseNumber?: string;
+  /** Pages shown before general release, for this business only (owner/admin). Missing = off. Roof Doctors plan §7. */
+  showcase?: { finances?: boolean; payroll?: boolean; payments?: boolean };
+  /**
+   * Evaluation guard (T-306): when present, customer-facing email from this business goes only to these addresses
+   * (lower-case); everything else is skipped and logged, never thrown. Missing = normal sending.
+   */
+  outboundEmailAllowlist?: string[];
   invoiceCopy?: { opening?: string; closing?: string; thankYou?: string; terms?: string };
   /** Terms & notices on quotes/invoices: per-notice edits + the owner's approval. Nothing prints until approved (documents/notices.ts). */
   documentNotices?: import("@/lib/documents/notices").DocumentNoticeSettings;
