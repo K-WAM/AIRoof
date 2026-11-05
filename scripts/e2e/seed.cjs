@@ -149,7 +149,13 @@ async function seed({ reset = false } = {}) {
     w: 96, h: 36, createdAt: companyNow,
   })), updatedAt: companyNow });
   const school = { customerId: "C-3160", businessId: prosBusinessId, companyId: "rcu", name: "Lakeview County Schools", kind: "commercial", address: "316 School Test Road", matchKey: "lakeview county schools|", searchTokens: ["lake", "lakeview", "county", "schools"], active: true, jobCount: 2, lastJobAt: companyNow, createdAt: companyNow, updatedAt: companyNow };
-  await pros.collection("customers").doc(school.customerId).set(school);
+  // T-319: three saved properties so the job form's address suggestions have something to offer.
+  const schoolProperties = [
+    { name: "Lakeview Elementary", address: "101 Lakeview Drive", city: "Coral Springs", state: "FL" },
+    { name: "Lakeview Middle School", address: "202 Panther Way", city: "Coral Springs", state: "FL" },
+    { name: "North County Bus Depot", address: "303 Transport Road", city: "Coral Springs", state: "FL" },
+  ];
+  await pros.collection("customers").doc(school.customerId).set({ ...school, properties: schoolProperties });
   await pros.collection("customers").doc("C-3161").set({ ...school, customerId: "C-3161", companyId: "rdsf", name: "Sample South Homeowner", kind: "residential", matchKey: "sample south homeowner|", searchTokens: ["sample", "south", "homeowner"], jobCount: 1 });
   for (const [number, companyId, status] of [[3161, "rcu", "sent"], [3162, "rdsf", "sent"], [3163, "rcu", "draft"]]) {
     const jobId = `J-${number}`, invoiceId = `INV-${number}`, customerId = companyId === "rcu" ? school.customerId : "C-3161";
