@@ -33,7 +33,9 @@ service cloud.firestore {
     }
 
     match /businesses/{businessId} {
-      allow read: if isSuperadmin() || isBusinessMember(businessId);
+      // Connect state is server-only. Rules cannot redact fields: connected businesses use the existing
+      // guarded API projections instead of exposing this entire parent document to a member's browser.
+      allow read: if isSuperadmin() || (isBusinessMember(businessId) && !resource.data.keys().hasAny(['stripeConnect']));
       allow create, update, delete: if isSuperadmin();
 
       match /calls/{callId} {

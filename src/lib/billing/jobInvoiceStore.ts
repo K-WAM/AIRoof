@@ -2,6 +2,9 @@ import type { JobInvoice } from "@/types/invoice";
 import { withInvoiceDeposits } from "./jobInvoiceDeposits";
 import { FieldValue } from "firebase-admin/firestore";
 import { randomUUID } from "node:crypto";
+import { issuePayLink } from "./payNowToken";
+import { payNowAvailability } from "./payNow";
+import { isStripeConfigured } from "./stripePayments";
 import type { Job } from "@/types/jobs";
 
 export class InvoiceConflict extends Error {}
@@ -44,7 +47,7 @@ export async function updateStandardDraft(db: FirebaseFirestore.Firestore, busin
 }
 
 /** Serialize deposit/final sends on the job. No timeout auto-release: a slow provider must never race a second send. */
-export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, businessId: string, jobId: string, requestedId?: string) {
+export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, businessId: string, jobId: string, requestedId?: string, newLink = false) {
   const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId), token = randomUUID();
   return db.runTransaction(async tx => {
     const jobSnap = await tx.get(jobRef);
@@ -61,7 +64,12 @@ export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, business
     const invoices = await tx.get(jobInvoices(db, businessId, jobId));
     const all = invoices.docs.map(d => ({ ...d.data(), invoiceId: d.id }) as JobInvoice);
     if (current.kind === "deposit" && current.status === "draft" && all.some(d => d.kind !== "deposit" && d.status !== "draft" && d.status !== "void")) throw new InvoiceConflict("The final invoice has already been sent");
-    const invoice = withInvoiceDeposits(current, all);
+    const business = (await tx.get(db.collection("businesses").doc(businessId))).data() ?? {};
+    let invoice = withInvoiceDeposits(current, all);
+    if (payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status })) {
+      invoice = { ...invoice, ...issuePayLink(invoice, newLink) };
+    }
+    // Commit before delivery. Failed finalization leaves the nonce for a resend; drafts remain unavailable.
     if (invoice !== current) tx.update(ref, { ...invoice, updatedAt: Date.now() });
     tx.update(jobRef, { documentSendLock: { invoiceId, token, at: Date.now() } });
     return { invoice, job, token };

@@ -26,6 +26,8 @@ const GUARDS = [
 
 // Route path (relative to src/app/api, forward slashes) → why it is safe without a guard.
 const PUBLIC_ROUTES: Record<string, string> = {
+  "webhooks/stripe-connect/route.ts": "public Stripe Connect provider callback: raw body verified by constructEvent and a separate webhook secret; tenant/account binding and ledger idempotency",
+  "pay/invoice/route.ts": "public customer payment page: expiring 256-bit token is the credential; server rechecks tenant, invoice, balance and eligibility on GET/POST",
   "app-status/route.ts": "public static fact sheet and build metadata only; no tenant data, secrets, authentication, database or provider calls",
   "demo/roofing-trial/route.ts": "bounded public signup creates an isolated, expiring viewer tenant; resume/call/field require its 256-bit HttpOnly session secret, same-origin POST and persistent usage budgets",
   "health/route.ts": "reports configured/not-configured booleans only; no tenant data",

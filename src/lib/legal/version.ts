@@ -3,8 +3,8 @@
 // Owner decisions 2026-10-30: Florida LLC, AAA arbitration + class waiver, 3-month fee cap, Palm Beach County,
 // no-friction acceptance ("By signing in you agree…"). Bump LEGAL_VERSION whenever the Terms or Privacy text
 // changes in substance: every sign-in records acceptance of the version current at that moment.
-export const LEGAL_VERSION = "2026-11-01";
-export const LEGAL_UPDATED = "November 1, 2026";
+export const LEGAL_VERSION = "2026-11-05";
+export const LEGAL_UPDATED = "November 5, 2026";
 
 export const COMPANY = {
   legalName: "Luxor Developments LLC",

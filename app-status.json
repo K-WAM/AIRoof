@@ -14,7 +14,7 @@
     "db": "Firebase (Cloud Firestore; business-expense-trackin-ef659)",
     "auth": "Firebase (Authentication)",
     "email": "Resend (transactional email)",
-    "payments": "Stripe (integration present; production unconfigured)",
+    "payments": "Stripe and Stripe Connect Standard direct charges (integration present; production unconfigured; Connect setup and webhook required)",
     "ai": "ElevenLabs (voice; phone line runs gpt-4o since 2026-10-31 (gemini-2.5-flash is the tested fallback), browser demo gpt-4o-mini), OpenAI (speech and parsing), DeepSeek (classification), Vapi (legacy voice)",
     "tiers": [
       { "id": "standard", "name": "Standard", "price": "" },

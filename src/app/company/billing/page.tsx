@@ -14,6 +14,7 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Wallet } from "lucide-react";
 import type { BillingRow } from "@/app/api/company/billing/route";
+import { UnmatchedPayments } from "./UnmatchedPayments";
 import { PaymentsPreview } from "./PaymentsPreview";
 
 interface BillingView {
@@ -72,6 +73,8 @@ export default function BillingPage() {
           </p>
         </div>
       </header>
+
+      <UnmatchedPayments key={businessId} businessId={businessId} />
 
       <PaymentsPreview invoices={[...unpaid, ...paid]} />
 

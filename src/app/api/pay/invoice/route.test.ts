@@ -1,0 +1,216 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { makeFakeDb } from "@/test-utils/fakeFirestore";
+import { createHash } from "node:crypto";
+import { issuePayLink, signPayToken } from "@/lib/billing/payNowToken";
+import { GET, POST } from "./route";
+
+const mock = vi.hoisted(() => ({ create: vi.fn(), retrieve: vi.fn(), expire: vi.fn(), configured: true }));
+let db: ReturnType<typeof makeFakeDb>;
+vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
+vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mock.configured, getStripeClient: () => ({ checkout: { sessions: { create: mock.create, retrieve: mock.retrieve, expire: mock.expire } } }) }));
+const secret = "test-only-pay-link-secret-32-characters";
+const state = issuePayLink({});
+let token: string;
+const business = { businessName: "A & B <Roofing>", stripeConnect: { accountId: "acct_a", chargesEnabled: true }, billingPrefs: { payNow: true } };
+const invoice = { businessId: "a", invoiceId: "INV-1", jobId: "job1", status: "sent", total: 123, amountPaid: 23, ...state, billTo: { name: "SECRET CUSTOMER", address: "SECRET ADDRESS" } };
+const request = (method = "GET", extra: Record<string, string> = {}) => {
+  const fields = { b: "a", i: "INV-1", t: token, ...(method === "POST" ? { method: "card" } : {}), ...extra };
+  const search = new URLSearchParams(fields);
+  return new NextRequest(`https://app.test/api/pay/invoice${method === "GET" ? `?${search}` : ""}`, { method, ...(method === "POST" ? { body: search, headers: { "content-type": "application/x-www-form-urlencoded" } } : {}) });
+};
+beforeEach(() => {
+  vi.stubEnv("PAY_LINK_SECRET", secret); vi.stubEnv("STRIPE_SECRET_KEY", "test-only");
+  token = signPayToken("a", "INV-1", state.payLinkNonce);
+  vi.clearAllMocks(); mock.configured = true; db = makeFakeDb();
+  db.__seed("businesses", "a", business);
+  db.__seed("businesses/a/invoices", "INV-1", invoice);
+  db.__seed("businesses/a/jobs", "job1", { invoiceId: "INV-1" });
+  mock.create.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/test", id: "cs_test" });
+  mock.retrieve.mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/test", id: "cs_test", status: "open" });
+});
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+describe("public invoice payment page", () => {
+  it.each([
+    ["unknown business", {}, {}, { b: "missing" }],
+    ["unknown invoice", {}, {}, { i: "INV-999" }],
+    ["bad token", {}, {}, { t: "0".repeat(64) }],
+    ["expired", {}, { payLinkExpiresAt: 1 }, {}],
+    ["void", {}, { status: "void" }, {}], ["paid", {}, { status: "paid" }, {}],
+    ["zero balance", {}, { amountPaid: 123 }, {}], ["draft with valid nonce", {}, { status: "draft" }, {}],
+    ["unclaimed draft", {}, { status: "draft", payLinkNonce: undefined }, {}],
+    ["off", { billingPrefs: { payNow: false } }, {}, {}],
+    ["not ready", { stripeConnect: { accountId: "acct_a", chargesEnabled: false } }, {}, {}],
+    ["evaluation", { outboundEmailAllowlist: [] }, {}, {}],
+    ["billing off", { products: { billing: false } }, {}, {}],
+    ["cross tenant", {}, { businessId: "b" }, {}],
+  ] as Array<[string, object, object, Record<string, string>]>)("same neutral response: %s", async (_, biz, inv, input) => {
+    db.__seed("businesses", "a", { ...business, ...biz });
+    db.__seed("businesses/a/invoices", "INV-1", { ...invoice, ...inv });
+    for (const method of ["GET", "POST"]) {
+      const res = await (method === "GET" ? GET : POST)(request(method, input));
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      const baseline = await (method === "GET" ? GET : POST)(request(method, { b: "missing" }));
+      expect(res.status).toBe(baseline.status);
+      expect(html).toBe(await baseline.text());
+      expect(html).toContain("This payment link isn't available. Please contact the business that sent you this invoice.");
+      expect(html).not.toMatch(/SECRET|Roofing|123|expired|void|evaluation|acct_a/);
+    }
+    expect(mock.create).not.toHaveBeenCalled();
+  });
+  it("fails closed without a Stripe key", async () => {
+    mock.configured = false;
+    const res = await GET(request());
+    const unknown = await GET(request("GET", { b: "missing" }));
+    expect(res.status).toBe(unknown.status);
+    expect(await res.text()).toBe(await unknown.text());
+  });
+  it("shows only the allowed invoice details with no JavaScript and private headers", async () => {
+    const res = await GET(request()); const html = await res.text();
+    expect(html).toContain("$100.00"); expect(html).toContain("INV-1");
+    expect(html).toContain("Pay by bank (ACH)");
+    expect(html).not.toMatch(/SECRET|script|acct_a/);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("x-robots-tag")).toContain("noindex");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(mock.create).not.toHaveBeenCalled();
+  });
+  it("refuses a tampered form amount and takes the current server balance", async () => {
+    await POST(request("POST", { amount: "1" })); expect(mock.create).not.toHaveBeenCalled();
+    db.__seed("businesses/a/invoices", "INV-1", { ...invoice, amountPaid: 30 });
+    const res = await POST(request("POST"));
+    expect(res.status).toBe(303); expect(res.headers.get("location")).toContain("checkout.stripe.com");
+    expect(mock.create).toHaveBeenCalledWith(expect.objectContaining({ mode: "payment", payment_method_types: ["card"],
+      line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: 9300, product_data: { name: "Invoice INV-1" } } }],
+      metadata: { businessId: "a", invoiceId: "INV-1", jobId: "job1", tokenHashPrefix: createHash("sha256").update(token).digest("hex").slice(0, 8) },
+    }), expect.objectContaining({ stripeAccount: "acct_a" }));
+    expect(JSON.stringify(mock.create.mock.calls)).not.toContain("application_fee");
+  });
+  it("restricts bank Checkout to ACH and uses static result pages", async () => {
+    await POST(request("POST", { method: "us_bank_account" }));
+    expect(mock.create.mock.calls[0][0].payment_method_types).toEqual(["us_bank_account"]);
+    expect(mock.create.mock.calls[0][0].success_url).not.toContain(token);
+    expect(await (await GET(new NextRequest("https://app.test/api/pay/invoice?result=submitted"))).text()).toContain("when your payment clears");
+  });
+  it.each(["bad token", "expired token"])("does not expose a pending bank payment to a holder of a %s", async reason => {
+    db.__seed("businesses/a/invoices", "INV-1", { ...invoice, payNowPending: { sessionId: "cs_bank", at: Date.now() }, ...(reason === "expired token" ? { payLinkExpiresAt: 1 } : {}) });
+    for (const handler of [GET, POST]) {
+      const method = handler === GET ? "GET" : "POST";
+      const response = await handler(request(method, reason === "bad token" ? { t: "invalid" } : {}));
+      expect(await response.text()).toBe(await (await handler(request(method, { b: "missing" }))).text());
+    }
+    expect(mock.create).not.toHaveBeenCalled();
+    expect(mock.retrieve).not.toHaveBeenCalled();
+  });
+  it("shows the same processing page on GET and POST without pay buttons or Stripe calls", async () => {
+    db.__seed("businesses/a/invoices", "INV-1", { ...invoice, payNowPending: { sessionId: "cs_bank", at: Date.now() } });
+    const get = await GET(request());
+    const html = await get.text();
+    expect(html).toContain("A bank payment for this invoice is being processed. It usually clears in a few business days.");
+    expect(html).not.toMatch(/<button|<form|checkout.stripe.com/);
+    expect(get.headers.get("cache-control")).toBe("no-store");
+    expect(await (await POST(request("POST"))).text()).toBe(html);
+    expect(mock.create).not.toHaveBeenCalled(); expect(mock.retrieve).not.toHaveBeenCalled();
+  });
+  it("ignores a pending marker older than ten days", async () => {
+    db.__seed("businesses/a/invoices", "INV-1", { ...invoice, payNowPending: { sessionId: "cs_bank", at: Date.now() - 10 * 86400000 - 1 } });
+    expect(await (await GET(request())).text()).toContain("Pay by bank (ACH)");
+    expect((await POST(request("POST"))).status).toBe(303);
+    expect(mock.create).toHaveBeenCalledTimes(1);
+  });
+  it("persists Checkout and reuses its URL on a second POST without creating another session", async () => {
+    const first = await POST(request("POST"));
+    expect(db.__peek("businesses/a/invoices", "INV-1")).toHaveProperty("payNowCheckout", { sessionId: "cs_test", method: "card", amount: 10000, payLinkNonce: expect.any(String), createdAt: expect.any(Number) });
+    const second = await POST(request("POST"));
+    expect(second.status).toBe(303);
+    expect(second.headers.get("location")).toBe(first.headers.get("location"));
+    expect(mock.create).toHaveBeenCalledTimes(1);
+    expect(mock.retrieve).toHaveBeenCalledWith("cs_test", {}, { stripeAccount: "acct_a" });
+  });
+  it("never resumes a session for an old amount: closes it at Stripe and opens one for what is owed now", async () => {
+    await POST(request("POST"));
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ amountPaid: 48 });
+    mock.create.mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/new", id: "cs_new" });
+    mock.expire.mockResolvedValueOnce({ id: "cs_test", status: "expired" });
+    const second = await POST(request("POST"));
+    expect(mock.expire).toHaveBeenCalledWith("cs_test", {}, { stripeAccount: "acct_a" });
+    expect(mock.create).toHaveBeenCalledTimes(2);
+    expect(mock.create.mock.calls[1][0].line_items[0].price_data.unit_amount).toBe(7500);
+    expect(second.headers.get("location")).toBe("https://checkout.stripe.com/c/pay/new");
+  });
+  it("opens no second session when the old one cannot be closed", async () => {
+    await POST(request("POST"));
+    await db.collection("businesses/a/invoices").doc("INV-1").update({ amountPaid: 48 });
+    mock.expire.mockRejectedValueOnce(new Error("stripe down"));
+    const res = await POST(request("POST"));
+    expect(await res.text()).toContain("This payment link isn't available");
+    expect(mock.create).toHaveBeenCalledTimes(1);
+    mock.expire.mockRejectedValueOnce(new Error("already complete"));
+    mock.retrieve.mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/test", id: "cs_test", status: "open" }).mockResolvedValueOnce({ id: "cs_test", status: "complete" });
+    expect(await (await POST(request("POST"))).text()).toContain("being processed");
+    expect(mock.create).toHaveBeenCalledTimes(1);
+  });
+  it("shows the existing bank method and resume link when card is chosen after ACH was started", async () => {
+    const first = await POST(request("POST", { method: "us_bank_account" }));
+    const second = await POST(request("POST"));
+    const html = await second.text();
+    expect(html).toContain("A payment was already started — finish it here.");
+    expect(html).toContain(`href="${first.headers.get("location")}"`);
+    expect(html).toContain("Pay by bank (ACH)");
+    expect(html).not.toContain("Pay by card");
+    expect(mock.create).toHaveBeenCalledTimes(1);
+  });
+  it("shows processing if Stripe says the session completed before the webhook arrived", async () => {
+    await POST(request("POST"));
+    mock.retrieve.mockResolvedValueOnce({ id: "cs_test", status: "complete", url: null });
+    expect(await (await POST(request("POST"))).text()).toContain("A bank payment for this invoice is being processed.");
+    expect(mock.create).toHaveBeenCalledTimes(1);
+  });
+  it.each(["expired", "retrieval failed"])("falls through to creation when the previous Checkout is %s", async reason => {
+    await POST(request("POST"));
+    if (reason === "expired") mock.retrieve.mockResolvedValueOnce({ id: "cs_test", status: "expired", url: null });
+    else mock.retrieve.mockRejectedValueOnce(new Error("unavailable"));
+    expect((await POST(request("POST"))).status).toBe(303);
+    expect(mock.create).toHaveBeenCalledTimes(2);
+  });
+  it("keeps the idempotency key stable across methods, retries and time buckets", async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    await POST(request("POST"));
+    const key = mock.create.mock.calls[0][1].idempotencyKey;
+    mock.retrieve.mockRejectedValueOnce(new Error("unavailable"));
+    await POST(request("POST", { method: "us_bank_account" }));
+    expect(mock.create.mock.calls[1][1].idempotencyKey).toBe(key);
+    expect(mock.create.mock.calls[1][0]).toEqual(mock.create.mock.calls[0][0]);
+    // Later, same amount and same link: the open session is simply resumed (Stripe keeps it open for 24 h).
+    clock.mockReturnValue(now + 31 * 60 * 1000);
+    await POST(request("POST"));
+    expect(mock.create).toHaveBeenCalledTimes(2);
+    expect(key).toContain("10000");
+  });
+  it("uses a fresh attempt nonce only after confirmed expiry", async () => {
+    await POST(request("POST"));
+    const key = mock.create.mock.calls[0][1].idempotencyKey;
+    mock.retrieve.mockResolvedValueOnce({ id: "cs_test", status: "expired", url: null });
+    await POST(request("POST"));
+    expect(mock.create.mock.calls[1][1].idempotencyKey).not.toBe(key);
+  });
+  it("pins the same method and key for concurrent card/ACH requests before Checkout is saved", async () => {
+    await Promise.all([POST(request("POST")), POST(request("POST", { method: "us_bank_account" }))]);
+    expect(mock.create).toHaveBeenCalledTimes(2);
+    expect(mock.create.mock.calls[1]).toEqual(mock.create.mock.calls[0]);
+  });
+});
+
+it.each(["", "short"])("missing or short pay-link secret is byte-identical to unknown business: %s", async secret => {
+  vi.stubEnv("PAY_LINK_SECRET", secret);
+  for (const method of ["GET", "POST"]) {
+    const handler = method === "GET" ? GET : POST;
+    const real = await handler(request(method));
+    const unknown = await handler(request(method, { b: "missing" }));
+    expect(real.status).toBe(unknown.status);
+    expect(await real.text()).toBe(await unknown.text());
+  }
+});

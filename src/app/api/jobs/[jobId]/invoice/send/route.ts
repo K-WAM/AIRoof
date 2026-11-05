@@ -1,7 +1,7 @@
 import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
-import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
+import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { resolveLetterhead } from "@/lib/documents/letterhead";
@@ -13,6 +13,10 @@ import { loadDocumentPhotos } from "@/lib/documents/photoSelection";
 import { documentEmailSubject } from "@/lib/documents/emailCopy";
 import { fmtDate } from "@/lib/format";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
+import { payNowAvailability } from "@/lib/billing/payNow";
+import { signPayToken, validPayLink, invoicePayUrl } from "@/lib/billing/payNowToken";
+import { isStripeConfigured } from "@/lib/billing/stripePayments";
+import { getAppUrl } from "@/lib/config/appUrl";
 
 // POST /api/jobs/[jobId]/invoice/send  body: { businessId, to }
 // Phase 12/Phase 4 rewrite: reads the SAVED invoice doc instead of trusting rows the client
@@ -27,22 +31,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Firestore not available" }, { status: 503 });
 
-  let body: { businessId?: string; to?: string | string[]; invoiceId?: string };
+  let body: { businessId?: string; to?: string | string[]; invoiceId?: string; newLink?: boolean };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  const { businessId, to } = body;
-  if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  const { to } = body;
   const parsedRecipients = parseDocumentRecipients(to);
   if ("error" in parsedRecipients) return NextResponse.json({ error: parsedRecipients.error }, { status: 400 });
   const { recipients } = parsedRecipients;
 
-  const gate = await verifyAuthAndRole(request, businessId, ["owner", "staff", "superadmin"]);
+  const gate = await verifyOwnBusinessRole(request, ["owner", "staff"]);
   if ("error" in gate) return gate.error;
+  const businessId = gate.user.businessId!;
 
   if (body.invoiceId !== undefined && (typeof body.invoiceId !== "string" || !/^INV-\d+$/.test(body.invoiceId))) return NextResponse.json({ error: "Invalid deposit invoice" }, { status: 400 });
+  if (body.newLink !== undefined && typeof body.newLink !== "boolean") return NextResponse.json({ error: "Invalid new link option" }, { status: 400 });
   let claimed;
-  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId); }
+  try { claimed = await claimInvoiceSend(db, businessId, jobId, body.invoiceId, body.newLink === true); }
   catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Invoice cannot be sent" }, { status: 409 }); }
   const { invoice, job, token } = claimed;
   let finalized = false;
@@ -60,6 +65,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const biz = bizDoc.exists ? bizDoc.data()! : {};
+  // Prepare the claimed link for delivery; it becomes payable only after finalization marks it sent.
+  const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
+  const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;
   const bizName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!bizName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
 
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }, job.findings?.filter((finding) => finding.includeInReport).map((finding) => ({ category: finding.category, problem: finding.problem, solution: finding.solution, note: finding.note })) ?? [],
   // Terms & notices print only once the owner has approved the wording (documents/notices.ts).
   noticesForDocument({ doc: "invoice", total: invoice.total, commercial: job.propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
-  effectiveBillingPrefs(biz));
+  effectiveBillingPrefs(biz), payNowUrl);
 
   await db.collection(`businesses/${businessId}/jobs`).doc(jobId).update({ documentRecipients: recipients, updatedAt: Date.now() });
   const sent = await deliverDocument(recipients, recipient => sendEmail({
@@ -106,7 +114,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, sent.delivered.join(", "), gate.user.uid, true);
   finalized = true;
-  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
+  // Authorized senders can recover the URL later through the guarded pay-link route.
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), payNow: payToken ? { url: payNowUrl, expiresAt: invoice.payLinkExpiresAt } : null }, { headers: { "Cache-Control": "private, no-store" } });
   } finally {
     if (!finalized) await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, recipients.join(", "), gate.user.uid, false);
   }

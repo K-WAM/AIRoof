@@ -8,7 +8,7 @@ export function isStripeConfigured(): boolean {
 
 let cachedClient: Stripe | null = null;
 
-function getStripeClient(): Stripe {
+export function getStripeClient(): Stripe {
   if (!cachedClient) {
     cachedClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"));
   }

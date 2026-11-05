@@ -98,6 +98,17 @@ describe("a tenant-A session can never reach tenant B (T-170)", () => {
     seed();
   });
 
+  it("Connect settings take the tenant from the session and reject staff writes", async () => {
+    const mod = await import("@/app/api/company/settings/billing/connect/route");
+    const owner = await invoke(mod, "PUT", "tok-owner-a", "/api/company/settings/billing/connect", { body: { businessId: "biz-b", payNow: false } });
+    expect(owner.status).toBe(200);
+    expect(db.__peek("businesses", "biz-a")).toHaveProperty("billingPrefs.payNow", false);
+    expect(db.__peek("businesses", "biz-b")).not.toHaveProperty("billingPrefs");
+    for (const token of ["tok-staff-a", "tok-viewer-a", "tok-crew-a"]) {
+      expect((await invoke(mod, "PUT", token, "/api/company/settings/billing/connect", { body: { payNow: true } })).status).toBe(403);
+    }
+  });
+
   for (const [name, load, method, path, call] of FOREIGN) {
     it(`${name}: refused for owner/staff/viewer/crew and a stale doc-flag owner, with no tenant-B data in the reply`, async () => {
       const mod = await load();

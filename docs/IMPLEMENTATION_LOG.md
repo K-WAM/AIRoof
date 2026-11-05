@@ -2357,3 +2357,144 @@ field allowlist + length caps, asHeard kept in a transaction). Integrator additi
 (invoice due date, else issued + terms; 0 when paid or not yet due) with tests, shown as a Due column and "n days late"
 on Finances and in the CSV; request accessNotes copied into the job's notes as "Access: ..." (from-request route) with a test.
 Checks: tsc clean; full vitest 311 files, 2497 passed + 1 expected fail. Browser spec rerun pending in the merged-tree e2e gate.
+
+
+## 2026-11-05 - T-315: Customer invoice Pay now (Codex, task/pay-now)
+
+Implemented the six requested slices in D:/Apps/air-wt-pay-now only:
+1. One pure availability rule, 256-bit random tokens, SHA-256 verification, expiry/rotation, and types.
+2. Stripe Standard Account Links, session-derived owner-only setup/opt-in, read-only role status, and Billing path rule.
+3. Public no-JS invoice page, neutral failures, server-balance direct-account card/ACH Checkout, static result pages.
+4. Signed Connect webhook, event ledger + invoice transaction, payment-intent dedupe, pending/failed ACH,
+   cumulative refunds as negative payments, job markers, overpayment notices, and deferred tenant-guarded receipts.
+5. Invoice email link on successful sends; transient print/PDF URL + local QR, deposit support, office status labels.
+6. PAY-NOW.md setup/NEEDS-HUMAN, privacy provider/version update, app-status fact sheet, T-315 status -> review.
+
+Commit IDs: NONE - BLOCKED by Git metadata permissions. Both git add attempts failed creating
+D:/Apps/6 - AI Receptionist/.git/worktrees/air-wt-pay-now/index.lock (Permission denied).
+No commit, push, merge, deployment, live provider call, new dependency, or removal was performed.
+The six requested local commits must be created after write access is restored; no main checkout file was edited.
+
+Evidence: full Vitest after the final payment/settings race fixes: 320 files passed, 2561 passed + 1 expected fail
+(94.68 seconds; --maxWorkers=2 --testTimeout=30000). A later UI-only alignment hides invoice-send controls when
+its own-session owner/staff guard would refuse them; its 6 related job-page tests passed. TypeScript passed and
+changed-file ESLint passed with only the two existing job-page img warnings. git diff --check clean.
+Initial broader related checks found four parallel-load timeouts, an env fixture missing the new capability,
+TypeScript errors in the new code, and two guard mocks needing the session guard; all were corrected/rechecked.
+
+Browser: optional harness attempted once with E2E_PORT_OFFSET=20 and --no-warm. Firebase CLI failed before the
+browser started: EPERM opening C:/Users/karee/.config/configstore/firebase-tools.json; emulator startup timed out.
+The new e2e/pay-now.spec.ts was not run, no screenshots were produced/read, and the new Firestore rules emulator
+case was not run. The harness cannot cover real phone audio, a real inbox, Stripe sandbox/live settlement, or
+next build. No next build was run (worker scope).
+
+Security addition: Firestore cannot redact fields from a parent document. Members cannot directly read a business
+parent containing stripeConnect; existing guarded server projections and subcollection permissions remain available.
+The rules-only negative case is in tests/rules/firestore.rules.test.ts and needs the integrator's emulator gate.
+
+QUESTION FOR INTEGRATOR: hash-only token storage cannot recover a bearer payment URL after reload. Print links/QRs
+exist only in the sending tab; the full URL is printed, since no short-link credential store was authorized. Accept
+that limitation or specify a revised durable/short-link design before release. Restore Git metadata write access
+and create the six requested commits. Connect platform setup, webhook registration/secret, sandbox verification,
+fee policy, and legal review remain NEEDS-HUMAN in PAY-NOW.md. No surcharge was implemented.
+
+
+## 2026-11-05 - T-315 review fixes: payment recovery and durable pay links
+
+Commit: uncommitted. Git add was refused because the worktree index.lock could not
+be created (Permission denied). The integrator must create the local commit.
+Branch/root verified before edits and staging: task/pay-now, D:/Apps/air-wt-pay-now.
+
+Fix 1: verified Connect payment events resolve the tenant from the saved connected
+account. Known-account invoice/job mismatches are atomically recorded once per
+event in stripeUnmatched with amount/currency and provider references, no customer
+PII, alongside the succeeded ledger state. Database/handling errors return 500,
+leaving a pending claim replayable. Unknown accounts cause no writes or provider
+lookups. Owner/staff GET /api/company/billing/unmatched uses the central guard,
+session tenant and private volatile cache. Billing shows one office notice with
+bounded details. Tests cover missing/foreign invoice/job/metadata, deduplication,
+Firestore failure plus exact-once replay, foreign account, real role/tenant guards
+and the office notice.
+
+Fix 2: all public pay failures return status 200 and byte-identical neutral HTML
+with no business name/logo. GET/POST tests compare complete responses against a
+nonexistent business for invalid/expired tokens, missing invoices, void/paid/zero
+balance, unavailable Stripe, evaluation/product/opt-in restrictions, and missing
+or short signing secrets.
+
+Fix 3: PAY_LINK_SECRET (at least 32 characters) is part of the payNow capability;
+missing/short fails closed. The send-claim transaction stores a random 16-byte
+base64url nonce plus 90-day expiry before delivery. HMAC-SHA256 binds tenant,
+invoice and nonce; timing-safe verification checks expiry. Ordinary resends keep
+links with at least 30 days left; the explicit New payment link option rotates.
+Failed sends leave the nonce. A claimed draft nonce is payable so an email remains
+usable if finalization fails; sent status still waits for confirmed delivery.
+Removed legacy stored token-hash/expiry fields and readers, replacing their tests.
+Tests cover secret/nonce/tenant/invoice binding, expiry, rotation/reuse boundary,
+pre-delivery validity, failed delivery, and a delivered email with failed finalization.
+
+Fix 4: owner/staff GET /api/jobs/[jobId]/invoice/pay-link uses verifyAuthAndRole,
+session tenant and noStore, rechecks eligibility and existing nonce, and returns
+only url/expiresAt without writes. Viewers/crew/platform previews are refused.
+InvoicePayPrint recovers URL/QR after reload and hides stale invoice links. Tests
+exercise the real guard, foreign tenants and bindings, missing/expired nonces,
+unavailable state, no-creation, reload rendering and stale component requests.
+Existing product PATH_RULES already cover both new routes; asserted in tests.
+
+Docs: PAY-NOW.md now lists secret setup, unmatched payments, durable link rules,
+and the known deposit-refund/manual-handling limit. The sent unpaid deposit credit
+calculation was not changed. Appended only the authorized PAY_LINK_SECRET example
+entry; no .env file was read. No dependencies or CSP changes.
+
+Validation on the final source tree:
+- npx.cmd tsc --noEmit: passed.
+- Changed-file eslint: 0 errors, 2 existing no-img-element warnings on the job page.
+- npx.cmd vitest related <changed files> --run: 133 files passed;
+  1,268 tests passed and 1 expected failure.
+- One full npx.cmd vitest run: 322 files passed;
+  2,602 tests passed and 1 expected failure. Route guards/tenant isolation green.
+- git diff --check: passed. React component quality checklist reviewed.
+- Browser/harness, build and real phone/inbox/Stripe checks not run in this fix round;
+  owner explicitly prohibited calling Stripe or any website and reading .env files.
+  DOM tests cover the changed UI; phone screenshots still need integrator review.
+- No external services contacted, no live keys, no push, merge or deploy.
+
+## 2026-11-05 - T-315 second independent review fixes A and B
+
+Commit: this T-315 review-fix commit (or uncommitted if Git refuses the index lock).
+Fix A: payNowAvailability now requires sent status and a positive balance;
+partly paid invoices remain sent. Drafts and void invoices never become payable
+from a nonce. The send claim still persists the nonce before delivery, and the
+email prepares its link for sent status without activating the saved draft.
+Tests cover draft GET/POST neutral failure with no Checkout Session, staff
+pay-link 404, failed send plus draft edit, failed finalization, and resend reuse
+of the same nonce with the current balance.
+Fix B: unmatched pending/failed ACH events leave a ledger note only. Cleared
+payment notices use pay_<payment_intent>; refund notices use
+refund_<charge id>_<amount_refunded cents>. Records retain kind and amount;
+transactional existence checks preserve the first record across duplicate events.
+The unmatched API returns separate complete payment/refund counts with at most
+30 reference rows. Billing labels Payment received and Refund sent separately.
+Tests cover pending/failure suppression, completed-paid plus async-success in
+both orders, refund replay, bounded API counts, and mixed/refund-only DOM labels.
+Updated docs/PAY-NOW.md to match these two rules. No other behavior changed.
+No cleanup/removals beyond the now-unused payNow token import.
+Validation: npx.cmd tsc --noEmit passed; changed-file eslint passed with no
+warnings; related Vitest passed 14 files / 185 tests. One full Vitest run passed
+322 files / 2612 tests, with 1 expected failure. git diff --check passed.
+No browser/harness, screenshots, build or live Stripe/inbox/phone verification:
+the owner prohibited calling any website. DOM tests cover the changed notice.
+No websites or live services called, no live keys used, no .env files read.
+No push, merge or deploy. TODO's T-315 row was already review and is unchanged.
+
+## 2026-11-05 - Merge task/pay-now (T-315 Pay now via Stripe Connect) (Claude K0)
+Built by a Codex GPT-6.1 Sol session; reviewed by four independent sessions (Codex GPT-6.1 Terra x3 read-only, one fresh
+Claude reviewer); four fix rounds (Codex Sol x3, the last finished by the integrator after a usage limit; the final
+resume-amount fix by the integrator). Findings fixed: dropped webhook events (now 500 + retry, or an unmatched record shown
+on Billing), business-existence leak on the pay page (one neutral page), pay links lost on crash / unprintable after
+reload (HMAC links from PAY_LINK_SECRET + a stored nonce, issued before the email, printable via a staff route), drafts
+payable (only sent invoices), unmatched ACH/refund double counting, a second charge while ACH clears (processing page,
+one Checkout per amount, stable idempotency key), cumulative refunds, resuming a checkout for an old amount (resume only
+same amount + same link; superseded sessions expired at Stripe). Not built: card surcharge (legal check). Needs the owner:
+Stripe Connect platform, webhook registration + STRIPE_CONNECT_WEBHOOK_SECRET, PAY_LINK_SECRET, fee policy
+(docs/PAY-NOW.md). Checks on merged main: tsc clean; vitest 322 files, 2629 passed + 1 expected fail.
