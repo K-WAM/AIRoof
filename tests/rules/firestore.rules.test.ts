@@ -143,6 +143,12 @@ describe("a businessUsers `superadmin` flag confers nothing (T-170)", () => {
 });
 
 describe("tenant isolation for ordinary members", () => {
+  it("Connect account state cannot be read directly by members; API subcollections stay available", async () => {
+    expect(await write("businesses/biz-a", { businessName: "A Roofing", stripeConnect: "server-only" }, "owner")).toBe(ALLOWED);
+    expect(await read("businesses/biz-a", ownerA)).toBe(DENIED);
+    expect(await read("businesses/biz-a", realAdmin)).toBe(ALLOWED);
+    expect(await read("businesses/biz-a/jobs/j-a", ownerA)).toBe(ALLOWED);
+  });
   it("a member reads their own tenant only", async () => {
     expect(await read("businesses/biz-a", ownerA)).toBe(ALLOWED);
     expect(await read("businesses/biz-a/jobs/j-a", ownerA)).toBe(ALLOWED);

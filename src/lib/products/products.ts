@@ -51,6 +51,7 @@ export function productsOf(config: { products?: Partial<Record<ProductId, unknow
 
 // Longest/most specific first: an invoice path under /api/jobs belongs to billing, not field.
 const PATH_RULES: Array<{ pattern: RegExp; product: ProductId }> = [
+  { pattern: /^\/api\/company\/settings\/billing\/connect(\/|$)/, product: "billing" },
   { pattern: /^\/api\/jobs\/[^/]+\/invoice(\/|$)/, product: "billing" },
   { pattern: /^\/api\/company\/billing(\/|$)/, product: "billing" },
   { pattern: /^\/api\/company\/finance(\/|$)/, product: "billing" },

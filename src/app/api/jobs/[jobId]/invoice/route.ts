@@ -27,6 +27,9 @@ import { loadLetter } from "@/lib/documents/letterStore";
 import { renderLetter, scopeText } from "@/lib/documents/letters";
 import { updateStandardDraft, jobInvoices, InvoiceConflict, sendLockActive } from "@/lib/billing/jobInvoiceStore";
 import { withInvoiceDeposits } from "@/lib/billing/jobInvoiceDeposits";
+import { payNowAvailability } from "@/lib/billing/payNow";
+import { isStripeConfigured } from "@/lib/billing/stripePayments";
+import { jsonWithCache } from "@/lib/http/cache";
 
 async function saveStandardDraft(db: FirebaseFirestore.Firestore, businessId: string, invoiceId: string, patch: Partial<JobInvoice>) {
   try { return await updateStandardDraft(db, businessId, invoiceId, patch); }
@@ -71,14 +74,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
   const jobSnap = await db.collection(`businesses/${businessId}/jobs`).doc(jobId).get();
-  const invoiceId = jobSnap.data()?.invoiceId;
+  const requestedId = req.nextUrl.searchParams.get("invoiceId");
+  if (requestedId && !/^INV-\d+$/.test(requestedId)) return NextResponse.json({ error: "Invalid invoice" }, { status: 400 });
+  const invoiceId = requestedId ?? jobSnap.data()?.invoiceId;
   if (!invoiceId) return NextResponse.json({ invoice: null });
 
   const invSnap = await db.collection(`businesses/${businessId}/invoices`).doc(invoiceId).get();
   if (!invSnap.exists) return NextResponse.json({ invoice: null });
 
-  const invoice = await updateStandardDraft(db, businessId, invoiceId);
-  return NextResponse.json({ invoice });
+  const saved = invSnap.data() as JobInvoice;
+  if (saved.businessId !== businessId || saved.jobId !== jobId || requestedId && saved.kind !== "deposit") return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+  const invoice = requestedId ? { ...saved, invoiceId } : await updateStandardDraft(db, businessId, invoiceId);
+  const business = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
+  return jsonWithCache({ invoice, payNowAvailable: !!invoice && payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, invoice) }, "noStore");
 }
 
 // POST /api/jobs/[jobId]/invoice — create the (one) invoice for this job from its current

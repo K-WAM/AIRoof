@@ -68,7 +68,7 @@ export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, business
   });
 }
 
-export async function finishInvoiceSend(db: FirebaseFirestore.Firestore, businessId: string, jobId: string, invoiceId: string, token: string, to: string, uid: string, delivered: boolean) {
+export async function finishInvoiceSend(db: FirebaseFirestore.Firestore, businessId: string, jobId: string, invoiceId: string, token: string, to: string, uid: string, delivered: boolean, payToken?: Pick<JobInvoice, "payTokenHash" | "payTokenExpiresAt"> | null) {
   const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId), ref = db.collection(`businesses/${businessId}/invoices`).doc(invoiceId);
   await db.runTransaction(async tx => {
     const jobSnap = await tx.get(jobRef), snap = await tx.get(ref);
@@ -77,6 +77,7 @@ export async function finishInvoiceSend(db: FirebaseFirestore.Firestore, busines
     if (delivered) {
       const now = Date.now();
       tx.update(ref, { ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
+      if (payToken !== undefined) tx.update(ref, payToken ?? { payTokenHash: FieldValue.delete(), payTokenExpiresAt: FieldValue.delete() });
       if (invoice.kind !== "deposit" && invoice.status !== "paid" && job.status !== "invoiced") tx.update(jobRef, { status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), { status: "invoiced", at: now, by: uid }] });
     }
     tx.update(jobRef, { documentSendLock: FieldValue.delete() });

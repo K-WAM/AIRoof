@@ -119,9 +119,11 @@ export interface BusinessConfig {
   products?: Partial<Record<"calls" | "field" | "billing", boolean>>;
   // A locked tab's "Ask Luxor to add it" (POST /api/company/upgrade-request): latest ask per product.
   upgradeRequests?: Partial<Record<"calls" | "field" | "billing", { at: number; by: string }>>;
-  // How THIS client's customers pay them (Billing product, no Stripe): printed on every invoice, receipt and reminder.
-  // Edited by the client in Settings → Getting paid. See src/lib/billing/paymentPrefs.ts.
+  /** Server-only Stripe Connect state. Never spread into company bootstrap responses. */
+  stripeConnect?: { accountId: string; chargesEnabled: boolean; payoutsEnabled: boolean; detailsSubmitted: boolean; updatedAt: number };
+  // How this client's customers pay it. Owner edits in Settings -> Getting paid.
   billingPrefs?: {
+    payNow?: boolean;
     payInstructions?: string;   // "Zelle to pay@acme.com · Checks to Acme Roofing, 1 Main St"
     payLink?: string;           // their own https pay page (Square, PayPal, QuickBooks…) — never ours
     remindersOn?: boolean;      // overdue reminders to customers at 1/7/14 days (default ON)

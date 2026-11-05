@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Toggle } from "@/components/ui/Toggle";
 import { Wallet } from "lucide-react";
+import { OnlinePayments } from "./OnlinePayments";
 import type { EffectiveBillingPrefs } from "@/lib/billing/customerPayments";
 
 /**
  * Settings → "Getting paid" (Billing product). How customers pay this business: printed as "How to pay" on every
- * invoice and reminder, with a Pay button when there's a pay link (their own Square/PayPal/QuickBooks page — no Stripe,
- * no money passes through Luxor). Owner edits; staff see it read-only. Own Save, like Terms & notices.
+ * invoice and reminder. Online payments use the business's connected Stripe account; external pay links are also
+ * supported. Owner edits; staff see status. Own Save, like Terms & notices.
  */
 export function GettingPaidPanel({ businessId, initialPrefs }: { businessId: string; initialPrefs?: EffectiveBillingPrefs }) {
   const { user } = useAuth();
@@ -63,6 +64,7 @@ export function GettingPaidPanel({ businessId, initialPrefs }: { businessId: str
     <section id="getting-paid" className="panel" data-testid="getting-paid">
       <div className="panel-header"><h2 className="panel-title"><Wallet size={16} strokeWidth={1.75} /> Getting paid</h2></div>
       <div className="panel-body">
+        {!user?.superadmin && <OnlinePayments canEdit={user?.role === "owner"} />}
         <p>Printed on every invoice as &ldquo;How to pay&rdquo;. Customers pay you directly — nothing goes through us.</p>
         {!prefs ? <p>{error || "Loading…"}</p> : (
           <>
@@ -88,7 +90,7 @@ export function GettingPaidPanel({ businessId, initialPrefs }: { businessId: str
               <Toggle checked={prefs.remindersOn} disabled={!canEdit} onChange={(next) => change({ remindersOn: next })} label="Email overdue reminders" />
               <span>Email the customer a reminder 1, 7 and 14 days after the due date</span>
             </div>
-            {canEdit && <button type="button" className="button primary" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : "Save payment details"}</button>}
+            {canEdit && <button type="button" className="button secondary" disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : "Save payment details"}</button>}
             {!canEdit && <p className="settings-note">Only the account owner can change where customers pay.</p>}
             {message && <p role="status" style={{ marginTop: 8, color: "#15803d" }}>{message}</p>}
             {error && prefs && <p role="alert" style={{ marginTop: 8, color: "#b91c1c" }}>{error}</p>}

@@ -8,6 +8,7 @@ import { invoiceGroups } from "@/lib/documents/groups";
 import { fmtMoney } from "@/lib/format/money";
 import { invoiceBalance } from "@/lib/billing/customerPayments";
 import { parseDocumentRecipients } from "@/lib/documents/recipients";
+import { InvoicePayPrint, type SentPayLink } from "./InvoicePayPrint";
 
 export function DepositInvoices({ jobId, businessId, quote, brand, email, readOnly, disabled, onChanged }: { jobId: string; businessId: string; quote: JobQuote | null; brand: Letterhead; email: string; readOnly: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
   const [deposits, setDeposits] = useState<JobInvoice[]>([]);
@@ -20,6 +21,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
   const [error, setError] = useState("");
   const [requestId, setRequestId] = useState("");
   const [all, setAll] = useState(false);
+  const [payLinks, setPayLinks] = useState<Record<string, SentPayLink | null>>({});
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("check");
   async function load() {
@@ -37,6 +39,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
     try {
       const r = await fetch(`/api/jobs/${jobId}/invoice${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...(recipients && "recipients" in recipients ? { to: recipients.recipients } : {}) }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not save deposit");
+      if (path === "/send" && selected) setPayLinks(current => ({ ...current, [selected.invoiceId]: d.payNow ?? null }));
       await load(); await onChanged(); return d;
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save deposit"); return null; }
     finally { setBusy(false); }
@@ -52,6 +55,9 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
       <ul style={{ listStyle: "none", padding: 0 }}>{(all ? deposits : deposits.slice(0, 5)).map(d => <li key={d.invoiceId} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><strong>{d.invoiceId}</strong> · {fmtMoney(d.total)} · {d.status}<button className="button" onClick={() => { setSelected(d); setRequesting(false); }}>Review deposit</button></li>)}</ul>
       {deposits.length > 5 && <button className="button" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${deposits.length}`}</button>}
       {selected && <div style={{ marginTop: 14 }}><button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={brand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} />
+        {selected.payNowPending && <p role="status">Bank payment pending</p>}
+        {selected.payNowNotice && <p role="status">{selected.payNowNotice}</p>}
+        {selected.payments?.some(p => p.source === "stripe" && p.amount > 0) && <p>Paid online</p>}
         {!readOnly && selected.status !== "void" && <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
           <label>Deposit recipient emails<textarea rows={2} aria-label="Deposit recipient emails" inputMode="email" value={to} onChange={e => setTo(e.target.value)} placeholder="Emails, separated by commas (up to 5)" /></label>
           <button className="button" disabled={busy || disabled || !to.trim()} onClick={async () => { const d = await action("/send", "POST", { businessId, invoiceId: selected.invoiceId, to }); if (d) setSelected({ ...selected, status: selected.status === "paid" ? "paid" : "sent" }); }}>{selected.status === "draft" ? "Send deposit" : "Send deposit again"}</button>
@@ -61,5 +67,5 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
         </div>}
       </div>}
     </details>{error && <p role="alert">{error}</p>}
-  </section>{selected && <div className="k1-deposit-print"><DocumentPreview title="Deposit invoice" brand={brand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} /></div>}</>;
+  </section>{selected && <div className="k1-deposit-print"><DocumentPreview title="Deposit invoice" brand={brand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total}>{selected.status === "sent" && invoiceBalance(selected) > 0 && <InvoicePayPrint link={payLinks[selected.invoiceId] ?? null} businessId={businessId} jobId={jobId} invoiceId={selected.invoiceId} deposit />}</DocumentPreview></div>}</>;
 }

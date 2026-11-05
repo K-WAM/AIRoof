@@ -2357,3 +2357,43 @@ field allowlist + length caps, asHeard kept in a transaction). Integrator additi
 (invoice due date, else issued + terms; 0 when paid or not yet due) with tests, shown as a Due column and "n days late"
 on Finances and in the CSV; request accessNotes copied into the job's notes as "Access: ..." (from-request route) with a test.
 Checks: tsc clean; full vitest 311 files, 2497 passed + 1 expected fail. Browser spec rerun pending in the merged-tree e2e gate.
+
+
+## 2026-11-05 - T-315: Customer invoice Pay now (Codex, task/pay-now)
+
+Implemented the six requested slices in D:/Apps/air-wt-pay-now only:
+1. One pure availability rule, 256-bit random tokens, SHA-256 verification, expiry/rotation, and types.
+2. Stripe Standard Account Links, session-derived owner-only setup/opt-in, read-only role status, and Billing path rule.
+3. Public no-JS invoice page, neutral failures, server-balance direct-account card/ACH Checkout, static result pages.
+4. Signed Connect webhook, event ledger + invoice transaction, payment-intent dedupe, pending/failed ACH,
+   cumulative refunds as negative payments, job markers, overpayment notices, and deferred tenant-guarded receipts.
+5. Invoice email link on successful sends; transient print/PDF URL + local QR, deposit support, office status labels.
+6. PAY-NOW.md setup/NEEDS-HUMAN, privacy provider/version update, app-status fact sheet, T-315 status -> review.
+
+Commit IDs: NONE - BLOCKED by Git metadata permissions. Both git add attempts failed creating
+D:/Apps/6 - AI Receptionist/.git/worktrees/air-wt-pay-now/index.lock (Permission denied).
+No commit, push, merge, deployment, live provider call, new dependency, or removal was performed.
+The six requested local commits must be created after write access is restored; no main checkout file was edited.
+
+Evidence: full Vitest after the final payment/settings race fixes: 320 files passed, 2561 passed + 1 expected fail
+(94.68 seconds; --maxWorkers=2 --testTimeout=30000). A later UI-only alignment hides invoice-send controls when
+its own-session owner/staff guard would refuse them; its 6 related job-page tests passed. TypeScript passed and
+changed-file ESLint passed with only the two existing job-page img warnings. git diff --check clean.
+Initial broader related checks found four parallel-load timeouts, an env fixture missing the new capability,
+TypeScript errors in the new code, and two guard mocks needing the session guard; all were corrected/rechecked.
+
+Browser: optional harness attempted once with E2E_PORT_OFFSET=20 and --no-warm. Firebase CLI failed before the
+browser started: EPERM opening C:/Users/karee/.config/configstore/firebase-tools.json; emulator startup timed out.
+The new e2e/pay-now.spec.ts was not run, no screenshots were produced/read, and the new Firestore rules emulator
+case was not run. The harness cannot cover real phone audio, a real inbox, Stripe sandbox/live settlement, or
+next build. No next build was run (worker scope).
+
+Security addition: Firestore cannot redact fields from a parent document. Members cannot directly read a business
+parent containing stripeConnect; existing guarded server projections and subcollection permissions remain available.
+The rules-only negative case is in tests/rules/firestore.rules.test.ts and needs the integrator's emulator gate.
+
+QUESTION FOR INTEGRATOR: hash-only token storage cannot recover a bearer payment URL after reload. Print links/QRs
+exist only in the sending tab; the full URL is printed, since no short-link credential store was authorized. Accept
+that limitation or specify a revised durable/short-link design before release. Restore Git metadata write access
+and create the six requested commits. Connect platform setup, webhook registration/secret, sandbox verification,
+fee policy, and legal review remain NEEDS-HUMAN in PAY-NOW.md. No surcharge was implemented.

@@ -2,7 +2,7 @@
 
 import { track } from "@/lib/analytics/client";
 
-// The invoice's money panel (Billing product, no Stripe): what's been paid, what's still owed, and "Record payment" —
+// The invoice's money panel: what's been paid (including Stripe), what's still owed, and "Record payment" —
 // the office logs money the customer paid them directly (cash, check, Zelle, their own card reader…). Partial payments
 // add up; the payment that covers the total marks the invoice Paid. The customer gets an emailed receipt.
 // Self-contained: it reads the saved invoice itself, so the (very large) job page only tells it when to show.
@@ -109,6 +109,8 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid,
         )}
       </div>
       <div className="panel-body">
+        {invoice.payNowPending && <p role="status">Bank payment pending</p>}
+        {invoice.payNowNotice && <p role="status">{invoice.payNowNotice}</p>}
         {open && (
           <div className="form-grid" data-testid="record-payment-form" style={{ marginBottom: 12 }}>
             <div className="field">
@@ -152,7 +154,7 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid,
           <ul style={{ listStyle: "none", margin: 0, padding: 0, fontSize: 13 }}>
             {payments.map((p) => (
               <li key={p.paymentId} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "6px 0", borderTop: "1px solid var(--border)" }}>
-                <span>{fmt.fmtDay(p.receivedAt)} · {PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? "Other"}{p.note ? ` · ${p.note}` : ""}</span>
+                <span>{fmt.fmtDay(p.receivedAt)} · {p.source === "stripe" ? p.amount < 0 ? "Refunded online" : "Paid online" : PAYMENT_METHOD_LABEL[p.method as PaymentMethod] ?? "Other"}{p.note && p.source !== "stripe" ? ` · ${p.note}` : ""}</span>
                 <strong>{usd(p.amount)}</strong>
               </li>
             ))}

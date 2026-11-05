@@ -40,6 +40,10 @@ export interface JobInvoiceDiscount {
 }
 
 export interface JobInvoice {
+  payTokenHash?: string;
+  payTokenExpiresAt?: number;
+  payNowPending?: { sessionId: string; at: number };
+  payNowNotice?: string;
   serviceAt?: string;
   description?: string;
   customerCode?: string;
@@ -98,7 +102,7 @@ export interface JobInvoice {
   total: number;
   /** Sum of `payments` (cents-rounded). Paid in full flips status to "paid". */
   amountPaid?: number;
-  /** Each payment the office recorded (Record payment). No online payment: the customer pays the client directly. */
+  /** Staff-recorded payments, Stripe receipts and negative Stripe refund entries. */
   payments?: InvoicePayment[];
   /** Overdue reminders already emailed to the customer, by days late (1, 7, 14) — each goes once. */
   remindersSent?: number[];
@@ -107,11 +111,13 @@ export interface JobInvoice {
   createdBy: string;
   sentAt?: number;
   sentTo?: string;
-  /** When the last payment arrived (paid in full). There is no online payment on job invoices. */
+  /** When the last payment arrived (paid in full). */
   paidAt?: number;
 }
 
 export interface InvoicePayment {
+  source?: "stripe";
+  stripeRefunded?: number;
   paymentId: string;
   amount: number;
   method: "cash" | "check" | "card" | "bank" | "zelle" | "other";

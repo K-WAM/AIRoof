@@ -7,6 +7,7 @@ const CAPABILITIES: Record<string, string[]> = {
   firebase: ["FIREBASE_SERVICE_ACCOUNT_JSON"],
   cron: ["CRON_SECRET"],
   stripe: ["STRIPE_SECRET_KEY"],
+  stripeConnectWebhook: ["STRIPE_SECRET_KEY", "STRIPE_CONNECT_WEBHOOK_SECRET"],
 } as const;
 
 export type EnvStatus = "configured" | "not_configured";

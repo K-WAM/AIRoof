@@ -15,7 +15,7 @@ const PROVIDERS: Array<[string, string]> = [
   ["Vapi", "phone calls on lines set up on our earlier phone platform"],
   ["Resend", "sending email"],
   ["PostHog", "pages, product actions, errors and session replays with typed text and on-screen text masked"],
-  ["Stripe", "paying Luxor’s own invoices (we never see full card numbers)"],
+  ["Stripe", "paying Luxor’s invoices and, when a business connects Stripe, paying that business directly by card or bank (Stripe collects payment details; we never receive full card or bank numbers)"],
 ];
 
 export default function PrivacyPage() {

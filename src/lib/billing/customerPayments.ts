@@ -1,7 +1,5 @@
-// Billing without Stripe (owner, 2026-10-08): "I don't want Stripe invoices — I want to produce the invoices for the
-// client, who then receives payment." The client's customer pays the client however the client already gets paid
-// (Zelle, check, card on their own Square/PayPal page…); this app prints those instructions on the invoice, lets the
-// office record each payment, emails a receipt, and sends polite reminders when an invoice runs late.
+// Customer-invoice money rules: staff-recorded payments and optional Stripe Connect direct payments (T-315)
+// share the same balance, receipt and reminder path. The customer pays the business directly.
 //
 // Pure rules + email builders only, so the payments route, the reminders cron and the Billing screen share ONE
 // definition of balance, overdue and "paid in full". Money is rounded to cents everywhere (roundCents).
@@ -107,10 +105,28 @@ export function parsePayment(input: unknown, balance: number, now = Date.now()):
 
 /** The invoice fields after adding a payment. Paid in full = status "paid" (and paidAt = when the last of it arrived). */
 export function applyPayment(invoice: Pick<JobInvoice, "total" | "amountPaid" | "status" | "payments">, payment: InvoicePayment): Pick<JobInvoice, "payments" | "amountPaid" | "status" | "paidAt"> & { paidInFull: boolean } {
+  if (invoice.payments?.some(p => p.paymentId === payment.paymentId)) return { payments: invoice.payments, amountPaid: invoice.amountPaid ?? 0, status: invoice.status, paidInFull: invoiceBalance(invoice) === 0 };
   const payments = [...(invoice.payments ?? []), payment];
   const amountPaid = roundCents(payments.reduce((sum, p) => sum + p.amount, 0));
   const paidInFull = amountPaid >= roundCents(invoice.total) - 0.004;
   return { payments, amountPaid, status: paidInFull ? "paid" : invoice.status, ...(paidInFull ? { paidAt: payment.receivedAt } : {}), paidInFull };
+}
+
+/** A Stripe charge reports a CUMULATIVE refund amount. A negative payment preserves the existing money math
+ * and the original receipt; the watermark makes different refund events and out-of-order delivery safe. */
+export function applyStripeRefund(invoice: Pick<JobInvoice, "total" | "amountPaid" | "status" | "payments">, paymentId: string, refunded: number, at: number) {
+  const original = invoice.payments?.find(p => p.paymentId === paymentId && p.source === "stripe");
+  if (!original) throw new Error("Stripe payment not recorded yet"); // retry the event after its payment arrives
+  if (!Number.isFinite(refunded) || refunded < 0 || roundCents(refunded) > original.amount) throw new Error("Invalid Stripe refund amount");
+  const cumulative = roundCents(refunded);
+  const delta = roundCents(cumulative - (original.stripeRefunded ?? 0));
+  if (delta <= 0) return null;
+  const refund: InvoicePayment = { paymentId: `${paymentId}_refund_${Math.round(cumulative * 100)}`, source: "stripe", amount: -delta, method: original.method,
+    receivedAt: at, recordedAt: at, recordedBy: "stripe", note: "Refunded online" };
+  const payments = [...invoice.payments!.map(p => p.paymentId === paymentId ? { ...p, stripeRefunded: cumulative } : p), refund];
+  const amountPaid = roundCents(payments.reduce((sum, p) => sum + p.amount, 0));
+  const status: JobInvoice["status"] = invoice.status === "void" ? "void" : amountPaid >= roundCents(invoice.total) ? "paid" : "sent";
+  return { payments, amountPaid, status };
 }
 
 // ── Overdue + reminders ─────────────────────────────────────────────────────────────────────────────────────────────

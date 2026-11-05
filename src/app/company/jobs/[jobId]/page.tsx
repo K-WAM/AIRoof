@@ -49,6 +49,7 @@ import { QuotePanel } from "./QuotePanel";
 import { ClientDetailsEditor } from "./ClientDetailsEditor";
 import { NextStepButton } from "./NextStepButton";
 import { RecordPayment } from "./RecordPayment";
+import { InvoicePayPrint, type SentPayLink } from "./InvoicePayPrint";
 import { LockNote } from "./LockNote";
 import type { JobQuote } from "@/types/quote";
 import { runSingleFlight, guardUnsavedInvoiceUnload } from "@/app/admin/invoices/invoiceFlow";
@@ -140,6 +141,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const { open: openQuickAdd } = useQuickAdd();
   const { user } = useAuth();
   const readOnly = user?.role === "viewer";
+  const canSendInvoices = !user?.superadmin && (user?.role === "owner" || user?.role === "staff");
   const privateDemo = user?.isDemoTrial === true;
   // Products (src/lib/products): no Billing = no Invoice tab/step; no AI calls = no call transcript to link to.
   const { isEnabled: moduleEnabled, ready: modulesReady, quotes: usesQuotes } = useBusinessModules();
@@ -211,6 +213,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // invoice is immutable server-side (PATCH refuses it), and the effect below mirrors that so
   // the UI never fires a PATCH the server would just reject.
   const [invoiceId, setInvoiceId] = useState<string | null>(null);
+  const [sentPayLink, setSentPayLink] = useState<SentPayLink | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<JobInvoice["status"] | null>(null);
   // Bumped when the customer details are edited so the quote panel reloads its (server-updated) bill-to.
   const [clientVersion, setClientVersion] = useState(0);
@@ -793,6 +796,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       if (res.ok) {
         const result = await res.json();
         if (result.warning) setSendError(result.warning);
+        setSentPayLink(result.payNow ?? null);
         track("invoice_sent", { job_id: jobId });
         setSendSuccess(true);
         const to = result.delivered?.join(", ") ?? selected.recipients.join(", ");
@@ -1481,13 +1485,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {invoiceStatus === "draft" && !readOnly && <button className={showSendPanel ? "button" : "button primary"} onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {invoiceStatus === "draft" && canSendInvoices && <button className={showSendPanel ? "button" : "button primary"} onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
                     Send to Customer
                   </button>}
                   <details className="job-action-menu"><summary className="button">More invoice actions</summary><div className="job-action-menu__items">
                   {invoiceStatus === "draft" && !readOnly && <button className="button" onClick={addFindingsToDraftInvoice} disabled={invoiceSaving || invoiceDirty || !job.findings?.some((f) => f.lines?.length)} style={{ fontSize: 13 }}>Add ticked findings to invoice</button>}
-                  {invoiceStatus !== "draft" && !readOnly && <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }}>Send again</button>}
+                  {invoiceStatus !== "draft" && canSendInvoices && <button className="button" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }}>Send again</button>}
                   <button className="button" onClick={() => window.print()} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Printer size={14} strokeWidth={1.75} />
                     Print / Save as PDF
@@ -1537,7 +1541,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
               )}
 
               {/* Send invoice panel */}
-              {showSendPanel && (
+              {showSendPanel && canSendInvoices && (
                 <div style={{ marginBottom: 16, padding: "16px 20px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }} className="no-print">
                   <p style={{ margin: "0 0 10px", fontWeight: 600, fontSize: 14, color: "#0369a1" }}>Email this invoice</p>
                   {sendSuccess ? (
@@ -1908,7 +1912,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   groups={invoiceGroups(customerInvoice)} totalLabel={invoiceStatus === "paid" ? "Invoice total — paid in full" : "Total Due"} total={grandTotal}
                   howToPay={invoiceStatus !== "paid" && hasBilling && businessConfig?.billingPrefs ? { instructions: businessConfig.billingPrefs.payInstructions ?? "", link: businessConfig.billingPrefs.payLink ?? "" } : null}
                   photos={photos.filter((photo) => selectedDocumentPhotoIds(photos, invoicePhotoIds).includes(photo.photoId))}
-                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} />
+                  notices={noticesForDocument({ doc: "invoice", total: grandTotal, commercial: job.propertyType === "commercial", settings: businessConfig?.documentNotices, business: { businessName: businessConfig?.businessName, licenseNumber: businessConfig?.licenseNumber } })} >
+                  {invoiceStatus === "sent" && businessId && <InvoicePayPrint link={sentPayLink} businessId={businessId} jobId={jobId} invoiceId={invoiceId} />}
+                </DocumentPreview>
               </div>
             </div>
           )}

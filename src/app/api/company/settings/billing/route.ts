@@ -34,6 +34,8 @@ export async function PUT(req: NextRequest) {
   const snap = await ref.get();
   if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
   const next = { ...(snap.data()?.billingPrefs ?? {}), ...parsed.prefs };
-  await ref.update({ billingPrefs: next, updatedAt: Date.now() });
+  // Online-payment opt-in has its own owner-only route. Updating manual details must not overwrite a concurrent
+  // change to that switch (or any other preference not present in this request).
+  await ref.update({ ...Object.fromEntries(Object.entries(parsed.prefs).map(([key, value]) => [`billingPrefs.${key}`, value])), updatedAt: Date.now() });
   return NextResponse.json({ prefs: effectiveBillingPrefs({ billingPrefs: next }) });
 }

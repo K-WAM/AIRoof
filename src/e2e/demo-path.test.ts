@@ -20,7 +20,10 @@ vi.mock("@/lib/auth/verifyRole", () => {
     if (mocks.actorBusinessId !== businessId) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
     return { user: { uid: "e2e-owner" }, membership: { role: "owner" } };
   };
-  return { verifyAuthAndRole: gate, verifyFieldAccess: gate };
+  return { verifyAuthAndRole: gate, verifyFieldAccess: gate, verifyOwnBusinessRole: async (request: NextRequest) => {
+    const result = await gate(request, mocks.actorBusinessId);
+    return "error" in result ? result : { user: { ...result.user, businessId: mocks.actorBusinessId } };
+  } };
 });
 vi.mock("@/lib/ai/deepseekClient", () => ({ parseFieldUpdate: mocks.parseFieldUpdate, classifyCallOutcome: mocks.classifyCallOutcome }));
 vi.mock("@/lib/vapi/businessLookup", () => ({ findBusinessByElevenLabsPhoneNumber: mocks.findBusinessByElevenLabsPhoneNumber, findBusinessByElevenLabsAgentId: mocks.findBusinessByElevenLabsAgentId }));
