@@ -46,6 +46,7 @@ client-resources/
       screen-09.png                            App screen reference 9
       screen-10.png                            App screen reference 10
       screen-11.png                            App screen reference 11
+      reports-aged-receivables.png             Jobba Reports (Aged Receivables); finance dashboard reference (T-301)
     sales-pdf/
       page-01.png                              Sales material reference 1
       page-02.png                              Sales material reference 2

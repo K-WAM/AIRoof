@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simpler menus: proposals for approval</title>
+<style>
+  :root { --accent:#0f766e; --accent-soft:rgba(15,118,110,.1); --text:#0f172a; --muted:#5f6f85; --border:#e2e8f0; --bg:#f6f8fa; --warn:#b45309; --bad:#b91c1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Inter, "Segoe UI", system-ui, sans-serif; color:var(--text); background:var(--bg); line-height:1.45; }
+  header { padding:32px 40px 8px; max-width:1180px; margin:0 auto; }
+  h1 { font-size:28px; margin:0 0 6px; }
+  .lede { color:var(--muted); margin:0 0 4px; font-size:15px; }
+  .summary { display:flex; gap:16px; flex-wrap:wrap; margin:20px 0 4px; }
+  .stat { background:#fff; border:1px solid var(--border); border-radius:12px; padding:14px 18px; min-width:200px; }
+  .stat b { display:block; font-size:24px; }
+  .stat span { color:var(--muted); font-size:13px; }
+  main { max-width:1180px; margin:0 auto; padding:8px 40px 48px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:22px 24px; margin:18px 0; }
+  .card h2 { font-size:19px; margin:0 0 4px; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; border-radius:999px; padding:2px 10px; margin-left:8px; vertical-align:2px; }
+  .low { background:#ecfdf5; color:#047857; } .med { background:#fffbeb; color:var(--warn); } .high { background:#fef2f2; color:var(--bad); }
+  .why { color:var(--muted); margin:0 0 14px; font-size:14px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .col h3 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  .nav { border:1px solid var(--border); border-radius:10px; padding:10px; background:#fbfcfd; }
+  .nav div { padding:6px 10px; border-radius:7px; font-size:14px; }
+  .nav .sep { height:1px; background:var(--border); padding:0; margin:6px 4px; }
+  .gone { color:#94a3b8; text-decoration:line-through; }
+  .new { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+  .moved { color:var(--muted); font-size:12px; padding:0 10px 4px 22px !important; }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; border-bottom:1px solid var(--border); padding-bottom:8px; }
+  .tabs span { font-size:13px; border:1px solid var(--border); border-radius:8px; padding:4px 10px; background:#fff; }
+  .tabs .on { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  .page { border:1px solid var(--border); border-radius:10px; padding:12px; background:#fbfcfd; margin-top:10px; font-size:13px; color:var(--muted); }
+  .chips span { display:inline-block; font-size:12px; border:1px solid var(--border); border-radius:999px; padding:2px 10px; margin:2px 4px 2px 0; background:#fff; color:var(--text); }
+  .chips .on { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  ul { margin:10px 0 0 18px; padding:0; font-size:14px; } li { margin:3px 0; }
+  .decide { margin-top:14px; display:flex; gap:10px; font-size:14px; }
+  .decide label { border:1px solid var(--border); border-radius:8px; padding:6px 12px; background:#fff; }
+  .note { font-size:13px; color:var(--muted); margin-top:8px; }
+  @media (max-width:760px) { header, main { padding-left:16px; padding-right:16px; } .cols { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simpler menus: proposals for your approval</h1>
+  <p class="lede">Nothing here changes the app until you approve it. For the November 13 review the app only <b>adds</b> pages; every proposal below is built afterwards, one at a time, each with its own approval.</p>
+  <p class="lede">Rule used: what a person does every day stays one tap away; everything else moves inside the page it belongs to. No feature is removed.</p>
+  <div class="summary">
+    <div class="stat"><b>15 → 9</b><span>owner's menu, after Finances + Payroll are added (10 if M6 is skipped)</span></div>
+    <div class="stat"><b>12 → 9</b><span>office staff's menu</span></div>
+    <div class="stat"><b>8 → 3</b><span>tabs on a job</span></div>
+    <div class="stat"><b>19 + 22</b><span>Jobba's menu items + setup pages, for comparison</span></div>
+  </div>
+</header>
+<main>
+
+<section class="card">
+  <h2>M1. Calls + Pipeline become one "Requests" page <span class="tag med">medium change</span></h2>
+  <p class="why">Today a caller shows up twice: once in Calls and once in Pipeline. The office has to know which screen to open. One list, with the call recording and transcript opening inside the request, is one less place to look.</p>
+  <div class="cols">
+    <div class="col"><h3>Today</h3><div class="nav"><div>Dashboard</div><div>Calls</div><div>Pipeline</div><div>Calendar</div></div></div>
+    <div class="col"><h3>Proposed</h3><div class="nav"><div>Dashboard</div><div class="new">Requests</div><div class="moved">Call log = the "All calls" filter on Requests</div><div>Calendar</div></div>
+      <div class="page chips"><span class="on">Needs you (4)</span><span>Booked</span><span>Done</span><span>All calls</span></div></div>
+  </div>
+  <ul><li>Stays: every call, transcript, callback, booking and decline. Old links to /company/calls and /company/pipeline redirect.</li><li>Risk: two busy screens become one, so it gets its own test pass.</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>M2. Billing + Finances + Payroll become one "Finances" page <span class="tag low">low change</span></h2>
+  <p class="why">Three money screens for the owner. One page answers "how are we doing, who owes us, what do we owe our people" from top to bottom.</p>
+  <div class="cols">
+    <div class="col"><h3>Today (after the review)</h3><div class="nav"><div>Billing</div><div>Finances</div><div>Payroll</div></div></div>
+    <div class="col"><h3>Proposed</h3><div class="nav"><div class="new">Finances</div><div class="moved">top: 3 numbers + "How late are unpaid invoices?" chart</div><div class="moved">middle: invoices and payments (today's Billing)</div><div class="moved">bottom link: "Hours &amp; pay" (Payroll)</div></div></div>
+  </div>
+  <ul><li>Office staff keep the invoices-and-payments part (today's Billing). The numbers at the top and "Hours &amp; pay" stay owner/admin only.</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>M3. "Field" leaves the office menu <span class="tag low">low change</span></h2>
+  <p class="why">Field roles already open straight onto the Field screen. Office users rarely need it in the menu: they add a note from a job, or send a worker the job's field link.</p>
+  <div class="cols">
+    <div class="col"><h3>Office menu today</h3><div class="nav"><div>Jobs</div><div>Field</div></div></div>
+    <div class="col"><h3>Proposed</h3><div class="nav"><div>Jobs</div><div class="gone">Field</div><div class="moved">from a job: "Add a field note" · "+ Add" button keeps "Field note"</div></div></div>
+  </div>
+  <ul><li>Unchanged: foremen, technicians and crew land on Field; the QR/field link works the same.</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>M4. Guide + Feedback become one "Help" item <span class="tag low">low change</span></h2>
+  <div class="cols">
+    <div class="col"><h3>Today</h3><div class="nav"><div>Guide</div><div>Feedback</div></div></div>
+    <div class="col"><h3>Proposed</h3><div class="nav"><div class="new">Help</div><div class="moved">Guide · Send feedback / report a problem · Your open tickets</div></div></div>
+  </div>
+  <ul><li>Fits the support promise: one place to ask, see the answer and the expected fix date (T-261).</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>M5. A job goes from 8 tabs to 3 <span class="tag high">bigger change, after the review</span></h2>
+  <p class="why">Today a job shows Activity, Photos, Materials, Labor and then ① Findings ② Quote ③ Report ④ Invoice. People look for documents in two rows of tabs.</p>
+  <div class="cols">
+    <div class="col"><h3>Today</h3><div class="tabs"><span class="on">Activity</span><span>Photos</span><span>Materials</span><span>Labor</span><span>① Findings</span><span>② Quote</span><span>③ Report</span><span>④ Invoice</span></div></div>
+    <div class="col"><h3>Proposed</h3><div class="tabs"><span class="on">Work</span><span>Photos</span><span>Documents</span></div>
+      <div class="page">Work = field notes, materials and labor as three short sections of one log.<br>Documents = ① Findings → ② Proposal or T&amp;M authorization → ③ Report or completion notice → ④ Invoice (deposit, final), one step at a time.</div></div>
+  </div>
+  <ul><li>Nothing is lost; the four document steps keep their order and checkmarks.</li><li>Risk: the job page is the largest screen in the app, so this one waits until after November 13.</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>M6. Team moves inside Settings (optional) <span class="tag low">low change</span></h2>
+  <div class="cols">
+    <div class="col"><h3>Today</h3><div class="nav"><div>Team</div><div>Settings</div></div></div>
+    <div class="col"><h3>Proposed</h3><div class="nav"><div class="new">Settings</div><div class="moved">Business · Team &amp; roles · Phone AI · Getting paid</div></div></div>
+  </div>
+  <ul><li>Owner-only either way. Skip this one if your team edits people often.</li></ul>
+  <div class="decide"><label>☐ Approve</label><label>☐ Reject</label><label>☐ Later</label></div>
+</section>
+
+<section class="card">
+  <h2>Result if all six are approved</h2>
+  <div class="cols">
+    <div class="col"><h3>Owner's menu today (15)</h3><div class="nav"><div>Dashboard</div><div>Calls</div><div>Pipeline</div><div>Calendar</div><div>Jobs</div><div>Field</div><div>Billing</div><div>Finances</div><div>Payroll</div><div class="sep"></div><div>Customers</div><div>Library</div><div class="sep"></div><div>Team</div><div>Settings</div><div class="sep"></div><div>Guide</div><div>Feedback</div></div></div>
+    <div class="col"><h3>Proposed (9; 10 without M6)</h3><div class="nav"><div>Dashboard</div><div class="new">Requests</div><div>Calendar</div><div>Jobs</div><div class="new">Finances</div><div class="sep"></div><div>Customers</div><div>Library</div><div class="sep"></div><div>Settings</div><div class="sep"></div><div class="new">Help</div></div>
+      <p class="note">Properties are not a separate menu item (Jobba has one): each customer lists its properties inside the customer page.</p></div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

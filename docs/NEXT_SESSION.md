@@ -1,6 +1,8 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
-**2026-11-04 (latest):** demo day. Two finished branches are parked, not merged: `wt/preview` (T-289 preview pages; demo uses the
+**2026-11-04, evening (latest): the Roof Doctors tailored review is Friday Nov 13, 10 a.m.** Start at `docs/ROOFDOCTORS-DEMO-PLAN.md` (storyline, decisions, contracts, streams, schedule, safety rules) and `docs/WORKER_QUEUE.md` section K (K0 Claude checklist + three paste-ready prompts). Waiting on the owner: approve the plan, then Wave 0 (merge T-289/T-290, commit the contracts + finance/payroll stubs) on Thu Nov 5 morning. Menu proposals for approval: `docs/mockups/simpler-menus.html`. Surveys stay in the ChatGPT-built portal (plan §13).
+
+**2026-11-04:** demo day. Two finished branches are parked, not merged: `wt/preview` (T-289 preview pages; demo uses the
 screenshots in `client-resources/demo-previews/`) and `wt/dst` (T-290 DST fix — symptom not reproduced; ask the owner which screen
 showed the wrong time). Read the top of `docs/SESSION_HANDOFF.md`, then TODO.md's "Open work — prioritized".
 

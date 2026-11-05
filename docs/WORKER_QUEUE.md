@@ -1617,3 +1617,532 @@ deviations). Commit "Phase 32 D complete". Run to the end — don't stop between
 run out). Final message: commit table (hash · task · one line), the moved-items list, deviations, "Noticed, not done",
 QUESTION FOR INTEGRATOR (if any).
 ```
+
+## K — Roof Doctors tailored review (written 2026-11-04) — spec: `docs/ROOFDOCTORS-DEMO-PLAN.md`
+
+Review: Friday November 13, 10 a.m. Status rows: `TODO.md` → "Roof Doctors tailored review". Four streams, file-disjoint (plan
+§8). **Start order:** Claude finishes Wave 0 (plan §9: plan docs committed, T-289/T-290 merged, contracts + finance/payroll stubs
+committed) → K1 and K3 start together → K2 starts a few hours later (two Codex sessions at once hit the ChatGPT usage limit on
+2026-11-01). Workers never push or merge; Claude reviews each diff against its prompt row by row; the owner approves every push.
+
+| Prompt | Agent + model | Why this agent | Tasks |
+|---|---|---|---|
+| K0 | Claude Opus 5.5 (integrator) | security, live phone agent, production data, merges, the run sheet | T-306, T-307, T-305, T-298, T-289/T-290 merges, Wave 0 contracts |
+| K1 | Codex **GPT-6.1 Sol, high** | money math (deposit invoice) + the 2,240-line job page: never below Sol | T-258, T-304 (stretch T-252) |
+| K2 | Codex **GPT-6.1 Terra, medium** | well-specified screens; Terra keeps two Codex sessions inside the usage limit | T-286, T-299, T-300, T-288, T-287, T-302, T-292, T-294/T-301 (screen), T-285 (screen), T-293, T-311 (screen) |
+| K3 | Deepseek **V4.1 Flash, Thinking: Hard** (no credits → Codex **GPT-6.1 Terra, medium**, same prompt) | pure functions, a dry-run script, small typed additions; nothing on the live path | T-303, T-294 (math), T-285 (math), T-291 (importer) |
+
+### K0 — Integrator, **Claude Opus 5.5** — checklist (not a paste prompt)
+1. **Wave 0 (Thu Nov 5 morning):** owner OK → commit the plan docs. Merge `wt/preview` (T-289) after replacing its
+   `user?.role !== "superadmin"` check with the claim-only check (T-237 rule); merge `wt/dst` (T-290) after the booking scenario
+   suite + `npm run e2e:call`; remove both worktrees (junction first). Remove the empty leftover folders `D:\Apps\air-wt-demolive`,
+   `air-wt-guidebook`, `air-wt-smooth` (check they hold nothing but an empty `.e2e`). Commit the §7 contracts (BusinessConfig
+   `showcase` + `outboundEmailAllowlist`; Customer `properties` + `customerCode`; `src/types/invoiceHistory.ts`;
+   `src/types/finance.ts`; `src/types/payroll.ts`; JobInvoice `kind` / `depositPercent` / `depositBasis` / `depositAgreementDate` /
+   `depositsApplied`; the TradeTitle additions stay with K3) + working stubs `src/lib/finance/summary.ts` and
+   `src/lib/payroll/summary.ts` (final signatures, empty results) so K2 can call them before K3 merges. Create the three worktrees
+   or let each prompt's SETUP do it. Optionally launch K1/K2 headlessly with the Codex CLI (memory: reference_codex_cli).
+2. **T-306 evaluation guard:** customer-facing tenant email honours `outboundEmailAllowlist` (skip + log, never throw); tests;
+   reminders stay off for the workspace. Deployed before any import `--apply` or any Roof Doctors login.
+3. **Workspace:** create `roofdoctors` (purpose client, roofing, Eastern time, their address/phone/license/website from the samples),
+   products calls+jobs+billing, `showcase` {finances, payroll, payments}, allowlist = owner-controlled addresses; logos (Roof Doctors +
+   RCU) extracted from the Word files' `word/media/` into the logo library; Library labor rates from the T&M authorization; their job
+   types as services; crews; seven demo logins (plan §6) on owner-controlled addresses.
+4. **T-307 phone:** duplicate the base ElevenLabs agent, tailored prompt (commercial / property managers, 24-hour emergencies,
+   inspection vs. T&M, Spanish) on a test branch + simulation tests (playbook); import the owner's new number; phone-line registry →
+   test call → live; transcript read.
+5. **Merges:** K3 first (then the import: harness dry-run → production dry-run report to the owner → `--apply --confirm=roofdoctors`),
+   then K1, then K2. Per batch: full vitest + build; `e2e:call`; final tree full `e2e:test`; read phone screenshots; take over any
+   partial worker item instead of sending a resume prompt.
+6. **After "approve push":** deploy; load their document wording into their workspace (from `client-resources/`, never committed);
+   seed the representative job (T-305, `scripts/roofdoctors-demo-seed.mjs`, dry-run default, allowlist); capture fallback
+   screenshots; write the run sheet (T-298); owner role walkthrough Wed; dry run Thu; freeze Thu 6 p.m.
+
+### K1 — Codex, **GPT-6.1 Sol, high** — Stream K1: customer documents (T-258, T-304)
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; on screen it is "Luxor CRM").
+Stream K1 of the Roof Doctors tailored review: the customer documents. Two other agents work at the same time in other worktrees on
+other files; stay inside your file list. Claude (the integrator) reviews your diff row by row and merges; you never push or merge.
+
+SETUP (PowerShell, once; skip a line that already succeeded):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-rd-docs" -b task/rd-docs main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-rd-docs\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-rd-docs"
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-rd-docs and
+`git branch --show-current` must print task/rd-docs. Never edit anything under D:\Apps\6 - AI Receptionist.
+
+READ FIRST (in your worktree): docs/ROOFDOCTORS-DEMO-PLAN.md — all of it; §5 is your spec, §7 the contracts already on main, §10
+the rules. AGENTS.md ("Protected context", "Definition of done"). CLAUDE.md ("Industry-Applicability Rule", "Cache-Control Rule",
+"Phase 32 Key Files" → customerTotals). Then look at the real samples you are matching — READ-ONLY, never copy their wording, names
+or amounts into the repo:
+  D:\Apps\6 - AI Receptionist\client-resources\roofdoctors\03-documents\
+  (repairs-quote.pdf, time-and-materials-work-authorization.docx, invoice.pdf, invoice-alternate.pdf, deposit-invoice.pdf,
+  icn-marked-up.pdf, rcn-marked-up.pdf). The ICN/RCN mark-ups colour fixed text orange and filled-in text green: that is exactly the
+  split between template text and fill-in fields.
+
+YOU OWN (edit only these; new files inside these folders are fine):
+- src/app/company/jobs/[jobId]/** (the job page and its sibling modules)
+- src/lib/billing/jobInvoice*.ts, src/lib/billing/jobQuote*.ts, src/lib/billing/jobCustomerTotals.ts (+ their tests)
+- src/lib/documents/** (the new letter engine lives here)
+- src/types/documentTemplate.ts (new); src/types/invoice.ts and src/types/quote.ts — additive optional fields only
+- src/app/api/jobs/[jobId]/invoice/**, src/app/api/jobs/[jobId]/quote/**, src/app/api/jobs/[jobId]/report/**
+- src/app/api/company/library/letters/** (new)
+- the HTML builders those send routes use for the quote / invoice / report emails (e.g. src/lib/billing/jobInvoiceEmailHtml.ts and
+  its quote/report siblings — name each one in your report)
+- src/app/company/library/page.tsx (the Documents section ONLY) + src/app/company/library/LettersSection.tsx (new)
+- e2e/documents-roofing.spec.ts (new); src/app/globals.css ONLY inside a block you add: /* === K1 documents === */ … /* === end K1 === */
+NOT yours: navigation/layout, the Billing page, Pipeline, field screens, customer pages, src/types/index.ts, src/lib/finance/**,
+src/lib/payroll/**, src/lib/team/**, scripts/**, firestore.rules, src/middleware.ts, src/lib/auth/**, webhooks, src/lib/tools/**,
+package.json. Need one of them? Stop and write it under QUESTION FOR INTEGRATOR.
+
+THE TASKS — in this order, one commit each ("T-258: …", "T-304a: …", …):
+
+1. T-258 (bug): an invoice drafted $0 while the Report showed about $1,700 (owner's dry run 2026-11-02). Find why the invoice draft
+   didn't use the same numbers as the report/quote (suspects: accepted-quote lines not carried into buildDraftFromProjection; project
+   price mode; a draft created before findings/quote existed and never rebuilt). Write the failing vitest FIRST: for one job with
+   findings and an accepted quote, report total = quote customer total = invoice draft customer total (customerTotals). Then fix.
+   If an old $0 draft exists, the Invoice tab offers the existing rebuild (POST force:true) with one plain sentence instead of silently
+   keeping $0.
+
+2. T-304a — one letter engine. src/types/documentTemplate.ts:
+   LetterKind = "proposal" | "tm_authorization" | "inspection_completion" | "repair_completion" | "invoice_opening" | "deposit_opening";
+   LetterTemplate { kind; title; sections: Array<{ id: string; heading?: string; body: string; optional?: boolean;
+   defaultOn?: boolean }>; signer?: { name: string; title: string }; updatedAt: number; updatedBy?: string }.
+   src/lib/documents/letters.ts (pure, unit-tested): MERGE_FIELDS — a fixed list of { key, label, example }: date, customer.name,
+   customer.code, attention, billTo, serviceAt, workOrder, poNumber, description, locations, approvalDate, agreementDate, price,
+   priceWords, validDays, depositPercent, depositAmount, business.name, business.license, signer.name, signer.title, ratesTable.
+   renderLetter(template, values, { includeOptional: string[] }) → { title, blocks: Array<{ heading?: string; paragraphs: string[];
+   bullets?: string[] }>, missing: string[] } — values are plain text; the renderer never outputs HTML; an unknown or empty {{key}}
+   renders as empty and is listed in `missing` so the UI can warn. Lines starting with "- " in a body become bullets.
+   amountInWords(2695) → "Two Thousand Six Hundred Ninety-Five Dollars"; cents as "and 50/100"; tests up to 9,999,999.99.
+   DEFAULT_LETTERS: short, plain, industry-NEUTRAL defaults (no roofing words — a dental office must be able to use a "completion
+   notice" too).
+   Storage: businesses/{bid}/documentTemplates/{kind} through GET/PUT src/app/api/company/library/letters/route.ts — central guard
+   (verifyAuthAndRole): GET for any member except crew, PUT for owner/staff; businessId from the session; validate kind and sizes
+   (title ≤ 120 chars, ≤ 20 sections, body ≤ 4,000 chars); jsonWithCache semiStatic on GET, noStore on PUT. A missing doc returns
+   DEFAULT_LETTERS[kind]. src/app/api/__tests__/route-guards.test.ts must stay green.
+   Editor: Library → Documents section gets a "Letters & notices" list (LettersSection.tsx): pick a letter → edit title, sections
+   (heading + text + optional tick), signer; a row of fill-in-field chips that insert {{key}} at the cursor; a live preview with the
+   example values; Save; "Reset to default". Owner/staff edit, others read-only. One primary button on the screen.
+
+3. T-304b — Quote step layouts. JobQuote gains `layout?: "itemized" | "proposal" | "tm_authorization"` (missing = itemized = today's
+   look, unchanged) and `includeOptional?: string[]`. On the existing customer-version card: a "Layout" choice. Proposal: letterhead,
+   date, addressee block (bill to + attention), an "RE:" line (service at, description, work order), the proposal letter's sections
+   with the quote's line descriptions as the scope bullets, the price from customerTotals in figures and words, valid-for days, the
+   signature lines ("Accepted by / Date / Printed name" and the signer). T&M authorization: the same header, the T&M letter and a
+   rates table built from the business's Library labor rates (role, rate) — shown, never multiplied. The existing online accept link
+   stays; for tm_authorization its button and page say "Authorize" instead of "Accept". Accepting keeps today's behaviour (the office
+   is notified; a job is never created automatically — owner rule). Same output in the app, the emailed quote and print.
+
+4. T-304c — Report step layouts. The report gains `layout?: "report" | "inspection_completion" | "repair_completion"` (missing =
+   report, unchanged), `locations?: string` (one per line, prefilled with the job address) and `noCharge?: boolean` (repair
+   completion only). Completion notices are price-free ALWAYS (never show the quote or any price, even if "Include quote" was
+   ticked) and keep the photos (Before/After pairs as today). Same output in the app, the emailed report and print.
+
+5. T-304d — Invoice layout like their invoices (fields exist or are additive): a header with Date, Invoice No., Terms,
+   Description, Reference ("Work order" + the job number), PO number; Customer ID (customer.customerCode, when present); "Bill to"
+   and "Service at" as two separate blocks (service at = the job's address); the opening paragraph (`opening`, prefilled from the
+   invoice_opening letter when a draft is created); lines grouped Labor / Materials / Other with subtotals ("bundle materials" as
+   today); a boxed Total Due; a footer with the license number (BusinessConfig.licenseNumber) and website when present. Same in the
+   app, the email and print. A T&M job's labor lines read like "Service Foreman · 10.5 h × $95.00" from the existing labor lines.
+
+6. T-304e — Letterhead pick. Quote, report and invoice gain `letterheadLogoId?: string`; the customer-version card shows the
+   business's logo library (GET src/app/api/company/library/logos — read it, you don't own it) as a small picker; default = the
+   business's default logo. The chosen logo renders everywhere that document renders (src/lib/branding/logo.ts logoStyle /
+   needsLogoChip). Built for "Roof Doctors or RCU" (their RCN note) but generic.
+
+7. T-304f — Deposit invoice (MONEY: tests before UI). The contract fields are already in src/types/invoice.ts (kind,
+   depositPercent, depositBasis, depositAgreementDate, depositsApplied — plan §7). On ④ Invoice, "Request a deposit" (owner/staff):
+   a percent (default 50, 1–100) of the accepted quote's customer total (customerTotals) — or of a typed amount when there is no
+   accepted quote; it creates a NEW invoice document with kind "deposit", the next number from the existing invoice counter, one line
+   "Progress billing: 50% complete" (wording from the deposit_opening letter), status draft; sending uses the existing send route and
+   the manual send gate. Every place that finds "the job's invoice" (GET/POST/PATCH invoice route, idempotent POST, rebuild, send,
+   payments, the job page, the job's steps/status) must ignore kind === "deposit" — list each place you changed in your report. The
+   job's standard invoice shows each sent or paid deposit as a negative line "Less deposit (INV-1234)" and its total = contract total
+   − deposits, never below 0; tax is computed on the work lines as today and deposits are subtracted after tax (say so in a one-line
+   hint). Tests: 50% of 8,000.00 = 4,000.00; deposit + final = contract; two deposits; rounding (33% of 1,000.01); project price
+   mode; a voided deposit makes a draft final recompute; a sent final is never changed; a payment on a deposit doesn't change the
+   final's balance. If this part isn't solid when you run low on budget, leave the button OFF and report — never half-wire money.
+
+8. e2e/documents-roofing.spec.ts on the local harness (docs/SMOKE-HARNESS.md; roofing tenant): the proposal layout shows the scope
+   bullets and the price in words; the T&M layout shows the rates table; a repair completion notice shows the locations and no
+   prices; a 50% deposit invoice is created and the final shows "Less deposit". Screenshots at 375 px and desktop — read them yourself
+   before you report (cut-off text, overlap or two primary buttons = not done).
+
+STRETCH (only after 1–8 are committed): T-252 "+ From Library" on the Materials tab (TODO.md row T-252), in your files.
+
+RULES (plan §10, short form): the business id comes from the session, never the body; central guards on every route; responses are
+private (jsonWithCache); no HTML from template or customer text (render text nodes; emails escape every value with the existing esc
+helper); no new dependencies; no CSP or force-static changes; real client wording/names never go into the repo (Claude loads their
+wording into their workspace later); money only through computeTotals / customerTotals / invoiceBalance; when the new fields are
+missing, every existing document renders exactly as today (old jobs must not change).
+
+CHECKS (yours only): before each commit `npx tsc --noEmit`, `npx eslint <changed files>`, `npx vitest related <changed files> --run`;
+your ONE spec: `npm run e2e:up:bg`, then `npx playwright test e2e/documents-roofing.spec.ts`, then `npm run e2e:down`. Do NOT run the
+full Playwright suite, `npm run e2e:call`, the full vitest suite or `next build` — Claude runs those on the merged tree.
+
+WRAP UP: one docs/IMPLEMENTATION_LOG.md entry per task (plain ASCII, append only, never edit an older line); in TODO.md set rows
+T-258 and T-304 to "review" (nothing else). Commit work in progress at least every ~45 minutes. Final message: a commit table (hash ·
+task · one line), the "places that find the job's invoice" list, deviations from this prompt, "Noticed, not done", QUESTION FOR
+INTEGRATOR (if any).
+```
+
+### K2 — Codex, **GPT-6.1 Terra, medium** — Stream K2: screens, small fixes, the owner's money views
+```
+You are Codex working on the AI Receptionist platform (Next.js 15 + TypeScript + Firebase Admin; on screen it is "Luxor CRM").
+Stream K2 of the Roof Doctors tailored review: screens, small fixes and the owner's money views. Two other agents work at the same
+time in other worktrees; stay inside your file list. Claude reviews your diff row by row and merges; you never push or merge.
+
+SETUP (PowerShell, once; skip a line that already succeeded):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-rd-screens" -b task/rd-screens main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-rd-screens\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-rd-screens"
+Before your first edit AND before every commit: `git rev-parse --show-toplevel` must print D:/Apps/air-wt-rd-screens and
+`git branch --show-current` must print task/rd-screens. Never edit anything under D:\Apps\6 - AI Receptionist.
+
+READ FIRST (in your worktree): docs/ROOFDOCTORS-DEMO-PLAN.md (§1, §3, §6–§11); TODO.md rows T-286, T-299, T-300, T-288, T-287,
+T-292, T-293, T-294, T-301, T-285, T-302, T-311; docs/ZERO-TRAINING-UX-STANDARD.md; docs/SCREEN-CLARITY-HEURISTICS.md; CLAUDE.md
+("Industry-Applicability Rule", "Cache-Control Rule", "Products per client"). Look and feel to follow: the T-289 preview pages now on
+main (src/app/company/preview/*) and their screenshots in D:\Apps\6 - AI Receptionist\client-resources\demo-previews\
+(finances-desktop.png, finances-phone.png, payroll-*.png). The cluttered report we are NOT copying:
+D:\Apps\6 - AI Receptionist\client-resources\jobba-benchmark\app-screens\reports-aged-receivables.png. Those files hold real client
+data — look, never copy names or amounts into the repo.
+
+YOU OWN (edit only these; new files inside these folders are fine):
+- src/components/ui/Modal.tsx, src/components/ui/Sheet.tsx (+ tests)
+- src/components/field/** and the two field pages src/app/field/page.tsx, src/app/company/field/page.tsx — UI only (see 2 and 3)
+- src/app/company/pipeline/**, src/components/requests/RequestReviewCard.tsx
+- NEW route files: src/app/api/businesses/[businessId]/appointments/[appointmentId]/contact/route.ts,
+  src/app/api/businesses/[businessId]/leads/[leadId]/contact/route.ts, src/app/api/company/finance/route.ts,
+  src/app/api/company/payroll/route.ts, src/app/api/company/customers/[customerId]/history/route.ts
+- src/app/company/layout.tsx, src/app/company/navModel.ts (+ navModel.test.ts), src/app/company/company-nav.tsx
+- src/types/bootstrap.ts + src/app/api/company/bootstrap/route.ts (additive: expose `showcase`)
+- NEW pages: src/app/company/finances/**, src/app/company/payroll/**
+- src/app/company/billing/page.tsx (+ new sibling components), src/app/company/preview/**, src/app/company/customers/**
+- src/lib/products/products.ts — PATH_RULES entries for your new routes only
+- scripts/e2e/seed.cjs — ONLY inside a block marked /* K2 roofdoctors showcase */ (showcase flags on the roofing e2e tenant, ~40
+  invented invoiceHistory rows, a week of invented punches, two invented properties on one customer)
+- e2e/roofdoctors-screens.spec.ts (new); src/app/globals.css ONLY inside /* === K2 screens === */ … /* === end K2 === */
+NOT yours: the job page (src/app/company/jobs/[jobId]/**), invoice/quote/report code and routes, the Library page,
+src/lib/finance/** and src/lib/payroll/** (Claude committed working stubs with the final signatures; Deepseek fills them in — call
+them, never edit them), src/types/index.ts, src/lib/team/**, other scripts, firestore.rules, src/middleware.ts, src/lib/auth/**,
+webhooks, src/lib/tools/**, package.json. Need one of them? Stop and write it under QUESTION FOR INTEGRATOR.
+
+THE TASKS — in this order, one commit each ("T-286: …", …):
+
+1. T-286 — dialogs always on top. Modal and Sheet render through a portal into document.body with the top z-index (add a --z-modal
+   token in your globals.css block if none exists); nothing on the Calendar (chips, the drag overlay, sticky headers) may draw over
+   an open dialog. Check every dialog that opens over the Calendar: Feedback, the time picker (SlotPicker), the reschedule sheet,
+   quick add. Keep focus trapping, Escape and the `dirty` behaviour unchanged.
+
+2. T-299 — the field screen says why it is greyed out. When the QR field screen needs a name: the name box comes first and gets
+   focus; a plain line next to the disabled controls says "Type your name above to start"; tapping a disabled control scrolls to and
+   highlights the name box instead of doing nothing. Check every other disabled control on both field screens and give each a reason
+   in words. UI only: don't change how notes are sent, the offline outbox (T-242), the field identity (T-249) or resolveAuthor.
+
+3. T-300 — "Hold to talk" is obvious. The record button reads "Hold to talk" with a short hint under it; a press shorter than about
+   0.5 s shows "Keep holding while you talk, then let go to send" (no error, no empty upload); while held: a running timer, a
+   pulsing state and "Release to send"; works with touch, mouse and keyboard (hold Space/Enter); the same component on /field and
+   /company/field. Don't change the recording or upload logic.
+
+4. T-288 — Pipeline → Booked: a visible secondary "Decline" next to "Confirm & email" (Decline stays secondary — one primary
+   button), using the decline flow that already exists inside More → review (reasons, optional message, notify customer, confirm
+   step). Reuse that code; no new decline logic.
+
+5. T-287 — edit the caller's details before confirming. On the request/booking card and the review dialog: "Edit details" (name,
+   phone, email, address, access notes). The two NEW contact routes: central guard (owner/staff), businessId from the session and it
+   must equal the path's businessId; validate (email format, phone digits, lengths); write ONLY those contact fields + updatedAt +
+   editedBy; on the FIRST edit store the values as heard once in `asHeard: { name, phone, email, address }` (never overwritten);
+   never touch status, times, crew or any scheduling field (the booking engine is off-limits — AGENTS.md Booking-change gate). The
+   confirmation email then goes to the corrected address. Route tests: other business → 403/404, crew → 403, bad email → 400, asHeard
+   kept on a second edit.
+
+6. T-302 — their logo in the app. The desktop sidebar header and the phone header show the business logo (bootstrap.business.logoUrl)
+   and name, following src/lib/branding/logo.ts (white vs coloured-bar rule), with a small "Powered by Luxor" line; the Luxor logo
+   when the business has none. Buttons keep the one teal accent (design-system rule).
+
+7. T-292 — the showcase switch. BusinessConfig.showcase is on main (contract). Expose it through bootstrap (additive `showcase`
+   field). navModel adds "Finances" and "Payroll" right after Billing for role owner (and superadmin preview) only when
+   showcase.finances / showcase.payroll are on; for every other business the link list is byte-for-byte today's (navModel tests
+   prove it). The layout's route gating sends anyone else from /company/finances or /company/payroll to the dashboard. The server is
+   the real gate (8 and 9).
+
+8. T-294 + T-301 — Finances, real numbers, decluttered. GET /api/company/finance?from=&to=&customer=&jobType=&status= : central guard,
+   owner only (the guard's superadmin preview allowed); showcase.finances must be on for the business (else 404); read
+   businesses/{bid}/invoiceHistory (limit 2,000) and businesses/{bid}/invoices (limit 2,000); call rowsFromHistory, rowsFromInvoices
+   and summarizeFinances from src/lib/finance/summary.ts; return jsonWithCache(semiStatic). Page /company/finances, built on the T-289
+   Finances preview look, must meet T-301's criteria (TODO.md row T-301 — read it): in 5 seconds a first-time owner can say who owes
+   them and how much is late; at most 3 numbers, 1 chart and 1 list above the fold on a phone; chart titles are questions ("How late
+   are unpaid invoices?"); no pie charts, no gauges, no legends to decode; filters in ONE row (on a phone one "Filters" button)
+   showing only active filters as removable chips; default = last 90 days; the invoice list sortable with CSV export (client-side,
+   from the rows already loaded); one source line ("From your Jobba export and invoices sent from this app"); "How these numbers are
+   worked out" opens a short sheet. A deposit invoice is just an invoice (the final already subtracts it). A clear empty state.
+
+9. T-285 — Payroll (preview). GET /api/company/payroll?periodStart=&periodEnd= (YYYY-MM-DD, at most 31 days): owner only,
+   showcase.payroll on (else 404); read businesses/{bid}/punches for the period (limit 5,000) → foldPunches
+   (src/lib/timeclock/fold.ts) → summarizePayroll (src/lib/payroll/summary.ts). Page /company/payroll: period picker (this week /
+   last week / custom), one row per person (name, crew, regular h, overtime h, days, jobs, flags such as "Missing clock-out"),
+   totals, CSV export; "Estimated pay" only when a rate exists; a "Preview" badge; "Approve period" visible but disabled with
+   "Available in the pilot".
+
+10. T-293 — Online payments (preview) inside Billing (no new menu item), shown only when showcase.payments is on: a card with (a) what
+   the customer sees — a pay-page mock for one of the business's sent invoices (number, amount, "Pay by bank (ACH)" / "Pay by card",
+   "Payments by Stripe"); (b) the office view — paid / partly paid / overdue and a deposits-to-bank list with invented sample rows;
+   (c) one line: "Stripe charges per payment; exact rates are confirmed at setup." Every button disabled with "Online payments turn
+   on at launch." No network call to Stripe, no writes. Also: the Billing list shows a small "Deposit" chip for kind "deposit".
+
+11. T-311 — properties and past work inside a customer. The customer detail shows "Properties (n)" (name, address, city; first 10,
+   then "Show all") from customer.properties, and "Past work from Jobba (n)" from businesses/{bid}/jobHistory where customerId ==
+   this customer (read-only: date, property, job type, status; first 10) through the NEW history route (central guard: any member
+   except crew; private cache). Show neither section when empty.
+
+12. e2e/roofdoctors-screens.spec.ts on the harness (roofing tenant + your seed block): Feedback opened over the Calendar is on top
+   (elementFromPoint at the dialog's centre is inside the dialog); the field name hint and the hold-to-talk quick-press hint;
+   Decline visible on Booked; Edit details saves and keeps asHeard; Finances loads, a filter chip removes, CSV downloads; Payroll
+   shows rows; Billing shows the payments preview with disabled buttons; a business WITHOUT showcase sees no Finances/Payroll links
+   and gets 404 from both APIs; the customer page lists properties. Read your 375 px and desktop screenshots before you report.
+
+RULES (plan §10): the business id comes from the session, never the body; the server is the real gate for owner-only data;
+jsonWithCache tiers only (all private); previews make no writes, sends or Stripe calls and carry a "Preview" badge; no HTML from
+tenant/customer text; invented data only in tests and the seed; no new dependencies; no CSP or force-static changes; one primary
+button per screen; nouns through useBusinessModules().vocab (never hardcode "Crew"/"Job" in a shared page); nothing changes for a
+business without showcase flags.
+
+CHECKS (yours only): before each commit `npx tsc --noEmit`, `npx eslint <changed files>`, `npx vitest related <changed files> --run`;
+your ONE spec: `npm run e2e:up:bg`, `npx playwright test e2e/roofdoctors-screens.spec.ts`, `npm run e2e:down`. Do NOT run the full
+Playwright suite, `npm run e2e:call`, the full vitest suite or `next build`.
+
+WRAP UP: one docs/IMPLEMENTATION_LOG.md entry per task (plain ASCII, append only); in TODO.md set your rows to "review" (nothing
+else). Commit work in progress at least every ~45 minutes. Final message: a commit table (hash · task · one line), every new route with
+its guard, deviations, "Noticed, not done", QUESTION FOR INTEGRATOR (if any).
+```
+
+### K3 — Deepseek, **V4.1 Flash, Thinking: Hard** — Stream K3: roles, finance and payroll math, the Jobba importer (T-303, T-294, T-285, T-291)
+```
+You are a coding agent working on the AI Receptionist platform (Next.js 15 + TypeScript). Stream K3 of the Roof Doctors tailored
+review: pure functions, a data import script and small type additions. Nothing you write runs during a phone call or sends anything.
+Two Codex agents work at the same time in other folders. Claude (the integrator) reviews every line and runs your script; you never
+run it against real data, never push and never merge.
+
+HOW TO WORK: slowly and exactly. Do the parts in order. After each part: run the checks, commit, then start the next part. If a check
+still fails after two honest attempts, STOP, commit what passes, and write "BLOCKED: <what failed, what you tried>" in your final
+message. Do not refactor, rename or reformat existing code. Do not touch any file that is not listed under YOUR FILES.
+
+SETUP (PowerShell, once; skip a line that already succeeded):
+cd "D:\Apps\6 - AI Receptionist"
+git worktree add "D:\Apps\air-wt-rd-data" -b task/rd-data main
+New-Item -ItemType Junction -Path "D:\Apps\air-wt-rd-data\node_modules" -Target "D:\Apps\6 - AI Receptionist\node_modules"
+cd "D:\Apps\air-wt-rd-data"
+Before your first edit AND before every commit run:
+  git rev-parse --show-toplevel     (must print D:/Apps/air-wt-rd-data)
+  git branch --show-current         (must print task/rd-data)
+If either is different, stop and fix the folder first. Never edit anything under D:\Apps\6 - AI Receptionist.
+
+READ FIRST (in your worktree): docs/ROOFDOCTORS-DEMO-PLAN.md §6 (roles), §7 (contracts: the types already exist in src/types/, and
+src/lib/finance/summary.ts + src/lib/payroll/summary.ts already exist as stubs with the FINAL signatures — you replace the stub
+bodies and keep the signatures), §10 (rules). Then read: src/types/team.ts, src/lib/team/userTypes.ts, src/lib/team/landing.ts (and
+their tests), src/types/invoice.ts, src/types/invoiceHistory.ts, src/types/finance.ts, src/types/payroll.ts, src/types/customer.ts,
+src/types/library.ts, src/lib/billing/jobCustomerTotals.ts, src/lib/billing/customerPayments.ts, src/types/timeclock.ts,
+src/lib/timeclock/fold.ts, scripts/backfill-customers.mjs, src/app/api/company/library/route.ts.
+
+YOUR FILES (only these):
+- src/types/team.ts (additive), src/lib/team/userTypes.ts, src/lib/team/landing.ts, and their tests
+- src/lib/finance/** and src/lib/payroll/** (tests in __tests__ folders there)
+- scripts/import-jobba.mjs (new), scripts/lib/jobba-import.mjs (new)
+- src/lib/import/__tests__/jobba-import.test.ts (new)
+- docs/IMPLEMENTATION_LOG.md (append only) and TODO.md (the status of your rows only)
+
+PART 1 — T-303 roles (small).
+a) src/types/team.ts: add four titles to TradeTitle, to TRADE_TITLES (append at the end, keep the existing order) and to
+   TRADE_TITLE_LABEL: "supervisor" -> "Supervisor", "manager" -> "Manager", "office_admin" -> "Office admin",
+   "front_desk" -> "Front desk". Titles never grant permissions (keep the existing comment true).
+b) src/lib/team/userTypes.ts: add four presets AFTER the existing ones, in the same shape as the existing entries:
+   id "manager", label "Management", role "owner", trade "manager", field false;
+   id "supervisor", label "Supervisor", role "staff", trade "supervisor", field false;
+   id "office_admin", label "Office admin", role "staff", trade "office_admin", field false;
+   id "front_desk", label "Front desk", role "staff", trade "front_desk", field false.
+   Give each one short plain help sentence in the style of the existing ones. Keep the existing ids unchanged. If a function in that
+   file maps a member back to a type (role + trade -> type), make the new presets round-trip and test it.
+c) src/lib/team/landing.ts defaultLandingPath: trade "front_desk" -> "/company/pipeline" when the calls module is enabled, otherwise
+   the dashboard; "supervisor" -> "/company/jobs" when the jobs module is enabled, otherwise the dashboard; "manager" and
+   "office_admin" -> the dashboard. Existing results must not change (existing tests pass without edits).
+d) Tests: at least one test per new title, preset and landing rule.
+
+PART 2 — finance math, src/lib/finance/summary.ts. Keep the exported names and signatures exactly as in the stub:
+  rowsFromHistory(records: InvoiceHistoryRecord[]): FinanceRow[]
+  rowsFromInvoices(invoices: JobInvoice[]): FinanceRow[]
+  summarizeFinances(rows: FinanceRow[], filters: FinanceFilters, now: number, termsDays = 30, tz = "America/New_York"): FinanceSummary
+Rules:
+- Sum all money in integer cents (Math.round(x * 100)) and return dollars (cents / 100). Never add floats directly.
+- rowsFromHistory: skip voided records; total = amount + tax - credits (never below 0); balance = amountDue clamped to 0..total;
+  status = "paid" when balance is 0, "partly_paid" when 0 < balance < total, otherwise "unpaid"; customer = billTo;
+  jobType = workName; invoiceNo = sourceInvoiceId; source = "jobba".
+- rowsFromInvoices: skip status "draft" and "void"; total = the invoice's customer-facing total — use the existing helper the
+  invoice email uses (look in src/lib/billing/jobCustomerTotals.ts and jobInvoice.ts; write in your log which one you used);
+  balance = invoiceBalance(invoice) from src/lib/billing/customerPayments.ts; status from the balance as above;
+  customer = billTo.name; invoiceNo = invoiceId; jobId; source = "app". A kind "deposit" invoice is a normal row.
+- summarizeFinances: first filter by from/to (issuedAt, inclusive), customer (case-insensitive, exact), jobType (exact), status.
+  totals.invoiced = sum of total; totals.collected = sum of (total - balance); totals.outstanding = sum of balance;
+  daysLate = floor((now - issuedAt) / 86400000) - termsDays; totals.pastDue = sum of balance where daysLate > 0;
+  totals.pastDuePct = outstanding ? Math.round(pastDue / outstanding * 1000) / 10 : 0;
+  aging, only rows with balance > 0: daysLate <= 0 -> current; 1..30 -> d1_30; 31..60 -> d31_60; 61..90 -> d61_90; > 90 -> d90plus;
+  byMonth: the 12 calendar months ending with the month of `now`, in `tz` (Intl.DateTimeFormat with timeZone; key "YYYY-MM"), each
+  { month, invoiced, collected }; a month with no rows still appears with 0;
+  topOwing: group by customer, sum balance, keep > 0, sort descending, top 5, with the invoice count;
+  rows: the filtered rows, issuedAt descending; asOf = now; filters echoed back.
+- Tests, invented data only, at least 12: cents rounding (0.1 + 0.2), voided skipped, partly paid, paid, each aging edge (exactly
+  30 days late -> d1_30, 31 -> d31_60), termsDays 10 vs 30, empty input, customer filter case-insensitive, byMonth has 12 entries
+  with zeros, the top-5 cut-off, draft and void app invoices skipped, a deposit invoice counted like any other.
+
+PART 3 — payroll math, src/lib/payroll/summary.ts, signature as in the stub:
+  summarizePayroll(days: WorkerDay[], opts: { periodStart: string; periodEnd: string; rates?: Record<string, number>;
+  overtimeAfterWeeklyHours?: number }): PayrollSummary
+Rules: use only days with periodStart <= dayKey <= periodEnd (YYYY-MM-DD strings compare correctly as text). Hours for a day =
+(officeMs + the sum of jobs[*].ms) / 3600000. Group by workerKey. Overtime: per ISO week (Monday to Sunday, from dayKey), hours
+above overtimeAfterWeeklyHours (default 40) are overtime, the rest regular. days = number of days with hours > 0; jobs = number of
+distinct job ids in the period; flags (each at most once per person): "Missing clock-out" for anomaly missing_out, "Over 16 hours"
+for over_16h, "Overlapping punches" for overlap. hourlyRate = rates?.[workerKey]; estimatedGross only when a rate exists =
+regular * rate + overtime * rate * 1.5, rounded to cents; hours rounded to 2 decimals; people sorted by name; totals summed
+(totals.estimatedGross only when every person has a rate, otherwise leave it out). Tests, at least 8: a 45-hour week -> 40 + 5; two
+weeks; a day outside the period ignored; anomalies -> flags; rates and gross; no rates -> no gross; two workers sorted by name.
+
+PART 4 — the Jobba import (T-291). Two files plus tests.
+(a) scripts/lib/jobba-import.mjs — PURE functions only (no Firebase, no file system), plain JavaScript ES module with JSDoc types:
+  decodeCsvBuffer(buffer) -> string: strip a UTF-8 BOM; decode as UTF-8; if the text contains "\uFFFD", decode again with
+    new TextDecoder("windows-1252").
+  parseCsv(text) -> Array<Record<string,string>>: RFC 4180 (quoted fields, "" escapes, commas and newlines inside quotes, \r\n);
+    the first row gives the keys; trim the key names.
+  parseMoney("$1,250.00") -> 1250; "" -> 0; "($25.00)" -> -25.
+  parseUsDate("11/3/26", "America/New_York") -> milliseconds at 12:00 local time that day; 2-digit years -> 2000 + yy; 4-digit
+    years accepted; "" -> undefined.
+  normalizeName, digitsOnly, matchKey — copy EXACTLY from scripts/backfill-customers.mjs (same behaviour) with the comment
+    "keep in step with scripts/backfill-customers.mjs and src/lib/customers/resolve.ts".
+  mapCustomers(rows) -> [{ name, kind: "commercial", matchKey, status, sourceRef }] from customers.csv (columns Name, Status); skip
+    blank names; merge duplicates by matchKey.
+  mapProperties(rows) -> Map(matchKey of the Owner column -> [{ name, address, city, state, sourceRef }]) from properties.csv
+    (columns Property Address, Name, City, State, Owner); at most 500 per customer; also return how many were cut.
+  mapMaterials(rows) -> [{ name, unit: "each", unitPrice }] from material-items.csv (only Enabled == "Yes"; unitPrice =
+    parseMoney(Pkg Price), or Std Cost when Pkg Price is empty); dedupe by lower-case name. (LibraryMaterial has only name, unit,
+    unitPrice, starter — write nothing else.)
+  mapInvoiceHistory(rows, tz) -> objects shaped like InvoiceHistoryRecord (src/types/invoiceHistory.ts): id = "jobba-" + Invoice ID;
+    sourceInvoiceId; issuedAt = parseUsDate(Date); workName = Name; billTo = Bill To; amount, tax, credits, amountDue via
+    parseMoney; paidAt = parseUsDate(Paid); voided = (Voided === "Yes"); status as-is; source "jobba". (Customer matching happens
+    in the runner.)
+  mapInspections(rows, tz) -> [{ id: "jobba-" + ID, sourceId: ID, customerName: Customer, property: Property, address: Address,
+    city: City, state: State, zip: Zip, status: Status, jobType: Job Type, createdBy: Created By, dueAt: parseUsDate(Due),
+    source: "jobba" }].
+(b) scripts/import-jobba.mjs — the runner.
+  Usage: node scripts/import-jobba.mjs --business=<id> [--dir=<folder>] [--apply --confirm=<id>]
+  Default dir: client-resources/roofdoctors/02-data-export-jobba. Default mode: DRY RUN — read, map, match, print the report,
+  write nothing.
+  Safety: ALLOWED = ["roofdoctors"]; when the environment variable FIRESTORE_EMULATOR_HOST is set, ids starting with "e2e-" are
+  also allowed. Exit with code 1 and a clear message when: the id is not allowed; it starts with "demo-"; --apply is given
+  without --confirm equal to the same id; the business document doesn't exist. Never print credentials. Never send email or
+  texts. Never write to any business other than --business.
+  Firebase: when FIRESTORE_EMULATOR_HOST is set, initializeApp({ projectId: process.env.GCLOUD_PROJECT || "demo-e2e" }) with no
+  credentials; otherwise exactly the way scripts/backfill-customers.mjs does it (firebase-service-account.json in the repo root).
+  Writes, only with --apply, in batches of at most 400, idempotent (a second run adds nothing new):
+    customers — reuse an existing customer with the same matchKey; otherwise create one exactly the way backfill-customers.mjs
+      creates customers (the same id allocation from the business's customerCounter in a transaction, the same matchKey and
+      searchTokens fields, jobCount 0, active true); set properties (from mapProperties), source "jobba", importedAt. On an
+      existing customer only fill properties/source/importedAt when they are missing — never overwrite a field a person edited.
+    library materials — the list lives in businesses/{id}/library/pricing, field "materials" (see
+      src/app/api/company/library/route.ts); append only names that are not already there (case-insensitive); never remove or
+      change existing items.
+    businesses/{id}/invoiceHistory/{record.id} — set with merge; add customerId when billTo matches a customer's matchKey.
+    businesses/{id}/jobHistory/{record.id} — set with merge; add customerId when the Customer column matches.
+  Report — always printed, and also written to <dir>/../05-crm-import/import-run-<YYYYMMDD-HHmm>.md: rows read per file; customers to
+  create / already present; properties attached / cut by the 500 cap; materials to add / skipped as duplicates; invoices and
+  inspections with / without a matched customer; any "\uFFFD" left after decoding (a count). The console shows counts only — no
+  names, addresses or amounts.
+(c) src/lib/import/__tests__/jobba-import.test.ts — imports from "../../../../scripts/lib/jobba-import.mjs". Invented CSV strings
+  only (make up names like "Seagrass Property Group"). At least 15 tests: BOM; quoted comma; quoted newline; "" escape; the
+  windows-1252 fallback (a Buffer containing byte 0x92); money with $, commas, parentheses and empty; dates with 2- and 4-digit
+  years and empty; matchKey for 3 names equals what backfill-customers.mjs would produce (work the expected strings out by reading
+  its code); duplicate customers merged; the 500 cap; disabled materials skipped; voided invoice mapping; inspection mapping.
+Do NOT run scripts/import-jobba.mjs at all. Claude runs it.
+
+PART 5 — wrap up: append one docs/IMPLEMENTATION_LOG.md entry per part, plain ASCII only (no em dashes, no arrows, no curly quotes),
+append only, never edit an older line. In TODO.md set rows T-303 and T-291 to "review" and add "(K3 math done)" to T-294 and T-285.
+Final message: a commit table (hash, part, one line), the exact test counts, which totals helper you used in Part 2, anything you
+could not do, and QUESTION FOR INTEGRATOR if any.
+
+CHECKS after every part (nothing heavier):
+  npx tsc --noEmit
+  npx eslint <the files you changed>
+  npx vitest run <your test files>
+Do NOT run Playwright, npm run e2e:*, next build or the full test suite.
+
+RULES (from docs/ROOFDOCTORS-DEMO-PLAN.md §10): your files only; no new dependencies; no secrets in code or output; real client data
+(names, addresses, amounts from client-resources/) never goes into a file in the repo or into a test; money in integer cents; existing
+behaviour stays identical (all existing tests stay green without edits).
+```
+
+### K addendum — owner approval 2026-11-04 (evening): extra tasks per stream
+
+Plan §16. Claude launches every session itself (no pasted prompts): K1 = `codex exec -m gpt-6.1-sol` (effort high),
+K2 = `codex exec -m gpt-6.1-terra` (effort medium, started after K1 to stay inside the ChatGPT usage limit), K3 =
+`kilo run -m deepseek/deepseek-flash --variant high` (DeepSeek V4.1 Flash, Thinking: Hard). Each session gets its prompt above
+**plus** the block for its stream below, appended at the end. Do these AFTER the stream's numbered tasks, one commit each.
+
+**K1 addendum (append to the K1 prompt):**
+```
+EXTRA TASKS (owner, 2026-11-04) — after task 8 and before the T-252 stretch, one commit each, inside YOUR files only.
+You may ALSO edit: src/types/jobs.ts (additive optional fields only) and src/lib/billing/customerPayments.ts (receipt email
+SUBJECT/preheader text only — no money logic).
+
+9. T-257 — document-suite UX in one pass (TODO.md row T-257; read it). Findings: ONE "Add finding" button that opens the
+   picker; the "something not in the library" form (what was found, work to perform, optional price) sits at the TOP of that
+   picker with ONE save button (remove the separate block at the bottom of the tab — this is the same feature moved, not a
+   feature removed). One customer-version card, the same on Quote, Report and Invoice, placed just under the
+   Findings · Quote · Report · Invoice tabs and above the document: it holds your new Layout choice (T-304b/c), the letterhead
+   pick (T-304e), the price options and the editable intro text. Replace the Report's separate dropdown with that card; no
+   second "what the customer sees" block further down. Price options, each with a one-line explanation under it: Itemized ·
+   Bundle materials · Bundle labor · Bundle everything · Project price. Project price says how tax is handled in one line
+   ("Tax is added at <rate>% from Settings" or "All-in price, tax included" — whichever the code actually does). No option
+   that exists today may disappear.
+
+10. T-259 (1)+(2) — plain customer email subjects for the quote, report, invoice and payment receipt emails, e.g.
+   "Your quote from <business> — <job title> (Q-1009)", "Your invoice from <business> — INV-1234, due <date>",
+   "Your <job title> report from <business>"; a short branded preheader line. Show "Job J-1012" next to the quote number on
+   the quote (app, email, print) so Q-1009 is never mistaken for J-1009. Not the appointment confirmation email (not yours).
+   Every value escaped; subject lines plain text, at most ~90 characters (cut the job title, never the number).
+
+11. T-255 — several email addresses per document send. The quote / report / invoice / receipt send boxes accept several
+   addresses ("+ Add email" or comma-separated), each validated, at most 5; the send routes accept `to: string[]` (keep the
+   old single `to: string` working) and send one email per address through the existing send helper (so the evaluation
+   guard and logging apply to each); the addresses are remembered on the job as `documentRecipients?: string[]` (additive
+   field in src/types/jobs.ts) and pre-filled next time. Route tests: 6 addresses → 400; one bad address → 400 naming it;
+   the old single-string body still works.
+```
+
+**K2 addendum (append to the K2 prompt):**
+```
+EXTRA TASK (owner, 2026-11-04) — after task 11 and before the e2e spec (add its check to the spec), one commit.
+You may ALSO edit: src/app/company/dashboard/** (and the dashboard's own API route if it has one — name it in your report).
+
+12a. T-250 — Dashboard clarity (TODO.md row T-250; read it). "Needs attention" lists only: urgent/emergency requests,
+   callback requested, or a new request waiting more than 4 hours (one named constant). Each row has a one-line reason in
+   words ("Caller asked for a call back", "Waiting 6 h"), not just a red colour. Everything else stays reachable where it is
+   today (Pipeline) — nothing is removed. The "Get your business ready — 6 of 7" card names the remaining step on the card
+   itself ("Next: add your crews") without expanding. Test the narrowed rule with a unit test.
+```
+
+**K3 addendum (append to the K3 prompt):**
+```
+PART 6 — three small wording fixes (owner, 2026-11-04). Do this ONLY after Parts 1-5 are committed. One commit for all three.
+You may ALSO edit exactly these files and nothing else: src/app/company/calls/page.tsx,
+src/app/company/library/WorkCatalogSection.tsx (+ its existing test), src/app/company/team/page.tsx (+ its existing test).
+WORDING ONLY: change visible text, add a short hint line or a title/aria-label. Do not change logic, data fetching, routes,
+state, layout structure or styles beyond adding one small hint line.
+a) T-251, Calls page: next to "Open callback" add the hint "Opens the request from a caller who asked to be called back".
+   On the outbound "Call back" button add the hint "Places a real call from your AI line (billed per minute)".
+b) T-253 (1), Library -> work catalog: where a severity like "medium" shows, label it "Severity: medium"; where "starter"
+   shows, change it to "Example price - replace with your own" (or add that as the hint).
+c) T-270 (1), Team page: the remove button reads "Remove access"; its confirm text says "They can't sign in any more. Their
+   history is kept and their field links stop working."
+Run: npx tsc --noEmit, npx eslint on the three files, npx vitest related on the three files --run. Fix any test that
+asserted the OLD text by updating that string only.
+```
