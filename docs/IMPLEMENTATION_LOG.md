@@ -2148,3 +2148,13 @@ that business has outboundEmailAllowlist, only listed addresses receive mail, ev
 src/lib/comms/evaluationGuard.ts (new) + tests, src/lib/comms/send.ts, src/lib/notify.ts, and the 20 call sites (jobs
 quote/invoice/report/payments send, appointments, leads, field link, reminders, agent tools, team invites; Luxor/admin/
 alert mail passes null). Missing allowlist = unchanged behaviour for every other client.
+
+## K3 Roof Doctors work (2026-11-04)
+
+- Part 1, T-303, e2c232c: Added descriptive role titles, presets and landings. TypeScript and lint passed; 11 tests passed. No removals.
+- Part 2, T-294, 6fa7575: Added finance calculations using customerTotals and invoiceBalance. TypeScript and lint passed; 17 tests passed. No removals.
+- Part 3, T-285, 53fadd3: Added payroll calculations. TypeScript and lint passed; 9 tests passed. No removals.
+- Part 4, T-291, 9603527: Added import mappings and guarded runner. TypeScript and 19 tests passed; ESLint ignored the scripts. Runner not executed. No removals.
+- Part 5: Updated K3 review and math status in TODO. No removals.
+
+- Part 6 WIP: Added callback and catalog hints. TypeScript passed; lint has one existing calls hook warning. Related tests failed twice: Team role options test expects the pre-T-303 list. Outbound button is in an unowned shared dialog; Team has Disable access rather than a remove action. No removals.

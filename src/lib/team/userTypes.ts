@@ -4,7 +4,7 @@
 // new is stored, so existing members keep working and the server's checks are unchanged.
 import type { TeamRole, TradeTitle } from "@/types/team";
 
-export type UserType = "admin" | "office" | "inspector" | "foreman" | "technician" | "viewer";
+export type UserType = "admin" | "office" | "inspector" | "foreman" | "technician" | "viewer" | "manager" | "supervisor" | "office_admin" | "front_desk";
 
 export interface UserTypeDef {
   id: UserType;
@@ -20,8 +20,16 @@ export interface UserTypeDef {
 export const USER_TYPES: UserTypeDef[] = [
   { id: "admin", label: "Admin", role: "owner", field: false,
     help: "Everything, including the Team page (adding people and changing their role) and Settings." },
+  { id: "manager", label: "Management", role: "owner", trade: "manager", field: false,
+    help: "Same access as Admin (team, settings, money). The title just says they manage, not own." },
   { id: "office", label: "Office staff", role: "staff", trade: "office", field: false,
     help: "The office: Pipeline, Calendar, jobs, quotes and invoices. Can also use the Field screen. Can't manage the team." },
+  { id: "supervisor", label: "Supervisor", role: "staff", trade: "supervisor", field: false,
+    help: "Office access, opens on Jobs: schedules work, writes quotes and reports. Can't manage the team." },
+  { id: "office_admin", label: "Office admin", role: "staff", trade: "office_admin", field: false,
+    help: "Office access: requests, calendar, customers, invoices and payments. Can't manage the team." },
+  { id: "front_desk", label: "Front desk", role: "staff", trade: "front_desk", field: false,
+    help: "Office access, opens on Pipeline: answers requests and books visits. Can't manage the team." },
   { id: "inspector", label: "Inspector", role: "crew", trade: "inspector", field: true,
     help: "Opens on the Field screen with their own schedule: their inspections, blocking time, findings with comments, photos and notes. No prices or invoices." },
   // Owner, 2026-10-04: "really only the foremen will use the voice input, but the crews should still be able to
@@ -51,8 +59,8 @@ export function userTypesFor(hasField: boolean): UserTypeDef[] {
  */
 export function userTypeOf(member: { role: TeamRole | string | undefined; trade?: TradeTitle | string | null }): UserType {
   switch (member.role) {
-    case "owner": return "admin";
-    case "staff": return "office";
+    case "owner": return member.trade === "manager" ? "manager" : "admin";
+    case "staff": return member.trade === "supervisor" || member.trade === "office_admin" || member.trade === "front_desk" ? member.trade : "office";
     case "crew": return member.trade === "inspector" ? "inspector" : member.trade === "foreman" ? "foreman" : "technician";
     // "viewer" — and anything unexpected on an old or hand-made member doc (e.g. role "superadmin") — reads as the
     // least-privileged type. It must never crash the Team page (2026-09-28: it did, on the harness superadmin's row).
@@ -66,6 +74,7 @@ export function userTypeOf(member: { role: TeamRole | string | undefined; trade?
  */
 export function fieldsForUserType(id: UserType, currentTrade?: TradeTitle | null): { role: TeamRole; trade: TradeTitle | null } {
   const def = userTypeDef(id);
+  if (id === "manager" || id === "supervisor" || id === "office_admin" || id === "front_desk") return { role: def.role, trade: def.trade ?? null };
   if (def.role === "crew") return { role: def.role, trade: def.trade ?? null };
   if (def.role === "staff") return { role: def.role, trade: currentTrade && currentTrade !== "inspector" && currentTrade !== "technician" ? currentTrade : def.trade ?? null };
   return { role: def.role, trade: currentTrade ?? null };
@@ -81,6 +90,7 @@ export function parseUserType(value: string | undefined): UserType | null {
     foreman: "foreman", lead: "foreman", crewlead: "foreman",
     technician: "technician", tech: "technician", crew: "technician", field: "technician",
     viewer: "viewer", viewonly: "viewer",
+    manager: "manager", management: "manager", supervisor: "supervisor", officeadmin: "office_admin", frontdesk: "front_desk",
   };
   return aliases[key] ?? null;
 }

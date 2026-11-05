@@ -31,3 +31,12 @@ describe("defaultLandingPath", () => {
     expect(defaultLandingPath({ role: "staff", trade: "foreman" }, ["jobs"])).toBe("/company/dashboard");
   });
 });
+
+it("lands new office titles on their screens with module fallbacks", () => {
+  expect(defaultLandingPath({ trade: "front_desk" }, [])).toBe("/company/pipeline");
+  expect(defaultLandingPath({ trade: "front_desk" }, ["calls"])).toBe("/company/dashboard");
+  expect(defaultLandingPath({ trade: "supervisor" }, [])).toBe("/company/jobs");
+  expect(defaultLandingPath({ trade: "supervisor" }, ["jobs"])).toBe("/company/dashboard");
+  expect(defaultLandingPath({ trade: "manager" }, [])).toBe("/company/dashboard");
+  expect(defaultLandingPath({ trade: "office_admin" }, [])).toBe("/company/dashboard");
+});

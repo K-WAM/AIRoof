@@ -443,7 +443,7 @@ export default function CompanyCallsPage() {
                     ) : <span style={{ fontWeight: 700 }}>Not booked</span>}
                     {selectedLead?.escalated && <span className="tag urgent" title="The AI escalated this call as an emergency">Escalated</span>}
                     {leadHref && (
-                      <Link className="button small" href={leadHref} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <Link className="button small" href={leadHref} title="Opens the request from a caller who asked to be called back" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         Open callback <ArrowRight size={13} />
                       </Link>
                     )}
