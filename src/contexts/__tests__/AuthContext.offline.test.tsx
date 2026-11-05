@@ -33,19 +33,24 @@ describe("offline identity across sign-out", () => {
   });
   it("cannot restore the old offline identity when its profile response finishes after sign-out", async () => {
     mocks.auth.currentUser = account("a");
-    let resolve!: (response: Response) => void;
-    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(done => { resolve = done; })));
+    // Sign-out now also asks the server to clear the HttpOnly cookies, so the profile fetch is not the only
+    // call: resolve that one by its own position instead of whichever call happened last.
+    const resolvers: Array<(response: Response) => void> = [];
+    const mockFetch = vi.fn(() => new Promise<Response>(done => { resolvers.push(done); }));
+    vi.stubGlobal("fetch", mockFetch);
     render(<AuthProvider><div /></AuthProvider>);
     await waitFor(() => expect(mocks.listener).not.toBeNull());
     const pending = mocks.listener!(mocks.auth.currentUser);
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledOnce());
     mocks.auth.currentUser = null;
     await act(async () => {
       await mocks.listener!(null);
-      resolve(Response.json({ profile: { businessId: "biz", role: "crew" } }));
+      resolvers[0](Response.json({ profile: { businessId: "biz", role: "crew" } }));
       await pending;
     });
     expect(offlineIdentity()).toBeNull();
     expect(mocks.clear).toHaveBeenCalledExactlyOnceWith("a");
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[1]).toEqual(["/api/auth/session", { method: "DELETE", credentials: "same-origin", keepalive: true }]);
   });
 });

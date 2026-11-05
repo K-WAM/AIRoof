@@ -1,5 +1,6 @@
 "use client";
 
+import { ViewAsMenu } from "@/components/admin/ViewAsMenu";
 import { productSummary } from "@/lib/products/products";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -290,7 +291,7 @@ export default function AdminBusinessesPage() {
                           <span className="cell-note">Not set up</span>
                         )}
                       </td>
-                      <td data-label="Actions" style={{ display: "flex", gap: "var(--sp-1)" }} onClick={(e) => e.stopPropagation()}>
+                      <td data-label="Actions" style={{ display: "flex", flexWrap: "wrap", gap: "var(--sp-1)" }} onClick={(e) => e.stopPropagation()}>
                         <Link
                           href={`/admin/businesses/${row.businessId}/config`}
                           className="button"
@@ -299,6 +300,7 @@ export default function AdminBusinessesPage() {
                           <Pencil size={13} strokeWidth={1.75} />
                           Edit
                         </Link>
+                        <ViewAsMenu businessId={row.businessId} businessName={row.businessName} />
                         <a
                           href={`/company/dashboard?preview=${row.businessId}`}
                           target="_blank"

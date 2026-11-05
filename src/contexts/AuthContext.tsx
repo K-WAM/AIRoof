@@ -12,7 +12,10 @@ import { installSessionRetry, safeExpiry, writeSessionCookie } from "@/lib/auth/
 /** Refresh the ID token this long before it expires. */
 const REFRESH_AHEAD_MS = 5 * 60_000;
 
+import type { ViewAsProfile } from "@/lib/auth/viewAsTypes";
+
 interface AuthUser {
+  viewAs?: ViewAsProfile;
   uid: string;
   email: string | null;
   businessId?: string;
@@ -104,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIdToken(null);
           setLoading(false);
           clearCachedProfile();
+          void fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin", keepalive: true }).catch(() => {});
           document.cookie = "__session=; path=/; max-age=0; SameSite=Lax";
           return;
         }
@@ -116,9 +120,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // its first paint on the token + Firestore round trip below — this is
         // a read-path UX cache only (see profileCache.ts), so it's always safe
         // to render optimistically while the real values are re-verified.
-        const cached = readCachedProfile<AuthUser>(firebaseUser.uid);
+        const saved = readCachedProfile<AuthUser>(firebaseUser.uid);
+        // A cookie can change in another tab. Never paint a stale platform/view-as profile before verification.
+        const cached = saved?.superadmin || saved?.viewAs ? null : saved;
         if (cached) {
-          setOfflineIdentity({ uid: cached.uid, businessId: cached.businessId, preview: cached.superadmin || cached.role === "superadmin" });
+          setOfflineIdentity({ uid: cached.uid, businessId: cached.businessId, preview: !!cached.viewAs || cached.superadmin || cached.role === "superadmin" });
           setUser(cached);
           setLoading(false);
         }
@@ -145,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // /api/auth/profile) — the cookie set just above authenticates it,
           // and this is the last call site that pulled @firebase/firestore
           // into the client bundle on every authenticated page.
-          const res = await fetch("/api/auth/profile", { credentials: "same-origin" }).catch(() => null);
+          const res = await fetch(window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/hub") ? "/api/auth/profile?context=admin" : "/api/auth/profile", { credentials: "same-origin", cache: "no-store" }).catch(() => null);
           if (res?.ok) {
             const data = (await res.json().catch(() => null))?.profile;
             if (data) profile = { ...profile, ...data };
@@ -156,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // role change within one cycle instead of sticking on a stale value.
           if (cancelled || generation !== authRevision || auth.currentUser?.uid !== firebaseUser.uid) return;
           if (!res && cached) profile = cached;
-          setOfflineIdentity({ uid: profile.uid, businessId: profile.businessId, preview: profile.superadmin || profile.role === "superadmin" });
+          setOfflineIdentity({ uid: profile.uid, businessId: profile.businessId, preview: !!profile.viewAs || profile.superadmin || profile.role === "superadmin" });
           setUser(profile);
           writeCachedProfile(profile);
         } catch (err) {
@@ -181,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setAnalyticsUser(user);
+    setAnalyticsUser(user?.viewAs ? null : user);
   }, [user]);
   useEffect(() => () => setAnalyticsUser(null), []);
 

@@ -1,3 +1,4 @@
+import { resolveViewAs, VIEW_AS_READ_ONLY, type ViewAsSession } from "@/lib/auth/viewAs";
 import { productForApiPath, productLabel } from "@/lib/products/products";
 import { loadProducts } from "@/lib/products/productCache";
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
@@ -21,6 +22,7 @@ export interface VerifiedUser {
   trade?: string;
   displayName?: string;
   crewId?: string;
+  viewAs?: true;
 }
 
 export const FIELD_ACCESS_COOKIE = "__field_access";
@@ -454,6 +456,21 @@ async function loadCachedMember(
   return member;
 }
 
+// A view-as session is read-only from the moment it exists: no method that can change data or contact a customer
+// may run in it. This is the error every guard returns, so the app's normal error notice shows the same words.
+function viewAsReadOnly() {
+  return { error: NextResponse.json({ code: "view_as_read_only", error: VIEW_AS_READ_ONLY }, { status: 403, headers: { "Cache-Control": "private, no-store" } }) };
+}
+
+// Admin routes retain platform authority. A company projection carries the REAL actor uid,
+// but superadmin=false so every existing role, crew and product check treats it as a member.
+function viewAsGate(req: NextRequest, session: ViewAsSession, uid: string, allowedRoles: AllowedRole[]) {
+  if (req.method !== "GET" && req.method !== "HEAD") return viewAsReadOnly();
+  if (!allowedRoles.includes(session.role)) return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  return { user: { uid, superadmin: false, viewAs: true, role: session.role, businessId: session.businessId,
+    trade: session.trade, crewId: session.crewId, displayName: session.label } satisfies VerifiedUser };
+}
+
 export async function verifyAuthAndRole(
   req: NextRequest,
   businessId: string,
@@ -503,6 +520,14 @@ async function verifyAuthAndRoleInner(
   if (decoded.superadmin === true) {
     if (!(await confirmSuperadminClaim(decoded))) {
       return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    }
+    if (!req.nextUrl.pathname.startsWith("/api/admin/")) {
+      const viewed = await resolveViewAs(req, decoded);
+      if (viewed && businessId === viewed.businessId) return viewAsGate(req, viewed, decoded.uid, allowedRoles);
+      // Platform-only routes (verifySuperadmin passes businessId "") have no tenant boundary to compare, but
+      // /api/tools/execute and the agent test endpoints can book or contact a customer. A write from a view-as
+      // tab must never be allowed to do that.
+      if (viewed && !businessId && req.method !== "GET" && req.method !== "HEAD") return viewAsReadOnly();
     }
     return { user: { uid: decoded.uid, email: decoded.email, superadmin: true } };
   }
@@ -570,6 +595,10 @@ async function verifyOwnBusinessRoleInner(
     return { error: NextResponse.json({ error: "Invalid session" }, { status: 401 }) };
   }
   if (decoded.superadmin === true) {
+    if (!req.nextUrl.pathname.startsWith("/api/admin/")) {
+      const viewed = await resolveViewAs(req, decoded);
+      if (viewed) return viewAsGate(req, viewed, decoded.uid, allowedRoles);
+    }
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
@@ -642,6 +671,15 @@ async function verifyFieldAccessInner(
 ): Promise<{ user: VerifiedUser } | { error: NextResponse<{ error: string }> }> {
   if (!businessId) {
     return { error: NextResponse.json({ error: "businessId required" }, { status: 400 }) };
+  }
+
+  // A field grant (including an offline-owner header) cannot bypass a view-as denial.
+  if (req.cookies.get("__viewas")?.value && req.cookies.get("__session")?.value && !req.nextUrl.pathname.startsWith("/api/admin/")) {
+    const decoded = await verifyIdToken(req.cookies.get("__session")!.value);
+    const viewed = decoded ? await resolveViewAs(req, decoded) : null;
+    if (viewed && viewed.businessId === businessId) {
+      return viewAsGate(req, viewed, decoded!.uid, options?.write ? ["owner", "staff", "crew"] : ["owner", "staff", "crew", "viewer"]);
+    }
   }
 
   // Path 1: session (owner/staff/crew/viewer of this business, or superadmin). "crew" (T-150) is a field-only

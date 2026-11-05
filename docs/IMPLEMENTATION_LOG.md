@@ -2545,3 +2545,47 @@ src/lib/companies/companies.ts, so a single-/no-company business keeps today's s
 Validation: npx tsc --noEmit passed; eslint on every changed file passed (0 errors); vitest related per
 step passed. No new dependencies, no live services, no push/merge/deploy, no edits outside this worktree.
 
+## 2026-11-05 - T-318: View as (DeepSeek, branch task/view-as)
+
+Finishes the WIP commit left by Codex (1785925). The design is mandatory: a server-side projection,
+never impersonation, and read-only for the whole session.
+- Start: POST /api/admin/view-as requires the live superadmin claim, an existing tenant, and either one
+  of the six user-type presets or an active member of that tenant (never the platform account, never the
+  caller). Writes viewAsSessions/{256-bit base64url id} and the audited adminAuditEvents entry in one
+  transaction, sets __viewas (HttpOnly, SameSite=Strict, Path=/, Secure outside development,
+  Max-Age=3600), and returns the role's landingPath. GET /api/admin/view-as returns only allowed
+  presets and active member labels (no emails).
+- End: DELETE marks endedAt (idempotent, works after expiry), evicts the 30 s cache entry and clears the
+  cookie. Sign-out clears __viewas through DELETE /api/auth/session; the banner also ends the record on
+  expiry.
+- Resolver: src/lib/auth/viewAs.ts accepts a session only when the cookie id resolves to a document, the
+  document's uid is the caller, the caller is still a confirmed superadmin, endedAt is null and now is
+  before expiresAt. Missing database/identity/expiry all resolve to no projection. Cache is per instance,
+  30 s, bounded.
+- Guards: verifyAuthAndRole, verifyOwnBusinessRole and verifyFieldAccess evaluate the viewed role, trade
+  and crewId (superadmin=false, real uid, viewAs=true) for the session's tenant; enforceProduct applies
+  normally. Every non-GET/HEAD returns 403 { code: "view_as_read_only", error: "View as is read-only.
+  Exit to make changes." }. Platform-only superadmin routes (agent tests, /api/tools/execute) also refuse
+  writes so a view-as tab can never contact a customer. Other tenants and /api/admin keep today's
+  superadmin behaviour.
+- Profile: during view-as /api/auth/profile returns the viewed role/trade/crewId/businessId, email null,
+  businessName and viewAs { label, businessId, businessName, expiresAt }, never a token or the member's
+  email. Admin and hub tabs pass ?context=admin and keep the real platform profile.
+- UI: Admin > Clients gets a per-client View as menu (six allowed presets plus active members). The
+  company shell mounts one in-flow banner above the header with the label, business name, read-only
+  notice and Exit. Feedback is hidden in the nav and the guide; analytics and offline write replay skip
+  a view-as profile.
+- Firestore: viewAsSessions is explicitly server-only; tests/rules/firestore.rules.test.ts now proves
+  even a superadmin-claim client SDK cannot read, mint or delete one.
+- Tests: src/lib/auth/__tests__/viewAs.test.ts covers wrong/other uid, expired, ended, missing doc,
+  non-superadmin holder, cache/expiry, all non-GET methods, crew/office/product/different-tenant cases,
+  start/end validation, audit, cookie flags, sign-out, profile and the rules text. Route-guard and
+  tenant-isolation inventories pass unchanged. e2e/view-as.spec.ts (desktop and phone) was written and
+  deliberately NOT run.
+- Evidence: npx tsc --noEmit passed; eslint on changed files passed with 0 errors (one pre-existing
+  unused-import warning in src/app/company/layout.tsx); targeted vitest runs passed; full run recorded in
+  the integrator handoff.
+- Scope: no edits to admin config/overview/usage, companies, finance/billing/usage, booking or scheduling
+  code, or TODO.md. No .env or client-resources files read; no live service called; nothing pushed,
+  merged or deployed. Removals: none.
+

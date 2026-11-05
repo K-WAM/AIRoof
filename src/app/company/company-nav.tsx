@@ -54,7 +54,7 @@ export function CompanyNav({ onOpenFeedback }: { onOpenFeedback?: () => void } =
     isLocked,
     vocab,
     showcase,
-  }).filter((link) => link.path !== "feedback" || (!loading && !!user));
+  }).filter((link) => link.path !== "feedback" || (!loading && !!user && !user.viewAs));
 
   return (
     <nav className="company-nav" aria-label="Company navigation">
