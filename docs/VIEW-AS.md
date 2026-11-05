@@ -25,7 +25,10 @@ in JSON, profile data or audit records.
 
 Central role, own-business, field and product guards enforce the viewed member's
 permissions for the selected tenant. A field cookie cannot bypass the read-only
-gate. Other tenants and /api/admin retain existing superadmin behavior. Start and
-end are audited under the real platform uid. Sign-out also clears the HttpOnly
-cookie through the server. Firestore rules deny all client access to sessions,
-including client SDKs holding a superadmin claim.
+gate. Other tenants and /api/admin retain existing superadmin behavior, so the
+Admin pages keep working in another tab. Platform-only routes that can act on a
+customer (/api/tools/execute and the agent test endpoints) also refuse writes
+during a view-as session. Start and end are audited under the real platform uid.
+Sign-out also clears the HttpOnly cookie through the server. Firestore rules
+deny all client access to sessions, including client SDKs holding a superadmin
+claim.

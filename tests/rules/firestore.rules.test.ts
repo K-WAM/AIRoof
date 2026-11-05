@@ -101,6 +101,7 @@ async function seed() {
     ["businesses/biz-a/customerKeys/k1", { customerId: "C-1000" }],
     ["businesses/biz-a/phoneBookingGuards/call-a", { appointmentId: "original" }],
     ["businesses/biz-a/usageMonths/2026-10", { voiceNotes: 3 }],
+    ["viewAsSessions/session-a", { uid: "real-admin", businessId: "biz-a", role: "staff" }],
   ];
   for (const [path, data] of docs) expect(await write(path, data, "owner")).toBe(ALLOWED);
 }
@@ -218,5 +219,14 @@ it("keeps transactional phone booking guards server-only", async () => {
     expect(await read(path, auth)).toBe(DENIED);
     expect(await write(path, { appointmentId: "new" }, auth)).toBe(DENIED);
     expect(await remove(path, auth)).toBe(DENIED);
+  }
+});
+
+it("keeps view-as sessions server-only, including from a client SDK holding the superadmin claim", async () => {
+  // The cookie id is a bearer credential and the role projection is trust-sensitive: no browser may see or mint one.
+  for (const auth of [null, ownerA, staleFlag, { uid: "trial-active" }, realAdmin]) {
+    expect(await read("viewAsSessions/session-a", auth)).toBe(DENIED);
+    expect(await write("viewAsSessions/session-b", { uid: "real-admin", businessId: "biz-a", role: "owner" }, auth)).toBe(DENIED);
+    expect(await remove("viewAsSessions/session-a", auth)).toBe(DENIED);
   }
 });
