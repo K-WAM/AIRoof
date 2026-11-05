@@ -66,7 +66,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const storedBusiness = bizDoc.exists ? bizDoc.data()! : {};
-  const biz = documentLetterhead(storedBusiness, await loadDocumentCompany(db, businessId, storedBusiness, invoice, job), (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
+  const resolvedCompany = await loadDocumentCompany(db, businessId, storedBusiness, invoice, job);
+  const biz = documentLetterhead(storedBusiness, resolvedCompany, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
+  // A company has to say how a customer pays IT. Without either field there is nothing safe to print, so refuse
+  // instead of falling back to another company's (or the business's) bank account.
+  if (resolvedCompany && !biz.billingPrefs?.payInstructions?.trim() && !biz.billingPrefs?.payLink?.trim()) {
+    return NextResponse.json({ error: `Add ${resolvedCompany.shortName}'s payment details first (Library → Branding).` }, { status: 409 });
+  }
   // Prepare the claimed link for delivery; it becomes payable only after finalization marks it sent.
   const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
   const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;

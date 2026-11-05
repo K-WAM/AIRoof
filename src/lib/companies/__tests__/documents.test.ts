@@ -15,6 +15,8 @@ import { resolveDocumentCompany } from "../companies";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
 import { buildJobReportEmailHtml } from "@/lib/billing/jobReportEmailHtml";
+import { staleCompanyName } from "../documentCopy";
+import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 const mocks=vi.hoisted(()=>({send:vi.fn()}));let db:ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin",()=>({getAdminFirestore:()=>db}));
 vi.mock("@/lib/auth/verifyRole",()=>({verifyAuthAndRole:async()=>({user:{uid:"owner",businessId:"biz"}}),verifyOwnBusinessRole:async()=>({user:{uid:"owner",businessId:"biz"}})}));
@@ -41,6 +43,13 @@ it.each([undefined,[a],[a,b]])("sends all document kinds under the resolved comp
   const report=db.__peek("businesses/biz/jobs","j")?.reportDocument as {companyId?:string;sentAt?:number};expect(report.companyId).toBe(multi?"rcu":undefined);expect(!!report.sentAt).toBe(multi);
   for(const kind of ["invoice","quote","report"]) expect((await switchDocument(req({kind,companyId:"rdsf"}),ctx)).status).toBe(multi?409:200);
 });
+it("switching a deposit's company uses the posted deposit invoice id, not the job's standard invoice",async()=>{
+  seed([a,b]);
+  db.__seed("businesses/biz/invoices","INV-2",{invoiceId:"INV-2",businessId:"biz",jobId:"j",kind:"deposit",status:"draft",billTo:{name:"School"},labor:[],materials:[],other:[{lineId:"deposit",description:"Deposit",amount:50}],taxRate:0,subtotal:50,total:50,createdAt:1,updatedAt:1});
+  expect((await switchDocument(req({kind:"deposit",companyId:"rdsf",invoiceId:"INV-2"}),ctx)).status).toBe(200);
+  expect(db.__peek("businesses/biz/invoices","INV-2")?.companyId).toBe("rdsf");
+  expect(db.__peek("businesses/biz/invoices","INV-1")?.companyId).toBeUndefined();
+});
 it.each([invoiceSend,quoteSend,reportSend])("a failed delivery leaves a draft following the job",async handler=>{
   seed([a,b]);mocks.send.mockResolvedValue({status:"failed"});expect((await handler(req(),ctx)).status).toBe(502);
   expect(db.__peek("businesses/biz/invoices","INV-1")?.companyId).toBeUndefined();expect(db.__peek("businesses/biz/quotes","Q-1")?.companyId).toBeUndefined();expect((db.__peek("businesses/biz/jobs","j")?.reportDocument as {companyId?:string}).companyId).toBeUndefined();
@@ -65,6 +74,41 @@ it.each(["proposal", "tm_authorization", "inspection_completion", "repair_comple
   if(report) await db.collection("businesses/biz/jobs").doc("j").update({reportDocument:{layout}});
   else await db.collection("businesses/biz/quotes").doc("Q-1").update({layout});
   expect((await (report?reportSend:quoteSend)(req(),ctx)).status).toBe(200);const email=mocks.send.mock.calls[0][0];expect(email.html).toContain("Concepts &lt;Unlimited&gt;");expect(email.html).toContain("RCU-123");expect(email.fromName).toBe(b.name);
+});
+it("a company switch regenerates generated invoice text, keeps edited text, and the email names only the new company",async()=>{
+  seed([a,b]);
+  await db.collection("businesses/biz/jobs").doc("j").update({invoiceId:undefined,address:"12 Palm Way",clientName:"School"});
+  db.__seed("businesses/biz/documentTemplates","invoice_opening",{kind:"invoice_opening",title:"Opening",sections:[{id:"opening",body:"{{business.name}} completed the work."}],updatedAt:1});
+  const created=await createInvoice(req(),ctx);expect(created.status).toBe(201);const invoiceId=(await created.json()).invoice.invoiceId as string;
+  await db.collection("businesses/biz/invoices").doc(invoiceId).update({other:[{lineId:"work",description:"Repair",amount:100}],subtotal:100,total:100});
+  const invoice=db.__peek("businesses/biz/invoices",invoiceId)!;
+  expect(invoice.opening).toContain(b.name);expect(invoice.thankYou).toContain(b.name);
+  expect((await switchDocument(req({kind:"invoice",companyId:"rdsf"}),ctx)).status).toBe(200);
+  const switched=db.__peek("businesses/biz/invoices",invoiceId)!;
+  expect(switched.opening).toContain(a.name);expect(switched.opening).not.toContain(b.name);
+  expect(String(switched.thankYou)).toContain(a.name);expect(String(switched.thankYou)).not.toContain(b.name);
+  mocks.send.mockClear();expect((await invoiceSend(req(),ctx)).status).toBe(200);const html=mocks.send.mock.calls[0][0].html;
+  expect(html).toContain(a.name);expect(html).toContain("South bank");expect(html).not.toContain("Concepts &lt;Unlimited&gt;");expect(html).not.toContain("RCU bank");
+});
+it("a company switch regenerates the quote intro that still equals the generated default",async()=>{
+  seed([a,b]);db.__seed("businesses/biz/quotes","Q-1",{quoteId:"Q-1",businessId:"biz",jobId:"j",status:"draft",billTo:{name:"School"},findings:[{findingId:"f",problem:"Leak",solution:"Repair",includeInQuote:true}],lines:[{lineId:"work",kind:"other",description:"Repair",quantity:1,unitPrice:100}],subtotal:100,total:100,validUntil:Date.now()+86400000,createdAt:1,updatedAt:1});
+  const job=db.__peek("businesses/biz/jobs","j")!;const quote=db.__peek("businesses/biz/quotes","Q-1")!;
+  await db.collection("businesses/biz/quotes").doc("Q-1").update({narrative:draftQuoteIntro(job as never,quote.findings as never,b.name)});
+  expect((await switchDocument(req({kind:"quote",companyId:"rdsf"}),ctx)).status).toBe(200);
+  const narrative=db.__peek("businesses/biz/quotes","Q-1")?.narrative as string;
+  expect(narrative).toContain(a.name);expect(narrative).not.toContain(b.name);
+  // Staff-edited wording is kept, and the draft can warn that it still names the other company.
+  await db.collection("businesses/biz/quotes").doc("Q-1").update({narrative:`Thanks from ${b.name}.`});
+  expect((await switchDocument(req({kind:"quote",companyId:"rdsf"}),ctx)).status).toBe(200);
+  const edited=String(db.__peek("businesses/biz/quotes","Q-1")?.narrative);
+  expect(edited).toBe(`Thanks from ${b.name}.`);expect(staleCompanyName(edited,[a,b],"rdsf")).toBe(b.name);
+});
+it("refuses to send an invoice under a company with no payment details instead of printing another company's bank",async()=>{
+  const bare={id:"bare",name:"Bare Company",shortName:"BARE",address:"Bare address"};
+  seed([a,b,bare]);expect((await switchDocument(req({kind:"invoice",companyId:"bare"}),ctx)).status).toBe(200);
+  mocks.send.mockClear();const res=await invoiceSend(req(),ctx);
+  expect(res.status).toBe(409);expect((await res.json()).error).toBe("Add BARE's payment details first (Library → Branding).");
+  expect(mocks.send).not.toHaveBeenCalled();
 });
 it("an invoice override takes priority over the job and the deposit email uses the right bank",async()=>{
   seed([a,b]);expect((await switchDocument(req({kind:"invoice",companyId:"rdsf"}),ctx)).status).toBe(200);
