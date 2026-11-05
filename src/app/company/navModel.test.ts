@@ -16,6 +16,43 @@ describe("visibleNavLinks", () => {
       ...common, ...jobs, ...manage, ...(role === "owner" ? ["/company/team"] : []), ...end,
     ]);
   });
+  it.each<[string, string[]]>([
+    ["owner", ["/company/team"]],
+    ["staff", []],
+    ["viewer", []],
+  ])("keeps exactly today's %s links when the business has no showcase flags", (role, team) => {
+    const today = [...common, ...jobs, ...manage, ...team, ...end];
+    expect(paths({ role, isEnabled: roof })).toEqual(today);
+    expect(paths({ role, isEnabled: roof, showcase: {} })).toEqual(today);
+    expect(paths({ role, isEnabled: roof, showcase: { finances: false, payroll: false } })).toEqual(today);
+  });
+  it("keeps exactly today's links for a superadmin preview with no showcase flags", () => {
+    expect(paths({ role: "viewer", superadmin: true, preview: true, isEnabled: roof, showcase: {} })).toEqual([
+      ...common, ...jobs, ...manage, "/company/team", ...end,
+    ]);
+  });
+  it("puts enabled showcase pages right after Billing, for the owner only", () => {
+    const showcase = { finances: true, payroll: true };
+    expect(paths({ role: "owner", isEnabled: roof, showcase })).toEqual([
+      ...common, ...jobs, "/company/finances", "/company/payroll", ...manage, "/company/team", ...end,
+    ]);
+    expect(paths({ role: "staff", isEnabled: roof, showcase })).toEqual([...common, ...jobs, ...manage, ...end]);
+    expect(paths({ role: "viewer", isEnabled: roof, showcase })).toEqual([...common, ...jobs, ...manage, ...end]);
+    expect(paths({ role: "viewer", superadmin: true, preview: true, isEnabled: roof, showcase })).toEqual([
+      ...common, ...jobs, "/company/finances", "/company/payroll", ...manage, "/company/team", ...end,
+    ]);
+    expect(paths({ role: "viewer", superadmin: true, isEnabled: roof, showcase })).toEqual([
+      ...common, ...jobs, ...manage, "/company/team", ...end.filter((path) => path !== "feedback"),
+    ]);
+  });
+  it("adds each showcase page only when its own flag is on", () => {
+    expect(paths({ role: "owner", isEnabled: roof, showcase: { finances: true } })).toEqual([
+      ...common, ...jobs, "/company/finances", ...manage, "/company/team", ...end,
+    ]);
+    expect(paths({ role: "owner", isEnabled: roof, showcase: { payroll: true } })).toEqual([
+      ...common, ...jobs, "/company/payroll", ...manage, "/company/team", ...end,
+    ]);
+  });
   it("keeps a crew on Field (plus its Guide page) only", () => {
     expect(paths({ role: "crew", isEnabled: roof })).toEqual(["/company/field", "/company/guide", "feedback"]);
   });

@@ -16,7 +16,7 @@ import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
-import { BootstrapProvider } from "@/contexts/BootstrapContext";
+import { BootstrapProvider, useBootstrap } from "@/contexts/BootstrapContext";
 import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { defaultLandingPath } from "@/lib/team/landing";
@@ -50,23 +50,40 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { ready: modulesReady, isEnabled, isLocked, family, subscriptionStatus, disabledModules } = useBusinessModules();
+  const { ready: bootstrapReady, data: bootstrap } = useBootstrap();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
   );
   const blockedIsLocked = !!blockedModule && isLocked(blockedModule.module);
+  const showcasePage = pathname?.startsWith("/company/finances")
+    ? ("finances" as const)
+    : pathname?.startsWith("/company/payroll")
+    ? ("payroll" as const)
+    : null;
   // A Crew login (T-150) is field work only: the Field screen and nothing else. The office APIs refuse it anyway
   // (they list their roles); this keeps the screens from loading into errors.
   const crewOnly = user?.role === "crew" && !user.superadmin;
   const crewWithoutField = crewOnly && modulesReady && !isEnabled("jobs");
   // The Guide is the one other page a Crew login may open — its Foreman page is written for them (2026-10-30).
   const crewOffField = crewOnly && !crewWithoutField && !pathname?.startsWith("/company/field") && !pathname?.startsWith("/company/guide");
+  // Showcase pages (Finances, Payroll) exist only for the owner of a business with that switch on — or a superadmin
+  // previewing that business. Everyone else goes back to the dashboard.
+  const showcaseAllowed = !!user && (user.role === "owner" || (!!user.superadmin && !!searchParams?.get("preview")));
+  const showcaseBlocked = !!showcasePage && bootstrapReady && !!user && !crewOnly
+    && (!showcaseAllowed || bootstrap?.business.showcase?.[showcasePage] !== true);
 
   useEffect(() => {
     if (!crewOffField) return;
     const preview = searchParams?.get("preview");
     router.replace(preview ? `/company/field?preview=${preview}` : "/company/field");
   }, [crewOffField, router, searchParams]);
+
+  useEffect(() => {
+    if (!showcaseBlocked) return;
+    const preview = searchParams?.get("preview");
+    router.replace(preview ? `/company/dashboard?preview=${preview}` : "/company/dashboard");
+  }, [showcaseBlocked, router, searchParams]);
 
   // Dashboard-only pause for non-payment (superadmin toggles it from the
   // client's admin config page) — never touches the phone agent. Superadmins
@@ -157,7 +174,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     );
   }
   // Don't paint a module this industry doesn't use (or an office screen for a Crew login) while the redirect lands.
-  if (blockedModule || crewOffField) return null;
+  if (blockedModule || crewOffField || showcaseBlocked) return null;
   if (paused) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>

@@ -1,5 +1,6 @@
 import type { VerticalId, CalendarMode, VisualFamily } from "@/lib/verticals/templates";
 import type { CompanyModule } from "@/hooks/useBusinessModules";
+import type { BusinessConfig } from "@/types";
 
 /**
  * One call, one document read, everything a company page needs about "this
@@ -25,6 +26,8 @@ export interface CompanyBootstrap {
     phoneLine: string | null;
     /** Phase 31 (T-152): effective texting state — env SMS_ENABLED + Twilio creds + the tenant's own smsEnabled. */
     smsEnabled: boolean;
+    /** Pages shown before general release, for this business only. Missing = off. */
+    showcase?: BusinessConfig["showcase"];
   };
   modules: {
     disabled: CompanyModule[];

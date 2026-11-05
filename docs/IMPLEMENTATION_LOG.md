@@ -2196,4 +2196,17 @@ Evidence: PaymentsPreview render tests cover disabled payment buttons with the l
 not on, the office counts and three sample deposits. tsc clean; eslint clean on changed files; related billing tests 3/3. No
 removals.
 
+## 2026-11-05 - T-292 showcase switch for Finances and Payroll (DeepSeek K6)
+
+BusinessConfig.showcase is now exposed through GET /api/company/bootstrap as an additive business.showcase field,
+copying only flags that are literally true. navModel adds Finances (/company/finances) and Payroll (/company/payroll)
+right after Billing for the owner role, and for a superadmin only while previewing; each link needs its own flag.
+Every business without the flags keeps exactly the same link list in the same order (tests compare full arrays for
+owner, staff, viewer and superadmin preview, with no flags, an empty object and false flags). The company layout
+sends non-owner, non-previewing users from /company/finances and /company/payroll back to the dashboard once
+bootstrap is ready; crew keep their existing field redirect. The two pages are built by another stream and do not
+exist in this branch yet. Server-side gating is not part of this task.
+Evidence: tsc clean; eslint clean on the changed files (one pre-existing unused-import warning in layout.tsx);
+navModel tests 16/16 (22 tests in the related run). No removals.
+
 

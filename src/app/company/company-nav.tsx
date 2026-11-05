@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, Lock, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Phone, Workflow, Briefcase, Mic, CalendarDays, BookOpen, Settings, Compass, MessageSquareText, Users, Wallet, BarChart3, Clock, Lock, type LucideIcon } from "lucide-react";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { FeedbackForm } from "@/components/ui/FeedbackForm";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBootstrap } from "@/contexts/BootstrapContext";
 import { upgradeHref, visibleNavLinks, type NavGroup } from "./navModel";
 
 const icons: Record<string, LucideIcon> = {
@@ -17,6 +18,8 @@ const icons: Record<string, LucideIcon> = {
   "/company/jobs": Briefcase,
   "/company/field": Mic,
   "/company/billing": Wallet,
+  "/company/finances": BarChart3,
+  "/company/payroll": Clock,
   "/company/customers": Users,
   "/company/library": BookOpen,
   "/company/team": Users,
@@ -38,6 +41,7 @@ export function CompanyNav() {
   const suffix = preview ? `?preview=${encodeURIComponent(preview)}` : "";
   const { isEnabled, isLocked, vocab } = useBusinessModules();
   const { user, loading } = useAuth();
+  const showcase = useBootstrap().data?.business.showcase;
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const links = visibleNavLinks({
     role: loading ? undefined : user?.role,
@@ -46,6 +50,7 @@ export function CompanyNav() {
     isEnabled,
     isLocked,
     vocab,
+    showcase,
   }).filter((link) => link.path !== "feedback" || (!loading && !!user));
 
   return (
