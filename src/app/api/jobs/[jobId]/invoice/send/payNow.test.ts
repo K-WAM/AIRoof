@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { makeFakeDb } from "@/test-utils/fakeFirestore";
 import { POST } from "./route";
-import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
-import { GET as payPage } from "@/app/api/pay/invoice/route";
+import { claimInvoiceSend, finishInvoiceSend, updateStandardDraft } from "@/lib/billing/jobInvoiceStore";
+import { GET as payPage, POST as checkout } from "@/app/api/pay/invoice/route";
 import { verifyPayToken } from "@/lib/billing/payNowToken";
 import type { JobInvoice } from "@/types/invoice";
 
-const mocks = vi.hoisted(() => ({ send: vi.fn(), claim: vi.fn(), finish: vi.fn(), guard: vi.fn(), configured: true }));
+const mocks = vi.hoisted(() => ({ send: vi.fn(), create: vi.fn(), guard: vi.fn(), configured: true }));
 let db: ReturnType<typeof makeFakeDb>;
 vi.mock("@/lib/firebase/admin", () => ({ getAdminFirestore: () => db }));
 vi.mock("@/lib/auth/verifyRole", () => ({ verifyOwnBusinessRole: mocks.guard }));
 vi.mock("@/lib/comms/send", () => ({ isCommsConfigured: () => true, sendEmail: mocks.send }));
 
-vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mocks.configured }));
+vi.mock("@/lib/billing/stripePayments", () => ({ isStripeConfigured: () => mocks.configured, getStripeClient: () => ({ checkout: { sessions: { create: mocks.create } } }) }));
 vi.mock("@/lib/photos/store", () => ({ listPhotoMetas: async () => [] }));
 vi.mock("@/lib/documents/photoSelection", () => ({ loadDocumentPhotos: async () => ({ photos: [] }) }));
 const invoice: JobInvoice = { invoiceId: "INV-1", businessId: "a", jobId: "j", status: "draft", billTo: { name: "Customer" }, labor: [], materials: [], other: [{ lineId: "one", description: "Service", amount: 100 }], total: 100, subtotal: 100, taxRate: 0, taxAmount: 0, createdAt: 1,
@@ -27,6 +27,7 @@ beforeEach(() => {
   db.__seed("businesses/a/invoices", "INV-1", { ...invoice });
   mocks.guard.mockResolvedValue({ user: { uid: "owner", role: "owner", businessId: "a" } });
   mocks.send.mockResolvedValue({ status: "delivered" });
+  mocks.create.mockResolvedValue({ id: "cs_test", url: "https://checkout.stripe.com/c/pay/test" });
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 const saved = () => db.__peek("businesses/a/invoices", "INV-1")!;
@@ -65,14 +66,31 @@ describe("invoice sending Pay now", () => {
     expect(data.payNow).toBeNull(); expect(mocks.send.mock.calls[0][0].html).not.toContain(">Pay now</a>");
     expect(saved()).not.toHaveProperty("payLinkNonce");
   });
-  it("a failed send leaves the issued nonce and releases the send lock", async () => {
+  it("a failed send then draft edit stays unavailable; a resend reuses the nonce for the current balance", async () => {
     mocks.send.mockResolvedValue({ status: "failed" });
     expect((await POST(request(), context)).status).toBe(502);
     expect(saved().payLinkNonce).toBeTruthy();
     expect(saved().status).toBe("draft");
     expect(db.__peek("businesses/a/jobs", "j")).not.toHaveProperty("documentSendLock");
+    const nonce = saved().payLinkNonce;
+    const url = mocks.send.mock.calls[0][0].html.match(/href="([^"]+)"[^>]*>Pay now<\/a>/)![1].replaceAll("&amp;", "&");
+    await updateStandardDraft(db as unknown as FirebaseFirestore.Firestore, "a", "INV-1", { total: 180, amountPaid: 30, other: [{ lineId: "one", description: "Updated service", amount: 180 }], subtotal: 180, otherSubtotal: 180 });
+    expect(verify(url)).toBe(true);
+    const form = new URLSearchParams(new URL(url).searchParams); form.set("method", "card");
+    const submit = () => checkout(new NextRequest(url, { method: "POST", body: form }));
+    const neutral = await (await payPage(new NextRequest("https://app.test/api/pay/invoice?b=missing&i=INV-1&t=bad"))).text();
+    expect(await (await payPage(new NextRequest(url))).text()).toBe(neutral);
+    expect(await (await submit()).text()).toBe(neutral);
+    expect(mocks.create).not.toHaveBeenCalled();
+    mocks.send.mockResolvedValue({ status: "delivered" });
+    const resent = await (await POST(request(), context)).json();
+    expect(saved()).toMatchObject({ status: "sent", payLinkNonce: nonce, total: 180, amountPaid: 30 });
+    expect(resent.payNow.url).toBe(url);
+    expect(await (await payPage(new NextRequest(url))).text()).toContain("$150.00");
+    expect((await submit()).status).toBe(303);
+    expect(mocks.create.mock.calls[0][0].line_items[0].price_data.unit_amount).toBe(15000);
   });
-  it("a delivered email link opens the public page even when finalization fails", async () => {
+  it("a delivered email link stays unavailable when finalization fails", async () => {
     const real = db.runTransaction.bind(db);
     let calls = 0;
     vi.spyOn(db, "runTransaction").mockImplementation(async callback => {
@@ -84,7 +102,10 @@ describe("invoice sending Pay now", () => {
     const url = html.match(/href="([^"]+)"[^>]*>Pay now<\/a>/)![1].replaceAll("&amp;", "&");
     expect(verify(url)).toBe(true);
     const page = await payPage(new NextRequest(url));
-    expect(await page.text()).toContain("Pay by card");
+    expect(await page.text()).toContain("This payment link isn't available.");
+    const form = new URLSearchParams(new URL(url).searchParams); form.set("method", "card");
+    expect(await (await checkout(new NextRequest(url, { method: "POST", body: form }))).text()).toContain("This payment link isn't available.");
+    expect(mocks.create).not.toHaveBeenCalled();
     expect(saved().status).toBe("draft");
   });
   it("a resend under 30 days left rotates, but a failed finalization cannot erase it", async () => {

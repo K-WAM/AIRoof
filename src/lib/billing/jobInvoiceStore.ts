@@ -69,7 +69,7 @@ export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, business
     if (payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status })) {
       invoice = { ...invoice, ...issuePayLink(invoice, newLink) };
     }
-    // Commit before delivery. A killed request still leaves any emailed link usable.
+    // Commit before delivery. Failed finalization leaves the nonce for a resend; drafts remain unavailable.
     if (invoice !== current) tx.update(ref, { ...invoice, updatedAt: Date.now() });
     tx.update(jobRef, { documentSendLock: { invoiceId, token, at: Date.now() } });
     return { invoice, job, token };

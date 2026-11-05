@@ -2458,3 +2458,31 @@ Validation on the final source tree:
   owner explicitly prohibited calling Stripe or any website and reading .env files.
   DOM tests cover the changed UI; phone screenshots still need integrator review.
 - No external services contacted, no live keys, no push, merge or deploy.
+
+## 2026-11-05 - T-315 second independent review fixes A and B
+
+Commit: this T-315 review-fix commit (or uncommitted if Git refuses the index lock).
+Fix A: payNowAvailability now requires sent status and a positive balance;
+partly paid invoices remain sent. Drafts and void invoices never become payable
+from a nonce. The send claim still persists the nonce before delivery, and the
+email prepares its link for sent status without activating the saved draft.
+Tests cover draft GET/POST neutral failure with no Checkout Session, staff
+pay-link 404, failed send plus draft edit, failed finalization, and resend reuse
+of the same nonce with the current balance.
+Fix B: unmatched pending/failed ACH events leave a ledger note only. Cleared
+payment notices use pay_<payment_intent>; refund notices use
+refund_<charge id>_<amount_refunded cents>. Records retain kind and amount;
+transactional existence checks preserve the first record across duplicate events.
+The unmatched API returns separate complete payment/refund counts with at most
+30 reference rows. Billing labels Payment received and Refund sent separately.
+Tests cover pending/failure suppression, completed-paid plus async-success in
+both orders, refund replay, bounded API counts, and mixed/refund-only DOM labels.
+Updated docs/PAY-NOW.md to match these two rules. No other behavior changed.
+No cleanup/removals beyond the now-unused payNow token import.
+Validation: npx.cmd tsc --noEmit passed; changed-file eslint passed with no
+warnings; related Vitest passed 14 files / 185 tests. One full Vitest run passed
+322 files / 2612 tests, with 1 expected failure. git diff --check passed.
+No browser/harness, screenshots, build or live Stripe/inbox/phone verification:
+the owner prohibited calling any website. DOM tests cover the changed notice.
+No websites or live services called, no live keys used, no .env files read.
+No push, merge or deploy. TODO's T-315 row was already review and is unchanged.

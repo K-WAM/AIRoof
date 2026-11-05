@@ -37,10 +37,11 @@ when at least 30 days remain; otherwise they issue a new 90-day link. Selecting
 stops working after rotation. Failed sends leave the issued nonce in place.
 Deposit and final invoices have separate nonces and balances.
 
-A claimed draft with a valid nonce is payable even if the email was delivered
-but finalization failed. This does not prematurely mark the invoice sent: that
-status still waits for delivery confirmation. Unsigned, unclaimed drafts remain
-unavailable. Paid/void invoices always refuse payment.
+Draft invoices are never payable, even with a valid nonce or a delivered email
+whose finalization failed. The office resends after a failed send/finalization;
+the saved nonce is reused under the ordinary reuse rule above. The link becomes
+payable when finalization marks the invoice sent, using its current balance.
+Paid/void invoices always refuse payment.
 
 The public page shows the business name/logo, invoice number, current amount
 due and due date. It has Pay by card and Pay by bank (ACH) buttons. There is no
@@ -51,7 +52,7 @@ submission without claiming that a bank payment has cleared.
 
 Availability has one rule: Billing is on, Stripe and PAY_LINK_SECRET are configured, a connected
 account can charge, the owner opted in, the invoice is sent with a positive
-balance (or a draft activated by its send claim), and the business is not in evaluation mode. Invalid, expired, paid,
+balance (including partly paid sent invoices), and the business is not in evaluation mode. Draft, invalid, expired, paid,
 void, disabled, missing-business and evaluation links all return status 200 and
 byte-identical neutral HTML, without a business name or logo:
 "This payment link isn't available. Please contact the business that sent you this invoice."
@@ -72,10 +73,15 @@ missing signature returns 400. An event's connected account must match the
 business's saved account, and the invoice and job must belong to that business.
 Unknown connected accounts return 200 without writes. For a known account with
 a missing or foreign invoice/job (including missing or mismatched metadata), the
-transaction stores businesses/{businessId}/stripeUnmatched/{eventId}, then returns
-200. Each record contains event type, Stripe references, dollars, currency, invoice
+transaction stores a stripeUnmatched record only for completed-paid sessions,
+async payment success, or refunds, then returns 200. Pending/failed ACH leaves
+only a ledger note. Records use pay_<payment_intent> for payments and
+refund_<charge id>_<amount_refunded cents> for refunds under businesses/{businessId}/stripeUnmatched.
+Each record contains kind (payment/refund), event type, Stripe references, dollars, currency, invoice
 id from metadata when safe, receivedAt and reason; no customer name/email/card data.
-The record and succeeded ledger state commit atomically and are idempotent by event id.
+The record and succeeded ledger state commit atomically. Payment notices deduplicate
+completed and async-success events for the same intent; refund notices deduplicate
+the same charge and cumulative refunded amount.
 Database failures return 500 so
 Stripe retries. Switching off Pay now never drops a payment that already moved.
 
@@ -105,13 +111,13 @@ receipts leave an office notice; they do not reverse recorded money. There is no
 new durable receipt-retry worker. Overpayments are fully recorded and flagged for
 office review. Billing and Finances use the existing payment and invoice balances.
 
-The Billing screen shows one plain notice when unmatched records exist:
+The Billing screen counts payments and refunds separately:
 "Stripe received n payment(s) we couldn't match to an invoice - record them by hand."
+and "n refund(s) we couldn't match." Rows say "Payment received" or "Refund sent".
 Expand "Amounts and Stripe references" to see the latest 30 events. GET
 /api/company/billing/unmatched is owner/staff only, uses the central guard, takes
-the tenant from the session, and returns a total count and bounded references
-through the private volatile cache tier. Refund/failure event types are labeled
-so the office can distinguish them from incoming cleared money.
+the tenant from the session, and returns total payment/refund counts and bounded
+references through the private volatile cache tier.
 
 ## Environment and NEEDS-HUMAN
 

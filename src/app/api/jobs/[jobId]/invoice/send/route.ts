@@ -65,8 +65,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
   const biz = bizDoc.exists ? bizDoc.data()! : {};
-  // The claim committed the nonce; finalization cannot invalidate an emailed link.
-  const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, invoice) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
+  // Prepare the claimed link for delivery; it becomes payable only after finalization marks it sent.
+  const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
   const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;
   const bizName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!bizName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });

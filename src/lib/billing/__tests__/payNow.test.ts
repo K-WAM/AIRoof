@@ -14,7 +14,7 @@ describe("Pay now availability", () => {
     ["opt out", { billingPrefs: { payNow: false } }], ["default off", { billingPrefs: {} }],
     ["evaluation empty", { outboundEmailAllowlist: [] }], ["evaluation allowed", { outboundEmailAllowlist: ["owner@example.test"] }],
   ] as Array<[string, Partial<PayNowBusiness>]>)('refuses %s', (_, patch) => expect(payNowAvailability({ ...business, ...patch }, invoice)).toBe(false));
-  it.each(["draft", "void", "paid"] as const)("refuses %s invoices", status => expect(payNowAvailability(business, { ...invoice, status })).toBe(false));
+  it.each(["draft", "void", "paid"] as const)("refuses %s invoices even with a valid nonce", status => expect(payNowAvailability(business, { ...invoice, ...issuePayLink({}), status })).toBe(false));
   it("accepts sent and partly paid, refuses zero balance", () => {
     expect(payNowAvailability(business, invoice)).toBe(true);
     expect(payNowAvailability(business, { ...invoice, amountPaid: 0 })).toBe(true);

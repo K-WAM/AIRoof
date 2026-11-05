@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface UnmatchedView { count: number; payments: { eventId: string; eventType: string; amount: number; currency: string; sessionId?: string; paymentIntentId?: string; chargeId?: string }[] }
+interface UnmatchedView { count: number; paymentCount: number; refundCount: number; payments: { eventId: string; kind: "payment" | "refund"; eventType: string; amount: number; currency: string; sessionId?: string; paymentIntentId?: string; chargeId?: string }[] }
 export function UnmatchedPayments({ businessId }: { businessId: string | null }) {
   const { user } = useAuth();
   const allowed = !user?.superadmin && (user?.role === "owner" || user?.role === "staff");
@@ -21,10 +21,11 @@ export function UnmatchedPayments({ businessId }: { businessId: string | null })
   if (failed) return <p role="alert">Unmatched Stripe payments could not be loaded. Reload to try again.</p>;
   if (!view?.count) return null;
   return <div style={{ overflowWrap: "anywhere", marginBottom: 16 }}>
-    <p>Stripe received {view.count} payment(s) we couldn&apos;t match to an invoice — record them by hand.</p>
+    {view.paymentCount > 0 && <p>Stripe received {view.paymentCount} payment(s) we couldn&apos;t match to an invoice - record them by hand.</p>}
+    {view.refundCount > 0 && <p>{view.refundCount} refund(s) we couldn&apos;t match.</p>}
     <details><summary>Amounts and Stripe references</summary>
       <ul>{view.payments.map(payment => <li key={payment.eventId}>
-        {payment.amount.toFixed(2)} {payment.currency.toUpperCase()} · {payment.eventType} · {[payment.eventId, payment.sessionId, payment.paymentIntentId, payment.chargeId].filter(Boolean).join(" · ")}
+        {payment.kind === "refund" ? "Refund sent" : "Payment received"}: {payment.amount.toFixed(2)} {payment.currency.toUpperCase()} · {[payment.eventId, payment.sessionId, payment.paymentIntentId, payment.chargeId].filter(Boolean).join(" · ")}
       </li>)}</ul>
       {view.count > view.payments.length && <p>Showing the latest {view.payments.length} events.</p>}
     </details>

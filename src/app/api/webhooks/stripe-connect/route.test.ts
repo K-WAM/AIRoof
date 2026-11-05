@@ -134,13 +134,43 @@ describe("verified event recovery", () => {
     if (reason === "foreign job") await db.collection("businesses/a/jobs").doc("job1").update({ businessId: "b" });
     const payload = { ...session, metadata: reason === "missing metadata" ? {} : reason === "foreign metadata" ? { ...metadata, businessId: "b" } : metadata, customer_email: "DO-NOT-STORE@example.test" };
     expect((await post(event(undefined, payload))).status).toBe(200);
-    const record = db.__peek("businesses/a/stripeUnmatched", "evt_1");
-    expect(record).toMatchObject({ eventType: "checkout.session.completed", sessionId: "cs_1", paymentIntentId: "pi_1", amount: 100, currency: "usd", receivedAt: expect.any(Number), reason: expect.any(String) });
+    const record = db.__peek("businesses/a/stripeUnmatched", "pay_pi_1");
+    expect(record).toMatchObject({ kind: "payment", eventType: "checkout.session.completed", sessionId: "cs_1", paymentIntentId: "pi_1", amount: 100, currency: "usd", receivedAt: expect.any(Number), reason: expect.any(String) });
     expect(JSON.stringify(record)).not.toContain("DO-NOT-STORE");
     expect(invoice()?.payments).toBeUndefined();
     await post(event(undefined, payload));
     expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
-    expect(db.__peek("businesses/a/stripeUnmatched", "evt_1")).toEqual(record);
+    expect(db.__peek("businesses/a/stripeUnmatched", "pay_pi_1")).toEqual(record);
+  });
+  it.each(["checkout.session.completed", "checkout.session.async_payment_failed"])("unmatched ACH with no money leaves only a ledger note: %s", async type => {
+    await db.collection("businesses/a/invoices").doc("INV-1").delete();
+    const bank = { ...session, payment_status: "unpaid", payment_method_types: ["us_bank_account"] };
+    expect((await post(event(type, bank))).status).toBe(200);
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(0);
+    expect(db.__peek("businesses/a/operations", "stripe:evt_1")).toMatchObject({ state: "succeeded", note: "unmatched-online-event-no-money" });
+    expect(mocks.email).not.toHaveBeenCalled();
+  });
+  it.each([false, true])("collapses completed-paid and async-succeeded for an unmatched intent (success first: %s)", async successFirst => {
+    await db.collection("businesses/a/invoices").doc("INV-1").delete();
+    const events = [event(), event("checkout.session.async_payment_succeeded", session, "evt_success")];
+    if (successFirst) events.reverse();
+    await post(events[0]);
+    const record = db.__peek("businesses/a/stripeUnmatched", "pay_pi_1");
+    await post(events[1]);
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
+    expect(db.__peek("businesses/a/stripeUnmatched", "pay_pi_1")).toEqual(record);
+    expect(record).toMatchObject({ kind: "payment", amount: 100, paymentIntentId: "pi_1" });
+    expect(db.__list("businesses/a/operations")).toHaveLength(2);
+  });
+  it("records an unmatched refund separately and collapses repeated cumulative amounts", async () => {
+    await db.collection("businesses/a/invoices").doc("INV-1").delete();
+    const charge = { id: "ch_1", payment_intent: "pi_1", currency: "usd", amount_refunded: 3000, metadata };
+    await post(event("charge.refunded", charge, "evt_refund"));
+    const record = db.__peek("businesses/a/stripeUnmatched", "refund_ch_1_3000");
+    expect(record).toMatchObject({ kind: "refund", amount: 30, chargeId: "ch_1", paymentIntentId: "pi_1" });
+    await post(event("charge.refunded", charge, "evt_refund_duplicate"));
+    expect(db.__list("businesses/a/stripeUnmatched")).toHaveLength(1);
+    expect(db.__peek("businesses/a/stripeUnmatched", "refund_ch_1_3000")).toEqual(record);
   });
   it("returns 500 for a failed money transaction, leaves the claim pending, and replays exactly once", async () => {
     const run = db.runTransaction.bind(db);

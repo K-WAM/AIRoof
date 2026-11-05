@@ -22,7 +22,7 @@ beforeEach(() => {
   db.__seed("businessUsers", "foreign", { uid: "foreign", businessId: "b", role: "owner", active: true });
   db.__seed("businesses/a/jobs", "j", { invoiceId: "INV-1" });
   db.__seed("businesses/a/invoices", "INV-1", { invoiceId: "INV-1", jobId: "j", businessId: "a", total: 100, status: "sent", ...issuePayLink({}) });
-  db.__seed("businesses/a/stripeUnmatched", "evt_1", { eventType: "checkout.session.completed", amount: 12, currency: "usd", sessionId: "cs_1", receivedAt: 1 });
+  db.__seed("businesses/a/stripeUnmatched", "pay_pi_1", { kind: "payment", eventType: "checkout.session.completed", amount: 12, currency: "usd", sessionId: "cs_1", receivedAt: 1 });
 });
 afterEach(() => vi.unstubAllEnvs());
 const request = (role: string, path = "/api/jobs/j/invoice/pay-link", businessId = "a") => new NextRequest(`https://app.test${path}?businessId=${businessId}&invoiceId=INV-1`, { headers: { cookie: `__session=${role}` } });
@@ -44,13 +44,13 @@ it.each(["owner", "staff"])("recovers a link and unmatched references for %s wit
   expect(db.__peek("businesses/a/invoices", "INV-1")).toEqual(before);
   const office = await unmatched(request(role, "/api/company/billing/unmatched"));
   expect(office.headers.get("cache-control")).toBe("private, no-cache");
-  expect(await office.json()).toMatchObject({ count: 1, payments: [{ eventId: "evt_1", amount: 12, sessionId: "cs_1" }] });
+  expect(await office.json()).toMatchObject({ count: 1, paymentCount: 1, refundCount: 0, payments: [{ eventId: "pay_pi_1", kind: "payment", amount: 12, sessionId: "cs_1" }] });
 });
-it.each(["nonce missing", "expired", "paid", "void", "off", "secret missing", "foreign invoice", "foreign job", "wrong job"])("404 without creating a nonce when %s", async reason => {
+it.each(["nonce missing", "expired", "draft", "paid", "void", "off", "secret missing", "foreign invoice", "foreign job", "wrong job"])("404 without creating a nonce when %s", async reason => {
   const inv = db.__peek("businesses/a/invoices", "INV-1")!;
   if (reason === "nonce missing") { delete inv.payLinkNonce; delete inv.payLinkExpiresAt; }
   if (reason === "expired") inv.payLinkExpiresAt = 1;
-  if (reason === "paid" || reason === "void") inv.status = reason;
+  if (reason === "draft" || reason === "paid" || reason === "void") inv.status = reason;
   if (reason === "off") await db.collection("businesses").doc("a").update({ billingPrefs: { payNow: false } });
   if (reason === "secret missing") vi.stubEnv("PAY_LINK_SECRET", "");
   if (reason === "foreign invoice") inv.businessId = "b";
@@ -65,4 +65,12 @@ it("rejects a caller asking for another tenant and keeps product routes in billi
   expect((await unmatched(request("owner", "/api/company/billing/unmatched", "b"))).status).toBe(403);
   expect(productForApiPath("/api/jobs/j/invoice/pay-link")).toBe("billing");
   expect(productForApiPath("/api/company/billing/unmatched")).toBe("billing");
+});
+it("returns separate total payment/refund counts beyond the bounded reference list", async () => {
+  for (let i = 2; i <= 35; i++) db.__seed("businesses/a/stripeUnmatched", `pay_pi_${i}`, { kind: "payment", amount: 10, currency: "usd", receivedAt: i });
+  db.__seed("businesses/a/stripeUnmatched", "refund_ch_1_3000", { kind: "refund", amount: 30, currency: "usd", chargeId: "ch_1", receivedAt: 40 });
+  const data = await (await unmatched(request("owner", "/api/company/billing/unmatched"))).json();
+  expect(data).toMatchObject({ count: 36, paymentCount: 35, refundCount: 1 });
+  expect(data.payments).toHaveLength(30);
+  expect(data.payments[0]).toMatchObject({ eventId: "refund_ch_1_3000", kind: "refund", amount: 30 });
 });

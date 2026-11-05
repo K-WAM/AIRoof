@@ -75,7 +75,14 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
     if (!payloadValid || metadata?.businessId !== businessId || !invoice || invoice.businessId !== businessId || invoice.invoiceId !== invoiceId || invoice.jobId !== jobId || !job || (job.businessId !== undefined && job.businessId !== businessId)) {
       const cents = refund ? charge.amount_refunded : session.amount_total;
       const currency = refund ? charge.currency : session.currency;
-      tx.set(bizRef.collection("stripeUnmatched").doc(event.id), {
+      // Notice only settled money, keyed by the transfer rather than its webhook delivery.
+      const unmatchedId = refund && validId(charge.id) ? `refund_${charge.id}_${cents}`
+        : paid && validId(intentId) ? `pay_${intentId}` : null;
+      const unmatchedRef = unmatchedId && Number.isSafeInteger(cents) && cents! > 0
+        ? bizRef.collection("stripeUnmatched").doc(unmatchedId) : null;
+      const existing = unmatchedRef ? await tx.get(unmatchedRef) : null;
+      if (unmatchedRef && !existing?.exists) tx.set(unmatchedRef, {
+        kind: refund ? "refund" : "payment",
         eventType: event.type,
         ...(!refund && validId(session.id) ? { sessionId: session.id } : {}),
         ...(validId(intentId) ? { paymentIntentId: intentId } : {}),
@@ -86,7 +93,7 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
         receivedAt: Date.now(),
         reason: !payloadValid ? "unsupported-payment-payload" : "invoice-or-job-not-owned-or-missing",
       });
-      tx.update(opRef, { state: "succeeded", completedAt: Timestamp.now(), updatedAt: Timestamp.now(), note: "unmatched-online-payment" });
+      tx.update(opRef, { state: "succeeded", completedAt: Timestamp.now(), updatedAt: Timestamp.now(), note: unmatchedRef ? "unmatched-online-payment" : "unmatched-online-event-no-money" });
       return null;
     }
     const now = Date.now(), paymentId = `stripe_${intentId}`;
