@@ -2,6 +2,36 @@ import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
 import { test, expect, expectHealthy, settle, shot } from "./fixtures";
 
 const B = "e2e-roofing";
+test("document sends validate and remember several recipients including receipts", async ({ as }) => {
+  test.setTimeout(180_000);
+  const owner = await api("owner"), tag = Date.now(), emails = [`owner-${tag}@customer.e2e.test`, `office-${tag}@customer.e2e.test`];
+  const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Recipient review", clientName: "Example Customer" }), "recipient job");
+  must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings: [{ findingId: "f", category: "General", problem: "Entry condition", solution: "Restore entry", includeInReport: true, includeInQuote: true, addedAt: Date.now(), lines: [{ kind: "other", description: "Entry service", quantity: 1, unitPrice: 100 }] }] }), "recipient finding");
+  const page = await as("owner"); await page.goto(`/company/jobs/${job.jobId}?tab=quote`); await settle(page);
+  await page.getByLabel("Quote recipient emails").fill(emails.join(", "));
+  await page.getByRole("button", { name: "Send quote", exact: true }).click();
+  await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}?businessId=${B}`), "recipient defaults").job.documentRecipients).toEqual(emails);
+  await page.goto(`/company/jobs/${job.jobId}?tab=report`); await settle(page);
+  await page.getByRole("button", { name: "Mail report", exact: true }).click();
+  await expect(page.getByLabel("Report recipient emails")).toHaveValue(emails.join(", "));
+  await page.getByRole("button", { name: "Send report", exact: true }).click();
+  must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "recipient invoice");
+  await page.goto(`/company/jobs/${job.jobId}?tab=invoice`); await settle(page);
+  await page.getByRole("button", { name: "Send to Customer", exact: true }).click();
+  await expect(page.getByLabel("Invoice recipient emails")).toHaveValue(emails.join(", "));
+  await page.evaluate(() => window.scrollTo(0, 0)); await shot(page, "documents-recipient-invoice");
+  await page.getByRole("button", { name: "Send Invoice", exact: true }).click();
+  await page.getByTestId("record-payment").click();
+  const receipt = page.getByLabel("Receipt recipient emails");
+  await expect(receipt).toHaveValue(emails.join(", "));
+  const all = [...emails, `manager-${tag}@customer.e2e.test`]; await receipt.fill(all.join(", "));
+  await shot(page, "documents-recipient-receipt");
+  await page.getByRole("button", { name: "Save payment", exact: true }).click();
+  await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}?businessId=${B}`), "receipt defaults").job.documentRecipients).toEqual(all);
+  for (const email of emails) expect((await outbox({ to: email })).length).toBe(4);
+  expect((await outbox({ to: all[2] })).length).toBe(1);
+  await expectHealthy(page);
+});
 test("plain subjects keep quote and job numbers distinct", async ({ as }) => {
   test.setTimeout(150_000);
   const owner = await api("owner"), email = `copy-${Date.now()}@customer.e2e.test`;

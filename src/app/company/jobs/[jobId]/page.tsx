@@ -2,6 +2,7 @@
 
 import { Hint } from "@/components/ui/Hint";
 
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 import { track } from "@/lib/analytics/client";
 
 import { PrivateDemoDocuments } from "@/components/demo/PrivateDemoDocuments";
@@ -253,7 +254,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   const [sendEmail, setSendEmail] = useState("");
   const suggestedSendEmail = useRef<{ jobId: string; email: string } | null>(null);
   const sendEmailJobId = job?.jobId;
-  const sendEmailSuggestion = job?.clientEmail?.trim() ?? "";
+  const sendEmailSuggestion = job?.documentRecipients?.join(", ") || job?.clientEmail?.trim() || "";
   useEffect(() => {
     if (!sendEmailJobId) return;
     const previous = suggestedSendEmail.current;
@@ -710,7 +711,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   }
 
   async function mailReport() {
-    if (!businessId || !reportTo.trim()) { setReportSendError("Enter a recipient email."); return; }
+    if (!businessId) return;
+    const selected = parseDocumentRecipients(reportTo);
+    if ("error" in selected) { setReportSendError(selected.error); return; }
     setReportSending(true);
     setReportSendError(null);
     try {
@@ -718,12 +721,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/report/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: reportTo.trim(), reportNotes }),
+        body: JSON.stringify({ businessId, to: selected.recipients, reportNotes }),
       });
       if (res.ok) {
+        const result = await res.json();
+        if (result.warning) setReportSendError(result.warning);
+        setJob(j => j ? { ...j, documentRecipients: selected.recipients } : j);
         track("report_sent", { job_id: jobId });
         setReportSent(true);
-        setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
+        if (!result.warning) setTimeout(() => { setReportSent(false); setShowReportSend(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
         setReportSendError(d.error ?? "Failed to send.");
@@ -763,13 +769,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   async function sendInvoice() {
     // Edits still saving (a photo just ticked, a line just typed): don't bounce the user — queue the send and fire it
     // the moment the save lands (the effect below). The server still only ever sends the SAVED invoice.
-    if (invoiceDirty && invoiceId && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sendEmail.trim())) {
+    if (invoiceDirty && invoiceId && "recipients" in parseDocumentRecipients(sendEmail)) {
       setSendError(null);
       setSendQueued(true);
       return;
     }
-    if (!canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
-      setSendError("Enter a recipient email.");
+    const selected = parseDocumentRecipients(sendEmail);
+    if ("error" in selected || !canSendInvoice(invoiceId, invoiceDirty, sendEmail)) {
+      setSendError("error" in selected ? selected.error : "Wait for this draft to save.");
       return;
     }
     setSendQueued(false);
@@ -778,18 +785,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
       const res = await fetch(`/api/jobs/${jobId}/invoice/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, to: sendEmail.trim() }),
+        body: JSON.stringify({ businessId, to: selected.recipients }),
       });
       if (res.ok) {
+        const result = await res.json();
+        if (result.warning) setSendError(result.warning);
         track("invoice_sent", { job_id: jobId });
         setSendSuccess(true);
-        const to = sendEmail.trim();
+        const to = result.delivered?.join(", ") ?? selected.recipients.join(", ");
         setSendEmail("");
         setInvoiceStatus((s) => (s === "paid" ? s : "sent"));
         setInvoiceMeta((m) => ({ ...m, sentAt: Date.now(), sentTo: to }));
         // The server moved the job to Invoiced on the send; mirror it so the status bar agrees without a reload.
-        setJob((j) => (j ? { ...j, status: invoiceStatus === "paid" ? "complete" : "invoiced" } : j));
-        setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
+        setJob((j) => (j ? { ...j, documentRecipients: selected.recipients, status: invoiceStatus === "paid" ? "complete" : "invoiced" } : j));
+        if (!result.warning) setTimeout(() => { setSendSuccess(false); setShowSendPanel(false); }, 3000);
       } else {
         const d = await res.json().catch(() => ({}));
         setSendError(d.error ?? "Failed to send. Try again.");
@@ -839,7 +848,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
   // your edits" though nobody had edited anything (2026-10-03).
   const invoicePhotoKey = selectedDocumentPhotoIds(photos, invoicePhotoIds).join(",");
   useEffect(() => {
-    if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; return; }
+    if (hydratingInvoiceRef.current) { hydratingInvoiceRef.current = false; setInvoiceDirty(false); return; }
     if (!invoiceId || invoiceStatus !== "draft" || !businessId || readOnly) return;
     setInvoiceDirty(true);
     const timer = setTimeout(() => {
@@ -873,8 +882,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                notes: invoiceNotes,
             }),
           });
-          if (res.ok) setInvoiceDirty(false);
-        } catch {
+          if (res.ok) { setInvoiceDirty(false); setInvoiceError(null); }
+          else { const data = await res.json().catch(() => ({})); setInvoiceError(data.error ?? "Could not save the invoice. Your edits are still here."); }
+        } catch (error) {
+          setInvoiceError(error instanceof Error ? error.message : "Could not save the invoice. Your edits are still here.");
           // Left dirty — the beforeunload guard below still warns, and the next successful
           // autosave (or an explicit retry) clears it. Never silently claim a save that failed.
         } finally {
@@ -1451,7 +1462,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                   if (patch.adjustmentNote !== undefined) setInvoiceAdjustmentNote(patch.adjustmentNote);
                 }}
                 onPreview={() => { invoicePreviewRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }); invoicePreviewRef.current?.focus(); }} />
-              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.clientEmail ?? ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
+              <DepositInvoices jobId={jobId} businessId={businessId!} quote={pageQuote} brand={invoiceLetterhead} email={job.documentRecipients?.join(", ") || job.clientEmail || ""} readOnly={readOnly} disabled={invoiceDirty || invoiceSaving} onChanged={async () => { const r = await fetch(`/api/jobs/${jobId}/invoice?businessId=${businessId}`); if (r.ok) { const d = await r.json(); if (d.invoice) setInvoiceCustomerDetails(d.invoice); } }} />
               {/* Invoice toolbar */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#64748b" }}>
@@ -1467,7 +1478,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {invoiceStatus === "draft" && !readOnly && <button className="button primary" onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {invoiceStatus === "draft" && !readOnly && <button className={showSendPanel ? "button" : "button primary"} onClick={() => { setShowSendPanel(p => !p); setSendSuccess(false); setSendError(null); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Send size={14} strokeWidth={1.75} />
                     Send to Customer
                   </button>}
@@ -1499,7 +1510,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
 
               {/* Billing (no Stripe): balance, payments received, Record payment → receipt. */}
               {invoiceStatus && invoiceStatus !== "draft" && businessId && (
-                <RecordPayment businessId={businessId} jobId={jobId} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
+                <RecordPayment businessId={businessId} jobId={jobId} recipients={job.documentRecipients} readOnly={readOnly} refreshKey={invoiceMeta.sentAt}
                   onPaid={(paidAt) => { setInvoiceStatus("paid"); setInvoiceMeta((m) => ({ ...m, paidAt })); setJob((current) => current ? { ...current, status: "complete", paymentReceivedAt: paidAt } : current); }} />
               )}
 
@@ -1530,11 +1541,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Invoice sent successfully!</p>
                   ) : (
                     <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
-                      <input
-                        type="email"
+                      <textarea rows={Math.min(10, Math.max(2, sendEmail.split(",").length * 2))}
+                        aria-label="Invoice recipient emails" inputMode="email"
                         value={sendEmail}
                         onChange={e => setSendEmail(e.target.value)}
-                        placeholder={job?.clientName ? `Email for ${job.clientName}` : "customer@email.com"}
+                        placeholder="Emails, separated by commas (up to 5)"
                         style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }}
                       />
                       <button onClick={sendInvoice} disabled={sending || sendQueued} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1946,7 +1957,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     }} />
                 </div>} />
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }} className="no-print">
-                {!readOnly && <button className="button primary" onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo && job?.clientEmail) setReportTo(job.clientEmail); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {!readOnly && <button className={showReportSend ? "button" : "button primary"} onClick={() => { setShowReportSend((s) => !s); setReportSent(false); setReportSendError(null); if (!reportTo) setReportTo(job?.documentRecipients?.join(", ") || job?.clientEmail || ""); }} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                   <Send size={14} strokeWidth={1.75} />
                   Mail report
                 </button>}
@@ -1972,7 +1983,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     <p style={{ margin: 0, color: "#15803d", fontWeight: 600 }}>✓ Report sent successfully!</p>
                   ) : (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <input type="email" value={reportTo} onChange={(e) => setReportTo(e.target.value)} placeholder={job?.clientName ? `Email for ${job.clientName}` : "client@email.com"} style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }} />
+                      <textarea rows={2} aria-label="Report recipient emails" inputMode="email" value={reportTo} onChange={(e) => setReportTo(e.target.value)} placeholder="Emails, separated by commas (up to 5)" style={{ flex: 1, minWidth: 200, padding: "9px 12px", borderRadius: 8, border: "1.5px solid #bae6fd", fontSize: 14, outline: "none" }} />
                       <button onClick={mailReport} disabled={reportSending} className="button primary" style={{ fontSize: 13, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <Send size={14} strokeWidth={1.75} />
                         {reportSending ? "Sending…" : "Send report"}

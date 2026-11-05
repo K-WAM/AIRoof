@@ -13,11 +13,13 @@ import { PAYMENT_METHODS, PAYMENT_METHOD_LABEL, invoiceBalance, type PaymentMeth
 import type { JobInvoice } from "@/types/invoice";
 import { useFormat } from "@/hooks/useFormat";
 import { fmtMoney } from "@/lib/format/money";
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 
 const usd = (n: number) => fmtMoney(n);
 const todayInput = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid }: {
+export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid, recipients }: {
+  recipients?: string[];
   businessId: string;
   jobId: string;
   readOnly: boolean;
@@ -33,6 +35,7 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
   const [date, setDate] = useState(todayInput());
   const [note, setNote] = useState("");
   const [sendReceipt, setSendReceipt] = useState(true);
+  const [receiptEmails, setReceiptEmails] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -49,9 +52,11 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
   if (!invoice || invoice.status === "draft" || invoice.status === "void") return null;
   const balance = invoiceBalance(invoice);
   const payments = invoice.payments ?? [];
-  const receiptTo = invoice.sentTo || invoice.billTo.email;
+  const receiptTo = recipients?.join(", ") || invoice.sentTo || invoice.billTo.email || "";
 
   function startRecording() {
+    setReceiptEmails(receiptTo);
+    setSendReceipt(!!receiptTo);
     setAmount(balance);
     setMethod("check");
     setDate(todayInput());
@@ -62,6 +67,8 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
   }
 
   async function submit() {
+    const parsedRecipients = sendReceipt ? parseDocumentRecipients(receiptEmails) : undefined;
+    if (parsedRecipients && "error" in parsedRecipients) { setError(parsedRecipients.error); return; }
     const value = Number(amount);
     if (!Number.isFinite(value) || value <= 0) { setError("Enter the amount received."); return; }
     if (value > balance + 0.001) { setError(`That's more than the ${usd(balance)} still owed.`); return; }
@@ -72,7 +79,7 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
       const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/invoice/payments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, amount: value, method, receivedAt, note: note.trim() || undefined, sendReceipt }),
+        body: JSON.stringify({ businessId, amount: value, method, receivedAt, note: note.trim() || undefined, sendReceipt, ...(parsedRecipients && "recipients" in parsedRecipients ? { to: parsedRecipients.recipients } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "The payment could not be saved."); return; }
@@ -80,7 +87,7 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
       const next = data.invoice as JobInvoice;
       setInvoice(next);
       setOpen(false);
-      const receiptLine = data.receipt === "sent" ? ` Receipt emailed to ${receiptTo}.` : data.receipt === "failed" ? " The receipt email didn't go out — the payment is still recorded." : "";
+      const receiptLine = data.receipt === "sent" ? ` Receipt emailed to ${parsedRecipients && "recipients" in parsedRecipients ? parsedRecipients.recipients.join(", ") : receiptTo}.` : data.receipt === "failed" ? ` Payment saved. ${data.warning || "The receipt could not be delivered."}` : "";
       setDone(`${usd(value)} recorded.${data.balance > 0 ? ` ${usd(data.balance)} still owed.` : " Paid in full."}${receiptLine}`);
       if (next.status === "paid") onPaid(next.paidAt ?? Date.now());
     } catch {
@@ -122,12 +129,13 @@ export function RecordPayment({ businessId, jobId, readOnly, refreshKey, onPaid 
               <label htmlFor="pay-note">Note (optional)</label>
               <input id="pay-note" maxLength={200} value={note} placeholder="Check #1042" onChange={(e) => setNote(e.target.value)} />
             </div>
-            {receiptTo && (
+            {(
               <label className="check-row full">
                 <input type="checkbox" checked={sendReceipt} onChange={(e) => setSendReceipt(e.target.checked)} />
-                <span>Email a receipt to {receiptTo}</span>
+                <span>Email a receipt</span>
               </label>
             )}
+            {sendReceipt && <label className="field full">Receipt recipient emails<textarea rows={Math.min(10, Math.max(2, receiptEmails.split(",").length * 2))} aria-label="Receipt recipient emails" inputMode="email" value={receiptEmails} onChange={e => setReceiptEmails(e.target.value)} placeholder="Emails, separated by commas (up to 5)" /></label>}
             <div className="button-row full" style={{ marginTop: 0 }}>
               <button type="button" className="button primary" disabled={busy} onClick={() => void submit()}>{busy ? "Saving…" : "Save payment"}</button>
               <button type="button" className="button ghost" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>

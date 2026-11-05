@@ -1,3 +1,4 @@
+import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -19,10 +20,13 @@ import type { LetterRate } from "@/lib/documents/quoteLetter";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-  let body: { businessId?: string; to?: string };
+  let body: { businessId?: string; to?: string | string[] };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const { businessId, to } = body;
-  if (typeof businessId !== "string" || !businessId || typeof to !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return NextResponse.json({ error: "Valid businessId and to required" }, { status: 400 });
+  if (typeof businessId !== "string" || !businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  const parsedRecipients = parseDocumentRecipients(to);
+  if ("error" in parsedRecipients) return NextResponse.json({ error: parsedRecipients.error }, { status: 400 });
+  const { recipients } = parsedRecipients;
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
   if (!isCommsConfigured()) return NextResponse.json({ error: "Email not configured" }, { status: 503 });
@@ -66,17 +70,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
   }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") }, letterContext);
-  const sent = await sendEmail({
-    to, subject: documentEmailSubject("quote", businessName, job.title, quote.quoteId), html,
+  await jobRef.update({ documentRecipients: recipients, updatedAt: Date.now() });
+  const sent = await deliverDocument(recipients, recipient => sendEmail({
+    to: recipient, subject: documentEmailSubject("quote", businessName, job.title, quote.quoteId), html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
-  });
-  if (sent.status !== "delivered") {
+  }));
+  if (sent.delivered.length === 0) {
     return NextResponse.json({ error: "The email could not be delivered. Nothing was marked as sent — check the address and try again." }, { status: 502 });
   }
   const now = Date.now();
   const batch = db.batch();
-  batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: to, responseTokenHash: quoteResponseTokenHash(responseToken), updatedAt: now });
+  batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: sent.delivered.join(", "), responseTokenHash: quoteResponseTokenHash(responseToken), updatedAt: now });
   if (["open", "inspection"].includes(job.status)) batch.update(jobRef, { status: "quoted", updatedAt: now });
   await batch.commit();
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
 }

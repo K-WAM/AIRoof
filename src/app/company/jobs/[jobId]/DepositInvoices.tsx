@@ -7,6 +7,7 @@ import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { invoiceGroups } from "@/lib/documents/groups";
 import { fmtMoney } from "@/lib/format/money";
 import { invoiceBalance } from "@/lib/billing/customerPayments";
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 
 export function DepositInvoices({ jobId, businessId, quote, brand, email, readOnly, disabled, onChanged }: { jobId: string; businessId: string; quote: JobQuote | null; brand: Letterhead; email: string; readOnly: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
   const [deposits, setDeposits] = useState<JobInvoice[]>([]);
@@ -30,9 +31,11 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
   async function action(path: string, method: string, body: object) {
+    const recipients = path === "/send" || path === "/payments" ? parseDocumentRecipients(to) : undefined;
+    if (recipients && "error" in recipients) { setError(recipients.error); return null; }
     setBusy(true); setError("");
     try {
-      const r = await fetch(`/api/jobs/${jobId}/invoice${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const r = await fetch(`/api/jobs/${jobId}/invoice${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, ...(recipients && "recipients" in recipients ? { to: recipients.recipients } : {}) }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not save deposit");
       await load(); await onChanged(); return d;
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save deposit"); return null; }
@@ -50,7 +53,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, email, readOn
       {deposits.length > 5 && <button className="button" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${deposits.length}`}</button>}
       {selected && <div style={{ marginTop: 14 }}><button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={brand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} />
         {!readOnly && selected.status !== "void" && <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
-          <label>Deposit recipient email<input aria-label="Deposit recipient email" type="email" value={to} onChange={e => setTo(e.target.value)} /></label>
+          <label>Deposit recipient emails<textarea rows={2} aria-label="Deposit recipient emails" inputMode="email" value={to} onChange={e => setTo(e.target.value)} placeholder="Emails, separated by commas (up to 5)" /></label>
           <button className="button" disabled={busy || disabled || !to.trim()} onClick={async () => { const d = await action("/send", "POST", { businessId, invoiceId: selected.invoiceId, to }); if (d) setSelected({ ...selected, status: selected.status === "paid" ? "paid" : "sent" }); }}>{selected.status === "draft" ? "Send deposit" : "Send deposit again"}</button>
           {(selected.status === "sent" || selected.status === "paid") && <p>Deposit balance: {fmtMoney(invoiceBalance(selected))}.</p>}
           {selected.status === "sent" && invoiceBalance(selected) > 0 && <details><summary>Record deposit payment</summary><label>Amount received<input aria-label="Deposit payment amount" type="number" min="0.01" step="0.01" max={invoiceBalance(selected)} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} /></label><label>Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}><option value="check">Check</option><option value="bank">Bank transfer</option><option value="cash">Cash</option><option value="other">Other</option></select></label><button className="button" disabled={busy || disabled || !paymentAmount} onClick={async () => { const d = await action("/payments", "POST", { businessId, invoiceId: selected.invoiceId, amount: Number(paymentAmount), method: paymentMethod }); if (d) { setSelected(d.invoice); setPaymentAmount(""); if (d.receipt === "failed") setError("Payment saved; the receipt could not be sent."); } }}>Save deposit payment and email receipt</button></details>}

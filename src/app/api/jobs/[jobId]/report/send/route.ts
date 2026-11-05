@@ -1,3 +1,4 @@
+import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -22,9 +23,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   const { businessId, to, reportNotes } = body as {
-    businessId?: string; to?: string; reportNotes?: string;
+    businessId?: string; to?: string | string[]; reportNotes?: string;
   };
-  if (!businessId || !to) return NextResponse.json({ error: "businessId and to required" }, { status: 400 });
+  if (!businessId) return NextResponse.json({ error: "businessId required" }, { status: 400 });
+  const parsedRecipients = parseDocumentRecipients(to);
+  if ("error" in parsedRecipients) return NextResponse.json({ error: parsedRecipients.error }, { status: 400 });
+  const { recipients } = parsedRecipients;
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
@@ -70,12 +74,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     quote,
   });
 
-  const sent = await sendEmail({
-    to, subject: documentEmailSubject("report", bizName, job.title ?? jobId), html,
+  await db.collection(`businesses/${businessId}/jobs`).doc(jobId).update({ documentRecipients: recipients, updatedAt: Date.now() });
+  const sent = await deliverDocument(recipients, recipient => sendEmail({
+    to: recipient, subject: documentEmailSubject("report", bizName, job.title ?? jobId), html,
     fromName: bizName, replyTo: biz.contactEmail || biz.notificationEmail,
-  });
-  if (sent.status !== "delivered") {
+  }));
+  if (sent.delivered.length === 0) {
     return NextResponse.json({ error: "The email could not be delivered — check the address and try again." }, { status: 502 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
 }

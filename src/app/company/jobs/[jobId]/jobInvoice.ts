@@ -11,6 +11,7 @@ import type { LibraryPricing } from "@/types/library";
 import { lookupLaborRate, lookupUnitPrice } from "@/types/library";
 import type { BusinessConfig } from "@/types";
 import type { Customer } from "@/types/customer";
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 
 const DEFAULT_LABOR_RATE = 65;
 
@@ -151,5 +152,5 @@ function round2(n: number): number {
 /** A saved invoice can only be sent once it exists, has no unsaved edits, and has a valid
  *  recipient email — mirrors invoiceFlow.ts's canSendSavedInvoice for the Luxor-billing case. */
 export function canSendInvoice(invoiceId: string | null, dirty: boolean, email: string): boolean {
-  return Boolean(invoiceId) && !dirty && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  return Boolean(invoiceId) && !dirty && "recipients" in parseDocumentRecipients(email);
 }

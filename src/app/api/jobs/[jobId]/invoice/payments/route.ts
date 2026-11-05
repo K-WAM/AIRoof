@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/comms/send";
 import { applyPayment, buildCustomerReceiptEmail, invoiceBalance, MAX_PAYMENTS_PER_INVOICE, parsePayment } from "@/lib/billing/customerPayments";
 import type { InvoicePayment, JobInvoice } from "@/types/invoice";
 import type { Job, JobStatusChange } from "@/types/jobs";
+import { parseDocumentRecipients, deliverDocument, deliveryWarning } from "@/lib/documents/recipients";
 
 // POST /api/jobs/[jobId]/invoice/payments  body: { businessId, amount, method, receivedAt?, note?, sendReceipt? }
 // "Record payment" (Billing product, no Stripe): the office logs money the customer paid them directly. Partial
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   const gate = await verifyAuthAndRole(req, businessId, ["owner", "staff", "superadmin"]);
   if ("error" in gate) return gate.error;
+  const explicitRecipients = body.to === undefined ? undefined : parseDocumentRecipients(body.to);
+  if (explicitRecipients && "error" in explicitRecipients) return NextResponse.json({ error: explicitRecipients.error }, { status: 400 });
 
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
@@ -71,16 +74,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
 
   // The receipt is a courtesy: a failed email never undoes a recorded payment, it just says so.
   let receipt: "sent" | "skipped" | "failed" = "skipped";
-  const to = (result.invoice.sentTo || result.invoice.billTo.email || "").trim();
-  if (to && body.sendReceipt !== false) {
+  const defaults = (jobSnap.data() as Job).documentRecipients ?? result.invoice.sentTo ?? result.invoice.billTo.email;
+  const parsedRecipients = explicitRecipients ?? (defaults ? parseDocumentRecipients(defaults) : undefined);
+  const recipients = parsedRecipients && "recipients" in parsedRecipients ? parsedRecipients.recipients : [];
+  let receiptWarning: string | undefined;
+  if (recipients.length && body.sendReceipt !== false) {
     const biz = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
     const business = { businessName: String(biz.businessName || "Your service provider"), brandColor: biz.brandColor, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail };
     const email = buildCustomerReceiptEmail(result.invoice, result.payment, result.balance, business, biz.timezone);
-    const sent = await sendEmail({ to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail });
-    receipt = sent.status === "delivered" ? "sent" : "failed";
+    const sent = await deliverDocument(recipients, to => sendEmail({ to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail }));
+    receipt = sent.failed.length ? "failed" : "sent";
+    receiptWarning = deliveryWarning(sent);
+    await jobRef.update({ documentRecipients: recipients, updatedAt: Date.now() });
   }
 
-  return NextResponse.json({ invoice: { ...result.invoice, invoiceId }, balance: result.balance, receipt });
+  return NextResponse.json({ invoice: { ...result.invoice, invoiceId }, balance: result.balance, receipt, warning: receiptWarning });
 }
 
 class HttpError extends Error {

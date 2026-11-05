@@ -113,6 +113,7 @@ export interface JobStatusChange {
 export interface Job {
   reportDocument?: import("./documentTemplate").ReportLetterOptions;
   documentSendLock?: { invoiceId: string; token: string; at: number };
+  documentRecipients?: string[];
   jobId: string;            // e.g. "J-1042"
   businessId: string;
   title: string;

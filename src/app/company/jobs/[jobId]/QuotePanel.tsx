@@ -1,5 +1,6 @@
 "use client";
 
+import { parseDocumentRecipients } from "@/lib/documents/recipients";
 import { track } from "@/lib/analytics/client";
 
 import { roundCents } from "@/lib/format/money";
@@ -60,7 +61,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
-  const [to, setTo] = useState(job.clientEmail ?? "");
+  const [to, setTo] = useState(job.documentRecipients?.join(", ") || job.clientEmail || "");
   const [showAllItems, setShowAllItems] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
@@ -239,14 +240,17 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   }
 
   async function send() {
-    if (!quote || !to.trim()) { setError("Enter a recipient email."); return; }
+    if (!quote) return;
+    const selected = parseDocumentRecipients(to);
+    if ("error" in selected) { setError(selected.error); return; }
     if (dirty && !(await save())) return;
     setBusy(true); setError("");
     try {
-      const r = await fetch(`/api/jobs/${job.jobId}/quote/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, to: to.trim() }) });
+      const r = await fetch(`/api/jobs/${job.jobId}/quote/send`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, to: selected.recipients }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error ?? "Could not send quote");
+      if (d.warning) setError(d.warning);
       track("quote_sent", { job_id: job.jobId });
-      setQuote((current) => (current ? { ...current, status: "sent", sentTo: to.trim(), sentAt: Date.now() } : current));
+      setQuote((current) => (current ? { ...current, status: "sent", sentTo: d.delivered?.join(", ") ?? selected.recipients.join(", "), sentAt: Date.now() } : current));
       if (["open", "inspection"].includes(job.status)) onStatus("quoted");
     } catch (e) { setError(e instanceof Error ? e.message : "Could not send quote"); }
     finally { setBusy(false); }
@@ -376,7 +380,7 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
 
         <div className="no-print" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {draft && <>
-            <input aria-label="Quote recipient email" type="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Customer email" style={{ flex: "1 1 220px" }} />
+            <textarea rows={2} aria-label="Quote recipient emails" inputMode="email" value={to} onChange={(event) => setTo(event.target.value)} placeholder="Emails, separated by commas (up to 5)" style={{ flex: "1 1 220px" }} />
             <button className="button primary" type="button" disabled={busy || quote.lines.length === 0} onClick={() => void send()}>Send quote</button>
           </>}
           {quote.status === "sent" && !readOnly && <button className="button primary" type="button" disabled={busy} onClick={() => void mark("accepted")}>Mark accepted</button>}
