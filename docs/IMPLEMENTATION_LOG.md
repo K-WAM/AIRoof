@@ -2147,3 +2147,5 @@ Commit: `T-290: Preserve booking times across daylight-saving changes` (this com
 - Part 3, T-285, 53fadd3: Added payroll calculations. TypeScript and lint passed; 9 tests passed. No removals.
 - Part 4, T-291, 9603527: Added import mappings and guarded runner. TypeScript and 19 tests passed; ESLint ignored the scripts. Runner not executed. No removals.
 - Part 5: Updated K3 review and math status in TODO. No removals.
+
+- Part 6 WIP: Added callback and catalog hints. TypeScript passed; lint has one existing calls hook warning. Related tests failed twice: Team role options test expects the pre-T-303 list. Outbound button is in an unowned shared dialog; Team has Disable access rather than a remove action. No removals.

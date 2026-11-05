@@ -251,7 +251,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                             {item.severity && (
                               <span className="chip" style={{ ...SEVERITY_STYLE[item.severity], fontSize: 11, whiteSpace: "nowrap" }}>
-                                {item.severity}
+                                Severity: {item.severity}
                               </span>
                             )}
                             <span style={{ fontWeight: 600, fontSize: 14 }}>{item.problem}</span>
@@ -461,7 +461,7 @@ export function WorkCatalogSection({ businessId, catalog, onCatalogChange, readO
 // prices until the first edit, which clears the flag.
 function StarterBadge() {
   return (
-    <span className="chip" style={{ marginLeft: 2, fontSize: 11, whiteSpace: "nowrap" }} title="From the starter kit — example wording and prices until you edit this item">
+    <span className="chip" style={{ marginLeft: 2, fontSize: 11, whiteSpace: "nowrap" }} title="Example price - replace with your own">
       Starter
     </span>
   );
