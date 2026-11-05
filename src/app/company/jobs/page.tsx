@@ -14,6 +14,7 @@ import { PageSkeleton } from "@/components/ui/PageSkeleton";
 import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useAuth } from "@/contexts/AuthContext";
+import { AddressSuggest } from "@/components/customers/AddressSuggest";
 import { CustomerCombobox } from "@/components/customers/CustomerCombobox";
 import { Briefcase, FilePlus, Plus, Search } from "lucide-react";
 import { useQuickAddRefresh } from "@/lib/events/quickAdd";
@@ -268,8 +269,14 @@ export default function JobsPage() {
                   <input type="tel" autoComplete="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+1 (305) 555-0100" />
                 </div>
                 <div className="field full">
-                  <label>Address</label>
-                  <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="123 Main St, Miami, FL" />
+                  <AddressSuggest
+                    businessId={businessId}
+                    customerId={selectedCustomerId}
+                    label="Address"
+                    value={address}
+                    onChange={setAddress}
+                    placeholder="123 Main St, Miami, FL"
+                  />
                 </div>
                 <div className="field">
                   <label>Service type</label>
