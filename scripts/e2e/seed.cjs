@@ -76,6 +76,25 @@ async function seed({ reset = false } = {}) {
     callerPhone: "+15550001234", service: "Roof inspection", status: "pending",
     startTime: calendarStart, endTime: calendarStart + 3600000, createdAt: calendarStart, updatedAt: calendarStart,
   });
+  const roof = db.collection("businesses").doc(TENANTS.roofing.id);
+  await roof.set({ showcase: { finances: true, payroll: true } }, { merge: true });
+  await roof.collection("customers").doc("C-K2").set({ customerId: "C-K2", businessId: TENANTS.roofing.id, name: "Sample Property Group", kind: "commercial", properties: [{ name: "North", address: "10 Example Way" }, { name: "South", address: "20 Example Way" }], matchKey: "sample property group|", searchTokens: ["sample"], active: true, jobCount: 0, createdAt: calendarStart, updatedAt: calendarStart });
+  const batch = db.batch();
+  for (let i = 0; i < 40; i++) {
+    const issuedAt = calendarStart - (i * 2 + 1) * 86400000; const amount = 800 + i * 43; const paid = i % 4 === 0;
+    const id = `jobba-k2-${i}`;
+    batch.set(roof.collection("invoiceHistory").doc(id), { id, source: "jobba", sourceInvoiceId: `SAMPLE-${i}`, issuedAt, workName: i % 2 ? "Maintenance" : "Repair", billTo: `Sample Customer ${i % 8 + 1}`, amount, tax: 0, credits: 0, amountDue: paid ? 0 : amount, ...(paid ? { paidAt: issuedAt + 86400000 } : {}), voided: false, status: paid ? "Paid" : "Open", importedAt: calendarStart });
+  }
+  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(calendarStart));
+  const today = Date.parse(`${todayKey}T12:00:00Z`);
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(today - i * 86400000); const dayKey = day.toISOString().slice(0, 10);
+    for (const [suffix, type, hour] of [["in", "office_in", 14], ["out", "office_out", 21]]) {
+      const at = Date.parse(`${dayKey}T${hour}:00:00Z`); const punchId = `k2-${dayKey}-${suffix}`;
+      batch.set(roof.collection("punches").doc(punchId), { punchId, businessId: TENANTS.roofing.id, workerKey: "name:sample worker", workerName: "Sample Worker", type, at, dayKey, source: "field-app", createdAt: at });
+    }
+  }
+  await batch.commit();
   /* K2 roofdoctors showcase */
 
   for (const [key, account] of Object.entries(ACCOUNTS)) {

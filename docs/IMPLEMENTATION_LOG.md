@@ -2168,3 +2168,7 @@ The shared composer labels the control, shows a timer and pulse while held, supp
 ## T-294/T-301 - Finance screen and endpoint (integration pending)
 
 Added the owner and showcase gated endpoint and a filtered, sortable finance screen with CSV and calculation sheet. It uses the agreed finance math contract, which is still a stub in this worktree; it cannot show real numbers until the math stream is integrated. The shared FinanceRow contract lacks due date and days-late fields required by T-301, so those columns are not implemented. TypeScript, lint and related tests pass; browser verification pending. No removals.
+
+## T-285 - Payroll preview (integration pending)
+
+Added an owner/showcase-gated, bounded punch endpoint and read-only period screen with CSV and disabled approval. Seeded invented history, properties and punches for the harness. The payroll summary remains a stub in this worktree and no payroll rates source exists in the agreed contract, so rows and pay estimates require integration. TypeScript, lint and route tests pass; browser verification pending. No removals.
