@@ -289,7 +289,10 @@ function FieldApp() {
           <JobPicker jobs={jobs} loading={loadingJobs} selectedId={selectedJobId} onSelect={setSelectedJobId} clockedInJobId={clockedInJobId} recentJobId={recentJobId} />
 
           {!hasWorkerName && <p role="status" style={{ margin: 0, color: "#fbbf24" }}>Type your name above to start</p>}
-          <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
+          <div style={{ position: "relative" }}>
+            {!hasWorkerName && !!selectedJob?.findings?.length && <button type="button" aria-label="Type your name above to start" onClick={pointToName} style={{ position: "absolute", inset: 0, zIndex: 2, background: "transparent", border: 0, cursor: "pointer" }} />}
+            <WorkScope findings={selectedJob?.findings} businessId={businessId || null} jobId={selectedJobId || null} canComment={hasWorkerName} />
+          </div>
 
           {/* 3. Hours */}
           {!privateDemo && bootstrapComplete && businessId && hasWorkerName && (
@@ -312,6 +315,8 @@ function FieldApp() {
           />
 
           </div>
+
+          {hasWorkerName && !selectedJobId && <p style={{ margin: 0, color: "#cbd5e1", fontSize: 13 }}>Pick a job above to add a note, photo or finding.</p>}
 
           {/* Photo and Finding side by side */}
           {!privateDemo && <div style={{ position: "relative", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

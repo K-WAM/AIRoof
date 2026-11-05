@@ -2158,3 +2158,5 @@ The secondary Decline opens the existing review form with its decline options sh
 ## T-287 - Correct caller contact details
 
 Added owner/staff contact editing on Pipeline cards and reviews. Both new tenant-checked routes validate contact fields and preserve original values transactionally on the first edit; booking fields are untouched. Route tests cover tenant/crew denial, invalid email, repeat edits and unchanged scheduling. Browser verification pending. No removals.
+
+T-299 follow-up: name-blocked finding comments also point to the name; missing job and disabled save controls state their prerequisites. TypeScript and 26 related tests pass; lint has the existing image warning. Browser check remains in the final batch.

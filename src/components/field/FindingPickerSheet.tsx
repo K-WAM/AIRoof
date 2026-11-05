@@ -140,7 +140,7 @@ export function FindingPickerSheet({ open, onClose, title = "Add from Library", 
       {confirm && (
         <div className="sheet-footer">
           <button type="button" className="button" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="button" className="button primary" onClick={() => void saveSelected()} disabled={saving || selected.length === 0}>
+          <button type="button" className="button primary" title={saving ? "Saving findings" : selected.length === 0 ? "Select a finding first" : undefined} onClick={() => void saveSelected()} disabled={saving || selected.length === 0}>
             {saving ? "Adding…" : confirm.label(selected.length)}
           </button>
         </div>
