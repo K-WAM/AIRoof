@@ -2,8 +2,6 @@
 
 import { useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
-// The project does not currently install React DOM type declarations.
-// @ts-expect-error -- react-dom is a runtime dependency without @types/react-dom.
 import { createPortal } from "react-dom";
 import { confirmDiscard, useFocusTrap } from "@/hooks/useFocusTrap";
 

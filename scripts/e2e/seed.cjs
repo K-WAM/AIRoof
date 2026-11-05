@@ -68,6 +68,16 @@ async function seed({ reset = false } = {}) {
     });
   }
 
+  /* K2 roofdoctors showcase */
+  const calendarStart = Date.now();
+  await db.collection("businesses").doc(TENANTS.roofing.id).collection("crews").doc("k2-crew").set({ name: "Sample crew", active: true, kind: "crew", color: "#0f766e", createdAt: calendarStart, updatedAt: calendarStart });
+  await db.collection("businesses").doc(TENANTS.roofing.id).collection("appointments").doc("k2-calendar-booking").set({
+    appointmentId: "k2-calendar-booking", businessId: TENANTS.roofing.id, callerName: "Casey Sample",
+    callerPhone: "+15550001234", service: "Roof inspection", status: "pending",
+    startTime: calendarStart, endTime: calendarStart + 3600000, createdAt: calendarStart, updatedAt: calendarStart,
+  });
+  /* K2 roofdoctors showcase */
+
   for (const [key, account] of Object.entries(ACCOUNTS)) {
     try { await auth.deleteUser(account.uid); } catch { /* not there yet */ }
     await auth.createUser({ uid: account.uid, email: account.email, password: PASSWORD, emailVerified: true, displayName: account.displayName ?? key });
