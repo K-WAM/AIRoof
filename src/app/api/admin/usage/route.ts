@@ -50,6 +50,9 @@ export async function GET(req: NextRequest) {
           jobs: activity.jobs,
           invoices: activity.invoices,
         }) : [];
+        // Per-company counters mean nothing to a single-company client; keep today's usage shape for it.
+        const usage = { ...month_.usage };
+        if (!multi) delete usage.byCompany;
 
         return {
           businessId: id,
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest) {
           voiceProvider: data.voiceProvider === "elevenlabs" ? "elevenlabs" : "vapi",
           elevenLabsAgentId: typeof data.elevenlabs?.agentId === "string" ? data.elevenlabs.agentId : null,
           isDemo: data.isDemo === true || id.startsWith("demo-"),
-          usage: { users: usersSnap.data().count, ...month_.usage },
+          usage: { users: usersSnap.data().count, ...usage },
           cost: month_.cost,
           ...(companies.length > 0 ? { companies } : {}),
           // Written daily by the booking canary (/api/cron/booking-canary); null until its first run.
