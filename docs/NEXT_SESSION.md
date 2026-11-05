@@ -3,7 +3,7 @@
 > **2026-11-04 late evening — Roof Doctors build RUNNING (owner approved; Claude directs).** Wave 0 done on main (local, NOT
 > pushed): plan docs `71290f5`, T-289 merge `6ea5609` (role check fixed), T-290 merge `0c45c0d`, contracts + stubs `5998d3b`,
 > T-306 evaluation guard `ea11c22` (sendEmail requires businessId). Full vitest 2303 green. Workers (headless, Claude launched):
-> K1 Codex GPT-6.1 Sol high in `D:\Appsir-wt-rd-docs` (task/rd-docs; session 01a1a983-e224-7ad3-b589-e2a439ec0cc7; queued
+> K1 Codex GPT-6.1 Sol high in `D:/Apps/air-wt-rd-docs` (task/rd-docs; session 01a1a983-e224-7ad3-b589-e2a439ec0cc7; queued
 > follow-up = scratchpad k1-followup.md: `scope`/`renewalMonth` fields + Problem/Corrective Action sections); K2 Codex GPT-6.1
 > Terra medium in `air-wt-rd-screens` (started ~90 min after K1); K3 on **Codex Terra medium** (DeepSeek via Kilo needs an
 > unrestricted auto-approve flag that Claude's safety check blocks) in `air-wt-rd-data`. Tailoring pack drafted (private):
