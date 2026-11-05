@@ -72,5 +72,24 @@ describe("ended call durability", () => {
         expect(businessReads).toBe(1);
       } finally { spy.mockRestore(); }
     });
+
+    it("a failed company write is logged and never stops classification or the lead safety net", async () => {
+      const ref = db.collection("businesses").doc("biz").collection("calls").doc("call_1");
+      const prototype = Object.getPrototypeOf(ref);
+      const originalSet = prototype.set;
+      const failing = vi.spyOn(prototype, "set").mockImplementation(function (this: unknown, ...args: unknown[]) {
+        const [data] = args as [Record<string, unknown> | undefined];
+        if (data && typeof data === "object" && "companyId" in data && !("messages" in data)) return Promise.reject(new Error("write unavailable"));
+        return originalSet.apply(this, args);
+      });
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        await runAttributed();
+        expect(mocks.classify).toHaveBeenCalledOnce();
+        expect(mocks.lead).toHaveBeenCalledOnce();
+        expect(call()).toMatchObject({ status: "ended", outcome: "scheduled", outcomeReason: "Booked", messages: input.messages });
+        expect(logged).toHaveBeenCalledWith("writeEndedCallReport: company attribution failed", expect.any(Error));
+      } finally { failing.mockRestore(); logged.mockRestore(); }
+    });
   });
 });

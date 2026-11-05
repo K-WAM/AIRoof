@@ -529,7 +529,12 @@ async function handleEndOfCallReport(
   }));
 
   // One business read for the whole report: company attribution and outcome classification both reuse it.
-  const business = (await db.collection("businesses").doc(businessId).get()).data();
+  let business: Record<string, unknown> | undefined;
+  try {
+    business = (await db.collection("businesses").doc(businessId).get()).data();
+  } catch (error) {
+    console.error("Vapi end-of-call: could not read the business for attribution", error);
+  }
 
   // Classify outcome async — don't block the webhook response
   let outcome: string | null = null;
@@ -568,8 +573,13 @@ async function handleEndOfCallReport(
   );
 
   // Which company the caller belongs to (T-317). Bounded and non-fatal; a default-company/unknown caller writes nothing.
-  const companyId = await withinBudget(findCallingCustomerCompanyId(db, businessId, message.call.customer?.number, business));
-  if (companyId) await callRef.set({ companyId }, { merge: true });
+  // A failure here is logged and never skips the call document (or anything else in this handler).
+  try {
+    const companyId = await withinBudget(findCallingCustomerCompanyId(db, businessId, message.call.customer?.number, business));
+    if (companyId) await callRef.set({ companyId }, { merge: true });
+  } catch (error) {
+    console.error("Vapi end-of-call: company attribution failed", error);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

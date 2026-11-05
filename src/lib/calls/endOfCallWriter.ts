@@ -102,12 +102,21 @@ export async function writeEndedCallReport(
   );
 
   // The business document is read once and reused: company attribution and outcome classification both need it.
-  const business = (await db.collection("businesses").doc(input.businessId).get()).data();
+  let business: Record<string, unknown> | undefined;
+  try {
+    business = (await db.collection("businesses").doc(input.businessId).get()).data();
+  } catch (error) {
+    console.error("writeEndedCallReport: could not read the business for attribution", error);
+  }
 
   // Which company the caller belongs to (T-317). Bounded and non-fatal: no call is ever held up or failed by it, and
-  // a default-company/unknown caller writes no field at all.
-  const companyId = await withinBudget(findCallingCustomerCompanyId(db, input.businessId, input.callerPhone, business));
-  if (companyId) await callRef.set({ companyId }, { merge: true });
+  // a default-company/unknown caller writes no field at all. A failed write must not skip the work below.
+  try {
+    const companyId = await withinBudget(findCallingCustomerCompanyId(db, input.businessId, input.callerPhone, business));
+    if (companyId) await callRef.set({ companyId }, { merge: true });
+  } catch (error) {
+    console.error("writeEndedCallReport: company attribution failed", error);
+  }
 
   // Optional, bounded enrichment must never delay saving the provider facts.
   let outcome: string | null = null;
