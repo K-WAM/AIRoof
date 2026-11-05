@@ -1,5 +1,17 @@
 # NEXT_SESSION.md — start here (written end of 2026-09-25)
 
+> **2026-11-04 late evening — Roof Doctors build RUNNING (owner approved; Claude directs).** Wave 0 done on main (local, NOT
+> pushed): plan docs `71290f5`, T-289 merge `6ea5609` (role check fixed), T-290 merge `0c45c0d`, contracts + stubs `5998d3b`,
+> T-306 evaluation guard `ea11c22` (sendEmail requires businessId). Full vitest 2303 green. Workers (headless, Claude launched):
+> K1 Codex GPT-6.1 Sol high in `D:\Appsir-wt-rd-docs` (task/rd-docs; session 01a1a983-e224-7ad3-b589-e2a439ec0cc7; queued
+> follow-up = scratchpad k1-followup.md: `scope`/`renewalMonth` fields + Problem/Corrective Action sections); K2 Codex GPT-6.1
+> Terra medium in `air-wt-rd-screens` (started ~90 min after K1); K3 on **Codex Terra medium** (DeepSeek via Kilo needs an
+> unrestricted auto-approve flag that Claude's safety check blocks) in `air-wt-rd-data`. Tailoring pack drafted (private):
+> `client-resources/roofdoctors/06-tailoring/roofdoctors-tailoring.json`. Merge-review notes: K3 user-type presets show on
+> every client's Team page (limit them); polish their help text. Production steps (workspace, import, phone line) wait for
+> the owner's push approval of T-306.
+
+
 **2026-11-04, evening (latest): the Roof Doctors tailored review is Friday Nov 13, 10 a.m.** Start at `docs/ROOFDOCTORS-DEMO-PLAN.md` (storyline, decisions, contracts, streams, schedule, safety rules) and `docs/WORKER_QUEUE.md` section K (K0 Claude checklist + three paste-ready prompts). Waiting on the owner: approve the plan, then Wave 0 (merge T-289/T-290, commit the contracts + finance/payroll stubs) on Thu Nov 5 morning. Menu proposals for approval: `docs/mockups/simpler-menus.html`. Surveys stay in the ChatGPT-built portal (plan §13).
 
 **2026-11-04:** demo day. Two finished branches are parked, not merged: `wt/preview` (T-289 preview pages; demo uses the
