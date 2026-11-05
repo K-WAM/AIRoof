@@ -16,7 +16,7 @@ export function documentLetterhead<T extends LetterheadBusiness & { billingPrefs
   const brand = {
     ...business,
     businessName: company.name,
-    ...(isDefault ? {} : { logoUrl: undefined }),
+    ...(isDefault ? {} : { logoUrl: undefined, notificationEmail: undefined }),
     address: isDefault ? company.address ?? business.address : company.address,
     contactPhone: isDefault ? company.phone ?? business.contactPhone : company.phone,
     contactEmail: isDefault ? company.email ?? business.contactEmail : company.email,

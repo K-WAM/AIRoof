@@ -9,9 +9,10 @@ it("overlays the legal company identity and its bank with escaped rendering left
   expect(result).toMatchObject({businessName:company.name,address:"New",contactPhone:"222",contactEmail:"rcu@example.test",licenseNumber:"NEW",billingPrefs:{payInstructions:"RCU bank",payLink:"https://rcu.test"},logoUrl:"data:image/png;base64,a"});
 });
 it("a non-default company never borrows the business's payment, contact, license or logo details",()=>{
-  const business={businessName:"Main",address:"Old",contactPhone:"111",contactEmail:"old@example.test",licenseNumber:"OLD",logoUrl:"data:image/png;base64,old",billingPrefs:{payInstructions:"Main bank",payLink:"https://main.test"}};
+  const business={businessName:"Main",address:"Old",contactPhone:"111",contactEmail:"old@example.test",notificationEmail:"notify@example.test",licenseNumber:"OLD",logoUrl:"data:image/png;base64,old",billingPrefs:{payInstructions:"Main bank",payLink:"https://main.test"}};
   const result=documentLetterhead(business,{id:"rcu",name:"RCU",shortName:"RCU"});
   expect(result).toMatchObject({address:undefined,contactPhone:undefined,contactEmail:undefined,licenseNumber:undefined,logoUrl:null});
+  expect((result as {notificationEmail?: unknown}).notificationEmail).toBeUndefined();
   expect(result.billingPrefs).toEqual({payInstructions:"",payLink:""});
 });
 it("the default company keeps today's fallback to the business's own fields",()=>{
