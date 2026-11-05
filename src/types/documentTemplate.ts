@@ -14,6 +14,7 @@ export interface ReportLetterOptions {
   priceMode?: "lines" | "project";
   layout?: "report" | "inspection_completion" | "repair_completion";
   locations?: string;
+  renewalMonth?: string;
   noCharge?: boolean;
   approvalDate?: string;
   attention?: string;

@@ -14,6 +14,12 @@ it("returns authorization and validation failures", async () => {
   expect((await PUT(req({ layout: "bad" }), ctx)).status).toBe(400);
   expect((await PUT(req({ noCharge: "yes" }), ctx)).status).toBe(400);
   expect((await PUT(req({ locations: "x".repeat(4001) }), ctx)).status).toBe(400);
+  expect((await PUT(req({ renewalMonth: "x".repeat(41) }), ctx)).status).toBe(400);
+  expect((await PUT(req({ renewalMonth: 2026 }), ctx)).status).toBe(400);
+});
+it("stores a bounded renewal month", async () => {
+  expect((await PUT(req({ renewalMonth: "September 2026" }), ctx)).status).toBe(200);
+  expect(mocks.db().__peek("businesses/b/jobs", "j").reportDocument.renewalMonth).toBe("September 2026");
 });
 it("saves only report fields under the session tenant", async () => {
   expect((await PUT(req({ businessId: "foreign", layout: "repair_completion", locations: "North entry", noCharge: true }), ctx)).status).toBe(200);

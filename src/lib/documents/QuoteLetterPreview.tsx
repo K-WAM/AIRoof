@@ -18,7 +18,7 @@ export function QuoteLetterPreview({ quote, brand, template, rates, photos }: { 
     {quote.narrative && <p style={{ whiteSpace: "pre-wrap" }}>{quote.narrative}</p>}
     <LetterBody letter={model.letter} />
     {tm ? <section><h3>Labor rates</h3><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><th style={{ textAlign: "left" }}>Role</th><th style={{ textAlign: "right" }}>Hourly rate</th></tr></thead><tbody>{rates.map((r, i) => <tr key={i}><td style={{ padding: "10px 0" }}>{r.role}</td><td style={{ textAlign: "right" }}>{fmtMoney(r.rate)}</td></tr>)}</tbody></table><p>Rates shown for reference; actual time is billed separately.</p></section>
-      : <><h3>Scope of work</h3><ul>{model.scope.map((scope, i) => <li key={i} style={{ marginBottom: 8 }}>{scope}</li>)}</ul><p><strong>Price: {fmtMoney(model.total)}</strong><br />{model.priceWords}</p><p>Valid for {model.validDays} days.</p></>}
+      : <>{model.scope.length > 0 && <><h3>Scope of work</h3><ul>{model.scope.map((scope, i) => <li key={i} style={{ marginBottom: 8 }}>{scope}</li>)}</ul></>}<p><strong>Price: {fmtMoney(model.total)}</strong><br />{model.priceWords}</p><p>Valid for {model.validDays} days.</p></>}
     <section style={{ borderTop: "1px solid #cbd5e1", marginTop: 32, paddingTop: 20 }}><p>{tm ? "Authorized" : "Accepted"} by: ____________________</p><p>Date: ____________________</p><p>Printed name: ____________________</p>{template.signer?.name && <p>{template.signer.name}<br />{template.signer.title}</p>}</section>
   </DocumentPreview></>;
 }

@@ -12,12 +12,20 @@ export const MERGE_FIELDS = [
   ["business.name", "Business name", "Example Services"], ["business.license", "License", "LIC-123"],
   ["signer.name", "Signer name", "Alex Example"], ["signer.title", "Signer title", "Service manager"],
   ["ratesTable", "Labor rates", "Service lead: $75.00 per hour"],
+  ["scope", "Scope of work", "- Inspect the service area\n- Complete the approved work"],
+  ["renewalMonth", "Renewal month", "September 2026"],
 ].map(([key, label, example]) => ({ key, label, example }));
 
 export const LETTER_KINDS: LetterKind[] = ["proposal", "tm_authorization", "inspection_completion", "repair_completion", "invoice_opening", "deposit_opening"];
 export const EXAMPLE_VALUES = Object.fromEntries(MERGE_FIELDS.map(({ key, example }) => [key, example]));
 const fieldKeys = new Set(MERGE_FIELDS.map(({ key }) => key));
 export type RenderedLetter = { title: string; blocks: Array<{ heading?: string; paragraphs: string[]; bullets?: string[] }>; missing: string[] };
+
+/** A quote, including an empty quote, takes precedence over finding solutions. */
+export function scopeText(quote?: { lines: Array<{ description: string }> } | null, findings: Array<{ solution: string }> = []): string {
+  return (quote ? quote.lines.map(line => line.description) : findings.map(finding => finding.solution))
+    .flatMap(text => text.split(/\r?\n/)).filter(text => text.trim()).map(text => `- ${text}`).join("\n");
+}
 
 /** Literal text only. Values are never re-interpreted as templates or HTML. */
 export function renderLetter(template: LetterTemplate, values: Record<string, string | undefined>, options: { includeOptional: string[] }): RenderedLetter {

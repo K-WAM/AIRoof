@@ -2238,7 +2238,7 @@ function ReportDocument({ job, jobId, businessConfig, logos, reportNotes, report
   const findings = (job.findings ?? []).filter((finding) => finding.includeInReport).map((finding) => ({ problem: finding.problem, solution: finding.solution, note: finding.note }));
   if (isCompletion(job.reportDocument)) {
     const kind = job.reportDocument!.layout as "inspection_completion" | "repair_completion";
-    const letter = completionLetter(job, businessConfig ?? {}, templates[kind], Date.now());
+    const letter = completionLetter(job, businessConfig ?? {}, templates[kind], Date.now(), quote);
     return <>{letterError && <p className="no-print" role="alert">{letterError}</p>}{letter.missing.length > 0 && <p className="no-print">Unfilled letter fields: {letter.missing.join(", ")}</p>}<DocumentPreview className="report-doc" title={letter.title} brand={brand} meta={meta} billTo={{ name: job.clientName ?? "", address: job.address }} findings={findings} photos={options.showPhotos ? reportPhotos : []}><LetterBody letter={letter} />{kind === "repair_completion" && job.reportDocument?.noCharge && <p>There is no charge.</p>}</DocumentPreview></>;
   }
   return <DocumentPreview className="report-doc" title="Report" brand={brand} meta={meta}

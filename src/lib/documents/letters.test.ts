@@ -1,7 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { amountInWords, DEFAULT_LETTERS, renderLetter, validLetterTemplate } from "./letters";
+import { amountInWords, DEFAULT_LETTERS, MERGE_FIELDS, renderLetter, scopeText, validLetterTemplate } from "./letters";
 
 describe("letter text renderer", () => {
+  it("expands scope into bullets and warns for an empty renewal month", () => {
+    const template = { ...DEFAULT_LETTERS.inspection_completion, sections: [{ id: "scope", heading: "Scope of Work", body: "{{scope}}" }, { id: "renewal", body: "Renewal: {{renewalMonth}}", optional: true }] };
+    const scope = scopeText({ lines: [{ description: "Inspect" }, { description: "Service" }] }, [{ solution: "Fallback" }]);
+    expect(scope).toBe("- Inspect\n- Service");
+    expect(scopeText(null, [{ solution: "Fallback" }])).toBe("- Fallback");
+    const result = renderLetter(template, { scope, renewalMonth: "" }, { includeOptional: ["renewal"] });
+    expect(result.blocks[0].bullets).toEqual(["Inspect", "Service"]);
+    expect(result.missing).toEqual(["renewalMonth"]);
+    expect(renderLetter(template, { scope, renewalMonth: "September 2026" }, { includeOptional: ["renewal"] }).missing).toEqual([]);
+    expect(MERGE_FIELDS.filter(field => ["scope", "renewalMonth"].includes(field.key)).every(field => field.label && field.example)).toBe(true);
+  });
   it("omits unknown, empty and inherited fields and never interprets values", () => {
     const values = Object.assign(Object.create({ "customer.name": "inherited" }), { price: "<img onerror=alert(1)>{{date}}" });
     const result = renderLetter({ ...DEFAULT_LETTERS.proposal, title: "{{customer.name}}", sections: [{ id: "one", body: "{{unknown}} {{date}}\n- {{price}}" }] }, values, { includeOptional: [] });
