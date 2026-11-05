@@ -80,8 +80,8 @@ export function QuotePanel({ job, businessId, businessConfig, logos, catalog, ph
   const previewRef = useRef<HTMLDivElement>(null);
   const quoteCompany = resolveDocumentCompany(businessConfig, { documentCompanyId: quote?.companyId, jobCompanyId: job.companyId, documentStatus: quote?.status });
   const quoteBrand = documentLetterhead(businessConfig ?? {}, quoteCompany, logos, quote?.logoId);
-  const staleQuoteName = quote?.status === "draft" ? staleCompanyName(quote.narrative, companiesOf(businessConfig), quoteCompany?.id) : undefined;
   const displayNarrative = quote?.status === "draft" ? resolvedQuoteNarrative(quote, job, businessConfig ?? {}, quoteCompany?.name ?? "") : quote?.narrative;
+  const staleQuoteName = quote?.status === "draft" ? staleCompanyName(displayNarrative, companiesOf(businessConfig), quoteCompany?.id) : undefined;
   const draft = quote?.status === "draft" && !readOnly;
   const letterLayout = quote?.layout === "proposal" || quote?.layout === "tm_authorization";
   const { templates, error: letterError } = useLetterTemplates(letterLayout);

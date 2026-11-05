@@ -9,6 +9,7 @@ import { POST as payment } from "@/app/api/jobs/[jobId]/invoice/payments/route";
 import { runCustomerReminders } from "@/lib/billing/customerReminders";
 import { POST as reportSend } from "@/app/api/jobs/[jobId]/report/send/route";
 import { PATCH as switchDocument } from "@/app/api/jobs/[jobId]/company/route";
+import { PATCH as switchJob } from "@/app/api/jobs/[jobId]/route";
 import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import { documentLetterhead } from "../documentLetterhead";
 import { resolveDocumentCompany } from "../companies";
@@ -94,6 +95,17 @@ it("a company switch regenerates generated invoice text, keeps edited text, and 
   expect(String(switched.thankYou)).toContain(a.name);expect(String(switched.thankYou)).not.toContain(b.name);
   mocks.send.mockClear();expect((await invoiceSend(req(),ctx)).status).toBe(200);const html=mocks.send.mock.calls[0][0].html;
   expect(html).toContain(a.name);expect(html).toContain("South bank");expect(html).not.toContain("Concepts &lt;Unlimited&gt;");expect(html).not.toContain("RCU bank");
+});
+it("a JOB company switch also clears the old name from a draft invoice's generated opening and email",async()=>{
+  seed([a,b]);
+  await db.collection("businesses/biz/jobs").doc("j").update({invoiceId:undefined,address:"12 Palm Way",clientName:"School"});
+  db.__seed("businesses/biz/documentTemplates","invoice_opening",{kind:"invoice_opening",title:"Opening",sections:[{id:"opening",body:"{{business.name}} completed the work."}],updatedAt:1});
+  const created=await createInvoice(req(),ctx);expect(created.status).toBe(201);const invoiceId=(await created.json()).invoice.invoiceId as string;
+  await db.collection("businesses/biz/invoices").doc(invoiceId).update({other:[{lineId:"work",description:"Repair",amount:100}],subtotal:100,total:100});
+  expect(db.__peek("businesses/biz/invoices",invoiceId)?.opening).toContain(b.name);
+  expect((await switchJob(req({companyId:"rdsf"}),{params:Promise.resolve({jobId:"j"})})).status).toBe(200);
+  mocks.send.mockClear();expect((await invoiceSend(req(),ctx)).status).toBe(200);const email=mocks.send.mock.calls[0][0];
+  expect(email.html).toContain(a.name);expect(email.html).not.toContain("Concepts &lt;Unlimited&gt;");
 });
 it("a company switch regenerates the quote intro that still equals the generated default",async()=>{
   seed([a,b]);db.__seed("businesses/biz/quotes","Q-1",{quoteId:"Q-1",businessId:"biz",jobId:"j",status:"draft",billTo:{name:"School"},findings:[{findingId:"f",problem:"Leak",solution:"Repair",includeInQuote:true}],lines:[{lineId:"work",kind:"other",description:"Repair",quantity:1,unitPrice:100}],subtotal:100,total:100,validUntil:Date.now()+86400000,createdAt:1,updatedAt:1});

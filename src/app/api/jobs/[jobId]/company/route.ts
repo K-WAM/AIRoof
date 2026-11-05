@@ -7,44 +7,18 @@ import { refreshGeneratedText, type InvoiceCopyValues } from "@/lib/companies/do
 import { sendLockActive } from "@/lib/billing/jobInvoiceStore";
 import { jsonWithCache } from "@/lib/http/cache";
 import { loadLetter } from "@/lib/documents/letterStore";
-import { amountInWords, renderLetter, scopeText } from "@/lib/documents/letters";
+import { invoiceOpeningText, depositOpeningText } from "@/lib/companies/documentOpening";
 import { fillInvoiceCopy, DEFAULT_INVOICE_COPY } from "@/lib/documents/invoiceCopy";
 import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { fmtDate } from "@/lib/format";
-import { fmtMoney } from "@/lib/format/money";
 import type { Job } from "@/types/jobs";
 import type { JobInvoice } from "@/types/invoice";
 import type { JobQuote } from "@/types/quote";
 import type { Customer } from "@/types/customer";
-import type { LetterTemplate } from "@/types/documentTemplate";
 import type { BillingCompany, DocumentCompanyCopy } from "@/types/company";
 
 type CopyPatch = DocumentCompanyCopy;
-type BusinessData = FirebaseFirestore.DocumentData;
-
-function invoiceOpening(template: LetterTemplate, job: Job, customer: Customer | undefined, name: string, license: string | undefined, invoice: JobInvoice, business: BusinessData, acceptedQuote: JobQuote | null) {
-  const now = invoice.createdAt ?? Date.now();
-  const letter = renderLetter(template, {
-    date: fmtDate(job.scheduledStart ?? job.createdAt ?? now, business.timezone ?? "America/New_York"),
-    "customer.name": job.clientName, "customer.code": customer?.customerCode, billTo: customer?.address ?? job.address,
-    serviceAt: job.address, workOrder: job.jobId, description: job.title,
-    scope: scopeText(acceptedQuote, job.findings?.filter((finding) => finding.includeInReport)), "business.name": name, "business.license": license,
-  }, { includeOptional: template.sections.filter((section) => section.defaultOn).map((section) => section.id) });
-  return letter.blocks.flatMap((block) => [...(block.heading ? [block.heading] : []), ...block.paragraphs, ...(block.bullets ?? []).map((line) => `- ${line}`)]).join("\n");
-}
-
-function depositOpening(template: LetterTemplate, job: Job, customer: Customer | undefined, name: string, invoice: JobInvoice, business: BusinessData) {
-  const now = invoice.createdAt ?? Date.now();
-  const letter = renderLetter(template, {
-    date: fmtDate(now, business.timezone), "customer.name": job.clientName, "customer.code": customer?.customerCode,
-    serviceAt: job.address, workOrder: job.jobId, description: job.title, agreementDate: fmtDate(invoice.depositAgreementDate ?? now, business.timezone),
-    depositPercent: String(invoice.depositPercent ?? ""), depositAmount: fmtMoney(invoice.total), price: fmtMoney(invoice.total),
-    priceWords: amountInWords(invoice.total), "business.name": name,
-  }, { includeOptional: template.sections.filter((section) => section.defaultOn).map((section) => section.id) });
-  const progressIndex = template.sections.filter((section) => !section.optional || section.defaultOn).findIndex((section) => section.id === "progress");
-  return letter.blocks.filter((_, index) => index !== progressIndex).flatMap((block) => [...block.paragraphs, ...(block.bullets ?? [])]).join("\n");
-}
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const gate = await verifyOwnBusinessRole(req, ["owner", "staff"]);
@@ -88,14 +62,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ jo
         copy.narrative = refreshGeneratedText(quote.narrative, names, nextCompany.name, name => draftQuoteIntro(job as Job, quote.findings ?? [], name));
       } else if ((doc as JobInvoice).kind === "deposit") {
         const invoice = doc as JobInvoice;
-        copy.opening = refreshGeneratedText(invoice.opening, names, nextCompany.name, name => depositOpening(letterTemplate!, job as Job, customer, name, invoice, biz));
+        copy.opening = refreshGeneratedText(invoice.opening, names, nextCompany.name, name => depositOpeningText(letterTemplate!, job as Job, customer, name, invoice, biz));
       } else {
         const invoice = doc as JobInvoice;
         const quoteSnap = job.quoteId ? await tx.get(db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId)) : null;
         const acceptedQuote = quoteSnap?.data()?.status === "accepted" ? quoteSnap.data() as JobQuote : null;
         const brands = new Map(companies.map(company => [company.name, brandFor(company)] as const));
         if (oldCompany && !brands.has(oldCompany.name)) brands.set(oldCompany.name, brandFor(oldCompany));
-        copy.opening = refreshGeneratedText(invoice.opening, names, nextCompany.name, name => invoiceOpening(letterTemplate!, job as Job, customer, name, brands.get(name)?.licenseNumber, invoice, biz, acceptedQuote));
+        copy.opening = refreshGeneratedText(invoice.opening, names, nextCompany.name, name => invoiceOpeningText(letterTemplate!, job as Job, customer, name, brands.get(name)?.licenseNumber, invoice, biz, acceptedQuote));
         const values = (): InvoiceCopyValues => ({
           address: job.address ?? "the service address",
           visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? invoice.createdAt, biz.timezone ?? "America/New_York"),
