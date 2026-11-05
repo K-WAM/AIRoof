@@ -10,6 +10,17 @@ describe("Sheet (T-158 dialog contract)", () => {
     vi.unstubAllGlobals();
   });
 
+  it("renders outside the caller stacking context", () => {
+    const { container } = render(
+      <div style={{ transform: "translateZ(0)" }}>
+        <Sheet open onClose={() => {}} title="Dialog">content</Sheet>
+      </div>
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(container).not.toContainElement(dialog);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+  });
+
   it("renders a labelled dialog with a 44px named close button", () => {
     render(
       <Sheet open onClose={() => {}} title="Add a finding">

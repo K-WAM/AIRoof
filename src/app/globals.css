@@ -3749,3 +3749,8 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
 .job-tabs-with-help { display: flex; align-items: flex-start; gap: 4px; min-width: 0; }
 .job-tabs-with-help > .job-tabs { flex: 1; min-width: 0; }
 @media (pointer: coarse) { .help-hint { width: 44px; height: 44px; } }
+
+/* === K2 screens === */
+:root { --z-modal: 2147483647; }
+.modal-overlay, .sheet-backdrop { z-index: var(--z-modal); }
+/* === end K2 === */

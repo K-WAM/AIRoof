@@ -10,6 +10,17 @@ describe("Modal", () => {
   // Tooltip.test.tsx, T-066's precedent for this file's jsdom pragma).
   afterEach(() => cleanup());
 
+  it("renders outside the caller stacking context", () => {
+    const { container } = render(
+      <div style={{ transform: "translateZ(0)" }}>
+        <Modal open onClose={() => {}} title="Dialog">content</Modal>
+      </div>
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(container).not.toContainElement(dialog);
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
+  });
+
   it("renders nothing when closed", () => {
     render(
       <Modal open={false} onClose={() => {}} title="Quick add">
