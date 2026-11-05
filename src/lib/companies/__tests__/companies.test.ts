@@ -39,4 +39,11 @@ describe("billing companies", () => {
     expect(resolveDocumentCompany(two, {})?.id).toBe("rdsf");
     expect(resolveDocumentCompany({ billingCompanies: [rcu] }, { jobCompanyId: "rcu" })).toBeNull();
   });
+
+  it("a sent document with no company of its own stays on the default company when the job moves", () => {
+    expect(resolveDocumentCompany(two, { documentStatus: "sent", jobCompanyId: "rcu" })?.id).toBe("rdsf");
+    expect(resolveDocumentCompany(two, { documentStatus: "paid", customerCompanyId: "rcu" })?.id).toBe("rdsf");
+    expect(resolveDocumentCompany(two, { documentStatus: "draft", jobCompanyId: "rcu" })?.id).toBe("rcu");
+    expect(resolveDocumentCompany(two, { documentStatus: "sent", documentCompanyId: "rcu", jobCompanyId: "rdsf" })?.id).toBe("rcu");
+  });
 });

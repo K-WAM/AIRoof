@@ -55,11 +55,16 @@ export function companyById(business: HasCompanies, id: unknown): BillingCompany
  */
 export function resolveDocumentCompany(
   business: HasCompanies,
-  ids: { documentCompanyId?: unknown; jobCompanyId?: unknown; customerCompanyId?: unknown },
+  ids: { documentCompanyId?: unknown; jobCompanyId?: unknown; customerCompanyId?: unknown; documentStatus?: unknown },
 ): BillingCompany | null {
   if (!isMultiCompany(business)) return null;
   const known = companiesOf(business);
-  for (const id of [ids.documentCompanyId, ids.jobCompanyId, ids.customerCompanyId]) {
+  const own = typeof ids.documentCompanyId === "string" ? known.find((c) => c.id === ids.documentCompanyId) : undefined;
+  if (own) return own;
+  // A document that is no longer a draft is frozen: with no company of its own it belongs to the DEFAULT company,
+  // never to whatever company the job is switched to today.
+  if (typeof ids.documentStatus === "string" && ids.documentStatus !== "draft") return defaultCompany(business);
+  for (const id of [ids.jobCompanyId, ids.customerCompanyId]) {
     const hit = typeof id === "string" ? known.find((c) => c.id === id) : undefined;
     if (hit) return hit;
   }

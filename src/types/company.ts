@@ -25,6 +25,14 @@ export interface BillingCompany {
   isDefault?: boolean;
 }
 
+/** Wording a company switch regenerated because it was still the generated default (never staff-edited text). */
+export interface DocumentCompanyCopy {
+  opening?: string;
+  closing?: string;
+  thankYou?: string;
+  narrative?: string;
+}
+
 /** What the company shell needs (bootstrap): present only when the business bills under 2+ companies. */
 export interface BootstrapCompany {
   id: string;

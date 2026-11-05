@@ -6,6 +6,7 @@ import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
 import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { resolvedInvoiceCopy } from "@/lib/companies/documentCopy";
 import { noticesForDocument } from "@/lib/documents/notices";
 import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import type { LibraryLogo } from "@/types/library";
@@ -87,7 +88,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
   const selected = await loadDocumentPhotos(db, businessId, jobId, photoIds, metas);
   if ("error" in selected) return NextResponse.json({ error: selected.error }, { status: 400 });
-  const html = buildJobInvoiceEmailHtml(invoice, {
+  // A draft's generated copy follows the company resolved for THIS send (a job switch can move it); edited text is kept.
+  const sendable = invoice.status === "draft" ? { ...invoice, ...resolvedInvoiceCopy(invoice, storedBusiness, job, bizName) } : invoice;
+  const html = buildJobInvoiceEmailHtml(sendable, {
     businessName: bizName,
     brandColor: biz.brandColor,
     logoUrl: letterhead.logoUrl,

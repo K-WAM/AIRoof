@@ -6,7 +6,9 @@ import type { Letterhead } from "@/lib/documents/letterhead";
 import type { BusinessConfig } from "@/types";
 import type { LibraryLogo } from "@/types/library";
 import { documentLetterhead } from "@/lib/companies/documentLetterhead";
-import { isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { companiesOf, isMultiCompany, resolveDocumentCompany } from "@/lib/companies/companies";
+import { staleCompanyName } from "@/lib/companies/documentCopy";
+import { InlineNotice } from "@/components/ui/InlineNotice";
 import { DocumentCompanyControl } from "@/components/companies/DocumentCompanyControl";
 import { DocumentPreview } from "@/lib/documents/DocumentPreview";
 import { invoiceGroups } from "@/lib/documents/groups";
@@ -50,7 +52,9 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save deposit"); return null; }
     finally { setBusy(false); }
   }
-  const selectedBrand = selected && businessConfig && isMultiCompany(businessConfig) ? documentLetterhead(businessConfig, resolveDocumentCompany(businessConfig, { documentCompanyId: selected.companyId, jobCompanyId }), logos, selected.logoId) : brand;
+  const selectedCompany = selected ? resolveDocumentCompany(businessConfig, { documentCompanyId: selected.companyId, jobCompanyId, documentStatus: selected.status }) : null;
+  const selectedBrand = selected && businessConfig && isMultiCompany(businessConfig) ? documentLetterhead(businessConfig, selectedCompany, logos, selected.logoId) : brand;
+  const staleDepositName = selected?.status === "draft" ? staleCompanyName(selected.opening, companiesOf(businessConfig), selectedCompany?.id) : undefined;
   return <><section className="no-print" aria-label="Deposit invoices" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
     <details><summary>Deposits{deposits.length ? ` (${deposits.length})` : ""}</summary>
       {!readOnly && !requesting && <button className="button" disabled={busy || disabled} onClick={() => { setRequestId(crypto.randomUUID()); setRequesting(true); setSelected(null); }}>Request a deposit</button>}
@@ -61,7 +65,7 @@ export function DepositInvoices({ jobId, businessId, quote, brand, businessConfi
       </div>}
       <ul style={{ listStyle: "none", padding: 0 }}>{(all ? deposits : deposits.slice(0, 5)).map(d => <li key={d.invoiceId} style={{ borderTop: "1px solid var(--border)", padding: "10px 0" }}><strong>{d.invoiceId}</strong> · {fmtMoney(d.total)} · {d.status}<button className="button" onClick={() => { setSelected(d); setRequesting(false); setNewPayLink(false); }}>Review deposit</button></li>)}</ul>
       {deposits.length > 5 && <button className="button" onClick={() => setAll(!all)}>{all ? "Show fewer" : `Show all ${deposits.length}`}</button>}
-      {selected && <div style={{ marginTop: 14 }}><DocumentCompanyControl jobId={jobId} kind="deposit" invoiceId={selected.invoiceId} companyId={selected.companyId} jobCompanyId={jobCompanyId} sent={selected.status !== "draft"} disabled={readOnly || busy} onSaved={companyId => { setSelected(current => current ? { ...current, companyId } : current); setDeposits(current => current.map(d => d.invoiceId === selected.invoiceId ? { ...d, companyId } : d)); }} /><button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={selectedBrand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} howToPay={selected.status === "paid" || !isMultiCompany(businessConfig) ? null : { instructions: selectedBrand.billingPrefs?.payInstructions ?? "", link: selectedBrand.billingPrefs?.payLink ?? "" }} />
+      {selected && <div style={{ marginTop: 14 }}><DocumentCompanyControl jobId={jobId} kind="deposit" invoiceId={selected.invoiceId} companyId={selected.companyId} jobCompanyId={jobCompanyId} sent={selected.status !== "draft"} disabled={readOnly || busy} onSaved={(companyId, copy) => { setSelected(current => current ? { ...current, companyId, ...(copy?.opening !== undefined ? { opening: copy.opening } : {}) } : current); setDeposits(current => current.map(d => d.invoiceId === selected.invoiceId ? { ...d, companyId } : d)); }} />{staleDepositName && <InlineNotice message={`This text mentions ${staleDepositName} — check it before sending`} />}<button className="button" onClick={() => { document.body.classList.add("k1-print-deposit"); window.addEventListener("afterprint", () => document.body.classList.remove("k1-print-deposit"), { once: true }); requestAnimationFrame(() => window.print()); }}>Print deposit</button><DocumentPreview title="Deposit invoice" brand={selectedBrand} meta={[["Number", selected.invoiceId], ["Work order", jobId]]} billTo={selected.billTo} serviceAt={selected.serviceAt} opening={selected.opening} groups={invoiceGroups(selected)} totalLabel="Deposit due" total={selected.total} howToPay={selected.status === "paid" || !isMultiCompany(businessConfig) ? null : { instructions: selectedBrand.billingPrefs?.payInstructions ?? "", link: selectedBrand.billingPrefs?.payLink ?? "" }} />
         {selected.payNowPending && <p role="status">Bank payment pending</p>}
         {selected.payNowNotice && <p role="status">{selected.payNowNotice}</p>}
         {selected.payments?.some(p => p.source === "stripe" && p.amount > 0) && <p>Paid online</p>}

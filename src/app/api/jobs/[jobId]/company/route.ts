@@ -18,9 +18,9 @@ import type { JobInvoice } from "@/types/invoice";
 import type { JobQuote } from "@/types/quote";
 import type { Customer } from "@/types/customer";
 import type { LetterTemplate } from "@/types/documentTemplate";
-import type { BillingCompany } from "@/types/company";
+import type { BillingCompany, DocumentCompanyCopy } from "@/types/company";
 
-type CopyPatch = { opening?: string; closing?: string; thankYou?: string; narrative?: string };
+type CopyPatch = DocumentCompanyCopy;
 type BusinessData = FirebaseFirestore.DocumentData;
 
 function invoiceOpening(template: LetterTemplate, job: Job, customer: Customer | undefined, name: string, license: string | undefined, invoice: JobInvoice, business: BusinessData, acceptedQuote: JobQuote | null) {

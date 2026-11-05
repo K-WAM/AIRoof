@@ -4,7 +4,13 @@
 // never be overwritten. These helpers are pure: callers pass the generated default for each company name.
 
 import { DEFAULT_INVOICE_COPY, fillInvoiceCopy } from "@/lib/documents/invoiceCopy";
+import { draftQuoteIntro } from "@/lib/billing/draftQuoteIntro";
+import { getVerticalTemplate } from "@/lib/verticals/templates";
+import { fmtDate } from "@/lib/format";
+import { companiesOf } from "./companies";
 import type { BillingCompany } from "@/types/company";
+import type { JobInvoice } from "@/types/invoice";
+import type { JobQuote } from "@/types/quote";
 
 export type InvoiceCopyValues = { address: string; visitDate: string; industryNoun: string };
 
@@ -31,6 +37,32 @@ export function refreshGeneratedText(
     if (name !== resolvedName && stored === generate(name)) return generate(resolvedName);
   }
   return stored;
+}
+
+type BusinessCopyProfile = { billingCompanies?: unknown; industry?: string; timezone?: string; invoiceCopy?: { closing?: string; thankYou?: string } };
+type JobCopyFacts = { address?: string; scheduledStart?: number; createdAt?: number };
+
+/** The draft's closing/thank-you as they should read under `resolvedName`; staff-edited text is kept as written. */
+export function resolvedInvoiceCopy(invoice: Pick<JobInvoice, "closing" | "thankYou" | "createdAt">, business: BusinessCopyProfile, job: JobCopyFacts, resolvedName: string) {
+  const names = companiesOf(business).map((company) => company.name);
+  const values = (): InvoiceCopyValues => ({
+    address: job.address ?? "the service address",
+    visitDate: fmtDate(job.scheduledStart ?? job.createdAt ?? invoice.createdAt, business.timezone ?? "America/New_York"),
+    industryNoun: getVerticalTemplate(business.industry ?? "").vocab.jobNoun,
+  });
+  const generate = (name: string, key: "closing" | "thankYou") => {
+    const filled = { businessName: name, ...values() };
+    return fillInvoiceCopy(business.invoiceCopy?.[key] ?? DEFAULT_INVOICE_COPY[key], filled);
+  };
+  return {
+    closing: refreshGeneratedText(invoice.closing, names, resolvedName, name => generate(name, "closing")),
+    thankYou: refreshGeneratedText(invoice.thankYou, names, resolvedName, name => generate(name, "thankYou")),
+  };
+}
+
+/** A quote's intro as it should read under `resolvedName`; staff-edited text is kept as written. */
+export function resolvedQuoteNarrative(quote: Pick<JobQuote, "narrative" | "findings">, job: { address?: string }, business: { billingCompanies?: unknown }, resolvedName: string): string | undefined {
+  return refreshGeneratedText(quote.narrative, companiesOf(business).map((company) => company.name), resolvedName, name => draftQuoteIntro(job, quote.findings ?? [], name));
 }
 
 /** The first other company whose name appears in the text, if any — the draft should ask staff to check it. */
