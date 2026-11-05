@@ -12,8 +12,8 @@ export function InvoicePayPrint({ link, businessId, jobId, invoiceId }: { link: 
       const query = new URLSearchParams({ businessId, invoiceId: invoiceId! });
       const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/invoice/pay-link?${query}`, { cache: "no-store" });
       if (!res.ok) { if (live) setReady(null); return; }
-      const current: SentPayLink = await res.json();
-      if (current.expiresAt <= Date.now()) { if (live) setReady(null); return; }
+      const current = await res.json() as SentPayLink | { url: null };
+      if (!current.url || current.expiresAt <= Date.now()) { if (live) setReady(null); return; }
       const code = await import("qrcode");
       const data = await code.toDataURL(current.url, { width: 180, margin: 2, errorCorrectionLevel: "M" });
       if (live) setReady({ ...current, data, key });

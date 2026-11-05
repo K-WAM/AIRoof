@@ -46,7 +46,7 @@ it.each(["owner", "staff"])("recovers a link and unmatched references for %s wit
   expect(office.headers.get("cache-control")).toBe("private, no-cache");
   expect(await office.json()).toMatchObject({ count: 1, paymentCount: 1, refundCount: 0, payments: [{ eventId: "pay_pi_1", kind: "payment", amount: 12, sessionId: "cs_1" }] });
 });
-it.each(["nonce missing", "expired", "draft", "paid", "void", "off", "secret missing", "foreign invoice", "foreign job", "wrong job"])("404 without creating a nonce when %s", async reason => {
+it.each(["nonce missing", "expired", "draft", "paid", "void", "off", "secret missing", "foreign invoice", "foreign job", "wrong job"])("no link (200, url null) without creating a nonce when %s", async reason => {
   const inv = db.__peek("businesses/a/invoices", "INV-1")!;
   if (reason === "nonce missing") { delete inv.payLinkNonce; delete inv.payLinkExpiresAt; }
   if (reason === "expired") inv.payLinkExpiresAt = 1;
@@ -57,7 +57,9 @@ it.each(["nonce missing", "expired", "draft", "paid", "void", "off", "secret mis
   if (reason === "foreign job") await db.collection("businesses/a/jobs").doc("j").update({ businessId: "b" });
   if (reason === "wrong job") inv.jobId = "other";
   db.__seed("businesses/a/invoices", "INV-1", inv);
-  expect((await GET(request("owner"), context)).status).toBe(404);
+  const res = await GET(request("owner"), context);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ url: null });
   expect(db.__peek("businesses/a/invoices", "INV-1")).toEqual(inv);
 });
 it("rejects a caller asking for another tenant and keeps product routes in billing", async () => {

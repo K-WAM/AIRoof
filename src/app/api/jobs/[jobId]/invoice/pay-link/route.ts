@@ -17,7 +17,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
   const tenant = gate.user.businessId!;
   const { jobId } = await params;
   const invoiceId = req.nextUrl.searchParams.get("invoiceId") ?? "";
-  const unavailable = () => jsonWithCache({ error: "Payment link unavailable" }, "noStore", { status: 404 });
+  // "No pay link" is the normal answer for most invoices (Pay now off, draft, paid…), so it is a 200 with url null,
+  // not an error the browser logs on every invoice view. The response never says which reason applied.
+  const unavailable = () => jsonWithCache({ url: null }, "noStore");
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(jobId) || !/^INV-\d+$/.test(invoiceId)) return unavailable();
   const db = getAdminFirestore();
   if (!db) return jsonWithCache({ error: "Database unavailable" }, "noStore", { status: 503 });
