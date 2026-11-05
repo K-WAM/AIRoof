@@ -147,7 +147,7 @@ export async function inviteTeamMember(opts: {
 
   if (resetLink) {
     try {
-      const result = await sendTeamInviteEmail({ to: normalizedEmail, brand, role: role as TeamRole, resetLink });
+      const result = await sendTeamInviteEmail({ businessId, to: normalizedEmail, brand, role: role as TeamRole, resetLink });
       if (result.status === "delivered") {
         inviteEmail = { status: "sent" };
       } else if (result.status === "unconfigured") {

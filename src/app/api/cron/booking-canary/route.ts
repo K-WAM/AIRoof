@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
     const items = failures
       .map((entry) => `<li><strong>${escapeHtml(entry.businessName)}</strong> (${escapeHtml(entry.businessId)}): ${entry.problems.map(escapeHtml).join("; ")}</li>`)
       .join("");
-    const result = await sendEmail({
+    const result = await sendEmail({ businessId: null,
       to: PLATFORM_ALERT_TO,
       fromName: "Luxor CRM",
       subject: `[Alert] Booking canary failed for ${failures.length} business${failures.length === 1 ? "" : "es"}`,

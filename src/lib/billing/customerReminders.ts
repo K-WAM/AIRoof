@@ -34,7 +34,7 @@ export async function runCustomerReminders(db: Firestore, now = Date.now()): Pro
         const to = (invoice.sentTo || invoice.billTo?.email || "").trim();
         if (due === null || !to) continue;
         const email = buildCustomerReminderEmail(invoice, invoiceBalance(invoice), daysPastDue(invoice, now), business, prefs, data.timezone);
-        const result = await sendEmail({ to, ...email, fromName: business.businessName, replyTo: data.contactEmail || data.notificationEmail });
+        const result = await sendEmail({ businessId: biz.id, to, ...email, fromName: business.businessName, replyTo: data.contactEmail || data.notificationEmail });
         if (result.status !== "delivered") { errors.push(`${biz.id}/${doc.id}: reminder not delivered`); continue; }
         await doc.ref.update({ remindersSent: FieldValue.arrayUnion(due), lastReminderAt: now });
         reminded.push(`${biz.id}/${doc.id}:${due}d`);

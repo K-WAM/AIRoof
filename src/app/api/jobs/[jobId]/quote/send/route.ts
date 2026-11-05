@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     businessName, brandColor: biz.brandColor, logoUrl: letterhead.logoUrl,
     address: biz.address, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail, websiteUrl: biz.websiteUrl, licenseNumber: biz.licenseNumber,
   }, notices, selected.photos, { accept: responseUrl("accepted"), decline: responseUrl("declined") });
-  const sent = await sendEmail({
+  const sent = await sendEmail({ businessId: businessId,
     to, subject: `[Quote] ${quote.quoteId} from ${businessName}`, html,
     fromName: businessName, replyTo: biz.contactEmail || biz.notificationEmail,
   });

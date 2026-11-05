@@ -42,6 +42,6 @@ export async function POST(req: NextRequest) {
   const html = `<p><b>${escapeHtml(name)}</b> (${escapeHtml(businessId)}) asked to add <b>${escapeHtml(product.label)}</b>.</p>
 <p>Asked by: ${escapeHtml(who)}<br/>Owner contact: ${escapeHtml(String(biz.contactEmail || biz.notificationEmail || "—"))} · ${escapeHtml(String(biz.contactPhone || "—"))}</p>
 <p>Turn it on: Admin → Clients → ${escapeHtml(name)} → Products.</p>`;
-  const sent = await sendEmail({ to: LUXOR_INBOX, subject: `[Upgrade request] ${name} wants ${product.label}`, html, replyTo: gate.user.email || null });
+  const sent = await sendEmail({ businessId: null, to: LUXOR_INBOX, subject: `[Upgrade request] ${name} wants ${product.label}`, html, replyTo: gate.user.email || null });
   return NextResponse.json({ ok: true, notified: sent.status === "delivered" });
 }

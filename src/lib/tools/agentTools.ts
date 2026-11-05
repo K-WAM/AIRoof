@@ -1275,7 +1275,7 @@ async function notifyEscalation(
     biz
   );
 
-  const sendResult = await sendEmail({
+  const sendResult = await sendEmail({ businessId: input.businessId,
     to: notificationEmail,
     subject,
     html,

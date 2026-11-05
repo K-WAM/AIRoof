@@ -87,7 +87,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   noticesForDocument({ doc: "invoice", total: invoice.total, commercial: (jobSnap.data() as Job).propertyType === "commercial", settings: biz.documentNotices, business: { businessName: bizName, licenseNumber: biz.licenseNumber } }), selected.photos,
   effectiveBillingPrefs(biz));
 
-  const sent = await sendEmail({
+  const sent = await sendEmail({ businessId: businessId,
     to,
     subject: `[Invoice] ${invoice.invoiceId} from ${bizName}`,
     html,

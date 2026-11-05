@@ -46,7 +46,7 @@ describe("sendEmail", () => {
 
   it("returns unconfigured when Resend is not configured", async () => {
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("unconfigured");
   });
 
@@ -54,7 +54,7 @@ describe("sendEmail", () => {
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("RESEND_FROM", "no-reply@luxordev.com");
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("no_recipient");
   });
 
@@ -64,7 +64,7 @@ describe("sendEmail", () => {
     vi.doMock("resend", () => ({ Resend: createFakeResend("success") }));
 
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("delivered");
     expect(result.providerId).toBe("resend_msg_abc123");
   });
@@ -75,7 +75,7 @@ describe("sendEmail", () => {
     vi.doMock("resend", () => ({ Resend: createFakeResend("error-4xx") }));
 
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("failed");
     expect(result.failureClassification).toBe("terminal");
     expect(result.failureCode).toBe("provider_400");
@@ -87,7 +87,7 @@ describe("sendEmail", () => {
     vi.doMock("resend", () => ({ Resend: createFakeResend("error-5xx") }));
 
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("failed");
     expect(result.failureClassification).toBe("retryable");
     expect(result.failureCode).toBe("provider_503");
@@ -99,7 +99,7 @@ describe("sendEmail", () => {
     vi.doMock("resend", () => ({ Resend: createFakeResend("no-id") }));
 
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("failed");
     expect(result.failureCode).toBe("no_provider_id");
   });
@@ -110,7 +110,7 @@ describe("sendEmail", () => {
     vi.doMock("resend", () => ({ Resend: createFakeResend("throw") }));
 
     const { sendEmail } = await import("@/lib/comms/send");
-    const result = await sendEmail({ to: "user@example.com", subject: "S", html: "<p>H</p>" });
+    const result = await sendEmail({ businessId: null, to: "user@example.com", subject: "S", html: "<p>H</p>" });
     expect(result.status).toBe("failed");
     expect(result.failureClassification).toBe("retryable");
     expect(result.failureCode).toBe("provider_error");

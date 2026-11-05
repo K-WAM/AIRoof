@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     quote,
   });
 
-  const sent = await sendEmail({
+  const sent = await sendEmail({ businessId: businessId,
     to, subject: `[Report] ${job.title ?? jobId} from ${bizName}`, html,
     fromName: bizName, replyTo: biz.contactEmail || biz.notificationEmail,
   });

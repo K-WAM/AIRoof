@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ uid
   const disabledModules = getVerticalTemplate(typeof business.industry === "string" ? business.industry : "").disabledModules;
   const continueUrl = `${getAppUrl()}${defaultLandingPath({ role: member.role as TeamRole, trade: member.trade as TradeTitle | undefined }, disabledModules)}`;
   const resetLink = await auth.generatePasswordResetLink(member.email, { url: continueUrl });
-  const sent = await sendTeamInviteEmail({
+  const sent = await sendTeamInviteEmail({ businessId,
     to: member.email,
     role: member.role as TeamRole,
     resetLink,

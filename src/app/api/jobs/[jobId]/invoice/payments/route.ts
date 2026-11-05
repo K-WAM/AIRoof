@@ -73,7 +73,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
     const biz = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
     const business = { businessName: String(biz.businessName || "Your service provider"), brandColor: biz.brandColor, contactPhone: biz.contactPhone, contactEmail: biz.contactEmail };
     const email = buildCustomerReceiptEmail(result.invoice, result.payment, result.balance, business, biz.timezone);
-    const sent = await sendEmail({ to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail });
+    const sent = await sendEmail({ businessId: businessId, to, ...email, fromName: business.businessName, replyTo: biz.contactEmail || biz.notificationEmail });
     receipt = sent.status === "delivered" ? "sent" : "failed";
   }
 

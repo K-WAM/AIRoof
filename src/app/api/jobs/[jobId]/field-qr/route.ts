@@ -157,7 +157,7 @@ async function deliverFieldLink(opts: {
       address,
       url: opts.fieldUrl,
     });
-    const result = await sendEmail({ to, subject, html, fromName: businessName, replyTo: str(opts.business.contactEmail) ?? str(opts.business.notificationEmail) });
+    const result = await sendEmail({ businessId: opts.businessId, to, subject, html, fromName: businessName, replyTo: str(opts.business.contactEmail) ?? str(opts.business.notificationEmail) });
     return { sent: result.status === "delivered" ? "email" : "failed", message };
   }
 

@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       const stage = reminderDue(invoice, now);
       if (stage === null || !invoice.clientEmail) continue;
       const { subject, html } = buildLuxorReminderEmail(invoice, daysOverdue(invoice, now), zelleTo);
-      const result = await sendEmail({ to: invoice.clientEmail, subject, html, fromName: "Luxor AI" });
+      const result = await sendEmail({ businessId: null, to: invoice.clientEmail, subject, html, fromName: "Luxor AI" });
       if (result.status !== "delivered") {
         errors.push(`${doc.id}: reminder not sent (${result.status})`);
         continue;

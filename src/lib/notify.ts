@@ -168,6 +168,8 @@ export function buildCustomerConfirmationEmail(opts: {
 export async function sendCustomerConfirmation(
   opts: {
     to: string;
+    /** Whose mail this is (evaluation guard, T-306). */
+    businessId: string;
     brand: Branding;
     clientName?: string;
     serviceType?: string;
@@ -176,7 +178,7 @@ export async function sendCustomerConfirmation(
   },
 ): Promise<CommSendResult> {
   const { subject, html } = buildCustomerConfirmationEmail(opts);
-  return sendEmail({ to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
+  return sendEmail({ businessId: opts.businessId, to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
 }
 
 export function buildBusinessWelcomeEmail(opts: {
@@ -220,7 +222,7 @@ export async function sendBusinessWelcomeEmail(
     ...opts,
     ownerEmail: opts.to,
   });
-  return sendEmail({ to: opts.to, subject, html });
+  return sendEmail({ businessId: null, to: opts.to, subject, html });
 }
 
 export function buildTeamInviteEmail(opts: {
@@ -253,6 +255,8 @@ export function buildTeamInviteEmail(opts: {
 export async function sendTeamInviteEmail(
   opts: {
     to: string;
+    /** Whose mail this is (evaluation guard, T-306). */
+    businessId: string;
     brand: Branding;
     role: TeamRole;
     resetLink: string;
@@ -264,7 +268,7 @@ export async function sendTeamInviteEmail(
     role: opts.role,
     resetLink: opts.resetLink,
   });
-  return sendEmail({ to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
+  return sendEmail({ businessId: opts.businessId, to: opts.to, subject, html, fromName: opts.brand.businessName, replyTo: opts.brand.contactEmail });
 }
 
 export function buildFeedbackEmail(opts: {
@@ -315,7 +319,7 @@ export async function sendFeedbackEmail(
 ): Promise<CommSendResult> {
   const { subject, html } = buildFeedbackEmail(opts);
   // Reply-to is the person who wrote it, so "Reply" in the inbox answers them (the email said so; it never did).
-  return sendEmail({ to: "connect@luxordev.com", subject, html, replyTo: opts.submitterEmail || null });
+  return sendEmail({ businessId: null, to: "connect@luxordev.com", subject, html, replyTo: opts.submitterEmail || null });
 }
 
 function buildWebhookHealthAlertEmail(opts: {
@@ -353,5 +357,5 @@ export async function sendWebhookHealthAlert(opts: {
   lastFailureAt: number | null;
 }): Promise<CommSendResult> {
   const { subject, html } = buildWebhookHealthAlertEmail(opts);
-  return sendEmail({ to: "connect@luxordev.com", subject, html });
+  return sendEmail({ businessId: null, to: "connect@luxordev.com", subject, html });
 }

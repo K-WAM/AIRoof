@@ -106,7 +106,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ inv
 </body>
 </html>`;
 
-  await sendEmail({
+  await sendEmail({ businessId: null,
     to: toEmail,
     subject: `[Invoice] ${invoiceId} from Luxor AI`,
     html,

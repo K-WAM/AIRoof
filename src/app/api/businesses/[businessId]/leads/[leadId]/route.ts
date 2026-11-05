@@ -60,7 +60,7 @@ export async function PATCH(
       reason: declineReason as RequestDeclineReason,
       customMessage: typeof customMessage === "string" ? customMessage : undefined,
     });
-    const result = await sendEmail({
+    const result = await sendEmail({ businessId: businessId,
       to: email,
       ...message,
       fromName: typeof business.businessName === "string" ? business.businessName : null,

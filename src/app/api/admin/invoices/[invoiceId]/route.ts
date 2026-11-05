@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ invo
   let receipt: "sent" | "not_sent" | "skipped" = "skipped";
   if (becomingPaid && !before.receiptSentAt && before.clientEmail) {
     const { subject, html } = buildLuxorReceiptEmail({ ...before, ...(body as Partial<LuxorInvoice>) }, now);
-    const result = await sendEmail({ to: before.clientEmail, subject, html, fromName: "Luxor AI" });
+    const result = await sendEmail({ businessId: null, to: before.clientEmail, subject, html, fromName: "Luxor AI" });
     receipt = result.status === "delivered" ? "sent" : "not_sent";
     if (receipt === "sent") await ref.update({ receiptSentAt: now });
   }

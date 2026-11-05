@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   let notifiedCustomer = false;
   if (customerEmail) {
-    const result = await sendCustomerConfirmation({
+    const result = await sendCustomerConfirmation({ businessId,
       to: customerEmail,
       brand,
       clientName: appt.callerName as string | undefined,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     notifiedCustomer = result.status === "delivered";
   }
   if (notificationEmail) {
-    const notification = await sendEmail({
+    const notification = await sendEmail({ businessId: businessId,
       to: notificationEmail,
       fromName: brand.businessName,
       replyTo: brand.contactEmail || undefined,

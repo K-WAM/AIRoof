@@ -10,6 +10,7 @@ import { buildFrom, extractInlineImages, htmlToText } from "@/lib/comms/prepare"
 import type { Firestore } from "firebase-admin/firestore";
 import { E2E_OUTBOX_COLLECTION, isE2EHarness } from "@/lib/e2e/harness";
 import { getAdminFirestore } from "@/lib/firebase/admin";
+import { checkOutboundEmail } from "@/lib/comms/evaluationGuard";
 
 export type NotificationDeliveryState =
   | "delivered"
@@ -45,6 +46,11 @@ function classifyResendError(statusCode: number): {
 const DEFAULT_REPLY_TO = "connect@luxordev.com";
 
 export async function sendEmail(opts: {
+  /**
+   * Whose mail this is — REQUIRED so no caller can skip the evaluation guard (T-306, ./evaluationGuard.ts).
+   * The tenant's businessId for anything sent on a business's behalf; null only for Luxor's own platform mail.
+   */
+  businessId: string | null;
   to: string;
   subject: string;
   html: string;
@@ -58,6 +64,12 @@ export async function sendEmail(opts: {
   }
   if (!opts.to) {
     return { status: "no_recipient" };
+  }
+
+  // Evaluation guard runs before the harness capture too, so the local smoke harness proves it.
+  const guard = await checkOutboundEmail(opts.businessId, opts.to);
+  if (!guard.allowed) {
+    return { status: "failed", failureCode: "evaluation_guard", failureClassification: "terminal" };
   }
 
   // Local smoke harness: capture instead of sending, so agents can read exactly what a customer would get.
@@ -165,6 +177,7 @@ export async function sendWithLedger(opts: {
   );
 
   const result = await sendEmail({
+    businessId: opts.businessId,
     to: opts.to,
     subject: opts.subject,
     html: opts.html,

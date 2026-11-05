@@ -2138,3 +2138,13 @@ Commit: `T-290: Preserve booking times across daylight-saving changes` (this com
 - Gates: tsc clean; changed-file eslint clean; requested `vitest run src/lib/scheduling src/lib/tools src/app/api/webhooks`: 13 files / 242 passed (including booking-scenarios). Full `vitest run`: 285 files, 2287 passed / 5 failed / 1 expected failure; all five failures were 5000ms timeouts in unchanged tests (demo-customize, phone-lines, ai-hardening, registry, example-lib). Isolated retry result recorded below. No build/harness, push, merge, deploy or live-provider scripts. app-status.json untouched: no public-fact change.
 - Integrator after deploy: run the ElevenLabs agent tests using the real per-call prompt override, then place a real booking call for 09:00/11:00 in the tenant zone; read tool inputs/results in its transcript and compare stored UTC, spoken confirmation, Pipeline, Calendar, job schedule, office/customer email and ICS. New York Nov 4 at 09:00/11:00 must be 14:00Z/16:00Z. Inspect the reported Nov 3 call's transcript before attributing that incident to either fixed parser defect. Existing records require individual evidence before correction; real audio/model date choices, inbox placement and browser rendering remain outside these unit checks.
 - Isolated verification: with the normal 5000ms limit, the five affected files produced 105 passed / 4 timeouts (ai-hardening passed). Retried only the four remaining files with --maxWorkers=1 --testTimeout=60000: 75/75 passed. All failing assertions therefore pass with sufficient cold-import time; the original default-limit full run remains recorded as failed, not relabeled green. No test timeout/configuration was committed.
+
+## 2026-11-04 - T-306 evaluation guard (Claude, K0)
+Before: any business's customer-facing email went to whatever address was on the record; a workspace holding a prospect's
+real imported customers could email them by accident (e.g. a reminder or a confirmation). After: sendEmail() takes a REQUIRED
+businessId (string, or null for Luxor platform mail), so the type checker forces every caller to say whose mail it is; when
+that business has outboundEmailAllowlist, only listed addresses receive mail, everything else returns failed/evaluation_guard
+(never throws) and logs the business id + recipient domain only. A failed business read fails closed. Files:
+src/lib/comms/evaluationGuard.ts (new) + tests, src/lib/comms/send.ts, src/lib/notify.ts, and the 20 call sites (jobs
+quote/invoice/report/payments send, appointments, leads, field link, reminders, agent tools, team invites; Luxor/admin/
+alert mail passes null). Missing allowlist = unchanged behaviour for every other client.
