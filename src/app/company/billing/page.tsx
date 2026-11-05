@@ -14,6 +14,7 @@ import { PageError } from "@/components/ui/PageError";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Wallet } from "lucide-react";
 import type { BillingRow } from "@/app/api/company/billing/route";
+import { PaymentsPreview } from "./PaymentsPreview";
 
 interface BillingView {
   totals: { owed: number; overdue: number; paidThisMonth: number; unpaidCount: number; overdueCount: number };
@@ -24,6 +25,31 @@ interface BillingView {
 
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const PAGE = 30;
+
+type BillingRowWithKind = BillingRow & { kind?: "standard" | "deposit" };
+
+function DepositChip({ kind }: { kind?: string }) {
+  if (kind !== "deposit") return null;
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        marginLeft: 6,
+        border: "1px solid #cbd5e1",
+        borderRadius: 999,
+        padding: "0 6px",
+        fontSize: 10.5,
+        fontWeight: 700,
+        color: "#64748b",
+        textTransform: "uppercase",
+        letterSpacing: "0.03em",
+        verticalAlign: "middle",
+      }}
+    >
+      Deposit
+    </span>
+  );
+}
 
 export default function BillingPage() {
   const businessId = useBusinessId();
@@ -67,6 +93,8 @@ export default function BillingPage() {
         </div>
       </header>
 
+      <PaymentsPreview invoices={[...unpaid, ...paid]} />
+
       <section className="metric-grid" aria-label="Money summary" data-testid="billing-totals">
         <article className="metric"><p className="metric-label">Owed to you</p><p className="metric-value">{usd(totals.owed)}</p></article>
         <article className="metric"><p className="metric-label">Past due</p><p className="metric-value" style={totals.overdue > 0 ? { color: "#b91c1c" } : undefined}>{usd(totals.overdue)}</p></article>
@@ -85,7 +113,7 @@ export default function BillingPage() {
             {unpaid.slice(0, shown).map((row) => (
               <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                 <div className="feed-body">
-                  <p className="feed-name">{row.customer} · {row.invoiceId}</p>
+                  <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={(row as BillingRowWithKind).kind} /></p>
                   <p className="feed-sub">
                     {row.daysLate > 0 ? <strong style={{ color: "#b91c1c" }}>{row.daysLate} day{row.daysLate === 1 ? "" : "s"} late</strong> : row.dueAt ? `Due ${fmt.fmtDay(row.dueAt)}` : "Due on receipt"}
                     {row.balance < row.total ? ` · ${usd(row.total - row.balance)} paid so far` : ""}
@@ -104,7 +132,7 @@ export default function BillingPage() {
               {paid.map((row) => (
                 <Link key={row.invoiceId} href={jobHref(row.jobId)} className="feed-row">
                   <div className="feed-body">
-                    <p className="feed-name">{row.customer} · {row.invoiceId}</p>
+                    <p className="feed-name">{row.customer} · {row.invoiceId}<DepositChip kind={(row as BillingRowWithKind).kind} /></p>
                     <p className="feed-sub">Paid{row.paidAt ? ` ${fmt.fmtDay(row.paidAt)}` : ""}</p>
                   </div>
                   <strong style={{ whiteSpace: "nowrap" }}>{usd(row.total)}</strong>
