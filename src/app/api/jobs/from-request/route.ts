@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { resolveCustomer, bumpCustomerJobStats } from "@/lib/customers/resolve";
-import { nextJobIdInTransaction } from "@/lib/jobs/createJob";
 import type { Job } from "@/types/jobs";
 import { contactPhone } from "@/lib/format/phone";
 import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
@@ -36,14 +35,10 @@ export async function POST(req: NextRequest) {
   const phone = contactPhone(data);
   const email = tidyEmail(data.callerEmail);
   const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address, companyId: body.companyId ?? data.companyId }) : null;
-  const business = (await db.collection("businesses").doc(businessId).get()).data();
-  const customerCompanyId = isMultiCompany(business) && customer
-    ? (await db.collection(`businesses/${businessId}/customers`).doc(customer.customerId).get()).data()?.companyId : undefined;
-  const assignedCompany = companyAssignment(business, body.companyId ?? data.companyId, customerCompanyId);
+  const bizRef = db.collection("businesses").doc(businessId);
   const call = data.sourceCallId ? await db.collection(`businesses/${businessId}/calls`).doc(data.sourceCallId).get() : null;
   const callSummary = call?.data()?.summary;
   const jobBase: Omit<Job, "jobId"> = {
-    ...assignedCompany,
     businessId, title: `${serviceType} — ${address}`, status: "open", address: data.address,
     clientName: data.callerName, clientPhone: phone, clientEmail: email,
     serviceType,
@@ -87,8 +82,14 @@ export async function POST(req: NextRequest) {
       tx.update(source.ref, { jobId: siblingJobId });
       return { jobId: siblingJobId, created: false };
     }
-    const jobId = await nextJobIdInTransaction(tx, db.collection("businesses").doc(businessId));
-    const job: Job = { ...jobBase, jobId };
+    // Reuse the ONE business read the short-id counter already makes: no extra business-document read.
+    const business = (await tx.get(bizRef)).data() ?? {};
+    const customerCompanyId = isMultiCompany(business) && customer
+      ? (await tx.get(db.collection(`businesses/${businessId}/customers`).doc(customer.customerId))).data()?.companyId : undefined;
+    const counter = ((business.jobCounter as number | undefined) ?? 999) + 1;
+    tx.update(bizRef, { jobCounter: counter });
+    const jobId = `J-${counter}`;
+    const job: Job = { ...jobBase, ...companyAssignment(business, body.companyId ?? data.companyId, customerCompanyId), jobId };
     tx.create(jobs.doc(jobId), job);
     tx.create(marker, { jobId, createdAt: now });
     tx.update(source.ref, { jobId });

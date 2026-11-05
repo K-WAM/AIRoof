@@ -150,6 +150,8 @@ function withoutDeletes(data: DocData): DocData {
 class FakeStore {
   // path is the COLLECTION path, e.g. "businesses/biz-1/customers"
   private data = new Map<string, Map<string, DocData>>();
+  /** Every document read, by full path — lets a test prove a single-company request adds no business-document read. */
+  readonly reads: string[] = [];
 
   private bucket(path: string): Map<string, DocData> {
     let b = this.data.get(path);
@@ -178,6 +180,7 @@ class FakeStore {
   }
 
   snapshotFor(path: string, id: string) {
+    this.reads.push(`${path}/${id}`);
     const data = this.bucket(path).get(id);
     return {
       id,
@@ -261,6 +264,13 @@ export function makeFakeDb() {
     },
     __list(collectionPath: string): Array<{ id: string; data: DocData }> {
       return store.list(collectionPath).map((doc) => ({ id: doc.id, data: { ...doc.data } }));
+    },
+    /** Document reads recorded since the fake was created (or since __clearReads). */
+    __reads(prefix = ""): string[] {
+      return store.reads.filter((path) => path.startsWith(prefix));
+    },
+    __clearReads() {
+      store.reads.length = 0;
     },
   };
   return db;

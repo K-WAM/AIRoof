@@ -1,4 +1,3 @@
-import { loadDocumentCompany } from "@/lib/companies/documentCompany";
 import { companyAssignment } from "@/lib/companies/assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
@@ -49,11 +48,8 @@ export async function GET(
   if (!snap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
   const job = { jobId: snap.id, ...snap.data() } as Job;
-  if (!job.companyId) {
-    const business = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
-    const company = await loadDocumentCompany(db, businessId, business, null, job);
-    if (company) job.companyId = company.id;
-  }
+  // No company backfill read here: a job written in a multi-company workspace carries its company; anything else
+  // renders exactly as it did before companies existed.
   return NextResponse.json(fieldResponse({ job }, gate.user));
 }
 

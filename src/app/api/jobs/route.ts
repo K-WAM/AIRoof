@@ -4,7 +4,6 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
 import type { Job } from "@/types/jobs";
-import { nextJobId, nextJobIdInTransaction } from "@/lib/jobs/createJob";
 import { fieldResponse } from "@/lib/jobs/fieldResponse";
 import { collectionPoll } from "@/lib/http/collectionPoll";
 
@@ -123,18 +122,10 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
-  const business = (await db.collection("businesses").doc(businessId).get()).data();
-  // In a multi-company workspace an unpicked, matching customer must still determine the company before the job is returned.
-  if (isMultiCompany(business) && !customerId && clientName) {
-    const { resolveCustomer } = await import("@/lib/customers/resolve");
-    customerId = (await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address, companyId: body.companyId })).customerId;
-  }
-  const customerCompanyId = isMultiCompany(business) && customerId
-    ? (await db.collection(`businesses/${businessId}/customers`).doc(customerId).get()).data()?.companyId : undefined;
-  const assignedCompany = companyAssignment(business, body.companyId, customerCompanyId);
+  const bizRef = db.collection("businesses").doc(businessId);
+  const customerRef = customerId ? db.collection(`businesses/${businessId}/customers`).doc(customerId) : null;
   const now = Date.now();
   const fields: Omit<Job, "jobId"> = {
-    ...assignedCompany,
     businessId,
     title,
     status: "open",
@@ -151,6 +142,16 @@ export async function POST(req: NextRequest) {
   };
   const jobs = db.collection(`businesses/${businessId}/jobs`);
 
+  // The ONE business read the short-id counter already needs also decides the company: a single-company workspace
+  // gains no second business-document read (and no stored companyId).
+  const assignInTransaction = async (tx: FirebaseFirestore.Transaction) => {
+    const business = (await tx.get(bizRef)).data() ?? {};
+    const customerCompanyId = isMultiCompany(business) && customerRef ? (await tx.get(customerRef)).data()?.companyId : undefined;
+    const counter = ((business.jobCounter as number | undefined) ?? 999) + 1;
+    tx.update(bizRef, { jobCounter: counter });
+    return { counter, multi: isMultiCompany(business), assigned: companyAssignment(business, body.companyId, customerCompanyId) };
+  };
+
   let job: Job;
   if (appointmentId) {
     // "New Job" prefilled from a booking: one booking makes one job — the same rule (and the same marker doc) as
@@ -159,25 +160,44 @@ export async function POST(req: NextRequest) {
     const marker = db.collection(`businesses/${businessId}/requestJobs`).doc(`appointment_${appointmentId}`);
     const result = await db.runTransaction(async (tx) => {
       const [existing, appt] = await Promise.all([tx.get(marker), tx.get(appointment)]);
-      if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false };
-      const jobId = await nextJobIdInTransaction(tx, db.collection("businesses").doc(businessId));
-      tx.create(jobs.doc(jobId), { ...fields, jobId });
+      if (existing.exists) return { jobId: existing.data()?.jobId as string, created: false, multi: false, assigned: {} };
+      const { counter, multi, assigned } = await assignInTransaction(tx);
+      const jobId = `J-${counter}`;
+      tx.create(jobs.doc(jobId), { ...fields, ...assigned, jobId });
       if (appt.exists) {
         tx.create(marker, { jobId, createdAt: now });
         tx.update(appointment, { jobId });
       }
-      return { jobId, created: true };
+      return { jobId, created: true, multi, assigned };
     });
     if (!result.created) {
       const stored = await jobs.doc(result.jobId).get();
       return NextResponse.json({ job: { jobId: result.jobId, ...stored.data() }, created: false }, { status: 200 });
     }
-    job = { ...fields, jobId: result.jobId };
+    job = { ...fields, ...result.assigned, jobId: result.jobId };
+    if (result.multi && !customerId && clientName) customerId = await linkTypedCustomer(result.jobId);
   } else {
     // Atomically increment job counter to produce short human-friendly ID (J-1042, J-1043, …)
-    const jobId = await nextJobId(db, businessId);
-    job = { ...fields, jobId };
-    await jobs.doc(jobId).set(job);
+    const result = await db.runTransaction(async (tx) => {
+      const { counter, multi, assigned } = await assignInTransaction(tx);
+      const jobId = `J-${counter}`;
+      const created: Job = { ...fields, ...assigned, jobId };
+      tx.create(jobs.doc(jobId), created);
+      return { job: created, multi };
+    });
+    job = result.job;
+    if (result.multi && !customerId && clientName) customerId = await linkTypedCustomer(result.job.jobId);
+  }
+
+  /** Multi-company only: a typed name resolves now, so the job itself carries the matching customer's company. */
+  async function linkTypedCustomer(jobId: string): Promise<string> {
+    const { resolveCustomer } = await import("@/lib/customers/resolve");
+    const linked = await resolveCustomer(db!, businessId!, { name: clientName!, phone: clientPhone, email: clientEmail, address, companyId: body.companyId });
+    const companyId = (await db!.collection(`businesses/${businessId}/customers`).doc(linked.customerId).get()).data()?.companyId;
+    const patch = { customerId: linked.customerId, ...(typeof companyId === "string" ? { companyId } : {}) };
+    await db!.collection(`businesses/${businessId}/jobs`).doc(jobId).update(patch);
+    job = { ...job, ...patch };
+    return linked.customerId;
   }
 
   // An existing customer was picked in the job-create combobox (as opposed
@@ -198,7 +218,7 @@ export async function POST(req: NextRequest) {
     const jobRef = jobs.doc(job.jobId);
     afterResponse(async () => {
       const { resolveCustomer, bumpCustomerJobStats } = await import("@/lib/customers/resolve");
-      const { customerId: linked } = await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address, ...assignedCompany });
+      const { customerId: linked } = await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address, companyId: body.companyId });
       const linkedNow = await db.runTransaction(async (tx) => {
         const snap = await tx.get(jobRef);
         if (!snap.exists || snap.data()?.customerId) return false; // never overwrite a link made meanwhile
