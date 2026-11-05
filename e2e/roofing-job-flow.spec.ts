@@ -38,8 +38,8 @@ test("desktop can add three findings together and a customer can accept the emai
     must(await owner.patch(`/api/jobs/${jobId}/quote`, { businessId: BUSINESS,
       lines: [{ lineId: "repair", kind: "other", description: "Roof repair", quantity: 1, unitPrice: 100 }] }), "price quote");
     must(await owner.post(`/api/jobs/${jobId}/quote/send`, { businessId: BUSINESS, to: email }), "send quote");
-    await expect.poll(async () => (await outbox({ to: email, subject: "[Quote]" })).length).toBeGreaterThan(0);
-    const message = (await outbox({ to: email, subject: "[Quote]" }))[0];
+    await expect.poll(async () => (await outbox({ to: email, subject: "Your quote from" })).length).toBeGreaterThan(0);
+    const message = (await outbox({ to: email, subject: "Your quote from" }))[0];
     const acceptUrl = String(message.html).match(/href="([^"]+)"[^>]*>Accept quote</)?.[1]?.replaceAll("&amp;", "&");
     expect(acceptUrl).toBeTruthy();
     const customer = await office.context().newPage();

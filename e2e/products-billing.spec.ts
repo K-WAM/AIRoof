@@ -94,8 +94,8 @@ test("billing without Stripe: payment details on the invoice, partial + final pa
   must(await owner.post(`/api/jobs/${jobId}/invoice`, { businessId: B }), "create invoice");
   must(await owner.patch(`/api/jobs/${jobId}/invoice`, { businessId: B, other: [{ lineId: "o1", description: "Roof repair", amount: 500 }], taxRate: 0 }), "price invoice");
   must(await owner.post(`/api/jobs/${jobId}/invoice/send`, { businessId: B, to: email }), "send invoice");
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Invoice]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
-  const invoiceMail = (await outbox({ to: email, subject: "[Invoice]" }))[0];
+  await expect.poll(async () => (await outbox({ to: email, subject: "Your invoice from" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
+  const invoiceMail = (await outbox({ to: email, subject: "Your invoice from" }))[0];
   expect(String(invoiceMail.html)).toContain("How to pay");
   expect(String(invoiceMail.html)).toContain(`pay@e2e-roofing.test ${tag}`);
   expect(String(invoiceMail.html)).toContain("https://pay.e2e-roofing.test/invoice");
@@ -126,11 +126,11 @@ test("billing without Stripe: payment details on the invoice, partial + final pa
   expect(paidJob).toMatchObject({ status: "complete", paymentReceivedAt: expect.any(Number) });
   await page.getByTestId("invoice-payments").scrollIntoViewIfNeeded();
   await shot(page, "invoice-paid-in-full");
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Receipt]" })).length, { timeout: 20_000 }).toBe(2);
+  await expect.poll(async () => (await outbox({ to: email, subject: "Payment received by" })).length, { timeout: 20_000 }).toBe(2);
   await page.getByRole("button", { name: "Send Invoice" }).click();
   await expect(page.getByText("Invoice sent successfully!")).toBeVisible();
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Invoice]" })).length).toBe(2);
-  const paidCopy = (await outbox({ to: email, subject: "[Invoice]" }))[0];
+  await expect.poll(async () => (await outbox({ to: email, subject: "Your invoice from" })).length).toBe(2);
+  const paidCopy = (await outbox({ to: email, subject: "Your invoice from" }))[0];
   expect(String(paidCopy.html)).toContain("Invoice total — paid in full");
   expect(must(await owner.get(`/api/jobs/${jobId}?businessId=${B}`), "job after paid resend").job.status).toBe("complete");
 

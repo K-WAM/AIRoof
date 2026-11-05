@@ -54,9 +54,13 @@ export async function GET(req: NextRequest): Promise<Response> {
   const linked = await linkedQuote(input);
   if (!linked) return page("Link unavailable", "<p>Ask the business to send a new quote link.</p>", 404);
   if (linked.quote.status !== "sent" || linked.quote.validUntil <= Date.now()) return page("Quote no longer available", "<p>This quote can no longer be answered online. Please contact the business.</p>", 409);
-  const action = input.decision === "accepted" ? "Accept" : "Reject";
+  // A time & materials authorization is authorized, not accepted (T-304b, the client's own wording).
+  const tm = linked.quote.layout === "tm_authorization";
+  const action = input.decision === "accepted" ? (tm ? "Authorize" : "Accept") : "Reject";
+  const title = tm ? `${action} this work` : `${action} quote`;
+  const subject = tm ? "the work in authorization" : "quote";
   const fields = Object.entries(input).map(([name, value]) => `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`).join("");
-  return page(`${action} quote`, `<p>You are about to ${action.toLowerCase()} quote <strong>${escapeHtml(linked.quote.quoteId)}</strong>. This will notify the business through the job's quote status.</p><form method="post" action="/api/quote-response">${fields}<button type="submit" style="background:#0f766e;border:0;border-radius:6px;color:#fff;padding:12px 18px;font-weight:700;cursor:pointer">Confirm ${action.toLowerCase()}</button></form><p style="font-size:13px;color:#64748b">Opening this link alone does not record your answer.</p>`);
+  return page(title, `<p>You are about to ${action.toLowerCase()} ${subject} <strong>${escapeHtml(linked.quote.quoteId)}</strong>. This will notify the business through the job's quote status.</p><form method="post" action="/api/quote-response">${fields}<button type="submit" style="background:#0f766e;border:0;border-radius:6px;color:#fff;padding:12px 18px;font-weight:700;cursor:pointer">${tm ? action : `Confirm ${action.toLowerCase()}`}</button></form><p style="font-size:13px;color:#64748b">Opening this link alone does not record your answer.</p>`);
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -77,5 +81,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return true;
   });
   if (!changed) return page("Quote no longer available", "<p>This quote has already been answered or expired. Please contact the business.</p>", 409);
-  return page(input.decision === "accepted" ? "Quote accepted" : "Quote rejected", `<p>Thank you. Your answer to quote <strong>${escapeHtml(linked.quote.quoteId)}</strong> has been recorded. The business can now see it on the job.</p>`);
+  const tm = linked.quote.layout === "tm_authorization";
+  const done = input.decision === "accepted" ? (tm ? "Work authorized" : "Quote accepted") : (tm ? "Work not authorized" : "Quote rejected");
+  return page(done, `<p>Thank you. Your answer to ${tm ? "work authorization" : "quote"} <strong>${escapeHtml(linked.quote.quoteId)}</strong> has been recorded. The business can now see it on the job.</p>`);
 }

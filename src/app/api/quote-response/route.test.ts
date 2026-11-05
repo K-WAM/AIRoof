@@ -43,6 +43,13 @@ describe("customer quote response", () => {
     expect((await post("declined")).status).toBe(404);
   });
 
+  it("says Authorize for a time and materials authorization", async () => {
+    db.__seed("businesses/biz/quotes", "Q-1", { quoteId: "Q-1", businessId: "biz", jobId: "job", status: "sent", layout: "tm_authorization", validUntil: Date.now() + 86400000, responseTokenHash: quoteResponseTokenHash(token) });
+    const html = await (await GET(new NextRequest(`http://localhost/api/quote-response?businessId=biz&jobId=job&token=${token}&decision=accepted`))).text();
+    expect(html).toContain("Authorize this work");
+    expect(html).toContain(">Authorize</button>");
+  });
+
   it("records rejection and refuses an expired or already answered quote", async () => {
     expect((await post("declined")).status).toBe(200);
     expect(db.__peek("businesses/biz/quotes", "Q-1")?.status).toBe("declined");

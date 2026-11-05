@@ -84,8 +84,8 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await shot(page, "doc-photos-quote");
   await page.getByLabel("Quote recipient email").fill(email);
   await page.getByRole("button", { name: "Send quote" }).click();
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Quote]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
-  const quoteMail = (await outbox({ to: email, subject: "[Quote]" }))[0];
+  await expect.poll(async () => (await outbox({ to: email, subject: "Your quote from" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
+  const quoteMail = (await outbox({ to: email, subject: "Your quote from" }))[0];
   expect(String(quoteMail.html), "logo in the quote email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(quoteMail.html)).toContain(beforeLabel);
   expect(String(quoteMail.html)).toContain(afterLabel);
@@ -106,8 +106,8 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await page.getByRole("button", { name: "Send to Customer" }).click();
   await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
   await page.getByRole("button", { name: "Send Invoice" }).click();
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Invoice]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
-  const invoiceMail = (await outbox({ to: email, subject: "[Invoice]" }))[0];
+  await expect.poll(async () => (await outbox({ to: email, subject: "Your invoice from" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
+  const invoiceMail = (await outbox({ to: email, subject: "Your invoice from" }))[0];
   expect(String(invoiceMail.html), "logo in the invoice email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(invoiceMail.html)).toContain(beforeLabel);
   expect(String(invoiceMail.html)).toContain(afterLabel);
@@ -125,8 +125,8 @@ test("quote, invoice and report include selected Before/After photos", async ({ 
   await page.getByRole("button", { name: "Mail report" }).click();
   await page.getByPlaceholder(`Email for ${job.clientName}`).fill(email);
   await page.getByRole("button", { name: "Send report" }).click();
-  await expect.poll(async () => (await outbox({ to: email, subject: "[Report]" })).length, { timeout: 20_000 }).toBeGreaterThan(0);
-  const reportMail = (await outbox({ to: email, subject: "[Report]" }))[0];
+  await expect.poll(async () => (await outbox({ to: email, subject: " report from " })).length, { timeout: 20_000 }).toBeGreaterThan(0);
+  const reportMail = (await outbox({ to: email, subject: " report from " }))[0];
   expect(String(reportMail.html), "logo in the report email").toMatch(new RegExp(`<img[^>]+alt="${BIZ_NAME}"`));
   expect(String(reportMail.html)).toContain(beforeLabel);
   expect(String(reportMail.html)).toContain(afterLabel);
