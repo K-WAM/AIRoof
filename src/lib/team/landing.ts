@@ -16,12 +16,14 @@ export function defaultLandingPath(
 ): string {
   // The vertical-safety guard always wins: a dental office (no "jobs" module)
   // has no /company/jobs or /company/field to land a trade worker on.
+  if (member.trade === "front_desk" && member.role !== "crew") return disabledModules.includes("calls") ? "/company/dashboard" : "/company/pipeline";
   if (disabledModules.includes("jobs")) return "/company/dashboard";
   // A Crew login (T-150) can only use the Field screen — the layout keeps it there.
   if (member.role === "crew") return "/company/field";
   if (member.trade && FIELD_LANDING_TRADES.has(member.trade)) return "/company/field";
   // A foreman with an office login (Office staff by type, Foreman by title) still starts on the field screen: the voice
   // note is the main thing they do (owner, 2026-10-04).
+  if (member.trade === "supervisor") return "/company/jobs";
   if (member.trade === "foreman") return "/company/field";
   return "/company/dashboard";
 }

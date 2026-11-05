@@ -43,10 +43,15 @@ export type TradeTitle =
   | "installer"
   | "helper"
   | "dispatcher"
-  | "office";
+  | "office"
+  | "supervisor"
+  | "manager"
+  | "office_admin"
+  | "front_desk";
 export const TRADE_TITLES: TradeTitle[] = [
   "inspector", "foreman", "technician", "journeyman", "apprentice",
   "estimator", "installer", "helper", "dispatcher", "office",
+  "supervisor", "manager", "office_admin", "front_desk",
 ];
 export const TRADE_TITLE_LABEL: Record<TradeTitle, string> = {
   inspector: "Inspector",
@@ -59,6 +64,10 @@ export const TRADE_TITLE_LABEL: Record<TradeTitle, string> = {
   helper: "Helper",
   dispatcher: "Dispatcher",
   office: "Office",
+  supervisor: "Supervisor",
+  manager: "Manager",
+  office_admin: "Office admin",
+  front_desk: "Front desk",
 };
 
 export interface TeamMember {

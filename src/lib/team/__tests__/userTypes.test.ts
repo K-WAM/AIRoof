@@ -24,8 +24,8 @@ describe("user types", () => {
   });
 
   it("hides the field types where there is no field work", () => {
-    expect(userTypesFor(false).map((type) => type.id)).toEqual(["admin", "office", "viewer"]);
-    expect(userTypesFor(true).map((type) => type.id)).toEqual(["admin", "office", "inspector", "foreman", "technician", "viewer"]);
+    expect(userTypesFor(false).map((type) => type.id)).toEqual(["admin", "office", "viewer", "manager", "supervisor", "office_admin", "front_desk"]);
+    expect(userTypesFor(true).map((type) => type.id)).toEqual(["admin", "office", "inspector", "foreman", "technician", "viewer", "manager", "supervisor", "office_admin", "front_desk"]);
   });
 
   it("reads CSV cells in the new words and the old ones", () => {
@@ -36,4 +36,14 @@ describe("user types", () => {
     expect(parseUserType("Foreman")).toBe("foreman");
     expect(parseUserType("boss")).toBeNull();
   });
+});
+
+it("round trips the new presets and labels", async () => {
+  const { TRADE_TITLE_LABEL, TRADE_TITLES } = await import("@/types/team");
+  for (const [id, label] of [["manager", "Manager"], ["supervisor", "Supervisor"], ["office_admin", "Office admin"], ["front_desk", "Front desk"]] as const) {
+    expect(TRADE_TITLES).toContain(id);
+    expect(TRADE_TITLE_LABEL[id]).toBe(label);
+    expect(userTypeOf(fieldsForUserType(id))).toBe(id);
+    expect(parseUserType(id)).toBe(id);
+  }
 });

@@ -4,7 +4,7 @@
 // new is stored, so existing members keep working and the server's checks are unchanged.
 import type { TeamRole, TradeTitle } from "@/types/team";
 
-export type UserType = "admin" | "office" | "inspector" | "foreman" | "technician" | "viewer";
+export type UserType = "admin" | "office" | "inspector" | "foreman" | "technician" | "viewer" | "manager" | "supervisor" | "office_admin" | "front_desk";
 
 export interface UserTypeDef {
   id: UserType;
@@ -32,6 +32,10 @@ export const USER_TYPES: UserTypeDef[] = [
     help: "Opens on the Field screen: time clock and photos, and can log voice notes when filling in for the foreman. No prices or invoices." },
   { id: "viewer", label: "View only", role: "viewer", field: false,
     help: "Can look around the office screens. Can't change anything." },
+  { id: "manager", label: "Management", role: "owner", trade: "manager", field: false, help: "Manages the business, team and settings." },
+  { id: "supervisor", label: "Supervisor", role: "staff", trade: "supervisor", field: false, help: "Works in the office and field, including jobs and invoices." },
+  { id: "office_admin", label: "Office admin", role: "staff", trade: "office_admin", field: false, help: "Works in the office and field, including requests and billing." },
+  { id: "front_desk", label: "Front desk", role: "staff", trade: "front_desk", field: false, help: "Works in the office and field, including requests and customers." },
 ];
 
 const BY_ID = new Map(USER_TYPES.map((type) => [type.id, type]));
@@ -51,8 +55,8 @@ export function userTypesFor(hasField: boolean): UserTypeDef[] {
  */
 export function userTypeOf(member: { role: TeamRole | string | undefined; trade?: TradeTitle | string | null }): UserType {
   switch (member.role) {
-    case "owner": return "admin";
-    case "staff": return "office";
+    case "owner": return member.trade === "manager" ? "manager" : "admin";
+    case "staff": return member.trade === "supervisor" || member.trade === "office_admin" || member.trade === "front_desk" ? member.trade : "office";
     case "crew": return member.trade === "inspector" ? "inspector" : member.trade === "foreman" ? "foreman" : "technician";
     // "viewer" — and anything unexpected on an old or hand-made member doc (e.g. role "superadmin") — reads as the
     // least-privileged type. It must never crash the Team page (2026-09-28: it did, on the harness superadmin's row).
@@ -66,6 +70,7 @@ export function userTypeOf(member: { role: TeamRole | string | undefined; trade?
  */
 export function fieldsForUserType(id: UserType, currentTrade?: TradeTitle | null): { role: TeamRole; trade: TradeTitle | null } {
   const def = userTypeDef(id);
+  if (id === "manager" || id === "supervisor" || id === "office_admin" || id === "front_desk") return { role: def.role, trade: def.trade ?? null };
   if (def.role === "crew") return { role: def.role, trade: def.trade ?? null };
   if (def.role === "staff") return { role: def.role, trade: currentTrade && currentTrade !== "inspector" && currentTrade !== "technician" ? currentTrade : def.trade ?? null };
   return { role: def.role, trade: currentTrade ?? null };
@@ -81,6 +86,7 @@ export function parseUserType(value: string | undefined): UserType | null {
     foreman: "foreman", lead: "foreman", crewlead: "foreman",
     technician: "technician", tech: "technician", crew: "technician", field: "technician",
     viewer: "viewer", viewonly: "viewer",
+    manager: "manager", management: "manager", supervisor: "supervisor", officeadmin: "office_admin", frontdesk: "front_desk",
   };
   return aliases[key] ?? null;
 }
