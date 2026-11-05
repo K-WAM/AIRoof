@@ -24,7 +24,7 @@ import { customerTotals, validCustomerSubtotal } from "@/lib/billing/jobCustomer
 import type { JobQuote } from "@/types/quote";
 import { effectiveBillingPrefs } from "@/lib/billing/customerPayments";
 import { loadLetter } from "@/lib/documents/letterStore";
-import { renderLetter } from "@/lib/documents/letters";
+import { renderLetter, scopeText } from "@/lib/documents/letters";
 import { updateStandardDraft, jobInvoices, InvoiceConflict } from "@/lib/billing/jobInvoiceStore";
 import { withInvoiceDeposits } from "@/lib/billing/jobInvoiceDeposits";
 
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   const openingTemplate = await loadLetter(db, businessId, "invoice_opening");
   const openingLetter = renderLetter(openingTemplate, { date: values.visitDate, "customer.name": job.clientName,
     "customer.code": customer?.customerCode, billTo: customer?.address ?? job.address, serviceAt: job.address, workOrder: jobId,
-    description: job.title, "business.name": name, "business.license": business?.licenseNumber,
+    description: job.title, scope: scopeText(acceptedQuote, job.findings?.filter(finding => finding.includeInReport)), "business.name": name, "business.license": business?.licenseNumber,
   }, { includeOptional: openingTemplate.sections.filter(s => s.defaultOn).map(s => s.id) });
   const invoice: JobInvoice = {
     invoiceId,

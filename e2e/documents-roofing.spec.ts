@@ -1,7 +1,84 @@
 import { api, must, outbox, pngBase64 } from "../scripts/e2e/lib.cjs";
-import { test, expect, expectHealthy, settle, shot } from "./fixtures";
+import { test, expect, expectHealthy, settle, shot as captureShot } from "./fixtures";
+
+const shot: typeof captureShot = async (page, name) => {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  return captureShot(page, name);
+};
 
 const B = "e2e-roofing";
+test("scope and renewal fields and category findings match app email and print", async ({ as }) => {
+  test.setTimeout(240_000);
+  const owner = await api("owner"), tag = Date.now(), email = `sections-${tag}@customer.e2e.test`;
+  const templates = must(await owner.get("/api/company/library/letters"), "letter templates").templates;
+  const inspection = templates.find((template: { kind: string }) => template.kind === "inspection_completion");
+  const proposal = templates.find((template: { kind: string }) => template.kind === "proposal");
+  try {
+    must(await owner.put("/api/company/library/letters", { ...inspection, sections: [{ id: "scope", heading: "Completed scope", body: "{{scope}}" }, { id: "renewal", body: "Renewal month: {{renewalMonth}}", optional: true, defaultOn: true }] }), "inspection fields");
+    must(await owner.put("/api/company/library/letters", { ...proposal, sections: [{ id: "scope", heading: "Scope of Work", body: "{{scope}}" }] }), "proposal scope");
+    const { job } = must(await owner.post("/api/jobs", { businessId: B, title: "Category document review", address: "14 Example Avenue", clientName: "Example Customer", clientEmail: email }), "section job");
+    const findings = [
+      { findingId: "entry", category: "Entry", problem: "Worn entry surface", solution: "Restore entry surface", includeInReport: true, includeInQuote: true, addedAt: tag, lines: [{ kind: "other", description: "Entry service", quantity: 1, unitPrice: 100 }] },
+      { findingId: "access", category: "Access", problem: "Loose access fitting", solution: "Secure access fitting", includeInReport: true, includeInQuote: true, addedAt: tag, lines: [{ kind: "other", description: "Access service", quantity: 1, unitPrice: 50 }] },
+    ];
+    must(await owner.patch(`/api/jobs/${job.jobId}`, { businessId: B, findings }), "section findings");
+    for (const phase of ["before", "after"]) {
+      const photo = must(await owner.post(`/api/jobs/${job.jobId}/photos`, { businessId: B, label: `${phase} section`, phase, thumbB64: pngBase64(64, 48, [80, 110, 130]), fullB64: pngBase64(160, 120, [80, 110, 130]), uploadedBy: "e2e", w: 160, h: 120 }), "section photo");
+      must(await owner.patch(`/api/jobs/${job.jobId}/photos/${photo.photoId}`, { businessId: B, includeInReport: true }), "select section photo");
+    }
+    must(await owner.put(`/api/jobs/${job.jobId}/report/settings`, { layout: "inspection_completion" }), "inspection layout");
+    const page = await as("owner");
+    await page.goto(`/company/jobs/${job.jobId}?tab=report`); await settle(page); await expectHealthy(page);
+    await expect(page.getByText("Unfilled letter fields: renewalMonth", { exact: true })).toBeVisible();
+    await expect(page.locator(".report-doc li")).toHaveText(["Restore entry surface", "Secure access fitting"]);
+    await expect(page.getByLabel("Show findings as Problem / Corrective Action")).toBeChecked();
+    await page.getByLabel("Renewal month", { exact: true }).fill("September 2026");
+    await page.getByLabel("Renewal month", { exact: true }).blur();
+    await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}?businessId=${B}`), "renewal saved").job.reportDocument.renewalMonth).toBe("September 2026");
+    const report = page.locator(".report-doc");
+    await expect(report).toContainText("Renewal month: September 2026");
+    await expect(report.locator(".document-finding h3")).toHaveText(["Entry", "Access"]);
+    await expect(report.locator(".document-finding").first()).toContainText("Problem: Worn entry surface");
+    await expect(report.locator(".document-finding").first()).toContainText("Corrective Action: Restore entry surface");
+    await expect(report).not.toContainText("$");
+    await expect(report.locator("img[alt='before section']")).toHaveCount(1);
+    await expect(report.locator("img[alt='after section']")).toHaveCount(1);
+    must(await owner.post(`/api/jobs/${job.jobId}/report/send`, { businessId: B, to: email }), "section report email");
+    await page.evaluate(() => window.scrollTo(0, 0)); await shot(page, "documents-sections-report");
+    await page.emulateMedia({ media: "print" }); await shot(page, "documents-sections-report-print"); await page.emulateMedia({ media: "screen" });
+    must(await owner.post(`/api/jobs/${job.jobId}/quote`, { businessId: B }), "section quote");
+    must(await owner.patch(`/api/jobs/${job.jobId}/quote`, { businessId: B, layout: "proposal", lines: [{ lineId: "scope", kind: "other", description: "Quoted scope only", quantity: 1, unitPrice: 150 }] }), "quoted scope");
+    await page.goto(`/company/jobs/${job.jobId}?tab=quote`); await settle(page); await expectHealthy(page);
+    await expect(page.locator(".quote-doc li")).toHaveText(["Quoted scope only"]);
+    must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: email }), "scope quote email");
+    const { invoice } = must(await owner.post(`/api/jobs/${job.jobId}/invoice`, { businessId: B }), "section invoice");
+    await page.goto(`/company/jobs/${job.jobId}?tab=invoice`); await settle(page); await expectHealthy(page);
+    const invoiceDoc = page.locator(".invoice-doc");
+    await expect(invoiceDoc.locator(".document-finding h3")).toHaveText(["Entry", "Access"]);
+    await page.getByLabel("Show findings as Problem / Corrective Action").uncheck();
+    await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/invoice?businessId=${B}`), "invoice choice").invoice.showFindingSections).toBe(false);
+    await expect(invoiceDoc.locator(".document-finding")).toHaveCount(0);
+    await page.getByLabel("Show findings as Problem / Corrective Action").check();
+    await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/invoice?businessId=${B}`), "invoice choice").invoice.showFindingSections).toBe(true);
+    expect(must(await owner.get(`/api/jobs/${job.jobId}/invoice?businessId=${B}`), "unchanged total").invoice.total).toBe(invoice.total);
+    must(await owner.post(`/api/jobs/${job.jobId}/invoice/send`, { businessId: B, to: email }), "section invoice email");
+    await page.evaluate(() => window.scrollTo(0, 0)); await shot(page, "documents-sections-invoice");
+    await page.emulateMedia({ media: "print" }); await shot(page, "documents-sections-invoice-print");
+    const messages = await outbox({ to: email });
+    const reportEmail = messages.find(message => String(message.subject).includes(" report from "));
+    const invoiceEmail = messages.find(message => String(message.subject).startsWith("Your invoice from "));
+    for (const message of [reportEmail, invoiceEmail]) {
+      expect(message).toBeTruthy(); expect(String(message?.html)).toContain("<h3>Entry</h3>"); expect(String(message?.html)).toContain("Corrective Action:");
+      expect((String(message?.html).match(/alt="before section"/g) ?? []).length).toBe(1);
+    }
+    expect(String(reportEmail?.html)).toContain("September 2026"); expect(String(reportEmail?.html)).not.toContain("$150.00");
+    expect(messages.some(message => /<li\b[^>]*>Quoted scope only<\/li>/.test(String(message.html)))).toBe(true);
+  } finally {
+    must(await owner.put("/api/company/library/letters", inspection), "restore inspection template");
+    must(await owner.put("/api/company/library/letters", proposal), "restore proposal template");
+  }
+});
+
 test("document sends validate and remember several recipients including receipts", async ({ as }) => {
   test.setTimeout(180_000);
   const owner = await api("owner"), tag = Date.now(), emails = [`owner-${tag}@customer.e2e.test`, `office-${tag}@customer.e2e.test`];
@@ -127,7 +204,7 @@ test("50 percent deposit is sent separately and credited on the final", async ({
   await expectHealthy(page);
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-deposit-final");
-  await page.locator(".invoice-doc").screenshot({ path: `test-results/screens/${test.info().project.name}/documents-final-copy.png` });
+  await page.locator(".invoice-doc").screenshot({ style: ".company-topbar,.company-nav,.company-sidebar{visibility:hidden!important}.k1-document{max-height:none!important;overflow:visible!important}", path: `test-results/screens/${test.info().project.name}/documents-final-copy.png` });
   await page.emulateMedia({ media: "print" });
   await page.evaluate(() => document.body.classList.add("k1-print-deposit"));
   await expect(page.locator(".invoice-doc")).toBeHidden();
@@ -187,7 +264,7 @@ test("repair completion lists locations and excludes all quote prices", async ({
   expect(String(completion?.html)).toContain("after entry");
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-completion");
-  await page.locator(".report-doc").screenshot({ path: `test-results/screens/${test.info().project.name}/documents-completion-copy.png` });
+  await page.locator(".report-doc").screenshot({ style: ".company-topbar,.company-nav,.company-sidebar{visibility:hidden!important}.k1-document{max-height:none!important;overflow:visible!important}", path: `test-results/screens/${test.info().project.name}/documents-completion-copy.png` });
 });
 test("proposal scope and T&M labor rates render on customer copies", async ({ as }) => {
   test.setTimeout(150_000);
@@ -205,7 +282,7 @@ test("proposal scope and T&M labor rates render on customer copies", async ({ as
   await expect(page.locator(".quote-doc")).toContainText("One Thousand Two Hundred Fifty Dollars and 50/100");
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-proposal");
-  await page.locator(".quote-doc").screenshot({ path: `test-results/screens/${test.info().project.name}/documents-proposal-copy.png` });
+  await page.locator(".quote-doc").screenshot({ style: ".company-topbar,.company-nav,.company-sidebar{visibility:hidden!important}.k1-document{max-height:none!important;overflow:visible!important}", path: `test-results/screens/${test.info().project.name}/documents-proposal-copy.png` });
   await page.getByLabel("Quote layout").selectOption("tm_authorization");
   await expect.poll(async () => must(await owner.get(`/api/jobs/${job.jobId}/quote?businessId=${B}`), "saved quote").quote.layout).toBe("tm_authorization");
   await expect(page.locator(".quote-doc").getByRole("heading", { name: "Labor rates" })).toBeVisible();
@@ -215,7 +292,7 @@ test("proposal scope and T&M labor rates render on customer copies", async ({ as
   await expect(page.locator(".quote-doc")).not.toContainText("$1,250.50");
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, "documents-tm");
-  await page.locator(".quote-doc").screenshot({ path: `test-results/screens/${test.info().project.name}/documents-tm-copy.png` });
+  await page.locator(".quote-doc").screenshot({ style: ".company-topbar,.company-nav,.company-sidebar{visibility:hidden!important}.k1-document{max-height:none!important;overflow:visible!important}", path: `test-results/screens/${test.info().project.name}/documents-tm-copy.png` });
   must(await owner.post(`/api/jobs/${job.jobId}/quote/send`, { businessId: B, to: "authorization@customer.e2e.test" }), "email authorization");
   const messages = await outbox({ to: "authorization@customer.e2e.test" });
   expect(messages.some(m => String(m.html).includes("Service lead") && String(m.html).includes("$75.00") && String(m.html).includes(">Authorize</a>"))).toBe(true);

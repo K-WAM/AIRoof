@@ -23,7 +23,7 @@ export type RenderedLetter = { title: string; blocks: Array<{ heading?: string; 
 
 /** A quote, including an empty quote, takes precedence over finding solutions. */
 export function scopeText(quote?: { lines: Array<{ description: string }> } | null, findings: Array<{ solution: string }> = []): string {
-  return (quote ? quote.lines.map(line => line.description) : findings.map(finding => finding.solution))
+  return (quote ? (quote.lines ?? []).map(line => line.description) : findings.map(finding => finding.solution))
     .flatMap(text => text.split(/\r?\n/)).filter(text => text.trim()).map(text => `- ${text}`).join("\n");
 }
 
