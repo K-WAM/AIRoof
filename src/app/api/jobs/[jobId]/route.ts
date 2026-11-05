@@ -1,3 +1,5 @@
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { companyAssignment } from "@/lib/companies/assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -47,6 +49,11 @@ export async function GET(
   if (!snap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
   const job = { jobId: snap.id, ...snap.data() } as Job;
+  if (!job.companyId) {
+    const business = (await db.collection("businesses").doc(businessId).get()).data() ?? {};
+    const company = await loadDocumentCompany(db, businessId, business, null, job);
+    if (company) job.companyId = company.id;
+  }
   return NextResponse.json(fieldResponse({ job }, gate.user));
 }
 
@@ -93,6 +100,9 @@ export async function PATCH(
   }
 
   const update: Record<string, unknown> = { updatedAt: Date.now() };
+  const companyChange = body.companyId !== undefined
+    ? companyAssignment((await db.collection("businesses").doc(businessId).get()).data(), body.companyId) : {};
+  Object.assign(update, companyChange);
   if (status) {
     update.status = status;
     // Append-only trail (arrayUnion: atomic, no read needed) so the job history can show who moved it and when.
@@ -120,7 +130,7 @@ export async function PATCH(
   }
 
   const jobRef = db.collection(`businesses/${businessId}/jobs`).doc(jobId);
-  if (findings === undefined) {
+  if (findings === undefined && !companyChange.companyId) {
     await jobRef.update(update);
     return NextResponse.json({ ok: true });
   }
@@ -132,6 +142,10 @@ export async function PATCH(
     const quoteRef = job.quoteId ? db.collection(`businesses/${businessId}/quotes`).doc(job.quoteId) : null;
     const quote = quoteRef ? (await tx.get(quoteRef)).data() as JobQuote | undefined : undefined;
     tx.update(jobRef, update);
+    if (companyChange.companyId && companyChange.companyId !== job.companyId) {
+      tx.set(jobRef.collection("auditEvents").doc(), { action: "company.changed", businessId, jobId, actorUid: gate.user.uid, before: job.companyId ?? null, after: companyChange.companyId, createdAt: update.updatedAt });
+    }
+    if (findings === undefined) return true;
     if (!quoteRef || quote?.status !== "draft") return true;
     const synced = syncQuoteWithFindings(quote, job.findings ?? [], findings as JobFinding[]);
     if (!synced.changed) return true;

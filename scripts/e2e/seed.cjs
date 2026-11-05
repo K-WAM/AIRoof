@@ -135,6 +135,31 @@ async function seed({ reset = false } = {}) {
   }
   /* end K5 */
 
+  /* T-316: shared company fixtures for T-316/T-317. Invented data, local emulators only. */
+  const pros = db.collection("businesses").doc(prosBusinessId);
+  const companyNow = Date.now();
+  const companyProfiles = [
+    { id: "rdsf", name: "Roof Pros South", shortName: "RDSF", isDefault: true, logoId: "company-rdsf", address: "501 Sample Way, Coral Springs, FL", phone: "+15550501", email: "south@roofpros.e2e.test", license: "SAMPLE-RDSF", payInstructions: "Sample RDSF bank transfer instructions" },
+    { id: "rcu", name: "Concepts Unlimited", shortName: "RCU", isDefault: false, logoId: "company-rcu", address: "502 Sample Way, Coral Springs, FL", phone: "+15550502", email: "rcu@roofpros.e2e.test", license: "SAMPLE-RCU", payInstructions: "Sample RCU bank transfer instructions" },
+  ];
+  await pros.update({ billingCompanies: companyProfiles, jobCounter: 3163, invoiceCounter: 3163, customerCounter: 3161 });
+  await pros.collection("library").doc("logos").set({ logos: companyProfiles.map(c => ({
+    logoId: c.logoId, name: c.shortName, mimeType: "image/svg+xml", variant: "color", isDefault: c.isDefault,
+    b64: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="36" viewBox="0 0 96 36"><rect width="96" height="36" rx="4" fill="#0f766e"/><text x="48" y="24" text-anchor="middle" fill="white" font-family="Arial" font-size="18">${c.shortName}</text></svg>`).toString("base64"),
+    w: 96, h: 36, createdAt: companyNow,
+  })), updatedAt: companyNow });
+  const school = { customerId: "C-3160", businessId: prosBusinessId, companyId: "rcu", name: "Lakeview County Schools", kind: "commercial", address: "316 School Test Road", matchKey: "lakeview county schools|", searchTokens: ["lake", "lakeview", "county", "schools"], active: true, jobCount: 2, lastJobAt: companyNow, createdAt: companyNow, updatedAt: companyNow };
+  await pros.collection("customers").doc(school.customerId).set(school);
+  await pros.collection("customers").doc("C-3161").set({ ...school, customerId: "C-3161", companyId: "rdsf", name: "Sample South Homeowner", kind: "residential", matchKey: "sample south homeowner|", searchTokens: ["sample", "south", "homeowner"], jobCount: 1 });
+  for (const [number, companyId, status] of [[3161, "rcu", "sent"], [3162, "rdsf", "sent"], [3163, "rcu", "draft"]]) {
+    const jobId = `J-${number}`, invoiceId = `INV-${number}`, customerId = companyId === "rcu" ? school.customerId : "C-3161";
+    const clientName = companyId === "rcu" ? school.name : "Sample South Homeowner";
+    await pros.collection("jobs").doc(jobId).set({ jobId, businessId: prosBusinessId, companyId, customerId, title: `${clientName} - sample repair`, clientName, clientEmail: "owner@roofpros.e2e.test", address: school.address, propertyType: companyId === "rcu" ? "commercial" : "residential", status: status === "sent" ? "invoiced" : "complete", invoiceId, createdAt: companyNow, updatedAt: companyNow, parsed: { materials: [], labor: [], timeline: [{ description: "Sample repair complete" }], issues: [], invoiceSuggestions: [] } });
+    await pros.collection("invoices").doc(invoiceId).set({ invoiceId, businessId: prosBusinessId, jobId, customerId, ...(status === "sent" ? { companyId, sentAt: companyNow - 6 * 86400000, sentTo: "owner@roofpros.e2e.test" } : {}), status, billTo: { name: clientName, address: school.address, email: "owner@roofpros.e2e.test" }, serviceAt: school.address, description: "Sample repair", labor: [], materials: [], other: [{ lineId: "sample-repair", description: "Sample repair", amount: 500 }], taxRate: 0, subtotal: 500, total: 500, issuedAt: companyNow - 6 * 86400000, dueAt: companyNow - 3 * 86400000, hideMaterials: false, createdAt: companyNow, updatedAt: companyNow, createdBy: ACCOUNTS.proOwner.uid });
+  }
+  /* end T-316 */
+
+
   return { tenants: Object.keys(TENANTS).length, accounts: Object.keys(ACCOUNTS).length };
 }
 

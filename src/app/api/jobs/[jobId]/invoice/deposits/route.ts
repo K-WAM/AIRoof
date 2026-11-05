@@ -1,3 +1,5 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { resolveDocumentCompany } from "@/lib/companies/companies";
 import { NextRequest } from "next/server";
 import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -59,9 +61,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
       const customerSnap = job.customerId ? await tx.get(db.collection(`businesses/${businessId}/customers`).doc(job.customerId)) : null;
       const customer = customerSnap?.data();
       const counter = (biz.invoiceCounter ?? 999) + 1, invoiceId = `INV-${counter}`, now = Date.now();
+      const documentBusiness = documentLetterhead(biz, resolveDocumentCompany(biz, { jobCompanyId: job.companyId, customerCompanyId: customer?.companyId }));
       const letter = renderLetter(template, { date: fmtDate(now, biz.timezone), "customer.name": job.clientName, "customer.code": customer?.customerCode,
         serviceAt: job.address, workOrder: jobId, description: job.title, agreementDate: fmtDate(agreementDate, biz.timezone),
-        depositPercent: String(percent), depositAmount: fmtMoney(amount), price: fmtMoney(amount), priceWords: amountInWords(amount), "business.name": biz.businessName,
+        depositPercent: String(percent), depositAmount: fmtMoney(amount), price: fmtMoney(amount), priceWords: amountInWords(amount), "business.name": documentBusiness.businessName,
       }, { includeOptional: template.sections.filter(s => s.defaultOn).map(s => s.id) });
       const progressIndex = template.sections.filter(s => !s.optional || s.defaultOn).findIndex(s => s.id === "progress");
       const progress = progressIndex < 0 ? undefined : letter.blocks[progressIndex];

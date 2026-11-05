@@ -1,3 +1,4 @@
+import { sendLockActive } from "@/lib/billing/jobInvoiceStore";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -146,6 +147,12 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     ...(body.photoIds !== undefined ? { photoIds: body.photoIds as string[] } : {}),
     ...(body.validUntil !== undefined ? { validUntil: body.validUntil as number } : {}),
   };
-  await quoteRef.update(patch);
+  const saved = await db.runTransaction(async tx => {
+    const fresh = (await tx.get(quoteRef)).data();
+    if (!fresh || fresh.status !== "draft" || sendLockActive(fresh.companySendClaim)) return false;
+    tx.update(quoteRef, patch);
+    return true;
+  });
+  if (!saved) return err("Quote changed or is being sent. Reload before editing.", 409);
   return NextResponse.json({ quote: { ...quote, ...patch } });
 }

@@ -98,6 +98,22 @@ describe("a tenant-A session can never reach tenant B (T-170)", () => {
     seed();
   });
 
+  it("company profiles and document overrides take the tenant from the session", async () => {
+    const profiles = await import("@/app/api/company/companies/route");
+    const response = await invoke(profiles, "GET", "tok-owner-a", "/api/company/companies", { query: { businessId: "biz-b" } });
+    expect(response.status).toBe(200); expect(response.text).not.toContain(SECRET_B);
+    for (const token of ["tok-staff-a", "tok-viewer-a", "tok-crew-a"]) {
+      expect((await invoke(profiles, "PATCH", token, "/api/company/companies", { body: { businessId: "biz-b", companies: [] } })).status).toBe(403);
+    }
+    const documents = await import("@/app/api/jobs/[jobId]/company/route");
+    for (const token of ["tok-viewer-a", "tok-crew-a"]) {
+      expect((await invoke(documents, "PATCH", token, "/api/jobs/J-1000/company", { params: { jobId: "J-1000" }, body: { businessId: "biz-b", kind: "invoice", companyId: "rcu" } })).status).toBe(403);
+    }
+    const changed = await invoke(documents, "PATCH", "tok-owner-a", "/api/jobs/J-1000/company", { params: { jobId: "J-1000" }, body: { businessId: "biz-b", kind: "invoice", companyId: "rcu" } });
+    expect(changed.status).toBe(404);
+    expect(db.__peek("businesses/biz-b/jobs", "J-1000")).not.toHaveProperty("companyId");
+  });
+
   it("Connect settings take the tenant from the session and reject staff writes", async () => {
     const mod = await import("@/app/api/company/settings/billing/connect/route");
     const owner = await invoke(mod, "PUT", "tok-owner-a", "/api/company/settings/billing/connect", { body: { businessId: "biz-b", payNow: false } });

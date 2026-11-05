@@ -1,3 +1,6 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import type { LibraryLogo } from "@/types/library";
 import type Stripe from "stripe";
 import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import type { BusinessConfig } from "@/types";
@@ -151,7 +154,9 @@ export async function handleConnectEvent(db: Firestore, event: Stripe.Event, def
   // Same receipt builder and guarded sendEmail path as staff payments. A failed courtesy email cannot undo money.
   const recipients = parseDocumentRecipients(receipt.job.documentRecipients ?? receipt.invoice.sentTo ?? receipt.invoice.billTo.email ?? "");
   if ("error" in recipients) return;
-  const business = { ...receipt.business, businessName: receipt.business.businessName || "Your service provider" };
+  const company = await loadDocumentCompany(db, businessId!, receipt.business, receipt.invoice, receipt.job);
+  const logos = company ? ((await db.collection(`businesses/${businessId}/library`).doc("logos").get()).data()?.logos ?? []) as LibraryLogo[] : [];
+  const business = { ...documentLetterhead(receipt.business, company, logos), businessName: company?.name || receipt.business.businessName || "Your service provider" };
   const email = buildCustomerReceiptEmail(receipt.invoice, receipt.payment, invoiceBalance(receipt.invoice), business, business.timezone);
   const receiptFailed = async () => {
     // Preserve an overpayment/refund warning if the courtesy email also fails.

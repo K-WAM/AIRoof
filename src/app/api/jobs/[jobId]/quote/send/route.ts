@@ -5,7 +5,10 @@ import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { getVerticalTemplate } from "@/lib/verticals/templates";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildQuoteEmailHtml } from "@/lib/billing/jobQuoteEmailHtml";
-import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { isMultiCompany } from "@/lib/companies/companies";
+import { claimDocumentCompany, finishDocumentCompany } from "@/lib/companies/documentSend";
 import { noticesForDocument } from "@/lib/documents/notices";
 import type { JobQuote } from "@/types/quote";
 import type { Job } from "@/types/jobs";
@@ -49,9 +52,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   if (quote.status !== "draft") return NextResponse.json({ error: "Only a draft quote can be sent" }, { status: 409 });
   if (quote.validUntil <= Date.now()) return NextResponse.json({ error: "Quote has expired" }, { status: 409 });
   if (!quote.lines.length || !quote.billTo.name.trim()) return NextResponse.json({ error: "Quote needs bill-to and at least one line" }, { status: 400 });
-  const biz = bizSnap.data()!;
+  const storedBusiness = bizSnap.data()!;
+  let claim;
+  try { claim = isMultiCompany(storedBusiness) ? await claimDocumentCompany(db, businessId, jobId, "quote") : null; }
+  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Document is being sent" }, { status: 409 }); }
+  let finalized = false;
+  try {
   const logosSnap = await db.collection(`businesses/${businessId}/library`).doc("logos").get();
-  const letterhead = resolveLetterhead(biz, (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", quote.logoId);
+  const biz = documentLetterhead(storedBusiness, await loadDocumentCompany(db, businessId, storedBusiness, claim ? { companyId: claim.companyId } : quote, job), (logosSnap.data()?.logos as LibraryLogo[] | undefined) ?? [], quote.logoId);
+  const letterhead = biz;
   const businessName: string = typeof biz.businessName === "string" ? biz.businessName.trim() : "";
   if (!businessName) return NextResponse.json({ error: "Business name required before sending" }, { status: 400 });
   // Terms & notices print only once the owner has approved the wording; statutory ones only for a residential job over the threshold.
@@ -81,8 +90,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ job
   }
   const now = Date.now();
   const batch = db.batch();
-  batch.update(quoteRef, { status: "sent", sentAt: now, sentTo: sent.delivered.join(", "), responseTokenHash: quoteResponseTokenHash(responseToken), updatedAt: now });
+  const sentPatch = { status: "sent", sentAt: now, sentTo: sent.delivered.join(", "), responseTokenHash: quoteResponseTokenHash(responseToken), updatedAt: now };
+  if (claim) await finishDocumentCompany(db, claim, true, sentPatch);
+  else batch.update(quoteRef, sentPatch);
+  finalized = true;
   if (["open", "inspection"].includes(job.status)) batch.update(jobRef, { status: "quoted", updatedAt: now });
   await batch.commit();
-  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent) });
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), ...(claim ? { companyId: claim.companyId } : {}) });
+  } finally { if (!finalized) await finishDocumentCompany(db, claim, false); }
 }

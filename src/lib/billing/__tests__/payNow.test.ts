@@ -52,3 +52,15 @@ describe("invoice pay tokens", () => {
     expect(() => signPayToken("a", "INV-1", "nonce")).toThrow();
   });
 });
+
+it("multi-company Pay now belongs only to the default company's Stripe account", () => {
+  const a = { id: "rdsf", name: "Roof Pros South", shortName: "RDSF", isDefault: true };
+  const b = { id: "rcu", name: "Concepts Unlimited", shortName: "RCU" };
+  const multi = { ...business, billingCompanies: [a, b] };
+  expect(payNowAvailability(multi, { ...invoice, companyId: "rcu" })).toBe(false);
+  expect(payNowAvailability(multi, invoice, { jobCompanyId: "rcu" })).toBe(false);
+  expect(payNowAvailability(multi, invoice, { customerCompanyId: "rcu" })).toBe(false);
+  expect(payNowAvailability(multi, { ...invoice, companyId: "rdsf" }, { jobCompanyId: "rcu" })).toBe(true);
+  expect(payNowAvailability(multi, invoice)).toBe(true);
+  expect(payNowAvailability({ ...business, billingCompanies: [a] }, { ...invoice, companyId: "rcu" })).toBe(payNowAvailability(business, invoice));
+});

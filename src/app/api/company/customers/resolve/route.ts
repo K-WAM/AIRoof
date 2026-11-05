@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!jobSnap.exists) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   const job = jobSnap.data()!;
 
-  const { customerId, created } = await resolveCustomer(db, businessId, { name, phone, email, address, kind });
+  const { customerId, created } = await resolveCustomer(db, businessId, { name, phone, email, address, kind, companyId: body.companyId ?? job.companyId });
 
   // Defensive: don't clobber a customerId the job might already carry (e.g. a
   // retry, or the combobox path having already set one directly).

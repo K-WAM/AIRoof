@@ -1,9 +1,11 @@
+import { companyAssignment } from "@/lib/companies/assignment";
 import { createHash } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import type { Customer, CustomerKind } from "@/types/customer";
 import { buildMatchKey, buildSearchTokens } from "./search";
 
 export interface ResolveCustomerInput {
+  companyId?: unknown;
   name: string;
   phone?: string;
   email?: string;
@@ -56,6 +58,7 @@ export async function resolveCustomer(
     const customerId = `C-${counter}`;
     const customer: Customer = {
       customerId,
+      ...companyAssignment(bizSnap.data(), input.companyId),
       businessId,
       name,
       kind: input.kind ?? "residential",

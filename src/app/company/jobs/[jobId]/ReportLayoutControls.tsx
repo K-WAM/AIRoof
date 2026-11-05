@@ -4,7 +4,7 @@ import { LogoPicker } from "@/lib/documents/LogoPicker";
 import type { LibraryLogo } from "@/types/library";
 import type { ReportLetterOptions } from "@/types/documentTemplate";
 
-export function ReportLayoutControls({ jobId, address, value, logos, includeQuote, hasFindings, readOnly, onSaved }: { jobId: string; address?: string; logos: LibraryLogo[]; value?: ReportLetterOptions; includeQuote?: boolean; hasFindings?: boolean; readOnly: boolean; onSaved: (value: ReportLetterOptions) => void }) {
+export function ReportLayoutControls({ jobId, address, value, logos, showLogoPicker = true, includeQuote, hasFindings, readOnly, onSaved }: { jobId: string; address?: string; showLogoPicker?: boolean; logos: LibraryLogo[]; value?: ReportLetterOptions; includeQuote?: boolean; hasFindings?: boolean; readOnly: boolean; onSaved: (value: ReportLetterOptions) => void }) {
   const [settings, setSettings] = useState<ReportLetterOptions>(value ?? {});
   const [message, setMessage] = useState("");
   useEffect(() => { setSettings(value ?? {}); }, [value]);
@@ -19,7 +19,7 @@ export function ReportLayoutControls({ jobId, address, value, logos, includeQuot
     } catch (e) { setMessage(e instanceof Error ? e.message : "Could not save report settings"); }
   }
   return <div className="no-print" style={{ display: "grid", gap: 10 }}>
-    <LogoPicker logos={logos} value={settings.logoId} disabled={readOnly} onChange={logoId => { const next = { ...settings, logoId }; setSettings(next); void save(next); }} />
+    {showLogoPicker && <LogoPicker logos={logos} value={settings.logoId} disabled={readOnly} onChange={logoId => { const next = { ...settings, logoId }; setSettings(next); void save(next); }} />}
     {hasFindings && <label><input type="checkbox" checked={settings.showFindingSections !== false} disabled={readOnly} onChange={e => { const next = { ...settings, showFindingSections: e.target.checked }; setSettings(next); void save(next); }} /> Show findings as Problem / Corrective Action</label>}
     <label>Layout<select aria-label="Report layout" value={settings.layout ?? "report"} disabled={readOnly} onChange={e => { const next = { ...settings, layout: e.target.value as ReportLetterOptions["layout"], locations: settings.locations ?? address ?? "" }; setSettings(next); void save(next); }}><option value="report">Report</option><option value="inspection_completion">Inspection completion notice</option><option value="repair_completion">Repair completion notice</option></select></label>
     <small>{settings.layout && settings.layout !== "report" ? "No prices included. Completion notices retain photos." : includeQuote ? "Includes the sent quote." : "No prices included."}</small>

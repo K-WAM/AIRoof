@@ -1,0 +1,25 @@
+import { beforeEach, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import { makeFakeDb } from "@/test-utils/fakeFirestore";
+import { POST, GET } from "../route";
+import { POST as resolve } from "../resolve/route";
+import { PATCH } from "../[customerId]/route";
+let db: ReturnType<typeof makeFakeDb>;
+vi.mock("@/lib/firebase/admin",()=>({getAdminFirestore:()=>db}));
+vi.mock("@/lib/auth/verifyRole",()=>({verifyAuthAndRole:async()=>({user:{uid:"owner"}})}));
+const a={id:"rdsf",name:"Roof Pros South",shortName:"RDSF",isDefault:true}; const b={id:"rcu",name:"Concepts Unlimited",shortName:"RCU"};
+const req=(body:unknown)=>new NextRequest("http://localhost/api/company/customers",{method:"POST",body:JSON.stringify(body)});
+beforeEach(()=>{db=makeFakeDb();});
+it.each([undefined,[a],[a,b]])("manual create, resolve, edit and slim lists keep identity and single-company shape: %j",async billingCompanies=>{
+  db.__seed("businesses","biz",{billingCompanies}); const multi=(billingCompanies?.length??0)>1;
+  const created=await POST(req({businessId:"biz",name:"Lakeview County Schools",companyId:"rcu"}));expect(created.status).toBe(201);
+  const customer=(await created.json()).customer;
+  expect(customer.companyId).toBe(multi?"rcu":undefined);
+  db.__seed("businesses/biz/jobs","J-1",{jobId:"J-1",createdAt:1});
+  expect((await resolve(req({businessId:"biz",jobId:"J-1",name:"lakeview county schools",companyId:"rdsf"}))).status).toBe(200);
+  expect(db.__list("businesses/biz/customers")).toHaveLength(1);
+  const key=customer.matchKey;
+  expect((await PATCH(req({businessId:"biz",companyId:"rdsf"}),{params:Promise.resolve({customerId:customer.customerId})})).status).toBe(200);
+  const updated=db.__peek("businesses/biz/customers",customer.customerId)!;expect(updated.matchKey).toBe(key);expect(updated.companyId).toBe(multi?"rdsf":undefined);
+  const slim=(await (await GET(new NextRequest("http://localhost/api/company/customers?businessId=biz"))).json()).customers[0];expect(slim.companyId).toBe(multi?"rdsf":undefined);
+});

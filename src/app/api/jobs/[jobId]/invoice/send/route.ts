@@ -4,7 +4,8 @@ import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyOwnBusinessRole } from "@/lib/auth/verifyRole";
 import { isCommsConfigured, sendEmail } from "@/lib/comms/send";
 import { buildJobInvoiceEmailHtml } from "@/lib/billing/jobInvoiceEmailHtml";
-import { resolveLetterhead } from "@/lib/documents/letterhead";
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
 import { noticesForDocument } from "@/lib/documents/notices";
 import { claimInvoiceSend, finishInvoiceSend } from "@/lib/billing/jobInvoiceStore";
 import type { LibraryLogo } from "@/types/library";
@@ -64,7 +65,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     db.collection("businesses").doc(businessId).get(),
     db.collection(`businesses/${businessId}/library`).doc("logos").get(),
   ]);
-  const biz = bizDoc.exists ? bizDoc.data()! : {};
+  const storedBusiness = bizDoc.exists ? bizDoc.data()! : {};
+  const biz = documentLetterhead(storedBusiness, await loadDocumentCompany(db, businessId, storedBusiness, invoice, job), (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], invoice.logoId);
   // Prepare the claimed link for delivery; it becomes payable only after finalization marks it sent.
   const payToken = validPayLink(invoice) && payNowAvailability({ ...biz, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status }) ? signPayToken(businessId, invoice.invoiceId, invoice.payLinkNonce!) : null;
   const payNowUrl = payToken ? invoicePayUrl(getAppUrl(), businessId, invoice.invoiceId, payToken) : undefined;
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   // The logo library's default (Phase 12, Phase 4 remainder) takes precedence over the older
   // single businessConfig.logoUrl, same precedence as the in-app invoice doc and job report.
-  const letterhead = resolveLetterhead(biz, (logosDoc.data()?.logos as LibraryLogo[] | undefined) ?? [], "light", invoice.logoId);
+  const letterhead = biz;
 
   const metas = await listPhotoMetas(db, businessId, jobId);
   const photoIds = invoice.photoIds ?? metas.filter((photo) => photo.includeInReport).map((photo) => photo.photoId);
@@ -115,7 +117,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, sent.delivered.join(", "), gate.user.uid, true);
   finalized = true;
   // Authorized senders can recover the URL later through the guarded pay-link route.
-  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), payNow: payToken ? { url: payNowUrl, expiresAt: invoice.payLinkExpiresAt } : null }, { headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({ ok: true, ...sent, warning: deliveryWarning(sent), ...(invoice.companyId ? { companyId: invoice.companyId } : {}), payNow: payToken ? { url: payNowUrl, expiresAt: invoice.payLinkExpiresAt } : null }, { headers: { "Cache-Control": "private, no-store" } });
   } finally {
     if (!finalized) await finishInvoiceSend(db, businessId, jobId, invoice.invoiceId, token, recipients.join(", "), gate.user.uid, false);
   }

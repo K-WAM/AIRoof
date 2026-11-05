@@ -1,3 +1,4 @@
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
 import { getAdminFirestore } from "@/lib/firebase/admin";
@@ -33,5 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ jobI
     || (job.data()?.businessId !== undefined && job.data()?.businessId !== tenant)
     || (invoice.kind !== "deposit" && job.data()?.invoiceId !== invoiceId)
     || !validPayLink(invoice) || !payNowAvailability({ ...biz.data(), stripeConfigured: isStripeConfigured() }, invoice)) return unavailable();
+  const company = await loadDocumentCompany(db, tenant, biz.data() ?? {}, invoice, job.data() ?? {});
+  if (!payNowAvailability({ ...biz.data(), stripeConfigured: isStripeConfigured() }, { ...invoice, ...(company ? { companyId: company.id } : {}) })) return unavailable();
   return jsonWithCache({ url: invoicePayUrl(getAppUrl(), tenant, invoiceId, signPayToken(tenant, invoiceId, invoice.payLinkNonce!)), expiresAt: invoice.payLinkExpiresAt }, "noStore");
 }

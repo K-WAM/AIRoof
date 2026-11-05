@@ -1,3 +1,4 @@
+import { readDocumentCompany } from "@/lib/companies/documentCompany";
 import type { JobInvoice } from "@/types/invoice";
 import { withInvoiceDeposits } from "./jobInvoiceDeposits";
 import { FieldValue } from "firebase-admin/firestore";
@@ -65,13 +66,19 @@ export async function claimInvoiceSend(db: FirebaseFirestore.Firestore, business
     const all = invoices.docs.map(d => ({ ...d.data(), invoiceId: d.id }) as JobInvoice);
     if (current.kind === "deposit" && current.status === "draft" && all.some(d => d.kind !== "deposit" && d.status !== "draft" && d.status !== "void")) throw new InvoiceConflict("The final invoice has already been sent");
     const business = (await tx.get(db.collection("businesses").doc(businessId))).data() ?? {};
-    let invoice = withInvoiceDeposits(current, all);
+    const company = await readDocumentCompany(db, businessId, business, current, job, tx);
+    const companyFields = company ? { companyId: company.id } : {};
+    const reconciled = withInvoiceDeposits(current, all);
+    let invoice: JobInvoice = company ? { ...reconciled, ...companyFields } : reconciled;
     if (payNowAvailability({ ...business, stripeConfigured: isStripeConfigured() }, { ...invoice, status: invoice.status === "draft" ? "sent" : invoice.status })) {
       invoice = { ...invoice, ...issuePayLink(invoice, newLink) };
     }
     // Commit before delivery. Failed finalization leaves the nonce for a resend; drafts remain unavailable.
-    if (invoice !== current) tx.update(ref, { ...invoice, updatedAt: Date.now() });
-    tx.update(jobRef, { documentSendLock: { invoiceId, token, at: Date.now() } });
+    if (invoice !== current) {
+      const { companyId: _companyId, ...draftFields } = invoice;
+      tx.update(ref, { ...(current.status === "draft" && !current.companyId ? draftFields : invoice), updatedAt: Date.now() });
+    }
+    tx.update(jobRef, { documentSendLock: { invoiceId, token, at: Date.now(), ...companyFields } });
     return { invoice, job, token };
   });
 }
@@ -84,7 +91,7 @@ export async function finishInvoiceSend(db: FirebaseFirestore.Firestore, busines
     if (job.documentSendLock?.token !== token) throw new InvoiceConflict("Invoice send ownership changed");
     if (delivered) {
       const now = Date.now();
-      tx.update(ref, { ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
+      tx.update(ref, { ...(job.documentSendLock?.companyId ? { companyId: job.documentSendLock.companyId } : {}), ...(invoice.status === "paid" ? {} : { status: "sent" }), sentAt: now, sentTo: to, updatedAt: now });
       if (invoice.kind !== "deposit" && invoice.status !== "paid" && job.status !== "invoiced") tx.update(jobRef, { status: "invoiced", updatedAt: now, statusHistory: [...(job.statusHistory ?? []), { status: "invoiced", at: now, by: uid }] });
     }
     tx.update(jobRef, { documentSendLock: FieldValue.delete() });

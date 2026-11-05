@@ -58,3 +58,10 @@ describe("customer quote response", () => {
     expect(db.__peek("businesses/biz/quotes", "Q-1")?.status).toBe("sent");
   });
 });
+
+it("public quote responses use the frozen company and keep single-company HTML unchanged",async()=>{
+  const a={id:"rdsf",name:"Roof Pros South",shortName:"RDSF",isDefault:true},b={id:"rcu",name:"Concepts <Unlimited>",shortName:"RCU",address:"RCU address",license:"RCU-1",logoId:"rcu"};
+  const before=await (await get("accepted")).text();db.__seed("businesses","biz",{billingCompanies:[a]});expect(await (await get("accepted")).text()).toBe(before);
+  db.__seed("businesses","biz",{billingCompanies:[a,b]});await db.collection("businesses/biz/jobs").doc("job").update({companyId:"rdsf"});await db.collection("businesses/biz/quotes").doc("Q-1").update({companyId:"rcu"});db.__seed("businesses/biz/library","logos",{logos:[{logoId:"rcu",mimeType:"image/png",b64:"cG5n",variant:"color",createdAt:1}]});
+  for(const response of [await get("accepted"),await post("accepted")]) {const html=await response.text();expect(html).toContain("Concepts &lt;Unlimited&gt;");expect(html).toContain("RCU address");expect(html).toContain("License #RCU-1");expect(html).toContain("data:image/png;base64,cG5n");expect(html).not.toContain("Roof Pros South");}
+});

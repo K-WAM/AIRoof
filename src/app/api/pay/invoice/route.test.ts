@@ -214,3 +214,21 @@ it.each(["", "short"])("missing or short pay-link secret is byte-identical to un
     expect(await real.text()).toBe(await unknown.text());
   }
 });
+
+it.each(["document", "job", "customer"])("refuses non-default company payments resolved from %s without contacting Stripe",async source=>{
+  const companies=[{id:"rdsf",name:"Roof Pros South",shortName:"RDSF",isDefault:true},{id:"rcu",name:"Concepts Unlimited",shortName:"RCU"}];
+  db.__seed("businesses","a",{...business,billingCompanies:companies});
+  await db.collection("businesses/a/invoices").doc("INV-1").update(source==="document"?{companyId:"rcu"}:{});
+  await db.collection("businesses/a/jobs").doc("job1").update(source==="job"?{companyId:"rcu"}:source==="customer"?{customerId:"C-1"}:{});
+  db.__seed("businesses/a/customers","C-1",{companyId:"rcu"});
+  for(const method of ["GET","POST"]){const response=await (method==="GET"?GET:POST)(request(method));expect(await response.text()).toContain("Payment link unavailable");}
+  expect(mock.create).not.toHaveBeenCalled();expect(mock.retrieve).not.toHaveBeenCalled();
+});
+it("default-company public payments show its letterhead while a single company stays byte-for-byte unchanged",async()=>{
+  const a={id:"rdsf",name:"South & Co",shortName:"RDSF",isDefault:true,address:"South address",license:"S-1",logoId:"south"};const b={id:"rcu",name:"Concepts Unlimited",shortName:"RCU"};
+  const original=await (await GET(request())).text();
+  db.__seed("businesses","a",{...business,billingCompanies:[a]});expect(await (await GET(request())).text()).toBe(original);
+  db.__seed("businesses","a",{...business,billingCompanies:[a,b]});
+  db.__seed("businesses/a/library","logos",{logos:[{logoId:"south",mimeType:"image/png",b64:"cG5n",variant:"color",createdAt:1}]});
+  const html=await (await GET(request())).text();expect(html).toContain("South &amp; Co");expect(html).toContain("South address");expect(html).toContain("License #S-1");expect(html).toContain("data:image/png;base64,cG5n");expect(html).not.toContain("Concepts Unlimited");
+});

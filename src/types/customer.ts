@@ -65,6 +65,7 @@ export interface Customer {
 
 /** The list-view shape — what GET ?fields=slim returns for instant client-side search. */
 export interface CustomerSlim {
+  companyId?: string;
   customerId: string;
   name: string;
   kind: CustomerKind;
@@ -77,6 +78,7 @@ export interface CustomerSlim {
 export function toCustomerSlim(c: Customer): CustomerSlim {
   return {
     customerId: c.customerId,
+    ...(c.companyId ? { companyId: c.companyId } : {}),
     name: c.name,
     kind: c.kind,
     phone: c.phone,

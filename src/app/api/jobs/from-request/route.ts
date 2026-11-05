@@ -1,3 +1,5 @@
+import { companyAssignment } from "@/lib/companies/assignment";
+import { isMultiCompany } from "@/lib/companies/companies";
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole } from "@/lib/auth/verifyRole";
@@ -7,11 +9,11 @@ import type { Job } from "@/types/jobs";
 import { contactPhone } from "@/lib/format/phone";
 import { joinSpelledEmails, tidyEmail } from "@/lib/format/email";
 
-type RequestRecord = { jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; accessNotes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
+type RequestRecord = { companyId?: string; jobId?: string; callerName?: string; callerPhone?: string; callbackPhone?: string; callerEmail?: string; address?: string; serviceRequested?: string; serviceType?: string; notes?: string; accessNotes?: string; sourceCallId?: string; startTime?: number; endTime?: number };
 
 /** Human-triggered, idempotent conversion of one reviewed request into one job. */
 export async function POST(req: NextRequest) {
-  let body: { businessId?: string; appointmentId?: string; leadId?: string };
+  let body: { companyId?: string; businessId?: string; appointmentId?: string; leadId?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const { businessId, appointmentId, leadId } = body;
   if (!businessId || (!appointmentId && !leadId) || (appointmentId && leadId)) return NextResponse.json({ error: "businessId and exactly one request id required" }, { status: 400 });
@@ -33,10 +35,15 @@ export async function POST(req: NextRequest) {
   // letter by letter is joined, so the quote/invoice emails go to the real inbox.
   const phone = contactPhone(data);
   const email = tidyEmail(data.callerEmail);
-  const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address }) : null;
+  const customer = data.callerName ? await resolveCustomer(db, businessId, { name: data.callerName, phone, email, address: data.address, companyId: body.companyId ?? data.companyId }) : null;
+  const business = (await db.collection("businesses").doc(businessId).get()).data();
+  const customerCompanyId = isMultiCompany(business) && customer
+    ? (await db.collection(`businesses/${businessId}/customers`).doc(customer.customerId).get()).data()?.companyId : undefined;
+  const assignedCompany = companyAssignment(business, body.companyId ?? data.companyId, customerCompanyId);
   const call = data.sourceCallId ? await db.collection(`businesses/${businessId}/calls`).doc(data.sourceCallId).get() : null;
   const callSummary = call?.data()?.summary;
   const jobBase: Omit<Job, "jobId"> = {
+    ...assignedCompany,
     businessId, title: `${serviceType} — ${address}`, status: "open", address: data.address,
     clientName: data.callerName, clientPhone: phone, clientEmail: email,
     serviceType,

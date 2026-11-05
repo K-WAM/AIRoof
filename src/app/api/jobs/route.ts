@@ -1,3 +1,5 @@
+import { companyAssignment } from "@/lib/companies/assignment";
+import { isMultiCompany } from "@/lib/companies/companies";
 import { NextRequest, NextResponse, after } from "next/server";
 import { getAdminFirestore } from "@/lib/firebase/admin";
 import { verifyAuthAndRole, verifyFieldAccess } from "@/lib/auth/verifyRole";
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
   const clientEmail = cleanText(body.clientEmail, 254);
   const serviceType = cleanText(body.serviceType, 120);
   const notes = cleanText(body.notes, 4000);
-  const customerId = cleanText(body.customerId, 128);
+  let customerId = cleanText(body.customerId, 128);
   const appointmentId = cleanText(body.appointmentId, 128);
 
   if (!businessId || !title) {
@@ -121,8 +123,18 @@ export async function POST(req: NextRequest) {
   const db = getAdminFirestore();
   if (!db) return NextResponse.json({ error: "Database unavailable" }, { status: 503 });
 
+  const business = (await db.collection("businesses").doc(businessId).get()).data();
+  // In a multi-company workspace an unpicked, matching customer must still determine the company before the job is returned.
+  if (isMultiCompany(business) && !customerId && clientName) {
+    const { resolveCustomer } = await import("@/lib/customers/resolve");
+    customerId = (await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address, companyId: body.companyId })).customerId;
+  }
+  const customerCompanyId = isMultiCompany(business) && customerId
+    ? (await db.collection(`businesses/${businessId}/customers`).doc(customerId).get()).data()?.companyId : undefined;
+  const assignedCompany = companyAssignment(business, body.companyId, customerCompanyId);
   const now = Date.now();
   const fields: Omit<Job, "jobId"> = {
+    ...assignedCompany,
     businessId,
     title,
     status: "open",
@@ -186,7 +198,7 @@ export async function POST(req: NextRequest) {
     const jobRef = jobs.doc(job.jobId);
     afterResponse(async () => {
       const { resolveCustomer, bumpCustomerJobStats } = await import("@/lib/customers/resolve");
-      const { customerId: linked } = await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address });
+      const { customerId: linked } = await resolveCustomer(db, businessId, { name: clientName, phone: clientPhone, email: clientEmail, address, ...assignedCompany });
       const linkedNow = await db.runTransaction(async (tx) => {
         const snap = await tx.get(jobRef);
         if (!snap.exists || snap.data()?.customerId) return false; // never overwrite a link made meanwhile

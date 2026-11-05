@@ -408,7 +408,8 @@ export interface AdminAuditEvent {
     | "test_call.completed"
     | "subscription.paused"
     | "subscription.resumed"
-    | "products.updated";
+    | "products.updated"
+    | "companies.updated";
   targetPath: string;
   before?: unknown;
   after?: unknown;

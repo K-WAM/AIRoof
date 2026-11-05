@@ -3817,3 +3817,17 @@ details:not([open]) > :not(summary) { display: none !important; } /* beats e.g. 
   .company-topbar .company-brand-powered { display: none; }
   .company-topbar .company-brand-text { max-width: 112px; }
 }
+
+/* T-316: shared compact company selector; all callers hide it for a single company. */
+.company-toggle { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; max-width: 100%; }
+.company-toggle .button { min-height: var(--control-h); gap: var(--sp-1); }
+.company-toggle [aria-checked="true"] { color: var(--accent); border-color: var(--accent); }
+.company-toggle img { height: 20px; max-height: 20px; max-width: 40px; width: auto; object-fit: contain; }
+
+.company-brand-logos { display: flex; gap: var(--sp-1); width: 104px; flex: 0 1 104px; min-width: 0; align-items: center; }
+.company-brand-logos .company-brand-logo { flex: 1 1 0; min-width: 0; width: 0; height: 36px; max-width: 100%; object-fit: contain; }
+@media (max-width: 480px) {
+  .company-topbar .company-brand--multi { flex: 1 1 0; overflow: hidden; gap: var(--sp-1); }
+  .company-topbar .company-brand--multi .company-brand-logos { flex: 0 1 88px; }
+  .company-topbar .company-brand--multi .company-brand-text { max-width: 72px; flex: 1 1 0; }
+}

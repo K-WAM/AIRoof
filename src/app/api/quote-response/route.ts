@@ -1,3 +1,8 @@
+import { documentLetterhead } from "@/lib/companies/documentLetterhead";
+import { loadDocumentCompany } from "@/lib/companies/documentCompany";
+import { isMultiCompany } from "@/lib/companies/companies";
+import { letterheadBlock } from "@/lib/documents/emailBlocks";
+import type { LibraryLogo } from "@/types/library";
 import { timingSafeEqual } from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { NextRequest } from "next/server";
@@ -45,7 +50,15 @@ async function linkedQuote(input: Input) {
   const quoteSnap = await quoteRef.get();
   const quote = quoteSnap.exists ? quoteSnap.data() as JobQuote : null;
   if (!quote || quote.jobId !== input.jobId || quote.businessId !== input.businessId || !tokenMatches(input.token, quote.responseTokenHash)) return null;
-  return { db, jobRef, quoteRef, quote };
+  return { db, jobRef, quoteRef, quote, job };
+}
+
+async function publicBrand(linked: NonNullable<Awaited<ReturnType<typeof linkedQuote>>>, input: Input): Promise<string> {
+  const business = (await linked.db.collection("businesses").doc(input.businessId).get()).data() ?? {};
+  if (!isMultiCompany(business)) return "";
+  const logos = ((await linked.db.collection(`businesses/${input.businessId}/library`).doc("logos").get()).data()?.logos ?? []) as LibraryLogo[];
+  const brand = documentLetterhead(business, await loadDocumentCompany(linked.db, input.businessId, business, linked.quote, linked.job), logos, linked.quote.logoId);
+  return letterheadBlock(brand, "", []);
 }
 
 export async function GET(req: NextRequest): Promise<Response> {
@@ -60,7 +73,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   const title = tm ? `${action} this work` : `${action} quote`;
   const subject = tm ? "the work in authorization" : "quote";
   const fields = Object.entries(input).map(([name, value]) => `<input type="hidden" name="${name}" value="${escapeHtml(value)}">`).join("");
-  return page(title, `<p>You are about to ${action.toLowerCase()} ${subject} <strong>${escapeHtml(linked.quote.quoteId)}</strong>. This will notify the business through the job's quote status.</p><form method="post" action="/api/quote-response">${fields}<button type="submit" style="background:#0f766e;border:0;border-radius:6px;color:#fff;padding:12px 18px;font-weight:700;cursor:pointer">${tm ? action : `Confirm ${action.toLowerCase()}`}</button></form><p style="font-size:13px;color:#64748b">Opening this link alone does not record your answer.</p>`);
+  return page(title, `${await publicBrand(linked, input)}<p>You are about to ${action.toLowerCase()} ${subject} <strong>${escapeHtml(linked.quote.quoteId)}</strong>. This will notify the business through the job's quote status.</p><form method="post" action="/api/quote-response">${fields}<button type="submit" style="background:#0f766e;border:0;border-radius:6px;color:#fff;padding:12px 18px;font-weight:700;cursor:pointer">${tm ? action : `Confirm ${action.toLowerCase()}`}</button></form><p style="font-size:13px;color:#64748b">Opening this link alone does not record your answer.</p>`);
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -83,5 +96,5 @@ export async function POST(req: NextRequest): Promise<Response> {
   if (!changed) return page("Quote no longer available", "<p>This quote has already been answered or expired. Please contact the business.</p>", 409);
   const tm = linked.quote.layout === "tm_authorization";
   const done = input.decision === "accepted" ? (tm ? "Work authorized" : "Quote accepted") : (tm ? "Work not authorized" : "Quote rejected");
-  return page(done, `<p>Thank you. Your answer to ${tm ? "work authorization" : "quote"} <strong>${escapeHtml(linked.quote.quoteId)}</strong> has been recorded. The business can now see it on the job.</p>`);
+  return page(done, `${await publicBrand(linked, input)}<p>Thank you. Your answer to ${tm ? "work authorization" : "quote"} <strong>${escapeHtml(linked.quote.quoteId)}</strong> has been recorded. The business can now see it on the job.</p>`);
 }
