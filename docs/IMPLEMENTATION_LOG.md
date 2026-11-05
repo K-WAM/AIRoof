@@ -2221,5 +2221,42 @@ Added docs/E2E-ROLE-TEST-PLAN.md: what exists today, how to read and extend the 
 
 Evidence: target vitest file 32/32 green; npx tsc --noEmit clean; npx eslint clean on the new TS files. Commits f12a8b4,
 e18b9a8, be44512 and the plan-doc commit. Removals: none.
+## 2026-11-05 - T-292 showcase switch for Finances and Payroll (DeepSeek K6)
+
+BusinessConfig.showcase is now exposed through GET /api/company/bootstrap as an additive business.showcase field,
+copying only flags that are literally true. navModel adds Finances (/company/finances) and Payroll (/company/payroll)
+right after Billing for the owner role, and for a superadmin only while previewing; each link needs its own flag.
+Every business without the flags keeps exactly the same link list in the same order (tests compare full arrays for
+owner, staff, viewer and superadmin preview, with no flags, an empty object and false flags). The company layout
+sends non-owner, non-previewing users from /company/finances and /company/payroll back to the dashboard once
+bootstrap is ready; crew keep their existing field redirect. The two pages are built by another stream and do not
+exist in this branch yet. Server-side gating is not part of this task.
+Evidence: tsc clean; eslint clean on the changed files (one pre-existing unused-import warning in layout.tsx);
+navModel tests 16/16 (22 tests in the related run). No removals.
+
+## 2026-11-05 - T-302 business logo and name in the app shell (DeepSeek K6)
+
+The desktop sidebar header and the phone topbar now render one BusinessBrand component from the bootstrap business
+data: the business's logoUrl (plain img, contain, max 104 x 36) beside the business name, with a small
+"Powered by Luxor" line. When the business has no logo the Luxor logo is shown instead, and the name falls back to
+"Luxor AI" while bootstrap loads. The shell surface is white, so the logo is drawn with logoStyle(variant color,
+surface light), which applies no filter; the coloured-bar knockout rule is untouched. Buttons and accents are
+unchanged (one teal accent). New styles live only in the marked K6 block at the end of globals.css. Both header
+instances use the same component, so the sidebar and phone header cannot drift.
+Evidence: tsc clean; eslint 0 errors on the changed files (warnings: pre-existing unused Link import in layout.tsx,
+no-img-element for the remote business logo); no unit test targets the shell, so vitest related found no test files.
+Visual check not run (this stream is barred from Playwright/e2e). No removals.
+
+## 2026-11-05 - T-250 narrowed Needs attention and setup next step (DeepSeek K6)
+
+The Dashboard's "Needs attention" section now shows only open (status new) requests that are escalated/urgent, asked
+for a call back (callbackState pending or callbackConsent), or have waited longer than ATTENTION_WAITING_MS
+(4 hours, one named constant). Each row states the reason in words ("Emergency call", "Urgent request", "Caller
+asked for a call back", "Waiting 6 h") instead of relying on a colour. Routine requests stay in Pipeline; no section
+or page was removed. The subtitle and the all-clear line use the same narrowed list. The setup card header now reads
+"Next: <step>" while collapsed (for example "Next: Add your first crew"), without opening the list.
+Evidence: new attention.test.ts covers the four-hour boundary, urgent/escalated, both callback signals, reason
+priority, non-open statuses and missing timestamps (8 tests). tsc clean; eslint 0 errors on changed files (one
+pre-existing useCallback dependency warning). No browser check (this stream runs no Playwright/e2e). No removals.
 
 

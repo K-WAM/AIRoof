@@ -16,7 +16,8 @@ import { PrivateDemoNav } from "@/components/demo/PrivateDemoNav";
 import { Sheet } from "@/components/ui/Sheet";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { upgradeHref } from "./navModel";
-import { BootstrapProvider } from "@/contexts/BootstrapContext";
+import { logoStyle } from "@/lib/branding/logo";
+import { BootstrapProvider, useBootstrap } from "@/contexts/BootstrapContext";
 import { QuickAddProvider, useQuickAdd } from "@/contexts/QuickAddContext";
 import { useBusinessModules, type CompanyModule } from "@/hooks/useBusinessModules";
 import { defaultLandingPath } from "@/lib/team/landing";
@@ -36,6 +37,26 @@ const MODULE_ROUTES: { prefix: string; module: CompanyModule }[] = [
   { prefix: "/company/customers", module: "library" },
 ];
 
+function BusinessBrand() {
+  const business = useBootstrap().data?.business;
+  const name = business?.businessName?.trim() || "Luxor AI";
+  const logoUrl = business?.logoUrl;
+  const lightSurfaceLogo = logoStyle({ variant: "color" }, "light");
+  return (
+    <div className="company-brand">
+      {logoUrl ? (
+        <img src={logoUrl} alt={`${name} logo`} className="company-brand-logo company-brand-logo--business" style={lightSurfaceLogo} />
+      ) : (
+        <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
+      )}
+      <span className="company-brand-text">
+        <span className="company-brand-name">{name}</span>
+        <span className="company-brand-powered">Powered by Luxor</span>
+      </span>
+    </div>
+  );
+}
+
 function MobileNewButton() {
   const { openMenu } = useQuickAdd();
   const { user } = useAuth();
@@ -50,23 +71,40 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { ready: modulesReady, isEnabled, isLocked, family, subscriptionStatus, disabledModules } = useBusinessModules();
+  const { ready: bootstrapReady, data: bootstrap } = useBootstrap();
 
   const blockedModule = MODULE_ROUTES.find(
     (r) => pathname?.startsWith(r.prefix) && modulesReady && !isEnabled(r.module)
   );
   const blockedIsLocked = !!blockedModule && isLocked(blockedModule.module);
+  const showcasePage = pathname?.startsWith("/company/finances")
+    ? ("finances" as const)
+    : pathname?.startsWith("/company/payroll")
+    ? ("payroll" as const)
+    : null;
   // A Crew login (T-150) is field work only: the Field screen and nothing else. The office APIs refuse it anyway
   // (they list their roles); this keeps the screens from loading into errors.
   const crewOnly = user?.role === "crew" && !user.superadmin;
   const crewWithoutField = crewOnly && modulesReady && !isEnabled("jobs");
   // The Guide is the one other page a Crew login may open — its Foreman page is written for them (2026-10-30).
   const crewOffField = crewOnly && !crewWithoutField && !pathname?.startsWith("/company/field") && !pathname?.startsWith("/company/guide");
+  // Showcase pages (Finances, Payroll) exist only for the owner of a business with that switch on — or a superadmin
+  // previewing that business. Everyone else goes back to the dashboard.
+  const showcaseAllowed = !!user && (user.role === "owner" || (!!user.superadmin && !!searchParams?.get("preview")));
+  const showcaseBlocked = !!showcasePage && bootstrapReady && !!user && !crewOnly
+    && (!showcaseAllowed || bootstrap?.business.showcase?.[showcasePage] !== true);
 
   useEffect(() => {
     if (!crewOffField) return;
     const preview = searchParams?.get("preview");
     router.replace(preview ? `/company/field?preview=${preview}` : "/company/field");
   }, [crewOffField, router, searchParams]);
+
+  useEffect(() => {
+    if (!showcaseBlocked) return;
+    const preview = searchParams?.get("preview");
+    router.replace(preview ? `/company/dashboard?preview=${preview}` : "/company/dashboard");
+  }, [showcaseBlocked, router, searchParams]);
 
   // Dashboard-only pause for non-payment (superadmin toggles it from the
   // client's admin config page) — never touches the phone agent. Superadmins
@@ -157,7 +195,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     );
   }
   // Don't paint a module this industry doesn't use (or an office screen for a Crew login) while the redirect lands.
-  if (blockedModule || crewOffField) return null;
+  if (blockedModule || crewOffField || showcaseBlocked) return null;
   if (paused) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: 24 }}>
@@ -186,9 +224,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
     <QuickAddProvider>
     <div className="company-shell" data-portal-family={family ?? undefined}>
       <aside className="company-sidebar">
-        <div className="company-brand">
-          <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
-        </div>
+        <BusinessBrand />
         <div className="company-sidebar-nav">
           <CompanyNav />
         </div>
@@ -204,9 +240,7 @@ function CompanyShell({ children }: { children: React.ReactNode }) {
 
       <div className="company-content">
         <header className="company-topbar">
-          <div className="company-brand">
-            <Image src="/logo.png" alt="Luxor AI" width={403} height={322} priority className="company-brand-logo" />
-          </div>
+          <BusinessBrand />
           {!crewOnly && <CommandBar header />}
           {!crewOnly && <MobileNewButton />}
             <button

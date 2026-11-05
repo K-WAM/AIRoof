@@ -22,10 +22,12 @@ interface NavContext {
   /** Modules the client could buy. Omitted = nothing shown locked. */
   isLocked?: (module: CompanyModule) => boolean;
   vocab?: { customerNounPlural?: string };
+  /** Per-business preview pages (BusinessConfig.showcase). Missing = off, so the list stays as it was. */
+  showcase?: { finances?: boolean; payroll?: boolean };
 }
 
 /** The route list shared by the desktop sidebar and phone menu. */
-export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked = () => false, vocab }: NavContext): NavLink[] {
+export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked = () => false, vocab, showcase }: NavContext): NavLink[] {
   if (role === "crew" && !superadmin) {
     // A Crew login works only on the Field screen, but keeps the Guide (its Foreman page) and Feedback (T-156: every
     // signed-in user can send it).
@@ -43,6 +45,10 @@ export function visibleNavLinks({ role, superadmin, preview, isEnabled, isLocked
   if (isEnabled("calls") || isEnabled("jobs")) links.push({ path: "/company/calendar", label: "Calendar", group: "Primary" });
   show("jobs", [{ path: "/company/jobs", label: "Jobs" }, { path: "/company/field", label: "Field" }]);
   show("billing", [{ path: "/company/billing", label: "Billing" }]);
+  if (role === "owner" || (superadmin && preview)) {
+    if (showcase?.finances) links.push({ path: "/company/finances", label: "Finances", group: "Primary" });
+    if (showcase?.payroll) links.push({ path: "/company/payroll", label: "Payroll", group: "Primary" });
+  }
   if (isEnabled("library")) links.push(
     { path: "/company/customers", label: vocab?.customerNounPlural || "Customers", group: "Manage" },
     { path: "/company/library", label: "Library", group: "Manage" },

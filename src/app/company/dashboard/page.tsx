@@ -22,6 +22,7 @@ import { useBootstrap } from "@/contexts/BootstrapContext";
 import { fmtPhone } from "@/lib/format";
 import { fmtDayTime } from "@/lib/format/datetime";
 import { AlertTriangle, CheckCircle2, Circle, Clock, LayoutDashboard, Mic, PhoneCall, Wrench } from "lucide-react";
+import { attentionReason } from "./attention";
 
 interface LeadSnapshot {
   leadId: string;
@@ -31,6 +32,9 @@ interface LeadSnapshot {
   address?: string;
   urgency: string;
   status: string;
+  escalated?: boolean;
+  callbackState?: string;
+  callbackConsent?: boolean;
   createdAt: number;
 }
 
@@ -249,7 +253,10 @@ export default function CompanyDashboardPage() {
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
   useLiveRefresh(loadDashboard, { intervalMs: businessId === "demo-roofing" ? 5_000 : 10_000, enabled: Boolean(businessId && modulesReady), idleIntervalMs: businessId === "demo-roofing" ? 5_000 : undefined });
 
-  const urgentLeads = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent" || l.status === "new");
+  const attentionNow = Date.now();
+  const attentionLeads = leads
+    .map((lead) => ({ lead, reason: attentionReason(lead, attentionNow) }))
+    .filter((entry): entry is { lead: LeadSnapshot; reason: string } => entry.reason !== null);
   // Tile count matches the Pipeline "Urgent" filter destination (truly urgent only).
   const trulyUrgentCount = leads.filter((l) => l.urgency === "urgent" || l.urgency === "Urgent").length;
   const todayAppointments = appointments.filter((a) => isToday(a.startTime, tz) && a.status !== "cancelled");
@@ -296,7 +303,7 @@ export default function CompanyDashboardPage() {
       })), totalCallsTile]
     : genericMetrics;
 
-  const allClear = pendingAppts.length === 0 && urgentLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
+  const allClear = pendingAppts.length === 0 && attentionLeads.length === 0 && todayAppointments.length === 0 && activeJobs.length === 0 && fieldActivity.length === 0 && escalationAlerts.length === 0;
   const checklist = setup ? setupChecklist(setup, { isEnabled }, vocab) : [];
   const trackingReady = useSyncExternalStore(subscribeAnalyticsReady, analyticsReady, () => false);
   const doneSteps = checklist.filter((item) => item.done).map((item) => item.id).join(",");
@@ -323,8 +330,8 @@ export default function CompanyDashboardPage() {
     ? `${pendingAppts.length} new booking${pendingAppts.length === 1 ? "" : "s"} to confirm — start there.`
     : escalationAlerts.length > 0
     ? "An urgent call needs a look."
-    : urgentLeads.length > 0
-    ? `${urgentLeads.length} caller${urgentLeads.length === 1 ? "" : "s"} waiting for a call back.`
+    : attentionLeads.length > 0
+    ? `${attentionLeads.length} request${attentionLeads.length === 1 ? "" : "s"} need${attentionLeads.length === 1 ? "s" : ""} a look.`
     : todayAppointments.length > 0
     ? `${todayAppointments.length} visit${todayAppointments.length === 1 ? "" : "s"} on today's schedule.`
     : !hasCalls && activeJobs.length > 0
@@ -440,20 +447,19 @@ export default function CompanyDashboardPage() {
             </div>
           )}
 
-          {urgentLeads.length > 0 && (
+          {attentionLeads.length > 0 && (
             <div className="feed-section">
               <div className="feed-section-header">
                 <p className="feed-section-title">Needs Attention</p>
-                <span className="feed-section-count">{urgentLeads.length}</span>
+                <span className="feed-section-count">{attentionLeads.length}</span>
               </div>
-              {urgentLeads.slice(0, 5).map((lead) => (
+              {attentionLeads.slice(0, 5).map(({ lead, reason }) => (
                 <Link key={lead.leadId} href={`/company/pipeline${previewSuffix}`} className={`feed-row${leadRows.newIds.has(lead.leadId) ? " row-new" : ""}`}>
                   <div className="feed-icon feed-icon--urgent"><AlertTriangle size={14} /></div>
                   <div className="feed-body">
                     <p className="feed-name">{lead.callerName ?? lead.callerPhone ?? "Unknown caller"}</p>
-                    <p className="feed-sub">{lead.serviceRequested ?? lead.address ?? "New lead"}</p>
+                    <p className="feed-sub">{reason}{lead.serviceRequested ? ` · ${lead.serviceRequested}` : ""}</p>
                   </div>
-                  <StatusChip status={lead.urgency === "urgent" || lead.urgency === "Urgent" ? "urgent" : "new"} />
                   <span className="feed-chevron">›</span>
                 </Link>
               ))}
@@ -559,7 +565,12 @@ export default function CompanyDashboardPage() {
       {showsChecklist && !checklistHidden && (
         <section className="panel c1-checklist" aria-label="Get your business ready" style={{ marginBottom: 20 }}>
           <div className="panel-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <h2 className="panel-title">Get your business ready — {checklistDone} of {checklist.length} done</h2>
+            <div>
+              <h2 className="panel-title">Get your business ready — {checklistDone} of {checklist.length} done</h2>
+              {!checklistExpanded && nextItem && (
+                <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--text-muted)" }}>Next: {nextItem.label}</p>
+              )}
+            </div>
             <button type="button" className="button ghost small" onClick={() => toggleChecklist(true)}>Hide for now</button>
           </div>
           <div className="panel-body">

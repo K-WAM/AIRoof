@@ -51,6 +51,15 @@ export async function GET(req: NextRequest) {
   const subscriptionStatus =
     statusValue === "paused" || statusValue === "trial" || statusValue === "active" ? statusValue : null;
 
+  const showcaseRaw = d.showcase && typeof d.showcase === "object" ? (d.showcase as Record<string, unknown>) : null;
+  const showcase = showcaseRaw
+    ? {
+        ...(showcaseRaw.finances === true ? { finances: true } : {}),
+        ...(showcaseRaw.payroll === true ? { payroll: true } : {}),
+        ...(showcaseRaw.payments === true ? { payments: true } : {}),
+      }
+    : null;
+
   const body: CompanyBootstrap = {
     business: {
       businessId,
@@ -66,6 +75,7 @@ export async function GET(req: NextRequest) {
         || null,
       // Phase 31 (T-152): effective texting state (env SMS_ENABLED + Twilio creds + the tenant's own opt-in).
       smsEnabled: isSmsEnabled(d),
+      ...(showcase && Object.keys(showcase).length > 0 ? { showcase } : {}),
     },
     modules: {
       // Industry first (a dental office has no Jobs), then the plan (src/lib/products/products.ts). Calendar shows
